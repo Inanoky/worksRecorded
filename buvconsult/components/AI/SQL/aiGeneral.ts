@@ -152,44 +152,45 @@ const user = await requireUser()
 
 //Fetching conversation from database
 
-let conversation = await prisma.aIconversation.findUnique({
-    where: {
-        userId_siteId: {
-            userId: user.id,
-            siteId: siteId
-        }
-    }
-});
+// let conversation = await prisma.aIconversation.findUnique({
+//     where: {
+//         userId_siteId: {
+//             userId: user.id,
+//             siteId: siteId
+//         }
+//     }
+// });
 
 //If no conversation found, we create an empty array, if exist, we load it to history
 
-let history = conversation?.thread || []; //If conversation is emtpy, we create history - an empty array
-let prompt = `history conversation is here : ${JSON.stringify(history)} and the current question is ${question}`
+// let history = conversation?.thread || []; //If conversation is emtpy, we create history - an empty array
+// let prompt = `history conversation is here : ${JSON.stringify(history)} and the current question is ${question}`
+let prompt = `Current question is ${question}`
 
 //Invoking graph.ts, passing history + latest question
 
 const response = await graph.invoke({
-    message: `history conversation is here : ${JSON.stringify(history)} and the current question is ${question}`,
+    message: prompt,
 
 
      })
 
 
 //We record latest user question and latest gpt reply to the newEntry object
-const newEntry = {user : question, GPT : response.aiComment}
+// const newEntry = {user : question, GPT : response.aiComment}
 
 
-//We push latest entry to the end of the history array
-history.push(newEntry)
-
-//Now we need to send to database
-
-await prisma.aIconversation.upsert({
-  where: { userId_siteId: { userId: user.id, siteId: siteId } }, // Compound key
-  update: { thread: history },
-  create: { userId: user.id, siteId: siteId, thread: [newEntry] }
-})
-
+// //We push latest entry to the end of the history array
+// history.push(newEntry)
+//
+// //Now we need to send to database
+//
+// await prisma.aIconversation.upsert({
+//   where: { userId_siteId: { userId: user.id, siteId: siteId } }, // Compound key
+//   update: { thread: history },
+//   create: { userId: user.id, siteId: siteId, thread: [newEntry] }
+// })
+//
 
 
 

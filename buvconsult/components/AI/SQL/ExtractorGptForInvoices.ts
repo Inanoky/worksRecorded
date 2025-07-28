@@ -80,6 +80,7 @@ export default async function gptResponse(fileUrl) {
              text: "Extract general construction invoice metadata and information for each item in the invoice." +
                  "Translate to english " +
                  "unitsOfMeasure and itemDescription fields return in English " +
+                 "seller name should be extracted without single or double qoutes" +
                  "for item field extract item description from the invoice" +
                  "" +
                  "for itemDescription include thorough description of an item, what item likely used for, " +

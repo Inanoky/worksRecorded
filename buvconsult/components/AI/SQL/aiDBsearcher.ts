@@ -93,6 +93,14 @@ export default async function aiDBsearch(stateReceived) {
         }
     };
 
+
+    const SQLexecutAnalysis = async (state) => {
+
+        // So this is pretty much a filter to iterate over SQL to have a better result.
+        // We will accept state.sql, state.result and state.message (user question)
+
+    }
+
     // --- QUALITY CONTROL ---
     const qualityControl = async (state) => {
     // console.log("qualityControl input state:", state);
