@@ -1,19 +1,15 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef,} from "react";
 import { Card, CardHeader, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, User, SendHorizonal } from "lucide-react";
-import aiGeneral from "@/components/AI/SQL/aiGeneral";
 import { Separator } from "@/components/ui/separator";
-import * as XLSX from "xlsx";
-import {exportToExcel,getUniqueValues} from "@/components/AI/RAG/utils";
 import {TableModal} from "@/components/AI/RAG/TableModal";
-import {talkToDocuments} from "@/components/AI/RAG/talkToDocuments";
 import ReactMarkdown from "react-markdown";
-import {talkToAgent, talkToAget} from "@/components/AI/RAG/LanggraphAgentVersion/graph";
+import {talkToAgent, } from "@/components/AI/RAG/LanggraphAgentVersion/graph";
 
 
 
@@ -141,7 +137,7 @@ export default function AiWidgetRag({ siteId }) {
       {/* Chat Widget */}
       {open && (
         <div className="fixed bottom-6 right-6 z-50 w-[800px] sm:w-[1000px] max-w-[120vw] rounded-2xl shadow-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 flex flex-col">
-          <Card className="w-full rounded-2xl shadow-none border-0 bg-transparent">
+          <Card className="pt-0 w-full rounded-2xl shadow-none border-0 bg-transparent">
             <CardHeader className="flex items-center justify-between py-3 px-4 bg-blue-600 text-white dark:bg-blue-800 dark:text-white rounded-t-2xl">
               <span className="text-lg font-semibold">AI Assistant</span>
               <button
