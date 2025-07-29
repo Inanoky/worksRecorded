@@ -283,8 +283,17 @@ const newSQLDescriptionPrompt5_11_07_2025 = "You are given SQL query and your jo
                 "If SQL consist of 2 queries, combine into one" +
                 "Return a valid SQL single query"
 
+const newSQLDescriptionPrompt5_28_07_2025 = "You are given SQL query and your job is to format it :" +
+
+                "Always filter by siteId (provided in the user's prompts)" +
+                "All columns and fields names should be in double quotes" +
+                "id, sellerName, item and sum fields should always be returned " +
+                "For WHERE statements always use ILIKE %%" +
+                "If SQL consist of 2 queries, combine into one" +
+                "Return a valid SQL single query"
+
 export const newSQLDescriptionPrompt = newSQLDescriptionPrompt4
-export const SQLFormatSystemPrompt = newSQLDescriptionPrompt5_11_07_2025
+export const SQLFormatSystemPrompt = newSQLDescriptionPrompt5_28_07_2025
 
 
 //--------------------------------------returnBestFitFields------------------------------------------
