@@ -62,9 +62,7 @@ export const stateDefault = Annotation.Root({
 
 
 
-
-
-export const databaseSchema = `
+const databaseSchema_old = `
                                             model "InvoiceItems" {
                                               id String @id @default(uuid())                                              
                                               item String? - Description : contain original description of an invoice item
@@ -86,6 +84,122 @@ export const databaseSchema = `
                                               "invoiceDate" String? - Description : contains date of an invoice
                                               "paymentDate" String?
                                             }`;
+
+const databaseSchema_29_07_2025 = `
+                                            model "InvoiceItems" {
+                                              id String @id @default(uuid())                                              
+                                              item String? - Description : contain original description of an invoice item
+                                              quantity Float? - 
+                                              "unitOfMeasure" //unitOfMeasure could be in "pcs", "m3", "tn","kg","unit","hour","minutes","day","month","project"
+                                              "pricePerUnitOfMeasure" Float?
+                                              sum Float?
+                                              currency String? 
+                                              category String? 
+                                              "itemDescription" String? - Description : detailed description of what this invoice item is
+                                              "commentsForUser" String?
+                                              "isInvoice" Boolean?
+                                              "invoiceId" String
+                                              invoice Invoices @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+                                              "Site" Site? @relation(fields: [siteId], references: [id], onDelete: Cascade)
+                                              "siteId" String?
+                                              "invoiceNumber" String?
+                                              "sellerName" String? 
+                                              "invoiceDate" String? - Description : contains date of an invoice
+                                              "paymentDate" String?
+                                            }`;
+
+
+//For this prompt model started hallucinating table names for some reason.
+
+const databaseSchema_29_07_2025_v2 = `
+                                            model "InvoiceItems" {
+                                              id String @id @default(uuid())                                              
+                                              item String? - Description : contain original description of an invoice item
+                                              quantity Float? - 
+                                              "unitOfMeasure" //unitOfMeasure could be in "pcs", "m3", "tn","kg","unit","hour","minutes","day","month","project"
+                                              "pricePerUnitOfMeasure" Float?
+                                              sum Float?
+                                              currency String? 
+                                              category String? 
+                                              "itemDescription" String? - Description : detailed description of what this invoice item is
+                                              "commentsForUser" String?
+                                              "isInvoice" Boolean?
+                                              "invoiceId" String
+                                              invoice Invoices @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+                                              "Site" Site? @relation(fields: [siteId], references: [id], onDelete: Cascade)
+                                              "siteId" String?
+                                              "invoiceNumber" String?
+                                              "sellerName" String? 
+                                              "invoiceDate" String? - Description : contains date of an invoice
+                                              "paymentDate" String?
+                                            }
+                                            
+                                            Example of data stored in first 3 rows for better understanding:
+                                            
+                                            [{"idx":0,"id":"003b1812-ae57-4358-8bf3-bb7f29bec3c4","item":"RECKLI MATRIX Nr. 2/90 TRAVERTIN, Type C (e.g., 3140mm x 1834mm)","currency":"EUR","category":"Construction materials.Concrete.Precast","commentsForUser":null,"invoiceId":"cmcumapi100259xagzkq10tb8","unitOfMeasure":"m3","siteId":"48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315","isInvoice":null,"sum":1399.68,"pricePerUnitOfMeasure":243,"quantity":5.76,"itemDescription":"RECKLI MATRIX, Nr. 2/90 TRAVERTIN, Type C. Mold system sized at 3140mm x 1834mm for smaller detailed wall cladding, pattern imprints on architectural concrete. Polyurethane, reusable up to 100 times. Price: 243 EUR/m².","invoiceDate":"2023-12-14","invoiceNumber":"RE-4R23-70","paymentDate":"2023-12-15","sellerName":"REfero SIA"},{"idx":1,"id":"00480ff4-db36-4980-93db-c6fe4e7665db","item":"Rami Risks 5% - INS325","currency":"EUR","category":"Overheads.Other","commentsForUser":null,"invoiceId":"cmcuhxxy7001h9xf0vahwltmk","unitOfMeasure":"day","siteId":"0434c876-c31b-450c-8f92-cdcd37912565","isInvoice":null,"sum":0.73,"pricePerUnitOfMeasure":0.1,"quantity":1,"itemDescription":"Rami Risks 5% - INS325 – Small insurance/service fee for equipment rental, likely covers liability or damage. 1 unit, 7 days at 0.10 EUR/day. Total 0.73 EUR.","invoiceDate":"2024-11-30","invoiceNumber":"IV0084169","paymentDate":"2024-12-15","sellerName":"Ramirent Baltic AS Rīgas filiāle"},{"idx":2,"id":"00589506-1e64-462c-9413-a089404b1e44","item":"Reinforced polypropylene bags 55x100cm (57x95cm)","currency":"EUR","category":"Construction materials.Plastics","commentsForUser":null,"invoiceId":"cmcunasqb00ix9xagpnl8tct7","unitOfMeasure":"pcs","siteId":"48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315","isInvoice":null,"sum":4.65,"pricePerUnitOfMeasure":0.31,"quantity":15,"itemDescription":"Strong woven polypropylene bags, reinforced for increased load capacity, dimensions 55x100cm (alternative size 57x95cm). Often used for carrying or storing building materials, debris, or waste. Cost per unit 0.31 EUR (after 25% discount), total cost 4.65 EUR for 15 bags.","invoiceDate":"2024-08-27","invoiceNumber":"OLM492214","paymentDate":"2024-09-26","sellerName":"Optimera Latvia, SIA"}]
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            `;
+
+
+
+const databaseSchema_29_07_2025_v3 = `
+
+                                            This is postgreSQL database. DDL schema.  : 
+
+                                            create table public."InvoiceItems" (
+                                              id text not null,
+                                              item text null,
+                                              currency text null,
+                                              category text null,
+                                              "commentsForUser" text null,
+                                              "invoiceId" text not null,
+                                              "unitOfMeasure" text null,
+                                              "siteId" text null,
+                                              "isInvoice" boolean null,
+                                              sum double precision null,
+                                              "pricePerUnitOfMeasure" double precision null,
+                                              quantity double precision null,
+                                              "itemDescription" text null,
+                                              "invoiceDate" text null,
+                                              "invoiceNumber" text null,
+                                              "paymentDate" text null,
+                                              "sellerName" text null,
+                                              constraint InvoiceItems_pkey primary key (id),
+                                              constraint InvoiceItems_invoiceId_fkey foreign KEY ("invoiceId") references "Invoices" (id) on update CASCADE on delete CASCADE,
+                                              constraint InvoiceItems_siteId_fkey foreign KEY ("siteId") references "Site" (id) on update CASCADE on delete CASCADE
+                                            ) TABLESPACE pg_default;
+
+                                            
+                                            Example of data stored in first 3 rows for better understanding:
+                                            
+                                            [{"idx":0,"id":"003b1812-ae57-4358-8bf3-bb7f29bec3c4","item":"RECKLI MATRIX Nr. 2/90 TRAVERTIN, Type C (e.g., 3140mm x 1834mm)","currency":"EUR","category":"Construction materials.Concrete.Precast","commentsForUser":null,"invoiceId":"cmcumapi100259xagzkq10tb8","unitOfMeasure":"m3","siteId":"48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315","isInvoice":null,"sum":1399.68,"pricePerUnitOfMeasure":243,"quantity":5.76,"itemDescription":"RECKLI MATRIX, Nr. 2/90 TRAVERTIN, Type C. Mold system sized at 3140mm x 1834mm for smaller detailed wall cladding, pattern imprints on architectural concrete. Polyurethane, reusable up to 100 times. Price: 243 EUR/m².","invoiceDate":"2023-12-14","invoiceNumber":"RE-4R23-70","paymentDate":"2023-12-15","sellerName":"REfero SIA"},{"idx":1,"id":"00480ff4-db36-4980-93db-c6fe4e7665db","item":"Rami Risks 5% - INS325","currency":"EUR","category":"Overheads.Other","commentsForUser":null,"invoiceId":"cmcuhxxy7001h9xf0vahwltmk","unitOfMeasure":"day","siteId":"0434c876-c31b-450c-8f92-cdcd37912565","isInvoice":null,"sum":0.73,"pricePerUnitOfMeasure":0.1,"quantity":1,"itemDescription":"Rami Risks 5% - INS325 – Small insurance/service fee for equipment rental, likely covers liability or damage. 1 unit, 7 days at 0.10 EUR/day. Total 0.73 EUR.","invoiceDate":"2024-11-30","invoiceNumber":"IV0084169","paymentDate":"2024-12-15","sellerName":"Ramirent Baltic AS Rīgas filiāle"},{"idx":2,"id":"00589506-1e64-462c-9413-a089404b1e44","item":"Reinforced polypropylene bags 55x100cm (57x95cm)","currency":"EUR","category":"Construction materials.Plastics","commentsForUser":null,"invoiceId":"cmcunasqb00ix9xagpnl8tct7","unitOfMeasure":"pcs","siteId":"48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315","isInvoice":null,"sum":4.65,"pricePerUnitOfMeasure":0.31,"quantity":15,"itemDescription":"Strong woven polypropylene bags, reinforced for increased load capacity, dimensions 55x100cm (alternative size 57x95cm). Often used for carrying or storing building materials, debris, or waste. Cost per unit 0.31 EUR (after 25% discount), total cost 4.65 EUR for 15 bags.","invoiceDate":"2024-08-27","invoiceNumber":"OLM492214","paymentDate":"2024-09-26","sellerName":"Optimera Latvia, SIA"}]
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            `;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+export const databaseSchema = databaseSchema_29_07_2025_v2
 
 
 export const allowedFieldKeysPrompt = [
@@ -233,7 +347,33 @@ const SQLConstructSystemPrompt1 = `
             Table names and field names in a query always enclose in double quotes. 
             For WHERE statements always use ILIKE %% `
 
-export const SQLConstructSystemPrompt = SQLConstructSystemPrompt1
+
+const SQLConstructSystemPrompt_29_07_2025 = `
+            RETURN SINGLE SQL QUERY OTHERWISE IT WILL BRAKE THE FLOW. 
+            
+            You are intelligent construction project management, estimation specialsist
+            and also you are postgreSQL database specialist
+            
+            
+            
+            You are given :            
+            1) User question
+            2) Database schema
+            3) List of available categories
+            
+            Create a valid SQL request to retrieve as much as possible information from database.
+            Ignore any summarization/grouping request, just retreive information, 
+            Search should return list of items/itemDescription
+            List should always include id of invoice item
+             
+                     
+            
+            
+            Table names and field names in a query always enclose in double quotes. 
+            For WHERE statements always use ILIKE %% `
+
+
+export const SQLConstructSystemPrompt = SQLConstructSystemPrompt_29_07_2025
 
 // ------------------------SQLformat------------------------------------------
 
@@ -287,13 +427,58 @@ const newSQLDescriptionPrompt5_28_07_2025 = "You are given SQL query and your jo
 
                 "Always filter by siteId (provided in the user's prompts)" +
                 "All columns and fields names should be in double quotes" +
-                "id, sellerName, item and sum fields should always be returned " +
+                "id, sellerName, item, qunatity, unit, sum fields should always be returned " +
                 "For WHERE statements always use ILIKE %%" +
                 "If SQL consist of 2 queries, combine into one" +
                 "Return a valid SQL single query"
 
+const newSQLDescriptionPrompt5_29_07_2025 = "You are given SQL query and your job is to format it :" +
+
+                "Always filter by siteId (provided in the user's prompts)" +
+                "All columns and fields names should be in double quotes" +
+                "All fields should always be returned " +
+                "For WHERE statements always use ILIKE %%" +
+                "If SQL consist of 2 queries, combine into one" +
+                "Return a valid SQL single query"
+
+const newSQLDescriptionPrompt5_29_07_2025_v2 = "You are given SQL query and your job is to format it :" +
+                "Do this only : " +
+
+                "Always filter by siteId (provided in the user's prompts)" +
+                "All columns and fields names should be in double quotes" +
+                "All fields should always be returned " +
+                "For WHERE statements always use ILIKE %%" +
+                "If SQL consist of 2 queries, combine into one" +
+                "Return a valid SQL single query" +
+                "\n" +
+                "Do not modify search keywords !"
+
+const newSQLDescriptionPrompt5_29_07_2025_v2 = "You are given SQL query and your job is to format it :" +
+                "Do this only : " +
+
+                "Always filter by siteId (provided in the user's prompts)" +
+                "All columns and fields names should be in double quotes" +
+                "All fields should always be returned " +
+                "For WHERE statements always use ILIKE %%" +
+                "If SQL consist of 2 queries, combine into one" +
+                "Return a valid SQL single query" +
+                "\n" +
+                "Do not modify search keywords !"
+
+const newSQLDescriptionPrompt5_29_07_2025_v2 = "You are given SQL query and your job is to format it :" +
+                "Do this only : " +
+
+                "Always filter by siteId (provided in the user's prompts)" +
+                "All columns and fields names should be in double quotes" +
+                "All fields should always be returned " +
+                "For WHERE statements always use ILIKE %%" +
+                "If SQL consist of 2 queries, combine into one" +
+                "Return a valid SQL single query" +
+                "\n" +
+                "Do not modify search keywords !"
+
 export const newSQLDescriptionPrompt = newSQLDescriptionPrompt4
-export const SQLFormatSystemPrompt = newSQLDescriptionPrompt5_28_07_2025
+export const SQLFormatSystemPrompt = newSQLDescriptionPrompt5_29_07_2025_v2
 
 
 //--------------------------------------returnBestFitFields------------------------------------------
@@ -351,4 +536,9 @@ const aiWasteAnalysisPrompt2 = `You search for avoidable cost in the database
 
 export const aiWasteAnalysisPrompt = aiWasteAnalysisPrompt2
 
+//------------------------SQL summary ------------------------------------------------
 
+const sqlSummarySystemPrompt_29_07_2025_v1 = `You summarize SQL query and make a conclusion base on a SQL query result and user question`
+
+const sqlSummarySystemPrompt_29_07_2025_v2 = `You summarize database query results and make a conclusion to answer user's question`
+export const sqlSummarySystemPrompt = sqlSummarySystemPrompt_29_07_2025_v2

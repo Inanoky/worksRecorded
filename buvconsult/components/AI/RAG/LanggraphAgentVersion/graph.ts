@@ -13,6 +13,7 @@ import {
 import {toolNode} from "@/components/AI/RAG/LanggraphAgentVersion/tools";
 import {HumanMessage, SystemMessage} from "@langchain/core/messages";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
+import {talkToAgentPrompts} from "@/components/AI/RAG/LanggraphAgentVersion/LanggraphAgentVersionPrompts";
 
 
 //So this code below supposed to filter just conversation from Checkpointer
@@ -79,7 +80,7 @@ export async function talkToAgent(input,siteId) {
 
     const inputs = {
         messages: [
-            new SystemMessage(`SiteId : ${siteId}`),
+            new SystemMessage(` ${talkToAgentPrompts} \n SiteId : ${siteId}`),
             new HumanMessage(
                 input
             ),

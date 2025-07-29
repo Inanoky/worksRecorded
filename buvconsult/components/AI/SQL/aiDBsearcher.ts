@@ -16,7 +16,7 @@ import {
     returnBestFitFieldsPrompt,
     returnBestFitFieldsSystemPrompt,
     SQLConstructSystemPrompt,
-    SQLFormatSystemPrompt, stateDefault
+    SQLFormatSystemPrompt, sqlSummarySystemPrompt, stateDefault
 } from "@/components/AI/SQL/Prompts";
 import { requireUser } from "@/app/utils/requireUser";
 import aiWasteAgent from "@/components/AI/SQL/aiWasteAgent";
@@ -48,14 +48,16 @@ export default async function aiDBsearch(stateReceived) {
         )
 
         const prompt = `SQL command for checking : ${state.sql},
-        prisma schema ${schema},      
+            
         siteId" = '${state.siteId},
         question = ${state.message}
         `
         // console.log("SQLformat prompt:", prompt);
 
         const res = await structuredLlm.invoke([
-            ["system", SQLFormatSystemPrompt],
+            ["system", `${SQLFormatSystemPrompt}
+             \n Construction categories : ${JSON.stringify(constructionCategories)} \n
+              Database schema : ${schema}, `],
             ["human", prompt]
         ]);
 
@@ -259,9 +261,9 @@ export default async function aiDBsearch(stateReceived) {
         // console.log("summary input state:", state);
 
         const llm = new ChatOpenAI({
-            temperature: 0.5,
+            temperature: 0.7,
             model: "gpt-4.1",
-            system: `You summarize SQL query and make a conclusion base on a SQL query result and user question`
+
         });
 
         const structuredLlm = llm.withStructuredOutput(
@@ -272,14 +274,18 @@ export default async function aiDBsearch(stateReceived) {
         )
 
         const prompt = `
-            SQL command for checking : ${state.sql},
+            original user question ${state.message}            
             prisma schema ${schema},
             SQL query results ${JSON.stringify(state.fullResult)},
-            original user question ${state.message}`
+            `
 
         // console.log("summary prompt:", prompt);
 
-        const res = await structuredLlm.invoke(["human", prompt]);
+        const res = await structuredLlm.invoke([
+            ["human", prompt],
+            ["system", sqlSummarySystemPrompt]
+
+        ]);
 
         // console.log("summary OUTPUT:", res);
 

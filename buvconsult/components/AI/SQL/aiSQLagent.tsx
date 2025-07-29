@@ -14,6 +14,7 @@ import {
     SQLConstructSystemPrompt,
     SQLFormatSystemPrompt, stateDefault
 } from "@/components/AI/SQL/Prompts";
+import {memory1} from "@/components/AI/SQL/Memories";
 
 export default async function aiSQLAgent(stateReceived){
 
@@ -39,7 +40,7 @@ const schema = databaseSchema
 const SQLconstruct = async (state) => {
 
     const llm = new ChatOpenAI({
-        temperature: 0.1,
+        temperature: 0.8,
         model: "gpt-4.1",
 
 
@@ -55,15 +56,14 @@ const SQLconstruct = async (state) => {
     )
 
     const prompt =
-        `Schema:${schema}
-        User question: ${state.message}
-        Write a valid PostgreSQL SQL query .        
-    categories : ${JSON.stringify(constructionCategories)}`;
+        `
+        User question: ${state.question}            
+    `;
 
     const response = await structuredLlm.invoke(
 
         [
-            ["system", SQLConstructSystemPrompt],
+            ["system", `Useful memories : ${memory1} \n ${SQLConstructSystemPrompt} \n Schema : ${schema} \n Categories : ${JSON.stringify(constructionCategories)}`],
             ["human", prompt]
         ]);
 

@@ -41,7 +41,7 @@ const schema = databaseSchema
 const SQLconstruct = async (state) => {
 
     const llm = new ChatOpenAI({
-        temperature: 0.5,
+        temperature: 0.8,
         model: "gpt-4.1",
 
 

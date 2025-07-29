@@ -74,10 +74,22 @@ export async function gradeDocuments(state: typeof GraphState.State): Promise<Pa
 
   const lastMessage = messages[messages.length - 1];
 
+  console.log("messages:", messages);
+  console.log("messages[1]:", messages[1]);
+  console.log("messages[1]?.kwargs:", messages[1].content);
+
+  console.log(`This is state :${JSON.stringify(messages)}`)
+
+  console.log(`----------------------------------------------------------------------------------------------------------`)
+
   console.log(`So this is a context for the grader :${lastMessage.content}`)
 
+  //ok so here we find a correct object in the array of objects :
+
+
+
   const score = await chain.invoke({
-    question: messages[0].content as string,
+    question: messages[1].content as string,
     context: lastMessage.content as string,
   });
 
@@ -223,6 +235,7 @@ export async function generate(state: typeof GraphState.State): Promise<Partial<
   const llm = new ChatOpenAI({
     model: "gpt-4.1",
     temperature: 0,
+    top_p: 0.1,
     streaming: true,
   });
 
@@ -232,7 +245,7 @@ export async function generate(state: typeof GraphState.State): Promise<Partial<
 
   const response = await ragChain.invoke({
     context: docs,
-    question,
+    question: messages[1].content as string,
   });
 
   return {
