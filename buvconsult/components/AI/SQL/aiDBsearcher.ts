@@ -47,17 +47,15 @@ export default async function aiDBsearch(stateReceived) {
             })
         )
 
-        const prompt = `SQL command for checking : ${state.sql},
+        const prompt = `SQL command : ${state.sql},
             
         siteId" = '${state.siteId},
-        question = ${state.message}
+       
         `
         // console.log("SQLformat prompt:", prompt);
 
         const res = await structuredLlm.invoke([
-            ["system", `${SQLFormatSystemPrompt}
-             \n Construction categories : ${JSON.stringify(constructionCategories)} \n
-              Database schema : ${schema}, `],
+            ["system", `${SQLFormatSystemPrompt}`],
             ["human", prompt]
         ]);
 

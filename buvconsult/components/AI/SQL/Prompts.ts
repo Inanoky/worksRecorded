@@ -414,6 +414,8 @@ const newSQLDescriptionPrompt4 = "You are given SQL query and your job is to for
                 "For WHERE statements always use ILIKE %%" +
                 "Return a valid SQL single query"
 
+const newSQLDescriptionPrompt5_29_07_2025 = "SQL command"
+
 const newSQLDescriptionPrompt5_11_07_2025 = "You are given SQL query and your job is to format it :" +
 
                 "Always filter by siteId (provided in the user's prompts)" +
@@ -432,7 +434,7 @@ const newSQLDescriptionPrompt5_28_07_2025 = "You are given SQL query and your jo
                 "If SQL consist of 2 queries, combine into one" +
                 "Return a valid SQL single query"
 
-const newSQLDescriptionPrompt5_29_07_2025 = "You are given SQL query and your job is to format it :" +
+const newSQLDescriptionPrompt5_29_07_2025_v1 = "You are given SQL query and your job is to format it :" +
 
                 "Always filter by siteId (provided in the user's prompts)" +
                 "All columns and fields names should be in double quotes" +
@@ -453,7 +455,7 @@ const newSQLDescriptionPrompt5_29_07_2025_v2 = "You are given SQL query and your
                 "\n" +
                 "Do not modify search keywords !"
 
-const newSQLDescriptionPrompt5_29_07_2025_v2 = "You are given SQL query and your job is to format it :" +
+const newSQLDescriptionPrompt5_29_07_2025_v3 = "You are given SQL query and your job is to format it :" +
                 "Do this only : " +
 
                 "Always filter by siteId (provided in the user's prompts)" +
@@ -465,20 +467,13 @@ const newSQLDescriptionPrompt5_29_07_2025_v2 = "You are given SQL query and your
                 "\n" +
                 "Do not modify search keywords !"
 
-const newSQLDescriptionPrompt5_29_07_2025_v2 = "You are given SQL query and your job is to format it :" +
-                "Do this only : " +
+const newSQLDescriptionPrompt5_29_07_2025_v4 =
 
-                "Always filter by siteId (provided in the user's prompts)" +
-                "All columns and fields names should be in double quotes" +
-                "All fields should always be returned " +
-                "For WHERE statements always use ILIKE %%" +
-                "If SQL consist of 2 queries, combine into one" +
-                "Return a valid SQL single query" +
-                "\n" +
-                "Do not modify search keywords !"
+                "Add filter by siteId (provided in the user's prompts)"
 
-export const newSQLDescriptionPrompt = newSQLDescriptionPrompt4
-export const SQLFormatSystemPrompt = newSQLDescriptionPrompt5_29_07_2025_v2
+
+export const newSQLDescriptionPrompt = newSQLDescriptionPrompt5_29_07_2025
+export const SQLFormatSystemPrompt = newSQLDescriptionPrompt5_29_07_2025_v4
 
 
 //--------------------------------------returnBestFitFields------------------------------------------
