@@ -198,6 +198,18 @@ const response = await graph.invoke({
 
 // console.log(`This is sent to frontend ${JSON.stringify(response.acceptedResults)}`)
 
+//So here is an idea to clean a bit accepted results in hopes the AI will better pickup
+
+
+    const fieldsToRemove = ["id", "invoiceId", "siteId", "accepted", "reason"];
+
+        const cleanedResults = response.acceptedResults.map(obj => {
+        // Create a shallow copy of the object
+        let cleaned = { ...obj };
+        // Remove specified fields
+        fieldsToRemove.forEach(field => delete cleaned[field]);
+        return cleaned;
+        });
 
 
 return {

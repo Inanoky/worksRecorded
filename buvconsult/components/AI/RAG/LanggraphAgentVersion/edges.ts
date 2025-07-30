@@ -223,13 +223,30 @@ export async function generate(state: typeof GraphState.State): Promise<Partial<
   console.log(`Those are messages before they are filtered ${JSON.stringify(messages,null,2)}`)
   const question = messages[0].content as string;
   // Extract the most recent ToolMessage
-  const lastToolMessage = messages.slice().reverse().find((msg) => msg._getType() === "tool");
-  if (!lastToolMessage) {
+
+
+  // const lastToolMessage = messages.slice().reverse().find((msg) => msg._getType() === "tool");
+
+  // So this supposed to get all tool messages.
+  const toolMessages = messages.slice().reverse().filter((msg) =>
+  msg.getType() === `tool`)
+
+
+
+
+  if (!toolMessages) {
     throw new Error("No tool message found in the conversation history");
   }
 
-  const docs = lastToolMessage.content as string;
-
+   // If only 1 tool message, keep as before; if >1, take all
+  let docs: string | string[];
+  if (toolMessages.length === 1) {
+    docs = toolMessages[0].content as string;
+  } else {
+    // Here you can choose to combine or return as array.
+    // For RAG, usually you want an array of contexts (or you can join them).
+    docs = toolMessages.map(msg => msg.content as string);
+  }
   const prompt = await pull<ChatPromptTemplate>("rlm/rag-prompt");
 
   const llm = new ChatOpenAI({
@@ -243,8 +260,14 @@ export async function generate(state: typeof GraphState.State): Promise<Partial<
 
   console.log(`This is context of Generate ${JSON.stringify(docs,null,2)}`)
 
+   // If docs is array, join it for the context or handle as you wish
+  const context = Array.isArray(docs) ? docs.join('\n---\n') : docs;
+
   const response = await ragChain.invoke({
-    context: docs,
+
+    // context: docs,
+    context,
+
     question: messages[1].content as string,
   });
 
