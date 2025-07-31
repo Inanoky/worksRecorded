@@ -259,7 +259,8 @@ export default async function aiDBsearch(stateReceived) {
         // console.log("summary input state:", state);
 
         const llm = new ChatOpenAI({
-            temperature: 0.7,
+            temperature: 0,
+            top_p: 0,
             model: "gpt-4.1",
 
         });

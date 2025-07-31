@@ -28,9 +28,9 @@ export const projectNavLinks = [
     icon: ChartLine,
   },
   {
-    name: "Timesheets",
-    href: "/dashboard/sites",
-    path: "timesheets",
+    name: "Site Diary",
+    href: "/dashboard/siteDiary",
+    path: "siteDiary",
     icon: Clock8,
   },
   {

@@ -203,7 +203,7 @@ const response = await graph.invoke({
 
     const fieldsToRemove = ["id", "invoiceId", "siteId", "accepted", "reason"];
 
-        const cleanedResults = response.acceptedResults.map(obj => {
+        const invoiceResults = response.acceptedResults.map(obj => {
         // Create a shallow copy of the object
         let cleaned = { ...obj };
         // Remove specified fields
@@ -215,7 +215,7 @@ const response = await graph.invoke({
 return {
 
 
-    acceptedResults : response.acceptedResults,
+    acceptedResults : invoiceResults,
     aiComment: response.aiComment
 
 
