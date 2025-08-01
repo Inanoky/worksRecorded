@@ -53,6 +53,11 @@ export type AIconversation = $Result.DefaultSelection<Prisma.$AIconversationPayl
  * 
  */
 export type Documents = $Result.DefaultSelection<Prisma.$DocumentsPayload>
+/**
+ * Model sitediaryrecords
+ * 
+ */
+export type sitediaryrecords = $Result.DefaultSelection<Prisma.$sitediaryrecordsPayload>
 
 /**
  * ##  Prisma Client ʲˢ
@@ -258,6 +263,16 @@ export class PrismaClient<
     * ```
     */
   get documents(): Prisma.DocumentsDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.sitediaryrecords`: Exposes CRUD operations for the **sitediaryrecords** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Sitediaryrecords
+    * const sitediaryrecords = await prisma.sitediaryrecords.findMany()
+    * ```
+    */
+  get sitediaryrecords(): Prisma.sitediaryrecordsDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -316,8 +331,8 @@ export namespace Prisma {
   export import Exact = $Public.Exact
 
   /**
-   * Prisma Client JS version: 6.8.2
-   * Query Engine version: 2060c79ba17c6bb9f5823312b6f6b7f4a845738e
+   * Prisma Client JS version: 6.12.0
+   * Query Engine version: 8047c96bbd92db98a2abc7c9323ce77c02c89dbc
    */
   export type PrismaVersion = {
     client: string
@@ -705,7 +720,8 @@ export namespace Prisma {
     Post: 'Post',
     InvoiceItems: 'InvoiceItems',
     AIconversation: 'AIconversation',
-    Documents: 'Documents'
+    Documents: 'Documents',
+    sitediaryrecords: 'sitediaryrecords'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -724,7 +740,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "site" | "subscription" | "invoices" | "post" | "invoiceItems" | "aIconversation" | "documents"
+      modelProps: "user" | "site" | "subscription" | "invoices" | "post" | "invoiceItems" | "aIconversation" | "documents" | "sitediaryrecords"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1320,6 +1336,80 @@ export namespace Prisma {
           }
         }
       }
+      sitediaryrecords: {
+        payload: Prisma.$sitediaryrecordsPayload<ExtArgs>
+        fields: Prisma.sitediaryrecordsFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.sitediaryrecordsFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.sitediaryrecordsFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload>
+          }
+          findFirst: {
+            args: Prisma.sitediaryrecordsFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.sitediaryrecordsFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload>
+          }
+          findMany: {
+            args: Prisma.sitediaryrecordsFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload>[]
+          }
+          create: {
+            args: Prisma.sitediaryrecordsCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload>
+          }
+          createMany: {
+            args: Prisma.sitediaryrecordsCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.sitediaryrecordsCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload>[]
+          }
+          delete: {
+            args: Prisma.sitediaryrecordsDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload>
+          }
+          update: {
+            args: Prisma.sitediaryrecordsUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload>
+          }
+          deleteMany: {
+            args: Prisma.sitediaryrecordsDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.sitediaryrecordsUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.sitediaryrecordsUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload>[]
+          }
+          upsert: {
+            args: Prisma.sitediaryrecordsUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$sitediaryrecordsPayload>
+          }
+          aggregate: {
+            args: Prisma.SitediaryrecordsAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateSitediaryrecords>
+          }
+          groupBy: {
+            args: Prisma.sitediaryrecordsGroupByArgs<ExtArgs>
+            result: $Utils.Optional<SitediaryrecordsGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.sitediaryrecordsCountArgs<ExtArgs>
+            result: $Utils.Optional<SitediaryrecordsCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -1412,6 +1502,7 @@ export namespace Prisma {
     invoiceItems?: InvoiceItemsOmit
     aIconversation?: AIconversationOmit
     documents?: DocumentsOmit
+    sitediaryrecords?: sitediaryrecordsOmit
   }
 
   /* Types for Logging */
@@ -1510,6 +1601,7 @@ export namespace Prisma {
     posts: number
     Invoices: number
     Documents: number
+    sitediaryrecords: number
     AIconversation: number
   }
 
@@ -1518,6 +1610,7 @@ export namespace Prisma {
     posts?: boolean | UserCountOutputTypeCountPostsArgs
     Invoices?: boolean | UserCountOutputTypeCountInvoicesArgs
     Documents?: boolean | UserCountOutputTypeCountDocumentsArgs
+    sitediaryrecords?: boolean | UserCountOutputTypeCountSitediaryrecordsArgs
     AIconversation?: boolean | UserCountOutputTypeCountAIconversationArgs
   }
 
@@ -1563,6 +1656,13 @@ export namespace Prisma {
   /**
    * UserCountOutputType without action
    */
+  export type UserCountOutputTypeCountSitediaryrecordsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: sitediaryrecordsWhereInput
+  }
+
+  /**
+   * UserCountOutputType without action
+   */
   export type UserCountOutputTypeCountAIconversationArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: AIconversationWhereInput
   }
@@ -1577,6 +1677,7 @@ export namespace Prisma {
     invoices: number
     InvoiceItems: number
     Documents: number
+    sitediaryrecords: number
   }
 
   export type SiteCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -1584,6 +1685,7 @@ export namespace Prisma {
     invoices?: boolean | SiteCountOutputTypeCountInvoicesArgs
     InvoiceItems?: boolean | SiteCountOutputTypeCountInvoiceItemsArgs
     Documents?: boolean | SiteCountOutputTypeCountDocumentsArgs
+    sitediaryrecords?: boolean | SiteCountOutputTypeCountSitediaryrecordsArgs
   }
 
   // Custom InputTypes
@@ -1623,6 +1725,13 @@ export namespace Prisma {
    */
   export type SiteCountOutputTypeCountDocumentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: DocumentsWhereInput
+  }
+
+  /**
+   * SiteCountOutputType without action
+   */
+  export type SiteCountOutputTypeCountSitediaryrecordsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: sitediaryrecordsWhereInput
   }
 
 
@@ -1845,6 +1954,7 @@ export namespace Prisma {
     posts?: boolean | User$postsArgs<ExtArgs>
     Invoices?: boolean | User$InvoicesArgs<ExtArgs>
     Documents?: boolean | User$DocumentsArgs<ExtArgs>
+    sitediaryrecords?: boolean | User$sitediaryrecordsArgs<ExtArgs>
     Subscription?: boolean | User$SubscriptionArgs<ExtArgs>
     AIconversation?: boolean | User$AIconversationArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -1886,6 +1996,7 @@ export namespace Prisma {
     posts?: boolean | User$postsArgs<ExtArgs>
     Invoices?: boolean | User$InvoicesArgs<ExtArgs>
     Documents?: boolean | User$DocumentsArgs<ExtArgs>
+    sitediaryrecords?: boolean | User$sitediaryrecordsArgs<ExtArgs>
     Subscription?: boolean | User$SubscriptionArgs<ExtArgs>
     AIconversation?: boolean | User$AIconversationArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
@@ -1900,6 +2011,7 @@ export namespace Prisma {
       posts: Prisma.$PostPayload<ExtArgs>[]
       Invoices: Prisma.$InvoicesPayload<ExtArgs>[]
       Documents: Prisma.$DocumentsPayload<ExtArgs>[]
+      sitediaryrecords: Prisma.$sitediaryrecordsPayload<ExtArgs>[]
       Subscription: Prisma.$SubscriptionPayload<ExtArgs> | null
       AIconversation: Prisma.$AIconversationPayload<ExtArgs>[]
     }
@@ -2309,6 +2421,7 @@ export namespace Prisma {
     posts<T extends User$postsArgs<ExtArgs> = {}>(args?: Subset<T, User$postsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$PostPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     Invoices<T extends User$InvoicesArgs<ExtArgs> = {}>(args?: Subset<T, User$InvoicesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InvoicesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     Documents<T extends User$DocumentsArgs<ExtArgs> = {}>(args?: Subset<T, User$DocumentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DocumentsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    sitediaryrecords<T extends User$sitediaryrecordsArgs<ExtArgs> = {}>(args?: Subset<T, User$sitediaryrecordsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     Subscription<T extends User$SubscriptionArgs<ExtArgs> = {}>(args?: Subset<T, User$SubscriptionArgs<ExtArgs>>): Prisma__SubscriptionClient<$Result.GetResult<Prisma.$SubscriptionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     AIconversation<T extends User$AIconversationArgs<ExtArgs> = {}>(args?: Subset<T, User$AIconversationArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AIconversationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
@@ -2831,6 +2944,30 @@ export namespace Prisma {
   }
 
   /**
+   * User.sitediaryrecords
+   */
+  export type User$sitediaryrecordsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    where?: sitediaryrecordsWhereInput
+    orderBy?: sitediaryrecordsOrderByWithRelationInput | sitediaryrecordsOrderByWithRelationInput[]
+    cursor?: sitediaryrecordsWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: SitediaryrecordsScalarFieldEnum | SitediaryrecordsScalarFieldEnum[]
+  }
+
+  /**
    * User.Subscription
    */
   export type User$SubscriptionArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3085,6 +3222,7 @@ export namespace Prisma {
     invoices?: boolean | Site$invoicesArgs<ExtArgs>
     InvoiceItems?: boolean | Site$InvoiceItemsArgs<ExtArgs>
     Documents?: boolean | Site$DocumentsArgs<ExtArgs>
+    sitediaryrecords?: boolean | Site$sitediaryrecordsArgs<ExtArgs>
     AIconversation?: boolean | Site$AIconversationArgs<ExtArgs>
     _count?: boolean | SiteCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["site"]>
@@ -3131,6 +3269,7 @@ export namespace Prisma {
     invoices?: boolean | Site$invoicesArgs<ExtArgs>
     InvoiceItems?: boolean | Site$InvoiceItemsArgs<ExtArgs>
     Documents?: boolean | Site$DocumentsArgs<ExtArgs>
+    sitediaryrecords?: boolean | Site$sitediaryrecordsArgs<ExtArgs>
     AIconversation?: boolean | Site$AIconversationArgs<ExtArgs>
     _count?: boolean | SiteCountOutputTypeDefaultArgs<ExtArgs>
   }
@@ -3149,6 +3288,7 @@ export namespace Prisma {
       invoices: Prisma.$InvoicesPayload<ExtArgs>[]
       InvoiceItems: Prisma.$InvoiceItemsPayload<ExtArgs>[]
       Documents: Prisma.$DocumentsPayload<ExtArgs>[]
+      sitediaryrecords: Prisma.$sitediaryrecordsPayload<ExtArgs>[]
       AIconversation: Prisma.$AIconversationPayload<ExtArgs> | null
     }
     scalars: $Extensions.GetPayloadResult<{
@@ -3559,6 +3699,7 @@ export namespace Prisma {
     invoices<T extends Site$invoicesArgs<ExtArgs> = {}>(args?: Subset<T, Site$invoicesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InvoicesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     InvoiceItems<T extends Site$InvoiceItemsArgs<ExtArgs> = {}>(args?: Subset<T, Site$InvoiceItemsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InvoiceItemsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     Documents<T extends Site$DocumentsArgs<ExtArgs> = {}>(args?: Subset<T, Site$DocumentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DocumentsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    sitediaryrecords<T extends Site$sitediaryrecordsArgs<ExtArgs> = {}>(args?: Subset<T, Site$sitediaryrecordsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     AIconversation<T extends Site$AIconversationArgs<ExtArgs> = {}>(args?: Subset<T, Site$AIconversationArgs<ExtArgs>>): Prisma__AIconversationClient<$Result.GetResult<Prisma.$AIconversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
@@ -4105,6 +4246,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: DocumentsScalarFieldEnum | DocumentsScalarFieldEnum[]
+  }
+
+  /**
+   * Site.sitediaryrecords
+   */
+  export type Site$sitediaryrecordsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    where?: sitediaryrecordsWhereInput
+    orderBy?: sitediaryrecordsOrderByWithRelationInput | sitediaryrecordsOrderByWithRelationInput[]
+    cursor?: sitediaryrecordsWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: SitediaryrecordsScalarFieldEnum | SitediaryrecordsScalarFieldEnum[]
   }
 
   /**
@@ -11267,6 +11432,1239 @@ export namespace Prisma {
 
 
   /**
+   * Model sitediaryrecords
+   */
+
+  export type AggregateSitediaryrecords = {
+    _count: SitediaryrecordsCountAggregateOutputType | null
+    _avg: SitediaryrecordsAvgAggregateOutputType | null
+    _sum: SitediaryrecordsSumAggregateOutputType | null
+    _min: SitediaryrecordsMinAggregateOutputType | null
+    _max: SitediaryrecordsMaxAggregateOutputType | null
+  }
+
+  export type SitediaryrecordsAvgAggregateOutputType = {
+    Amounts: number | null
+    WorkersInvolved: number | null
+    TimeInvolved: number | null
+  }
+
+  export type SitediaryrecordsSumAggregateOutputType = {
+    Amounts: number | null
+    WorkersInvolved: number | null
+    TimeInvolved: number | null
+  }
+
+  export type SitediaryrecordsMinAggregateOutputType = {
+    id: string | null
+    userId: string | null
+    siteId: string | null
+    Date: Date | null
+    Location: string | null
+    Works: string | null
+    Comments: string | null
+    Units: string | null
+    Amounts: number | null
+    WorkersInvolved: number | null
+    TimeInvolved: number | null
+  }
+
+  export type SitediaryrecordsMaxAggregateOutputType = {
+    id: string | null
+    userId: string | null
+    siteId: string | null
+    Date: Date | null
+    Location: string | null
+    Works: string | null
+    Comments: string | null
+    Units: string | null
+    Amounts: number | null
+    WorkersInvolved: number | null
+    TimeInvolved: number | null
+  }
+
+  export type SitediaryrecordsCountAggregateOutputType = {
+    id: number
+    userId: number
+    siteId: number
+    Date: number
+    Location: number
+    Works: number
+    Comments: number
+    Units: number
+    Amounts: number
+    WorkersInvolved: number
+    TimeInvolved: number
+    Photos: number
+    _all: number
+  }
+
+
+  export type SitediaryrecordsAvgAggregateInputType = {
+    Amounts?: true
+    WorkersInvolved?: true
+    TimeInvolved?: true
+  }
+
+  export type SitediaryrecordsSumAggregateInputType = {
+    Amounts?: true
+    WorkersInvolved?: true
+    TimeInvolved?: true
+  }
+
+  export type SitediaryrecordsMinAggregateInputType = {
+    id?: true
+    userId?: true
+    siteId?: true
+    Date?: true
+    Location?: true
+    Works?: true
+    Comments?: true
+    Units?: true
+    Amounts?: true
+    WorkersInvolved?: true
+    TimeInvolved?: true
+  }
+
+  export type SitediaryrecordsMaxAggregateInputType = {
+    id?: true
+    userId?: true
+    siteId?: true
+    Date?: true
+    Location?: true
+    Works?: true
+    Comments?: true
+    Units?: true
+    Amounts?: true
+    WorkersInvolved?: true
+    TimeInvolved?: true
+  }
+
+  export type SitediaryrecordsCountAggregateInputType = {
+    id?: true
+    userId?: true
+    siteId?: true
+    Date?: true
+    Location?: true
+    Works?: true
+    Comments?: true
+    Units?: true
+    Amounts?: true
+    WorkersInvolved?: true
+    TimeInvolved?: true
+    Photos?: true
+    _all?: true
+  }
+
+  export type SitediaryrecordsAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which sitediaryrecords to aggregate.
+     */
+    where?: sitediaryrecordsWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of sitediaryrecords to fetch.
+     */
+    orderBy?: sitediaryrecordsOrderByWithRelationInput | sitediaryrecordsOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: sitediaryrecordsWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` sitediaryrecords from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` sitediaryrecords.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned sitediaryrecords
+    **/
+    _count?: true | SitediaryrecordsCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: SitediaryrecordsAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: SitediaryrecordsSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: SitediaryrecordsMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: SitediaryrecordsMaxAggregateInputType
+  }
+
+  export type GetSitediaryrecordsAggregateType<T extends SitediaryrecordsAggregateArgs> = {
+        [P in keyof T & keyof AggregateSitediaryrecords]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateSitediaryrecords[P]>
+      : GetScalarType<T[P], AggregateSitediaryrecords[P]>
+  }
+
+
+
+
+  export type sitediaryrecordsGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: sitediaryrecordsWhereInput
+    orderBy?: sitediaryrecordsOrderByWithAggregationInput | sitediaryrecordsOrderByWithAggregationInput[]
+    by: SitediaryrecordsScalarFieldEnum[] | SitediaryrecordsScalarFieldEnum
+    having?: sitediaryrecordsScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: SitediaryrecordsCountAggregateInputType | true
+    _avg?: SitediaryrecordsAvgAggregateInputType
+    _sum?: SitediaryrecordsSumAggregateInputType
+    _min?: SitediaryrecordsMinAggregateInputType
+    _max?: SitediaryrecordsMaxAggregateInputType
+  }
+
+  export type SitediaryrecordsGroupByOutputType = {
+    id: string
+    userId: string | null
+    siteId: string | null
+    Date: Date | null
+    Location: string | null
+    Works: string | null
+    Comments: string | null
+    Units: string | null
+    Amounts: number | null
+    WorkersInvolved: number | null
+    TimeInvolved: number | null
+    Photos: string[]
+    _count: SitediaryrecordsCountAggregateOutputType | null
+    _avg: SitediaryrecordsAvgAggregateOutputType | null
+    _sum: SitediaryrecordsSumAggregateOutputType | null
+    _min: SitediaryrecordsMinAggregateOutputType | null
+    _max: SitediaryrecordsMaxAggregateOutputType | null
+  }
+
+  type GetSitediaryrecordsGroupByPayload<T extends sitediaryrecordsGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<SitediaryrecordsGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof SitediaryrecordsGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], SitediaryrecordsGroupByOutputType[P]>
+            : GetScalarType<T[P], SitediaryrecordsGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type sitediaryrecordsSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    userId?: boolean
+    siteId?: boolean
+    Date?: boolean
+    Location?: boolean
+    Works?: boolean
+    Comments?: boolean
+    Units?: boolean
+    Amounts?: boolean
+    WorkersInvolved?: boolean
+    TimeInvolved?: boolean
+    Photos?: boolean
+    User?: boolean | sitediaryrecords$UserArgs<ExtArgs>
+    Site?: boolean | sitediaryrecords$SiteArgs<ExtArgs>
+  }, ExtArgs["result"]["sitediaryrecords"]>
+
+  export type sitediaryrecordsSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    userId?: boolean
+    siteId?: boolean
+    Date?: boolean
+    Location?: boolean
+    Works?: boolean
+    Comments?: boolean
+    Units?: boolean
+    Amounts?: boolean
+    WorkersInvolved?: boolean
+    TimeInvolved?: boolean
+    Photos?: boolean
+    User?: boolean | sitediaryrecords$UserArgs<ExtArgs>
+    Site?: boolean | sitediaryrecords$SiteArgs<ExtArgs>
+  }, ExtArgs["result"]["sitediaryrecords"]>
+
+  export type sitediaryrecordsSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    userId?: boolean
+    siteId?: boolean
+    Date?: boolean
+    Location?: boolean
+    Works?: boolean
+    Comments?: boolean
+    Units?: boolean
+    Amounts?: boolean
+    WorkersInvolved?: boolean
+    TimeInvolved?: boolean
+    Photos?: boolean
+    User?: boolean | sitediaryrecords$UserArgs<ExtArgs>
+    Site?: boolean | sitediaryrecords$SiteArgs<ExtArgs>
+  }, ExtArgs["result"]["sitediaryrecords"]>
+
+  export type sitediaryrecordsSelectScalar = {
+    id?: boolean
+    userId?: boolean
+    siteId?: boolean
+    Date?: boolean
+    Location?: boolean
+    Works?: boolean
+    Comments?: boolean
+    Units?: boolean
+    Amounts?: boolean
+    WorkersInvolved?: boolean
+    TimeInvolved?: boolean
+    Photos?: boolean
+  }
+
+  export type sitediaryrecordsOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "siteId" | "Date" | "Location" | "Works" | "Comments" | "Units" | "Amounts" | "WorkersInvolved" | "TimeInvolved" | "Photos", ExtArgs["result"]["sitediaryrecords"]>
+  export type sitediaryrecordsInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    User?: boolean | sitediaryrecords$UserArgs<ExtArgs>
+    Site?: boolean | sitediaryrecords$SiteArgs<ExtArgs>
+  }
+  export type sitediaryrecordsIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    User?: boolean | sitediaryrecords$UserArgs<ExtArgs>
+    Site?: boolean | sitediaryrecords$SiteArgs<ExtArgs>
+  }
+  export type sitediaryrecordsIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    User?: boolean | sitediaryrecords$UserArgs<ExtArgs>
+    Site?: boolean | sitediaryrecords$SiteArgs<ExtArgs>
+  }
+
+  export type $sitediaryrecordsPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "sitediaryrecords"
+    objects: {
+      User: Prisma.$UserPayload<ExtArgs> | null
+      Site: Prisma.$SitePayload<ExtArgs> | null
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      userId: string | null
+      siteId: string | null
+      Date: Date | null
+      Location: string | null
+      Works: string | null
+      Comments: string | null
+      Units: string | null
+      Amounts: number | null
+      WorkersInvolved: number | null
+      TimeInvolved: number | null
+      Photos: string[]
+    }, ExtArgs["result"]["sitediaryrecords"]>
+    composites: {}
+  }
+
+  type sitediaryrecordsGetPayload<S extends boolean | null | undefined | sitediaryrecordsDefaultArgs> = $Result.GetResult<Prisma.$sitediaryrecordsPayload, S>
+
+  type sitediaryrecordsCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<sitediaryrecordsFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: SitediaryrecordsCountAggregateInputType | true
+    }
+
+  export interface sitediaryrecordsDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['sitediaryrecords'], meta: { name: 'sitediaryrecords' } }
+    /**
+     * Find zero or one Sitediaryrecords that matches the filter.
+     * @param {sitediaryrecordsFindUniqueArgs} args - Arguments to find a Sitediaryrecords
+     * @example
+     * // Get one Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends sitediaryrecordsFindUniqueArgs>(args: SelectSubset<T, sitediaryrecordsFindUniqueArgs<ExtArgs>>): Prisma__sitediaryrecordsClient<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one Sitediaryrecords that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {sitediaryrecordsFindUniqueOrThrowArgs} args - Arguments to find a Sitediaryrecords
+     * @example
+     * // Get one Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends sitediaryrecordsFindUniqueOrThrowArgs>(args: SelectSubset<T, sitediaryrecordsFindUniqueOrThrowArgs<ExtArgs>>): Prisma__sitediaryrecordsClient<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Sitediaryrecords that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {sitediaryrecordsFindFirstArgs} args - Arguments to find a Sitediaryrecords
+     * @example
+     * // Get one Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends sitediaryrecordsFindFirstArgs>(args?: SelectSubset<T, sitediaryrecordsFindFirstArgs<ExtArgs>>): Prisma__sitediaryrecordsClient<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Sitediaryrecords that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {sitediaryrecordsFindFirstOrThrowArgs} args - Arguments to find a Sitediaryrecords
+     * @example
+     * // Get one Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends sitediaryrecordsFindFirstOrThrowArgs>(args?: SelectSubset<T, sitediaryrecordsFindFirstOrThrowArgs<ExtArgs>>): Prisma__sitediaryrecordsClient<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more Sitediaryrecords that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {sitediaryrecordsFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.findMany()
+     * 
+     * // Get first 10 Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const sitediaryrecordsWithIdOnly = await prisma.sitediaryrecords.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends sitediaryrecordsFindManyArgs>(args?: SelectSubset<T, sitediaryrecordsFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a Sitediaryrecords.
+     * @param {sitediaryrecordsCreateArgs} args - Arguments to create a Sitediaryrecords.
+     * @example
+     * // Create one Sitediaryrecords
+     * const Sitediaryrecords = await prisma.sitediaryrecords.create({
+     *   data: {
+     *     // ... data to create a Sitediaryrecords
+     *   }
+     * })
+     * 
+     */
+    create<T extends sitediaryrecordsCreateArgs>(args: SelectSubset<T, sitediaryrecordsCreateArgs<ExtArgs>>): Prisma__sitediaryrecordsClient<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many Sitediaryrecords.
+     * @param {sitediaryrecordsCreateManyArgs} args - Arguments to create many Sitediaryrecords.
+     * @example
+     * // Create many Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends sitediaryrecordsCreateManyArgs>(args?: SelectSubset<T, sitediaryrecordsCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many Sitediaryrecords and returns the data saved in the database.
+     * @param {sitediaryrecordsCreateManyAndReturnArgs} args - Arguments to create many Sitediaryrecords.
+     * @example
+     * // Create many Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many Sitediaryrecords and only return the `id`
+     * const sitediaryrecordsWithIdOnly = await prisma.sitediaryrecords.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends sitediaryrecordsCreateManyAndReturnArgs>(args?: SelectSubset<T, sitediaryrecordsCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a Sitediaryrecords.
+     * @param {sitediaryrecordsDeleteArgs} args - Arguments to delete one Sitediaryrecords.
+     * @example
+     * // Delete one Sitediaryrecords
+     * const Sitediaryrecords = await prisma.sitediaryrecords.delete({
+     *   where: {
+     *     // ... filter to delete one Sitediaryrecords
+     *   }
+     * })
+     * 
+     */
+    delete<T extends sitediaryrecordsDeleteArgs>(args: SelectSubset<T, sitediaryrecordsDeleteArgs<ExtArgs>>): Prisma__sitediaryrecordsClient<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one Sitediaryrecords.
+     * @param {sitediaryrecordsUpdateArgs} args - Arguments to update one Sitediaryrecords.
+     * @example
+     * // Update one Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends sitediaryrecordsUpdateArgs>(args: SelectSubset<T, sitediaryrecordsUpdateArgs<ExtArgs>>): Prisma__sitediaryrecordsClient<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more Sitediaryrecords.
+     * @param {sitediaryrecordsDeleteManyArgs} args - Arguments to filter Sitediaryrecords to delete.
+     * @example
+     * // Delete a few Sitediaryrecords
+     * const { count } = await prisma.sitediaryrecords.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends sitediaryrecordsDeleteManyArgs>(args?: SelectSubset<T, sitediaryrecordsDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Sitediaryrecords.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {sitediaryrecordsUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends sitediaryrecordsUpdateManyArgs>(args: SelectSubset<T, sitediaryrecordsUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Sitediaryrecords and returns the data updated in the database.
+     * @param {sitediaryrecordsUpdateManyAndReturnArgs} args - Arguments to update many Sitediaryrecords.
+     * @example
+     * // Update many Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more Sitediaryrecords and only return the `id`
+     * const sitediaryrecordsWithIdOnly = await prisma.sitediaryrecords.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends sitediaryrecordsUpdateManyAndReturnArgs>(args: SelectSubset<T, sitediaryrecordsUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one Sitediaryrecords.
+     * @param {sitediaryrecordsUpsertArgs} args - Arguments to update or create a Sitediaryrecords.
+     * @example
+     * // Update or create a Sitediaryrecords
+     * const sitediaryrecords = await prisma.sitediaryrecords.upsert({
+     *   create: {
+     *     // ... data to create a Sitediaryrecords
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the Sitediaryrecords we want to update
+     *   }
+     * })
+     */
+    upsert<T extends sitediaryrecordsUpsertArgs>(args: SelectSubset<T, sitediaryrecordsUpsertArgs<ExtArgs>>): Prisma__sitediaryrecordsClient<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of Sitediaryrecords.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {sitediaryrecordsCountArgs} args - Arguments to filter Sitediaryrecords to count.
+     * @example
+     * // Count the number of Sitediaryrecords
+     * const count = await prisma.sitediaryrecords.count({
+     *   where: {
+     *     // ... the filter for the Sitediaryrecords we want to count
+     *   }
+     * })
+    **/
+    count<T extends sitediaryrecordsCountArgs>(
+      args?: Subset<T, sitediaryrecordsCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], SitediaryrecordsCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a Sitediaryrecords.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {SitediaryrecordsAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends SitediaryrecordsAggregateArgs>(args: Subset<T, SitediaryrecordsAggregateArgs>): Prisma.PrismaPromise<GetSitediaryrecordsAggregateType<T>>
+
+    /**
+     * Group by Sitediaryrecords.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {sitediaryrecordsGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends sitediaryrecordsGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: sitediaryrecordsGroupByArgs['orderBy'] }
+        : { orderBy?: sitediaryrecordsGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, sitediaryrecordsGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetSitediaryrecordsGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the sitediaryrecords model
+   */
+  readonly fields: sitediaryrecordsFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for sitediaryrecords.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__sitediaryrecordsClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    User<T extends sitediaryrecords$UserArgs<ExtArgs> = {}>(args?: Subset<T, sitediaryrecords$UserArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    Site<T extends sitediaryrecords$SiteArgs<ExtArgs> = {}>(args?: Subset<T, sitediaryrecords$SiteArgs<ExtArgs>>): Prisma__SiteClient<$Result.GetResult<Prisma.$SitePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the sitediaryrecords model
+   */
+  interface sitediaryrecordsFieldRefs {
+    readonly id: FieldRef<"sitediaryrecords", 'String'>
+    readonly userId: FieldRef<"sitediaryrecords", 'String'>
+    readonly siteId: FieldRef<"sitediaryrecords", 'String'>
+    readonly Date: FieldRef<"sitediaryrecords", 'DateTime'>
+    readonly Location: FieldRef<"sitediaryrecords", 'String'>
+    readonly Works: FieldRef<"sitediaryrecords", 'String'>
+    readonly Comments: FieldRef<"sitediaryrecords", 'String'>
+    readonly Units: FieldRef<"sitediaryrecords", 'String'>
+    readonly Amounts: FieldRef<"sitediaryrecords", 'Float'>
+    readonly WorkersInvolved: FieldRef<"sitediaryrecords", 'Int'>
+    readonly TimeInvolved: FieldRef<"sitediaryrecords", 'Float'>
+    readonly Photos: FieldRef<"sitediaryrecords", 'String[]'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * sitediaryrecords findUnique
+   */
+  export type sitediaryrecordsFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    /**
+     * Filter, which sitediaryrecords to fetch.
+     */
+    where: sitediaryrecordsWhereUniqueInput
+  }
+
+  /**
+   * sitediaryrecords findUniqueOrThrow
+   */
+  export type sitediaryrecordsFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    /**
+     * Filter, which sitediaryrecords to fetch.
+     */
+    where: sitediaryrecordsWhereUniqueInput
+  }
+
+  /**
+   * sitediaryrecords findFirst
+   */
+  export type sitediaryrecordsFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    /**
+     * Filter, which sitediaryrecords to fetch.
+     */
+    where?: sitediaryrecordsWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of sitediaryrecords to fetch.
+     */
+    orderBy?: sitediaryrecordsOrderByWithRelationInput | sitediaryrecordsOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for sitediaryrecords.
+     */
+    cursor?: sitediaryrecordsWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` sitediaryrecords from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` sitediaryrecords.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of sitediaryrecords.
+     */
+    distinct?: SitediaryrecordsScalarFieldEnum | SitediaryrecordsScalarFieldEnum[]
+  }
+
+  /**
+   * sitediaryrecords findFirstOrThrow
+   */
+  export type sitediaryrecordsFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    /**
+     * Filter, which sitediaryrecords to fetch.
+     */
+    where?: sitediaryrecordsWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of sitediaryrecords to fetch.
+     */
+    orderBy?: sitediaryrecordsOrderByWithRelationInput | sitediaryrecordsOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for sitediaryrecords.
+     */
+    cursor?: sitediaryrecordsWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` sitediaryrecords from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` sitediaryrecords.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of sitediaryrecords.
+     */
+    distinct?: SitediaryrecordsScalarFieldEnum | SitediaryrecordsScalarFieldEnum[]
+  }
+
+  /**
+   * sitediaryrecords findMany
+   */
+  export type sitediaryrecordsFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    /**
+     * Filter, which sitediaryrecords to fetch.
+     */
+    where?: sitediaryrecordsWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of sitediaryrecords to fetch.
+     */
+    orderBy?: sitediaryrecordsOrderByWithRelationInput | sitediaryrecordsOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing sitediaryrecords.
+     */
+    cursor?: sitediaryrecordsWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` sitediaryrecords from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` sitediaryrecords.
+     */
+    skip?: number
+    distinct?: SitediaryrecordsScalarFieldEnum | SitediaryrecordsScalarFieldEnum[]
+  }
+
+  /**
+   * sitediaryrecords create
+   */
+  export type sitediaryrecordsCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    /**
+     * The data needed to create a sitediaryrecords.
+     */
+    data?: XOR<sitediaryrecordsCreateInput, sitediaryrecordsUncheckedCreateInput>
+  }
+
+  /**
+   * sitediaryrecords createMany
+   */
+  export type sitediaryrecordsCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many sitediaryrecords.
+     */
+    data: sitediaryrecordsCreateManyInput | sitediaryrecordsCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * sitediaryrecords createManyAndReturn
+   */
+  export type sitediaryrecordsCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * The data used to create many sitediaryrecords.
+     */
+    data: sitediaryrecordsCreateManyInput | sitediaryrecordsCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * sitediaryrecords update
+   */
+  export type sitediaryrecordsUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    /**
+     * The data needed to update a sitediaryrecords.
+     */
+    data: XOR<sitediaryrecordsUpdateInput, sitediaryrecordsUncheckedUpdateInput>
+    /**
+     * Choose, which sitediaryrecords to update.
+     */
+    where: sitediaryrecordsWhereUniqueInput
+  }
+
+  /**
+   * sitediaryrecords updateMany
+   */
+  export type sitediaryrecordsUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update sitediaryrecords.
+     */
+    data: XOR<sitediaryrecordsUpdateManyMutationInput, sitediaryrecordsUncheckedUpdateManyInput>
+    /**
+     * Filter which sitediaryrecords to update
+     */
+    where?: sitediaryrecordsWhereInput
+    /**
+     * Limit how many sitediaryrecords to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * sitediaryrecords updateManyAndReturn
+   */
+  export type sitediaryrecordsUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * The data used to update sitediaryrecords.
+     */
+    data: XOR<sitediaryrecordsUpdateManyMutationInput, sitediaryrecordsUncheckedUpdateManyInput>
+    /**
+     * Filter which sitediaryrecords to update
+     */
+    where?: sitediaryrecordsWhereInput
+    /**
+     * Limit how many sitediaryrecords to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * sitediaryrecords upsert
+   */
+  export type sitediaryrecordsUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    /**
+     * The filter to search for the sitediaryrecords to update in case it exists.
+     */
+    where: sitediaryrecordsWhereUniqueInput
+    /**
+     * In case the sitediaryrecords found by the `where` argument doesn't exist, create a new sitediaryrecords with this data.
+     */
+    create: XOR<sitediaryrecordsCreateInput, sitediaryrecordsUncheckedCreateInput>
+    /**
+     * In case the sitediaryrecords was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<sitediaryrecordsUpdateInput, sitediaryrecordsUncheckedUpdateInput>
+  }
+
+  /**
+   * sitediaryrecords delete
+   */
+  export type sitediaryrecordsDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+    /**
+     * Filter which sitediaryrecords to delete.
+     */
+    where: sitediaryrecordsWhereUniqueInput
+  }
+
+  /**
+   * sitediaryrecords deleteMany
+   */
+  export type sitediaryrecordsDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which sitediaryrecords to delete
+     */
+    where?: sitediaryrecordsWhereInput
+    /**
+     * Limit how many sitediaryrecords to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * sitediaryrecords.User
+   */
+  export type sitediaryrecords$UserArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the User
+     */
+    select?: UserSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the User
+     */
+    omit?: UserOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UserInclude<ExtArgs> | null
+    where?: UserWhereInput
+  }
+
+  /**
+   * sitediaryrecords.Site
+   */
+  export type sitediaryrecords$SiteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Site
+     */
+    select?: SiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Site
+     */
+    omit?: SiteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SiteInclude<ExtArgs> | null
+    where?: SiteWhereInput
+  }
+
+  /**
+   * sitediaryrecords without action
+   */
+  export type sitediaryrecordsDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the sitediaryrecords
+     */
+    select?: sitediaryrecordsSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the sitediaryrecords
+     */
+    omit?: sitediaryrecordsOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: sitediaryrecordsInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -11402,6 +12800,24 @@ export namespace Prisma {
   };
 
   export type DocumentsScalarFieldEnum = (typeof DocumentsScalarFieldEnum)[keyof typeof DocumentsScalarFieldEnum]
+
+
+  export const SitediaryrecordsScalarFieldEnum: {
+    id: 'id',
+    userId: 'userId',
+    siteId: 'siteId',
+    Date: 'Date',
+    Location: 'Location',
+    Works: 'Works',
+    Comments: 'Comments',
+    Units: 'Units',
+    Amounts: 'Amounts',
+    WorkersInvolved: 'WorkersInvolved',
+    TimeInvolved: 'TimeInvolved',
+    Photos: 'Photos'
+  };
+
+  export type SitediaryrecordsScalarFieldEnum = (typeof SitediaryrecordsScalarFieldEnum)[keyof typeof SitediaryrecordsScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -11552,6 +12968,7 @@ export namespace Prisma {
     posts?: PostListRelationFilter
     Invoices?: InvoicesListRelationFilter
     Documents?: DocumentsListRelationFilter
+    sitediaryrecords?: SitediaryrecordsListRelationFilter
     Subscription?: XOR<SubscriptionNullableScalarRelationFilter, SubscriptionWhereInput> | null
     AIconversation?: AIconversationListRelationFilter
   }
@@ -11568,6 +12985,7 @@ export namespace Prisma {
     posts?: PostOrderByRelationAggregateInput
     Invoices?: InvoicesOrderByRelationAggregateInput
     Documents?: DocumentsOrderByRelationAggregateInput
+    sitediaryrecords?: sitediaryrecordsOrderByRelationAggregateInput
     Subscription?: SubscriptionOrderByWithRelationInput
     AIconversation?: AIconversationOrderByRelationAggregateInput
   }
@@ -11587,6 +13005,7 @@ export namespace Prisma {
     posts?: PostListRelationFilter
     Invoices?: InvoicesListRelationFilter
     Documents?: DocumentsListRelationFilter
+    sitediaryrecords?: SitediaryrecordsListRelationFilter
     Subscription?: XOR<SubscriptionNullableScalarRelationFilter, SubscriptionWhereInput> | null
     AIconversation?: AIconversationListRelationFilter
   }, "id" | "id" | "customerId">
@@ -11634,6 +13053,7 @@ export namespace Prisma {
     invoices?: InvoicesListRelationFilter
     InvoiceItems?: InvoiceItemsListRelationFilter
     Documents?: DocumentsListRelationFilter
+    sitediaryrecords?: SitediaryrecordsListRelationFilter
     AIconversation?: XOR<AIconversationNullableScalarRelationFilter, AIconversationWhereInput> | null
   }
 
@@ -11651,6 +13071,7 @@ export namespace Prisma {
     invoices?: InvoicesOrderByRelationAggregateInput
     InvoiceItems?: InvoiceItemsOrderByRelationAggregateInput
     Documents?: DocumentsOrderByRelationAggregateInput
+    sitediaryrecords?: sitediaryrecordsOrderByRelationAggregateInput
     AIconversation?: AIconversationOrderByWithRelationInput
   }
 
@@ -11671,6 +13092,7 @@ export namespace Prisma {
     invoices?: InvoicesListRelationFilter
     InvoiceItems?: InvoiceItemsListRelationFilter
     Documents?: DocumentsListRelationFilter
+    sitediaryrecords?: SitediaryrecordsListRelationFilter
     AIconversation?: XOR<AIconversationNullableScalarRelationFilter, AIconversationWhereInput> | null
   }, "id">
 
@@ -12212,6 +13634,101 @@ export namespace Prisma {
     siteId?: StringNullableWithAggregatesFilter<"Documents"> | string | null
   }
 
+  export type sitediaryrecordsWhereInput = {
+    AND?: sitediaryrecordsWhereInput | sitediaryrecordsWhereInput[]
+    OR?: sitediaryrecordsWhereInput[]
+    NOT?: sitediaryrecordsWhereInput | sitediaryrecordsWhereInput[]
+    id?: StringFilter<"sitediaryrecords"> | string
+    userId?: StringNullableFilter<"sitediaryrecords"> | string | null
+    siteId?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Date?: DateTimeNullableFilter<"sitediaryrecords"> | Date | string | null
+    Location?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Works?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Comments?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Units?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Amounts?: FloatNullableFilter<"sitediaryrecords"> | number | null
+    WorkersInvolved?: IntNullableFilter<"sitediaryrecords"> | number | null
+    TimeInvolved?: FloatNullableFilter<"sitediaryrecords"> | number | null
+    Photos?: StringNullableListFilter<"sitediaryrecords">
+    User?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
+    Site?: XOR<SiteNullableScalarRelationFilter, SiteWhereInput> | null
+  }
+
+  export type sitediaryrecordsOrderByWithRelationInput = {
+    id?: SortOrder
+    userId?: SortOrderInput | SortOrder
+    siteId?: SortOrderInput | SortOrder
+    Date?: SortOrderInput | SortOrder
+    Location?: SortOrderInput | SortOrder
+    Works?: SortOrderInput | SortOrder
+    Comments?: SortOrderInput | SortOrder
+    Units?: SortOrderInput | SortOrder
+    Amounts?: SortOrderInput | SortOrder
+    WorkersInvolved?: SortOrderInput | SortOrder
+    TimeInvolved?: SortOrderInput | SortOrder
+    Photos?: SortOrder
+    User?: UserOrderByWithRelationInput
+    Site?: SiteOrderByWithRelationInput
+  }
+
+  export type sitediaryrecordsWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: sitediaryrecordsWhereInput | sitediaryrecordsWhereInput[]
+    OR?: sitediaryrecordsWhereInput[]
+    NOT?: sitediaryrecordsWhereInput | sitediaryrecordsWhereInput[]
+    userId?: StringNullableFilter<"sitediaryrecords"> | string | null
+    siteId?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Date?: DateTimeNullableFilter<"sitediaryrecords"> | Date | string | null
+    Location?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Works?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Comments?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Units?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Amounts?: FloatNullableFilter<"sitediaryrecords"> | number | null
+    WorkersInvolved?: IntNullableFilter<"sitediaryrecords"> | number | null
+    TimeInvolved?: FloatNullableFilter<"sitediaryrecords"> | number | null
+    Photos?: StringNullableListFilter<"sitediaryrecords">
+    User?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
+    Site?: XOR<SiteNullableScalarRelationFilter, SiteWhereInput> | null
+  }, "id">
+
+  export type sitediaryrecordsOrderByWithAggregationInput = {
+    id?: SortOrder
+    userId?: SortOrderInput | SortOrder
+    siteId?: SortOrderInput | SortOrder
+    Date?: SortOrderInput | SortOrder
+    Location?: SortOrderInput | SortOrder
+    Works?: SortOrderInput | SortOrder
+    Comments?: SortOrderInput | SortOrder
+    Units?: SortOrderInput | SortOrder
+    Amounts?: SortOrderInput | SortOrder
+    WorkersInvolved?: SortOrderInput | SortOrder
+    TimeInvolved?: SortOrderInput | SortOrder
+    Photos?: SortOrder
+    _count?: sitediaryrecordsCountOrderByAggregateInput
+    _avg?: sitediaryrecordsAvgOrderByAggregateInput
+    _max?: sitediaryrecordsMaxOrderByAggregateInput
+    _min?: sitediaryrecordsMinOrderByAggregateInput
+    _sum?: sitediaryrecordsSumOrderByAggregateInput
+  }
+
+  export type sitediaryrecordsScalarWhereWithAggregatesInput = {
+    AND?: sitediaryrecordsScalarWhereWithAggregatesInput | sitediaryrecordsScalarWhereWithAggregatesInput[]
+    OR?: sitediaryrecordsScalarWhereWithAggregatesInput[]
+    NOT?: sitediaryrecordsScalarWhereWithAggregatesInput | sitediaryrecordsScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"sitediaryrecords"> | string
+    userId?: StringNullableWithAggregatesFilter<"sitediaryrecords"> | string | null
+    siteId?: StringNullableWithAggregatesFilter<"sitediaryrecords"> | string | null
+    Date?: DateTimeNullableWithAggregatesFilter<"sitediaryrecords"> | Date | string | null
+    Location?: StringNullableWithAggregatesFilter<"sitediaryrecords"> | string | null
+    Works?: StringNullableWithAggregatesFilter<"sitediaryrecords"> | string | null
+    Comments?: StringNullableWithAggregatesFilter<"sitediaryrecords"> | string | null
+    Units?: StringNullableWithAggregatesFilter<"sitediaryrecords"> | string | null
+    Amounts?: FloatNullableWithAggregatesFilter<"sitediaryrecords"> | number | null
+    WorkersInvolved?: IntNullableWithAggregatesFilter<"sitediaryrecords"> | number | null
+    TimeInvolved?: FloatNullableWithAggregatesFilter<"sitediaryrecords"> | number | null
+    Photos?: StringNullableListFilter<"sitediaryrecords">
+  }
+
   export type UserCreateInput = {
     id: string
     email: string
@@ -12224,6 +13741,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutUserInput
     Invoices?: InvoicesCreateNestedManyWithoutUserInput
     Documents?: DocumentsCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
   }
@@ -12240,6 +13758,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
     Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
   }
@@ -12256,6 +13775,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
   }
@@ -12272,6 +13792,7 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
   }
@@ -12319,6 +13840,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
   }
 
@@ -12335,6 +13857,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
   }
 
@@ -12351,6 +13874,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
   }
 
@@ -12367,6 +13891,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
   }
 
@@ -12948,6 +14473,109 @@ export namespace Prisma {
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
+  export type sitediaryrecordsCreateInput = {
+    id?: string
+    Date?: Date | string | null
+    Location?: string | null
+    Works?: string | null
+    Comments?: string | null
+    Units?: string | null
+    Amounts?: number | null
+    WorkersInvolved?: number | null
+    TimeInvolved?: number | null
+    Photos?: sitediaryrecordsCreatePhotosInput | string[]
+    User?: UserCreateNestedOneWithoutSitediaryrecordsInput
+    Site?: SiteCreateNestedOneWithoutSitediaryrecordsInput
+  }
+
+  export type sitediaryrecordsUncheckedCreateInput = {
+    id?: string
+    userId?: string | null
+    siteId?: string | null
+    Date?: Date | string | null
+    Location?: string | null
+    Works?: string | null
+    Comments?: string | null
+    Units?: string | null
+    Amounts?: number | null
+    WorkersInvolved?: number | null
+    TimeInvolved?: number | null
+    Photos?: sitediaryrecordsCreatePhotosInput | string[]
+  }
+
+  export type sitediaryrecordsUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
+    User?: UserUpdateOneWithoutSitediaryrecordsNestedInput
+    Site?: SiteUpdateOneWithoutSitediaryrecordsNestedInput
+  }
+
+  export type sitediaryrecordsUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
+  }
+
+  export type sitediaryrecordsCreateManyInput = {
+    id?: string
+    userId?: string | null
+    siteId?: string | null
+    Date?: Date | string | null
+    Location?: string | null
+    Works?: string | null
+    Comments?: string | null
+    Units?: string | null
+    Amounts?: number | null
+    WorkersInvolved?: number | null
+    TimeInvolved?: number | null
+    Photos?: sitediaryrecordsCreatePhotosInput | string[]
+  }
+
+  export type sitediaryrecordsUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
+  }
+
+  export type sitediaryrecordsUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -13013,6 +14641,12 @@ export namespace Prisma {
     none?: DocumentsWhereInput
   }
 
+  export type SitediaryrecordsListRelationFilter = {
+    every?: sitediaryrecordsWhereInput
+    some?: sitediaryrecordsWhereInput
+    none?: sitediaryrecordsWhereInput
+  }
+
   export type SubscriptionNullableScalarRelationFilter = {
     is?: SubscriptionWhereInput | null
     isNot?: SubscriptionWhereInput | null
@@ -13042,6 +14676,10 @@ export namespace Prisma {
   }
 
   export type DocumentsOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type sitediaryrecordsOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -13627,6 +15265,121 @@ export namespace Prisma {
     siteId?: SortOrder
   }
 
+  export type DateTimeNullableFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
+  }
+
+  export type IntNullableFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableFilter<$PrismaModel> | number | null
+  }
+
+  export type StringNullableListFilter<$PrismaModel = never> = {
+    equals?: string[] | ListStringFieldRefInput<$PrismaModel> | null
+    has?: string | StringFieldRefInput<$PrismaModel> | null
+    hasEvery?: string[] | ListStringFieldRefInput<$PrismaModel>
+    hasSome?: string[] | ListStringFieldRefInput<$PrismaModel>
+    isEmpty?: boolean
+  }
+
+  export type sitediaryrecordsCountOrderByAggregateInput = {
+    id?: SortOrder
+    userId?: SortOrder
+    siteId?: SortOrder
+    Date?: SortOrder
+    Location?: SortOrder
+    Works?: SortOrder
+    Comments?: SortOrder
+    Units?: SortOrder
+    Amounts?: SortOrder
+    WorkersInvolved?: SortOrder
+    TimeInvolved?: SortOrder
+    Photos?: SortOrder
+  }
+
+  export type sitediaryrecordsAvgOrderByAggregateInput = {
+    Amounts?: SortOrder
+    WorkersInvolved?: SortOrder
+    TimeInvolved?: SortOrder
+  }
+
+  export type sitediaryrecordsMaxOrderByAggregateInput = {
+    id?: SortOrder
+    userId?: SortOrder
+    siteId?: SortOrder
+    Date?: SortOrder
+    Location?: SortOrder
+    Works?: SortOrder
+    Comments?: SortOrder
+    Units?: SortOrder
+    Amounts?: SortOrder
+    WorkersInvolved?: SortOrder
+    TimeInvolved?: SortOrder
+  }
+
+  export type sitediaryrecordsMinOrderByAggregateInput = {
+    id?: SortOrder
+    userId?: SortOrder
+    siteId?: SortOrder
+    Date?: SortOrder
+    Location?: SortOrder
+    Works?: SortOrder
+    Comments?: SortOrder
+    Units?: SortOrder
+    Amounts?: SortOrder
+    WorkersInvolved?: SortOrder
+    TimeInvolved?: SortOrder
+  }
+
+  export type sitediaryrecordsSumOrderByAggregateInput = {
+    Amounts?: SortOrder
+    WorkersInvolved?: SortOrder
+    TimeInvolved?: SortOrder
+  }
+
+  export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableWithAggregatesFilter<$PrismaModel> | Date | string | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedDateTimeNullableFilter<$PrismaModel>
+    _max?: NestedDateTimeNullableFilter<$PrismaModel>
+  }
+
+  export type IntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedIntNullableFilter<$PrismaModel>
+    _max?: NestedIntNullableFilter<$PrismaModel>
+  }
+
   export type SiteCreateNestedManyWithoutUserInput = {
     create?: XOR<SiteCreateWithoutUserInput, SiteUncheckedCreateWithoutUserInput> | SiteCreateWithoutUserInput[] | SiteUncheckedCreateWithoutUserInput[]
     connectOrCreate?: SiteCreateOrConnectWithoutUserInput | SiteCreateOrConnectWithoutUserInput[]
@@ -13653,6 +15406,13 @@ export namespace Prisma {
     connectOrCreate?: DocumentsCreateOrConnectWithoutUserInput | DocumentsCreateOrConnectWithoutUserInput[]
     createMany?: DocumentsCreateManyUserInputEnvelope
     connect?: DocumentsWhereUniqueInput | DocumentsWhereUniqueInput[]
+  }
+
+  export type sitediaryrecordsCreateNestedManyWithoutUserInput = {
+    create?: XOR<sitediaryrecordsCreateWithoutUserInput, sitediaryrecordsUncheckedCreateWithoutUserInput> | sitediaryrecordsCreateWithoutUserInput[] | sitediaryrecordsUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: sitediaryrecordsCreateOrConnectWithoutUserInput | sitediaryrecordsCreateOrConnectWithoutUserInput[]
+    createMany?: sitediaryrecordsCreateManyUserInputEnvelope
+    connect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
   }
 
   export type SubscriptionCreateNestedOneWithoutUserInput = {
@@ -13694,6 +15454,13 @@ export namespace Prisma {
     connectOrCreate?: DocumentsCreateOrConnectWithoutUserInput | DocumentsCreateOrConnectWithoutUserInput[]
     createMany?: DocumentsCreateManyUserInputEnvelope
     connect?: DocumentsWhereUniqueInput | DocumentsWhereUniqueInput[]
+  }
+
+  export type sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput = {
+    create?: XOR<sitediaryrecordsCreateWithoutUserInput, sitediaryrecordsUncheckedCreateWithoutUserInput> | sitediaryrecordsCreateWithoutUserInput[] | sitediaryrecordsUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: sitediaryrecordsCreateOrConnectWithoutUserInput | sitediaryrecordsCreateOrConnectWithoutUserInput[]
+    createMany?: sitediaryrecordsCreateManyUserInputEnvelope
+    connect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
   }
 
   export type SubscriptionUncheckedCreateNestedOneWithoutUserInput = {
@@ -13777,6 +15544,20 @@ export namespace Prisma {
     deleteMany?: DocumentsScalarWhereInput | DocumentsScalarWhereInput[]
   }
 
+  export type sitediaryrecordsUpdateManyWithoutUserNestedInput = {
+    create?: XOR<sitediaryrecordsCreateWithoutUserInput, sitediaryrecordsUncheckedCreateWithoutUserInput> | sitediaryrecordsCreateWithoutUserInput[] | sitediaryrecordsUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: sitediaryrecordsCreateOrConnectWithoutUserInput | sitediaryrecordsCreateOrConnectWithoutUserInput[]
+    upsert?: sitediaryrecordsUpsertWithWhereUniqueWithoutUserInput | sitediaryrecordsUpsertWithWhereUniqueWithoutUserInput[]
+    createMany?: sitediaryrecordsCreateManyUserInputEnvelope
+    set?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    disconnect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    delete?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    connect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    update?: sitediaryrecordsUpdateWithWhereUniqueWithoutUserInput | sitediaryrecordsUpdateWithWhereUniqueWithoutUserInput[]
+    updateMany?: sitediaryrecordsUpdateManyWithWhereWithoutUserInput | sitediaryrecordsUpdateManyWithWhereWithoutUserInput[]
+    deleteMany?: sitediaryrecordsScalarWhereInput | sitediaryrecordsScalarWhereInput[]
+  }
+
   export type SubscriptionUpdateOneWithoutUserNestedInput = {
     create?: XOR<SubscriptionCreateWithoutUserInput, SubscriptionUncheckedCreateWithoutUserInput>
     connectOrCreate?: SubscriptionCreateOrConnectWithoutUserInput
@@ -13857,6 +15638,20 @@ export namespace Prisma {
     deleteMany?: DocumentsScalarWhereInput | DocumentsScalarWhereInput[]
   }
 
+  export type sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput = {
+    create?: XOR<sitediaryrecordsCreateWithoutUserInput, sitediaryrecordsUncheckedCreateWithoutUserInput> | sitediaryrecordsCreateWithoutUserInput[] | sitediaryrecordsUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: sitediaryrecordsCreateOrConnectWithoutUserInput | sitediaryrecordsCreateOrConnectWithoutUserInput[]
+    upsert?: sitediaryrecordsUpsertWithWhereUniqueWithoutUserInput | sitediaryrecordsUpsertWithWhereUniqueWithoutUserInput[]
+    createMany?: sitediaryrecordsCreateManyUserInputEnvelope
+    set?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    disconnect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    delete?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    connect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    update?: sitediaryrecordsUpdateWithWhereUniqueWithoutUserInput | sitediaryrecordsUpdateWithWhereUniqueWithoutUserInput[]
+    updateMany?: sitediaryrecordsUpdateManyWithWhereWithoutUserInput | sitediaryrecordsUpdateManyWithWhereWithoutUserInput[]
+    deleteMany?: sitediaryrecordsScalarWhereInput | sitediaryrecordsScalarWhereInput[]
+  }
+
   export type SubscriptionUncheckedUpdateOneWithoutUserNestedInput = {
     create?: XOR<SubscriptionCreateWithoutUserInput, SubscriptionUncheckedCreateWithoutUserInput>
     connectOrCreate?: SubscriptionCreateOrConnectWithoutUserInput
@@ -13915,6 +15710,13 @@ export namespace Prisma {
     connect?: DocumentsWhereUniqueInput | DocumentsWhereUniqueInput[]
   }
 
+  export type sitediaryrecordsCreateNestedManyWithoutSiteInput = {
+    create?: XOR<sitediaryrecordsCreateWithoutSiteInput, sitediaryrecordsUncheckedCreateWithoutSiteInput> | sitediaryrecordsCreateWithoutSiteInput[] | sitediaryrecordsUncheckedCreateWithoutSiteInput[]
+    connectOrCreate?: sitediaryrecordsCreateOrConnectWithoutSiteInput | sitediaryrecordsCreateOrConnectWithoutSiteInput[]
+    createMany?: sitediaryrecordsCreateManySiteInputEnvelope
+    connect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+  }
+
   export type AIconversationCreateNestedOneWithoutSiteInput = {
     create?: XOR<AIconversationCreateWithoutSiteInput, AIconversationUncheckedCreateWithoutSiteInput>
     connectOrCreate?: AIconversationCreateOrConnectWithoutSiteInput
@@ -13947,6 +15749,13 @@ export namespace Prisma {
     connectOrCreate?: DocumentsCreateOrConnectWithoutSiteInput | DocumentsCreateOrConnectWithoutSiteInput[]
     createMany?: DocumentsCreateManySiteInputEnvelope
     connect?: DocumentsWhereUniqueInput | DocumentsWhereUniqueInput[]
+  }
+
+  export type sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput = {
+    create?: XOR<sitediaryrecordsCreateWithoutSiteInput, sitediaryrecordsUncheckedCreateWithoutSiteInput> | sitediaryrecordsCreateWithoutSiteInput[] | sitediaryrecordsUncheckedCreateWithoutSiteInput[]
+    connectOrCreate?: sitediaryrecordsCreateOrConnectWithoutSiteInput | sitediaryrecordsCreateOrConnectWithoutSiteInput[]
+    createMany?: sitediaryrecordsCreateManySiteInputEnvelope
+    connect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
   }
 
   export type AIconversationUncheckedCreateNestedOneWithoutSiteInput = {
@@ -14021,6 +15830,20 @@ export namespace Prisma {
     deleteMany?: DocumentsScalarWhereInput | DocumentsScalarWhereInput[]
   }
 
+  export type sitediaryrecordsUpdateManyWithoutSiteNestedInput = {
+    create?: XOR<sitediaryrecordsCreateWithoutSiteInput, sitediaryrecordsUncheckedCreateWithoutSiteInput> | sitediaryrecordsCreateWithoutSiteInput[] | sitediaryrecordsUncheckedCreateWithoutSiteInput[]
+    connectOrCreate?: sitediaryrecordsCreateOrConnectWithoutSiteInput | sitediaryrecordsCreateOrConnectWithoutSiteInput[]
+    upsert?: sitediaryrecordsUpsertWithWhereUniqueWithoutSiteInput | sitediaryrecordsUpsertWithWhereUniqueWithoutSiteInput[]
+    createMany?: sitediaryrecordsCreateManySiteInputEnvelope
+    set?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    disconnect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    delete?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    connect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    update?: sitediaryrecordsUpdateWithWhereUniqueWithoutSiteInput | sitediaryrecordsUpdateWithWhereUniqueWithoutSiteInput[]
+    updateMany?: sitediaryrecordsUpdateManyWithWhereWithoutSiteInput | sitediaryrecordsUpdateManyWithWhereWithoutSiteInput[]
+    deleteMany?: sitediaryrecordsScalarWhereInput | sitediaryrecordsScalarWhereInput[]
+  }
+
   export type AIconversationUpdateOneWithoutSiteNestedInput = {
     create?: XOR<AIconversationCreateWithoutSiteInput, AIconversationUncheckedCreateWithoutSiteInput>
     connectOrCreate?: AIconversationCreateOrConnectWithoutSiteInput
@@ -14085,6 +15908,20 @@ export namespace Prisma {
     update?: DocumentsUpdateWithWhereUniqueWithoutSiteInput | DocumentsUpdateWithWhereUniqueWithoutSiteInput[]
     updateMany?: DocumentsUpdateManyWithWhereWithoutSiteInput | DocumentsUpdateManyWithWhereWithoutSiteInput[]
     deleteMany?: DocumentsScalarWhereInput | DocumentsScalarWhereInput[]
+  }
+
+  export type sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput = {
+    create?: XOR<sitediaryrecordsCreateWithoutSiteInput, sitediaryrecordsUncheckedCreateWithoutSiteInput> | sitediaryrecordsCreateWithoutSiteInput[] | sitediaryrecordsUncheckedCreateWithoutSiteInput[]
+    connectOrCreate?: sitediaryrecordsCreateOrConnectWithoutSiteInput | sitediaryrecordsCreateOrConnectWithoutSiteInput[]
+    upsert?: sitediaryrecordsUpsertWithWhereUniqueWithoutSiteInput | sitediaryrecordsUpsertWithWhereUniqueWithoutSiteInput[]
+    createMany?: sitediaryrecordsCreateManySiteInputEnvelope
+    set?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    disconnect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    delete?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    connect?: sitediaryrecordsWhereUniqueInput | sitediaryrecordsWhereUniqueInput[]
+    update?: sitediaryrecordsUpdateWithWhereUniqueWithoutSiteInput | sitediaryrecordsUpdateWithWhereUniqueWithoutSiteInput[]
+    updateMany?: sitediaryrecordsUpdateManyWithWhereWithoutSiteInput | sitediaryrecordsUpdateManyWithWhereWithoutSiteInput[]
+    deleteMany?: sitediaryrecordsScalarWhereInput | sitediaryrecordsScalarWhereInput[]
   }
 
   export type AIconversationUncheckedUpdateOneWithoutSiteNestedInput = {
@@ -14333,6 +16170,59 @@ export namespace Prisma {
     update?: XOR<XOR<SiteUpdateToOneWithWhereWithoutDocumentsInput, SiteUpdateWithoutDocumentsInput>, SiteUncheckedUpdateWithoutDocumentsInput>
   }
 
+  export type sitediaryrecordsCreatePhotosInput = {
+    set: string[]
+  }
+
+  export type UserCreateNestedOneWithoutSitediaryrecordsInput = {
+    create?: XOR<UserCreateWithoutSitediaryrecordsInput, UserUncheckedCreateWithoutSitediaryrecordsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutSitediaryrecordsInput
+    connect?: UserWhereUniqueInput
+  }
+
+  export type SiteCreateNestedOneWithoutSitediaryrecordsInput = {
+    create?: XOR<SiteCreateWithoutSitediaryrecordsInput, SiteUncheckedCreateWithoutSitediaryrecordsInput>
+    connectOrCreate?: SiteCreateOrConnectWithoutSitediaryrecordsInput
+    connect?: SiteWhereUniqueInput
+  }
+
+  export type NullableDateTimeFieldUpdateOperationsInput = {
+    set?: Date | string | null
+  }
+
+  export type NullableIntFieldUpdateOperationsInput = {
+    set?: number | null
+    increment?: number
+    decrement?: number
+    multiply?: number
+    divide?: number
+  }
+
+  export type sitediaryrecordsUpdatePhotosInput = {
+    set?: string[]
+    push?: string | string[]
+  }
+
+  export type UserUpdateOneWithoutSitediaryrecordsNestedInput = {
+    create?: XOR<UserCreateWithoutSitediaryrecordsInput, UserUncheckedCreateWithoutSitediaryrecordsInput>
+    connectOrCreate?: UserCreateOrConnectWithoutSitediaryrecordsInput
+    upsert?: UserUpsertWithoutSitediaryrecordsInput
+    disconnect?: UserWhereInput | boolean
+    delete?: UserWhereInput | boolean
+    connect?: UserWhereUniqueInput
+    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutSitediaryrecordsInput, UserUpdateWithoutSitediaryrecordsInput>, UserUncheckedUpdateWithoutSitediaryrecordsInput>
+  }
+
+  export type SiteUpdateOneWithoutSitediaryrecordsNestedInput = {
+    create?: XOR<SiteCreateWithoutSitediaryrecordsInput, SiteUncheckedCreateWithoutSitediaryrecordsInput>
+    connectOrCreate?: SiteCreateOrConnectWithoutSitediaryrecordsInput
+    upsert?: SiteUpsertWithoutSitediaryrecordsInput
+    disconnect?: SiteWhereInput | boolean
+    delete?: SiteWhereInput | boolean
+    connect?: SiteWhereUniqueInput
+    update?: XOR<XOR<SiteUpdateToOneWithWhereWithoutSitediaryrecordsInput, SiteUpdateWithoutSitediaryrecordsInput>, SiteUncheckedUpdateWithoutSitediaryrecordsInput>
+  }
+
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -14555,6 +16445,47 @@ export namespace Prisma {
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
   }
 
+  export type NestedDateTimeNullableFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableFilter<$PrismaModel> | Date | string | null
+  }
+
+  export type NestedDateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
+    in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    notIn?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
+    lt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    lte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gt?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    gte?: Date | string | DateTimeFieldRefInput<$PrismaModel>
+    not?: NestedDateTimeNullableWithAggregatesFilter<$PrismaModel> | Date | string | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedDateTimeNullableFilter<$PrismaModel>
+    _max?: NestedDateTimeNullableFilter<$PrismaModel>
+  }
+
+  export type NestedIntNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: number | IntFieldRefInput<$PrismaModel> | null
+    in?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    notIn?: number[] | ListIntFieldRefInput<$PrismaModel> | null
+    lt?: number | IntFieldRefInput<$PrismaModel>
+    lte?: number | IntFieldRefInput<$PrismaModel>
+    gt?: number | IntFieldRefInput<$PrismaModel>
+    gte?: number | IntFieldRefInput<$PrismaModel>
+    not?: NestedIntNullableWithAggregatesFilter<$PrismaModel> | number | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _avg?: NestedFloatNullableFilter<$PrismaModel>
+    _sum?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedIntNullableFilter<$PrismaModel>
+    _max?: NestedIntNullableFilter<$PrismaModel>
+  }
+
   export type SiteCreateWithoutUserInput = {
     id?: string
     name: string
@@ -14567,6 +16498,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
   }
 
@@ -14582,6 +16514,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
   }
 
@@ -14698,6 +16631,44 @@ export namespace Prisma {
 
   export type DocumentsCreateManyUserInputEnvelope = {
     data: DocumentsCreateManyUserInput | DocumentsCreateManyUserInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type sitediaryrecordsCreateWithoutUserInput = {
+    id?: string
+    Date?: Date | string | null
+    Location?: string | null
+    Works?: string | null
+    Comments?: string | null
+    Units?: string | null
+    Amounts?: number | null
+    WorkersInvolved?: number | null
+    TimeInvolved?: number | null
+    Photos?: sitediaryrecordsCreatePhotosInput | string[]
+    Site?: SiteCreateNestedOneWithoutSitediaryrecordsInput
+  }
+
+  export type sitediaryrecordsUncheckedCreateWithoutUserInput = {
+    id?: string
+    siteId?: string | null
+    Date?: Date | string | null
+    Location?: string | null
+    Works?: string | null
+    Comments?: string | null
+    Units?: string | null
+    Amounts?: number | null
+    WorkersInvolved?: number | null
+    TimeInvolved?: number | null
+    Photos?: sitediaryrecordsCreatePhotosInput | string[]
+  }
+
+  export type sitediaryrecordsCreateOrConnectWithoutUserInput = {
+    where: sitediaryrecordsWhereUniqueInput
+    create: XOR<sitediaryrecordsCreateWithoutUserInput, sitediaryrecordsUncheckedCreateWithoutUserInput>
+  }
+
+  export type sitediaryrecordsCreateManyUserInputEnvelope = {
+    data: sitediaryrecordsCreateManyUserInput | sitediaryrecordsCreateManyUserInput[]
     skipDuplicates?: boolean
   }
 
@@ -14877,6 +16848,40 @@ export namespace Prisma {
     siteId?: StringNullableFilter<"Documents"> | string | null
   }
 
+  export type sitediaryrecordsUpsertWithWhereUniqueWithoutUserInput = {
+    where: sitediaryrecordsWhereUniqueInput
+    update: XOR<sitediaryrecordsUpdateWithoutUserInput, sitediaryrecordsUncheckedUpdateWithoutUserInput>
+    create: XOR<sitediaryrecordsCreateWithoutUserInput, sitediaryrecordsUncheckedCreateWithoutUserInput>
+  }
+
+  export type sitediaryrecordsUpdateWithWhereUniqueWithoutUserInput = {
+    where: sitediaryrecordsWhereUniqueInput
+    data: XOR<sitediaryrecordsUpdateWithoutUserInput, sitediaryrecordsUncheckedUpdateWithoutUserInput>
+  }
+
+  export type sitediaryrecordsUpdateManyWithWhereWithoutUserInput = {
+    where: sitediaryrecordsScalarWhereInput
+    data: XOR<sitediaryrecordsUpdateManyMutationInput, sitediaryrecordsUncheckedUpdateManyWithoutUserInput>
+  }
+
+  export type sitediaryrecordsScalarWhereInput = {
+    AND?: sitediaryrecordsScalarWhereInput | sitediaryrecordsScalarWhereInput[]
+    OR?: sitediaryrecordsScalarWhereInput[]
+    NOT?: sitediaryrecordsScalarWhereInput | sitediaryrecordsScalarWhereInput[]
+    id?: StringFilter<"sitediaryrecords"> | string
+    userId?: StringNullableFilter<"sitediaryrecords"> | string | null
+    siteId?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Date?: DateTimeNullableFilter<"sitediaryrecords"> | Date | string | null
+    Location?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Works?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Comments?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Units?: StringNullableFilter<"sitediaryrecords"> | string | null
+    Amounts?: FloatNullableFilter<"sitediaryrecords"> | number | null
+    WorkersInvolved?: IntNullableFilter<"sitediaryrecords"> | number | null
+    TimeInvolved?: FloatNullableFilter<"sitediaryrecords"> | number | null
+    Photos?: StringNullableListFilter<"sitediaryrecords">
+  }
+
   export type SubscriptionUpsertWithoutUserInput = {
     update: XOR<SubscriptionUpdateWithoutUserInput, SubscriptionUncheckedUpdateWithoutUserInput>
     create: XOR<SubscriptionCreateWithoutUserInput, SubscriptionUncheckedCreateWithoutUserInput>
@@ -14947,6 +16952,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutUserInput
     Invoices?: InvoicesCreateNestedManyWithoutUserInput
     Documents?: DocumentsCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
   }
@@ -14962,6 +16968,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
     Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
   }
@@ -15125,6 +17132,44 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type sitediaryrecordsCreateWithoutSiteInput = {
+    id?: string
+    Date?: Date | string | null
+    Location?: string | null
+    Works?: string | null
+    Comments?: string | null
+    Units?: string | null
+    Amounts?: number | null
+    WorkersInvolved?: number | null
+    TimeInvolved?: number | null
+    Photos?: sitediaryrecordsCreatePhotosInput | string[]
+    User?: UserCreateNestedOneWithoutSitediaryrecordsInput
+  }
+
+  export type sitediaryrecordsUncheckedCreateWithoutSiteInput = {
+    id?: string
+    userId?: string | null
+    Date?: Date | string | null
+    Location?: string | null
+    Works?: string | null
+    Comments?: string | null
+    Units?: string | null
+    Amounts?: number | null
+    WorkersInvolved?: number | null
+    TimeInvolved?: number | null
+    Photos?: sitediaryrecordsCreatePhotosInput | string[]
+  }
+
+  export type sitediaryrecordsCreateOrConnectWithoutSiteInput = {
+    where: sitediaryrecordsWhereUniqueInput
+    create: XOR<sitediaryrecordsCreateWithoutSiteInput, sitediaryrecordsUncheckedCreateWithoutSiteInput>
+  }
+
+  export type sitediaryrecordsCreateManySiteInputEnvelope = {
+    data: sitediaryrecordsCreateManySiteInput | sitediaryrecordsCreateManySiteInput[]
+    skipDuplicates?: boolean
+  }
+
   export type AIconversationCreateWithoutSiteInput = {
     id?: string
     thread?: NullableJsonNullValueInput | InputJsonValue
@@ -15164,6 +17209,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
   }
@@ -15179,6 +17225,7 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
   }
@@ -15270,6 +17317,22 @@ export namespace Prisma {
     data: XOR<DocumentsUpdateManyMutationInput, DocumentsUncheckedUpdateManyWithoutSiteInput>
   }
 
+  export type sitediaryrecordsUpsertWithWhereUniqueWithoutSiteInput = {
+    where: sitediaryrecordsWhereUniqueInput
+    update: XOR<sitediaryrecordsUpdateWithoutSiteInput, sitediaryrecordsUncheckedUpdateWithoutSiteInput>
+    create: XOR<sitediaryrecordsCreateWithoutSiteInput, sitediaryrecordsUncheckedCreateWithoutSiteInput>
+  }
+
+  export type sitediaryrecordsUpdateWithWhereUniqueWithoutSiteInput = {
+    where: sitediaryrecordsWhereUniqueInput
+    data: XOR<sitediaryrecordsUpdateWithoutSiteInput, sitediaryrecordsUncheckedUpdateWithoutSiteInput>
+  }
+
+  export type sitediaryrecordsUpdateManyWithWhereWithoutSiteInput = {
+    where: sitediaryrecordsScalarWhereInput
+    data: XOR<sitediaryrecordsUpdateManyMutationInput, sitediaryrecordsUncheckedUpdateManyWithoutSiteInput>
+  }
+
   export type AIconversationUpsertWithoutSiteInput = {
     update: XOR<AIconversationUpdateWithoutSiteInput, AIconversationUncheckedUpdateWithoutSiteInput>
     create: XOR<AIconversationCreateWithoutSiteInput, AIconversationUncheckedCreateWithoutSiteInput>
@@ -15305,6 +17368,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutUserInput
     Invoices?: InvoicesCreateNestedManyWithoutUserInput
     Documents?: DocumentsCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
   }
 
@@ -15320,6 +17384,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
     Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
   }
 
@@ -15351,6 +17416,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
   }
 
@@ -15366,6 +17432,7 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
   }
 
@@ -15380,6 +17447,7 @@ export namespace Prisma {
     Site?: SiteCreateNestedManyWithoutUserInput
     posts?: PostCreateNestedManyWithoutUserInput
     Documents?: DocumentsCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
   }
@@ -15395,6 +17463,7 @@ export namespace Prisma {
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
   }
@@ -15416,6 +17485,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
   }
 
@@ -15431,6 +17501,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
   }
 
@@ -15509,6 +17580,7 @@ export namespace Prisma {
     Site?: SiteUpdateManyWithoutUserNestedInput
     posts?: PostUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
   }
@@ -15524,6 +17596,7 @@ export namespace Prisma {
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
   }
@@ -15551,6 +17624,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
   }
 
@@ -15566,6 +17640,7 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
   }
 
@@ -15596,6 +17671,7 @@ export namespace Prisma {
     Site?: SiteCreateNestedManyWithoutUserInput
     Invoices?: InvoicesCreateNestedManyWithoutUserInput
     Documents?: DocumentsCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
   }
@@ -15611,6 +17687,7 @@ export namespace Prisma {
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
   }
@@ -15632,6 +17709,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
   }
 
@@ -15647,6 +17725,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
   }
 
@@ -15677,6 +17756,7 @@ export namespace Prisma {
     Site?: SiteUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
   }
@@ -15692,6 +17772,7 @@ export namespace Prisma {
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
   }
@@ -15719,6 +17800,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
   }
 
@@ -15734,6 +17816,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
   }
 
@@ -15788,6 +17871,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutSiteInput
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
   }
 
@@ -15803,6 +17887,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutSiteInput
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
   }
 
@@ -15879,6 +17964,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutSiteNestedInput
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
   }
 
@@ -15894,6 +17980,7 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutSiteNestedInput
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
   }
 
@@ -15909,6 +17996,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutUserInput
     Invoices?: InvoicesCreateNestedManyWithoutUserInput
     Documents?: DocumentsCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
   }
 
@@ -15924,6 +18012,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
     Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
   }
 
@@ -15945,6 +18034,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
   }
 
   export type SiteUncheckedCreateWithoutAIconversationInput = {
@@ -15960,6 +18050,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
   }
 
   export type SiteCreateOrConnectWithoutAIconversationInput = {
@@ -15990,6 +18081,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
   }
 
@@ -16005,6 +18097,7 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
   }
 
@@ -16032,6 +18125,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
   }
 
   export type SiteUncheckedUpdateWithoutAIconversationInput = {
@@ -16047,6 +18141,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
   }
 
   export type UserCreateWithoutDocumentsInput = {
@@ -16060,6 +18155,7 @@ export namespace Prisma {
     Site?: SiteCreateNestedManyWithoutUserInput
     posts?: PostCreateNestedManyWithoutUserInput
     Invoices?: InvoicesCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
   }
@@ -16075,6 +18171,7 @@ export namespace Prisma {
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
     Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
   }
@@ -16096,6 +18193,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutSiteInput
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
   }
 
@@ -16111,6 +18209,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutSiteInput
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
   }
 
@@ -16141,6 +18240,7 @@ export namespace Prisma {
     Site?: SiteUpdateManyWithoutUserNestedInput
     posts?: PostUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
   }
@@ -16156,6 +18256,7 @@ export namespace Prisma {
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
   }
@@ -16183,6 +18284,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutSiteNestedInput
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
   }
 
@@ -16198,6 +18300,167 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutSiteNestedInput
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
+    AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
+  }
+
+  export type UserCreateWithoutSitediaryrecordsInput = {
+    id: string
+    email: string
+    firstName: string
+    lastName: string
+    profileImage: string
+    customerId?: string | null
+    createdAt?: Date | string
+    Site?: SiteCreateNestedManyWithoutUserInput
+    posts?: PostCreateNestedManyWithoutUserInput
+    Invoices?: InvoicesCreateNestedManyWithoutUserInput
+    Documents?: DocumentsCreateNestedManyWithoutUserInput
+    Subscription?: SubscriptionCreateNestedOneWithoutUserInput
+    AIconversation?: AIconversationCreateNestedManyWithoutUserInput
+  }
+
+  export type UserUncheckedCreateWithoutSitediaryrecordsInput = {
+    id: string
+    email: string
+    firstName: string
+    lastName: string
+    profileImage: string
+    customerId?: string | null
+    createdAt?: Date | string
+    Site?: SiteUncheckedCreateNestedManyWithoutUserInput
+    posts?: PostUncheckedCreateNestedManyWithoutUserInput
+    Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
+    Documents?: DocumentsUncheckedCreateNestedManyWithoutUserInput
+    Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
+    AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
+  }
+
+  export type UserCreateOrConnectWithoutSitediaryrecordsInput = {
+    where: UserWhereUniqueInput
+    create: XOR<UserCreateWithoutSitediaryrecordsInput, UserUncheckedCreateWithoutSitediaryrecordsInput>
+  }
+
+  export type SiteCreateWithoutSitediaryrecordsInput = {
+    id?: string
+    name: string
+    description: string
+    subdirectory: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    imageUrl?: string | null
+    User?: UserCreateNestedOneWithoutSiteInput
+    posts?: PostCreateNestedManyWithoutSiteInput
+    invoices?: InvoicesCreateNestedManyWithoutSiteInput
+    InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
+    Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
+  }
+
+  export type SiteUncheckedCreateWithoutSitediaryrecordsInput = {
+    id?: string
+    name: string
+    description: string
+    subdirectory: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    imageUrl?: string | null
+    userId?: string | null
+    posts?: PostUncheckedCreateNestedManyWithoutSiteInput
+    invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
+    InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
+    Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
+  }
+
+  export type SiteCreateOrConnectWithoutSitediaryrecordsInput = {
+    where: SiteWhereUniqueInput
+    create: XOR<SiteCreateWithoutSitediaryrecordsInput, SiteUncheckedCreateWithoutSitediaryrecordsInput>
+  }
+
+  export type UserUpsertWithoutSitediaryrecordsInput = {
+    update: XOR<UserUpdateWithoutSitediaryrecordsInput, UserUncheckedUpdateWithoutSitediaryrecordsInput>
+    create: XOR<UserCreateWithoutSitediaryrecordsInput, UserUncheckedCreateWithoutSitediaryrecordsInput>
+    where?: UserWhereInput
+  }
+
+  export type UserUpdateToOneWithWhereWithoutSitediaryrecordsInput = {
+    where?: UserWhereInput
+    data: XOR<UserUpdateWithoutSitediaryrecordsInput, UserUncheckedUpdateWithoutSitediaryrecordsInput>
+  }
+
+  export type UserUpdateWithoutSitediaryrecordsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    firstName?: StringFieldUpdateOperationsInput | string
+    lastName?: StringFieldUpdateOperationsInput | string
+    profileImage?: StringFieldUpdateOperationsInput | string
+    customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    Site?: SiteUpdateManyWithoutUserNestedInput
+    posts?: PostUpdateManyWithoutUserNestedInput
+    Invoices?: InvoicesUpdateManyWithoutUserNestedInput
+    Documents?: DocumentsUpdateManyWithoutUserNestedInput
+    Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
+    AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
+  }
+
+  export type UserUncheckedUpdateWithoutSitediaryrecordsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    firstName?: StringFieldUpdateOperationsInput | string
+    lastName?: StringFieldUpdateOperationsInput | string
+    profileImage?: StringFieldUpdateOperationsInput | string
+    customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
+    posts?: PostUncheckedUpdateManyWithoutUserNestedInput
+    Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
+    Documents?: DocumentsUncheckedUpdateManyWithoutUserNestedInput
+    Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
+    AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
+  }
+
+  export type SiteUpsertWithoutSitediaryrecordsInput = {
+    update: XOR<SiteUpdateWithoutSitediaryrecordsInput, SiteUncheckedUpdateWithoutSitediaryrecordsInput>
+    create: XOR<SiteCreateWithoutSitediaryrecordsInput, SiteUncheckedCreateWithoutSitediaryrecordsInput>
+    where?: SiteWhereInput
+  }
+
+  export type SiteUpdateToOneWithWhereWithoutSitediaryrecordsInput = {
+    where?: SiteWhereInput
+    data: XOR<SiteUpdateWithoutSitediaryrecordsInput, SiteUncheckedUpdateWithoutSitediaryrecordsInput>
+  }
+
+  export type SiteUpdateWithoutSitediaryrecordsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: StringFieldUpdateOperationsInput | string
+    subdirectory?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    User?: UserUpdateOneWithoutSiteNestedInput
+    posts?: PostUpdateManyWithoutSiteNestedInput
+    invoices?: InvoicesUpdateManyWithoutSiteNestedInput
+    InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
+    Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
+  }
+
+  export type SiteUncheckedUpdateWithoutSitediaryrecordsInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: StringFieldUpdateOperationsInput | string
+    subdirectory?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    posts?: PostUncheckedUpdateManyWithoutSiteNestedInput
+    invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
+    InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
+    Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
   }
 
@@ -16248,6 +18511,20 @@ export namespace Prisma {
     siteId?: string | null
   }
 
+  export type sitediaryrecordsCreateManyUserInput = {
+    id?: string
+    siteId?: string | null
+    Date?: Date | string | null
+    Location?: string | null
+    Works?: string | null
+    Comments?: string | null
+    Units?: string | null
+    Amounts?: number | null
+    WorkersInvolved?: number | null
+    TimeInvolved?: number | null
+    Photos?: sitediaryrecordsCreatePhotosInput | string[]
+  }
+
   export type AIconversationCreateManyUserInput = {
     id?: string
     thread?: NullableJsonNullValueInput | InputJsonValue
@@ -16266,6 +18543,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
   }
 
@@ -16281,6 +18559,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
   }
 
@@ -16407,6 +18686,48 @@ export namespace Prisma {
     siteId?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
+  export type sitediaryrecordsUpdateWithoutUserInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
+    Site?: SiteUpdateOneWithoutSitediaryrecordsNestedInput
+  }
+
+  export type sitediaryrecordsUncheckedUpdateWithoutUserInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
+  }
+
+  export type sitediaryrecordsUncheckedUpdateManyWithoutUserInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
+  }
+
   export type AIconversationUpdateWithoutUserInput = {
     id?: StringFieldUpdateOperationsInput | string
     thread?: NullableJsonNullValueInput | InputJsonValue
@@ -16479,6 +18800,20 @@ export namespace Prisma {
     documentName: string
     description: string
     userId?: string | null
+  }
+
+  export type sitediaryrecordsCreateManySiteInput = {
+    id?: string
+    userId?: string | null
+    Date?: Date | string | null
+    Location?: string | null
+    Works?: string | null
+    Comments?: string | null
+    Units?: string | null
+    Amounts?: number | null
+    WorkersInvolved?: number | null
+    TimeInvolved?: number | null
+    Photos?: sitediaryrecordsCreatePhotosInput | string[]
   }
 
   export type PostUpdateWithoutSiteInput = {
@@ -16649,6 +18984,48 @@ export namespace Prisma {
     documentName?: StringFieldUpdateOperationsInput | string
     description?: StringFieldUpdateOperationsInput | string
     userId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type sitediaryrecordsUpdateWithoutSiteInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
+    User?: UserUpdateOneWithoutSitediaryrecordsNestedInput
+  }
+
+  export type sitediaryrecordsUncheckedUpdateWithoutSiteInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
+  }
+
+  export type sitediaryrecordsUncheckedUpdateManyWithoutSiteInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    Works?: NullableStringFieldUpdateOperationsInput | string | null
+    Comments?: NullableStringFieldUpdateOperationsInput | string | null
+    Units?: NullableStringFieldUpdateOperationsInput | string | null
+    Amounts?: NullableFloatFieldUpdateOperationsInput | number | null
+    WorkersInvolved?: NullableIntFieldUpdateOperationsInput | number | null
+    TimeInvolved?: NullableFloatFieldUpdateOperationsInput | number | null
+    Photos?: sitediaryrecordsUpdatePhotosInput | string[]
   }
 
   export type InvoiceItemsCreateManyInvoiceInput = {

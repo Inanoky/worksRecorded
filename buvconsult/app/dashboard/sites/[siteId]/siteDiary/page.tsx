@@ -2,11 +2,17 @@
 
 
 
-export default function Home() {
+import SiteDiaryCalendar from "@/components/SiteDiaryComponents/Calendar";
+import {use} from "react";
 
+export default function Home({params}:
+            {params: Promise<{siteId:string}>
+            }){
+
+    const {siteId} = use(params)
   return (
       <>
-      <h1>Under development</h1>
+      <SiteDiaryCalendar siteId={siteId}/>
       </>
   )
 }

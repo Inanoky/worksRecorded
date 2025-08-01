@@ -26,10 +26,11 @@ model User {
 
   createdAt DateTime @default(now())
 
-  Site      Site[]
-  posts     Post[]
-  Invoices  Invoices[]
-  Documents Documents[]
+  Site             Site[]
+  posts            Post[]
+  Invoices         Invoices[]
+  Documents        Documents[]
+  sitediaryrecords sitediaryrecords[] // one user can have many site diary records
 
   Subscription   Subscription?
   AIconversation AIconversation[] // User can have many conversations
@@ -43,14 +44,15 @@ model Site {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  imageUrl       String?
-  User           User?           @relation(fields: [userId], references: [id])
-  userId         String?
-  posts          Post[]
-  invoices       Invoices[]
-  InvoiceItems   InvoiceItems[]
-  Documents      Documents[]
-  AIconversation AIconversation? // Site can have one conversation
+  imageUrl         String?
+  User             User?              @relation(fields: [userId], references: [id])
+  userId           String?
+  posts            Post[]
+  invoices         Invoices[]
+  InvoiceItems     InvoiceItems[]
+  Documents        Documents[]
+  sitediaryrecords sitediaryrecords[] // one site can have many site diary records
+  AIconversation   AIconversation? // Site can have one conversation
 }
 
 model Subscription {
@@ -156,4 +158,21 @@ model Documents {
   userId       String?
   Site         Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade) // 06:16 - onDelete added
   siteId       String?
+}
+
+model sitediaryrecords {
+  id              String    @id @default(uuid())
+  User            User?     @relation(fields: [userId], references: [id])
+  userId          String?
+  Site            Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade) // 06:16 - onDelete added
+  siteId          String?
+  Date            DateTime?
+  Location        String?
+  Works           String?
+  Comments        String?
+  Units           String?
+  Amounts         Float?
+  WorkersInvolved Int?
+  TimeInvolved    Float?
+  Photos          String[]
 }
