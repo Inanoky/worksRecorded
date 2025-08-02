@@ -31,11 +31,6 @@ export default function SiteDiaryCalendar({ siteId }) {
 
   //This is helper to reload calendar on save
 
-  const reloadFilledDays = React.useCallback(() => {
-  if (!siteId) return setFilledDays([]);
-  getFilledDays({ siteId, year: currentYear, month: currentMonth }).then(setFilledDays);
-}, [siteId, currentMonth, currentYear]);
-
 
 
 
@@ -50,6 +45,14 @@ export default function SiteDiaryCalendar({ siteId }) {
 
   const weeks = getCalendarGrid(currentYear, currentMonth);
   const monthName = new Date(currentYear, currentMonth).toLocaleString("default", { month: "long" });
+
+  //This is some helper to reload calendar when sabed
+    const reloadFilledDays = React.useCallback(() => {
+  if (!siteId) return setFilledDays([]);
+  getFilledDays({ siteId, year: currentYear, month: currentMonth }).then(setFilledDays);
+}, [siteId, currentMonth, currentYear]);
+
+
 
   // --- Fetch filled days whenever month/year/siteId changes ---
   React.useEffect(() => {
@@ -119,7 +122,13 @@ export default function SiteDiaryCalendar({ siteId }) {
           ))
         )}
       </div>
-      <DialogWindow open={dialogOpen} setOpen={setDialogOpen} date={date} siteId={siteId}>
+      <DialogWindow
+          open={dialogOpen}
+          setOpen={setDialogOpen}
+          date={date}
+          siteId={siteId}
+          onSaved={reloadFilledDays}
+                   >
         <div className="grid gap-3">
           {/* Your dialog content here */}
         </div>

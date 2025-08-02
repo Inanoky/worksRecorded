@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import {DialogTable} from "@/components/SiteDiaryComponents/DiealogueTable";
 
 // No internal open state! Use only props!
-export default function DialogWindow({ open, setOpen, children, date, siteId}) {
+export default function DialogWindow({ open, setOpen, children, date, siteId, onSaved}) {
   return (
 
     <Dialog  open={open} onOpenChange={setOpen}>
@@ -31,7 +31,16 @@ export default function DialogWindow({ open, setOpen, children, date, siteId}) {
 
 
 
-            <DialogTable date={date} siteId={siteId}/>
+            <DialogTable
+                date={date}
+                siteId={siteId}
+                onSaved={() => {
+                onSaved && onSaved(); // call parent's refresh
+                setOpen(false);       // close dialog
+              }}
+
+
+            />
 
         </div>
           <div className="mt-4 flex justify-end">

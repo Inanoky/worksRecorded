@@ -17,9 +17,10 @@ import {Label} from "@/components/ui/label";
 import {getSiteDiaryRecords, saveSiteDiaryRecords} from "@/app/siteDiaryActions";
 import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
 import { toast } from "sonner";
+import {deleteSiteDiaryRecord} from "@/app/siteDiaryActions";
 
 
-export function DialogTable({ date, siteId }) {
+export function DialogTable({ date, siteId, onSaved}) {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([
     {
@@ -56,9 +57,17 @@ export function DialogTable({ date, siteId }) {
     ]);
   };
 
-  const handleDeleteRow = (id) => {
+  const handleDeleteRow = async (id) => {
+  const row = rows.find(r => r.id === id);
+  if (row && typeof id === "string" && id.length > 10) { // crude UUID check
+    await deleteSiteDiaryRecord({ id });
+    toast.success("Record deleted!");
+    // Optionally, reload rows from DB here
+    if (onSaved) onSaved(); // trigger parent reload
+  } else {
     setRows(rows.filter((row) => row.id !== id));
-  };
+  }
+};
 
   const handleChange = (id, field, value) => {
     setRows((prev) =>
@@ -80,6 +89,7 @@ export function DialogTable({ date, siteId }) {
 
 
     toast.success("Record saved!");
+    if (onSaved) onSaved()
   };
 
   useEffect(() => {
@@ -121,6 +131,12 @@ export function DialogTable({ date, siteId }) {
     };
   }, [date, siteId]);
 
+
+  // Here comes the getting settings for location/works
+
+
+
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[300px]">
@@ -128,6 +144,10 @@ export function DialogTable({ date, siteId }) {
       </div>
     );
   }
+
+
+
+
 
     return (
         <form className="grid gap-3" onSubmit={handleSubmit}>
@@ -238,7 +258,7 @@ export function DialogTable({ date, siteId }) {
                       </TableCell>
                       <TableCell className="text-center">
                         <Textarea
-                            className="w-[500px] h-[75px]"
+                            className="w-full h-[75px]"
                             value={row.comments}
                             onChange={(e) =>
                                 handleChange(row.id, "comments", e.target.value)

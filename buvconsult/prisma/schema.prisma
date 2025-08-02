@@ -32,8 +32,9 @@ model User {
   Documents        Documents[]
   sitediaryrecords sitediaryrecords[] // one user can have many site diary records
 
-  Subscription   Subscription?
-  AIconversation AIconversation[] // User can have many conversations
+  Subscription      Subscription?
+  AIconversation    AIconversation[] // User can have many conversations
+  sitediarysettings sitediarysettings[]
 }
 
 model Site {
@@ -44,15 +45,16 @@ model Site {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  imageUrl         String?
-  User             User?              @relation(fields: [userId], references: [id])
-  userId           String?
-  posts            Post[]
-  invoices         Invoices[]
-  InvoiceItems     InvoiceItems[]
-  Documents        Documents[]
-  sitediaryrecords sitediaryrecords[] // one site can have many site diary records
-  AIconversation   AIconversation? // Site can have one conversation
+  imageUrl          String?
+  User              User?              @relation(fields: [userId], references: [id])
+  userId            String?
+  posts             Post[]
+  invoices          Invoices[]
+  InvoiceItems      InvoiceItems[]
+  Documents         Documents[]
+  sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
+  AIconversation    AIconversation? // Site can have one conversation
+  sitediarysettings sitediarysettings?
 }
 
 model Subscription {
@@ -175,4 +177,14 @@ model sitediaryrecords {
   WorkersInvolved Int?
   TimeInvolved    Float?
   Photos          String[]
+}
+
+model sitediarysettings {
+  id      String  @id @default(uuid())
+  User    User?   @relation(fields: [userId], references: [id])
+  userId  String?
+  fileUrl String?
+  Site    Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId  String? @unique // <- Only one settings per site
+  schema  String?
 }

@@ -130,3 +130,52 @@ export async function getSiteDiaryRecords({ siteId, date }) {
     comments: rec.Comments || "",
   }));
 }
+
+
+
+//Delete functionality
+
+
+
+export async function deleteSiteDiaryRecord({ id }: { id: string }) {
+  // id is the Prisma row ID (UUID)
+  await prisma.sitediaryrecords.delete({
+    where: { id },
+  });
+  return { success: true };
+}
+
+export async function saveSettingsToDB(formData: FormData) {
+  // Parse input
+  const siteId = formData.get("siteId") as string;
+  // Accepts either a stringified array or a single URL string
+  let urls = formData.get("fileUrls");
+  let fileUrl = "";
+
+  if (Array.isArray(urls)) {
+    fileUrl = urls[0] || "";
+  } else if (typeof urls === "string") {
+    try {
+      // Try to parse as JSON array first
+      const parsed = JSON.parse(urls);
+      fileUrl = Array.isArray(parsed) ? parsed[0] : parsed;
+    } catch {
+      fileUrl = urls;
+    }
+  }
+
+  if (!siteId || !fileUrl) {
+    throw new Error("Missing siteId or fileUrl");
+  }
+
+  // Upsert (create or update) sitediarysettings
+  await prisma.sitediarysettings.upsert({
+    where: { siteId },
+    update: { fileUrl },
+    create: { siteId, fileUrl },
+  });
+
+  return { success: true, siteId, fileUrl };
+}
+
+

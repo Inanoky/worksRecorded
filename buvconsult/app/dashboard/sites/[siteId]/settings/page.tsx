@@ -12,6 +12,7 @@ import {DeleteSite} from "@/app/actions";
 import {updateSiteAction} from "@/app/actions";
 import {prisma} from "@/app/utils/db";
 import DocumentUpload from "@/components/DocumentsUpload";
+import XslxUpload from "@/components/XlsxUpload";
 
 export default async function SettingsSiteRoute({ params }: { params: Promise<{ siteId: string }> }) {
     const { siteId } = await params;
@@ -111,6 +112,17 @@ export default async function SettingsSiteRoute({ params }: { params: Promise<{ 
                 </CardHeader>
 
                       <DocumentUpload params={Promise.resolve({siteId})}/>
+            </Card>
+
+             <Card>
+                <CardHeader>
+
+                    <CardTitle>
+                    xlsx here
+                    </CardTitle>
+                </CardHeader>
+
+                      <XslxUpload params={Promise.resolve({siteId})}/>
             </Card>
             {/* Danger Card */}
             <Card className="border-red-500 bg-red-500/10">

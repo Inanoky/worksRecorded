@@ -235,6 +235,14 @@ exports.Prisma.SitediaryrecordsScalarFieldEnum = {
   Photos: 'Photos'
 };
 
+exports.Prisma.SitediarysettingsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  fileUrl: 'fileUrl',
+  siteId: 'siteId',
+  schema: 'schema'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -275,7 +283,8 @@ exports.Prisma.ModelName = {
   InvoiceItems: 'InvoiceItems',
   AIconversation: 'AIconversation',
   Documents: 'Documents',
-  sitediaryrecords: 'sitediaryrecords'
+  sitediaryrecords: 'sitediaryrecords',
+  sitediarysettings: 'sitediarysettings'
 };
 
 /**
