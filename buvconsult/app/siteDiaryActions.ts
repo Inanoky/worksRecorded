@@ -179,3 +179,11 @@ export async function saveSettingsToDB(formData: FormData) {
 }
 
 
+export async function getSiteDiarySchema({ siteId }) {
+  if (!siteId) return null;
+  const settings = await prisma.sitediarysettings.findUnique({
+    where: { siteId },
+    select: { schema: true },
+  });
+  return settings?.schema ? JSON.parse(settings.schema) : null;
+}

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {DialogTable} from "@/components/SiteDiaryComponents/DiealogueTable";
+import {PhotoGalleryGrid} from "@/components/SiteDiaryComponents/PhotoGallery";
 
 // No internal open state! Use only props!
 export default function DialogWindow({ open, setOpen, children, date, siteId, onSaved}) {
@@ -47,7 +48,7 @@ export default function DialogWindow({ open, setOpen, children, date, siteId, on
 
 
           </div>
-
+            
 
           <DialogFooter>
 

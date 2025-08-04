@@ -14,13 +14,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import {Label} from "@/components/ui/label";
-import {getSiteDiaryRecords, saveSiteDiaryRecords} from "@/app/siteDiaryActions";
+import {getSiteDiaryRecords, getSiteDiarySchema, saveSiteDiaryRecords} from "@/app/siteDiaryActions";
 import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
 import { toast } from "sonner";
 import {deleteSiteDiaryRecord} from "@/app/siteDiaryActions";
 
 
+export function useSiteSchema(siteId) {
+  const [schema, setSchema] = useState(null);
+  useEffect(() => {
+    getSiteDiarySchema({ siteId }).then(setSchema);
+  }, [siteId]);
+  console.log(schema)
+  return schema;
+}
+
+
 export function DialogTable({ date, siteId, onSaved}) {
+  const schema = useSiteSchema(siteId);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([
     {
@@ -37,8 +48,7 @@ export function DialogTable({ date, siteId, onSaved}) {
   ]);
 
   // Example options, replace as needed
-  const locationOptions = ["Site A", "Site B", "Site C"];
-  const workOptions = ["Excavation", "Concrete", "Finishing"];
+
 
   const handleAddRow = () => {
     setRows([
@@ -78,19 +88,26 @@ export function DialogTable({ date, siteId, onSaved}) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    await saveSiteDiaryRecords({
-      rows,
-      siteId: siteId  // from context
-    });
+  // Map over rows, replace code with name
+  const rowsToSave = rows.map(row => {
+    const locationNode = schema.find(node => node.code === row.location);
+    return {
+      ...row,
+      date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date,
+      location: locationNode?.name ?? "", // Replace code with name
+    };
+  });
 
-    // Do what you want with the form data
+  await saveSiteDiaryRecords({
+    rows: rowsToSave,
+    siteId: siteId,
+  });
 
-
-    toast.success("Record saved!");
-    if (onSaved) onSaved()
-  };
+  toast.success("Record saved!");
+  if (onSaved) onSaved();
+};
 
   useEffect(() => {
     let cancelled = false;
@@ -133,6 +150,30 @@ export function DialogTable({ date, siteId, onSaved}) {
 
 
   // Here comes the getting settings for location/works
+  function findLocationByCode(schema, code) {
+  return schema?.find(node => node.code === code);
+}
+
+function collectWorks(node, prefix = "") {
+  let options = [];
+  if (node.type === "Work") {
+    options.push({
+      value: node.code,
+      label: prefix ? `${prefix} / ${node.name}` : node.name
+    });
+  }
+  if (node.children) {
+    for (const child of node.children) {
+      options = options.concat(
+        collectWorks(child, node.type === "Work"
+          ? (prefix ? `${prefix} / ${node.name}` : node.name)
+          : prefix
+        )
+      );
+    }
+  }
+  return options;
+}
 
 
 
@@ -181,40 +222,46 @@ export function DialogTable({ date, siteId, onSaved}) {
                       <TableCell>
                         <Select
                             value={row.location}
-                            onValueChange={(val) =>
-                                handleChange(row.id, "location", val)
-                            }
-                        >
-                          <SelectTrigger className="w-[110px]">
-                            <SelectValue placeholder="Select"/>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {locationOptions.map((opt) => (
-                                <SelectItem value={opt} key={opt}>
-                                  {opt}
-                                </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                            onValueChange={(val) => handleChange(row.id, "location", val)}
+                          >
+                            <SelectTrigger className="w-[110px]">
+                              <SelectValue placeholder="Select" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {schema &&
+                                schema
+                                  .filter(node => node.type === "Location")
+                                  .map(loc => (
+                                    <SelectItem value={loc.code} key={loc.code}>
+                                      {loc.name}
+                                    </SelectItem>
+                                  ))}
+                            </SelectContent>
+                          </Select>
                       </TableCell>
                       <TableCell>
-                        <Select
-                            value={row.works}
-                            onValueChange={(val) =>
-                                handleChange(row.id, "works", val)
-                            }
-                        >
-                          <SelectTrigger className="w-[110px]">
-                            <SelectValue placeholder="Select"/>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {workOptions.map((opt) => (
-                                <SelectItem value={opt} key={opt}>
-                                  {opt}
-                                </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {/** Get the selected location node for this row **/}
+                          {(() => {
+                            const selectedLocation = schema && findLocationByCode(schema, row.location);
+                            const dynamicWorkOptions = selectedLocation ? collectWorks(selectedLocation) : [];
+                            return (
+                              <Select
+                                value={row.works}
+                                onValueChange={(val) => handleChange(row.id, "works", val)}
+                              >
+                                <SelectTrigger className="w-[110px]">
+                                  <SelectValue placeholder="Select" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {dynamicWorkOptions.map(opt => (
+                                    <SelectItem value={opt.label} key={opt.value}>
+                                      {opt.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            );
+                          })()}
                       </TableCell>
                       <TableCell className="text-right">
                         <Input
