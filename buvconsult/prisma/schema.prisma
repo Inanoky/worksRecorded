@@ -17,12 +17,14 @@ datasource db {
 }
 
 model User {
-  id           String  @id @unique
-  email        String
-  firstName    String
-  lastName     String
-  profileImage String
-  customerId   String? @unique
+  id                            String  @id @unique
+  email                         String
+  phone                         String?
+  firstName                     String
+  lastName                      String
+  profileImage                  String
+  customerId                    String? @unique
+  lastSelectedSiteIdforWhatsapp String? // <-- add this field!
 
   createdAt DateTime @default(now())
 
