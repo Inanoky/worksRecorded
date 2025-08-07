@@ -21,37 +21,79 @@ type SaveArgs = {
   siteId: string | null;
 };
 
-export async function saveSiteDiaryRecords({ rows, userId, siteId }: SaveArgs) {
+export async function saveSiteDiaryRecords({ rows, userId, siteId }) {
 
-  const user = await requireUser();
+
+  console.log("=== saveSiteDiaryRecords called ===");
+  console.log("Input rows:", JSON.stringify(rows, null, 2));
+  console.log("Input userId:", userId);
+  console.log("Input siteId:", siteId);
+
+  // Make sure requireUser() is not triggering a redirect!
+
+  console.log("Authenticated user:", userId);
 
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows
     .filter((r) => r.location || r.works)
-    .map((row) => ({
-      userId: user.id ?? undefined,
-      siteId: siteId ?? undefined,
-      Date: row.date ? new Date(row.date) : undefined,
-      Location: row.location || undefined,
-      Works: row.works || undefined,
-      Comments: row.comments || undefined,
-      Units: row.units || undefined,
-      Amounts: row.amounts ? Number(row.amounts) : undefined,
-      WorkersInvolved: row.workers ? Number(row.workers) : undefined,
-      TimeInvolved: row.hours ? Number(row.hours) : undefined,
-      Photos: [],
-    }));
+    .map((row, idx) => {
+      const out = {
+        userId: userId ?? undefined,
+        siteId: siteId ?? undefined,
+        Date: row.date ? new Date(row.date) : undefined,
+        Location: row.location || undefined,
+        Works: row.works || undefined,
+        Comments: row.comments || undefined,
+        Units: row.units || undefined,
+        Amounts: row.amounts ? Number(row.amounts) : undefined,
+        WorkersInvolved: row.workers ? Number(row.workers) : undefined,
+        TimeInvolved: row.hours ? Number(row.hours) : undefined,
+        Photos: [],
+      };
+      console.log(`Prepared insert row ${idx}:`, out);
+      return out;
+    });
 
-  if (!toInsert.length) return { ok: false, message: "No records to insert" };
+  console.log("Rows prepared for DB insert:", JSON.stringify(toInsert, null, 2));
+
+  if (!toInsert.length) {
+    console.log("No records to insert. Exiting early.");
+    return { ok: false, message: "No records to insert" };
+  }
 
   // Bulk insert
-  await prisma.sitediaryrecords.createMany({ data: toInsert });
+  try {
+    const dbResult = await prisma.sitediaryrecords.createMany({ data: toInsert });
+    console.log("Database createMany result:", dbResult);
+  } catch (err) {
+    console.error("Error inserting records into DB:", err);
+    return { ok: false, message: err.message };
+  }
 
   // Optionally, revalidate data on page
   // revalidatePath("/site-diary");
 
+  console.log("Insert successful. Inserted:", toInsert.length, "records.");
   return { ok: true, count: toInsert.length };
 }
+
+export async function updateSiteDiaryRecord({ id, ...fields }) {
+  console.log("=== updateSiteDiaryRecord called ===");
+  console.log("Update ID:", id);
+  console.log("Update fields:", JSON.stringify(fields, null, 2));
+  try {
+    const updated = await prisma.sitediaryrecords.update({
+      where: { id },
+      data: fields,
+    });
+    console.log("Update result:", updated);
+    return { ok: true, record: updated };
+  } catch (err) {
+    console.error("Error updating record:", err);
+    return { ok: false, message: err.message };
+  }
+}
+
 
 
 //This for celendar

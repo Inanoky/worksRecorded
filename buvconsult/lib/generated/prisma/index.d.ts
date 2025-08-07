@@ -1883,30 +1883,36 @@ export namespace Prisma {
   export type UserMinAggregateOutputType = {
     id: string | null
     email: string | null
+    phone: string | null
     firstName: string | null
     lastName: string | null
     profileImage: string | null
     customerId: string | null
+    lastSelectedSiteIdforWhatsapp: string | null
     createdAt: Date | null
   }
 
   export type UserMaxAggregateOutputType = {
     id: string | null
     email: string | null
+    phone: string | null
     firstName: string | null
     lastName: string | null
     profileImage: string | null
     customerId: string | null
+    lastSelectedSiteIdforWhatsapp: string | null
     createdAt: Date | null
   }
 
   export type UserCountAggregateOutputType = {
     id: number
     email: number
+    phone: number
     firstName: number
     lastName: number
     profileImage: number
     customerId: number
+    lastSelectedSiteIdforWhatsapp: number
     createdAt: number
     _all: number
   }
@@ -1915,30 +1921,36 @@ export namespace Prisma {
   export type UserMinAggregateInputType = {
     id?: true
     email?: true
+    phone?: true
     firstName?: true
     lastName?: true
     profileImage?: true
     customerId?: true
+    lastSelectedSiteIdforWhatsapp?: true
     createdAt?: true
   }
 
   export type UserMaxAggregateInputType = {
     id?: true
     email?: true
+    phone?: true
     firstName?: true
     lastName?: true
     profileImage?: true
     customerId?: true
+    lastSelectedSiteIdforWhatsapp?: true
     createdAt?: true
   }
 
   export type UserCountAggregateInputType = {
     id?: true
     email?: true
+    phone?: true
     firstName?: true
     lastName?: true
     profileImage?: true
     customerId?: true
+    lastSelectedSiteIdforWhatsapp?: true
     createdAt?: true
     _all?: true
   }
@@ -2018,10 +2030,12 @@ export namespace Prisma {
   export type UserGroupByOutputType = {
     id: string
     email: string
+    phone: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId: string | null
+    lastSelectedSiteIdforWhatsapp: string | null
     createdAt: Date
     _count: UserCountAggregateOutputType | null
     _min: UserMinAggregateOutputType | null
@@ -2045,10 +2059,12 @@ export namespace Prisma {
   export type UserSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     email?: boolean
+    phone?: boolean
     firstName?: boolean
     lastName?: boolean
     profileImage?: boolean
     customerId?: boolean
+    lastSelectedSiteIdforWhatsapp?: boolean
     createdAt?: boolean
     Site?: boolean | User$SiteArgs<ExtArgs>
     posts?: boolean | User$postsArgs<ExtArgs>
@@ -2064,34 +2080,40 @@ export namespace Prisma {
   export type UserSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     email?: boolean
+    phone?: boolean
     firstName?: boolean
     lastName?: boolean
     profileImage?: boolean
     customerId?: boolean
+    lastSelectedSiteIdforWhatsapp?: boolean
     createdAt?: boolean
   }, ExtArgs["result"]["user"]>
 
   export type UserSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
     id?: boolean
     email?: boolean
+    phone?: boolean
     firstName?: boolean
     lastName?: boolean
     profileImage?: boolean
     customerId?: boolean
+    lastSelectedSiteIdforWhatsapp?: boolean
     createdAt?: boolean
   }, ExtArgs["result"]["user"]>
 
   export type UserSelectScalar = {
     id?: boolean
     email?: boolean
+    phone?: boolean
     firstName?: boolean
     lastName?: boolean
     profileImage?: boolean
     customerId?: boolean
+    lastSelectedSiteIdforWhatsapp?: boolean
     createdAt?: boolean
   }
 
-  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "firstName" | "lastName" | "profileImage" | "customerId" | "createdAt", ExtArgs["result"]["user"]>
+  export type UserOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "phone" | "firstName" | "lastName" | "profileImage" | "customerId" | "lastSelectedSiteIdforWhatsapp" | "createdAt", ExtArgs["result"]["user"]>
   export type UserInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     Site?: boolean | User$SiteArgs<ExtArgs>
     posts?: boolean | User$postsArgs<ExtArgs>
@@ -2121,10 +2143,12 @@ export namespace Prisma {
     scalars: $Extensions.GetPayloadResult<{
       id: string
       email: string
+      phone: string | null
       firstName: string
       lastName: string
       profileImage: string
       customerId: string | null
+      lastSelectedSiteIdforWhatsapp: string | null
       createdAt: Date
     }, ExtArgs["result"]["user"]>
     composites: {}
@@ -2559,10 +2583,12 @@ export namespace Prisma {
   interface UserFieldRefs {
     readonly id: FieldRef<"User", 'String'>
     readonly email: FieldRef<"User", 'String'>
+    readonly phone: FieldRef<"User", 'String'>
     readonly firstName: FieldRef<"User", 'String'>
     readonly lastName: FieldRef<"User", 'String'>
     readonly profileImage: FieldRef<"User", 'String'>
     readonly customerId: FieldRef<"User", 'String'>
+    readonly lastSelectedSiteIdforWhatsapp: FieldRef<"User", 'String'>
     readonly createdAt: FieldRef<"User", 'DateTime'>
   }
     
@@ -13936,10 +13962,12 @@ export namespace Prisma {
   export const UserScalarFieldEnum: {
     id: 'id',
     email: 'email',
+    phone: 'phone',
     firstName: 'firstName',
     lastName: 'lastName',
     profileImage: 'profileImage',
     customerId: 'customerId',
+    lastSelectedSiteIdforWhatsapp: 'lastSelectedSiteIdforWhatsapp',
     createdAt: 'createdAt'
   };
 
@@ -14225,10 +14253,12 @@ export namespace Prisma {
     NOT?: UserWhereInput | UserWhereInput[]
     id?: StringFilter<"User"> | string
     email?: StringFilter<"User"> | string
+    phone?: StringNullableFilter<"User"> | string | null
     firstName?: StringFilter<"User"> | string
     lastName?: StringFilter<"User"> | string
     profileImage?: StringFilter<"User"> | string
     customerId?: StringNullableFilter<"User"> | string | null
+    lastSelectedSiteIdforWhatsapp?: StringNullableFilter<"User"> | string | null
     createdAt?: DateTimeFilter<"User"> | Date | string
     Site?: SiteListRelationFilter
     posts?: PostListRelationFilter
@@ -14243,10 +14273,12 @@ export namespace Prisma {
   export type UserOrderByWithRelationInput = {
     id?: SortOrder
     email?: SortOrder
+    phone?: SortOrderInput | SortOrder
     firstName?: SortOrder
     lastName?: SortOrder
     profileImage?: SortOrder
     customerId?: SortOrderInput | SortOrder
+    lastSelectedSiteIdforWhatsapp?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     Site?: SiteOrderByRelationAggregateInput
     posts?: PostOrderByRelationAggregateInput
@@ -14265,9 +14297,11 @@ export namespace Prisma {
     OR?: UserWhereInput[]
     NOT?: UserWhereInput | UserWhereInput[]
     email?: StringFilter<"User"> | string
+    phone?: StringNullableFilter<"User"> | string | null
     firstName?: StringFilter<"User"> | string
     lastName?: StringFilter<"User"> | string
     profileImage?: StringFilter<"User"> | string
+    lastSelectedSiteIdforWhatsapp?: StringNullableFilter<"User"> | string | null
     createdAt?: DateTimeFilter<"User"> | Date | string
     Site?: SiteListRelationFilter
     posts?: PostListRelationFilter
@@ -14282,10 +14316,12 @@ export namespace Prisma {
   export type UserOrderByWithAggregationInput = {
     id?: SortOrder
     email?: SortOrder
+    phone?: SortOrderInput | SortOrder
     firstName?: SortOrder
     lastName?: SortOrder
     profileImage?: SortOrder
     customerId?: SortOrderInput | SortOrder
+    lastSelectedSiteIdforWhatsapp?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     _count?: UserCountOrderByAggregateInput
     _max?: UserMaxOrderByAggregateInput
@@ -14298,10 +14334,12 @@ export namespace Prisma {
     NOT?: UserScalarWhereWithAggregatesInput | UserScalarWhereWithAggregatesInput[]
     id?: StringWithAggregatesFilter<"User"> | string
     email?: StringWithAggregatesFilter<"User"> | string
+    phone?: StringNullableWithAggregatesFilter<"User"> | string | null
     firstName?: StringWithAggregatesFilter<"User"> | string
     lastName?: StringWithAggregatesFilter<"User"> | string
     profileImage?: StringWithAggregatesFilter<"User"> | string
     customerId?: StringNullableWithAggregatesFilter<"User"> | string | null
+    lastSelectedSiteIdforWhatsapp?: StringNullableWithAggregatesFilter<"User"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"User"> | Date | string
   }
 
@@ -15062,10 +15100,12 @@ export namespace Prisma {
   export type UserCreateInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteCreateNestedManyWithoutUserInput
     posts?: PostCreateNestedManyWithoutUserInput
@@ -15080,10 +15120,12 @@ export namespace Prisma {
   export type UserUncheckedCreateInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
@@ -15098,10 +15140,12 @@ export namespace Prisma {
   export type UserUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUpdateManyWithoutUserNestedInput
     posts?: PostUpdateManyWithoutUserNestedInput
@@ -15116,10 +15160,12 @@ export namespace Prisma {
   export type UserUncheckedUpdateInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
@@ -15134,30 +15180,36 @@ export namespace Prisma {
   export type UserCreateManyInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
   }
 
   export type UserUpdateManyMutationInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
   export type UserUncheckedUpdateManyInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -16092,30 +16144,36 @@ export namespace Prisma {
   export type UserCountOrderByAggregateInput = {
     id?: SortOrder
     email?: SortOrder
+    phone?: SortOrder
     firstName?: SortOrder
     lastName?: SortOrder
     profileImage?: SortOrder
     customerId?: SortOrder
+    lastSelectedSiteIdforWhatsapp?: SortOrder
     createdAt?: SortOrder
   }
 
   export type UserMaxOrderByAggregateInput = {
     id?: SortOrder
     email?: SortOrder
+    phone?: SortOrder
     firstName?: SortOrder
     lastName?: SortOrder
     profileImage?: SortOrder
     customerId?: SortOrder
+    lastSelectedSiteIdforWhatsapp?: SortOrder
     createdAt?: SortOrder
   }
 
   export type UserMinOrderByAggregateInput = {
     id?: SortOrder
     email?: SortOrder
+    phone?: SortOrder
     firstName?: SortOrder
     lastName?: SortOrder
     profileImage?: SortOrder
     customerId?: SortOrder
+    lastSelectedSiteIdforWhatsapp?: SortOrder
     createdAt?: SortOrder
   }
 
@@ -18534,10 +18592,12 @@ export namespace Prisma {
   export type UserCreateWithoutSiteInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     posts?: PostCreateNestedManyWithoutUserInput
     Invoices?: InvoicesCreateNestedManyWithoutUserInput
@@ -18551,10 +18611,12 @@ export namespace Prisma {
   export type UserUncheckedCreateWithoutSiteInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
     Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
@@ -18812,10 +18874,12 @@ export namespace Prisma {
   export type UserUpdateWithoutSiteInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     posts?: PostUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUpdateManyWithoutUserNestedInput
@@ -18829,10 +18893,12 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutSiteInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
@@ -18997,10 +19063,12 @@ export namespace Prisma {
   export type UserCreateWithoutSubscriptionInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteCreateNestedManyWithoutUserInput
     posts?: PostCreateNestedManyWithoutUserInput
@@ -19014,10 +19082,12 @@ export namespace Prisma {
   export type UserUncheckedCreateWithoutSubscriptionInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
@@ -19047,10 +19117,12 @@ export namespace Prisma {
   export type UserUpdateWithoutSubscriptionInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUpdateManyWithoutUserNestedInput
     posts?: PostUpdateManyWithoutUserNestedInput
@@ -19064,10 +19136,12 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutSubscriptionInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
@@ -19081,10 +19155,12 @@ export namespace Prisma {
   export type UserCreateWithoutInvoicesInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteCreateNestedManyWithoutUserInput
     posts?: PostCreateNestedManyWithoutUserInput
@@ -19098,10 +19174,12 @@ export namespace Prisma {
   export type UserUncheckedCreateWithoutInvoicesInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
@@ -19218,10 +19296,12 @@ export namespace Prisma {
   export type UserUpdateWithoutInvoicesInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUpdateManyWithoutUserNestedInput
     posts?: PostUpdateManyWithoutUserNestedInput
@@ -19235,10 +19315,12 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutInvoicesInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
@@ -19313,10 +19395,12 @@ export namespace Prisma {
   export type UserCreateWithoutPostsInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteCreateNestedManyWithoutUserInput
     Invoices?: InvoicesCreateNestedManyWithoutUserInput
@@ -19330,10 +19414,12 @@ export namespace Prisma {
   export type UserUncheckedCreateWithoutPostsInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
@@ -19402,10 +19488,12 @@ export namespace Prisma {
   export type UserUpdateWithoutPostsInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUpdateManyWithoutUserNestedInput
@@ -19419,10 +19507,12 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutPostsInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
@@ -19649,10 +19739,12 @@ export namespace Prisma {
   export type UserCreateWithoutAIconversationInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteCreateNestedManyWithoutUserInput
     posts?: PostCreateNestedManyWithoutUserInput
@@ -19666,10 +19758,12 @@ export namespace Prisma {
   export type UserUncheckedCreateWithoutAIconversationInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
@@ -19738,10 +19832,12 @@ export namespace Prisma {
   export type UserUpdateWithoutAIconversationInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUpdateManyWithoutUserNestedInput
     posts?: PostUpdateManyWithoutUserNestedInput
@@ -19755,10 +19851,12 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutAIconversationInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
@@ -19817,10 +19915,12 @@ export namespace Prisma {
   export type UserCreateWithoutDocumentsInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteCreateNestedManyWithoutUserInput
     posts?: PostCreateNestedManyWithoutUserInput
@@ -19834,10 +19934,12 @@ export namespace Prisma {
   export type UserUncheckedCreateWithoutDocumentsInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
@@ -19906,10 +20008,12 @@ export namespace Prisma {
   export type UserUpdateWithoutDocumentsInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUpdateManyWithoutUserNestedInput
     posts?: PostUpdateManyWithoutUserNestedInput
@@ -19923,10 +20027,12 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutDocumentsInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
@@ -19985,10 +20091,12 @@ export namespace Prisma {
   export type UserCreateWithoutSitediaryrecordsInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteCreateNestedManyWithoutUserInput
     posts?: PostCreateNestedManyWithoutUserInput
@@ -20002,10 +20110,12 @@ export namespace Prisma {
   export type UserUncheckedCreateWithoutSitediaryrecordsInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
@@ -20074,10 +20184,12 @@ export namespace Prisma {
   export type UserUpdateWithoutSitediaryrecordsInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUpdateManyWithoutUserNestedInput
     posts?: PostUpdateManyWithoutUserNestedInput
@@ -20091,10 +20203,12 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutSitediaryrecordsInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput
@@ -20153,10 +20267,12 @@ export namespace Prisma {
   export type UserCreateWithoutSitediarysettingsInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteCreateNestedManyWithoutUserInput
     posts?: PostCreateNestedManyWithoutUserInput
@@ -20170,10 +20286,12 @@ export namespace Prisma {
   export type UserUncheckedCreateWithoutSitediarysettingsInput = {
     id: string
     email: string
+    phone?: string | null
     firstName: string
     lastName: string
     profileImage: string
     customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
     createdAt?: Date | string
     Site?: SiteUncheckedCreateNestedManyWithoutUserInput
     posts?: PostUncheckedCreateNestedManyWithoutUserInput
@@ -20242,10 +20360,12 @@ export namespace Prisma {
   export type UserUpdateWithoutSitediarysettingsInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUpdateManyWithoutUserNestedInput
     posts?: PostUpdateManyWithoutUserNestedInput
@@ -20259,10 +20379,12 @@ export namespace Prisma {
   export type UserUncheckedUpdateWithoutSitediarysettingsInput = {
     id?: StringFieldUpdateOperationsInput | string
     email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
     firstName?: StringFieldUpdateOperationsInput | string
     lastName?: StringFieldUpdateOperationsInput | string
     profileImage?: StringFieldUpdateOperationsInput | string
     customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
     posts?: PostUncheckedUpdateManyWithoutUserNestedInput

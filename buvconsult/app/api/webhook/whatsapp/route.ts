@@ -102,8 +102,12 @@ Hi ${user.firstName || ""}! Please choose your project by replying with the numb
   // AUDIO MESSAGE HANDLING
   if (NumMedia === "1" && MediaContentType0 && MediaContentType0.startsWith("audio")) {
     console.log("Processing audio message...");
-    const accountSid = process.env.TWILLIO_ACCOUNT_SID
-    const authToken = process.env.TWILLIO_ACCOUNT_TOKEN
+
+    console.log("TWILLIO_ACCOUNT_SID:", process.env.TWILLIO_ACCOUNT_SID)
+    console.log("TWILLIO_AUTH_TOKEN:", process.env.TWILLIO_AUTH_TOKEN)
+
+    const accountSid = process.env.TWILLIO_ACCOUNT_SID;
+    const authToken = process.env.TWILLIO_AUTH_TOKEN;
     const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 
     const res = await fetch(MediaUrl0, {
@@ -111,6 +115,7 @@ Hi ${user.firstName || ""}! Please choose your project by replying with the numb
         Authorization: `Basic ${basicAuth}`,
       }
     });
+
 
     const arrayBuffer = await res.arrayBuffer();
     const buf = Buffer.from(arrayBuffer);
@@ -128,7 +133,7 @@ Hi ${user.firstName || ""}! Please choose your project by replying with the numb
     const transcript = transcriptResult.text || "(No text recognized)";
     console.log("Transcript:", transcript);
 
-    const aiMessage = await talkToWhatsappAgent(transcript, siteId);
+    const aiMessage = await talkToWhatsappAgent(transcript, siteId, user.id);
     console.log("AI message (audio):", aiMessage);
 
     return new Response(
@@ -143,7 +148,7 @@ Hi ${user.firstName || ""}! Please choose your project by replying with the numb
   // TEXT MESSAGE HANDLING
   if (NumMedia === "0") {
     console.log("Processing text message...");
-    const aiMessage = await talkToWhatsappAgent(body, siteId);
+    const aiMessage = await talkToWhatsappAgent(body, siteId, user.id);
     console.log("AI message (text):", aiMessage);
     return new Response(
       `<Response><Message>${aiMessage}</Message></Response>`,
