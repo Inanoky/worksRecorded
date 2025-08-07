@@ -1,6 +1,6 @@
 "use server";
 
-import OpenAI from "openai";
+import OpenAI, { toFile } from 'openai';
 import { Readable } from "stream";
 import talkToWhatsappAgent from "@/components/AI/Whatsapp/agent";
 import { prisma } from "@/app/utils/db";
@@ -109,13 +109,13 @@ async function handleMessage(formData) {
         const basicAuth = Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString("base64");
         const res = await fetch(MediaUrl0, { headers: { Authorization: `Basic ${basicAuth}` } });
         const buf = Buffer.from(await res.arrayBuffer());
+        const file = await toFile(buf, 'voice-message.ogg');  // name includes extension
         console.log(`Audio buffer downloaded (${buf.length} bytes)`);
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const stream = bufferToStream(buf);
         const transcriptResult = await openai.audio.transcriptions.create({
-          file: stream,
-          filename: "voice-message.ogg",
+          file,
           model: "whisper-1",
         });
         const transcript = transcriptResult.text || "(No text recognized)";
