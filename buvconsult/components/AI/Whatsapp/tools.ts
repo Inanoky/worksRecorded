@@ -19,7 +19,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     siteId: z.string(),
     userId: z.string()
   }),
-  async func({ question, userId, siteId }: {question: string; siteId:string }) {
+  async func({ question, userId, siteId }: {question: string; userId: string, siteId:string }) {
 
 
                     // Extracting schema
