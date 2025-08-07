@@ -6,7 +6,7 @@ import OpenAI from "openai";
 import talkToWhatsappAgent from "@/components/AI/Whatsapp/agent";
 import {prisma} from "@/app/utils/db";
 
-
+// 1
 // For Next.js, use the experimental Edge Runtime only if needed;
 // Otherwise, this works with the default Node.js runtime.
 
