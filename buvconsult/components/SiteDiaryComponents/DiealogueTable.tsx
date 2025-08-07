@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { getSiteDiaryRecords, getSiteDiarySchema, saveSiteDiaryRecords, deleteSiteDiaryRecord } from "@/app/siteDiaryActions";
+import { getSiteDiaryRecords, getSiteDiarySchema, saveSiteDiaryRecords, deleteSiteDiaryRecord, updateSiteDiaryRecord  } from "@/app/siteDiaryActions";
 import { SubmitButton } from "@/app/components/dashboard/SubmitButtons";
 import { toast } from "sonner";
 
@@ -34,6 +34,7 @@ function collectWorks(node, prefix = "") {
   }
   return options;
 }
+
 
 export function useSiteSchema(siteId) {
   const [schema, setSchema] = useState(null);
@@ -101,33 +102,75 @@ export function DialogTable({ date, siteId, onSaved }) {
     );
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
 
-    const rowsToSave = rows.map(row => {
-      // Find name for selected code, fallback to raw value if none
-      const locationNode = schema?.find(node => node.code === row.location_code);
-      const worksNode = (() => {
-        const selectedLocation = schema?.find(node => node.code === row.location_code);
-        const dynamicWorkOptions = selectedLocation ? collectWorks(selectedLocation) : [];
-        return dynamicWorkOptions.find(opt => opt.value === row.works_code);
-      })();
-      return {
-        ...row,
-        date: row.date instanceof Date ? row.date.toISOString().slice(0, 10) : row.date,
-        location: locationNode?.name || row.location, // Save display name or original
-        works: worksNode?.label || row.works,         // Save display label or original
-      };
-    });
+// ...
 
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  const rowsToSave = rows.map(row => {
+    // (Optional) Map code fields to display names for saving
+    const locationNode = schema?.find(node => node.code === row.location_code);
+    const worksNode = (() => {
+      const selectedLocation = schema?.find(node => node.code === row.location_code);
+      const dynamicWorkOptions = selectedLocation ? collectWorks(selectedLocation) : [];
+      return dynamicWorkOptions.find(opt => opt.value === row.works_code);
+    })();
+    return {
+      ...row,
+      location: locationNode?.name || row.location,  // Save display name or fallback
+      works: worksNode?.label || row.works,
+      // If you want to save the codes too, you can include them
+      // location_code: row.location_code,
+      // works_code: row.works_code,
+    };
+  });
+
+  // Separate new and existing records
+  const newRows = rowsToSave.filter(row => !row.id);
+  const existingRows = rowsToSave.filter(row => !!row.id);
+
+  // Update existing rows
+  for (const row of existingRows) {
+  await updateSiteDiaryRecord({
+    id: row.id,
+    Date: row.date,
+    Location: row.location,
+    Works: row.works,
+    Comments: row.comments,
+    Units: row.units,
+    Amounts:
+      row.amounts !== undefined && row.amounts !== ""
+        ? Number(row.amounts)
+        : undefined,
+    WorkersInvolved:
+      row.workers !== undefined && row.workers !== ""
+        ? Number(row.workers)
+        : undefined,
+    TimeInvolved:
+      row.hours !== undefined && row.hours !== ""
+        ? Number(row.hours)
+        : undefined,
+    Photos: [],
+    userId: row.userId,
+    siteId,
+  });
+}
+
+
+  // Create new rows
+  if (newRows.length) {
     await saveSiteDiaryRecords({
-      rows: rowsToSave,
-      siteId: siteId,
+      rows: newRows,
+      userId: "your-user-id", // Replace with your real userId if needed
+      siteId,
     });
+  }
 
-    toast.success("Record saved!");
-    if (onSaved) onSaved();
-  };
+  toast.success("Records saved!");
+  if (onSaved) onSaved();
+};
+
 
   // On load, initialize codes as empty; only set if you want to support code-based DB in the future
   useEffect(() => {
@@ -358,3 +401,4 @@ export function DialogTable({ date, siteId, onSaved }) {
     </form>
   );
 }
+
