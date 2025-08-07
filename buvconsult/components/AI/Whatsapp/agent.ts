@@ -62,7 +62,9 @@ export default async function talkToWhatsappAgent(question, siteId) {
     );
 
     await checkpointer.setup();
-    const config = { configurable: { thread_id: "change_this_to_something" } };
+    const config = { configurable: { thread_id: siteId} };
+
+
 
     const graph = workflow.compile({ checkpointer });
 
