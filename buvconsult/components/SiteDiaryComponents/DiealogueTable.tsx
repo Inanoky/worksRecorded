@@ -227,9 +227,9 @@ const handleSubmit = async (e) => {
 
   return (
     <form className="grid gap-3" onSubmit={handleSubmit}>
-      <Card className="max-h-[500px]">
+      <Card className="max-h-[35vh]">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-white" >
             <TableRow>
               <TableHead className="w-[100px]">Date</TableHead>
               <TableHead>Location</TableHead>
@@ -391,14 +391,14 @@ const handleSubmit = async (e) => {
         </Button>
         <SubmitButton text="Save diary" onClick={handleSubmit} variant="default" />
       </div>
-      <div className="grid gap-3">
+     {/* <div className="grid gap-3">
         <Label htmlFor="username-1">Username</Label>
         <Input id="username-1" name="username" defaultValue="@peduarte" />
       </div>
       <div className="grid gap-3">
         <Label htmlFor="username-1">Username</Label>
         <Input id="username-1" name="username" defaultValue="@peduarte" />
-      </div>
+      </div>*/}
     </form>
   );
 }
