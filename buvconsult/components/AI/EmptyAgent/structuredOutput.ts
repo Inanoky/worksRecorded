@@ -7,6 +7,8 @@ const systemPrompt = "You are an assistant"
 const structuredOutput = async (question) => {
 
 
+
+
     const llm = new ChatOpenAI({
         temperature: 0.1,
         model: "gpt-4.1",

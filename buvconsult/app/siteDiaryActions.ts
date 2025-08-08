@@ -3,7 +3,8 @@
 
 import { prisma} from "@/app/utils/db";
 import { revalidatePath } from "next/cache";
-import {requireUser} from "@/app/utils/requireUser"; // Optional: if you want to refresh data on page
+import {requireUser} from "@/app/utils/requireUser";
+import {parseExcelToTree} from "@/components/AI/SiteDiary/agent"; // Optional: if you want to refresh data on page
 
 type SiteDiaryRow = {
   date: string; // ISO string or null
@@ -187,10 +188,10 @@ export async function deleteSiteDiaryRecord({ id }: { id: string }) {
   return { success: true };
 }
 
+
+
 export async function saveSettingsToDB(formData: FormData) {
-  // Parse input
   const siteId = formData.get("siteId") as string;
-  // Accepts either a stringified array or a single URL string
   let urls = formData.get("fileUrls");
   let fileUrl = "";
 
@@ -198,9 +199,8 @@ export async function saveSettingsToDB(formData: FormData) {
     fileUrl = urls[0] || "";
   } else if (typeof urls === "string") {
     try {
-      // Try to parse as JSON array first
       const parsed = JSON.parse(urls);
-      fileUrl = Array.isArray(parsed) ? parsed[0] : parsed;
+      fileUrl = Array.isArray(parsed) ? (parsed[0] ?? "") : parsed;
     } catch {
       fileUrl = urls;
     }
@@ -210,14 +210,28 @@ export async function saveSettingsToDB(formData: FormData) {
     throw new Error("Missing siteId or fileUrl");
   }
 
-  // Upsert (create or update) sitediarysettings
+  // 1) Run AI – normalize to an array before saving
+  let schemaStr: string | null = null;
+  try {
+    const result = await parseExcelToTree(fileUrl); // could be Node[] or { tree: Node[] }
+    const treeArray = Array.isArray(result) ? result : result?.tree;
+    if (Array.isArray(treeArray)) {
+      schemaStr = JSON.stringify(treeArray);
+    } else {
+      console.warn("AI returned unexpected shape; skipping schema save.");
+    }
+  } catch (err) {
+    console.error("AI parse failed; saving fileUrl only:", err);
+  }
+
+  // 2) Upsert
   await prisma.sitediarysettings.upsert({
     where: { siteId },
-    update: { fileUrl },
-    create: { siteId, fileUrl },
+    update: { fileUrl, schema: schemaStr },
+    create: { siteId, fileUrl, schema: schemaStr },
   });
 
-  return { success: true, siteId, fileUrl };
+  return { success: true, siteId, fileUrl, schemaSaved: Boolean(schemaStr) };
 }
 
 
