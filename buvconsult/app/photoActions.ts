@@ -13,6 +13,12 @@ type SavePhotoArgs = {
   date?: Date | null;             // defaults to now if not provided
 };
 
+type GetPhotosByDateArgs = {
+  siteId: string | null;
+  startISO: string; // inclusive
+  endISO: string;   // exclusive
+};
+
 export async function savePhoto({
   userId,
   siteId,
@@ -36,4 +42,30 @@ export async function savePhoto({
   });
 
   return rec;
+}
+
+export async function getPhotosByDate({ siteId, startISO, endISO }: GetPhotosByDateArgs) {
+  const start = new Date(startISO);
+  const end = new Date(endISO);
+
+  return prisma.photos.findMany({
+    where: {
+      siteId: siteId ?? undefined,
+      Date: {
+        gte: start,
+        lt: end,
+      },
+    },
+    orderBy: { Date: "desc" },
+    select: {
+      id: true,
+      Date: true,
+      URL: true,
+      fileUrl: true,
+      Comment: true,
+      Location: true,
+      siteId: true,
+      userId: true,
+    },
+  });
 }

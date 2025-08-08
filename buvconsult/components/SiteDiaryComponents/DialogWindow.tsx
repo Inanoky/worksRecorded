@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {DialogTable} from "@/components/SiteDiaryComponents/DiealogueTable";
 import {PhotoGalleryGrid} from "@/components/SiteDiaryComponents/PhotoGallery";
+import ImageGallery from "@/components/SiteDiaryComponents/ImageGallery";
 
 // No internal open state! Use only props!
 export default function DialogWindow({ open, setOpen, children, date, siteId, onSaved}) {
@@ -44,11 +45,12 @@ export default function DialogWindow({ open, setOpen, children, date, siteId, on
             />
 
         </div>
-          <div className="mt-4 flex justify-end">
+          <div >
 
+              <ImageGallery date={date} siteId={siteId} className="mb-4" />
 
           </div>
-            
+
 
           <DialogFooter>
 
