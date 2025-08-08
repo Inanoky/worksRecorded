@@ -1,9 +1,7 @@
-// components/SiteDiaryComponents/ImageGallery.tsx
 "use client";
 
 import * as React from "react";
-import { getPhotosByDate} from "@/app/photoActions";
-import { Card } from "@/components/ui/card";
+import { getPhotosByDate } from "@/app/photoActions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -68,10 +66,8 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
     };
   }, [date, siteId]);
 
-  // visible area: exactly 2 rows; if more, scroll
-  // adjust height to your taste; row ~ 150px tall with gap
   return (
-    <Card className={cn("p-3", className)}>
+    <div className={cn("p-3 border border-muted rounded-none", className)}>
       <div className="mb-2 text-sm text-muted-foreground">
         {loading
           ? "Loading photos…"
@@ -81,50 +77,50 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
       </div>
 
       <ScrollArea className="h-[330px]">
-  {loading ? (
-    <div className="grid grid-cols-5 gap-4 p-2">
-      {Array.from({ length: 10 }).map((_, i) => (
-        <Skeleton key={i} className="aspect-square rounded-xl" />
-      ))}
+        {loading ? (
+          <div className="grid grid-cols-5 gap-4 p-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-square " />
+            ))}
+          </div>
+        ) : (photos?.length ?? 0) === 0 ? (
+          <div className="text-sm text-muted-foreground p-2">
+            No photos for this date.
+          </div>
+        ) : (
+          <div className="grid grid-cols-5 gap-4 p-2 auto-rows-[150px]">
+            {photos!.map((p) => {
+              const src = p.URL ?? p.fileUrl ?? "";
+              return (
+                <button
+                  key={p.id}
+                  className="group relative overflow-hidden border border-muted"
+                  title={p.Comment ?? undefined}
+                  onClick={() => {
+                    if (src) window.open(src, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  <img
+                    src={src}
+                    alt={p.Comment ?? "Photo"}
+                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                  {p.Comment ? (
+                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-2">
+                      {p.Comment}
+                    </div>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </ScrollArea>
     </div>
-  ) : (photos?.length ?? 0) === 0 ? (
-    <div className="text-sm text-muted-foreground p-2">No photos for this date.</div>
-  ) : (
-    <div className="grid grid-cols-5 gap-4 p-2 auto-rows-[150px]">
-      {photos!.map((p) => {
-        const src = p.URL ?? p.fileUrl ?? "";
-        return (
-          <button
-            key={p.id}
-            className="group relative overflow-hidden  border border-muted"
-            title={p.Comment ?? undefined}
-            onClick={() => {
-              if (src) window.open(src, "_blank", "noopener,noreferrer");
-            }}
-          >
-            <img
-              src={src}
-              alt={p.Comment ?? "Photo"}
-              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
-            {p.Comment ? (
-              <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-2">
-                {p.Comment}
-              </div>
-            ) : null}
-          </button>
-        );
-      })}
-    </div>
-  )}
-</ScrollArea>
-
-    </Card>
   );
 }
 
-// Back-compat alias if you keep old import name
 export const PhotoGalleryGrid = ImageGallery;
 export default ImageGallery;

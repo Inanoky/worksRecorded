@@ -17,7 +17,7 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {/* Limit the overall height of the dialog to 90 % of the viewport */}
-      <DialogContent className="sm:max-w-[425px] md:max-w-[750px] lg:max-w-[1700px] max-h-[90vh] flex flex-col overflow-hidden">
+      <DialogContent className="sm:max-w-[425px] md:max-w-[750px] lg:max-w-[1700px] max-h-[95vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {date
@@ -35,6 +35,7 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
           {/* The table section scrolls when its content grows beyond 35 vh */}
 
             <DialogTable
+              className=" overflow-hidden"
               date={date}
               siteId={siteId}
               onSaved={() => {

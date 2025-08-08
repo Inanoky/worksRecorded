@@ -1,60 +1,61 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import {
   Table, TableBody, TableHead, TableHeader, TableRow, TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import { getSiteDiaryRecords, getSiteDiarySchema, saveSiteDiaryRecords, deleteSiteDiaryRecord, updateSiteDiaryRecord  } from "@/app/siteDiaryActions";
-import { SubmitButton } from "@/app/components/dashboard/SubmitButtons";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  getSiteDiaryRecords, getSiteDiarySchema, saveSiteDiaryRecords,
+  deleteSiteDiaryRecord, updateSiteDiaryRecord
+} from "@/app/siteDiaryActions";
 import { toast } from "sonner";
 
-
-// Helper for works dropdown
-function collectWorks(node, prefix = "") {
-  let options = [];
+/* ---------- helpers ---------- */
+function collectWorks(node: any, prefix = "") {
+  let options: { value: string; label: string }[] = [];
   if (node.type === "Work") {
-    options.push({
-      value: node.code,
-      label: prefix ? `${prefix} / ${node.name}` : node.name
-    });
+    options.push({ value: node.code, label: prefix ? `${prefix} / ${node.name}` : node.name });
   }
   if (node.children) {
     for (const child of node.children) {
       options = options.concat(
-        collectWorks(child, node.type === "Work"
-          ? (prefix ? `${prefix} / ${node.name}` : node.name)
-          : prefix
-        )
+        collectWorks(child, node.type === "Work" ? (prefix ? `${prefix} / ${node.name}` : node.name) : prefix)
       );
     }
   }
   return options;
 }
 
-
-export function useSiteSchema(siteId) {
-  const [schema, setSchema] = useState(null);
+export function useSiteSchema(siteId: string | null) {
+  const [schema, setSchema] = useState<any[] | null>(null);
   useEffect(() => {
+    if (!siteId) { setSchema(null); return; }
     getSiteDiarySchema({ siteId }).then(setSchema);
   }, [siteId]);
   return schema;
 }
 
-export function DialogTable({ date, siteId, onSaved }) {
+/* ---------- component ---------- */
+export function DialogTable({ date, siteId, onSaved }: {
+  date: Date | null;
+  siteId: string | null;
+  onSaved?: () => void;
+}) {
   const schema = useSiteSchema(siteId);
   const [loading, setLoading] = useState(true);
 
-  const [rows, setRows] = useState([
+  const [rows, setRows] = useState<any[]>([
     {
-      id: 1,
+      id: Date.now(),
       date,
-      location: "",         // raw DB value (string)
-      location_code: "",    // user-selected code (string)
+      location: "",
+      location_code: "",
       works: "",
       works_code: "",
       units: "",
@@ -66,8 +67,8 @@ export function DialogTable({ date, siteId, onSaved }) {
   ]);
 
   const handleAddRow = () => {
-    setRows([
-      ...rows,
+    setRows(prev => [
+      ...prev,
       {
         id: Date.now(),
         date,
@@ -84,96 +85,68 @@ export function DialogTable({ date, siteId, onSaved }) {
     ]);
   };
 
-  const handleDeleteRow = async (id) => {
+  const handleDeleteRow = async (id: any) => {
     const row = rows.find(r => r.id === id);
-    if (row && typeof id === "string" && id.length > 10) { // crude UUID check
+    if (row && typeof id === "string" && id.length > 10) {
       await deleteSiteDiaryRecord({ id });
       toast.success("Record deleted!");
-      if (onSaved) onSaved(); // trigger parent reload
+      onSaved?.();
     } else {
-      setRows(rows.filter((row) => row.id !== id));
+      setRows(rows.filter(r => r.id !== id));
     }
   };
 
-  const handleChange = (id, field, value) => {
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === id ? { ...row, [field]: value } : row
-      )
-    );
+  const handleChange = (id: any, field: string, value: any) => {
+    setRows(prev => prev.map(r => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
 
-// ...
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  const rowsToSave = rows.map(row => {
-    // (Optional) Map code fields to display names for saving
-    const locationNode = schema?.find(node => node.code === row.location_code);
-    const worksNode = (() => {
-      const selectedLocation = schema?.find(node => node.code === row.location_code);
+    const rowsToSave = rows.map(row => {
+      const locationNode = schema?.find(n => n.code === row.location_code);
+      const selectedLocation = schema?.find(n => n.code === row.location_code);
       const dynamicWorkOptions = selectedLocation ? collectWorks(selectedLocation) : [];
-      return dynamicWorkOptions.find(opt => opt.value === row.works_code);
-    })();
-    return {
-      ...row,
-      location: locationNode?.name || row.location,  // Save display name or fallback
-      works: worksNode?.label || row.works,
-      // If you want to save the codes too, you can include them
-      // location_code: row.location_code,
-      // works_code: row.works_code,
-    };
-  });
-
-  // Separate new and existing records
-  const newRows = rowsToSave.filter(row => !row.id);
-  const existingRows = rowsToSave.filter(row => !!row.id);
-
-  // Update existing rows
-  for (const row of existingRows) {
-  await updateSiteDiaryRecord({
-    id: row.id,
-    Date: row.date,
-    Location: row.location,
-    Works: row.works,
-    Comments: row.comments,
-    Units: row.units,
-    Amounts:
-      row.amounts !== undefined && row.amounts !== ""
-        ? Number(row.amounts)
-        : undefined,
-    WorkersInvolved:
-      row.workers !== undefined && row.workers !== ""
-        ? Number(row.workers)
-        : undefined,
-    TimeInvolved:
-      row.hours !== undefined && row.hours !== ""
-        ? Number(row.hours)
-        : undefined,
-    Photos: [],
-    userId: row.userId,
-    siteId,
-  });
-}
-
-
-  // Create new rows
-  if (newRows.length) {
-    await saveSiteDiaryRecords({
-      rows: newRows,
-      userId: "your-user-id", // Replace with your real userId if needed
-      siteId,
+      const worksNode = dynamicWorkOptions.find((opt: any) => opt.value === row.works_code);
+      return {
+        ...row,
+        location: locationNode?.name || row.location,
+        works: worksNode?.label || row.works,
+      };
     });
-  }
 
-  toast.success("Records saved!");
-  if (onSaved) onSaved();
-};
+    const newRows = rowsToSave.filter(r => !r.id);
+    const existingRows = rowsToSave.filter(r => !!r.id);
 
+    for (const r of existingRows) {
+      await updateSiteDiaryRecord({
+        id: r.id,
+        Date: r.date,
+        Location: r.location,
+        Works: r.works,
+        Comments: r.comments,
+        Units: r.units,
+        Amounts: r.amounts !== "" && r.amounts !== undefined ? Number(r.amounts) : undefined,
+        WorkersInvolved: r.workers !== "" && r.workers !== undefined ? Number(r.workers) : undefined,
+        TimeInvolved: r.hours !== "" && r.hours !== undefined ? Number(r.hours) : undefined,
+        Photos: [],
+        userId: r.userId,
+        siteId,
+      });
+    }
 
-  // On load, initialize codes as empty; only set if you want to support code-based DB in the future
+    if (newRows.length) {
+      await saveSiteDiaryRecords({
+        rows: newRows,
+        userId: "your-user-id", // TODO: real user id
+        siteId,
+      });
+    }
+
+    toast.success("Records saved!");
+    onSaved?.();
+  };
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -183,19 +156,21 @@ const handleSubmit = async (e) => {
       setLoading(false);
       return;
     }
+
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
       const loadedRows = await getSiteDiaryRecords({ siteId, date: isoDate });
-      if (!cancelled) {
-        setRows(
-          loadedRows.length
-            ? loadedRows.map((row) => ({
+      if (cancelled) return;
+
+      setRows(
+        loadedRows.length
+          ? loadedRows.map((row: any) => ({
               ...row,
               id: row.id || Date.now() + Math.random(),
-              location_code: "", // No code set until user picks
+              location_code: "",
               works_code: "",
             }))
-            : [{
+          : [{
               id: Date.now(),
               date,
               location: "",
@@ -208,198 +183,136 @@ const handleSubmit = async (e) => {
               hours: "",
               comments: "",
             }]
-        );
-        setLoading(false);
-      }
+      );
+      setLoading(false);
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [date, siteId, setRows]);
+
+    return () => { cancelled = true; };
+  }, [date, siteId]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        Loading...
-      </div>
-    );
+    return <div className="flex justify-center items-center min-h-[300px]">Loading…</div>;
   }
 
   return (
-    <form className="grid gap-3" onSubmit={handleSubmit}>
-      <Card className="max-h-[35vh]">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-white" >
-            <TableRow>
-              <TableHead className="w-[100px]">Date</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Works</TableHead>
-              <TableHead className="text-center">Units</TableHead>
-              <TableHead className="text-center">Amounts</TableHead>
-              <TableHead className="text-center">Workers</TableHead>
-              <TableHead className="text-center">Hours</TableHead>
-              <TableHead className="w-[1500px] text-center">Comments</TableHead>
-              <TableHead className="w-[500px] text-center">Delete</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => {
-              // Location options
-              const locationOptions = schema?.filter(node => node.type === "Location") || [];
-              const codeIsValid = locationOptions.some(loc => loc.code === row.location_code);
-
-              // For works options:
-              const selectedLocationNode = schema?.find(
-                node => node.code === row.location_code ||
-                  node.name === row.location // fallback
-              );
-              const dynamicWorkOptions = selectedLocationNode
-                ? collectWorks(selectedLocationNode)
-                : [];
-              const worksCodeIsValid = dynamicWorkOptions.some(opt => opt.value === row.works_code);
-
-              return (
-                <TableRow key={row.id}>
-                  <TableCell className="font-medium">
-                    {row.date
-                      ? row.date.toLocaleDateString("en-GB", {
-                        year: "numeric",
-                        month: "long",
-                        day: "numeric",
-                      })
-                      : "No date selected"}
-                  </TableCell>
-                  {/* LOCATION SELECT */}
-                  <TableCell>
-                    <Select
-                      value={codeIsValid ? row.location_code : ""}
-                      onValueChange={val => handleChange(row.id, "location_code", val)}
-                    >
-                      <SelectTrigger className="w-[110px]">
-                        <SelectValue
-                          placeholder={
-                            codeIsValid
-                              ? "Select location" // will not show, label is shown!
-                              : (row.location || "Select location")
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {locationOptions.map(loc => (
-                          <SelectItem value={loc.code} key={loc.code}>
-                            {loc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  {/* WORKS SELECT */}
-                  <TableCell>
-                    <Select
-                      value={worksCodeIsValid ? row.works_code : ""}
-                      onValueChange={val => handleChange(row.id, "works_code", val)}
-                    >
-                      <SelectTrigger className="w-[110px]">
-                        <SelectValue
-                          placeholder={
-                            worksCodeIsValid
-                              ? "Select work"
-                              : (row.works || "Select work")
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {dynamicWorkOptions.map(opt => (
-                          <SelectItem value={opt.value} key={opt.value}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  {/* ...rest of your cells unchanged... */}
-                  <TableCell className="text-right">
-                    <Input
-                      type="text"
-                      className="w-20"
-                      value={row.units}
-                      onChange={(e) =>
-                        handleChange(row.id, "units", e.target.value)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="text"
-                      className="w-20"
-                      value={row.amounts}
-                      onChange={(e) =>
-                        handleChange(row.id, "amounts", e.target.value)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="text"
-                      className="w-20"
-                      value={row.workers}
-                      onChange={(e) =>
-                        handleChange(row.id, "workers", e.target.value)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Input
-                      type="text"
-                      className="w-20"
-                      value={row.hours}
-                      onChange={(e) =>
-                        handleChange(row.id, "hours", e.target.value)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Textarea
-                      className="w-full h-[75px]"
-                      value={row.comments}
-                      onChange={(e) =>
-                        handleChange(row.id, "comments", e.target.value)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Delete"
-                      type="button"
-                      onClick={() => handleDeleteRow(row.id)}
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </Card>
-
-      <div className="mt-4 flex justify-end gap-2">
-        <Button type="button" onClick={handleAddRow} variant="outline">
+    <form onSubmit={handleSubmit} className="space-y-3">
+      {/* Top actions (sticky) */}
+      <div className="flex justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none border">
+        <Button type="button" variant="outline" onClick={handleAddRow}>
           Add task
         </Button>
-        <SubmitButton text="Save diary" onClick={handleSubmit} variant="default" />
+        <Button type="submit">Save diary</Button>
       </div>
-     {/* <div className="grid gap-3">
-        <Label htmlFor="username-1">Username</Label>
-        <Input id="username-1" name="username" defaultValue="@peduarte" />
-      </div>
-      <div className="grid gap-3">
-        <Label htmlFor="username-1">Username</Label>
-        <Input id="username-1" name="username" defaultValue="@peduarte" />
-      </div>*/}
+
+      {/* Just ScrollArea (no Card) */}
+      <ScrollArea className="h-[25vh] rounded-none border">
+        <div className="overflow-x-auto">
+          <div className="min-w-[1000px]">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-background">
+                <TableRow>
+                  <TableHead className="w-[120px]">Date</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Works</TableHead>
+                  <TableHead className="text-center w-[110px]">Units</TableHead>
+                  <TableHead className="text-center w-[120px]">Amounts</TableHead>
+                  <TableHead className="text-center w-[120px]">Workers</TableHead>
+                  <TableHead className="text-center w-[110px]">Hours</TableHead>
+                  <TableHead className="text-center min-w-[480px]">Comments</TableHead>
+                  <TableHead className="text-center w-[80px]">Delete</TableHead>
+                </TableRow>
+              </TableHeader>
+
+              <TableBody>
+                {rows.map((row) => {
+                  const locationOptions = schema?.filter(n => n.type === "Location") || [];
+                  const selectedLocationNode =
+                    schema?.find(n => n.code === row.location_code) ||
+                    schema?.find(n => n.name === row.location);
+                  const dynamicWorkOptions = selectedLocationNode ? collectWorks(selectedLocationNode) : [];
+
+                  return (
+                    <TableRow key={row.id} className="align-top">
+                      <TableCell className="py-3 text-muted-foreground">
+                        {row.date
+                          ? new Date(row.date).toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" })
+                          : "No date"}
+                      </TableCell>
+
+                      <TableCell className="py-2">
+                        <Select
+                          value={row.location_code || ""}
+                          onValueChange={val => handleChange(row.id, "location_code", val)}
+                        >
+                          <SelectTrigger className="w-[160px]">
+                            <SelectValue placeholder={row.location || "Select location"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {locationOptions.map((loc: any) => (
+                              <SelectItem key={loc.code} value={loc.code}>
+                                {loc.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+
+                      <TableCell className="py-2">
+                        <Select
+                          value={row.works_code || ""}
+                          onValueChange={val => handleChange(row.id, "works_code", val)}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder={row.works || "Select work"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {dynamicWorkOptions.map((opt: any) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+
+                      <TableCell className="text-center py-2">
+                        <Input className="w-full text-center" value={row.units}
+                               onChange={e => handleChange(row.id, "units", e.target.value)} />
+                      </TableCell>
+
+                      <TableCell className="text-center py-2">
+                        <Input className="w-full text-center" inputMode="decimal" value={row.amounts}
+                               onChange={e => handleChange(row.id, "amounts", e.target.value)} />
+                      </TableCell>
+
+                      <TableCell className="text-center py-2">
+                        <Input className="w-full text-center" inputMode="numeric" value={row.workers}
+                               onChange={e => handleChange(row.id, "workers", e.target.value)} />
+                      </TableCell>
+
+                      <TableCell className="text-center py-2">
+                        <Input className="w-full text-center" inputMode="decimal" value={row.hours}
+                               onChange={e => handleChange(row.id, "hours", e.target.value)} />
+                      </TableCell>
+
+                      <TableCell className="py-2">
+                        <Textarea className="w-full min-h-[72px]" value={row.comments}
+                                  onChange={e => handleChange(row.id, "comments", e.target.value)} />
+                      </TableCell>
+
+                      <TableCell className="text-center py-2">
+                        <Button variant="ghost" size="icon" type="button" onClick={() => handleDeleteRow(row.id)}>
+                          <Trash2 className="h-5 w-5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      </ScrollArea>
     </form>
   );
 }
-
