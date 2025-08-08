@@ -63,6 +63,11 @@ export type sitediaryrecords = $Result.DefaultSelection<Prisma.$sitediaryrecords
  * 
  */
 export type sitediarysettings = $Result.DefaultSelection<Prisma.$sitediarysettingsPayload>
+/**
+ * Model photos
+ * 
+ */
+export type photos = $Result.DefaultSelection<Prisma.$photosPayload>
 
 /**
  * ##  Prisma Client ʲˢ
@@ -288,6 +293,16 @@ export class PrismaClient<
     * ```
     */
   get sitediarysettings(): Prisma.sitediarysettingsDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.photos`: Exposes CRUD operations for the **photos** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more Photos
+    * const photos = await prisma.photos.findMany()
+    * ```
+    */
+  get photos(): Prisma.photosDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -737,7 +752,8 @@ export namespace Prisma {
     AIconversation: 'AIconversation',
     Documents: 'Documents',
     sitediaryrecords: 'sitediaryrecords',
-    sitediarysettings: 'sitediarysettings'
+    sitediarysettings: 'sitediarysettings',
+    photos: 'photos'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -756,7 +772,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "user" | "site" | "subscription" | "invoices" | "post" | "invoiceItems" | "aIconversation" | "documents" | "sitediaryrecords" | "sitediarysettings"
+      modelProps: "user" | "site" | "subscription" | "invoices" | "post" | "invoiceItems" | "aIconversation" | "documents" | "sitediaryrecords" | "sitediarysettings" | "photos"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -1500,6 +1516,80 @@ export namespace Prisma {
           }
         }
       }
+      photos: {
+        payload: Prisma.$photosPayload<ExtArgs>
+        fields: Prisma.photosFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.photosFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.photosFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload>
+          }
+          findFirst: {
+            args: Prisma.photosFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.photosFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload>
+          }
+          findMany: {
+            args: Prisma.photosFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload>[]
+          }
+          create: {
+            args: Prisma.photosCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload>
+          }
+          createMany: {
+            args: Prisma.photosCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          createManyAndReturn: {
+            args: Prisma.photosCreateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload>[]
+          }
+          delete: {
+            args: Prisma.photosDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload>
+          }
+          update: {
+            args: Prisma.photosUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload>
+          }
+          deleteMany: {
+            args: Prisma.photosDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.photosUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateManyAndReturn: {
+            args: Prisma.photosUpdateManyAndReturnArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload>[]
+          }
+          upsert: {
+            args: Prisma.photosUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$photosPayload>
+          }
+          aggregate: {
+            args: Prisma.PhotosAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregatePhotos>
+          }
+          groupBy: {
+            args: Prisma.photosGroupByArgs<ExtArgs>
+            result: $Utils.Optional<PhotosGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.photosCountArgs<ExtArgs>
+            result: $Utils.Optional<PhotosCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -1594,6 +1684,7 @@ export namespace Prisma {
     documents?: DocumentsOmit
     sitediaryrecords?: sitediaryrecordsOmit
     sitediarysettings?: sitediarysettingsOmit
+    photos?: photosOmit
   }
 
   /* Types for Logging */
@@ -1695,6 +1786,7 @@ export namespace Prisma {
     sitediaryrecords: number
     AIconversation: number
     sitediarysettings: number
+    photos: number
   }
 
   export type UserCountOutputTypeSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -1705,6 +1797,7 @@ export namespace Prisma {
     sitediaryrecords?: boolean | UserCountOutputTypeCountSitediaryrecordsArgs
     AIconversation?: boolean | UserCountOutputTypeCountAIconversationArgs
     sitediarysettings?: boolean | UserCountOutputTypeCountSitediarysettingsArgs
+    photos?: boolean | UserCountOutputTypeCountPhotosArgs
   }
 
   // Custom InputTypes
@@ -1767,6 +1860,13 @@ export namespace Prisma {
     where?: sitediarysettingsWhereInput
   }
 
+  /**
+   * UserCountOutputType without action
+   */
+  export type UserCountOutputTypeCountPhotosArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: photosWhereInput
+  }
+
 
   /**
    * Count Type SiteCountOutputType
@@ -1777,6 +1877,7 @@ export namespace Prisma {
     invoices: number
     InvoiceItems: number
     Documents: number
+    photos: number
     sitediaryrecords: number
   }
 
@@ -1785,6 +1886,7 @@ export namespace Prisma {
     invoices?: boolean | SiteCountOutputTypeCountInvoicesArgs
     InvoiceItems?: boolean | SiteCountOutputTypeCountInvoiceItemsArgs
     Documents?: boolean | SiteCountOutputTypeCountDocumentsArgs
+    photos?: boolean | SiteCountOutputTypeCountPhotosArgs
     sitediaryrecords?: boolean | SiteCountOutputTypeCountSitediaryrecordsArgs
   }
 
@@ -1825,6 +1927,13 @@ export namespace Prisma {
    */
   export type SiteCountOutputTypeCountDocumentsArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     where?: DocumentsWhereInput
+  }
+
+  /**
+   * SiteCountOutputType without action
+   */
+  export type SiteCountOutputTypeCountPhotosArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: photosWhereInput
   }
 
   /**
@@ -2074,6 +2183,7 @@ export namespace Prisma {
     Subscription?: boolean | User$SubscriptionArgs<ExtArgs>
     AIconversation?: boolean | User$AIconversationArgs<ExtArgs>
     sitediarysettings?: boolean | User$sitediarysettingsArgs<ExtArgs>
+    photos?: boolean | User$photosArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
   }, ExtArgs["result"]["user"]>
 
@@ -2123,6 +2233,7 @@ export namespace Prisma {
     Subscription?: boolean | User$SubscriptionArgs<ExtArgs>
     AIconversation?: boolean | User$AIconversationArgs<ExtArgs>
     sitediarysettings?: boolean | User$sitediarysettingsArgs<ExtArgs>
+    photos?: boolean | User$photosArgs<ExtArgs>
     _count?: boolean | UserCountOutputTypeDefaultArgs<ExtArgs>
   }
   export type UserIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {}
@@ -2139,6 +2250,7 @@ export namespace Prisma {
       Subscription: Prisma.$SubscriptionPayload<ExtArgs> | null
       AIconversation: Prisma.$AIconversationPayload<ExtArgs>[]
       sitediarysettings: Prisma.$sitediarysettingsPayload<ExtArgs>[]
+      photos: Prisma.$photosPayload<ExtArgs>[]
     }
     scalars: $Extensions.GetPayloadResult<{
       id: string
@@ -2552,6 +2664,7 @@ export namespace Prisma {
     Subscription<T extends User$SubscriptionArgs<ExtArgs> = {}>(args?: Subset<T, User$SubscriptionArgs<ExtArgs>>): Prisma__SubscriptionClient<$Result.GetResult<Prisma.$SubscriptionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     AIconversation<T extends User$AIconversationArgs<ExtArgs> = {}>(args?: Subset<T, User$AIconversationArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$AIconversationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     sitediarysettings<T extends User$sitediarysettingsArgs<ExtArgs> = {}>(args?: Subset<T, User$sitediarysettingsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$sitediarysettingsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    photos<T extends User$photosArgs<ExtArgs> = {}>(args?: Subset<T, User$photosArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     /**
      * Attaches callbacks for the resolution and/or rejection of the Promise.
      * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -3165,6 +3278,30 @@ export namespace Prisma {
   }
 
   /**
+   * User.photos
+   */
+  export type User$photosArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    where?: photosWhereInput
+    orderBy?: photosOrderByWithRelationInput | photosOrderByWithRelationInput[]
+    cursor?: photosWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: PhotosScalarFieldEnum | PhotosScalarFieldEnum[]
+  }
+
+  /**
    * User without action
    */
   export type UserDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
@@ -3376,6 +3513,7 @@ export namespace Prisma {
     invoices?: boolean | Site$invoicesArgs<ExtArgs>
     InvoiceItems?: boolean | Site$InvoiceItemsArgs<ExtArgs>
     Documents?: boolean | Site$DocumentsArgs<ExtArgs>
+    photos?: boolean | Site$photosArgs<ExtArgs>
     sitediaryrecords?: boolean | Site$sitediaryrecordsArgs<ExtArgs>
     AIconversation?: boolean | Site$AIconversationArgs<ExtArgs>
     sitediarysettings?: boolean | Site$sitediarysettingsArgs<ExtArgs>
@@ -3424,6 +3562,7 @@ export namespace Prisma {
     invoices?: boolean | Site$invoicesArgs<ExtArgs>
     InvoiceItems?: boolean | Site$InvoiceItemsArgs<ExtArgs>
     Documents?: boolean | Site$DocumentsArgs<ExtArgs>
+    photos?: boolean | Site$photosArgs<ExtArgs>
     sitediaryrecords?: boolean | Site$sitediaryrecordsArgs<ExtArgs>
     AIconversation?: boolean | Site$AIconversationArgs<ExtArgs>
     sitediarysettings?: boolean | Site$sitediarysettingsArgs<ExtArgs>
@@ -3444,6 +3583,7 @@ export namespace Prisma {
       invoices: Prisma.$InvoicesPayload<ExtArgs>[]
       InvoiceItems: Prisma.$InvoiceItemsPayload<ExtArgs>[]
       Documents: Prisma.$DocumentsPayload<ExtArgs>[]
+      photos: Prisma.$photosPayload<ExtArgs>[]
       sitediaryrecords: Prisma.$sitediaryrecordsPayload<ExtArgs>[]
       AIconversation: Prisma.$AIconversationPayload<ExtArgs> | null
       sitediarysettings: Prisma.$sitediarysettingsPayload<ExtArgs> | null
@@ -3856,6 +3996,7 @@ export namespace Prisma {
     invoices<T extends Site$invoicesArgs<ExtArgs> = {}>(args?: Subset<T, Site$invoicesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InvoicesPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     InvoiceItems<T extends Site$InvoiceItemsArgs<ExtArgs> = {}>(args?: Subset<T, Site$InvoiceItemsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$InvoiceItemsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     Documents<T extends Site$DocumentsArgs<ExtArgs> = {}>(args?: Subset<T, Site$DocumentsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$DocumentsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+    photos<T extends Site$photosArgs<ExtArgs> = {}>(args?: Subset<T, Site$photosArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     sitediaryrecords<T extends Site$sitediaryrecordsArgs<ExtArgs> = {}>(args?: Subset<T, Site$sitediaryrecordsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$sitediaryrecordsPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     AIconversation<T extends Site$AIconversationArgs<ExtArgs> = {}>(args?: Subset<T, Site$AIconversationArgs<ExtArgs>>): Prisma__AIconversationClient<$Result.GetResult<Prisma.$AIconversationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     sitediarysettings<T extends Site$sitediarysettingsArgs<ExtArgs> = {}>(args?: Subset<T, Site$sitediarysettingsArgs<ExtArgs>>): Prisma__sitediarysettingsClient<$Result.GetResult<Prisma.$sitediarysettingsPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -4404,6 +4545,30 @@ export namespace Prisma {
     take?: number
     skip?: number
     distinct?: DocumentsScalarFieldEnum | DocumentsScalarFieldEnum[]
+  }
+
+  /**
+   * Site.photos
+   */
+  export type Site$photosArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    where?: photosWhereInput
+    orderBy?: photosOrderByWithRelationInput | photosOrderByWithRelationInput[]
+    cursor?: photosWhereUniqueInput
+    take?: number
+    skip?: number
+    distinct?: PhotosScalarFieldEnum | PhotosScalarFieldEnum[]
   }
 
   /**
@@ -13946,6 +14111,1149 @@ export namespace Prisma {
 
 
   /**
+   * Model photos
+   */
+
+  export type AggregatePhotos = {
+    _count: PhotosCountAggregateOutputType | null
+    _min: PhotosMinAggregateOutputType | null
+    _max: PhotosMaxAggregateOutputType | null
+  }
+
+  export type PhotosMinAggregateOutputType = {
+    id: string | null
+    Date: Date | null
+    URL: string | null
+    Comment: string | null
+    Location: string | null
+    userId: string | null
+    fileUrl: string | null
+    siteId: string | null
+  }
+
+  export type PhotosMaxAggregateOutputType = {
+    id: string | null
+    Date: Date | null
+    URL: string | null
+    Comment: string | null
+    Location: string | null
+    userId: string | null
+    fileUrl: string | null
+    siteId: string | null
+  }
+
+  export type PhotosCountAggregateOutputType = {
+    id: number
+    Date: number
+    URL: number
+    Comment: number
+    Location: number
+    userId: number
+    fileUrl: number
+    siteId: number
+    _all: number
+  }
+
+
+  export type PhotosMinAggregateInputType = {
+    id?: true
+    Date?: true
+    URL?: true
+    Comment?: true
+    Location?: true
+    userId?: true
+    fileUrl?: true
+    siteId?: true
+  }
+
+  export type PhotosMaxAggregateInputType = {
+    id?: true
+    Date?: true
+    URL?: true
+    Comment?: true
+    Location?: true
+    userId?: true
+    fileUrl?: true
+    siteId?: true
+  }
+
+  export type PhotosCountAggregateInputType = {
+    id?: true
+    Date?: true
+    URL?: true
+    Comment?: true
+    Location?: true
+    userId?: true
+    fileUrl?: true
+    siteId?: true
+    _all?: true
+  }
+
+  export type PhotosAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which photos to aggregate.
+     */
+    where?: photosWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of photos to fetch.
+     */
+    orderBy?: photosOrderByWithRelationInput | photosOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: photosWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` photos from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` photos.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned photos
+    **/
+    _count?: true | PhotosCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: PhotosMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: PhotosMaxAggregateInputType
+  }
+
+  export type GetPhotosAggregateType<T extends PhotosAggregateArgs> = {
+        [P in keyof T & keyof AggregatePhotos]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregatePhotos[P]>
+      : GetScalarType<T[P], AggregatePhotos[P]>
+  }
+
+
+
+
+  export type photosGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: photosWhereInput
+    orderBy?: photosOrderByWithAggregationInput | photosOrderByWithAggregationInput[]
+    by: PhotosScalarFieldEnum[] | PhotosScalarFieldEnum
+    having?: photosScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: PhotosCountAggregateInputType | true
+    _min?: PhotosMinAggregateInputType
+    _max?: PhotosMaxAggregateInputType
+  }
+
+  export type PhotosGroupByOutputType = {
+    id: string
+    Date: Date | null
+    URL: string | null
+    Comment: string | null
+    Location: string | null
+    userId: string | null
+    fileUrl: string | null
+    siteId: string | null
+    _count: PhotosCountAggregateOutputType | null
+    _min: PhotosMinAggregateOutputType | null
+    _max: PhotosMaxAggregateOutputType | null
+  }
+
+  type GetPhotosGroupByPayload<T extends photosGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<PhotosGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof PhotosGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], PhotosGroupByOutputType[P]>
+            : GetScalarType<T[P], PhotosGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type photosSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    Date?: boolean
+    URL?: boolean
+    Comment?: boolean
+    Location?: boolean
+    userId?: boolean
+    fileUrl?: boolean
+    siteId?: boolean
+    User?: boolean | photos$UserArgs<ExtArgs>
+    Site?: boolean | photos$SiteArgs<ExtArgs>
+  }, ExtArgs["result"]["photos"]>
+
+  export type photosSelectCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    Date?: boolean
+    URL?: boolean
+    Comment?: boolean
+    Location?: boolean
+    userId?: boolean
+    fileUrl?: boolean
+    siteId?: boolean
+    User?: boolean | photos$UserArgs<ExtArgs>
+    Site?: boolean | photos$SiteArgs<ExtArgs>
+  }, ExtArgs["result"]["photos"]>
+
+  export type photosSelectUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    Date?: boolean
+    URL?: boolean
+    Comment?: boolean
+    Location?: boolean
+    userId?: boolean
+    fileUrl?: boolean
+    siteId?: boolean
+    User?: boolean | photos$UserArgs<ExtArgs>
+    Site?: boolean | photos$SiteArgs<ExtArgs>
+  }, ExtArgs["result"]["photos"]>
+
+  export type photosSelectScalar = {
+    id?: boolean
+    Date?: boolean
+    URL?: boolean
+    Comment?: boolean
+    Location?: boolean
+    userId?: boolean
+    fileUrl?: boolean
+    siteId?: boolean
+  }
+
+  export type photosOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "Date" | "URL" | "Comment" | "Location" | "userId" | "fileUrl" | "siteId", ExtArgs["result"]["photos"]>
+  export type photosInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    User?: boolean | photos$UserArgs<ExtArgs>
+    Site?: boolean | photos$SiteArgs<ExtArgs>
+  }
+  export type photosIncludeCreateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    User?: boolean | photos$UserArgs<ExtArgs>
+    Site?: boolean | photos$SiteArgs<ExtArgs>
+  }
+  export type photosIncludeUpdateManyAndReturn<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    User?: boolean | photos$UserArgs<ExtArgs>
+    Site?: boolean | photos$SiteArgs<ExtArgs>
+  }
+
+  export type $photosPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "photos"
+    objects: {
+      User: Prisma.$UserPayload<ExtArgs> | null
+      Site: Prisma.$SitePayload<ExtArgs> | null
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: string
+      Date: Date | null
+      URL: string | null
+      Comment: string | null
+      Location: string | null
+      userId: string | null
+      fileUrl: string | null
+      siteId: string | null
+    }, ExtArgs["result"]["photos"]>
+    composites: {}
+  }
+
+  type photosGetPayload<S extends boolean | null | undefined | photosDefaultArgs> = $Result.GetResult<Prisma.$photosPayload, S>
+
+  type photosCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<photosFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: PhotosCountAggregateInputType | true
+    }
+
+  export interface photosDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['photos'], meta: { name: 'photos' } }
+    /**
+     * Find zero or one Photos that matches the filter.
+     * @param {photosFindUniqueArgs} args - Arguments to find a Photos
+     * @example
+     * // Get one Photos
+     * const photos = await prisma.photos.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends photosFindUniqueArgs>(args: SelectSubset<T, photosFindUniqueArgs<ExtArgs>>): Prisma__photosClient<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one Photos that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {photosFindUniqueOrThrowArgs} args - Arguments to find a Photos
+     * @example
+     * // Get one Photos
+     * const photos = await prisma.photos.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends photosFindUniqueOrThrowArgs>(args: SelectSubset<T, photosFindUniqueOrThrowArgs<ExtArgs>>): Prisma__photosClient<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Photos that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {photosFindFirstArgs} args - Arguments to find a Photos
+     * @example
+     * // Get one Photos
+     * const photos = await prisma.photos.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends photosFindFirstArgs>(args?: SelectSubset<T, photosFindFirstArgs<ExtArgs>>): Prisma__photosClient<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first Photos that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {photosFindFirstOrThrowArgs} args - Arguments to find a Photos
+     * @example
+     * // Get one Photos
+     * const photos = await prisma.photos.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends photosFindFirstOrThrowArgs>(args?: SelectSubset<T, photosFindFirstOrThrowArgs<ExtArgs>>): Prisma__photosClient<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more Photos that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {photosFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all Photos
+     * const photos = await prisma.photos.findMany()
+     * 
+     * // Get first 10 Photos
+     * const photos = await prisma.photos.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const photosWithIdOnly = await prisma.photos.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends photosFindManyArgs>(args?: SelectSubset<T, photosFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a Photos.
+     * @param {photosCreateArgs} args - Arguments to create a Photos.
+     * @example
+     * // Create one Photos
+     * const Photos = await prisma.photos.create({
+     *   data: {
+     *     // ... data to create a Photos
+     *   }
+     * })
+     * 
+     */
+    create<T extends photosCreateArgs>(args: SelectSubset<T, photosCreateArgs<ExtArgs>>): Prisma__photosClient<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many Photos.
+     * @param {photosCreateManyArgs} args - Arguments to create many Photos.
+     * @example
+     * // Create many Photos
+     * const photos = await prisma.photos.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends photosCreateManyArgs>(args?: SelectSubset<T, photosCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create many Photos and returns the data saved in the database.
+     * @param {photosCreateManyAndReturnArgs} args - Arguments to create many Photos.
+     * @example
+     * // Create many Photos
+     * const photos = await prisma.photos.createManyAndReturn({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Create many Photos and only return the `id`
+     * const photosWithIdOnly = await prisma.photos.createManyAndReturn({
+     *   select: { id: true },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    createManyAndReturn<T extends photosCreateManyAndReturnArgs>(args?: SelectSubset<T, photosCreateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "createManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Delete a Photos.
+     * @param {photosDeleteArgs} args - Arguments to delete one Photos.
+     * @example
+     * // Delete one Photos
+     * const Photos = await prisma.photos.delete({
+     *   where: {
+     *     // ... filter to delete one Photos
+     *   }
+     * })
+     * 
+     */
+    delete<T extends photosDeleteArgs>(args: SelectSubset<T, photosDeleteArgs<ExtArgs>>): Prisma__photosClient<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one Photos.
+     * @param {photosUpdateArgs} args - Arguments to update one Photos.
+     * @example
+     * // Update one Photos
+     * const photos = await prisma.photos.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends photosUpdateArgs>(args: SelectSubset<T, photosUpdateArgs<ExtArgs>>): Prisma__photosClient<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more Photos.
+     * @param {photosDeleteManyArgs} args - Arguments to filter Photos to delete.
+     * @example
+     * // Delete a few Photos
+     * const { count } = await prisma.photos.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends photosDeleteManyArgs>(args?: SelectSubset<T, photosDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Photos.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {photosUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many Photos
+     * const photos = await prisma.photos.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends photosUpdateManyArgs>(args: SelectSubset<T, photosUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more Photos and returns the data updated in the database.
+     * @param {photosUpdateManyAndReturnArgs} args - Arguments to update many Photos.
+     * @example
+     * // Update many Photos
+     * const photos = await prisma.photos.updateManyAndReturn({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * 
+     * // Update zero or more Photos and only return the `id`
+     * const photosWithIdOnly = await prisma.photos.updateManyAndReturn({
+     *   select: { id: true },
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * 
+     */
+    updateManyAndReturn<T extends photosUpdateManyAndReturnArgs>(args: SelectSubset<T, photosUpdateManyAndReturnArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "updateManyAndReturn", GlobalOmitOptions>>
+
+    /**
+     * Create or update one Photos.
+     * @param {photosUpsertArgs} args - Arguments to update or create a Photos.
+     * @example
+     * // Update or create a Photos
+     * const photos = await prisma.photos.upsert({
+     *   create: {
+     *     // ... data to create a Photos
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the Photos we want to update
+     *   }
+     * })
+     */
+    upsert<T extends photosUpsertArgs>(args: SelectSubset<T, photosUpsertArgs<ExtArgs>>): Prisma__photosClient<$Result.GetResult<Prisma.$photosPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of Photos.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {photosCountArgs} args - Arguments to filter Photos to count.
+     * @example
+     * // Count the number of Photos
+     * const count = await prisma.photos.count({
+     *   where: {
+     *     // ... the filter for the Photos we want to count
+     *   }
+     * })
+    **/
+    count<T extends photosCountArgs>(
+      args?: Subset<T, photosCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], PhotosCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a Photos.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {PhotosAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends PhotosAggregateArgs>(args: Subset<T, PhotosAggregateArgs>): Prisma.PrismaPromise<GetPhotosAggregateType<T>>
+
+    /**
+     * Group by Photos.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {photosGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends photosGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: photosGroupByArgs['orderBy'] }
+        : { orderBy?: photosGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, photosGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetPhotosGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the photos model
+   */
+  readonly fields: photosFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for photos.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__photosClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    User<T extends photos$UserArgs<ExtArgs> = {}>(args?: Subset<T, photos$UserArgs<ExtArgs>>): Prisma__UserClient<$Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    Site<T extends photos$SiteArgs<ExtArgs> = {}>(args?: Subset<T, photos$SiteArgs<ExtArgs>>): Prisma__SiteClient<$Result.GetResult<Prisma.$SitePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the photos model
+   */
+  interface photosFieldRefs {
+    readonly id: FieldRef<"photos", 'String'>
+    readonly Date: FieldRef<"photos", 'DateTime'>
+    readonly URL: FieldRef<"photos", 'String'>
+    readonly Comment: FieldRef<"photos", 'String'>
+    readonly Location: FieldRef<"photos", 'String'>
+    readonly userId: FieldRef<"photos", 'String'>
+    readonly fileUrl: FieldRef<"photos", 'String'>
+    readonly siteId: FieldRef<"photos", 'String'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * photos findUnique
+   */
+  export type photosFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    /**
+     * Filter, which photos to fetch.
+     */
+    where: photosWhereUniqueInput
+  }
+
+  /**
+   * photos findUniqueOrThrow
+   */
+  export type photosFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    /**
+     * Filter, which photos to fetch.
+     */
+    where: photosWhereUniqueInput
+  }
+
+  /**
+   * photos findFirst
+   */
+  export type photosFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    /**
+     * Filter, which photos to fetch.
+     */
+    where?: photosWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of photos to fetch.
+     */
+    orderBy?: photosOrderByWithRelationInput | photosOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for photos.
+     */
+    cursor?: photosWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` photos from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` photos.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of photos.
+     */
+    distinct?: PhotosScalarFieldEnum | PhotosScalarFieldEnum[]
+  }
+
+  /**
+   * photos findFirstOrThrow
+   */
+  export type photosFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    /**
+     * Filter, which photos to fetch.
+     */
+    where?: photosWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of photos to fetch.
+     */
+    orderBy?: photosOrderByWithRelationInput | photosOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for photos.
+     */
+    cursor?: photosWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` photos from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` photos.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of photos.
+     */
+    distinct?: PhotosScalarFieldEnum | PhotosScalarFieldEnum[]
+  }
+
+  /**
+   * photos findMany
+   */
+  export type photosFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    /**
+     * Filter, which photos to fetch.
+     */
+    where?: photosWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of photos to fetch.
+     */
+    orderBy?: photosOrderByWithRelationInput | photosOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing photos.
+     */
+    cursor?: photosWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` photos from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` photos.
+     */
+    skip?: number
+    distinct?: PhotosScalarFieldEnum | PhotosScalarFieldEnum[]
+  }
+
+  /**
+   * photos create
+   */
+  export type photosCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    /**
+     * The data needed to create a photos.
+     */
+    data?: XOR<photosCreateInput, photosUncheckedCreateInput>
+  }
+
+  /**
+   * photos createMany
+   */
+  export type photosCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many photos.
+     */
+    data: photosCreateManyInput | photosCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * photos createManyAndReturn
+   */
+  export type photosCreateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelectCreateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * The data used to create many photos.
+     */
+    data: photosCreateManyInput | photosCreateManyInput[]
+    skipDuplicates?: boolean
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosIncludeCreateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * photos update
+   */
+  export type photosUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    /**
+     * The data needed to update a photos.
+     */
+    data: XOR<photosUpdateInput, photosUncheckedUpdateInput>
+    /**
+     * Choose, which photos to update.
+     */
+    where: photosWhereUniqueInput
+  }
+
+  /**
+   * photos updateMany
+   */
+  export type photosUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update photos.
+     */
+    data: XOR<photosUpdateManyMutationInput, photosUncheckedUpdateManyInput>
+    /**
+     * Filter which photos to update
+     */
+    where?: photosWhereInput
+    /**
+     * Limit how many photos to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * photos updateManyAndReturn
+   */
+  export type photosUpdateManyAndReturnArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelectUpdateManyAndReturn<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * The data used to update photos.
+     */
+    data: XOR<photosUpdateManyMutationInput, photosUncheckedUpdateManyInput>
+    /**
+     * Filter which photos to update
+     */
+    where?: photosWhereInput
+    /**
+     * Limit how many photos to update.
+     */
+    limit?: number
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosIncludeUpdateManyAndReturn<ExtArgs> | null
+  }
+
+  /**
+   * photos upsert
+   */
+  export type photosUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    /**
+     * The filter to search for the photos to update in case it exists.
+     */
+    where: photosWhereUniqueInput
+    /**
+     * In case the photos found by the `where` argument doesn't exist, create a new photos with this data.
+     */
+    create: XOR<photosCreateInput, photosUncheckedCreateInput>
+    /**
+     * In case the photos was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<photosUpdateInput, photosUncheckedUpdateInput>
+  }
+
+  /**
+   * photos delete
+   */
+  export type photosDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+    /**
+     * Filter which photos to delete.
+     */
+    where: photosWhereUniqueInput
+  }
+
+  /**
+   * photos deleteMany
+   */
+  export type photosDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which photos to delete
+     */
+    where?: photosWhereInput
+    /**
+     * Limit how many photos to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * photos.User
+   */
+  export type photos$UserArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the User
+     */
+    select?: UserSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the User
+     */
+    omit?: UserOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: UserInclude<ExtArgs> | null
+    where?: UserWhereInput
+  }
+
+  /**
+   * photos.Site
+   */
+  export type photos$SiteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the Site
+     */
+    select?: SiteSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the Site
+     */
+    omit?: SiteOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: SiteInclude<ExtArgs> | null
+    where?: SiteWhereInput
+  }
+
+  /**
+   * photos without action
+   */
+  export type photosDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the photos
+     */
+    select?: photosSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the photos
+     */
+    omit?: photosOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: photosInclude<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -14114,6 +15422,20 @@ export namespace Prisma {
   export type SitediarysettingsScalarFieldEnum = (typeof SitediarysettingsScalarFieldEnum)[keyof typeof SitediarysettingsScalarFieldEnum]
 
 
+  export const PhotosScalarFieldEnum: {
+    id: 'id',
+    Date: 'Date',
+    URL: 'URL',
+    Comment: 'Comment',
+    Location: 'Location',
+    userId: 'userId',
+    fileUrl: 'fileUrl',
+    siteId: 'siteId'
+  };
+
+  export type PhotosScalarFieldEnum = (typeof PhotosScalarFieldEnum)[keyof typeof PhotosScalarFieldEnum]
+
+
   export const SortOrder: {
     asc: 'asc',
     desc: 'desc'
@@ -14268,6 +15590,7 @@ export namespace Prisma {
     Subscription?: XOR<SubscriptionNullableScalarRelationFilter, SubscriptionWhereInput> | null
     AIconversation?: AIconversationListRelationFilter
     sitediarysettings?: SitediarysettingsListRelationFilter
+    photos?: PhotosListRelationFilter
   }
 
   export type UserOrderByWithRelationInput = {
@@ -14288,6 +15611,7 @@ export namespace Prisma {
     Subscription?: SubscriptionOrderByWithRelationInput
     AIconversation?: AIconversationOrderByRelationAggregateInput
     sitediarysettings?: sitediarysettingsOrderByRelationAggregateInput
+    photos?: photosOrderByRelationAggregateInput
   }
 
   export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -14311,6 +15635,7 @@ export namespace Prisma {
     Subscription?: XOR<SubscriptionNullableScalarRelationFilter, SubscriptionWhereInput> | null
     AIconversation?: AIconversationListRelationFilter
     sitediarysettings?: SitediarysettingsListRelationFilter
+    photos?: PhotosListRelationFilter
   }, "id" | "id" | "customerId">
 
   export type UserOrderByWithAggregationInput = {
@@ -14360,6 +15685,7 @@ export namespace Prisma {
     invoices?: InvoicesListRelationFilter
     InvoiceItems?: InvoiceItemsListRelationFilter
     Documents?: DocumentsListRelationFilter
+    photos?: PhotosListRelationFilter
     sitediaryrecords?: SitediaryrecordsListRelationFilter
     AIconversation?: XOR<AIconversationNullableScalarRelationFilter, AIconversationWhereInput> | null
     sitediarysettings?: XOR<SitediarysettingsNullableScalarRelationFilter, sitediarysettingsWhereInput> | null
@@ -14379,6 +15705,7 @@ export namespace Prisma {
     invoices?: InvoicesOrderByRelationAggregateInput
     InvoiceItems?: InvoiceItemsOrderByRelationAggregateInput
     Documents?: DocumentsOrderByRelationAggregateInput
+    photos?: photosOrderByRelationAggregateInput
     sitediaryrecords?: sitediaryrecordsOrderByRelationAggregateInput
     AIconversation?: AIconversationOrderByWithRelationInput
     sitediarysettings?: sitediarysettingsOrderByWithRelationInput
@@ -14401,6 +15728,7 @@ export namespace Prisma {
     invoices?: InvoicesListRelationFilter
     InvoiceItems?: InvoiceItemsListRelationFilter
     Documents?: DocumentsListRelationFilter
+    photos?: PhotosListRelationFilter
     sitediaryrecords?: SitediaryrecordsListRelationFilter
     AIconversation?: XOR<AIconversationNullableScalarRelationFilter, AIconversationWhereInput> | null
     sitediarysettings?: XOR<SitediarysettingsNullableScalarRelationFilter, sitediarysettingsWhereInput> | null
@@ -15097,6 +16425,79 @@ export namespace Prisma {
     schema?: StringNullableWithAggregatesFilter<"sitediarysettings"> | string | null
   }
 
+  export type photosWhereInput = {
+    AND?: photosWhereInput | photosWhereInput[]
+    OR?: photosWhereInput[]
+    NOT?: photosWhereInput | photosWhereInput[]
+    id?: StringFilter<"photos"> | string
+    Date?: DateTimeNullableFilter<"photos"> | Date | string | null
+    URL?: StringNullableFilter<"photos"> | string | null
+    Comment?: StringNullableFilter<"photos"> | string | null
+    Location?: StringNullableFilter<"photos"> | string | null
+    userId?: StringNullableFilter<"photos"> | string | null
+    fileUrl?: StringNullableFilter<"photos"> | string | null
+    siteId?: StringNullableFilter<"photos"> | string | null
+    User?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
+    Site?: XOR<SiteNullableScalarRelationFilter, SiteWhereInput> | null
+  }
+
+  export type photosOrderByWithRelationInput = {
+    id?: SortOrder
+    Date?: SortOrderInput | SortOrder
+    URL?: SortOrderInput | SortOrder
+    Comment?: SortOrderInput | SortOrder
+    Location?: SortOrderInput | SortOrder
+    userId?: SortOrderInput | SortOrder
+    fileUrl?: SortOrderInput | SortOrder
+    siteId?: SortOrderInput | SortOrder
+    User?: UserOrderByWithRelationInput
+    Site?: SiteOrderByWithRelationInput
+  }
+
+  export type photosWhereUniqueInput = Prisma.AtLeast<{
+    id?: string
+    AND?: photosWhereInput | photosWhereInput[]
+    OR?: photosWhereInput[]
+    NOT?: photosWhereInput | photosWhereInput[]
+    Date?: DateTimeNullableFilter<"photos"> | Date | string | null
+    URL?: StringNullableFilter<"photos"> | string | null
+    Comment?: StringNullableFilter<"photos"> | string | null
+    Location?: StringNullableFilter<"photos"> | string | null
+    userId?: StringNullableFilter<"photos"> | string | null
+    fileUrl?: StringNullableFilter<"photos"> | string | null
+    siteId?: StringNullableFilter<"photos"> | string | null
+    User?: XOR<UserNullableScalarRelationFilter, UserWhereInput> | null
+    Site?: XOR<SiteNullableScalarRelationFilter, SiteWhereInput> | null
+  }, "id">
+
+  export type photosOrderByWithAggregationInput = {
+    id?: SortOrder
+    Date?: SortOrderInput | SortOrder
+    URL?: SortOrderInput | SortOrder
+    Comment?: SortOrderInput | SortOrder
+    Location?: SortOrderInput | SortOrder
+    userId?: SortOrderInput | SortOrder
+    fileUrl?: SortOrderInput | SortOrder
+    siteId?: SortOrderInput | SortOrder
+    _count?: photosCountOrderByAggregateInput
+    _max?: photosMaxOrderByAggregateInput
+    _min?: photosMinOrderByAggregateInput
+  }
+
+  export type photosScalarWhereWithAggregatesInput = {
+    AND?: photosScalarWhereWithAggregatesInput | photosScalarWhereWithAggregatesInput[]
+    OR?: photosScalarWhereWithAggregatesInput[]
+    NOT?: photosScalarWhereWithAggregatesInput | photosScalarWhereWithAggregatesInput[]
+    id?: StringWithAggregatesFilter<"photos"> | string
+    Date?: DateTimeNullableWithAggregatesFilter<"photos"> | Date | string | null
+    URL?: StringNullableWithAggregatesFilter<"photos"> | string | null
+    Comment?: StringNullableWithAggregatesFilter<"photos"> | string | null
+    Location?: StringNullableWithAggregatesFilter<"photos"> | string | null
+    userId?: StringNullableWithAggregatesFilter<"photos"> | string | null
+    fileUrl?: StringNullableWithAggregatesFilter<"photos"> | string | null
+    siteId?: StringNullableWithAggregatesFilter<"photos"> | string | null
+  }
+
   export type UserCreateInput = {
     id: string
     email: string
@@ -15115,6 +16516,7 @@ export namespace Prisma {
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsCreateNestedManyWithoutUserInput
+    photos?: photosCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateInput = {
@@ -15135,6 +16537,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedManyWithoutUserInput
+    photos?: photosUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserUpdateInput = {
@@ -15155,6 +16558,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUpdateManyWithoutUserNestedInput
+    photos?: photosUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateInput = {
@@ -15175,6 +16579,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateManyWithoutUserNestedInput
+    photos?: photosUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type UserCreateManyInput = {
@@ -15226,6 +16631,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    photos?: photosCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsCreateNestedOneWithoutSiteInput
@@ -15244,6 +16650,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    photos?: photosUncheckedCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedOneWithoutSiteInput
@@ -15262,6 +16669,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    photos?: photosUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUpdateOneWithoutSiteNestedInput
@@ -15280,6 +16688,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    photos?: photosUncheckedUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateOneWithoutSiteNestedInput
@@ -16020,6 +17429,81 @@ export namespace Prisma {
     schema?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
+  export type photosCreateInput = {
+    id?: string
+    Date?: Date | string | null
+    URL?: string | null
+    Comment?: string | null
+    Location?: string | null
+    fileUrl?: string | null
+    User?: UserCreateNestedOneWithoutPhotosInput
+    Site?: SiteCreateNestedOneWithoutPhotosInput
+  }
+
+  export type photosUncheckedCreateInput = {
+    id?: string
+    Date?: Date | string | null
+    URL?: string | null
+    Comment?: string | null
+    Location?: string | null
+    userId?: string | null
+    fileUrl?: string | null
+    siteId?: string | null
+  }
+
+  export type photosUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    User?: UserUpdateOneWithoutPhotosNestedInput
+    Site?: SiteUpdateOneWithoutPhotosNestedInput
+  }
+
+  export type photosUncheckedUpdateInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type photosCreateManyInput = {
+    id?: string
+    Date?: Date | string | null
+    URL?: string | null
+    Comment?: string | null
+    Location?: string | null
+    userId?: string | null
+    fileUrl?: string | null
+    siteId?: string | null
+  }
+
+  export type photosUpdateManyMutationInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type photosUncheckedUpdateManyInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
   export type StringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -16108,6 +17592,12 @@ export namespace Prisma {
     none?: sitediarysettingsWhereInput
   }
 
+  export type PhotosListRelationFilter = {
+    every?: photosWhereInput
+    some?: photosWhereInput
+    none?: photosWhereInput
+  }
+
   export type SortOrderInput = {
     sort: SortOrder
     nulls?: NullsOrder
@@ -16138,6 +17628,10 @@ export namespace Prisma {
   }
 
   export type sitediarysettingsOrderByRelationAggregateInput = {
+    _count?: SortOrder
+  }
+
+  export type photosOrderByRelationAggregateInput = {
     _count?: SortOrder
   }
 
@@ -16869,6 +18363,39 @@ export namespace Prisma {
     schema?: SortOrder
   }
 
+  export type photosCountOrderByAggregateInput = {
+    id?: SortOrder
+    Date?: SortOrder
+    URL?: SortOrder
+    Comment?: SortOrder
+    Location?: SortOrder
+    userId?: SortOrder
+    fileUrl?: SortOrder
+    siteId?: SortOrder
+  }
+
+  export type photosMaxOrderByAggregateInput = {
+    id?: SortOrder
+    Date?: SortOrder
+    URL?: SortOrder
+    Comment?: SortOrder
+    Location?: SortOrder
+    userId?: SortOrder
+    fileUrl?: SortOrder
+    siteId?: SortOrder
+  }
+
+  export type photosMinOrderByAggregateInput = {
+    id?: SortOrder
+    Date?: SortOrder
+    URL?: SortOrder
+    Comment?: SortOrder
+    Location?: SortOrder
+    userId?: SortOrder
+    fileUrl?: SortOrder
+    siteId?: SortOrder
+  }
+
   export type SiteCreateNestedManyWithoutUserInput = {
     create?: XOR<SiteCreateWithoutUserInput, SiteUncheckedCreateWithoutUserInput> | SiteCreateWithoutUserInput[] | SiteUncheckedCreateWithoutUserInput[]
     connectOrCreate?: SiteCreateOrConnectWithoutUserInput | SiteCreateOrConnectWithoutUserInput[]
@@ -16924,6 +18451,13 @@ export namespace Prisma {
     connect?: sitediarysettingsWhereUniqueInput | sitediarysettingsWhereUniqueInput[]
   }
 
+  export type photosCreateNestedManyWithoutUserInput = {
+    create?: XOR<photosCreateWithoutUserInput, photosUncheckedCreateWithoutUserInput> | photosCreateWithoutUserInput[] | photosUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: photosCreateOrConnectWithoutUserInput | photosCreateOrConnectWithoutUserInput[]
+    createMany?: photosCreateManyUserInputEnvelope
+    connect?: photosWhereUniqueInput | photosWhereUniqueInput[]
+  }
+
   export type SiteUncheckedCreateNestedManyWithoutUserInput = {
     create?: XOR<SiteCreateWithoutUserInput, SiteUncheckedCreateWithoutUserInput> | SiteCreateWithoutUserInput[] | SiteUncheckedCreateWithoutUserInput[]
     connectOrCreate?: SiteCreateOrConnectWithoutUserInput | SiteCreateOrConnectWithoutUserInput[]
@@ -16977,6 +18511,13 @@ export namespace Prisma {
     connectOrCreate?: sitediarysettingsCreateOrConnectWithoutUserInput | sitediarysettingsCreateOrConnectWithoutUserInput[]
     createMany?: sitediarysettingsCreateManyUserInputEnvelope
     connect?: sitediarysettingsWhereUniqueInput | sitediarysettingsWhereUniqueInput[]
+  }
+
+  export type photosUncheckedCreateNestedManyWithoutUserInput = {
+    create?: XOR<photosCreateWithoutUserInput, photosUncheckedCreateWithoutUserInput> | photosCreateWithoutUserInput[] | photosUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: photosCreateOrConnectWithoutUserInput | photosCreateOrConnectWithoutUserInput[]
+    createMany?: photosCreateManyUserInputEnvelope
+    connect?: photosWhereUniqueInput | photosWhereUniqueInput[]
   }
 
   export type StringFieldUpdateOperationsInput = {
@@ -17099,6 +18640,20 @@ export namespace Prisma {
     deleteMany?: sitediarysettingsScalarWhereInput | sitediarysettingsScalarWhereInput[]
   }
 
+  export type photosUpdateManyWithoutUserNestedInput = {
+    create?: XOR<photosCreateWithoutUserInput, photosUncheckedCreateWithoutUserInput> | photosCreateWithoutUserInput[] | photosUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: photosCreateOrConnectWithoutUserInput | photosCreateOrConnectWithoutUserInput[]
+    upsert?: photosUpsertWithWhereUniqueWithoutUserInput | photosUpsertWithWhereUniqueWithoutUserInput[]
+    createMany?: photosCreateManyUserInputEnvelope
+    set?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    disconnect?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    delete?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    connect?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    update?: photosUpdateWithWhereUniqueWithoutUserInput | photosUpdateWithWhereUniqueWithoutUserInput[]
+    updateMany?: photosUpdateManyWithWhereWithoutUserInput | photosUpdateManyWithWhereWithoutUserInput[]
+    deleteMany?: photosScalarWhereInput | photosScalarWhereInput[]
+  }
+
   export type SiteUncheckedUpdateManyWithoutUserNestedInput = {
     create?: XOR<SiteCreateWithoutUserInput, SiteUncheckedCreateWithoutUserInput> | SiteCreateWithoutUserInput[] | SiteUncheckedCreateWithoutUserInput[]
     connectOrCreate?: SiteCreateOrConnectWithoutUserInput | SiteCreateOrConnectWithoutUserInput[]
@@ -17207,6 +18762,20 @@ export namespace Prisma {
     deleteMany?: sitediarysettingsScalarWhereInput | sitediarysettingsScalarWhereInput[]
   }
 
+  export type photosUncheckedUpdateManyWithoutUserNestedInput = {
+    create?: XOR<photosCreateWithoutUserInput, photosUncheckedCreateWithoutUserInput> | photosCreateWithoutUserInput[] | photosUncheckedCreateWithoutUserInput[]
+    connectOrCreate?: photosCreateOrConnectWithoutUserInput | photosCreateOrConnectWithoutUserInput[]
+    upsert?: photosUpsertWithWhereUniqueWithoutUserInput | photosUpsertWithWhereUniqueWithoutUserInput[]
+    createMany?: photosCreateManyUserInputEnvelope
+    set?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    disconnect?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    delete?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    connect?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    update?: photosUpdateWithWhereUniqueWithoutUserInput | photosUpdateWithWhereUniqueWithoutUserInput[]
+    updateMany?: photosUpdateManyWithWhereWithoutUserInput | photosUpdateManyWithWhereWithoutUserInput[]
+    deleteMany?: photosScalarWhereInput | photosScalarWhereInput[]
+  }
+
   export type UserCreateNestedOneWithoutSiteInput = {
     create?: XOR<UserCreateWithoutSiteInput, UserUncheckedCreateWithoutSiteInput>
     connectOrCreate?: UserCreateOrConnectWithoutSiteInput
@@ -17239,6 +18808,13 @@ export namespace Prisma {
     connectOrCreate?: DocumentsCreateOrConnectWithoutSiteInput | DocumentsCreateOrConnectWithoutSiteInput[]
     createMany?: DocumentsCreateManySiteInputEnvelope
     connect?: DocumentsWhereUniqueInput | DocumentsWhereUniqueInput[]
+  }
+
+  export type photosCreateNestedManyWithoutSiteInput = {
+    create?: XOR<photosCreateWithoutSiteInput, photosUncheckedCreateWithoutSiteInput> | photosCreateWithoutSiteInput[] | photosUncheckedCreateWithoutSiteInput[]
+    connectOrCreate?: photosCreateOrConnectWithoutSiteInput | photosCreateOrConnectWithoutSiteInput[]
+    createMany?: photosCreateManySiteInputEnvelope
+    connect?: photosWhereUniqueInput | photosWhereUniqueInput[]
   }
 
   export type sitediaryrecordsCreateNestedManyWithoutSiteInput = {
@@ -17286,6 +18862,13 @@ export namespace Prisma {
     connectOrCreate?: DocumentsCreateOrConnectWithoutSiteInput | DocumentsCreateOrConnectWithoutSiteInput[]
     createMany?: DocumentsCreateManySiteInputEnvelope
     connect?: DocumentsWhereUniqueInput | DocumentsWhereUniqueInput[]
+  }
+
+  export type photosUncheckedCreateNestedManyWithoutSiteInput = {
+    create?: XOR<photosCreateWithoutSiteInput, photosUncheckedCreateWithoutSiteInput> | photosCreateWithoutSiteInput[] | photosUncheckedCreateWithoutSiteInput[]
+    connectOrCreate?: photosCreateOrConnectWithoutSiteInput | photosCreateOrConnectWithoutSiteInput[]
+    createMany?: photosCreateManySiteInputEnvelope
+    connect?: photosWhereUniqueInput | photosWhereUniqueInput[]
   }
 
   export type sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput = {
@@ -17371,6 +18954,20 @@ export namespace Prisma {
     update?: DocumentsUpdateWithWhereUniqueWithoutSiteInput | DocumentsUpdateWithWhereUniqueWithoutSiteInput[]
     updateMany?: DocumentsUpdateManyWithWhereWithoutSiteInput | DocumentsUpdateManyWithWhereWithoutSiteInput[]
     deleteMany?: DocumentsScalarWhereInput | DocumentsScalarWhereInput[]
+  }
+
+  export type photosUpdateManyWithoutSiteNestedInput = {
+    create?: XOR<photosCreateWithoutSiteInput, photosUncheckedCreateWithoutSiteInput> | photosCreateWithoutSiteInput[] | photosUncheckedCreateWithoutSiteInput[]
+    connectOrCreate?: photosCreateOrConnectWithoutSiteInput | photosCreateOrConnectWithoutSiteInput[]
+    upsert?: photosUpsertWithWhereUniqueWithoutSiteInput | photosUpsertWithWhereUniqueWithoutSiteInput[]
+    createMany?: photosCreateManySiteInputEnvelope
+    set?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    disconnect?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    delete?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    connect?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    update?: photosUpdateWithWhereUniqueWithoutSiteInput | photosUpdateWithWhereUniqueWithoutSiteInput[]
+    updateMany?: photosUpdateManyWithWhereWithoutSiteInput | photosUpdateManyWithWhereWithoutSiteInput[]
+    deleteMany?: photosScalarWhereInput | photosScalarWhereInput[]
   }
 
   export type sitediaryrecordsUpdateManyWithoutSiteNestedInput = {
@@ -17461,6 +19058,20 @@ export namespace Prisma {
     update?: DocumentsUpdateWithWhereUniqueWithoutSiteInput | DocumentsUpdateWithWhereUniqueWithoutSiteInput[]
     updateMany?: DocumentsUpdateManyWithWhereWithoutSiteInput | DocumentsUpdateManyWithWhereWithoutSiteInput[]
     deleteMany?: DocumentsScalarWhereInput | DocumentsScalarWhereInput[]
+  }
+
+  export type photosUncheckedUpdateManyWithoutSiteNestedInput = {
+    create?: XOR<photosCreateWithoutSiteInput, photosUncheckedCreateWithoutSiteInput> | photosCreateWithoutSiteInput[] | photosUncheckedCreateWithoutSiteInput[]
+    connectOrCreate?: photosCreateOrConnectWithoutSiteInput | photosCreateOrConnectWithoutSiteInput[]
+    upsert?: photosUpsertWithWhereUniqueWithoutSiteInput | photosUpsertWithWhereUniqueWithoutSiteInput[]
+    createMany?: photosCreateManySiteInputEnvelope
+    set?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    disconnect?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    delete?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    connect?: photosWhereUniqueInput | photosWhereUniqueInput[]
+    update?: photosUpdateWithWhereUniqueWithoutSiteInput | photosUpdateWithWhereUniqueWithoutSiteInput[]
+    updateMany?: photosUpdateManyWithWhereWithoutSiteInput | photosUpdateManyWithWhereWithoutSiteInput[]
+    deleteMany?: photosScalarWhereInput | photosScalarWhereInput[]
   }
 
   export type sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput = {
@@ -17818,6 +19429,38 @@ export namespace Prisma {
     update?: XOR<XOR<SiteUpdateToOneWithWhereWithoutSitediarysettingsInput, SiteUpdateWithoutSitediarysettingsInput>, SiteUncheckedUpdateWithoutSitediarysettingsInput>
   }
 
+  export type UserCreateNestedOneWithoutPhotosInput = {
+    create?: XOR<UserCreateWithoutPhotosInput, UserUncheckedCreateWithoutPhotosInput>
+    connectOrCreate?: UserCreateOrConnectWithoutPhotosInput
+    connect?: UserWhereUniqueInput
+  }
+
+  export type SiteCreateNestedOneWithoutPhotosInput = {
+    create?: XOR<SiteCreateWithoutPhotosInput, SiteUncheckedCreateWithoutPhotosInput>
+    connectOrCreate?: SiteCreateOrConnectWithoutPhotosInput
+    connect?: SiteWhereUniqueInput
+  }
+
+  export type UserUpdateOneWithoutPhotosNestedInput = {
+    create?: XOR<UserCreateWithoutPhotosInput, UserUncheckedCreateWithoutPhotosInput>
+    connectOrCreate?: UserCreateOrConnectWithoutPhotosInput
+    upsert?: UserUpsertWithoutPhotosInput
+    disconnect?: UserWhereInput | boolean
+    delete?: UserWhereInput | boolean
+    connect?: UserWhereUniqueInput
+    update?: XOR<XOR<UserUpdateToOneWithWhereWithoutPhotosInput, UserUpdateWithoutPhotosInput>, UserUncheckedUpdateWithoutPhotosInput>
+  }
+
+  export type SiteUpdateOneWithoutPhotosNestedInput = {
+    create?: XOR<SiteCreateWithoutPhotosInput, SiteUncheckedCreateWithoutPhotosInput>
+    connectOrCreate?: SiteCreateOrConnectWithoutPhotosInput
+    upsert?: SiteUpsertWithoutPhotosInput
+    disconnect?: SiteWhereInput | boolean
+    delete?: SiteWhereInput | boolean
+    connect?: SiteWhereUniqueInput
+    update?: XOR<XOR<SiteUpdateToOneWithWhereWithoutPhotosInput, SiteUpdateWithoutPhotosInput>, SiteUncheckedUpdateWithoutPhotosInput>
+  }
+
   export type NestedStringFilter<$PrismaModel = never> = {
     equals?: string | StringFieldRefInput<$PrismaModel>
     in?: string[] | ListStringFieldRefInput<$PrismaModel>
@@ -18093,6 +19736,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    photos?: photosCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsCreateNestedOneWithoutSiteInput
@@ -18110,6 +19754,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    photos?: photosUncheckedCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedOneWithoutSiteInput
@@ -18339,6 +19984,36 @@ export namespace Prisma {
 
   export type sitediarysettingsCreateManyUserInputEnvelope = {
     data: sitediarysettingsCreateManyUserInput | sitediarysettingsCreateManyUserInput[]
+    skipDuplicates?: boolean
+  }
+
+  export type photosCreateWithoutUserInput = {
+    id?: string
+    Date?: Date | string | null
+    URL?: string | null
+    Comment?: string | null
+    Location?: string | null
+    fileUrl?: string | null
+    Site?: SiteCreateNestedOneWithoutPhotosInput
+  }
+
+  export type photosUncheckedCreateWithoutUserInput = {
+    id?: string
+    Date?: Date | string | null
+    URL?: string | null
+    Comment?: string | null
+    Location?: string | null
+    fileUrl?: string | null
+    siteId?: string | null
+  }
+
+  export type photosCreateOrConnectWithoutUserInput = {
+    where: photosWhereUniqueInput
+    create: XOR<photosCreateWithoutUserInput, photosUncheckedCreateWithoutUserInput>
+  }
+
+  export type photosCreateManyUserInputEnvelope = {
+    data: photosCreateManyUserInput | photosCreateManyUserInput[]
     skipDuplicates?: boolean
   }
 
@@ -18589,6 +20264,36 @@ export namespace Prisma {
     schema?: StringNullableFilter<"sitediarysettings"> | string | null
   }
 
+  export type photosUpsertWithWhereUniqueWithoutUserInput = {
+    where: photosWhereUniqueInput
+    update: XOR<photosUpdateWithoutUserInput, photosUncheckedUpdateWithoutUserInput>
+    create: XOR<photosCreateWithoutUserInput, photosUncheckedCreateWithoutUserInput>
+  }
+
+  export type photosUpdateWithWhereUniqueWithoutUserInput = {
+    where: photosWhereUniqueInput
+    data: XOR<photosUpdateWithoutUserInput, photosUncheckedUpdateWithoutUserInput>
+  }
+
+  export type photosUpdateManyWithWhereWithoutUserInput = {
+    where: photosScalarWhereInput
+    data: XOR<photosUpdateManyMutationInput, photosUncheckedUpdateManyWithoutUserInput>
+  }
+
+  export type photosScalarWhereInput = {
+    AND?: photosScalarWhereInput | photosScalarWhereInput[]
+    OR?: photosScalarWhereInput[]
+    NOT?: photosScalarWhereInput | photosScalarWhereInput[]
+    id?: StringFilter<"photos"> | string
+    Date?: DateTimeNullableFilter<"photos"> | Date | string | null
+    URL?: StringNullableFilter<"photos"> | string | null
+    Comment?: StringNullableFilter<"photos"> | string | null
+    Location?: StringNullableFilter<"photos"> | string | null
+    userId?: StringNullableFilter<"photos"> | string | null
+    fileUrl?: StringNullableFilter<"photos"> | string | null
+    siteId?: StringNullableFilter<"photos"> | string | null
+  }
+
   export type UserCreateWithoutSiteInput = {
     id: string
     email: string
@@ -18606,6 +20311,7 @@ export namespace Prisma {
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsCreateNestedManyWithoutUserInput
+    photos?: photosCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateWithoutSiteInput = {
@@ -18625,6 +20331,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedManyWithoutUserInput
+    photos?: photosUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserCreateOrConnectWithoutSiteInput = {
@@ -18786,6 +20493,36 @@ export namespace Prisma {
     skipDuplicates?: boolean
   }
 
+  export type photosCreateWithoutSiteInput = {
+    id?: string
+    Date?: Date | string | null
+    URL?: string | null
+    Comment?: string | null
+    Location?: string | null
+    fileUrl?: string | null
+    User?: UserCreateNestedOneWithoutPhotosInput
+  }
+
+  export type photosUncheckedCreateWithoutSiteInput = {
+    id?: string
+    Date?: Date | string | null
+    URL?: string | null
+    Comment?: string | null
+    Location?: string | null
+    userId?: string | null
+    fileUrl?: string | null
+  }
+
+  export type photosCreateOrConnectWithoutSiteInput = {
+    where: photosWhereUniqueInput
+    create: XOR<photosCreateWithoutSiteInput, photosUncheckedCreateWithoutSiteInput>
+  }
+
+  export type photosCreateManySiteInputEnvelope = {
+    data: photosCreateManySiteInput | photosCreateManySiteInput[]
+    skipDuplicates?: boolean
+  }
+
   export type sitediaryrecordsCreateWithoutSiteInput = {
     id?: string
     Date?: Date | string | null
@@ -18888,6 +20625,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUpdateManyWithoutUserNestedInput
+    photos?: photosUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateWithoutSiteInput = {
@@ -18907,6 +20645,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateManyWithoutUserNestedInput
+    photos?: photosUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type PostUpsertWithWhereUniqueWithoutSiteInput = {
@@ -18996,6 +20735,22 @@ export namespace Prisma {
     data: XOR<DocumentsUpdateManyMutationInput, DocumentsUncheckedUpdateManyWithoutSiteInput>
   }
 
+  export type photosUpsertWithWhereUniqueWithoutSiteInput = {
+    where: photosWhereUniqueInput
+    update: XOR<photosUpdateWithoutSiteInput, photosUncheckedUpdateWithoutSiteInput>
+    create: XOR<photosCreateWithoutSiteInput, photosUncheckedCreateWithoutSiteInput>
+  }
+
+  export type photosUpdateWithWhereUniqueWithoutSiteInput = {
+    where: photosWhereUniqueInput
+    data: XOR<photosUpdateWithoutSiteInput, photosUncheckedUpdateWithoutSiteInput>
+  }
+
+  export type photosUpdateManyWithWhereWithoutSiteInput = {
+    where: photosScalarWhereInput
+    data: XOR<photosUpdateManyMutationInput, photosUncheckedUpdateManyWithoutSiteInput>
+  }
+
   export type sitediaryrecordsUpsertWithWhereUniqueWithoutSiteInput = {
     where: sitediaryrecordsWhereUniqueInput
     update: XOR<sitediaryrecordsUpdateWithoutSiteInput, sitediaryrecordsUncheckedUpdateWithoutSiteInput>
@@ -19077,6 +20832,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsCreateNestedManyWithoutUserInput
+    photos?: photosCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateWithoutSubscriptionInput = {
@@ -19096,6 +20852,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedManyWithoutUserInput
+    photos?: photosUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserCreateOrConnectWithoutSubscriptionInput = {
@@ -19131,6 +20888,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUpdateManyWithoutUserNestedInput
+    photos?: photosUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateWithoutSubscriptionInput = {
@@ -19150,6 +20908,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateManyWithoutUserNestedInput
+    photos?: photosUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type UserCreateWithoutInvoicesInput = {
@@ -19169,6 +20928,7 @@ export namespace Prisma {
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsCreateNestedManyWithoutUserInput
+    photos?: photosCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateWithoutInvoicesInput = {
@@ -19188,6 +20948,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedManyWithoutUserInput
+    photos?: photosUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserCreateOrConnectWithoutInvoicesInput = {
@@ -19207,6 +20968,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    photos?: photosCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsCreateNestedOneWithoutSiteInput
@@ -19224,6 +20986,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    photos?: photosUncheckedCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedOneWithoutSiteInput
@@ -19310,6 +21073,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUpdateManyWithoutUserNestedInput
+    photos?: photosUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateWithoutInvoicesInput = {
@@ -19329,6 +21093,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateManyWithoutUserNestedInput
+    photos?: photosUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type SiteUpsertWithoutInvoicesInput = {
@@ -19354,6 +21119,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    photos?: photosUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUpdateOneWithoutSiteNestedInput
@@ -19371,6 +21137,7 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    photos?: photosUncheckedUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateOneWithoutSiteNestedInput
@@ -19409,6 +21176,7 @@ export namespace Prisma {
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsCreateNestedManyWithoutUserInput
+    photos?: photosCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateWithoutPostsInput = {
@@ -19428,6 +21196,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedManyWithoutUserInput
+    photos?: photosUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserCreateOrConnectWithoutPostsInput = {
@@ -19447,6 +21216,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    photos?: photosCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsCreateNestedOneWithoutSiteInput
@@ -19464,6 +21234,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    photos?: photosUncheckedCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedOneWithoutSiteInput
@@ -19502,6 +21273,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUpdateManyWithoutUserNestedInput
+    photos?: photosUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateWithoutPostsInput = {
@@ -19521,6 +21293,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateManyWithoutUserNestedInput
+    photos?: photosUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type SiteUpsertWithoutPostsInput = {
@@ -19546,6 +21319,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    photos?: photosUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUpdateOneWithoutSiteNestedInput
@@ -19563,6 +21337,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    photos?: photosUncheckedUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateOneWithoutSiteNestedInput
@@ -19619,6 +21394,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutSiteInput
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    photos?: photosCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsCreateNestedOneWithoutSiteInput
@@ -19636,6 +21412,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutSiteInput
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    photos?: photosUncheckedCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedOneWithoutSiteInput
@@ -19714,6 +21491,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutSiteNestedInput
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    photos?: photosUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUpdateOneWithoutSiteNestedInput
@@ -19731,6 +21509,7 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutSiteNestedInput
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    photos?: photosUncheckedUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateOneWithoutSiteNestedInput
@@ -19753,6 +21532,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     sitediarysettings?: sitediarysettingsCreateNestedManyWithoutUserInput
+    photos?: photosCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateWithoutAIconversationInput = {
@@ -19772,6 +21552,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedManyWithoutUserInput
+    photos?: photosUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserCreateOrConnectWithoutAIconversationInput = {
@@ -19792,6 +21573,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    photos?: photosCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     sitediarysettings?: sitediarysettingsCreateNestedOneWithoutSiteInput
   }
@@ -19809,6 +21591,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    photos?: photosUncheckedCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedOneWithoutSiteInput
   }
@@ -19846,6 +21629,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUpdateManyWithoutUserNestedInput
+    photos?: photosUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateWithoutAIconversationInput = {
@@ -19865,6 +21649,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateManyWithoutUserNestedInput
+    photos?: photosUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type SiteUpsertWithoutAIconversationInput = {
@@ -19891,6 +21676,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    photos?: photosUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUpdateOneWithoutSiteNestedInput
   }
@@ -19908,6 +21694,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    photos?: photosUncheckedUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateOneWithoutSiteNestedInput
   }
@@ -19929,6 +21716,7 @@ export namespace Prisma {
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsCreateNestedManyWithoutUserInput
+    photos?: photosCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateWithoutDocumentsInput = {
@@ -19948,6 +21736,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedManyWithoutUserInput
+    photos?: photosUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserCreateOrConnectWithoutDocumentsInput = {
@@ -19967,6 +21756,7 @@ export namespace Prisma {
     posts?: PostCreateNestedManyWithoutSiteInput
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
+    photos?: photosCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsCreateNestedOneWithoutSiteInput
@@ -19984,6 +21774,7 @@ export namespace Prisma {
     posts?: PostUncheckedCreateNestedManyWithoutSiteInput
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
+    photos?: photosUncheckedCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedOneWithoutSiteInput
@@ -20022,6 +21813,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUpdateManyWithoutUserNestedInput
+    photos?: photosUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateWithoutDocumentsInput = {
@@ -20041,6 +21833,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateManyWithoutUserNestedInput
+    photos?: photosUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type SiteUpsertWithoutDocumentsInput = {
@@ -20066,6 +21859,7 @@ export namespace Prisma {
     posts?: PostUpdateManyWithoutSiteNestedInput
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
+    photos?: photosUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUpdateOneWithoutSiteNestedInput
@@ -20083,6 +21877,7 @@ export namespace Prisma {
     posts?: PostUncheckedUpdateManyWithoutSiteNestedInput
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
+    photos?: photosUncheckedUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateOneWithoutSiteNestedInput
@@ -20105,6 +21900,7 @@ export namespace Prisma {
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsCreateNestedManyWithoutUserInput
+    photos?: photosCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateWithoutSitediaryrecordsInput = {
@@ -20124,6 +21920,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedManyWithoutUserInput
+    photos?: photosUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserCreateOrConnectWithoutSitediaryrecordsInput = {
@@ -20144,6 +21941,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    photos?: photosCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsCreateNestedOneWithoutSiteInput
   }
@@ -20161,6 +21959,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    photos?: photosUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
     sitediarysettings?: sitediarysettingsUncheckedCreateNestedOneWithoutSiteInput
   }
@@ -20198,6 +21997,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUpdateManyWithoutUserNestedInput
+    photos?: photosUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateWithoutSitediaryrecordsInput = {
@@ -20217,6 +22017,7 @@ export namespace Prisma {
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateManyWithoutUserNestedInput
+    photos?: photosUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type SiteUpsertWithoutSitediaryrecordsInput = {
@@ -20243,6 +22044,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    photos?: photosUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUpdateOneWithoutSiteNestedInput
   }
@@ -20260,6 +22062,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    photos?: photosUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateOneWithoutSiteNestedInput
   }
@@ -20281,6 +22084,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationCreateNestedManyWithoutUserInput
+    photos?: photosCreateNestedManyWithoutUserInput
   }
 
   export type UserUncheckedCreateWithoutSitediarysettingsInput = {
@@ -20300,6 +22104,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
     Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
     AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
+    photos?: photosUncheckedCreateNestedManyWithoutUserInput
   }
 
   export type UserCreateOrConnectWithoutSitediarysettingsInput = {
@@ -20320,6 +22125,7 @@ export namespace Prisma {
     invoices?: InvoicesCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
     Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    photos?: photosCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
   }
@@ -20337,6 +22143,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
     InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
     Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    photos?: photosUncheckedCreateNestedManyWithoutSiteInput
     sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
     AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
   }
@@ -20374,6 +22181,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
+    photos?: photosUpdateManyWithoutUserNestedInput
   }
 
   export type UserUncheckedUpdateWithoutSitediarysettingsInput = {
@@ -20393,6 +22201,7 @@ export namespace Prisma {
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
     Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
     AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
+    photos?: photosUncheckedUpdateManyWithoutUserNestedInput
   }
 
   export type SiteUpsertWithoutSitediarysettingsInput = {
@@ -20419,6 +22228,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    photos?: photosUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
   }
@@ -20436,8 +22246,193 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    photos?: photosUncheckedUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
+  }
+
+  export type UserCreateWithoutPhotosInput = {
+    id: string
+    email: string
+    phone?: string | null
+    firstName: string
+    lastName: string
+    profileImage: string
+    customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
+    createdAt?: Date | string
+    Site?: SiteCreateNestedManyWithoutUserInput
+    posts?: PostCreateNestedManyWithoutUserInput
+    Invoices?: InvoicesCreateNestedManyWithoutUserInput
+    Documents?: DocumentsCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutUserInput
+    Subscription?: SubscriptionCreateNestedOneWithoutUserInput
+    AIconversation?: AIconversationCreateNestedManyWithoutUserInput
+    sitediarysettings?: sitediarysettingsCreateNestedManyWithoutUserInput
+  }
+
+  export type UserUncheckedCreateWithoutPhotosInput = {
+    id: string
+    email: string
+    phone?: string | null
+    firstName: string
+    lastName: string
+    profileImage: string
+    customerId?: string | null
+    lastSelectedSiteIdforWhatsapp?: string | null
+    createdAt?: Date | string
+    Site?: SiteUncheckedCreateNestedManyWithoutUserInput
+    posts?: PostUncheckedCreateNestedManyWithoutUserInput
+    Invoices?: InvoicesUncheckedCreateNestedManyWithoutUserInput
+    Documents?: DocumentsUncheckedCreateNestedManyWithoutUserInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutUserInput
+    Subscription?: SubscriptionUncheckedCreateNestedOneWithoutUserInput
+    AIconversation?: AIconversationUncheckedCreateNestedManyWithoutUserInput
+    sitediarysettings?: sitediarysettingsUncheckedCreateNestedManyWithoutUserInput
+  }
+
+  export type UserCreateOrConnectWithoutPhotosInput = {
+    where: UserWhereUniqueInput
+    create: XOR<UserCreateWithoutPhotosInput, UserUncheckedCreateWithoutPhotosInput>
+  }
+
+  export type SiteCreateWithoutPhotosInput = {
+    id?: string
+    name: string
+    description: string
+    subdirectory: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    imageUrl?: string | null
+    User?: UserCreateNestedOneWithoutSiteInput
+    posts?: PostCreateNestedManyWithoutSiteInput
+    invoices?: InvoicesCreateNestedManyWithoutSiteInput
+    InvoiceItems?: InvoiceItemsCreateNestedManyWithoutSiteInput
+    Documents?: DocumentsCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsCreateNestedManyWithoutSiteInput
+    AIconversation?: AIconversationCreateNestedOneWithoutSiteInput
+    sitediarysettings?: sitediarysettingsCreateNestedOneWithoutSiteInput
+  }
+
+  export type SiteUncheckedCreateWithoutPhotosInput = {
+    id?: string
+    name: string
+    description: string
+    subdirectory: string
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    imageUrl?: string | null
+    userId?: string | null
+    posts?: PostUncheckedCreateNestedManyWithoutSiteInput
+    invoices?: InvoicesUncheckedCreateNestedManyWithoutSiteInput
+    InvoiceItems?: InvoiceItemsUncheckedCreateNestedManyWithoutSiteInput
+    Documents?: DocumentsUncheckedCreateNestedManyWithoutSiteInput
+    sitediaryrecords?: sitediaryrecordsUncheckedCreateNestedManyWithoutSiteInput
+    AIconversation?: AIconversationUncheckedCreateNestedOneWithoutSiteInput
+    sitediarysettings?: sitediarysettingsUncheckedCreateNestedOneWithoutSiteInput
+  }
+
+  export type SiteCreateOrConnectWithoutPhotosInput = {
+    where: SiteWhereUniqueInput
+    create: XOR<SiteCreateWithoutPhotosInput, SiteUncheckedCreateWithoutPhotosInput>
+  }
+
+  export type UserUpsertWithoutPhotosInput = {
+    update: XOR<UserUpdateWithoutPhotosInput, UserUncheckedUpdateWithoutPhotosInput>
+    create: XOR<UserCreateWithoutPhotosInput, UserUncheckedCreateWithoutPhotosInput>
+    where?: UserWhereInput
+  }
+
+  export type UserUpdateToOneWithWhereWithoutPhotosInput = {
+    where?: UserWhereInput
+    data: XOR<UserUpdateWithoutPhotosInput, UserUncheckedUpdateWithoutPhotosInput>
+  }
+
+  export type UserUpdateWithoutPhotosInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    firstName?: StringFieldUpdateOperationsInput | string
+    lastName?: StringFieldUpdateOperationsInput | string
+    profileImage?: StringFieldUpdateOperationsInput | string
+    customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    Site?: SiteUpdateManyWithoutUserNestedInput
+    posts?: PostUpdateManyWithoutUserNestedInput
+    Invoices?: InvoicesUpdateManyWithoutUserNestedInput
+    Documents?: DocumentsUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutUserNestedInput
+    Subscription?: SubscriptionUpdateOneWithoutUserNestedInput
+    AIconversation?: AIconversationUpdateManyWithoutUserNestedInput
+    sitediarysettings?: sitediarysettingsUpdateManyWithoutUserNestedInput
+  }
+
+  export type UserUncheckedUpdateWithoutPhotosInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    firstName?: StringFieldUpdateOperationsInput | string
+    lastName?: StringFieldUpdateOperationsInput | string
+    profileImage?: StringFieldUpdateOperationsInput | string
+    customerId?: NullableStringFieldUpdateOperationsInput | string | null
+    lastSelectedSiteIdforWhatsapp?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    Site?: SiteUncheckedUpdateManyWithoutUserNestedInput
+    posts?: PostUncheckedUpdateManyWithoutUserNestedInput
+    Invoices?: InvoicesUncheckedUpdateManyWithoutUserNestedInput
+    Documents?: DocumentsUncheckedUpdateManyWithoutUserNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutUserNestedInput
+    Subscription?: SubscriptionUncheckedUpdateOneWithoutUserNestedInput
+    AIconversation?: AIconversationUncheckedUpdateManyWithoutUserNestedInput
+    sitediarysettings?: sitediarysettingsUncheckedUpdateManyWithoutUserNestedInput
+  }
+
+  export type SiteUpsertWithoutPhotosInput = {
+    update: XOR<SiteUpdateWithoutPhotosInput, SiteUncheckedUpdateWithoutPhotosInput>
+    create: XOR<SiteCreateWithoutPhotosInput, SiteUncheckedCreateWithoutPhotosInput>
+    where?: SiteWhereInput
+  }
+
+  export type SiteUpdateToOneWithWhereWithoutPhotosInput = {
+    where?: SiteWhereInput
+    data: XOR<SiteUpdateWithoutPhotosInput, SiteUncheckedUpdateWithoutPhotosInput>
+  }
+
+  export type SiteUpdateWithoutPhotosInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: StringFieldUpdateOperationsInput | string
+    subdirectory?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    User?: UserUpdateOneWithoutSiteNestedInput
+    posts?: PostUpdateManyWithoutSiteNestedInput
+    invoices?: InvoicesUpdateManyWithoutSiteNestedInput
+    InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
+    Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
+    AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
+    sitediarysettings?: sitediarysettingsUpdateOneWithoutSiteNestedInput
+  }
+
+  export type SiteUncheckedUpdateWithoutPhotosInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    name?: StringFieldUpdateOperationsInput | string
+    description?: StringFieldUpdateOperationsInput | string
+    subdirectory?: StringFieldUpdateOperationsInput | string
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    imageUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    posts?: PostUncheckedUpdateManyWithoutSiteNestedInput
+    invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
+    InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
+    Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
+    AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
+    sitediarysettings?: sitediarysettingsUncheckedUpdateOneWithoutSiteNestedInput
   }
 
   export type SiteCreateManyUserInput = {
@@ -20514,6 +22509,16 @@ export namespace Prisma {
     schema?: string | null
   }
 
+  export type photosCreateManyUserInput = {
+    id?: string
+    Date?: Date | string | null
+    URL?: string | null
+    Comment?: string | null
+    Location?: string | null
+    fileUrl?: string | null
+    siteId?: string | null
+  }
+
   export type SiteUpdateWithoutUserInput = {
     id?: StringFieldUpdateOperationsInput | string
     name?: StringFieldUpdateOperationsInput | string
@@ -20526,6 +22531,7 @@ export namespace Prisma {
     invoices?: InvoicesUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUpdateManyWithoutSiteNestedInput
+    photos?: photosUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUpdateOneWithoutSiteNestedInput
@@ -20543,6 +22549,7 @@ export namespace Prisma {
     invoices?: InvoicesUncheckedUpdateManyWithoutSiteNestedInput
     InvoiceItems?: InvoiceItemsUncheckedUpdateManyWithoutSiteNestedInput
     Documents?: DocumentsUncheckedUpdateManyWithoutSiteNestedInput
+    photos?: photosUncheckedUpdateManyWithoutSiteNestedInput
     sitediaryrecords?: sitediaryrecordsUncheckedUpdateManyWithoutSiteNestedInput
     AIconversation?: AIconversationUncheckedUpdateOneWithoutSiteNestedInput
     sitediarysettings?: sitediarysettingsUncheckedUpdateOneWithoutSiteNestedInput
@@ -20752,6 +22759,36 @@ export namespace Prisma {
     schema?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
+  export type photosUpdateWithoutUserInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    Site?: SiteUpdateOneWithoutPhotosNestedInput
+  }
+
+  export type photosUncheckedUpdateWithoutUserInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type photosUncheckedUpdateManyWithoutUserInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    siteId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
   export type PostCreateManySiteInput = {
     id?: string
     title: string
@@ -20806,6 +22843,16 @@ export namespace Prisma {
     documentName: string
     description: string
     userId?: string | null
+  }
+
+  export type photosCreateManySiteInput = {
+    id?: string
+    Date?: Date | string | null
+    URL?: string | null
+    Comment?: string | null
+    Location?: string | null
+    userId?: string | null
+    fileUrl?: string | null
   }
 
   export type sitediaryrecordsCreateManySiteInput = {
@@ -20990,6 +23037,36 @@ export namespace Prisma {
     documentName?: StringFieldUpdateOperationsInput | string
     description?: StringFieldUpdateOperationsInput | string
     userId?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type photosUpdateWithoutSiteInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    User?: UserUpdateOneWithoutPhotosNestedInput
+  }
+
+  export type photosUncheckedUpdateWithoutSiteInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+  }
+
+  export type photosUncheckedUpdateManyWithoutSiteInput = {
+    id?: StringFieldUpdateOperationsInput | string
+    Date?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    URL?: NullableStringFieldUpdateOperationsInput | string | null
+    Comment?: NullableStringFieldUpdateOperationsInput | string | null
+    Location?: NullableStringFieldUpdateOperationsInput | string | null
+    userId?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
   }
 
   export type sitediaryrecordsUpdateWithoutSiteInput = {

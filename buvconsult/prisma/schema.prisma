@@ -37,6 +37,7 @@ model User {
   Subscription      Subscription?
   AIconversation    AIconversation[] // User can have many conversations
   sitediarysettings sitediarysettings[]
+  photos            photos[]
 }
 
 model Site {
@@ -54,6 +55,7 @@ model Site {
   invoices          Invoices[]
   InvoiceItems      InvoiceItems[]
   Documents         Documents[]
+  photos            photos[] // on site can have many photos
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
   AIconversation    AIconversation? // Site can have one conversation
   sitediarysettings sitediarysettings?
@@ -189,4 +191,17 @@ model sitediarysettings {
   Site    Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId  String? @unique // <- Only one settings per site
   schema  String?
+}
+
+model photos {
+  id       String    @id @default(uuid())
+  Date     DateTime?
+  URL      String?
+  Comment  String?
+  Location String?
+  User     User?     @relation(fields: [userId], references: [id])
+  userId   String?
+  fileUrl  String?
+  Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId   String?
 }

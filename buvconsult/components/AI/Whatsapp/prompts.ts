@@ -58,7 +58,7 @@ export function systemPromptFunction(siteId, userId){
     "3) How many workers were involved for each task?" +
     "4) For how long they were working on each task?" +
     "Keep asking following up questions until you get the answer" +
-    "WHen you have all information - politely thank the user, summarize all information gathered and call the save_to_database tool " +
+    "WHen you have all information - politely thank the user, summarize all information gathered and call the save_to_database to " +
     `siteId : ${siteId}
     userId : ${userId}
     Today is ${today} (format dd-mm-yyyy)`
