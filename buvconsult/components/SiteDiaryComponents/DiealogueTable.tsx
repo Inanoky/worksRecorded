@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import {ScrollArea, ScrollBar} from "@/components/ui/scroll-area";
 import {
   getSiteDiaryRecords, getSiteDiarySchema, saveSiteDiaryRecords,
   deleteSiteDiaryRecord, updateSiteDiaryRecord
@@ -197,7 +197,7 @@ export function DialogTable({ date, siteId, onSaved }: {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {/* Top actions (sticky) */}
-      <div className="flex justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none border">
+      <div className="flex justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
         <Button type="button" variant="outline" onClick={handleAddRow}>
           Add task
         </Button>
@@ -312,6 +312,9 @@ export function DialogTable({ date, siteId, onSaved }: {
             </Table>
           </div>
         </div>
+              <ScrollBar orientation="horizontal" />
+        <ScrollBar orientation="vertical" />
+
       </ScrollArea>
     </form>
   );
