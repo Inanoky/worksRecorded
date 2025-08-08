@@ -1,4 +1,9 @@
 
+
+
+
+
+
 const systemPrompt_05_08_2025 = "You will have a conversation with the user. Your job is to extract necessary information" +
     "from the user. You need to know :" +
     "1) What tasks was completed?" +
@@ -34,6 +39,18 @@ export const systemPrompt = systemPrompt_05_08_2025_V2
 
 export function systemPromptFunction(siteId, userId){
 
+
+      function getTodayDDMMYYYY() {
+              const d = new Date();
+              const day = String(d.getDate()).padStart(2, '0');
+              const month = String(d.getMonth() + 1).padStart(2, '0');
+              const year = d.getFullYear();
+              return `${day}-${month}-${year}`;
+            }
+
+    const today = getTodayDDMMYYYY()
+
+
   const prompt = "You will have a conversation with the user. Your job is to extract necessary information" +
     "from the user. You need to know :" +
     "1) What tasks was completed?" +
@@ -43,7 +60,14 @@ export function systemPromptFunction(siteId, userId){
     "Keep asking following up questions until you get the answer" +
     "WHen you have all information - politely thank the user, summarize all information gathered and call the save_to_database tool " +
     `siteId : ${siteId}
-    userId : ${userId}`
+    userId : ${userId}
+    Today is ${today} (format dd-mm-yyyy)`
+
+
+  console.log(today)
+
+
+
    return prompt
 }
 
