@@ -42,7 +42,10 @@ export function useSiteSchema(siteId: string | null) {
   const [schema, setSchema] = useState<any[] | null>(null);
   useEffect(() => {
     if (!siteId) { setSchema(null); return; }
-    getSiteDiarySchema({ siteId }).then(setSchema);
+    getSiteDiarySchema({ siteId }).then((s) => {
+      console.log("[Diary][Schema] fetched:", s);
+      setSchema(s);
+    });
   }, [siteId]);
   return schema;
 }
@@ -74,13 +77,16 @@ export function DialogTable({ date, siteId, onSaved }: {
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
 
   const handleAddRow = () => {
+    console.log("[Diary][AddRow]");
     setRows(prev => [...prev, newEmptyRow()]);
   };
 
   const handleDeleteRow = async (idOrTemp: string | undefined, tempId?: string) => {
     const row = rows.find(r => r.id === idOrTemp || r._tempId === tempId);
+    console.log("[Diary][DeleteRow] target:", { idOrTemp, tempId, row });
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id }); // real Prisma id (string)
+      console.log("[Diary][DeleteRow] deleted from DB:", row.id);
       toast.success("Record deleted!");
       onSaved?.();
     } else {
@@ -89,6 +95,7 @@ export function DialogTable({ date, siteId, onSaved }: {
   };
 
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
+    console.log("[Diary][Change]", { rowIdOrTemp, field, value });
     setRows(prev =>
       prev.map(r =>
         (r.id === rowIdOrTemp || r._tempId === rowIdOrTemp) ? { ...r, [field]: value } : r
@@ -98,17 +105,38 @@ export function DialogTable({ date, siteId, onSaved }: {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    console.log("[Diary][Submit] raw rows:", rows);
+
+    // Build a global works list once to avoid location mismatch issues
+    const allWorkOptions =
+      schema?.flatMap(root => collectWorks(root)) ?? [];
+    console.log("[Diary][Submit] allWorkOptions count:", allWorkOptions.length);
 
     const rowsToSave = rows.map(row => {
-      const locationNode = schema?.find(n => n.code === row.location_code);
-      const selectedLocation = schema?.find(n => n.code === row.location_code);
-      const dynamicWorkOptions = selectedLocation ? collectWorks(selectedLocation) : [];
-      const worksNode = dynamicWorkOptions.find((opt: any) => opt.value === row.works_code);
-      return {
+      const locationByCode = schema?.find(n => n.code === row.location_code);
+      const locationByName = schema?.find(n => n.name === row.location);
+      const locationNode = locationByCode || locationByName || null;
+
+      // Prefer global lookup so works update even if location_code is empty
+      const worksNode = allWorkOptions.find((opt: any) => opt.value === row.works_code);
+
+      const resolved = {
         ...row,
         location: locationNode?.name || row.location,
         works: worksNode?.label || row.works,
       };
+
+      console.log("[Diary][MapRow]", {
+        rowId: row.id ?? row._tempId,
+        location_code: row.location_code,
+        location_before: row.location,
+        location_resolved: resolved.location,
+        works_code: row.works_code,
+        works_before: row.works,
+        works_resolved: resolved.works,
+      });
+
+      return resolved;
     });
 
     const isUUID = (id: unknown) =>
@@ -118,9 +146,16 @@ export function DialogTable({ date, siteId, onSaved }: {
     const existingRows = rowsToSave.filter(r => isUUID(r.id));
     const newRows      = rowsToSave.filter(r => !isUUID(r.id));
 
+    console.log("[Diary][Submit] split:", {
+      existingCount: existingRows.length,
+      newCount: newRows.length,
+      existingRows,
+      newRowsSample: newRows.slice(0, 3),
+    });
+
     // Update only rows with real Prisma id (string UUID)
     for (const r of existingRows) {
-      await updateSiteDiaryRecord({
+      const payload = {
         id: r.id,                                 // string UUID
         Date: r.date,
         Location: r.location,
@@ -133,15 +168,29 @@ export function DialogTable({ date, siteId, onSaved }: {
         Photos: [],
         userId: r.userId,
         siteId,
-      });
+      };
+      console.log("[Diary][UpdateExisting] payload:", payload);
+
+      try {
+        const res = await updateSiteDiaryRecord(payload);
+        console.log("[Diary][UpdateExisting] result:", res);
+      } catch (err) {
+        console.error("[Diary][UpdateExisting] ERROR for id:", r.id, err);
+      }
     }
 
     if (newRows.length) {
-      await saveSiteDiaryRecordsFromWeb({
-        rows: newRows.map(({ id: _omit, _tempId: _omit2, ...rest }) => rest),
-        
-        siteId,
-      });
+      const rowsSanitized = newRows.map(({ id: _omit, _tempId: _omit2, ...rest }) => rest);
+      console.log("[Diary][CreateNew] payload:", { rows: rowsSanitized, siteId });
+      try {
+        const res = await saveSiteDiaryRecordsFromWeb({
+          rows: rowsSanitized,
+          siteId,
+        });
+        console.log("[Diary][CreateNew] result:", res);
+      } catch (err) {
+        console.error("[Diary][CreateNew] ERROR:", err);
+      }
     }
 
     toast.success("Records saved!");
@@ -153,6 +202,7 @@ export function DialogTable({ date, siteId, onSaved }: {
     setLoading(true);
 
     if (!date || !siteId) {
+      console.log("[Diary][Effect] missing date/siteId", { date, siteId });
       setRows([newEmptyRow()]);
       setLoading(false);
       return;
@@ -160,10 +210,11 @@ export function DialogTable({ date, siteId, onSaved }: {
 
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
+      console.log("[Diary][Effect] loading rows for:", { siteId, isoDate });
       const loadedRows = await getSiteDiaryRecords({ siteId, date: isoDate });
       if (cancelled) return;
 
-      setRows(
+      const nextRows =
         loadedRows.length
           ? loadedRows.map((row: any) => ({
               ...row,                     // id from DB (string), keep as-is
@@ -171,8 +222,11 @@ export function DialogTable({ date, siteId, onSaved }: {
               location_code: "",
               works_code: "",
             }))
-          : [newEmptyRow()]
-      );
+          : [newEmptyRow()];
+
+      console.log("[Diary][Effect] loaded rows:", nextRows);
+
+      setRows(nextRows);
       setLoading(false);
     })();
 
@@ -220,6 +274,15 @@ export function DialogTable({ date, siteId, onSaved }: {
                   const dynamicWorkOptions = selectedLocationNode ? collectWorks(selectedLocationNode) : [];
 
                   const rowKey = row.id ?? row._tempId;
+
+                  console.log("[Diary][RenderRow]", {
+                    rowKey,
+                    location_code: row.location_code,
+                    location: row.location,
+                    works_code: row.works_code,
+                    works: row.works,
+                    dynamicWorkOptions: dynamicWorkOptions.length
+                  });
 
                   return (
                     <TableRow key={rowKey} className="align-top">
