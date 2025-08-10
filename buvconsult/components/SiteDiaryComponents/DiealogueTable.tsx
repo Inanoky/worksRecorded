@@ -5,7 +5,7 @@ import {
   Table, TableBody, TableHead, TableHeader, TableRow, TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+  import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
@@ -17,6 +17,8 @@ import {
 import { toast } from "sonner";
 
 /* ---------- helpers ---------- */
+const ADDITIONAL_WORKS_OPTION = { value: "__ADDITIONAL__", label: "Additional works" };
+
 function collectWorks(node: any, prefix = "") {
   let options: { value: string; label: string }[] = [];
   if (node.type === "Work") {
@@ -107,9 +109,11 @@ export function DialogTable({ date, siteId, onSaved }: {
     e?.preventDefault();
     console.log("[Diary][Submit] raw rows:", rows);
 
-    // Build a global works list once to avoid location mismatch issues
-    const allWorkOptions =
-      schema?.flatMap(root => collectWorks(root)) ?? [];
+    // Global works list + Additional works
+    const allWorkOptions = [
+      ...((schema?.flatMap(root => collectWorks(root))) ?? []),
+      ADDITIONAL_WORKS_OPTION,
+    ];
     console.log("[Diary][Submit] allWorkOptions count:", allWorkOptions.length);
 
     const rowsToSave = rows.map(row => {
@@ -117,7 +121,6 @@ export function DialogTable({ date, siteId, onSaved }: {
       const locationByName = schema?.find(n => n.name === row.location);
       const locationNode = locationByCode || locationByName || null;
 
-      // Prefer global lookup so works update even if location_code is empty
       const worksNode = allWorkOptions.find((opt: any) => opt.value === row.works_code);
 
       const resolved = {
@@ -153,10 +156,9 @@ export function DialogTable({ date, siteId, onSaved }: {
       newRowsSample: newRows.slice(0, 3),
     });
 
-    // Update only rows with real Prisma id (string UUID)
     for (const r of existingRows) {
       const payload = {
-        id: r.id,                                 // string UUID
+        id: r.id,
         Date: r.date,
         Location: r.location,
         Works: r.works,
@@ -217,7 +219,7 @@ export function DialogTable({ date, siteId, onSaved }: {
       const nextRows =
         loadedRows.length
           ? loadedRows.map((row: any) => ({
-              ...row,                     // id from DB (string), keep as-is
+              ...row,
               _tempId: crypto.randomUUID(),
               location_code: "",
               works_code: "",
@@ -239,7 +241,6 @@ export function DialogTable({ date, siteId, onSaved }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {/* Top actions (sticky) */}
       <div className="flex justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
         <Button type="button" variant="outline" onClick={handleAddRow}>
           Add task
@@ -324,6 +325,10 @@ export function DialogTable({ date, siteId, onSaved }: {
                                 {opt.label}
                               </SelectItem>
                             ))}
+                            {/* Always last: Additional works */}
+                            <SelectItem key={ADDITIONAL_WORKS_OPTION.value} value={ADDITIONAL_WORKS_OPTION.value}>
+                              {ADDITIONAL_WORKS_OPTION.label}
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -349,7 +354,7 @@ export function DialogTable({ date, siteId, onSaved }: {
                       </TableCell>
 
                       <TableCell className="py-2">
-                        <Textarea className="w-full min-h-[72px]" value={row.comments}
+                        <Textarea className="w/full min-h-[72px]" value={row.comments}
                                   onChange={e => handleChange(row.id ?? row._tempId, "comments", e.target.value)} />
                       </TableCell>
 
