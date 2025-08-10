@@ -50,7 +50,10 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
 
                 const LocationEnum = z.enum(locationNames);
-                const WorksEnum = z.enum(workNames);
+                const WorksEnum = z.union([
+                    z.enum(workNames as [string, ...string[]]),
+                    z.literal("Additional works"),
+                  ]);
 
 
                 // This schema is for validation of

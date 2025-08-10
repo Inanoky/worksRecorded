@@ -75,4 +75,8 @@ export function systemPromptFunction(siteId, userId){
 
  const systemPromptSaveToDatabase_05_08_2025 = "You will receive a log of construction activites on site. Map it according to the zod schema you are given"
 
-export const systemPromptSaveToDatabase = systemPromptSaveToDatabase_05_08_2025
+  const systemPromptSaveToDatabase_10_08_2025 = "You will receive a log of construction activites on site. Map it according to the zod schema you are given \n"  +
+  " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)."
+
+
+export const systemPromptSaveToDatabase = systemPromptSaveToDatabase_10_08_2025
