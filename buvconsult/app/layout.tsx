@@ -7,7 +7,7 @@ import {Toaster} from "@/components/ui/sonner"
 import AIChatGeneral from "@/components/AI/SQL/AIwidget";
 
 const inter = Inter({ subsets: ["latin"] });
-
+//nothing delete
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
