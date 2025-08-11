@@ -14,6 +14,9 @@ import { DialogTable } from "@/components/SiteDiaryComponents/DiealogueTable";
 import ImageGallery from "@/components/SiteDiaryComponents/ImageGallery";
 
 export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
+
+  console.log(date)
+  
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {/* Limit the overall height of the dialog to 90 % of the viewport */}

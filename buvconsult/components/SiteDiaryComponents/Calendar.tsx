@@ -16,7 +16,7 @@ function getCalendarGrid(year, month) {
   let week = [];
   for (let i = 0; i < firstDay.getDay(); i++) week.push(null);
   for (let d = 1; d <= lastDay.getDate(); d++) {
-    week.push(new Date(year, month, d));
+    week.push(new Date(Date.UTC(year, month, d)));
     if (week.length === 7) {
       weeks.push(week);
       week = [];
