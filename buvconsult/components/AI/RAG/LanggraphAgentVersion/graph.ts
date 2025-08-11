@@ -56,7 +56,9 @@ export async function talkToAgent(input,siteId) {
 
 //Here we need to create thread_id if doesn't exist and fetch from db if does exist.
 
-    const config = {configurable: {thread_id: "mitau-contract-48f39d7c"}};
+// we use site ID for this checkpointer. 
+
+    const config = {configurable: {thread_id: siteId }};
 
 
 
