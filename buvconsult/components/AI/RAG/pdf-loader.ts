@@ -1,7 +1,6 @@
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 // ❌ Don't import WebPDFLoader at the top — it pulls in pdf-parse & pdf.worker.js
 
-const pdf_path = "https://reect1noxp.ufs.sh/f/HPU3nx2LdstJ5gNg7F4NwUH1jiQWdkyzhZntG2g3lC8xPKsD";
 
 export async function getChunkedDocsFromPDF(url: string) {
   try {
