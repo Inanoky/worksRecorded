@@ -22,7 +22,7 @@ import { Pinecone } from '@pinecone-database/pinecone'
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
+//nothing
 //nothing
 export async function CreateSiteAction(prevState: unknown,formData: FormData){
 
