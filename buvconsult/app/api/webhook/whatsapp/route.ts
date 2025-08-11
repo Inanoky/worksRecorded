@@ -6,7 +6,7 @@ import talkToWhatsappAgent from "@/components/AI/Whatsapp/agent";
 import { prisma } from "@/app/utils/db";
 import twilio from "twilio";
 import { UTApi } from "uploadthing/server";
-import { savePhoto} from "@/app/photoActions";
+import { savePhoto } from "@/app/photoActions";
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID!;
 const authToken = process.env.TWILIO_AUTH_TOKEN!;
@@ -22,37 +22,69 @@ function bufferToStream(buffer: Buffer) {
 }
 
 export async function POST(req: Request) {
-  const formData = await req.formData();
-  setImmediate(() => handleMessage(formData));
-  return new Response("<Response></Response>", {
-    status: 200,
-    headers: { "Content-Type": "text/xml" },
-  });
+  console.log("🔥 Webhook POST received");
+  try {
+    const formData = await req.formData();
+    console.log("📨 formData parsed");
+
+    setImmediate(() => {
+      console.log("⚡ setImmediate triggered");
+      handleMessage(formData);
+    });
+
+    console.log("✅ Response returned to Twilio");
+    return new Response("<Response></Response>", {
+      status: 200,
+      headers: { "Content-Type": "text/xml" },
+    });
+  } catch (err) {
+    console.error("❌ Error in POST handler:", err);
+    return new Response("<Response></Response>", {
+      status: 500,
+      headers: { "Content-Type": "text/xml" },
+    });
+  }
 }
 
 async function handleMessage(formData: FormData) {
+  console.log("🚀 handleMessage called");
+
   try {
     const from = formData.get("From") as string | null;
     const smsStatus = formData.get("SmsStatus") as string | null;
-    if (smsStatus && smsStatus !== "received") return;
-
     const WaId = formData.get("WaId") as string | null;
     const NumMedia = (formData.get("NumMedia") || "0").toString();
     const body = (formData.get("Body") || "").toString().trim();
 
+    console.log("🔍 from:", from);
+    console.log("🔍 WaId:", WaId);
+    console.log("🔍 NumMedia:", NumMedia);
+    console.log("🔍 Body:", body);
+
+    if (smsStatus && smsStatus !== "received") {
+      console.log("📭 Skipping non-received smsStatus:", smsStatus);
+      return;
+    }
+
     const phone = WaId || (from || "").replace("whatsapp:+", "");
+    console.log("📞 Normalized phone:", phone);
+
     const user = await prisma.user.findFirst({ where: { phone }, include: { Site: true } });
+    console.log("👤 User found:", user?.id || "null");
+
     if (!user) {
+      console.log("❌ No user found, sending rejection message");
       await sendMessage(from, "Sorry, this phone number is not registered. Please contact admin.");
       return;
     }
 
-    // ----- Project selection flow -----
     if (body.toLowerCase() === "change") {
+      console.log("🔁 Clearing project selection for user:", user.id);
       await prisma.user.update({
         where: { id: user.id },
         data: { lastSelectedSiteIdforWhatsapp: null },
       });
+
       const siteList = user.Site.map((s, i) => `${i + 1} - ${s.name}`).join("\n");
       await sendMessage(
         from,
@@ -63,18 +95,24 @@ async function handleMessage(formData: FormData) {
 
     if (!user.lastSelectedSiteIdforWhatsapp) {
       const n = parseInt(body, 10);
+      console.log("🔢 User is selecting project:", n);
       const siteList = user.Site.map((s, i) => `${i + 1} - ${s.name}`).join("\n");
-      if (body && !isNaN(n) && n >= 1 && n <= user.Site.length) {
+
+      if (!isNaN(n) && n >= 1 && n <= user.Site.length) {
         const selectedSite = user.Site[n - 1];
+        console.log("✅ Project selected:", selectedSite.name);
+
         await prisma.user.update({
           where: { id: user.id },
           data: { lastSelectedSiteIdforWhatsapp: selectedSite.id },
         });
+
         await sendMessage(
           from,
           `System: You are now talking to project "${selectedSite.name}". To change the project, type "Change".`
         );
       } else {
+        console.log("❌ Invalid project number");
         await sendMessage(
           from,
           `Hi ${user.firstName || ""}! Please choose your project by replying with the number:\n${siteList}`
@@ -83,9 +121,10 @@ async function handleMessage(formData: FormData) {
       return;
     }
 
-    // ----- IMAGE -> UploadThing(imageUploader) -> savePhoto action -----
     const numMedia = parseInt(NumMedia, 10) || 0;
     if (numMedia > 0) {
+      console.log("🖼️ Media detected. Checking for images...");
+
       let imgIndex = -1;
       for (let i = 0; i < numMedia; i++) {
         const ct = (formData.get(`MediaContentType${i}`) || "").toString().toLowerCase();
@@ -96,6 +135,7 @@ async function handleMessage(formData: FormData) {
       }
 
       if (imgIndex >= 0) {
+        console.log("🖼️ Image found at index", imgIndex);
         const mediaUrl = formData.get(`MediaUrl${imgIndex}`) as string | null;
         const contentType = (formData.get(`MediaContentType${imgIndex}`) || "image/jpeg").toString();
 
@@ -104,52 +144,48 @@ async function handleMessage(formData: FormData) {
           const res = await fetch(mediaUrl!, { headers: { Authorization: `Basic ${basicAuth}` } });
           const ab = await res.arrayBuffer();
 
-          // Build a File in-memory (Node 18+ typically has File)
           const ext = contentType.split("/")[1] || "jpg";
           const fileName = `whatsapp_${Date.now()}.${ext}`;
           const file = new File([ab], fileName, { type: contentType });
 
-          // Upload to UploadThing (respects imageUploader)
+          console.log("📤 Uploading to UploadThing...");
           const uploaded = await utapi.uploadFiles([file]);
           const first = Array.isArray(uploaded) ? uploaded[0] : uploaded;
+
           if (first?.error || !first?.data) {
+            console.error("❌ UploadThing error:", first?.error || "no data");
             await sendMessage(from, "Sorry, failed to store the image.");
             return;
           }
 
           const { ufsUrl, url: legacyUrl } = first.data;
           const publicUrl = ufsUrl ?? legacyUrl;
-          if (!publicUrl) {
-            await sendMessage(from, "Sorry, failed to store the image.");
-            return;
-          }
+          console.log("✅ Image stored at:", publicUrl);
 
-          // Save to DB via action
           await savePhoto({
             userId: user.id,
             siteId: user.lastSelectedSiteIdforWhatsapp,
             url: publicUrl,
             fileUrl: publicUrl,
-            comment: body || null, // WhatsApp caption, if any
+            comment: body || null,
             location: null,
             date: new Date(),
           });
 
-          // Reply with the UploadThing URL
           await sendMessage(from, publicUrl);
         } catch (e) {
-          console.error("Image upload/store error:", e);
+          console.error("❌ Image upload/store error:", e);
           await sendMessage(from, "Sorry, we couldn't process your image.");
         }
         return;
       }
     }
 
-    // ----- AUDIO -> Whisper -> Agent (unchanged) -----
     const MediaUrl0 = formData.get("MediaUrl0") as string | null;
     const MediaContentType0 = (formData.get("MediaContentType0") || "").toString();
     if (NumMedia === "1" && MediaContentType0.startsWith("audio")) {
       try {
+        console.log("🎤 Audio message detected");
         const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
         const res = await fetch(MediaUrl0!, { headers: { Authorization: `Basic ${basicAuth}` } });
         const buf = Buffer.from(await res.arrayBuffer());
@@ -160,35 +196,42 @@ async function handleMessage(formData: FormData) {
           file,
           model: "whisper-1",
         });
+
         const transcript = transcriptResult.text || "(No text recognized)";
+        console.log("📝 Transcription result:", transcript);
+
         const aiMessage = await talkToWhatsappAgent(
           transcript,
           user.lastSelectedSiteIdforWhatsapp,
           user.id
         );
+
         await sendMessage(from, `Transcription: ${transcript}\nAI message: ${aiMessage}`);
       } catch (err) {
-        console.error("Audio handling error", err);
+        console.error("❌ Audio handling error", err);
         await sendMessage(from, "Sorry, we could not process your audio message.");
       }
       return;
     }
 
-    // ----- TEXT -> Agent (unchanged) -----
     if (NumMedia === "0") {
+      console.log("🧠 Handling text message:", body);
       const aiMessage = await talkToWhatsappAgent(body, user.lastSelectedSiteIdforWhatsapp, user.id);
       await sendMessage(from, aiMessage);
       return;
     }
 
+    console.log("🪵 Unhandled message type. Sending generic reply.");
     await sendMessage(from, "Received your message!");
   } catch (err) {
-    console.error("Error in handleMessage:", err);
+    console.error("❌ Top-level error in handleMessage:", err);
     const from = formData.get("From") as string | null;
     if (from && from !== SENDER_NUMBER) {
       try {
         await sendMessage(from, "Sorry, an error occurred processing your message.");
-      } catch {}
+      } catch (e) {
+        console.error("❌ Failed to send error message:", e);
+      }
     }
   }
 }
@@ -196,10 +239,11 @@ async function handleMessage(formData: FormData) {
 async function sendMessage(to: string | null, message: string) {
   if (!to || !message) return;
   if (to === SENDER_NUMBER) return;
+
   try {
     const res = await client.messages.create({ from: SENDER_NUMBER, to, body: message });
-    console.log("Message sent via Twilio. SID:", res.sid);
+    console.log("📤 Message sent via Twilio. SID:", res.sid);
   } catch (err) {
-    console.error("Twilio send error:", err);
+    console.error("❌ Twilio send error:", err);
   }
 }
