@@ -34,8 +34,8 @@ export async function POST(req: Request) {
 
     console.log("✅ Response returned to Twilio");
     return new Response("<Response></Response>", {
-      status: 200,
-      headers: { "Content-Type": "text/xml" },
+      status: 202,
+      headers: { 'x-vercel-background': '1' },
     });
   } catch (err) {
     console.error("❌ Error in POST handler:", err);
