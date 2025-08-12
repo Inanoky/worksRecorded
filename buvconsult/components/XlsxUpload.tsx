@@ -26,10 +26,10 @@ export default function XslxUpload({ params }: { params: Promise<{ siteId: strin
     setIsLoading(true);
     try {
       await saveSettingsToDB( formData); // Call your server action directly!
-      toast.success("Invoices saved to database");
+      toast.success("Programm saved to database");
       router.refresh(); // <----- This refreshes server data (tables)!
     } catch (err) {
-      toast.error("Failed to save invoices");
+      toast.error("Failed to save programm");
     }
     setIsLoading(false);
   }
