@@ -7,6 +7,7 @@ import { prisma } from "@/app/utils/db";
 import twilio from "twilio";
 import { UTApi } from "uploadthing/server";
 import { savePhoto } from "@/app/photoActions";
+import { after } from 'next/server';
 
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID!;
@@ -28,10 +29,7 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     console.log("📨 formData parsed");
 
-    setImmediate(() => {
-      console.log("⚡ setImmediate triggered");
-      handleMessage(formData);
-    });
+    after(() => handleMessage(formData));
 
     console.log("✅ Response returned to Twilio");
     return new Response("<Response></Response>", {
