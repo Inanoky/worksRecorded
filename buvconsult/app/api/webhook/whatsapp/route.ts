@@ -8,8 +8,6 @@ import twilio from "twilio";
 import { UTApi } from "uploadthing/server";
 import { savePhoto } from "@/app/photoActions";
 
-export const maxDuration = 30;
-export const dynamic = 'force-dynamic'; // Disables caching (recommended for webhooks)
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID!;
 const authToken = process.env.TWILIO_AUTH_TOKEN!;
