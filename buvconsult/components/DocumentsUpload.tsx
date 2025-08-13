@@ -25,7 +25,7 @@ export default function DocumentUpload({ params }: { params: Promise<{ siteId: s
     setIsLoading(true);
     try {
       await saveDocumentsToDB(undefined, formData); // Call your server action directly!
-      toast.success("Doucments saved to database");
+      toast.success("Documents saved to database");
       router.refresh(); // <----- This refreshes server data (tables)!
     } catch (err) {
       toast.error("Failed to save documents");
