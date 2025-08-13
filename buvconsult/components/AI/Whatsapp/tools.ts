@@ -18,7 +18,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     question: z.string(),
     siteId: z.string(),
     userId: z.string(),
-    date: z.date(),
+    date: z.string(),
   }),
   async func({ question, userId, siteId }: {question: string; userId: string, siteId:string }) {
 
