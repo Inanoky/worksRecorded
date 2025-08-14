@@ -245,11 +245,19 @@ export function DialogTable({ date, siteId, onSaved }: {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
-          <Button type="button" variant="outline" onClick={handleAddRow} className="w-full sm:w-auto">
+          <Button 
+          type="button"
+           variant="outline" 
+           onClick={handleAddRow} 
+            className="w-full sm:w-auto active:scale-95 active:bg-muted transition-transform"
+           >
 
           Add task
         </Button>
-         <Button type="submit" className="w-full sm:w-auto">
+         <Button 
+         type="submit" 
+         className="w-full sm:w-auto active:scale-95 active:bg-primary/90 transition-transform"
+         >
           Save diary
           </Button>
       </div>
@@ -370,6 +378,7 @@ export function DialogTable({ date, siteId, onSaved }: {
                           size="icon"
                           type="button"
                           onClick={() => handleDeleteRow(row.id, row._tempId)}
+                          className="active:scale-90 active:bg-destructive/20 transition-transform"
                         >
                           <Trash2 className="h-5 w-5" />
                         </Button>

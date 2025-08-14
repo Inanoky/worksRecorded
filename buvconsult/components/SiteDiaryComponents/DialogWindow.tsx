@@ -50,7 +50,9 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
 
         <DialogFooter className="sm:justify-end">
           <DialogClose asChild>
-            <Button variant="outline" className="w-full sm:w-auto">Close</Button>
+            <Button variant="outline"
+              className="w-full sm:w-auto active:scale-95 active:bg-muted transition-transform"
+             >Close</Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>
