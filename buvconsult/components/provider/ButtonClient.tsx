@@ -19,7 +19,7 @@ export default function OpenProjectButton({ projectId, projectName }: Props) {
   };
 
   return (
-    <Button asChild className="w-full">
+    <Button asChild className="w-full  active:scale-95 active:bg-muted transition-transform">
       <Link href={`/dashboard/sites/${projectId}/invoices`} onClick={handleClick}>
         Open Project
       </Link>
