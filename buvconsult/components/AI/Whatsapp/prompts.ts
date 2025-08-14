@@ -60,9 +60,8 @@ export function systemPromptFunction(siteId, userId){
     "Keep asking following up questions until you get the answer" +
     "WHen you have all information - politely thank the user, summarize all information gathered and call the save_to_database to " +
     `siteId : ${siteId}
-    userId : ${userId}
-    date : {date of the record}
-    Today is ${today} (format dd-mm-yyyy)`
+    userId : ${userId}    
+    Date ${today} (format dd-mm-yyyy)`
 
 
   console.log(today)
