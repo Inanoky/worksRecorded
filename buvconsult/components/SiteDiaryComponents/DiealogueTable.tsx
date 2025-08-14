@@ -292,8 +292,10 @@ export function DialogTable({ date, siteId, onSaved }: {
       </div>
 
       <div className="space-y-3">
-        <div>
-          <Label>Location</Label>
+        <div className="pb-1">
+          <Label className = "block pb-1">
+            Location
+            </Label>
           <Select
             value={row.location_code || ""}
             onValueChange={(val) => handleChange(rowKey, "location_code", val)}
@@ -317,8 +319,10 @@ export function DialogTable({ date, siteId, onSaved }: {
             <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-3 pt-2">
-            <div>
-              <Label>Works</Label>
+            <div className= "pb-2">
+              <Label className="block pb-1">
+                Works
+                </Label>
               <Select
                 value={row.works_code || ""}
                 onValueChange={(val) => handleChange(rowKey, "works_code", val)}
@@ -339,16 +343,18 @@ export function DialogTable({ date, siteId, onSaved }: {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 pb-2">
               <div>
-                <Label>Units</Label>
+                <Label className="block pb-1">
+                  Units
+                  </Label>
                 <Input 
                   value={row.units}
                   onChange={(e) => handleChange(rowKey, "units", e.target.value)}
                 />
               </div>
               <div>
-                <Label>Amounts</Label>
+                <Label className="block pb-1" >Amounts</Label>
                 <Input 
                   inputMode="decimal"
                   value={row.amounts}
@@ -358,16 +364,18 @@ export function DialogTable({ date, siteId, onSaved }: {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>Workers</Label>
+              <div  className="pb-2">
+                <Label className="block pb-1">Workers</Label>
                 <Input 
                   inputMode="numeric"
                   value={row.workers}
                   onChange={(e) => handleChange(rowKey, "workers", e.target.value)}
                 />
               </div>
-              <div>
-                <Label>Hours</Label>
+              <div  className="pb-2">
+                <Label
+                className="block pb-1"
+                >Hours</Label>
                 <Input 
                   inputMode="decimal"
                   value={row.hours}
@@ -378,8 +386,10 @@ export function DialogTable({ date, siteId, onSaved }: {
           </CollapsibleContent>
         </Collapsible>
 
-        <div>
-          <Label>Comments</Label>
+        <div className="pb-2">
+          <Label className="block pb-1">
+            Comments
+            </Label>
           <Textarea
             value={row.comments}
             onChange={(e) => handleChange(rowKey, "comments", e.target.value)}
