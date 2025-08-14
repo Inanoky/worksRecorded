@@ -103,8 +103,10 @@ export default function SiteDiaryCalendar({ siteId }) {
                 date && "hover:shadow-md cursor-pointer"
               )}
               onClick={() => {
+                if(date){
                 setDialogOpen(true);
                 setDate(date);
+                }
               }}
             >
               <CardContent className="flex items-center justify-center p-0 h-full w-full">
