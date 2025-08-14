@@ -16,6 +16,10 @@ import {
 } from "@/app/siteDiaryActions";
 import { toast } from "sonner";
 import { useMediaQuery } from "./use-media-querty";
+import { Label } from "@/components/ui/label"
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
+import { ChevronDown } from "lucide-react"
+
 
 /* ---------- helpers ---------- */
 const ADDITIONAL_WORKS_OPTION = { value: "__ADDITIONAL__", label: "Additional works" };
@@ -262,6 +266,136 @@ export function DialogTable({ date, siteId, onSaved }: {
           </Button>
       </div>
 
+        {isMobile ? (
+      // Mobile card view
+      <div className="space-y-3 max-h-[50vh] overflow-y-auto">
+        {rows.map((row) => {
+  const rowKey = row.id ?? row._tempId;
+  const locationOptions = schema?.filter(n => n.type === "Location") || [];
+  const selectedLocationNode = schema?.find(n => n.code === row.location_code) || schema?.find(n => n.name === row.location);
+  const dynamicWorkOptions = selectedLocationNode ? collectWorks(selectedLocationNode) : [];
+
+  return (
+    <div key={rowKey} className="border rounded-lg p-4 space-y-3 bg-card active:bg-muted/50 transition-colors">
+      <div className="flex justify-between items-center">
+        <div className="font-medium">
+          {row.date ? new Date(row.date).toLocaleDateString("en-GB") : "No date"}
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => handleDeleteRow(row.id, row._tempId)}
+          className="active:scale-90 active:bg-destructive/20"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <Label>Location</Label>
+          <Select
+            value={row.location_code || ""}
+            onValueChange={(val) => handleChange(rowKey, "location_code", val)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={row.location || "Select location"} />
+            </SelectTrigger>
+            <SelectContent>
+              {locationOptions.map((loc: any) => (
+                <SelectItem key={loc.code} value={loc.code}>
+                  {loc.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Collapsible>
+          <CollapsibleTrigger className="w-full flex justify-between items-center py-2">
+            <Label>Work Details</Label>
+            <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-3 pt-2">
+            <div>
+              <Label>Works</Label>
+              <Select
+                value={row.works_code || ""}
+                onValueChange={(val) => handleChange(rowKey, "works_code", val)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={row.works || "Select work"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {dynamicWorkOptions.map((opt: any) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value={ADDITIONAL_WORKS_OPTION.value}>
+                    {ADDITIONAL_WORKS_OPTION.label}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Units</Label>
+                <Input 
+                  value={row.units}
+                  onChange={(e) => handleChange(rowKey, "units", e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Amounts</Label>
+                <Input 
+                  inputMode="decimal"
+                  value={row.amounts}
+                  onChange={(e) => handleChange(rowKey, "amounts", e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Workers</Label>
+                <Input 
+                  inputMode="numeric"
+                  value={row.workers}
+                  onChange={(e) => handleChange(rowKey, "workers", e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Hours</Label>
+                <Input 
+                  inputMode="decimal"
+                  value={row.hours}
+                  onChange={(e) => handleChange(rowKey, "hours", e.target.value)}
+                />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+
+        <div>
+          <Label>Comments</Label>
+          <Textarea
+            value={row.comments}
+            onChange={(e) => handleChange(rowKey, "comments", e.target.value)}
+            className="min-h-[80px]"
+          />
+        </div>
+      </div>
+    </div>
+  );
+})}
+      </div>
+    ) : (
+
+
+
+
       <ScrollArea className="h-[25vh] sm:h-[35vh] rounded-none border">
         <div className="overflow-x-auto">
           <div className={isMobile ? "w-full" : "min-w-[1000px]"}>
@@ -393,6 +527,8 @@ export function DialogTable({ date, siteId, onSaved }: {
         <ScrollBar orientation="horizontal" />
         <ScrollBar orientation="vertical" />
       </ScrollArea>
+
+              )}
     </form>
   );
 }
