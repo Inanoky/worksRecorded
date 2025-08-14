@@ -58,10 +58,10 @@ export function DashboardItems() {
     if (isAboveProject && (projectId || projectName)) setProject("", "");
   }, [pathname]);
 
-  return (
+return (
     <div className="flex items-center w-full justify-between">
       {/* LEFT: Main navigation links + project nav links if selected */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 overflow-x-auto py-1">
         {navLinks.map((item) => (
           <Link
             href={item.href}
@@ -70,7 +70,7 @@ export function DashboardItems() {
               pathname === item.href
                 ? "bg-muted text-primary"
                 : "text-muted-foreground bg-none",
-              "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary/70"
+              "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary/70 text-sm lg:text-base"
             )}
           >
             <item.icon className="size-4" />
@@ -79,42 +79,30 @@ export function DashboardItems() {
         ))}
 
         {/* Only show project nav links when in a project subroute */}
-{projectName && projectId && /^\/dashboard\/sites\/[^\/]+/.test(pathname) &&
-  projectNavLinks.map((item) => (
-    <Link
-      href={`/dashboard/sites/${projectId}/${item.path}`}
-      key={item.name}
-      className={cn(
-        // Always blue, and slightly bolder on selected
-        "text-blue-500 ",
-        pathname === `/dashboard/sites/${projectId}/${item.path}`
-          ? "bg-muted"
-          : "bg-none",
-        "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-blue-700"
-      )}
-    >
-      <item.icon className="size-4" />
-      <span className="hidden md:inline-block">{item.name}</span>
-    </Link>
-  ))
-}
-
+        {projectName && projectId && /^\/dashboard\/sites\/[^\/]+/.test(pathname) &&
+          projectNavLinks.map((item) => (
+            <Link
+              href={`/dashboard/sites/${projectId}/${item.path}`}
+              key={item.name}
+              className={cn(
+                "text-blue-500 text-sm lg:text-base",
+                pathname === `/dashboard/sites/${projectId}/${item.path}`
+                  ? "bg-muted"
+                  : "bg-none",
+                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-blue-700"
+              )}
+            >
+              <item.icon className="size-4" />
+              <span className="hidden md:inline-block">{item.name}</span>
+            </Link>
+          ))
+        }
       </div>
 
-      {/* RIGHT: Project name */}
+      {/* RIGHT: Project name - now with better mobile handling */}
       {projectName && (
-        <div
-          className={cn(
-            "flex items-center gap-2 rounded-lg px-3 py-2",
-            "text-blue-600 font-semibold bg-none"
-          )}
-          style={{
-            pointerEvents: "none",
-            userSelect: "none",
-            maxWidth: "200px",
-          }}
-        >
-          <span className="truncate block">{projectName}</span>
+        <div className="hidden sm:flex items-center gap-2 rounded-lg px-3 py-2 text-blue-600 font-semibold bg-none max-w-[150px] lg:max-w-[200px]">
+          <span className="truncate">{projectName}</span>
         </div>
       )}
     </div>

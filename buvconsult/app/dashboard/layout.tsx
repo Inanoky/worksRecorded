@@ -36,35 +36,75 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <ProjectProvider>
             <section className="min-h-screen w-full flex flex-col">
                 {/* Top Navigation Bar */}
-                <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-8">
-                    {/* Logo */}
-                    <Link href="/" className="flex items-center gap-2 font-semibold">
-                        <Image src={Logo} alt="Logo" className="size-12" />
-                        <h3 className="text-2xl">
-                            Buv<span className="text-primary">consult</span>
-                        </h3>
-                    </Link>
-                    {/* Navigation - all dashboard items */}
-                    <nav className="flex gap-2 items-center flex-1 ml-6">
-                        <DashboardItems />
-                    </nav>
-                    {/* Theme/User menu */}
-                    <div className="flex items-center gap-x-5">
-                        <ThemeToggle />
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="secondary" size="icon" className="rounded-full">
-                                    <CircleUser className="h-5 w-5" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem asChild>
-                                    <LogoutLink>Log out</LogoutLink>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </header>
+                // layout.tsx - Only the header section needs changes
+<header className="flex h-14 items-center justify-between gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-8">
+  <div className="flex items-center gap-4">
+    {/* Mobile menu button - only shows on small screens */}
+    <div className="lg:hidden">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="rounded-full">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="4" x2="20" y1="12" y2="12" />
+              <line x1="4" x2="20" y1="6" y2="6" />
+              <line x1="4" x2="20" y1="18" y2="18" />
+            </svg>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          {navLinks.map((item) => (
+            <DropdownMenuItem key={item.name} asChild>
+              <Link href={item.href} className="flex items-center gap-2">
+                <item.icon className="size-4" />
+                {item.name}
+              </Link>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+    
+    {/* Logo - smaller on mobile */}
+    <Link href="/" className="flex items-center gap-2 font-semibold">
+      <Image src={Logo} alt="Logo" className="size-8 lg:size-12" />
+      <h3 className="text-xl lg:text-2xl">
+        Buv<span className="text-primary">consult</span>
+      </h3>
+    </Link>
+  </div>
+
+  {/* Navigation - hidden on mobile, shown on desktop */}
+  <nav className="hidden lg:flex gap-2 items-center flex-1 ml-6">
+    <DashboardItems />
+  </nav>
+
+  {/* Theme/User menu */}
+  <div className="flex items-center gap-x-3 lg:gap-x-5">
+    <ThemeToggle />
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="secondary" size="icon" className="rounded-full size-8 lg:size-10">
+          <CircleUser className="h-4 w-4 lg:h-5 lg:w-5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem asChild>
+          <LogoutLink>Log out</LogoutLink>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  </div>
+</header>
                 {/* Main content */}
                 <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
                     {children}
