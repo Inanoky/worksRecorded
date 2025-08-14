@@ -15,6 +15,7 @@ import {
   deleteSiteDiaryRecord, updateSiteDiaryRecord
 } from "@/app/siteDiaryActions";
 import { toast } from "sonner";
+import { useMediaQuery } from "./use-media-querty";
 
 /* ---------- helpers ---------- */
 const ADDITIONAL_WORKS_OPTION = { value: "__ADDITIONAL__", label: "Additional works" };
@@ -54,10 +55,12 @@ export function useSiteSchema(siteId: string | null) {
 
 /* ---------- component ---------- */
 export function DialogTable({ date, siteId, onSaved }: {
+  
   date: Date | null;
   siteId: string | null;
   onSaved?: () => void;
 }) {
+  const isMobile = useMediaQuery("(max-width: 640px)");
   const schema = useSiteSchema(siteId);
   const [loading, setLoading] = useState(true);
 
@@ -241,16 +244,19 @@ export function DialogTable({ date, siteId, onSaved }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="flex justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
-        <Button type="button" variant="outline" onClick={handleAddRow}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
+          <Button type="button" variant="outline" onClick={handleAddRow} className="w-full sm:w-auto">
+
           Add task
         </Button>
-        <Button type="submit">Save diary</Button>
+         <Button type="submit" className="w-full sm:w-auto">
+          Save diary
+          </Button>
       </div>
 
-      <ScrollArea className="h-[25vh] rounded-none border">
+      <ScrollArea className="h-[25vh] sm:h-[35vh] rounded-none border">
         <div className="overflow-x-auto">
-          <div className="min-w-[1000px]">
+          <div className={isMobile ? "w-full" : "min-w-[1000px]"}>
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-background">
                 <TableRow>

@@ -76,7 +76,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
           : `${photos?.length ?? 0} photo${(photos?.length ?? 0) === 1 ? "" : "s"}`}
       </div>
 
-      <ScrollArea className="h-[330px]">
+      <ScrollArea className="h-[200px] sm:h-[330px]">
         {loading ? (
           <div className="grid grid-cols-5 gap-4 p-2">
             {Array.from({ length: 10 }).map((_, i) => (
@@ -88,7 +88,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
             No photos for this date.
           </div>
         ) : (
-          <div className="grid grid-cols-5 gap-4 p-2 auto-rows-[150px]">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 p-2 auto-rows-[100px] sm:auto-rows-[150px]">
             {photos!.map((p) => {
               const src = p.URL ?? p.fileUrl ?? "";
               return (
