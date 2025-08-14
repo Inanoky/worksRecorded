@@ -20,7 +20,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     userId: z.string(),
     date: z.string(),
   }),
-  async func({ question, userId, siteId }: {question: string; userId: string, siteId:string }) {
+  async func({ question, userId, siteId , date }: {question: string; userId: string, siteId:string }) {
 
 
                     // Extracting schema
@@ -98,7 +98,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
 
                 const response = await structuredLlm.invoke([
-                  new HumanMessage(`${question}`),
+                  new HumanMessage(`${question} \n ${date} \n ${siteId} \n `),
                   new SystemMessage(systemPromptSaveToDatabase)
                 ]);
 
