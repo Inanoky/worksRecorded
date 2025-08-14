@@ -67,7 +67,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
   }, [date, siteId]);
 
   return (
-    <div className={cn("p-3 border border-muted rounded-none", className)}>
+    <div className={cn("p-3 border border-muted rounded-lg bg-background", className)}>
       <div className="mb-2 text-sm text-muted-foreground">
         {loading
           ? "Loading photos…"
@@ -76,11 +76,11 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
           : `${photos?.length ?? 0} photo${(photos?.length ?? 0) === 1 ? "" : "s"}`}
       </div>
 
-      <ScrollArea className="h-[200px] sm:h-[330px]">
+      <div className="relative h-full">
         {loading ? (
-          <div className="grid grid-cols-5 gap-4 p-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 p-2">
             {Array.from({ length: 10 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-square " />
+              <Skeleton key={i} className="aspect-square" />
             ))}
           </div>
         ) : (photos?.length ?? 0) === 0 ? (
@@ -88,36 +88,38 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
             No photos for this date.
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 p-2 auto-rows-[100px] sm:auto-rows-[150px]">
-            {photos!.map((p) => {
-              const src = p.URL ?? p.fileUrl ?? "";
-              return (
-                <button
-                  key={p.id}
-                  className="group relative overflow-hidden border border-muted"
-                  title={p.Comment ?? undefined}
-                  onClick={() => {
-                    if (src) window.open(src, "_blank", "noopener,noreferrer");
-                  }}
-                >
-                  <img
-                    src={src}
-                    alt={p.Comment ?? "Photo"}
-                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                  />
-                  {p.Comment ? (
-                    <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-2">
-                      {p.Comment}
-                    </div>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+          <ScrollArea className="h-[300px]">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 p-2">
+              {photos!.map((p) => {
+                const src = p.URL ?? p.fileUrl ?? "";
+                return (
+                  <button
+                    key={p.id}
+                    className="group relative aspect-square overflow-hidden rounded-md border border-muted"
+                    title={p.Comment ?? undefined}
+                    onClick={() => {
+                      if (src) window.open(src, "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    <img
+                      src={src}
+                      alt={p.Comment ?? "Photo"}
+                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                    />
+                    {p.Comment ? (
+                      <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-2">
+                        {p.Comment}
+                      </div>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </ScrollArea>
         )}
-      </ScrollArea>
+      </div>
     </div>
   );
 }
