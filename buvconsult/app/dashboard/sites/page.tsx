@@ -14,7 +14,7 @@ import {EmptyState} from "@/app/components/dashboard/EmptyState";
 import OpenProjectButton from "@/components/provider/ButtonClient";
 
 
-
+//nothing
 
 async function getData(userId: string) {
   const data = await prisma.site.findMany({
