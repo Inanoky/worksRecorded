@@ -37,7 +37,7 @@ export function AddWorkerForm({siteId, onSuccess, onCancel }: { siteId: string; 
   };
 
   return (
-    <Card className="max-w-md w-full h-70 ">
+    <Card className="max-w-md w-full h-80 ">
       <form onSubmit={handleSubmit} className="grid gap-2">
         <CardHeader>
           <CardTitle>Add Worker</CardTitle>
@@ -65,7 +65,7 @@ export function AddWorkerForm({siteId, onSuccess, onCancel }: { siteId: string; 
             required
           />
            <Input
-            name="phone Number"
+            name="phone"
             placeholder="phone number"
             value={form.phone}
             onChange={handleChange}

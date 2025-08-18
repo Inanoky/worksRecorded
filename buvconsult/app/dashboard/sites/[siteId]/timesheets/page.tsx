@@ -27,7 +27,7 @@ export default async function AddWorkerPage({params}:
         {/* Right: Workers Table in ScrollArea, matches form height */}
         <div >
           <div  >
-            <Card className = "h-70">
+            <Card className = "h-80">
               <CardHeader>
               <CardTitle>Workers on site</CardTitle>
               </CardHeader>
@@ -36,7 +36,7 @@ export default async function AddWorkerPage({params}:
              data={workers}
               pageSize={25} 
               visibleColumns={[2,3,4,5,6,7,8,9,10]} 
-              columnLabels={["ID", "First Name", "Last Name", "Position", "Phone", "On site?", "Personal ID", "Last Work"]}
+              columnLabels={["ID", "First Name", "Last Name", "ID", "Phone", "On site?", "Clock In", "Last Work"]}
               toolbar={false} />
               </CardContent>
               <CardFooter>
