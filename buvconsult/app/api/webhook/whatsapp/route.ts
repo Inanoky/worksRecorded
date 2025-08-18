@@ -8,6 +8,7 @@ import twilio from "twilio";
 import { UTApi } from "uploadthing/server";
 import { savePhoto } from "@/app/photoActions";
 import { after } from 'next/server';
+import { handleWorkerMessage } from "@/app/utils/clockInOut/workersFlow";
 
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID!;
@@ -68,8 +69,26 @@ async function handleMessage(formData: FormData) {
     const phone = WaId || (from || "").replace("whatsapp:+", "");
     console.log("📞 Normalized phone:", phone);
 
-    const user = await prisma.user.findFirst({ where: { phone }, include: { Site: true } });
-    console.log("👤 User found:", user?.id || "null");
+    //Check both user and worker tables
+
+     const [user, worker] = await Promise.all([
+      prisma.user.findFirst({ 
+        where: { phone }, 
+        include: { Site: true } 
+      }),
+      prisma.workers.findFirst({
+        where: { phone }
+      })
+    ]);
+
+    
+    if (worker) {
+      console.log("👷 Worker found, triggering worker workflow");
+      await handleWorkerMessage(phone, formData);
+      return;
+    }
+
+    
 
     if (!user) {
       console.log("❌ No user found, sending rejection message");

@@ -57,7 +57,8 @@ model Site {
   photos            photos[] // on site can have many photos
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
   AIconversation    AIconversation? // Site can have one conversation
-  sitediarysettings sitediarysettings?
+  sitediarysettings sitediarysettings? //One site can have one site diary setting
+  workers           workers[] //on site can have many workers 
 }
 
 model Subscription {
@@ -207,3 +208,28 @@ model photos {
 
 
 
+model workers {
+  id       String    @id @default(uuid())
+  name String?
+  surname String?
+  personalId String?
+  Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId   String?
+  phone     String?
+  isClockedIn Boolean?
+  timelog timelog[]
+}
+
+model timelog {
+  id       String    @id @default(uuid())
+  workers  workers?     @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  workerId   String?
+  date DateTime?
+  clockIn DateTime?
+  clockOut DateTime?
+  wocation String?
+  works String?
+
+
+
+}

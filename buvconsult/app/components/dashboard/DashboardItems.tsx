@@ -34,9 +34,9 @@ export const projectNavLinks = [
     icon: Clock8,
   },
   {
-    name: "Program",
-    href: "/dashboard/pricing",
-    path: "program",
+    name: "Timesheets",
+    href: "/dashboard/timesheets",
+    path: "timesheets",
     icon: ChartBarBig,
   },
 
