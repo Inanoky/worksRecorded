@@ -6,22 +6,26 @@ import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/components/AI/RAG/LanggraphAgentVersion/state";
 
 
-const now = new Date()
+
 
 export const clockInWorkerTool = new DynamicStructuredTool({
   name: "ClockInWorker",
   description: "Clock a worker in (start workday)",
   schema: z.object({
     workerId: z.string().describe("The unique worker ID"),
+     siteId: z.string().describe("Site Id "),
     
   }),
-  async func({ workerId }) {
+  async func({ workerId, siteId}) {
+
+    const now = new Date()
 
     // Server action expects Date objects, not strings
     const result = await clockInWorker({
       workerId,
       date: now,
-      clockIn: now
+      clockIn: now,
+      siteId
     });
     if (result.success) {
       return { messages: ["Clocked in successfully"] };
@@ -38,13 +42,19 @@ export const clockOutWorkerTool = new DynamicStructuredTool({
     workerId: z.string().describe("The unique worker ID"),
     location: z.string().describe("Work location "),
     works: z.string().describe("Description of work performed"),
+   
   }),
-  async func({ workerId, location, works }) {
+  async func({ workerId, location, works}) {
+
+        const now = new Date()
     const result = await clockOutWorker({
+      
       workerId,
       clockOut: now,
       location,
       works,
+     
+
     });
     if (result.success) {
       return { messages: ["Clocked out successfully"] };

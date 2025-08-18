@@ -55,6 +55,7 @@ model Site {
   InvoiceItems      InvoiceItems[]
   Documents         Documents[]
   photos            photos[] // on site can have many photos
+  timelog           timelog[] // on site can have timelogs
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
   AIconversation    AIconversation? // Site can have one conversation
   sitediarysettings sitediarysettings? //One site can have one site diary setting
@@ -224,6 +225,8 @@ model timelog {
   id       String    @id @default(uuid())
   workers  workers?     @relation(fields: [workerId], references: [id], onDelete: Cascade)
   workerId   String?
+  Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId   String?
   date DateTime?
   clockIn DateTime?
   clockOut DateTime?

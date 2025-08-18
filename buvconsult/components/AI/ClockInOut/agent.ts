@@ -12,7 +12,8 @@ export default async function talkToClockInAgent(question, workerId) {
     console.log("=== talkToWhatsappAgent called ===");
 
     const siteId = await getSiteIdByWorkerId(workerId)
-    
+    console.log(siteId)
+
     const status = (await isWorkerClockedIn(workerId)).isClockedIn ? "clocked In" : "clocked Out";
 
     console.log(`Worker is currently ${status}`)

@@ -7,6 +7,7 @@ export async function createTeamMember(formData: {
   surname: string;
   personalId: string;
   siteId?: string;
+  phone: string 
 }) {
   try {
     const worker = await prisma.workers.create({
@@ -15,6 +16,7 @@ export async function createTeamMember(formData: {
         surname: formData.surname,
         personalId: formData.personalId,
         siteId: formData.siteId || null,
+        phone: formData.phone,
         isClockedIn: false,
       },
     });
@@ -80,6 +82,7 @@ export async function clockInWorker(formData: {
   workerId: string;
   date: Date;
   clockIn: Date;
+  siteId: string 
   
 }) {
   try {
@@ -101,6 +104,7 @@ export async function clockInWorker(formData: {
           workerId: formData.workerId,
           date: formData.date,
           clockIn: formData.clockIn,
+          siteId: formData.siteId
           
         },
       });
@@ -269,4 +273,57 @@ export async function getSiteIdByWorkerId(workerId: string): Promise<string | nu
     select: { siteId: true }
   });
   return worker?.siteId ?? null;
+}
+
+
+
+
+export async function getTimelogsBySiteId(siteId) {
+  const raw = await prisma.timelog.findMany({
+    where: { siteId },                // <-- this is correct!
+    include: { workers: true },       // <-- include worker details if you want
+    orderBy: { date: "desc" },
+  });
+
+  // Format the data before returning!
+  return raw.map(row => ({
+    id: row.id,
+    date: row.date ? new Date(row.date).toLocaleDateString() : "",
+    clockIn: row.clockIn ? new Date(row.clockIn).toLocaleTimeString() : "",
+    clockOut: row.clockOut ? new Date(row.clockOut).toLocaleTimeString() : "",
+    wocation: row.wocation ?? "",
+    works: row.works ?? "",
+    workerName: row.workers?.name ?? "",
+    workerSurname: row.workers?.surname ?? "",
+    workerRole: row.workers?.role ?? "",   // if you have a role field on workers!
+    // You can add any other fields you want to flatten or format here.
+  }));
+}
+
+
+export async function getWorkersBySiteId(siteId) {
+  const raw = await prisma.workers.findMany({
+    where: { siteId },                // Filter by the site's ID
+    include: {
+      timelog: {
+        orderBy: { date: "desc" },
+        take: 1,                      // Most recent timelog (if you want it)
+      }
+    },
+    orderBy: { surname: "asc" },      // Or "name", as you prefer
+  });
+
+  // Format/flatten the data before returning
+  return raw.map(row => ({
+    id: row.id,
+    name: row.name ?? "",
+    surname: row.surname ?? "",
+    personalId: row.personalId ?? "",
+    phone: row.phone ?? "",
+    isClockedIn: row.isClockedIn ? "Yes" : "No",
+    // If you want to show info from most recent timelog (optional)
+    lastWorkDate: row.timelog[0]?.date ? new Date(row.timelog[0].date).toLocaleDateString() : "",
+    lastWorkType: row.timelog[0]?.works ?? "",
+    // Add more fields as needed!
+  }));
 }

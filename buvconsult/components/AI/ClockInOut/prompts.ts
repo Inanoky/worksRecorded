@@ -2,7 +2,7 @@ import { isWorkerClockedIn } from "@/app/clockinActions";
 
 
 
-export function systemPromptFunction(workerName, workerId, status){
+export function systemPromptFunction(siteId, workerId, status, ){
 
 
  
@@ -35,6 +35,7 @@ If user wishes to clock in - call the clock in tool.
 If worker wants to clock out, ask him what he was doing during the day – ask to describe where and what – then call clock_out_record
 workerId is ${workerId}
 
+
 `;    
 
 const prompt_18_08_2025 = `i. (Prompt: You are talking to a construction worker.
@@ -48,7 +49,19 @@ workerId is ${workerId}
 
 `;
 
-const prompt = prompt_18_08_2025
+const prompt_18_08_2025_v2 = `i. (Prompt: You are talking to a construction worker.
+Worker is currently ${status}. Do not engage in any other conversation.
+Ask user if he wishes to ${getReverseStatus(status)}.
+If user wishes to clock in - call the clock in tool.  
+If worker wants to clock out, ask him what he was doing during the day – ask to describe where and what, summarize and send back
+task for confirmation to user, then call clock_out_record
+workerId is ${workerId}
+siteId is ${siteId}
+
+
+`;
+
+const prompt = prompt_18_08_2025_v2
 
   console.log(today)
 

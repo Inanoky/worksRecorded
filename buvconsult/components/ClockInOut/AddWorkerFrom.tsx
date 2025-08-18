@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { createTeamMember } from "@/app/clockinActions";
 
-export function AddWorkerForm({ onSuccess, onCancel }: { onSuccess?: (w: any) => void, onCancel?: () => void }) {
-  const [form, setForm] = useState({ name: "", surname: "", personalId: "", siteId: "" });
+export function AddWorkerForm({siteId, onSuccess, onCancel }: { siteId: string; onSuccess?: (w: any) => void, onCancel?: () => void }) {
+  const [form, setForm] = useState({ name: "", surname: "", personalId: "", siteId: siteId , phone: ""});
   const [pending, startTransition] = useTransition();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,11 +23,12 @@ export function AddWorkerForm({ onSuccess, onCancel }: { onSuccess?: (w: any) =>
         name: form.name,
         surname: form.surname,
         personalId: form.personalId,
-        siteId: form.siteId || undefined,
+        siteId: siteId,
+        phone: form.phone
       });
       if (res.success) {
         toast.success("Worker added!");
-        setForm({ name: "", surname: "", personalId: "", siteId: "" });
+        setForm({ name: "", surname: "", personalId: "", siteId: "" , phone: ""});
         onSuccess?.(res.worker);
       } else {
         toast.error(res.error || "Failed to add worker");
@@ -36,8 +37,8 @@ export function AddWorkerForm({ onSuccess, onCancel }: { onSuccess?: (w: any) =>
   };
 
   return (
-    <Card className="max-w-md w-full">
-      <form onSubmit={handleSubmit}>
+    <Card className="max-w-md w-full h-70 ">
+      <form onSubmit={handleSubmit} className="grid gap-2">
         <CardHeader>
           <CardTitle>Add Worker</CardTitle>
         </CardHeader>
@@ -63,12 +64,14 @@ export function AddWorkerForm({ onSuccess, onCancel }: { onSuccess?: (w: any) =>
             onChange={handleChange}
             required
           />
-          <Input
-            name="siteId"
-            placeholder="Site ID (optional)"
-            value={form.siteId}
+           <Input
+            name="phone Number"
+            placeholder="phone number"
+            value={form.phone}
             onChange={handleChange}
+            required
           />
+         
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
           {onCancel && (
