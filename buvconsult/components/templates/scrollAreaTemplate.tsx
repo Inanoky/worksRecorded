@@ -5,7 +5,6 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
@@ -13,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "../ui/scroll-area";
+import { Trash2 } from "lucide-react";
 
-// Helper: generate columns with labels and visibleColumns support
+// --- Helper to generate columns with optional labels and visibleColumns
 function getColumnsFromData(
   data: any[],
   columnLabels: string[] | null = null,
@@ -22,7 +22,7 @@ function getColumnsFromData(
 ) {
   if (!data || data.length === 0) return [];
   const keys = Object.keys(data[0]);
-  // Use visibleColumns if provided (convert 1-based to 0-based)
+  // visibleColumns: array of 1-based indices (e.g. [1,3])
   const indices = visibleColumns && visibleColumns.length
     ? visibleColumns.map(i => i - 1).filter(i => i >= 0 && i < keys.length)
     : keys.map((_, i) => i);
@@ -33,7 +33,7 @@ function getColumnsFromData(
   }));
 }
 
-// Simple string search filter
+// --- Simple string search filter
 const defaultGlobalFilterFn = (row: any, columnId: string, filterValue: string) => {
   if (!filterValue) return true;
   const flatString = Object.values(row.original)
@@ -51,6 +51,7 @@ export function ScrollTable({
   columnLabels = null,      // e.g. ["ID", "First Name", ...]
   toolbar = true,
   tableName = "",
+  onDeleteRow = (id: string) => {}, // callback (row id)
 }: {
   data: any[],
   pageSize?: number,
@@ -59,18 +60,43 @@ export function ScrollTable({
   columnLabels?: string[] | null,
   toolbar?: boolean,
   tableName?: string,
+  onDeleteRow?: (id: string) => void,
 }) {
-  // Memoized columns with labels and visible columns logic
-  const columns = React.useMemo(
-    () => getColumnsFromData(data, columnLabels, visibleColumns),
-    [data, columnLabels, visibleColumns]
-  );
+  // Memoized columns with delete column at the end
+  const columns = React.useMemo(() => {
+    const base = getColumnsFromData(data, columnLabels, visibleColumns);
+    return [
+      ...base,
+      {
+        id: "delete",
+        header: "",
+        cell: ({ row }: any) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDeleteRow(row.original.id)}
+            className="text-red-500 hover:bg-red-100"
+            title="Delete row"
+            type="button"
+          >
+            <Trash2 size={18} />
+          </Button>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      }
+    ];
+  }, [data, columnLabels, visibleColumns, onDeleteRow]);
 
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
 
   function exportToExcel() {
-    const rows = table.getFilteredRowModel().rows.map(row => row.original);
+    // Exclude the last "delete" column from export
+    const exportCols = columns.slice(0, -1).map(col => col.accessorKey);
+    const rows = table.getFilteredRowModel().rows.map(row =>
+      exportCols.reduce((acc, key) => ({ ...acc, [key]: row.original[key] }), {})
+    );
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
@@ -83,7 +109,6 @@ export function ScrollTable({
     state: { globalFilter, rowSelection },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(), // Optional; can remove if you don't use pagination controls
     getSortedRowModel: getSortedRowModel(),
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
@@ -92,7 +117,7 @@ export function ScrollTable({
   });
 
   return (
-    <ScrollArea className="h-60 w-full"> {/* h-60 = 15rem, change as needed */}
+    <ScrollArea className="h-60 w-full">
       <div className="w-full h-full overflow-x-auto">
         {/* Optional Table Name */}
         {tableName && (

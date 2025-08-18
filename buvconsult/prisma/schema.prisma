@@ -223,7 +223,7 @@ model workers {
 
 model timelog {
   id       String    @id @default(uuid())
-  workers  workers?     @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  workers  workers?     @relation(fields: [workerId], references: [id], onDelete: SetNull)
   workerId   String?
   Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId   String?
