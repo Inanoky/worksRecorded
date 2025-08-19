@@ -3,6 +3,9 @@
 
 import OpenAI, { toFile } from "openai";
 import { retriever } from "@/components/AI/RAG/LanggraphAgentVersion/retrievers";
+import {z} from "zod"
+import { zodTextFormat } from "openai/helpers/zod";
+
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -15,6 +18,11 @@ export type EnrichedEmailPayloadItem = {
   siteId: string;              // Site.id or "not_found"
   messageId?: string;
 };
+
+const auditSchema = z.object({
+  summary: z.string(),                       // Human explanation
+  health: z.number().min(0).max(100),        // Health % (0–100)
+});
 
 async function uploadPdfs(pdfs: { filename: string; buffer: Buffer }[]) {
   const ids: string[] = [];
@@ -35,7 +43,7 @@ export default async function gmailInvoiceAuditNarrative(
   siteId: string;
   summary: string;  // human-like explanation
 }>> {
-  const out: Array<{ messageId?: string; siteId: string; summary: string }> = [];
+  const out: Array<{ messageId?: string; siteId: string; summary: string , health: string}> = [];
 
   for (const item of items) {
     const siteId = item.siteId || "not_found";
@@ -60,7 +68,8 @@ export default async function gmailInvoiceAuditNarrative(
       "You are a helpful construction invoice reviewer. " +
       "Speak plainly and briefly. If the invoice looks fine, say so and why. " +
       "If something seems off, explain it clearly and suggest next steps. " +
-      "Avoid legalese; keep it practical.";
+      "Avoid legalese; keep it practical." +
+      "Assess invoice health, where 100 - perfect healthy invoice, 0 - probably scam need revision";
 
     const checklist =
       "Consider:\n" +
@@ -85,10 +94,19 @@ export default async function gmailInvoiceAuditNarrative(
         model: "gpt-4.1",
         temperature: 0.4,
         input: [{ role: "user", content: contentBlocks }],
+        text: { format: zodTextFormat(auditSchema, "audit") },
+        
       });
 
+      
       const summary = resp.output_text?.trim() || "No response.";
-      out.push({ messageId: item.messageId, siteId, summary });
+     console.log(`this is summary ${summary}`)
+
+     const parsedSummary = JSON.parse(summary)
+     console.log(`this is health ${parsedSummary.health}`)
+
+    
+      out.push({ messageId: item.messageId, siteId, summary: parsedSummary.summary, health: parsedSummary.health });
     } catch (e: any) {
       out.push({
         messageId: item.messageId,

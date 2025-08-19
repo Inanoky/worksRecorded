@@ -30,7 +30,7 @@ export async function rerankDocs(results, prompt, topN){
                   `---\nSource #${i + 1} (score: ${r.relevanceScore}):\n${yamlDocs[r.index]}`
                 );
 
-        console.log(`rerankedForLLM ${JSON.stringify(rerankedForLLM)}`)
+        
 
       return rerankedForLLM
 }
