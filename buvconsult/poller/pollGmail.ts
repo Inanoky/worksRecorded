@@ -2,6 +2,7 @@
 
 import { prisma } from "@/app/utils/db";
 import siteIdCheck from "@/components/AI/GmailWorkflow/siteIdCheck";
+import gmailInvoiceAuditNarrative from "@/components/AI/GmailWorkflow/agent";
 
 console.log("🔑 Loaded ENV vars:");
 console.log({
@@ -164,3 +165,7 @@ const payload = await buildPayloadFromUnread()
 
 const enriched = await siteIdCheck(payload);
 console.log("🎯 Enriched payload:", enriched);
+
+
+const results = await gmailInvoiceAuditNarrative(enriched);
+console.log("📝 GPT audit results:", results);
