@@ -20,7 +20,6 @@ import {
   DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
-import Link from "next/link";
 import { InvoiceHoverPreview } from "@/components/ui/InvoiceHoverPreview";
 import {
   Pagination,
@@ -35,6 +34,16 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { deleteInvoice, bulkSetIsInvoice } from "@/app/actions";
 import { InvoiceEditDialog } from "@/components/InvoiceEditDialog";
+
+// ⬇️ NEW: dialog components
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 // Row actions for edit/delete
 function RowActions({ siteId, id, onDelete, invoice, onEdit }) {
@@ -57,12 +66,29 @@ function RowActions({ siteId, id, onDelete, invoice, onEdit }) {
   );
 }
 
+// Health badge (string in DB → numeric thresholds)
+function HealthBadge({ value }: { value: string | null | undefined }) {
+  if (!value) return <Badge variant="outline">-</Badge>;
+
+  const n = parseFloat(value);
+  if (isNaN(n)) return <Badge variant="outline">{value}</Badge>;
+
+  let colorClass = "bg-red-100 text-red-700 border-red-200";
+  if (n > 80) colorClass = "bg-green-100 text-green-700 border-green-200";
+  else if (n >= 60) colorClass = "bg-yellow-100 text-yellow-800 border-yellow-200";
+
+  return (
+    <Badge variant="outline" className={colorClass}>
+      {n.toFixed(0)}
+    </Badge>
+  );
+}
+
 export function InvoicesDataTable({ data, siteId }) {
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const router = useRouter();
 
-  // Add state for editing
   const [editInvoice, setEditInvoice] = React.useState(null);
   const [editOpen, setEditOpen] = React.useState(false);
 
@@ -71,7 +97,7 @@ export function InvoicesDataTable({ data, siteId }) {
       await deleteInvoice(id);
       toast.success("Invoice deleted");
       router.refresh();
-    } catch (e) {
+    } catch {
       toast.error("Delete failed");
     }
   }
@@ -81,7 +107,6 @@ export function InvoicesDataTable({ data, siteId }) {
     setEditOpen(true);
   }
 
-  // Bulk actions
   async function handleBulkDelete() {
     const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
     if (ids.length === 0) return;
@@ -167,10 +192,7 @@ export function InvoicesDataTable({ data, siteId }) {
         cell: info => {
           const value = info.getValue();
           return typeof value === "number"
-            ? value.toLocaleString("fr-FR", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })
+            ? value.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
             : "";
         },
       },
@@ -192,15 +214,50 @@ export function InvoicesDataTable({ data, siteId }) {
           </Badge>
         ),
       },
+      // --- Health column with dialog on click ---
+      {
+        accessorKey: "health",
+        header: "Health",
+        sortingFn: (a, b, colId) => {
+          const av = parseFloat(a.getValue(colId) ?? "NaN");
+          const bv = parseFloat(b.getValue(colId) ?? "NaN");
+          const an = Number.isFinite(av) ? av : -Infinity;
+          const bn = Number.isFinite(bv) ? bv : -Infinity;
+          return an === bn ? 0 : an < bn ? -1 : 1;
+        },
+        cell: ({ row, getValue }) => {
+          const health = (getValue() as string | null) ?? null;
+          const summary = (row.original?.auditSummary as string | null) ?? null;
+          const inv = row.original;
+
+          return (
+            <Dialog>
+              <DialogTrigger asChild>
+                <button type="button" className="cursor-pointer">
+                  <HealthBadge value={health} />
+                </button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Audit summary</DialogTitle>
+                  <DialogDescription>
+                    {`Invoice ${inv?.invoiceNumber ?? ""}`.trim()} • Health {health ?? "-"}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {summary && summary.trim().length > 0 ? summary : "No audit summary available."}
+                </div>
+              </DialogContent>
+            </Dialog>
+          );
+        },
+      },
       {
         accessorKey: "uploadedAt",
         header: "Uploaded At",
         cell: info =>
           info.getValue()
-            ? new Date(info.getValue()).toLocaleString("en-GB", {
-                dateStyle: "medium",
-                timeStyle: "short",
-              })
+            ? new Date(info.getValue()).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })
             : "",
       },
       {
@@ -235,7 +292,6 @@ export function InvoicesDataTable({ data, siteId }) {
     initialState: { pagination: { pageSize: 10 } },
   });
 
-  // --- Windowed Pagination Logic (max 10 links, ellipsis) ---
   function renderPagination() {
     const pageCount = table.getPageCount();
     const current = table.getState().pagination.pageIndex;
@@ -265,7 +321,6 @@ export function InvoicesDataTable({ data, siteId }) {
       );
     }
 
-    // Ellipsis at the end if needed
     if (end < pageCount) {
       items.push(
         <PaginationItem key="ellipsis">
@@ -274,7 +329,6 @@ export function InvoicesDataTable({ data, siteId }) {
       );
     }
 
-    // Ellipsis at the start if needed
     if (start > 0) {
       items.unshift(
         <PaginationItem key="start-ellipsis">
@@ -286,7 +340,6 @@ export function InvoicesDataTable({ data, siteId }) {
     return items;
   }
 
-  // ---- SUBTOTAL for invoiceTotalSumNoVat (filtered!) ----
   const filteredRows = table.getFilteredRowModel().rows;
   const subtotalNoVat = filteredRows.reduce(
     (sum, row) => sum + (Number(row.original.invoiceTotalSumNoVat) || 0),
@@ -305,21 +358,21 @@ export function InvoicesDataTable({ data, siteId }) {
         <Button className="ml-2" variant="outline" onClick={exportToExcel}>
           Export to Excel
         </Button>
-        {/* Bulk actions */}
         {table.getSelectedRowModel().rows.length > 0 && (
           <div className="flex gap-2">
             <Button variant="destructive" onClick={handleBulkDelete}>
               Delete selected
             </Button>
-            <Button variant="default" onClick={() => handleBulkIsInvoice(true)}>
-              Mark as Invoice
-            </Button>
-            <Button variant="outline" onClick={() => handleBulkIsInvoice(false)}>
-              Mark as Not Invoice
-            </Button>
+              <Button variant="default" onClick={() => handleBulkIsInvoice(true)}>
+                Mark as Invoice
+              </Button>
+              <Button variant="outline" onClick={() => handleBulkIsInvoice(false)}>
+                Mark as Not Invoice
+              </Button>
           </div>
         )}
       </div>
+
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map(headerGroup => (
@@ -357,38 +410,8 @@ export function InvoicesDataTable({ data, siteId }) {
             </TableRow>
           )}
         </TableBody>
-        {/* SUBTOTAL ROW */}
-        {/*<tfoot>*/}
-        {/*  <TableRow className="font-semibold">*/}
-        {/*    /!* Select cell (empty) *!/*/}
-        {/*    <TableCell />*/}
-        {/*    /!* Invoice Date *!/*/}
-        {/*    <TableCell />*/}
-        {/*    /!* Payment Date *!/*/}
-        {/*    <TableCell />*/}
-        {/*    /!* Invoice Number *!/*/}
-        {/*    <TableCell>Total (filtered):</TableCell>*/}
-        {/*    /!* Seller *!/*/}
-        {/*    <TableCell />*/}
-        {/*    /!* Total excl. VAT (sum!) *!/*/}
-        {/*    <TableCell>*/}
-        {/*      {subtotalNoVat.toLocaleString("fr-FR", {*/}
-        {/*        minimumFractionDigits: 2,*/}
-        {/*        maximumFractionDigits: 2,*/}
-        {/*      })}*/}
-        {/*    </TableCell>*/}
-        {/*    /!* Type *!/*/}
-        {/*    <TableCell />*/}
-        {/*    /!* Is Invoice *!/*/}
-        {/*    <TableCell />*/}
-        {/*    /!* Uploaded At *!/*/}
-        {/*    <TableCell />*/}
-        {/*    /!* Actions *!/*/}
-        {/*    <TableCell />*/}
-        {/*  </TableRow>*/}
-        {/*</tfoot>*/}
       </Table>
-      {/* PAGINATION - bottom right */}
+
       <div className="flex justify-end mt-2 pr-2">
         <Pagination>
           <PaginationContent>
@@ -408,7 +431,7 @@ export function InvoicesDataTable({ data, siteId }) {
           </PaginationContent>
         </Pagination>
       </div>
-      {/* ...edit dialog code remains as before... */}
+
       {editInvoice && (
         <InvoiceEditDialog
           invoice={editInvoice}
