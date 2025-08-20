@@ -76,11 +76,11 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
                 console.log("Zod SiteDiaryRecordSchema created.");
                 //nothing
-                
+
                 // Setup LLM
                 const llm = new ChatOpenAI({
                   temperature: 0.1,
-                  model: "gpt-5",
+                  model: "gpt-4.1",
                 });
                 console.log("ChatOpenAI instance created.");
 
