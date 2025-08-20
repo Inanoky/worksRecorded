@@ -36,7 +36,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         console.log("agent node - messages to model:", messages);
 
         const llm = new ChatOpenAI({
-            temperature: 0.5,
+            temperature: 0.1,
             model: "gpt-4.1",
         }).bindTools(tools);
 
