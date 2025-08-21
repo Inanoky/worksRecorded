@@ -79,7 +79,7 @@ export default async function siteIdCheck(
         {
           type: "input_text",
           text:
-            "Decision rules:\n- Prefer explicit matches.\n" +
+            
             "Return strictly JSON per schema.",
         },
       ];
