@@ -673,3 +673,135 @@ export async function updateDocuments(id: string, data: any) {
   });
   return { ok: true };
 }
+
+
+
+export const saveInvoiceToFromGmailDB = async (_: unknown, formData: FormData) => {
+  console.log("🟨 saveInvoiceToFromGmailDB called");
+
+  const siteId = formData.get("siteId") as string;
+  const userId = (formData.get("userId") as string) || null;            // ⬅️ NEW
+  const urls = JSON.parse((formData.get("fileUrls") as string) ?? "[]") as string[];
+
+  const health = ((formData.get("health") as string) ?? "").trim();
+  const auditSummary = ((formData.get("auditSummary") as string) ?? "").trim();
+
+  console.log("🧭 siteId:", siteId);
+  console.log("👤 userId:", userId);
+  console.log("🔗 fileUrls count:", urls.length);
+  console.log("🩺 health (string):", health || "(empty)");
+  console.log("📝 auditSummary:", auditSummary ? `${auditSummary.slice(0, 140)}…` : "(empty)");
+
+  if (!urls.length) {
+    console.warn("⚠️ No URLs provided — nothing to process.");
+    return;
+  }
+
+  const INVOICE_FIELDS_TO_COPY = [
+    "invoiceNumber",
+    "sellerName",
+    "invoiceDate",
+    "paymentDate",
+  ] as const;
+
+  let totalUrls = urls.length;
+  let totalGptOk = 0;
+  let totalInvoicesSaved = 0;
+  let totalItemsSaved = 0;
+
+  const urlBatches = chunk(urls, 15);
+  console.log(`📦 Batching ${totalUrls} URL(s) into ${urlBatches.length} batch(es)`);
+
+  for (let bIndex = 0; bIndex < urlBatches.length; bIndex++) {
+    const batch = urlBatches[bIndex];
+    console.log(`\n🧩 Processing batch ${bIndex + 1}/${urlBatches.length} (size=${batch.length})`);
+    console.log("🔗 Batch URLs:", batch);
+
+    const gptResults = await Promise.all(
+      batch.map(async (url) => {
+        console.log("🤖 Calling gptResponse for URL:", url);
+        try {
+          const gptRaw = await gptResponse(url);
+          const gptResp = typeof gptRaw === "string" ? JSON.parse(gptRaw) : gptRaw;
+          totalGptOk += 1;
+          console.log("✅ GPT ok for URL:", url);
+          return { url, gptResp, error: null as any };
+        } catch (error) {
+          console.error("❌ GPT failed for URL:", url, error);
+          return { url, gptResp: null as any, error };
+        }
+      })
+    );
+
+    await Promise.all(
+      gptResults.map(async ({ url, gptResp, error }) => {
+        if (error) {
+          console.warn("⏭️ Skipping save due to GPT error for URL:", url);
+          return;
+        }
+        if (!Array.isArray(gptResp?.items)) {
+          console.warn("⏭️ No items array in GPT response — URL:", url);
+          return;
+        }
+
+        console.log(`💾 Saving ${gptResp.items.length} invoice(s) parsed from URL:`, url);
+
+        await Promise.all(
+          gptResp.items.map(async (inv: any, i: number) => {
+            try {
+              const { items, ...invoiceData } = inv;
+
+              console.log(`   🧾 [${i + 1}/${gptResp.items.length}] Creating invoice…`);
+
+              const savedInvoice = await prisma.invoices.create({
+                data: {
+                  ...invoiceData,
+                  url,
+                  userId,                 // ⬅️ NOW STORED ON THE INVOICE
+                  SiteId: siteId,
+                  health: health || null,
+                  auditSummary: auditSummary || null,
+                },
+              });
+
+              totalInvoicesSaved += 1;
+              console.log("   ✅ Invoice saved. id:", savedInvoice.id);
+
+              if (Array.isArray(items) && items.length > 0) {
+                const res = await prisma.invoiceItems.createMany({
+                  data: items.map((item: any) => ({
+                    ...item,
+                    invoiceId: savedInvoice.id,
+                    siteId: siteId,
+                    // Copy selected invoice fields to invoiceItems
+                    ...INVOICE_FIELDS_TO_COPY.reduce((acc: Record<string, any>, field) => {
+                      acc[field] = (savedInvoice as any)[field];
+                      return acc;
+                    }, {}),
+                  })),
+                });
+                totalItemsSaved += res.count ?? items.length;
+                console.log(`   ✅ invoiceItems saved:`, res);
+              } else {
+                console.log("   ℹ️ No items to save for this invoice.");
+              }
+            } catch (err) {
+              console.error("   ❌ Failed saving invoice or items:", err);
+            }
+          })
+        );
+      })
+    );
+
+    console.log(`📊 Batch ${bIndex + 1} done.`);
+  }
+
+  console.log("\n================ SUMMARY ================ ");
+  console.log("🌐 Total URLs:", totalUrls);
+  console.log("🤖 GPT successes:", totalGptOk);
+  console.log("🧾 Invoices saved:", totalInvoicesSaved);
+  console.log("📥 Items saved:", totalItemsSaved);
+  console.log("=========================================\n");
+};
+
+

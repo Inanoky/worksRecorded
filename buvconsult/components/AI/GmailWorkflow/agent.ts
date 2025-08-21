@@ -2,57 +2,50 @@
 "use server";
 
 import OpenAI, { toFile } from "openai";
-import { retriever } from "@/components/AI/RAG/LanggraphAgentVersion/retrievers";
-import {z} from "zod"
+import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
-
+// Optional: bring back your retriever if you want site context
+import { retriever } from "@/components/AI/RAG/LanggraphAgentVersion/retrievers";
+import { ensurePdfFilename } from "@/poller/filename";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
 export type EnrichedEmailPayloadItem = {
   userId: string;
-  email: string;               // sender
+  email: string;
   subject: string;
-  body: string;                // text-only best effort
-  pdfs: { filename: string; buffer: Buffer }[];
-  siteId: string;              // Site.id or "not_found"
+  body: string;
+  pdfs: { filename: string; buffer: Buffer }[]; // per-PDF state will pass a 1-length array
+  siteId: string;
   messageId?: string;
 };
 
 const auditSchema = z.object({
-  summary: z.string(),                       // Human explanation
-  health: z.number().min(0).max(100),        // Health % (0–100)
+  summary: z.string(),
+  health: z.number().min(0).max(100),
 });
 
-async function uploadPdfs(pdfs: { filename: string; buffer: Buffer }[]) {
-  const ids: string[] = [];
-  for (const pdf of pdfs ?? []) {
-    const f = await toFile(pdf.buffer, pdf.filename || "invoice.pdf", {
-      contentType: "application/pdf",
-    });
-    const uploaded = await client.files.create({ file: f, purpose: "user_data" });
-    ids.push(uploaded.id);
-  }
-  return ids;
-}
+export type AuditPdfRow = {
+  messageId?: string;
+  siteId: string;
+  filename: string;
+  summary: string;
+  health: number;
+};
 
 export default async function gmailInvoiceAuditNarrative(
   items: EnrichedEmailPayloadItem[]
-): Promise<Array<{
-  messageId?: string;
-  siteId: string;
-  summary: string;  // human-like explanation
-}>> {
-  const out: Array<{ messageId?: string; siteId: string; summary: string , health: string}> = [];
+): Promise<AuditPdfRow[]> {
+  const out: AuditPdfRow[] = [];
 
   for (const item of items) {
     const siteId = item.siteId || "not_found";
 
-    // Optional: short site context via your retriever
+    // (Optional) brief site context to improve judgment signal
     let siteContext = "";
     if (siteId !== "not_found") {
       try {
-        const prompt = `Key context for invoice sanity-check at siteId=${siteId}. Focus on usual payment terms, common unit rates, and any known red flags. Keep it concise.`;
+        const prompt = `Key context for invoice review at siteId=${siteId}. Focus on typical payment terms and known red flags. Keep it concise.`;
         const ctx = await retriever(prompt, siteId);
         siteContext = typeof ctx === "string" ? ctx : JSON.stringify(ctx);
       } catch {
@@ -60,61 +53,70 @@ export default async function gmailInvoiceAuditNarrative(
       }
     }
 
-    // Upload PDFs directly to OpenAI
-    const fileIds = await uploadPdfs(item.pdfs);
+    // ---- PER-PDF: iterate each pdf, upload, then review just that pdf ----
+    for (const pdf of item.pdfs ?? []) {
+      try {
+        // Upload this PDF only
+        const safeName = ensurePdfFilename(pdf.filename); // <-- normalize to .pdf
+        const f = await toFile(pdf.buffer, safeName, { contentType: "application/pdf" });
+        const uploaded = await client.files.create({ file: f, purpose: "user_data" });
 
-    // Build a natural prompt
-    const instructions =
-      "You are a helpful construction invoice reviewer. " +
-      "Speak plainly and briefly. If the invoice looks fine, say so and why. " +
-      "If something seems off, explain it clearly and suggest next steps. " +
-      "Avoid legalese; keep it practical." +
-      "Assess invoice health, where 100 - perfect healthy invoice, 0 - probably scam need revision";
 
-    const checklist =
-      "Consider:\n" +
-      "- Are payment terms clear and reasonable? Any unusual penalties/discounts?\n" +
-      "- Do unit prices and quantities look typical? Any outliers or duplicates?\n" +
-      "- Do subtotal, VAT and total add up? Currency consistent?\n" +
-      "- Vendor and buyer names consistent with expectations?\n" +
-      "- Anything that would make a PM double-check (dates, mismatched PO, missing details)?\n" +
-      "Conclude with a one-line verdict like: OK ✅, Needs review ⚠️, or Problem ❌.";
+        const instructions =
+          "You are a helpful construction invoice reviewer. Speak plainly and briefly. " +
+          "If the invoice looks fine, say so and why. If something seems off, explain clearly and suggest next steps. " +
+          "Avoid legalese; keep it practical. Assess invoice health from 0–100 (100 = perfect).";
 
-    const contentBlocks: any[] = [
-      { type: "input_text", text: instructions },
-      { type: "input_text", text: `SiteId: ${siteId}` },
-      { type: "input_text", text: `From: ${item.email}\nSubject: ${item.subject}\n\nEmail body:\n${(item.body || "").slice(0, 8000)}` },
-      ...(siteContext ? [{ type: "input_text", text: `Site context:\n${siteContext.slice(0, 8000)}` }] : []),
-      ...fileIds.map((id) => ({ type: "input_file", file_id: id })),
-      { type: "input_text", text: checklist },
-    ];
+        const checklist =
+          "Consider:\n" +
+          "- Are payment terms clear/reasonable? Unusual penalties/discounts?\n" +
+          "- Unit prices/quantities typical? Outliers/duplicates?\n" +
+          "- Subtotal, VAT, total add up? Currency consistent?\n" +
+          "- Vendor/buyer names consistent with expectations?\n" +
+          "- Anything to make a PM double-check (dates, PO match, missing details)?\n" +
+          "End with a verdict: OK ✅, Needs review ⚠️, or Problem ❌.";
 
-    try {
-      const resp = await client.responses.create({
-        model: "gpt-4.1",
-        temperature: 0.4,
-        input: [{ role: "user", content: contentBlocks }],
-        text: { format: zodTextFormat(auditSchema, "audit") },
-        
-      });
+        const content = [
+          { type: "input_text", text: instructions },
+          { type: "input_text", text: `SiteId: ${siteId}` },
+          {
+            type: "input_text",
+            text: `From: ${item.email}\nSubject: ${item.subject}\n\nEmail body:\n${(item.body || "").slice(0, 8000)}`,
+          },
+          ...(siteContext ? [{ type: "input_text", text: `Site context:\n${siteContext.slice(0, 8000)}` }] : []),
+          { type: "input_file", file_id: uploaded.id }, // <-- just this PDF
+          { type: "input_text", text: checklist },
+        ];
 
-      
-      const summary = resp.output_text?.trim() || "No response.";
-     console.log(`this is summary ${summary}`)
+        const resp = await client.responses.create({
+          model: "gpt-4.1",
+          temperature: 0.4,
+          input: [{ role: "user", content }],
+          text: { format: zodTextFormat(auditSchema, "audit") },
+        });
 
-     const parsedSummary = JSON.parse(summary)
-     console.log(`this is health ${parsedSummary.health}`)
+        // Coerce to the audit schema we requested
+        const text = resp.output_text?.trim() || "{}";
+        const parsed = JSON.parse(text) as z.infer<typeof auditSchema>;
 
-    
-      out.push({ messageId: item.messageId, siteId, summary: parsedSummary.summary, health: parsedSummary.health });
-    } catch (e: any) {
-      out.push({
-        messageId: item.messageId,
-        siteId,
-        summary:
-          "Could not review this invoice right now. Please retry. " +
-          (e?.message ? `Details: ${e.message}` : ""),
-      });
+        out.push({
+          messageId: item.messageId,
+          siteId,
+          filename: pdf.filename || "invoice.pdf",
+          summary: parsed.summary,
+          health: parsed.health,
+        });
+      } catch (e: any) {
+        out.push({
+          messageId: item.messageId,
+          siteId,
+          filename: pdf.filename || "invoice.pdf",
+          summary:
+            "Could not review this invoice right now. Please retry. " +
+            (e?.message ? `Details: ${e.message}` : ""),
+          health: 0,
+        });
+      }
     }
   }
 

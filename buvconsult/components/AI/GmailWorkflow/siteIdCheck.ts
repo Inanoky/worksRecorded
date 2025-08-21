@@ -1,39 +1,35 @@
-// app/utils/gptResponse.ts
+// components/AI/GmailWorkflow/siteIdCheck.ts
 "use server";
 
 import OpenAI, { toFile } from "openai";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 import { prisma } from "@/app/utils/db";
+import { ensurePdfFilename } from "@/poller/filename";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
-// ---- Input/Output types ----
 export type EmailPayloadItem = {
   userId: string;
-  email: string; // sender address
+  email: string;
   subject: string;
-  body: string;  // text-only best effort
+  body: string;
   pdfs: { filename: string; buffer: Buffer }[];
+  messageId?: string;            // <-- carry through
 };
 
 export type EnrichedEmailPayloadItem = EmailPayloadItem & {
-  siteId: string; // real Site.id or "not_found"
+  siteId: string;                // Site.id or "not_found"
 };
 
-// ---- GPT output schema ----
 const matchSchema = z.object({
   result: z.object({
-    siteId: z.string(),                  // one of candidate IDs or "not_found"
+    siteId: z.string(),          // one of candidate IDs or "not_found"
     confidence: z.number().min(0).max(1),
     evidence: z.string().nullable(),
   }),
 });
 
-/**
- * Pure AI module: for each item, fetch user's Sites, upload PDFs, ask GPT
- * to decide which Site (by id) matches based on subject/body/PDF content.
- */
 export default async function siteIdCheck(
   items: EmailPayloadItem[]
 ): Promise<EnrichedEmailPayloadItem[]> {
@@ -41,7 +37,7 @@ export default async function siteIdCheck(
 
   for (const item of items) {
     try {
-      // 1) Get candidate sites for this user
+      // 1) Candidate sites for this user
       const sites = await prisma.site.findMany({
         where: { userId: item.userId },
         select: { id: true, name: true },
@@ -52,58 +48,47 @@ export default async function siteIdCheck(
         continue;
       }
 
+      // 2) Upload provided PDFs (in per-PDF flow, this will be exactly one)
       // 2) Upload PDFs to OpenAI (purpose: user_data)
-      const uploadedIds: string[] = [];
-      for (const pdf of item.pdfs ?? []) {
-        const f = await toFile(pdf.buffer, pdf.filename || "invoice.pdf", {
-          contentType: "application/pdf",
-        });
-        const uploaded = await client.files.create({ file: f, purpose: "user_data" });
-        uploadedIds.push(uploaded.id);
-      }
+        const uploadedIds: string[] = [];
+        for (const pdf of item.pdfs ?? []) {
+          const safeName = ensurePdfFilename(pdf.filename); // <-- normalize to .pdf
+          const f = await toFile(pdf.buffer, safeName, { contentType: "application/pdf" });
+          const uploaded = await client.files.create({ file: f, purpose: "user_data" });
+          uploadedIds.push(uploaded.id);
+        }
 
-      // 3) Prepare GPT prompt (candidates + email text + PDFs)
+
+      // 3) Ask GPT to pick a site
       const candidates = sites.map((s) => ({ id: s.id, name: s.name }));
-
-      const inputContent: any[] = [
+      const content = [
         {
           type: "input_text",
           text:
-            "You will receive: (a) a candidate list of site names with IDs, " +
-            "(b) the email's sender/subject/body text, and (c) one or more PDFs (typically invoices). " +
-            "Task: Decide which candidate Site this material belongs to, or return \"not_found\" if none clearly match.",
+            "You will receive: a candidate list of sites (id,name), email text, and PDFs. " +
+            'Pick the matching siteId or "not_found"' +
+            `if conflicting info found, pick name from body/subject`
         },
+        { type: "input_text", text: "Candidates:\n" + JSON.stringify(candidates, null, 2) },
         {
           type: "input_text",
-          text: "Candidates (array of {id, name}):\n" + JSON.stringify(candidates, null, 2),
+          text: `Email:\nFrom: ${item.email}\nSubject: ${item.subject}\n\nBody:\n${(item.body || "").slice(0, 8000)}`,
         },
-        {
-          type: "input_text",
-          text:
-            `Email context:\nFrom: ${item.email}\nSubject: ${item.subject}\n\n` +
-            `Body (text-only):\n${(item.body || "").slice(0, 8000)}`,
-        },
-        // Attach PDFs
         ...uploadedIds.map((id) => ({ type: "input_file", file_id: id })),
         {
           type: "input_text",
           text:
-            "Decision rules:\n" +
-            "- If an exact or near-exact project/site name from the candidates appears in the email text or PDFs, return that candidate's id.\n" +
-            "- Prefer explicit matches; avoid guessing; be conservative.\n" +
-            "- If nothing clearly matches, return siteId = \"not_found\".\n" +
-            "- Include a numeric confidence (0..1) and brief evidence.\n" +
-            "Return strictly the JSON matching the required schema.",
+            "Decision rules:\n- Prefer explicit matches.\n" +
+            "Return strictly JSON per schema.",
         },
       ];
 
       const resp = await client.responses.create({
         model: "gpt-4.1",
-        input: [{ role: "user", content: inputContent }],
+        input: [{ role: "user", content }],
         text: { format: zodTextFormat(matchSchema, "event") },
       });
 
-      // 4) Validate output (guard-rails)
       let siteId = "not_found";
       try {
         const parsed = JSON.parse(resp.output_text || "{}") as z.infer<typeof matchSchema>;
@@ -116,7 +101,7 @@ export default async function siteIdCheck(
 
       enriched.push({ ...item, siteId });
     } catch (err) {
-      console.error("gptResponse item error:", err);
+      console.error("siteIdCheck error:", err);
       enriched.push({ ...item, siteId: "not_found" });
     }
   }
