@@ -64,10 +64,11 @@ export default async function siteIdCheck(
       const content = [
         {
           type: "input_text",
-          text:
+           text:
             "You will receive: a candidate list of sites (id,name), email text, and PDFs. " +
-            'Pick the matching siteId or "not_found"' +
-            `if conflicting info found, pick name from body/subject`
+            'Pick the matching siteId from bodys/subject ' +
+            `If not found - check PDF and see if project name can be found there` +
+            `if not found in body/subject and PDF - return or "not_found"`
         },
         { type: "input_text", text: "Candidates:\n" + JSON.stringify(candidates, null, 2) },
         {
