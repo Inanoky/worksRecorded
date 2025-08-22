@@ -5,6 +5,13 @@ import type { NextRequest } from "next/server";
 import { runPoller } from "@/poller/pollGmail";
 
 export async function GET(request: NextRequest) {
+
+
+  console.log("📩 Incoming cron request:");
+  console.log("Headers:", Object.fromEntries(request.headers.entries()));
+  console.log("URL:", request.url);
+
+  
   const authHeader = request.headers.get("authorization");
 
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
