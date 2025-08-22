@@ -69,3 +69,13 @@ export async function getPhotosByDate({ siteId, startISO, endISO }: GetPhotosByD
     },
   });
 }
+
+
+
+export async function deletePhotoById(id: string) {
+  // Optionally: add auth/ownership checks here
+  await prisma.photos.delete({
+    where: { id },
+  });
+  return { ok: true };
+}

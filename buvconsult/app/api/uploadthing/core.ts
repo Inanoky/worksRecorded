@@ -16,7 +16,7 @@ export const ourFileRouter = {
        * @see https://docs.uploadthing.com/file-routes#route-config
        */
       maxFileSize: "4MB",
-      maxFileCount: 300,
+      maxFileCount: 25,
     },
   })
     // Set permissions and file types for this FileRoute
@@ -109,7 +109,7 @@ export const ourFileRouter = {
        * @see https://docs.uploadthing.com/file-routes#route-config
        */
       maxFileSize: "4MB",
-      maxFileCount: 300,
+      maxFileCount: 1,
     },
   })
     // Set permissions and file types for this FileRoute

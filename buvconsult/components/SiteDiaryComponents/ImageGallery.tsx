@@ -1,10 +1,11 @@
 "use client";
 
 import * as React from "react";
-import { getPhotosByDate } from "@/app/photoActions";
+import { getPhotosByDate, deletePhotoById } from "@/app/photoActions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { X } from "lucide-react";
 
 type ImageGalleryProps = {
   date: Date | null;
@@ -35,6 +36,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
   const [photos, setPhotos] = React.useState<PhotoRow[] | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [deleting, setDeleting] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let alive = true;
@@ -66,6 +68,22 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
     };
   }, [date, siteId]);
 
+  async function handleDelete(id: string) {
+    // optimistic remove
+    setDeleting(id);
+    setPhotos((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+
+    try {
+      await deletePhotoById(id);
+    } catch (e) {
+      // revert on failure (best effort)
+      setError("Failed to delete photo");
+      // (Optional) Re-fetch for accuracy; keeping it light for now.
+    } finally {
+      setDeleting(null);
+    }
+  }
+
   return (
     <div className={cn("p-3 border border-muted rounded-lg bg-background", className)}>
       <div className="mb-2 text-sm text-muted-foreground">
@@ -84,19 +102,22 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
             ))}
           </div>
         ) : (photos?.length ?? 0) === 0 ? (
-          <div className="text-sm text-muted-foreground p-2">
-            No photos for this date.
-          </div>
+          <div className="text-sm text-muted-foreground p-2">No photos for this date.</div>
         ) : (
           <ScrollArea className="h-[300px]">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 p-2">
               {photos!.map((p) => {
                 const src = p.URL ?? p.fileUrl ?? "";
+                const isDeleting = deleting === p.id;
+
                 return (
-                  <button
+                  // Use a div with role/button semantics (so nested delete <button> is valid)
+                  <div
                     key={p.id}
-                    className="group relative aspect-square overflow-hidden rounded-md border border-muted"
+                    className="group relative aspect-square overflow-hidden rounded-md border border-muted cursor-pointer"
                     title={p.Comment ?? undefined}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       if (src) window.open(src, "_blank", "noopener,noreferrer");
                     }}
@@ -104,16 +125,41 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
                     <img
                       src={src}
                       alt={p.Comment ?? "Photo"}
-                      className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                      className={cn(
+                        "h-full w-full object-cover transition-transform duration-200 group-hover:scale-105",
+                        isDeleting && "opacity-50"
+                      )}
                       loading="lazy"
                       referrerPolicy="no-referrer"
                     />
+
+                    {/* Hover delete button (desktop only) */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDelete(p.id);
+                      }}
+                      className={cn(
+                        // desktop-only visibility; reveal on hover
+                        "hidden md:block absolute right-1 top-1 rounded-full p-1",
+                        "bg-black/60 text-white",
+                        "opacity-0 group-hover:opacity-100 transition-opacity",
+                        "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      )}
+                      aria-label="Delete photo"
+                      title="Delete photo"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+
                     {p.Comment ? (
                       <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-2">
                         {p.Comment}
                       </div>
                     ) : null}
-                  </button>
+                  </div>
                 );
               })}
             </div>
