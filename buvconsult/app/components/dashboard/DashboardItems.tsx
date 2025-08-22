@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { navLinks } from "@/app/dashboard/layout";
+import { navLinks } from "./navLinks";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";

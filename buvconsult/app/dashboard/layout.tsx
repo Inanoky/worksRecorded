@@ -10,31 +10,20 @@ import {Button} from "@/components/ui/button";
 import {LogoutLink} from '@kinde-oss/kinde-auth-nextjs/components'
 import {ProjectProvider} from "@/components/provider/ProjectProvider";
 import { MobileMenu } from "../components/dashboard/MobileMenu";
-
-export const navLinks = [
-    // {
-    //     name: 'Dashboard',
-    //     href: '/dashboard',
-    //     icon: Home
-    // },
-    {
-        name: 'Projects',
-        href: '/dashboard/sites',
-        icon: HardHat,
-    },
-    {
-        name: 'Pricing',
-        href: '/dashboard/pricing',
-        icon: DollarSign
-    },
+import { requireUser } from "../utils/requireUser";
 
 
-]
 
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export default  async function DashboardLayout({ children }: { children: ReactNode }) {
+
+const user = await requireUser()
+const userId = user.id
+console.log(user.id)
+
+
     return (
-        <ProjectProvider>
+        <ProjectProvider userId={userId}>
             <section className="min-h-screen w-full flex flex-col">
                 {/* Top Navigation Bar */}
                 
