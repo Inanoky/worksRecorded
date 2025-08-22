@@ -1,16 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
+// app/api/webhook/gmailPoller/route.ts
+
+
+import type { NextRequest } from "next/server";
 import { runPoller } from "@/poller/pollGmail";
 
-export async function GET(req: NextRequest) {
-  if (req.headers.get("x-vercel-cron") !== "1") {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
+
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   try {
     const summary = await runPoller();
-    return NextResponse.json({ ok: true, summary }, { status: 200 });
+    return Response.json({ ok: true, summary });
   } catch (e: any) {
     console.error("gmailPoller error:", e);
-    return NextResponse.json({ ok: false, error: e?.message ?? "failed" }, { status: 500 });
+    return new Response(e?.message ?? "failed", { status: 500 });
   }
 }
