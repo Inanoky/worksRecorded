@@ -24,6 +24,7 @@ model User {
   profileImage                  String
   customerId                    String? @unique
   lastSelectedSiteIdforWhatsapp String? // <-- add this field!
+  role                          String? 
 
   createdAt DateTime @default(now())
 
@@ -32,9 +33,11 @@ model User {
   Invoices         Invoices[]
   Documents        Documents[]
   sitediaryrecords sitediaryrecords[] // one user can have many site diary records
+  projectdiaryrecord projectdiaryrecord[]
 
   Subscription      Subscription?
   AIconversation    AIconversation[] // User can have many conversations
+
   sitediarysettings sitediarysettings[]
   photos            photos[]
 }
@@ -54,6 +57,7 @@ model Site {
   invoices          Invoices[]
   InvoiceItems      InvoiceItems[]
   Documents         Documents[]
+  projectdiaryrecord projectdiaryrecord[]
   photos            photos[] // on site can have many photos
   timelog           timelog[] // on site can have timelogs
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
@@ -235,6 +239,21 @@ model timelog {
   wocation String?
   works String?
 
+
+
+}
+
+
+model projectdiaryrecord {
+  
+
+id       String    @id @default(uuid())
+Date DateTime?
+Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+siteId   String?
+User    User?   @relation(fields: [userId], references: [id])
+userId  String?
+Record String?
 
 
 }
