@@ -12,6 +12,7 @@ import {Button} from "@/components/ui/button";
 import Link from "next/link";
 import React from "react";
 import OpenProjectButton from "@/components/provider/ButtonClient";
+import {FileIcon, PlusCircle} from "lucide-react";
 
 async function getData(userId: string) {
   const [sites, articles] = await Promise.all([
@@ -48,6 +49,22 @@ export default async function DashboardIndexPage() {
   const user = await requireUser();
   const { articles, sites } = await getData(user.id);
   return (
+
+
+    <>
+    <div className="flex w-full justify-end">
+            <Button asChild>
+              <Link href={"/dashboard/sites/new"}>
+                <PlusCircle className="mr-2 size-4" /> Create Project
+              </Link>
+            </Button>
+          </div>
+    
+    
+    
+    
+    
+   
     <div>
       <h1 className="text-2xl font-semibold mb-5">Your Sites</h1>
       {sites.length > 0 ? (
@@ -85,6 +102,8 @@ export default async function DashboardIndexPage() {
       )}
 
     </div>
+
+     </>
   )
 
 }
