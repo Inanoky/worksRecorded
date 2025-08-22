@@ -281,11 +281,11 @@ export async function CreateSubscription(){
             name: "auto"
         },
         success_url: process.env.NODE_ENV === 'production'
-         ? "https://buvconsult-deploy.vercel.app/dashboard/payment/success"
+         ? "https://buvconsult.com/dashboard/payment/success"
         : "http://localhost:3000/dashboard/payment/success",
 
         cancel_url: process.env.NODE_ENV === 'production'
-        ? "https://buvconsult-deploy.vercel.app/dashboard/payment/cancelled"
+        ? "https://buvconsult.com/dashboard/payment/cancelled"
         : "http://localhost:3000/dashboard/payment/cancelled",
 
         line_items: [{price: process.env.STRIPE_PRICE_ID, quantity: 1}]

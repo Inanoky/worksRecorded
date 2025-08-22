@@ -34,7 +34,7 @@ export async function GET(){
     }
 
     return NextResponse.redirect(process.env.NODE_ENV === "production"
-     ? "https://buvconsult-deploy.vercel.app/dashboard"
+     ? "https://buvconsult.com/dashboard"
     : "http://localhost:3000/dashboard",
 
     )
