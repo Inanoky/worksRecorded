@@ -1,26 +1,33 @@
+# .github/workflows/db-backup.yml
 name: DB Backup
 
 on:
   schedule:
-    - cron: "0 */2 * * *"   # every 2 hours UTC
-  workflow_dispatch: {}      # allow manual trigger
+    - cron: "0 */2 * * *"
+  workflow_dispatch: {}
 
 jobs:
   dump:
     runs-on: ubuntu-latest
     env:
+      PGSSLMODE: require
       PGHOST: ${{ secrets.PG_HOST }}
       PGPORT: ${{ secrets.PG_PORT }}
       PGUSER: ${{ secrets.PG_USER }}
       PGPASSWORD: ${{ secrets.PG_PASSWORD }}
       PGDATABASE: ${{ secrets.PG_DATABASE }}
     steps:
-      - name: Install PostgreSQL client
+      - name: Install PostgreSQL 17 client
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client-17
+          psql --version
 
-      - name: Dump database (compressed custom format)
+      - name: Verify server version (optional)
+        run: |
+          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -c "select version();" | sed 's/[Pp]assword.*/[redacted]/'
+
+      - name: Dump database (custom compressed format)
         run: |
           mkdir -p backups
           TS=$(date -u +"%Y%m%d_%H%M%S")
@@ -34,3 +41,4 @@ jobs:
           name: db-backup
           path: backups/*.dump
           retention-days: 60
+
