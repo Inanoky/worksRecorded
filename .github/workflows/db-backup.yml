@@ -1,0 +1,36 @@
+name: DB Backup
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"   # every 2 hours UTC
+  workflow_dispatch: {}      # allow manual trigger
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    env:
+      PGHOST: ${{ secrets.PG_HOST }}
+      PGPORT: ${{ secrets.PG_PORT }}
+      PGUSER: ${{ secrets.PG_USER }}
+      PGPASSWORD: ${{ secrets.PG_PASSWORD }}
+      PGDATABASE: ${{ secrets.PG_DATABASE }}
+    steps:
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+
+      - name: Dump database (compressed custom format)
+        run: |
+          mkdir -p backups
+          TS=$(date -u +"%Y%m%d_%H%M%S")
+          FILE="db_${TS}.dump"
+          pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -Fc -f "backups/$FILE"
+          ls -lh backups
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup
+          path: backups/*.dump
+          retention-days: 60
