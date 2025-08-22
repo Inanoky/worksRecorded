@@ -1,4 +1,5 @@
-name: DB Backup
+# .github/workflows/db-backup.yml
+name: DB Backup (plain SQL)
 
 on:
   schedule:
@@ -12,10 +13,10 @@ jobs:
       - name: Prepare output dir
         run: mkdir -p backups
 
-      - name: Dump database with Postgres 17 (Docker)
+      - name: Dump database as plain SQL (Postgres 17 via Docker)
         run: |
           TS=$(date -u +"%Y%m%d_%H%M%S")
-          FILE="db_${TS}.dump"
+          FILE="db_${TS}.sql"
 
           docker run --rm \
             -e PGPASSWORD='${{ secrets.PG_PASSWORD }}' \
@@ -27,7 +28,8 @@ jobs:
               -p '${{ secrets.PG_PORT }}' \
               -U '${{ secrets.PG_USER }}' \
               -d '${{ secrets.PG_DATABASE }}' \
-              -Fc -f '/backups/$FILE'"
+              -Fp --no-owner --no-privileges \
+              > '/backups/$FILE'"
 
           ls -lh backups
 
@@ -35,5 +37,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: db-backup
-          path: backups/*.dump
+          path: backups/*.sql
           retention-days: 60
