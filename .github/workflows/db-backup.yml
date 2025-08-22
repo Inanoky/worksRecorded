@@ -1,38 +1,34 @@
-# .github/workflows/db-backup.yml
 name: DB Backup
 
 on:
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "0 */2 * * *"   # every 2 hours UTC
   workflow_dispatch: {}
 
 jobs:
   dump:
     runs-on: ubuntu-latest
-    env:
-      PGSSLMODE: require
-      PGHOST: ${{ secrets.PG_HOST }}
-      PGPORT: ${{ secrets.PG_PORT }}
-      PGUSER: ${{ secrets.PG_USER }}
-      PGPASSWORD: ${{ secrets.PG_PASSWORD }}
-      PGDATABASE: ${{ secrets.PG_DATABASE }}
     steps:
-      - name: Install PostgreSQL 17 client
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y postgresql-client-17
-          psql --version
+      - name: Prepare output dir
+        run: mkdir -p backups
 
-      - name: Verify server version (optional)
+      - name: Dump database with Postgres 17 (Docker)
         run: |
-          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -c "select version();" | sed 's/[Pp]assword.*/[redacted]/'
-
-      - name: Dump database (custom compressed format)
-        run: |
-          mkdir -p backups
           TS=$(date -u +"%Y%m%d_%H%M%S")
           FILE="db_${TS}.dump"
-          pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -Fc -f "backups/$FILE"
+
+          docker run --rm \
+            -e PGPASSWORD='${{ secrets.PG_PASSWORD }}' \
+            -e PGSSLMODE='require' \
+            -v "$PWD/backups":/backups \
+            postgres:17 \
+            bash -lc "pg_dump \
+              -h '${{ secrets.PG_HOST }}' \
+              -p '${{ secrets.PG_PORT }}' \
+              -U '${{ secrets.PG_USER }}' \
+              -d '${{ secrets.PG_DATABASE }}' \
+              -Fc -f '/backups/$FILE'"
+
           ls -lh backups
 
       - name: Upload artifact
@@ -41,4 +37,3 @@ jobs:
           name: db-backup
           path: backups/*.dump
           retention-days: 60
-
