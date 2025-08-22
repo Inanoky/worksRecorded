@@ -62,13 +62,25 @@ export default async function gmailInvoiceAuditNarrative(
         const uploaded = await client.files.create({ file: f, purpose: "user_data" });
 
 
+         function getTodayDDMMYYYY() {
+              const d = new Date();
+              const day = String(d.getDate()).padStart(2, '0');
+              const month = String(d.getMonth() + 1).padStart(2, '0');
+              const year = d.getFullYear();
+              return `${day}-${month}-${year}`;
+            }
+
+         const today = getTodayDDMMYYYY()
+
+
         const instructions =
+          `Today is ${today} (format day-month-year)` + 
           "You are a helpful construction invoice reviewer. Speak plainly and briefly. " +
           "If the invoice looks fine, say so and why. If something seems off, explain clearly and suggest next steps. " +
           "Avoid legalese; keep it practical. Assess invoice health from 0–100 (100 = perfect).";
 
         const checklist =
-          "Consider:\n" +
+          `Consider:\n ` +
           "- Are payment terms clear/reasonable? Unusual penalties/discounts?\n" +
           "- Unit prices/quantities typical? Outliers/duplicates?\n" +
           "- Subtotal, VAT, total add up? Currency consistent?\n" +
