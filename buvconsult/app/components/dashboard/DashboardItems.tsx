@@ -28,6 +28,12 @@ export const projectNavLinks = [
     path: "siteDiary",
     icon: NotebookPen,
   },
+   {
+    name: "Project Diary",
+    href: "/dashboard/ProjectDiary",
+    path: "ProjectDiary",
+    icon: NotebookPen,
+  },
   {
     name: "Timesheets",
     href: "/dashboard/timesheets",
