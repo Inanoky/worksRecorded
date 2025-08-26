@@ -5,6 +5,10 @@ import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { saveProjectDiaryRecord } from "@/app/ProjectDiaryActions";
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
+
+
+
+
   name: "Save_to_database",
   description: "Save a single site diary record to the database.",
   schema: z.object({
@@ -24,10 +28,13 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     siteId: string;
     date: Date;
   }) {
+
+     const now = new Date(); // ← always use "now"
+
     const result = await saveProjectDiaryRecord({
       userId,
       siteId,
-      date,
+      date: now,
       record,
     });
 
