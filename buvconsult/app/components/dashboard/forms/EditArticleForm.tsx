@@ -16,7 +16,7 @@ import TailwindEditor from "@/app/components/dashboard/EditorWrapper";
 import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
 import React, {useActionState, useState} from "react";
 import {JSONContent} from "novel";
-import {CreatePostAction, EditPostActions} from "@/app/actions";
+import {CreatePostAction, EditPostActions} from "@/app/actions/actions";
 import {useForm} from "@conform-to/react";
 import {parseWithZod} from "@conform-to/zod";
 import {PostSchema} from "@/app/utils/zodSchemas";

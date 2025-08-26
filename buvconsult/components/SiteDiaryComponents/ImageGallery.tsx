@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { getPhotosByDate, deletePhotoById } from "@/app/photoActions";
+import { getPhotosByDate, deletePhotoById } from "@/app/actions/photoActions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";

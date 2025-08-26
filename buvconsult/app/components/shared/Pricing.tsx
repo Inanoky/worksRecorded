@@ -3,7 +3,7 @@ import {Check} from "lucide-react";
 import {Button} from "@/components/ui/button";
 import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
 import Link from "next/link";
-import {CreateSubscription} from "@/app/actions";
+import {CreateSubscription} from "@/app/actions/actions";
 
 interface iAppProps{
 

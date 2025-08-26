@@ -32,7 +32,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { deleteInvoice, bulkSetIsInvoice } from "@/app/actions";
+import { deleteInvoice, bulkSetIsInvoice } from "@/app/actions/actions";
 import { InvoiceEditDialog } from "@/components/InvoiceEditDialog";
 
 // ⬇️ NEW: dialog components

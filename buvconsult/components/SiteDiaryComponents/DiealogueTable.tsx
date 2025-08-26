@@ -13,7 +13,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   getSiteDiaryRecords, getSiteDiarySchema,  saveSiteDiaryRecordsFromWeb,
   deleteSiteDiaryRecord, updateSiteDiaryRecord
-} from "@/app/siteDiaryActions";
+} from "@/app/actions/siteDiaryActions";
 import { toast } from "sonner";
 import { useMediaQuery } from "./use-media-querty";
 import { Label } from "@/components/ui/label"

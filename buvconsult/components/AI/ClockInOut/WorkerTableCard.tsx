@@ -2,7 +2,7 @@
 import { ScrollTable } from "@/components/templates/scrollAreaTemplate";
 import { Card, CardTitle, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
 import { useTransition, useState } from "react";
-import { deleteTeamMember, getWorkersBySiteId } from "@/app/clockinActions";
+import { deleteTeamMember, getWorkersBySiteId } from "@/app/actions/clockinActions";
 import { toast } from "sonner";
 
 // Pass siteId as prop

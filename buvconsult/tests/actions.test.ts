@@ -22,7 +22,7 @@ import {
   GetDocumentsFromDB,
   deleteDocuments,
   updateDocuments
-} from "@/app/actions";
+} from "@/app/actions/actions";
 import { mockPrisma } from "@/tests/mocks";
 import { redirect } from "next/navigation";
 

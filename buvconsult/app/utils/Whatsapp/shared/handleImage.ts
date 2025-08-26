@@ -1,5 +1,5 @@
 import { UTApi } from "uploadthing/server";
-import { savePhoto } from "@/app/photoActions";
+import { savePhoto } from "@/app/actions/photoActions";
 import { getString, fetchTwilioMediaAsBuffer } from "@/app/utils/Whatsapp/shared/helpers";
 import { sendMessage } from "@/app/utils/Whatsapp/shared/twillio";
 import { AgentFn } from "./types";

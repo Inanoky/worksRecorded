@@ -9,7 +9,7 @@ import {
   generateChartConfig,
   generateQuery,
   runGenerateSQLQuery,
-} from "@/app/VercelChatActions"; //This I know I can do no issues.
+} from "@/app/actions/VercelChatActions"; //This I know I can do no issues.
 import { Config, Result } from "@/lib/VercelChat/lib/types";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";

@@ -6,7 +6,7 @@ import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction} from "@/components/AI/ClockInOut/prompts";
 import {toolNode, tools} from "@/components/AI/ClockInOut/tools";
-import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/app/clockinActions";
+import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/app/actions/clockinActions";
 
 export default async function talkToClockInAgent(question, workerId) {
     console.log("=== talkToWhatsappAgent called ===");

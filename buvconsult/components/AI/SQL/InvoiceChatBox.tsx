@@ -3,7 +3,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { askInvoiceGpt } from "@/app/actions"; // see server action below
+import { askInvoiceGpt } from "@/app/actions/actions"; // see server action below
 import ReactMarkdown from "react-markdown";
 export function InvoiceChatBox({ siteId }) {
   const [input, setInput] = React.useState("");

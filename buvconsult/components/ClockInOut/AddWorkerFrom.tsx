@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { createTeamMember } from "@/app/clockinActions";
+import { createTeamMember } from "@/app/actions/clockinActions";
 
 export function AddWorkerForm({siteId, onSuccess, onCancel }: { siteId: string; onSuccess?: (w: any) => void, onCancel?: () => void }) {
   const [form, setForm] = useState({ name: "", surname: "", personalId: "", siteId: siteId , phone: ""});

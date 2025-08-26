@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import DialogWindow from "@/components/SiteDiaryComponents/DialogWindow";
-import { getFilledDays } from "@/app/siteDiaryActions";
+import { getFilledDays } from "@/app/actions/siteDiaryActions";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

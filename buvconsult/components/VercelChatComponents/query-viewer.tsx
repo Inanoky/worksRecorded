@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "./ui/button";
 import { QueryWithTooltips } from "./ui/query-with-tooltips";
-import { explainQuery } from "@/app/VercelChatActions";
+import { explainQuery } from "@/app/actions/VercelChatActions";
 import { QueryExplanation } from "@/lib/VercelChat/lib/types";
 import { CircleHelp, Loader2 } from "lucide-react";
 
