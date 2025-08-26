@@ -8,7 +8,7 @@ import Image from "next/image"
 import {UploadDropzone} from "@/app/utils/UploadthingsComponents";
 import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
 import {toast} from "sonner";
-import {UpdateImage} from "@/app/actions";
+import {UpdateImage} from "@/app/actions/actions";
 
 //this is how we get params. Check 06:13
 interface iAppProps{

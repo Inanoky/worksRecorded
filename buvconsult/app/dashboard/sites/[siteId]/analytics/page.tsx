@@ -1,4 +1,4 @@
-import {getCategoryMonthlySpendings, getMonthlySpendings} from "@/app/AnalyticsActions";
+import {getCategoryMonthlySpendings, getMonthlySpendings} from "@/app/actions/AnalyticsActions";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { MonthlySpendingsChart} from "@/app/components/frontend/analytics/MonthlySpendingsChart";
 import {MonthlyCategoryChart} from "@/app/components/frontend/analytics/MonthlyCategoryChart";

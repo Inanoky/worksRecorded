@@ -1,6 +1,6 @@
 import { AddWorkerForm } from "@/components/ClockInOut/AddWorkerFrom";
 import { TemplateTable } from "@/components/templates/frontendTable";
-import { getTimelogsBySiteId, getWorkersBySiteId } from "@/app/clockinActions";
+import { getTimelogsBySiteId, getWorkersBySiteId } from "@/app/actions/clockinActions";
 import { WorkerTableCard } from "@/components/AI/ClockInOut/WorkerTableCard";
 
 export default async function AddWorkerPage({params}) {

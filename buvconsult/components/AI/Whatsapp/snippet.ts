@@ -6,7 +6,7 @@ import {GraphState} from "@/components/AI/RAG/LanggraphAgentVersion/state";
 import aiGeneral from "@/components/AI/SQL/aiGeneral";
 import {ChatOpenAI} from "@langchain/openai";
 import {systemPromptSaveToDatabase} from "@/components/AI/Whatsapp/prompts";
-import {getSiteDiarySchema} from "@/app/siteDiaryActions";
+import {getSiteDiarySchema} from "@/app/actions/siteDiaryActions";
 
 const siteId = '48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315'
 

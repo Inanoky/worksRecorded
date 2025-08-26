@@ -2,7 +2,7 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { saveProjectDiaryRecord } from "@/app/ProjectDiaryActions";
+import { saveProjectDiaryRecord } from "@/app/actions/ProjectDiaryActions";
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 

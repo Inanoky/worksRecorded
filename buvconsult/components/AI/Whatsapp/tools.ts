@@ -6,8 +6,8 @@ import {GraphState} from "@/components/AI/RAG/LanggraphAgentVersion/state";
 import aiGeneral from "@/components/AI/SQL/aiGeneral";
 import {ChatOpenAI} from "@langchain/openai";
 import {systemPrompt, systemPromptSaveToDatabase} from "@/components/AI/Whatsapp/prompts";
-import {getSiteDiarySchema} from "@/app/siteDiaryActions";
-import { saveSiteDiaryRecords } from "@/app/siteDiaryActions";
+import {getSiteDiarySchema} from "@/app/actions/siteDiaryActions";
+import { saveSiteDiaryRecords } from "@/app/actions/siteDiaryActions";
 import {AIMessage, HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
 
 

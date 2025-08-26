@@ -4,7 +4,7 @@ import {Card, CardDescription, CardFooter, CardHeader, CardTitle} from "@/compon
 import {Button} from "@/components/ui/button";
 import Link from "next/link";
 import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
-import {DeletePost} from "@/app/actions";
+import {DeletePost} from "@/app/actions/actions";
 
 export default async function DeleteForm({params}:
 {params: Promise<{siteId:string, articleId:string}>

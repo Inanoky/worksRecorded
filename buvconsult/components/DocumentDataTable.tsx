@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useRouter } from "next/navigation";
-import { deleteDocuments } from "@/app/actions";
+import { deleteDocuments } from "@/app/actions/actions";
 import { toast } from "sonner";
 import { DocumentsEditDialog} from "@/components/DocumentsEditDialaog";
 

@@ -1,7 +1,7 @@
 import {Chat} from "@/components/AI/ChatWithPdf/chat";
 import AiWidgetRag from "@/components/AI/RAG/AiWidgetRag";
 import {DocumentsDataTable} from "@/components/DocumentDataTable";
-import {GetDocumentsFromDB, GetInvoicesFromDB, getProjectNameBySiteId} from "@/app/actions";
+import {GetDocumentsFromDB, GetInvoicesFromDB, getProjectNameBySiteId} from "@/app/actions/actions";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {InvoicesDataTable} from "@/components/InvoicesDataTable";
 

@@ -5,7 +5,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { updateDocuments } from "@/app/actions";
+import { updateDocuments } from "@/app/actions/actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 

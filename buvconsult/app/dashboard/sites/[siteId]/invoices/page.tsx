@@ -13,7 +13,7 @@ import {
 import {Button} from "@/components/ui/button";
 import {MoreHorizontal} from "lucide-react";
 import Link from "next/link";
-import {GetInvoiceItemsFromDB, GetInvoicesFromDB, getProjectNameBySiteId} from "@/app/actions";
+import {GetInvoiceItemsFromDB, GetInvoicesFromDB, getProjectNameBySiteId} from "@/app/actions/actions";
 import {InvoiceHoverPreview} from "@/components/ui/InvoiceHoverPreview";
 import {InvoiceItemsDataTable} from "@/components/InvoiceItemsDataTable";
 import { InvoicesDataTable } from "@/components/InvoicesDataTable";
@@ -21,7 +21,7 @@ import {InvoiceChatBox} from "@/components/AI/SQL/InvoiceChatBox";
 import AIassistant from "@/components/AI/SQL/aiAssistant";
 import AIChatGeneral from "@/components/AI/SQL/AIwidget";
 import {ChartAreaInteractive} from "@/app/components/frontend/analytics/ChartAreaInteractive";
-import {getDailyAggregatedCosts} from "@/app/AnalyticsActions";
+import {getDailyAggregatedCosts} from "@/app/actions/AnalyticsActions";
 import {KeyMetrics} from "@/app/components/frontend/analytics/keyMetrics";
 import {KeyMetricsDashboard} from "@/app/components/frontend/analytics/keyMetricsDashboard";
 import AiWidgetRag from "@/components/AI/RAG/AiWidgetRag";

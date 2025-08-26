@@ -40,49 +40,41 @@ export async function saveProjectDiaryRecord({
 }
 
 
+// app/actions/ProjectDiaryActions.ts
+
 
 export async function GetRecordsFromDB(siteId: string) {
   const user = await requireUser();
 
   const raw = await prisma.projectdiaryrecord.findMany({
-    where: {
-      userId: user.id,
-      siteId,
-    },
-    include: {
+    where: { userId: user.id, siteId },
+    select: {
+      id: true,       // ✅ real PK (keep it)
+      siteId: true,   // helpful for sanity checks
+      Date: true,
+      Record: true,
       Site: { select: { name: true } },
       User: { select: { firstName: true, lastName: true } },
     },
-    orderBy: { Date: "desc" }, // ✅ newest first
+    orderBy: { Date: "desc" },
   });
 
   return raw.map((row, idx) => {
     let formattedDate = "";
     if (row.Date) {
       const d = new Date(row.Date);
-
-      const datePart = d.toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-
-      const timePart = d.toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false, // 24h format
-      });
-
+      const datePart = d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const timePart = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
       formattedDate = `Date: ${datePart} Time: ${timePart}`;
     }
 
     return {
-      id: idx + 1,
-      date: formattedDate,
-      record: row.Record ?? "",
+      id: row.id,                         // ✅ used by GenericTable for actions
+      date: formattedDate,                // UI field
+      record: row.Record ?? "",           // UI field (lowercase)
       Project: row.Site?.name ?? "",
       User: [row.User?.firstName, row.User?.lastName].filter(Boolean).join(" "),
-      Delete : ""
     };
   });
 }
+

@@ -15,7 +15,7 @@ import {Input} from "@/components/ui/input";
 import {Textarea} from "@/components/ui/textarea";
 import {Button} from "@/components/ui/button";
 import {useActionState} from "react";
-import {CreateSiteAction} from "@/app/actions";
+import {CreateSiteAction} from "@/app/actions/actions";
 import {useForm} from "@conform-to/react";
 import {parseWithZod} from "@conform-to/zod";
 import {siteSchema} from "@/app/utils/zodSchemas";

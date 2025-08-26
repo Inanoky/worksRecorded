@@ -35,7 +35,7 @@ import {
   PaginationPrevious
 } from "@/components/ui/pagination";
 import { useRouter } from "next/navigation";
-import {deleteInvoiceItem, getProjectNameBySiteId} from "@/app/actions";
+import {deleteInvoiceItem, getProjectNameBySiteId} from "@/app/actions/actions";
 import { toast } from "sonner";
 import { InvoiceItemEditDialog } from "@/components/InvoiceItemEditDialog";
 import {useProject} from "@/components/provider/ProjectProvider";

@@ -14,7 +14,7 @@ import {UploadDropzone} from "@/app/utils/UploadthingsComponents";
 import {toast} from "sonner";
 import {JSONContent} from "novel";
 import TailwindEditor from "@/app/components/dashboard/EditorWrapper";
-import {CreatePostAction} from "@/app/actions";
+import {CreatePostAction} from "@/app/actions/actions";
 import {useForm} from "@conform-to/react";
 import {parseWithZod} from "@conform-to/zod";
 import {PostSchema} from "@/app/utils/zodSchemas";

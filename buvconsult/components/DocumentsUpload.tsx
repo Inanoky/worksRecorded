@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import { UploadDropzone } from "@/app/utils/UploadthingsComponents";
 import { toast } from "sonner";
-import {saveDocumentsToDB} from "@/app/actions";
+import {saveDocumentsToDB} from "@/app/actions/actions";
 import { useRouter } from "next/navigation"; // <-- Add this
 
 export default function DocumentUpload({ params }: { params: Promise<{ siteId: string }> }) {
