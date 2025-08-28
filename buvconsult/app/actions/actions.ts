@@ -302,6 +302,10 @@ export async function CreateSubscription(){
 
 
 export const saveInvoiceToDB = async (_: unknown, formData: FormData) => {
+
+  
+
+
   const user = await requireUser();
   const siteId = formData.get("siteId") as string;
   const urls = JSON.parse(formData.get("fileUrls") as string) as string[];

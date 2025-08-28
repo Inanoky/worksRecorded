@@ -49,15 +49,17 @@ export async function GetRecordsFromDB(siteId: string) {
   const raw = await prisma.projectdiaryrecord.findMany({
     where: { userId: user.id, siteId },
     select: {
-      id: true,       // ✅ real PK (keep it)
-      siteId: true,   // helpful for sanity checks
+      id: true,
+      siteId: true,
       Date: true,
       Record: true,
       Site: { select: { name: true } },
       User: { select: { firstName: true, lastName: true } },
     },
-    orderBy: { Date: "desc" },
+    orderBy: { Date: "desc" }, // latest first
   });
+
+  const total = raw.length;
 
   return raw.map((row, idx) => {
     let formattedDate = "";
@@ -69,12 +71,12 @@ export async function GetRecordsFromDB(siteId: string) {
     }
 
     return {
-      id: row.id,                         // ✅ used by GenericTable for actions
-      date: formattedDate,                // UI field
-      record: row.Record ?? "",           // UI field (lowercase)
+      id: row.id,                              // keep real PK for actions (hidden in UI)
+      displayId: total - idx,                  // 👈 1..N where N is latest
+      date: formattedDate,
+      record: row.Record ?? "",
       Project: row.Site?.name ?? "",
       User: [row.User?.firstName, row.User?.lastName].filter(Boolean).join(" "),
     };
   });
 }
-
