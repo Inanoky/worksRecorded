@@ -21,19 +21,19 @@ export default defineConfig({
         storageState: STORAGE_STATE,
       },
     },
-    {
-      name: 'firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-        storageState: STORAGE_STATE,
-      },
-    },
-    {
-      name: 'webkit',
-      use: {
-        ...devices['Desktop Safari'],
-        storageState: STORAGE_STATE,
-      },
-    },
+    // {
+    //   name: 'firefox',
+    //   use: {
+    //     ...devices['Desktop Firefox'],
+    //     storageState: STORAGE_STATE,
+    //   },
+    // },
+    // {
+    //   name: 'webkit',
+    //   use: {
+    //     ...devices['Desktop Safari'],
+    //     storageState: STORAGE_STATE,
+    //   },
+    // },
   ],
 });

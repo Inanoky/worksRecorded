@@ -306,3 +306,15 @@ export async function getSiteDiarySchema({ siteId }) {
   });
   return settings?.schema ? JSON.parse(settings.schema) : null;
 }
+
+
+export async function deleteSchemaBySiteId(formData: FormData) {
+  const siteId = formData.get("siteId") as string;
+  if (!siteId) throw new Error("siteId is required");
+
+  await prisma.sitediarysettings.delete({
+    where: { siteId },
+  });
+
+  return { success: true, siteId };
+}

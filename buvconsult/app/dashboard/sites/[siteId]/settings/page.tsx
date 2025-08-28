@@ -13,12 +13,18 @@ import {updateSiteAction} from "@/app/actions/actions";
 import {prisma} from "@/app/utils/db";
 import DocumentUpload from "@/components/DocumentsUpload";
 import XslxUpload from "@/components/XlsxUpload";
+import { SchemaCard } from "@/components/Settings/SchemaCard";
 
 export default async function SettingsSiteRoute({ params }: { params: Promise<{ siteId: string }> }) {
     const { siteId } = await params;
 
     // Fetch current site data
     const site = await prisma.site.findUnique({ where: { id: siteId } });
+
+    const settings = await prisma.sitediarysettings.findUnique({
+    where: { siteId },
+    select: { fileUrl: true, schema: true },
+  });
 
     return (
         <>
@@ -124,6 +130,11 @@ export default async function SettingsSiteRoute({ params }: { params: Promise<{ 
 
                       <XslxUpload params={Promise.resolve({siteId})}/>
             </Card>
+            <SchemaCard
+        siteId={siteId}
+        fileUrl={settings?.fileUrl ?? null}
+        schemaExists={!!settings?.schema}
+      />
             {/* Danger Card */}
             <Card className="border-red-500 bg-red-500/10">
                 <CardHeader>
@@ -142,6 +153,7 @@ export default async function SettingsSiteRoute({ params }: { params: Promise<{ 
                     </form>
                 </CardFooter>
             </Card>
+            
         </>
     );
 }
