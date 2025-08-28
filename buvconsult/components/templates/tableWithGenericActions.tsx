@@ -37,10 +37,12 @@ import { genericTableAction } from "@/app/actions/GenericActions";
 
 function getColumnsFromData(data: any[]) {
   if (!data || data.length === 0) return [];
-  return Object.keys(data[0]).map((key) => ({
-    accessorKey: key,
-    header: key.charAt(0).toUpperCase() + key.slice(1),
-  }));
+  return Object.keys(data[0])
+    .filter((key) => key !== "id") // 👈 hide Prisma PK
+    .map((key) => ({
+      accessorKey: key,
+      header: key === "displayId" ? "ID" : key.charAt(0).toUpperCase() + key.slice(1),
+    }));
 }
 
 const globalFilterFn = (row: any, _columnId: any, filterValue: string) => {
