@@ -17,6 +17,7 @@ export default function XslxUpload({ params }: { params: Promise<{ siteId: strin
   async function handleUploadComplete(res) {
     const urls = res.map((file) => file.url);
     setFileUrls(urls);
+    console.log("📂 Uploaded XLSX URLs:", urls);
 
     // Build FormData as expected by your backend
     const formData = new FormData();
