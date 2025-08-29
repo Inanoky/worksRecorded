@@ -6,6 +6,7 @@ const STORAGE_STATE = path.join(__dirname, 'playwright', '.auth', 'user.json');
 
 export default defineConfig({
   testDir: './tests',
+   testMatch: /.*\.spec\.ts/, 
   fullyParallel: false,
    workers: 1,
   use: {
