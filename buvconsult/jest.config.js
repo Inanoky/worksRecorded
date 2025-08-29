@@ -6,7 +6,10 @@ const config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+   testMatch: [
+    '**/?(*.)+(test).[tj]s',   // 👈 only .test.ts / .test.js
+  ],
+
 };
 
 module.exports = config;

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
   import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
+import { Trash2, AlertCircle } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   getSiteDiaryRecords, getSiteDiarySchema,  saveSiteDiaryRecordsFromWeb,
@@ -19,6 +19,8 @@ import { useMediaQuery } from "./use-media-querty";
 import { Label } from "@/components/ui/label"
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
 import { ChevronDown } from "lucide-react"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import Link from "next/link";
 
 
 /* ---------- helpers ---------- */
@@ -245,6 +247,33 @@ export function DialogTable({ date, siteId, onSaved }: {
   if (loading) {
     return <div className="flex justify-center items-center min-h-[300px]">Loading…</div>;
   }
+
+  //Alert if no schema
+  
+if (!loading && !schema) {
+  return (
+    <div className="flex justify-center items-center min-h-[300px]">
+  <Alert
+    variant="destructive"
+    className="max-w-md w-full flex items-center justify-center gap-2 p-4 whitespace-nowrap"
+  >
+    <AlertCircle className="h-5 w-5 text-red-500" />
+    <span className="font-semibold">Error:</span>
+    <span>
+      Please upload project schema in the&nbsp;
+      <Link
+        href={`/dashboard/sites/${siteId}/settings`}
+        className="underline font-medium text-red-700 hover:text-red-900"
+      >
+        Settings
+      </Link>
+      &nbsp;menu.
+    </span>
+  </Alert>
+</div>
+  );
+}
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
