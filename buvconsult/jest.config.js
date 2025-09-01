@@ -9,6 +9,7 @@ const config = {
    testMatch: [
     '**/?(*.)+(test).[tj]s',   // 👈 only .test.ts / .test.js
   ],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'], // 👈 add this
 
 };
 
