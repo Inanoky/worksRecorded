@@ -5,6 +5,7 @@ import { prisma} from "@/app/utils/db";
 import { revalidatePath } from "next/cache";
 import {requireUser} from "@/app/utils/requireUser";
 import {parseExcelToTree} from "@/components/AI/SiteDiary/agent"; // Optional: if you want to refresh data on page
+import { validateExcel } from "../utils/SiteDiary/Settings/validateSchema";
 
 type SiteDiaryRow = {
   date: string; // ISO string or null
@@ -254,6 +255,18 @@ export async function deleteSiteDiaryRecord({ id }: { id: string }) {
 
 
 export async function saveSettingsToDB(formData: FormData) {
+
+
+
+
+
+
+
+
+
+
+
+
   const siteId = formData.get("siteId") as string;
   let urls = formData.get("fileUrls");
   let fileUrl = "";
@@ -273,10 +286,20 @@ export async function saveSettingsToDB(formData: FormData) {
     throw new Error("Missing siteId or fileUrl");
   }
 
+
+   // ✅ Download file buffer and validate
+  const res = await fetch(fileUrl);
+  if (!res.ok) throw new Error(`Failed to download file. HTTP ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+
+  // Throws if invalid, otherwise returns true
+  validateExcel(buf);
+  console.log("✅ Excel validation passed");
+
   // 1) Run AI – normalize to an array before saving
   let schemaStr: string | null = null;
   try {
-    const result = await parseExcelToTree(fileUrl); // could be Node[] or { tree: Node[] }
+    const result = await parseExcelToTree(fileUrl,buf ); // could be Node[] or { tree: Node[] }
     const treeArray = Array.isArray(result) ? result : result?.tree;
     if (Array.isArray(treeArray)) {
       schemaStr = JSON.stringify(treeArray);

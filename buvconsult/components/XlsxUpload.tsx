@@ -30,7 +30,8 @@ export default function XslxUpload({ params }: { params: Promise<{ siteId: strin
       toast.success("Programm saved to database");
       router.refresh(); // <----- This refreshes server data (tables)!
     } catch (err) {
-      toast.error("Failed to save programm");
+       const message = err instanceof Error ? err.message : "Failed to save programm";
+       toast.error(message);
     }
     setIsLoading(false);
   }
