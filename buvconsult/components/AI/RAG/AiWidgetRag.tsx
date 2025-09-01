@@ -1,19 +1,16 @@
 "use client";
 
-import { useState, useRef,} from "react";
+import { useState, useRef } from "react";
 import { Card, CardHeader, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User, SendHorizonal } from "lucide-react";
+import { Bot, User, SendHorizonal, Minus, X, GripVertical } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import {TableModal} from "@/components/AI/RAG/TableModal";
+import { TableModal } from "@/components/AI/RAG/TableModal";
 import ReactMarkdown from "react-markdown";
-import {talkToAgent, } from "@/components/AI/RAG/LanggraphAgentVersion/graph";
-
-
-
-
+import { talkToAgent } from "@/components/AI/RAG/LanggraphAgentVersion/graph";
+import { Rnd } from "react-rnd";
 
 export default function AiWidgetRag({ siteId }) {
   const [messages, setMessages] = useState([
@@ -22,7 +19,12 @@ export default function AiWidgetRag({ siteId }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const [expandedData, setExpandedData] = useState(null); // For modal
+  const [expandedData, setExpandedData] = useState(null);
+  const [size, setSize] = useState({ width: 500, height: 600 });
+  const [position, setPosition] = useState({
+    x: typeof window !== "undefined" ? window.innerWidth - 520 : 100,
+    y: typeof window !== "undefined" ? window.innerHeight - 650 : 100,
+  });
 
   const inputRef = useRef();
 
@@ -33,25 +35,12 @@ export default function AiWidgetRag({ siteId }) {
     setLoading(true);
     setInput("");
     try {
-
-
-      //So this is where Input goes
-
-      //This one is agentic flow
-      const result = await talkToAgent(input,siteId);
-      //This one is working but no agent
-      // const result = await talkToDocuments(input,siteId);
-      // Always store both aiComment and answer
-
-
-
+      const result = await talkToAgent(input, siteId);
       const botMsg = {
         sender: "bot",
         aiComment: result ?? "",
-        answer: result.acceptedResults?? "",
-
+        answer: result.acceptedResults ?? "",
       };
-
       setMessages((msgs) => [...msgs, botMsg]);
     } catch (e) {
       setMessages((msgs) => [
@@ -67,10 +56,8 @@ export default function AiWidgetRag({ siteId }) {
     if (e.key === "Enter" && !loading) handleSend();
   };
 
-  // Always render aiComment : answer (as link if answer is table)
   function renderMessage(msg) {
     if (msg.sender === "bot" && msg.aiComment !== undefined) {
-      // Detect table: answer is array of objects
       let isTable = false;
       let tableData = null;
       if (msg.answer) {
@@ -78,7 +65,6 @@ export default function AiWidgetRag({ siteId }) {
           isTable = true;
           tableData = msg.answer;
         } else {
-          // Support stringified array as well
           try {
             const parsed = JSON.parse(msg.answer);
             if (Array.isArray(parsed) && typeof parsed[0] === "object") {
@@ -92,7 +78,6 @@ export default function AiWidgetRag({ siteId }) {
         <span>
           <Bot size={18} className="inline mr-2" />
           <ReactMarkdown>{String(msg.aiComment)}</ReactMarkdown>
-
           <span>: </span>
           {isTable ? (
             <button
@@ -108,7 +93,6 @@ export default function AiWidgetRag({ siteId }) {
       );
     }
 
-    // User message or fallback
     return (
       <span>
         {msg.sender === "user" ? (
@@ -136,29 +120,51 @@ export default function AiWidgetRag({ siteId }) {
 
       {/* Chat Widget */}
       {open && (
-        <div className="fixed bottom-6 right-6 z-50 w-[800px] sm:w-[1000px] max-w-[120vw] rounded-2xl shadow-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 flex flex-col">
-          <Card className="pt-0 w-full rounded-2xl shadow-none border-0 bg-transparent">
-            <CardHeader className="flex items-center justify-between py-3 px-4 bg-blue-600 text-white dark:bg-blue-800 dark:text-white rounded-t-2xl">
-              <span className="text-lg font-semibold">AI Assistant</span>
-              <button
-                onClick={() => setOpen(false)}
-                className="text-white hover:text-gray-200 dark:hover:text-gray-300 transition"
-                aria-label="Close Chat"
-              >
-                ×
-              </button>
+        <Rnd
+          size={size}
+          position={position}
+          onDragStop={(_, d) => setPosition({ x: d.x, y: d.y })}
+          onResizeStop={(_, __, ref, ___, pos) => {
+            setSize({ width: ref.offsetWidth, height: ref.offsetHeight });
+            setPosition(pos);
+          }}
+          minWidth={350}
+          minHeight={400}
+          bounds="window"
+          className="fixed z-50 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl bg-white dark:bg-gray-900 flex flex-col"
+        >
+          <Card className="pt-0 w-full h-full rounded-2xl shadow-none border-0 bg-transparent flex flex-col relative">
+            {/* Drag handle */}
+            <CardHeader className="flex items-center justify-between py-3 px-4 bg-blue-600 text-white dark:bg-blue-800 dark:text-white rounded-t-2xl cursor-move">
+              <div className="flex items-center gap-2">
+                <GripVertical size={18} className="opacity-60" /> {/* drag hint */}
+                <span className="text-lg font-semibold">AI Assistant</span>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setOpen(false)}
+                  className="text-white hover:text-gray-200 dark:hover:text-gray-300 transition"
+                  aria-label="Minimize Chat"
+                >
+                  <Minus size={18} />
+                </button>
+                <button
+                  onClick={() => setOpen(false)}
+                  className="text-white hover:text-gray-200 dark:hover:text-gray-300 transition"
+                  aria-label="Close Chat"
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </CardHeader>
+
             <Separator />
-            <ScrollArea className="h-[500px] p-4">
+            <ScrollArea className="flex-1 p-4">
               <div className="flex flex-col gap-4">
                 {messages.map((msg, idx) => (
                   <div
                     key={idx}
-                    className={`flex ${
-                      msg.sender === "user"
-                        ? "justify-end"
-                        : "justify-start"
-                    }`}
+                    className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                   >
                     <div
                       className={`rounded-2xl px-4 py-2 max-w-[70%] ${
@@ -200,14 +206,14 @@ export default function AiWidgetRag({ siteId }) {
                 <SendHorizonal size={20} />
               </Button>
             </CardFooter>
+
+            {/* Resize grip in bottom-right */}
           </Card>
-        </div>
+        </Rnd>
       )}
 
       {/* Modal for data table */}
-      {expandedData && (
-        <TableModal data={expandedData} onClose={() => setExpandedData(null)} />
-      )}
+      {expandedData && <TableModal data={expandedData} onClose={() => setExpandedData(null)} />}
     </>
   );
 }
