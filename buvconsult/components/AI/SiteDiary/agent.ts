@@ -1,7 +1,11 @@
+//C:\Users\user\MVP\Buvconsult-deploy\buvconsult\components\AI\SiteDiary\agent.ts
+
+
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import { systemPrompt } from "@/components/AI/SiteDiary/prompts";
+import { validateExcel } from "@/app/utils/SiteDiary/Settings/validateSchema";
 
 const MAX_CHARS = 120_000;
 
@@ -27,15 +31,12 @@ function chunkText(s: string, size = MAX_CHARS) {
   return out;
 }
 
-export async function parseExcelToTree(url: string) {
+export async function parseExcelToTree(url: string, buf) {
   console.log("📥 Downloading Excel from:", url);
 
-  // 1) Download Excel
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to download file. HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  console.log("✅ File downloaded, size:", buf.length, "bytes");
+ 
 
+  
   // 2) Convert Excel → CSV (all sheets)
   const wb = XLSX.read(buf, { type: "buffer" });
   console.log("📄 Sheets found:", wb.SheetNames);
@@ -51,7 +52,6 @@ export async function parseExcelToTree(url: string) {
       csvPieces.push(`# Sheet: ${sheetName}\n${csv}`);
     }
   }
-  if (csvPieces.length === 0) throw new Error("No sheets or empty data.");
 
   const csvAll = csvPieces.join("\n\n");
   const chunks = chunkText(csvAll);
