@@ -14,6 +14,7 @@ import {prisma} from "@/app/utils/db";
 import DocumentUpload from "@/components/DocumentsUpload";
 import XslxUpload from "@/components/XlsxUpload";
 import { SchemaCard } from "@/components/Settings/SchemaCard";
+import { TemplateCard } from "@/components/Settings/Templates";
 
 export default async function SettingsSiteRoute({ params }: { params: Promise<{ siteId: string }> }) {
     const { siteId } = await params;
@@ -130,6 +131,7 @@ export default async function SettingsSiteRoute({ params }: { params: Promise<{ 
 
                       <XslxUpload params={Promise.resolve({siteId})}/>
             </Card>
+            <TemplateCard/>
             <SchemaCard
         siteId={siteId}
         fileUrl={settings?.fileUrl ?? null}
