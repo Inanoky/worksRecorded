@@ -14,6 +14,12 @@ import { DialogTable } from "@/components/SiteDiaryComponents/DiealogueTable";
 import ImageGallery from "@/components/SiteDiaryComponents/ImageGallery";
 
 export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
+
+  const [refreshKey, setRefreshKey] = React.useState(0);
+
+
+
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh] sm:w-[90vw] sm:max-w-[90vw] md:max-w-[750px] lg:max-w-[1700px] flex flex-col overflow-hidden">
@@ -32,12 +38,14 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
 
         <div className="flex flex-col flex-1 gap-4 overflow-hidden">
           <DialogTable
+            key={refreshKey}
             className="overflow-hidden"
             date={date}
             siteId={siteId}
             onSaved={() => {
-              onSaved && onSaved();
-              setOpen(false);
+              onSaved && onSaved()
+              setRefreshKey((k) => k + 1);
+              
             }}
           />
 
