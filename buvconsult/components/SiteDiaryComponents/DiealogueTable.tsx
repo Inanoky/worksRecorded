@@ -5,29 +5,24 @@ import {
   Table, TableBody, TableHead, TableHeader, TableRow, TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+  import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-} from "@/components/ui/select";
-import { Trash2, AlertCircle, ChevronDown } from "lucide-react";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Trash2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
-  getSiteDiaryRecords, getSiteDiarySchema,
-  saveSiteDiaryRecordsFromWeb, deleteSiteDiaryRecord, updateSiteDiaryRecord
+  getSiteDiaryRecords, getSiteDiarySchema,  saveSiteDiaryRecordsFromWeb,
+  deleteSiteDiaryRecord, updateSiteDiaryRecord
 } from "@/app/actions/siteDiaryActions";
 import { toast } from "sonner";
 import { useMediaQuery } from "./use-media-querty";
-import { Label } from "@/components/ui/label";
-import {
-  Collapsible, CollapsibleTrigger, CollapsibleContent,
-} from "@/components/ui/collapsible";
-import { Alert } from "@/components/ui/alert";
-import Link from "next/link";
 import { z } from "zod";
 
 /* ---------- helpers ---------- */
 const ADDITIONAL_WORKS_OPTION = { value: "__ADDITIONAL__", label: "Additional works" };
+
+
+
 const allowedUnits = [
   "m", "m2", "m3", "tn", "kg",
   "pcs", "package", "project",
@@ -52,12 +47,19 @@ const DiaryRowSchema = z.object({
 });
 const DiaryRowsSchema = z.array(DiaryRowSchema);
 
+
+
+
+
+
+
+
 function collectWorks(node: any, prefix = "") {
   let options: { value: string; label: string }[] = [];
   if (node.type === "Work") {
     options.push({
       value: node.code,
-      label: prefix ? `${prefix} / ${node.name}` : node.name,
+      label: prefix ? `${prefix} / ${node.name}` : node.name
     });
   }
   if (node.children) {
@@ -78,6 +80,7 @@ export function useSiteSchema(siteId: string | null) {
   useEffect(() => {
     if (!siteId) { setSchema(null); return; }
     getSiteDiarySchema({ siteId }).then((s) => {
+      console.log("[Diary][Schema] fetched:", s);
       setSchema(s);
     });
   }, [siteId]);
@@ -86,6 +89,7 @@ export function useSiteSchema(siteId: string | null) {
 
 /* ---------- component ---------- */
 export function DialogTable({ date, siteId, onSaved }: {
+  
   date: Date | null;
   siteId: string | null;
   onSaved?: () => void;
@@ -95,8 +99,8 @@ export function DialogTable({ date, siteId, onSaved }: {
   const [loading, setLoading] = useState(true);
 
   const newEmptyRow = () => ({
-    id: undefined as string | undefined,
-    _tempId: crypto.randomUUID(),
+    id: undefined as string | undefined,     // ← never synthesize DB id
+    _tempId: crypto.randomUUID(),            // ← client-only key
     date,
     location: "",
     location_code: "",
@@ -111,12 +115,17 @@ export function DialogTable({ date, siteId, onSaved }: {
 
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
 
-  const handleAddRow = () => setRows(prev => [...prev, newEmptyRow()]);
+  const handleAddRow = () => {
+    console.log("[Diary][AddRow]");
+    setRows(prev => [...prev, newEmptyRow()]);
+  };
 
   const handleDeleteRow = async (idOrTemp: string | undefined, tempId?: string) => {
     const row = rows.find(r => r.id === idOrTemp || r._tempId === tempId);
+    console.log("[Diary][DeleteRow] target:", { idOrTemp, tempId, row });
     if (row?.id) {
-      await deleteSiteDiaryRecord({ id: row.id });
+      await deleteSiteDiaryRecord({ id: row.id }); // real Prisma id (string)
+      console.log("[Diary][DeleteRow] deleted from DB:", row.id);
       toast.success("Record deleted!");
       onSaved?.();
     } else {
@@ -125,6 +134,7 @@ export function DialogTable({ date, siteId, onSaved }: {
   };
 
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
+    console.log("[Diary][Change]", { rowIdOrTemp, field, value });
     setRows(prev =>
       prev.map(r =>
         (r.id === rowIdOrTemp || r._tempId === rowIdOrTemp) ? { ...r, [field]: value } : r
@@ -134,15 +144,100 @@ export function DialogTable({ date, siteId, onSaved }: {
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    console.log("[Diary][Submit] raw rows:", rows);
 
-    // ✅ Validate before saving
-    const parsed = DiaryRowsSchema.safeParse(rows);
+
+     const parsed = DiaryRowsSchema.safeParse(rows);
     if (!parsed.success) {
       toast.error(parsed.error.errors[0].message);
       return;
     }
 
-    // ... your save logic here (same as before, using parsed.data instead of rows)
+    // Global works list + Additional works
+    const allWorkOptions = [
+      ...((schema?.flatMap(root => collectWorks(root))) ?? []),
+      ADDITIONAL_WORKS_OPTION,
+    ];
+    console.log("[Diary][Submit] allWorkOptions count:", allWorkOptions.length);
+
+    const rowsToSave = rows.map(row => {
+      const locationByCode = schema?.find(n => n.code === row.location_code);
+      const locationByName = schema?.find(n => n.name === row.location);
+      const locationNode = locationByCode || locationByName || null;
+
+      const worksNode = allWorkOptions.find((opt: any) => opt.value === row.works_code);
+
+      const resolved = {
+        ...row,
+        location: locationNode?.name || row.location,
+        works: worksNode?.label || row.works,
+      };
+
+      console.log("[Diary][MapRow]", {
+        rowId: row.id ?? row._tempId,
+        location_code: row.location_code,
+        location_before: row.location,
+        location_resolved: resolved.location,
+        works_code: row.works_code,
+        works_before: row.works,
+        works_resolved: resolved.works,
+      });
+
+      return resolved;
+    });
+
+    const isUUID = (id: unknown) =>
+      typeof id === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+    const existingRows = rowsToSave.filter(r => isUUID(r.id));
+    const newRows      = rowsToSave.filter(r => !isUUID(r.id));
+
+    console.log("[Diary][Submit] split:", {
+      existingCount: existingRows.length,
+      newCount: newRows.length,
+      existingRows,
+      newRowsSample: newRows.slice(0, 3),
+    });
+
+    for (const r of existingRows) {
+      const payload = {
+        id: r.id,
+        Date: r.date,
+        Location: r.location,
+        Works: r.works,
+        Comments: r.comments,
+        Units: r.units,
+        Amounts: r.amounts !== "" && r.amounts !== undefined ? Number(r.amounts) : undefined,
+        WorkersInvolved: r.workers !== "" && r.workers !== undefined ? Number(r.workers) : undefined,
+        TimeInvolved: r.hours !== "" && r.hours !== undefined ? Number(r.hours) : undefined,
+        Photos: [],
+        userId: r.userId,
+        siteId,
+      };
+      console.log("[Diary][UpdateExisting] payload:", payload);
+
+      try {
+        const res = await updateSiteDiaryRecord(payload);
+        console.log("[Diary][UpdateExisting] result:", res);
+      } catch (err) {
+        console.error("[Diary][UpdateExisting] ERROR for id:", r.id, err);
+      }
+    }
+
+    if (newRows.length) {
+      const rowsSanitized = newRows.map(({ id: _omit, _tempId: _omit2, ...rest }) => rest);
+      console.log("[Diary][CreateNew] payload:", { rows: rowsSanitized, siteId });
+      try {
+        const res = await saveSiteDiaryRecordsFromWeb({
+          rows: rowsSanitized,
+          siteId,
+        });
+        console.log("[Diary][CreateNew] result:", res);
+      } catch (err) {
+        console.error("[Diary][CreateNew] ERROR:", err);
+      }
+    }
 
     toast.success("Records saved!");
     onSaved?.();
@@ -153,6 +248,7 @@ export function DialogTable({ date, siteId, onSaved }: {
     setLoading(true);
 
     if (!date || !siteId) {
+      console.log("[Diary][Effect] missing date/siteId", { date, siteId });
       setRows([newEmptyRow()]);
       setLoading(false);
       return;
@@ -160,6 +256,7 @@ export function DialogTable({ date, siteId, onSaved }: {
 
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
+      console.log("[Diary][Effect] loading rows for:", { siteId, isoDate });
       const loadedRows = await getSiteDiaryRecords({ siteId, date: isoDate });
       if (cancelled) return;
 
@@ -173,6 +270,8 @@ export function DialogTable({ date, siteId, onSaved }: {
             }))
           : [newEmptyRow()];
 
+      console.log("[Diary][Effect] loaded rows:", nextRows);
+
       setRows(nextRows);
       setLoading(false);
     })();
@@ -184,40 +283,19 @@ export function DialogTable({ date, siteId, onSaved }: {
     return <div className="flex justify-center items-center min-h-[300px]">Loading…</div>;
   }
 
-  if (!loading && !schema) {
-    return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <Alert
-          variant="destructive"
-          className="max-w-md w-full flex items-center justify-center gap-2 p-4 whitespace-nowrap"
-        >
-          <AlertCircle className="h-5 w-5 text-red-500" />
-          <span className="font-semibold">Error:</span>
-          <span>
-            Please upload project schema in the&nbsp;
-            <Link
-              href={`/dashboard/sites/${siteId}/settings`}
-              className="underline font-medium text-red-700 hover:text-red-900"
-            >
-              Settings
-            </Link>
-            &nbsp;menu.
-          </span>
-        </Alert>
-      </div>
-    );
-  }
-
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
-        <Button type="button" variant="outline" onClick={handleAddRow}>
+          <Button type="button" variant="outline" onClick={handleAddRow} className="w-full sm:w-auto">
+
           Add task
         </Button>
-        <Button type="submit">Save diary</Button>
+         <Button type="submit" className="w-full sm:w-auto">
+          Save diary
+          </Button>
       </div>
 
-      <ScrollArea className="h-[25vh] sm:h-[35vh] rounded-none border">
+      <ScrollArea className="w-full h-[25vh] sm:h-[35vh] rounded-none border">
         <div className="overflow-x-auto">
           <div className={isMobile ? "w-full" : "min-w-[1000px]"}>
             <Table>
@@ -242,16 +320,30 @@ export function DialogTable({ date, siteId, onSaved }: {
                     schema?.find(n => n.code === row.location_code) ||
                     schema?.find(n => n.name === row.location);
                   const dynamicWorkOptions = selectedLocationNode ? collectWorks(selectedLocationNode) : [];
+
                   const rowKey = row.id ?? row._tempId;
+
+                  console.log("[Diary][RenderRow]", {
+                    rowKey,
+                    location_code: row.location_code,
+                    location: row.location,
+                    works_code: row.works_code,
+                    works: row.works,
+                    dynamicWorkOptions: dynamicWorkOptions.length
+                  });
 
                   return (
                     <TableRow key={rowKey} className="align-top">
-                      <TableCell>{row.date ? new Date(row.date).toLocaleDateString("en-GB") : "No date"}</TableCell>
+                      <TableCell className="py-3 text-muted-foreground">
+                        {row.date
+                          ? new Date(row.date).toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" })
+                          : "No date"}
+                      </TableCell>
 
-                      <TableCell>
+                      <TableCell className="py-2">
                         <Select
                           value={row.location_code || ""}
-                          onValueChange={(val) => handleChange(rowKey, "location_code", val)}
+                          onValueChange={val => handleChange(row.id ?? row._tempId, "location_code", val)}
                         >
                           <SelectTrigger className="w-[160px]">
                             <SelectValue placeholder={row.location || "Select location"} />
@@ -266,10 +358,10 @@ export function DialogTable({ date, siteId, onSaved }: {
                         </Select>
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="py-2">
                         <Select
                           value={row.works_code || ""}
-                          onValueChange={(val) => handleChange(rowKey, "works_code", val)}
+                          onValueChange={val => handleChange(row.id ?? row._tempId, "works_code", val)}
                         >
                           <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder={row.works || "Select work"} />
@@ -280,14 +372,15 @@ export function DialogTable({ date, siteId, onSaved }: {
                                 {opt.label}
                               </SelectItem>
                             ))}
-                            <SelectItem value={ADDITIONAL_WORKS_OPTION.value}>
+                            {/* Always last: Additional works */}
+                            <SelectItem key={ADDITIONAL_WORKS_OPTION.value} value={ADDITIONAL_WORKS_OPTION.value}>
                               {ADDITIONAL_WORKS_OPTION.label}
                             </SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="text-center py-2">
                         <Select
                           value={row.units || ""}
                           onValueChange={(val) => handleChange(rowKey, "units", val)}
@@ -305,31 +398,29 @@ export function DialogTable({ date, siteId, onSaved }: {
                         </Select>
                       </TableCell>
 
-                      <TableCell>
-                        <Input className="w-full text-center" inputMode="decimal"
-                               value={row.amounts}
-                               onChange={(e) => handleChange(rowKey, "amounts", e.target.value)} />
+                      <TableCell className="text-center py-2">
+                        <Input className="w-full text-center" inputMode="decimal" value={row.amounts}
+                               onChange={e => handleChange(row.id ?? row._tempId, "amounts", e.target.value)} />
                       </TableCell>
 
-                      <TableCell>
-                        <Input className="w-full text-center" inputMode="numeric"
-                               value={row.workers}
-                               onChange={(e) => handleChange(rowKey, "workers", e.target.value)} />
+                      <TableCell className="text-center py-2">
+                        <Input className="w-full text-center" inputMode="numeric" value={row.workers}
+                               onChange={e => handleChange(row.id ?? row._tempId, "workers", e.target.value)} />
                       </TableCell>
 
-                      <TableCell>
-                        <Input className="w-full text-center" inputMode="decimal"
-                               value={row.hours}
-                               onChange={(e) => handleChange(rowKey, "hours", e.target.value)} />
+                      <TableCell className="text-center py-2">
+                        <Input className="w-full text-center" inputMode="decimal" value={row.hours}
+                               onChange={e => handleChange(row.id ?? row._tempId, "hours", e.target.value)} />
                       </TableCell>
 
-                      <TableCell>
-                        <Textarea className="w/full min-h-[72px]"
-                                  value={row.comments}
-                                  onChange={(e) => handleChange(rowKey, "comments", e.target.value)} />
+                      <TableCell className="text-centerpy-2">
+                        <Textarea 
+                        className="w-full min-h-0 field-sizing-fixed break-words whitespace-pre-wrap resize-none"
+                         value={row.comments}
+                                  onChange={e => handleChange(row.id ?? row._tempId, "comments", e.target.value)} />
                       </TableCell>
 
-                      <TableCell className="text-center">
+                      <TableCell className="text-center py-2">
                         <Button
                           variant="ghost"
                           size="icon"
