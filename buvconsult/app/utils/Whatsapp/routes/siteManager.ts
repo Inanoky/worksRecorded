@@ -8,6 +8,7 @@ import { handleText } from "@/app/utils/Whatsapp/shared/handleText";
 import talkToWhatsappAgent from "@/components/AI/Whatsapp/agent";
 import { AgentFn } from "@/app/utils/Whatsapp/shared/types";
 import { prisma } from "@/app/utils/db"; // ⬅️ need prisma
+import { getUserFirstNameById } from "@/app/actions/whatsappActions";
 
 const currentAgent: AgentFn = (input, siteId, userId) =>
   talkToWhatsappAgent(input, siteId, userId);
@@ -19,18 +20,20 @@ export async function handleSiteManagerRoute(args: {
 }) {
   const { from, formData, user } = args;
 
+  const userName = await getUserFirstNameById(user.id);
+
   const body = (getString(formData, "Body") || "").trim();
   const numMedia = parseInt(getString(formData, "NumMedia") || "0", 10) || 0;
 
   // 1) Project selector can reply & exit early
-  const handledSelection = await handleProjectSelector({ user, body, to: from });
+  const handledSelection = await handleProjectSelector({ user, body, to: from, username: userName });
   if (handledSelection) return;
 
   // 2) Check if schema exists for selected site
   if (!user.lastSelectedSiteIdforWhatsapp) {
     await sendMessage(
       from,
-      "Please first select a project. Type 'Change' to see the project list."
+      `Hello ${userName}! Please first select a project. Type 'Change' to see the project list.`
     );
     return;
   }
@@ -42,7 +45,7 @@ export async function handleSiteManagerRoute(args: {
   if (!settings || !settings.schema) {
     await sendMessage(
       from,
-      "Please first upload site schema in the project settings menu. Contact project admin."
+      `Hello ${userName}! Please first upload site schema in the project settings menu. Contact project admin.`
     );
     return;
   }
