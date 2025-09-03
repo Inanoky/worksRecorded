@@ -174,6 +174,7 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
   const from = new Date(year, month, 1);
   const to = new Date(year, month + 1, 1);
 
+  // site diary records in month
   const records = await prisma.sitediaryrecords.findMany({
     where: {
       siteId,
@@ -182,14 +183,31 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
     select: { Date: true },
   });
 
-  // Filter null Dates and return unique days in month
-  const daysSet = new Set(
-    records
-      .filter((rec) => rec.Date)
-      .map((rec) => new Date(rec.Date!).getDate())
-  );
+  // photos in month (with a valid URL)
+  const photos = await prisma.photos.findMany({
+    where: {
+      siteId,
+      Date: { gte: from, lt: to },
+      OR: [
+        { URL: { not: null } },
+        { fileUrl: { not: null } },
+      ],
+    },
+    select: { Date: true },
+  });
 
-  return Array.from(daysSet);
+  // Collect unique day numbers
+  const daysSet = new Set<number>();
+
+  records.forEach((rec) => {
+    if (rec.Date) daysSet.add(new Date(rec.Date).getDate());
+  });
+
+  photos.forEach((p) => {
+    if (p.Date) daysSet.add(new Date(p.Date).getDate());
+  });
+
+  return Array.from(daysSet).sort((a, b) => a - b);
 }
 
 
