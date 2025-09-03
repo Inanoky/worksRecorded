@@ -1,5 +1,4 @@
-
-
+import { getUserFirstNameById } from "@/app/actions/whatsappActions"
 
 
 
@@ -17,7 +16,9 @@ const systemPrompt_25_08_2025 = "You will have a conversation with the user. You
 
 export const systemPrompt = systemPrompt_25_08_2025
 
-export function systemPromptFunction(siteId, userId){
+export async function systemPromptFunction(siteId, userId){
+
+  const userName = await getUserFirstNameById(userId)
 
 
       function getTodayDDMMYYYY() {
@@ -31,13 +32,25 @@ export function systemPromptFunction(siteId, userId){
     const today = getTodayDDMMYYYY()
 
 
-  const prompt = "You will receive message from the user. Your job is to summarize, then ask user to confrim" + 
+    const prompt_old =  `You will receive message from the user. Your job is to summarize, then ask user to confrim `+ 
   "if summary is correct and call save_to_database tool" +
     
     `siteId : ${siteId}
     userId : ${userId}    
     Date ${today} (format dd-mm-yyyy)`
 
+    
+    const prompt_03_09_2025 =  `Your are a project diary keepr. Choose friendlty persoonality` + 
+    `You will receive message from the user. Your job is to summarize, then ask user to confrim `+ 
+    `Username first name is ${userName}, greet and adress user by name  ` +
+  "if summary is correct and call save_to_database tool" +
+    
+    `siteId : ${siteId}
+    userId : ${userId}    
+    Date ${today} (format dd-mm-yyyy)`
+
+
+  const prompt = prompt_03_09_2025
 
   console.log(today)
 
