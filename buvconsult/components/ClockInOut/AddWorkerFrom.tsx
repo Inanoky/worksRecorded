@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { createTeamMember } from "@/app/actions/clockinActions";
+import { checkPhoneUnique } from "@/app/utils/Timesheets/phoneCheck";
 
 // --- Zod schema & helpers ---
 
@@ -99,6 +100,31 @@ export function AddWorkerForm({
     const data: NormalizedForm = parsed.data;
 
     startTransition(async () => {
+
+
+         // --- NEW: check phone uniqueness ---
+      const phoneCheck = await checkPhoneUnique(data.phone);
+      if (!phoneCheck.unique) {
+        setErrors((prev) => ({ ...prev, phone: "Phone number already used" }));
+        toast.error("Phone number already used");
+        return;
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       const res = await createTeamMember({
         name: data.name,
         surname: data.surname,
