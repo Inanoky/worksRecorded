@@ -82,7 +82,7 @@ export default async function talkToClockInAgent(question, workerId) {
 
     const inputs = {
         messages: [
-            new SystemMessage(systemPrompt),
+            new SystemMessage(await systemPrompt),
             new HumanMessage(question),
         ],
     };
