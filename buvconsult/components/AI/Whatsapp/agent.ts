@@ -75,7 +75,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
     const inputs = {
         messages: [
-            new SystemMessage(systemPrompt),
+            new SystemMessage(await systemPrompt),
             new HumanMessage(question),
         ],
     };
