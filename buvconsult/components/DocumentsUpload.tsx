@@ -24,8 +24,17 @@ export default function DocumentUpload({ params }: { params: Promise<{ siteId: s
 
     setIsLoading(true);
     try {
-      await saveDocumentsToDB(undefined, formData); // Call your server action directly!
-      toast.success("Documents saved to database");
+      const result = await saveDocumentsToDB(undefined, formData); // Call your server action directly!
+      const { accepted, total } = result || { accepted: 0, total: urls.length };
+
+
+      if (accepted > 0) {
+      toast.success(`${accepted}/${total} documents uploaded (Scanned documents not allowed)`);
+      } else {
+      toast.error(`0/${total} documents uploaded (All were scanned PDFs)`);
+
+      }
+      
       router.refresh(); // <----- This refreshes server data (tables)!
     } catch (err) {
       toast.error("Failed to save documents");

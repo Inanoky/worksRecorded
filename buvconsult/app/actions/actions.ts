@@ -17,6 +17,8 @@ import { chunk } from "lodash";
 import gptDocumentsResponse from "@/components/AI/RAG/ExtractorGptForDocuments";
 import {LoadEmbeddings} from "@/components/AI/RAG/loadEmbeddings";
 import { Pinecone } from '@pinecone-database/pinecone'
+import { isLikelyScannedPdf } from "../utils/actions/helpers/isLikelyScannedPdf";
+
 
 
 const openai = new OpenAI({
@@ -565,59 +567,90 @@ export async function getProjectNameBySiteId(siteId: string): Promise<string | n
 
 
 export const saveDocumentsToDB = async (_: unknown, formData: FormData) => {
-
   const user = await requireUser();
   const siteId = formData.get("siteId") as string;
-  const urls = JSON.parse(formData.get("fileUrls") as string) as string[];
+  const urls = JSON.parse((formData.get("fileUrls") as string) ?? "[]") as string[];
 
-  console.log(`Those are URLs ${urls}`)
+  let total = urls.length;
+  let accepted = 0;
 
-
-  //Here we have all fields names from invoices which we also copy ot invoiceItems for later agentic
-    //analysis
-
-
-
-
+  console.log(`Those are URLs ${urls}`);
 
   // Split URLs into batches of 15
   const urlBatches = chunk(urls, 15);
 
   for (const batch of urlBatches) {
-    // 1️⃣ GPT Extraction for each batch in parallel
-
-      //What are GPT results ? array of strings (URLs)
-    const gptResults = await Promise.all(
+    // 0️⃣ Filter out scanned PDFs first (quietly skip), in parallel
+    const checks = await Promise.all(
       batch.map(async (url) => {
-        const gptRaw = await gptDocumentsResponse(url);
-        const gptResp = typeof gptRaw === "string" ? JSON.parse(gptRaw) : gptRaw;
-
-        console.log(`This is a GPT response ${JSON.stringify(gptResp)}`)
-
-        return { url, gptResp };
+        const scanned = await isLikelyScannedPdf(url);
+        if (scanned) {
+          console.log(`🟡 Skipping scanned (image-only) PDF: ${url}`);
+          return null;
+        }
+        return url;
       })
     );
 
-    // 2️⃣ Save invoices/items for all GPT results in this batch, in parallel
+    const cleanUrls = checks.filter((u): u is string => Boolean(u));
+     accepted += cleanUrls.length;
+    if (cleanUrls.length === 0) {
+      console.log("ℹ️ No text-based PDFs in this batch, moving on.");
+      continue;
+    }
+
+    // 1️⃣ GPT extraction for each remaining URL in parallel
+    const gptResults = await Promise.all(
+      cleanUrls.map(async (url) => {
+        try {
+          const gptRaw = await gptDocumentsResponse(url);
+          const gptResp = typeof gptRaw === "string" ? JSON.parse(gptRaw) : gptRaw;
+          console.log(`This is a GPT response ${JSON.stringify(gptResp)}`);
+          return { url, gptResp };
+        } catch (err) {
+          console.log(`🔶 GPT failed for ${url}, skipping.`, err);
+          return null; // quietly skip if GPT fails
+        }
+      })
+    );
+
+    const validGpt = gptResults.filter((r): r is { url: string; gptResp: any } => Boolean(r));
+    if (validGpt.length === 0) {
+      console.log("ℹ️ No valid GPT results in this batch, moving on.");
+      continue;
+    }
+
+    // 2️⃣ Save documents to DB in parallel
     await Promise.all(
-  gptResults.map(async ({ url, gptResp }) => {
-    // Save one row per document
-    await prisma.documents.create({
-      data: {
-        ...gptResp, // or just select the top-level fields you want
-        url,
-        userId: user.id,
-        siteId: siteId,
-      },
-    });
-  })
-);
+      validGpt.map(async ({ url, gptResp }) => {
+        try {
+          await prisma.documents.create({
+            data: {
+              ...gptResp, // or pick specific fields
+              url,
+              userId: user.id,
+              siteId,
+            },
+          });
+        } catch (err) {
+          console.log(`🔶 DB save failed for ${url}, skipping.`, err);
+        }
+      })
+    );
+
+    // 3️⃣ Generate embeddings in parallel (only for successfully processed URLs)
     await Promise.all(
-    gptResults.map( async ({url}) => LoadEmbeddings(url, siteId))
-        )
+      validGpt.map(async ({ url }) => {
+        try {
+          await LoadEmbeddings(url, siteId);
+        } catch (err) {
+          console.log(`🔶 Embeddings failed for ${url}, skipping.`, err);
+        }
+      })
+    );
   }
 
-  return;
+  return { accepted,total};
 };
 
 export async function GetDocumentsFromDB(siteId: string){
