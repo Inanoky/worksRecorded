@@ -6,10 +6,13 @@ import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import {systemPrompt, systemPromptFunction} from "@/components/AI/Whatsapp/prompts";
 import {toolNode, tools} from "@/components/AI/Whatsapp/tools";
+import { getUserFirstNameById } from "@/app/actions/whatsappActions";
 
 export default async function talkToWhatsappAgent(question, siteId, userId) {
     console.log("=== talkToWhatsappAgent called ===");
     console.log("Question:", question, "SiteId:", siteId);
+
+   
 
     const state = Annotation.Root({
         messages: Annotation<BaseMessage[]>({

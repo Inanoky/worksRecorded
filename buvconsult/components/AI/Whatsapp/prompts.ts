@@ -1,4 +1,4 @@
-
+import { getUserFirstNameById } from "@/app/actions/whatsappActions"
 
 
 
@@ -51,6 +51,8 @@ const systemPrompt_08_08_2025_V1 = "You will have a conversation with the user. 
 export const systemPrompt = systemPrompt_05_08_2025_V2
 
 export function systemPromptFunction(siteId, userId){
+
+  
 
 
       function getTodayDDMMYYYY() {
@@ -117,7 +119,19 @@ export function systemPromptFunction(siteId, userId){
     userId : ${userId}    
     Date ${today} (format dd-mm-yyyy)`
 
-    const prompt = prompt_02_09_2025_v3
+    const prompt_02_09_2025_v4 = `You will have a conversation with the user called about construction activities on site. Your job is to extract necessary information` +
+    "from the user. You need to know :" +
+    "1) What tasks was completed?" +
+    "2) Where each task was competed?" +
+    "3) How many workers were involved for each task?" +
+    "4) For how long they were working on each task?" +
+    "First of all check if user message already has necessary information. If there is -  politely thank the user, summarize all information gathered and call the save_to_database tool" +
+    "If some information is clearly missing (where work done, how many workers, how mony hours) - ask for clarificaiton, do not assume, but do not ask questions if not necessary" +
+    `siteId : ${siteId}
+    userId : ${userId}    
+    Date ${today} (format dd-mm-yyyy)`
+
+    const prompt = prompt_02_09_2025_v4
 
 
   console.log(today)

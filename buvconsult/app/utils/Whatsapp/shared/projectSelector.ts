@@ -15,9 +15,12 @@ export async function handleProjectSelector(args: {
   user: any;
   body: string;
   to: string | null;
+  username: string | null;
 }): Promise<boolean> {
-  const { user, body, to } = args;
+  const { user, body, to, username } = args;
   const text = (body || "").trim().toLowerCase();
+
+  const userName = username
 
   console.log("📌 [handleProjectSelector] called with:", {
     userId: user?.id,
@@ -38,7 +41,7 @@ export async function handleProjectSelector(args: {
     });
     console.log("✅ Cleared lastSelectedSiteIdforWhatsapp for user:", user.id);
 
-    const msg = await buildProjectListPrompt(user, "You have cleared your project selection.");
+    const msg = await buildProjectListPrompt(user, `Hello ${userName}! You have cleared your project selection.`);
     console.log("📤 Sending project list after change:", msg);
     await sendMessage(to, msg);
     return true;
@@ -63,7 +66,7 @@ export async function handleProjectSelector(args: {
         data: { lastSelectedSiteIdforWhatsapp: selected.id },
       });
 
-      const msg = `System: You are now talking to project "${selected.name}". To change the project, type "Change".`;
+      const msg = `${userName}, You are now talking to project "${selected.name}". To change the project, type "Change".`;
       console.log("📤 Sending confirmation:", msg);
       await sendMessage(to, msg);
       return true;
