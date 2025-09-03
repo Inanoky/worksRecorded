@@ -50,9 +50,9 @@ const systemPrompt_08_08_2025_V1 = "You will have a conversation with the user. 
 
 export const systemPrompt = systemPrompt_05_08_2025_V2
 
-export function systemPromptFunction(siteId, userId){
+export async  function systemPromptFunction(siteId, userId){
 
-  
+  const userName = await getUserFirstNameById(userId);
 
 
       function getTodayDDMMYYYY() {
@@ -119,7 +119,8 @@ export function systemPromptFunction(siteId, userId){
     userId : ${userId}    
     Date ${today} (format dd-mm-yyyy)`
 
-    const prompt_02_09_2025_v4 = `You will have a conversation with the user called about construction activities on site. Your job is to extract necessary information` +
+    const prompt_02_09_2025_v4 = `You will have a conversation with the user called ${userName} (Call user by his name) about construction. ` +
+    ` activities on site. Your job is to extract necessary information. ` +
     "from the user. You need to know :" +
     "1) What tasks was completed?" +
     "2) Where each task was competed?" +
