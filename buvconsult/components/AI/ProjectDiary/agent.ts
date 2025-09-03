@@ -47,7 +47,7 @@ export default async function talkToProjectDiaryAgent(
   const sysPrompt = systemPromptFunction(siteId, userId);
 
   const inputs = {
-    messages: [new SystemMessage(sysPrompt), new HumanMessage(question)],
+    messages: [new SystemMessage(await sysPrompt), new HumanMessage(question)],
   };
 
   let finalState: any;

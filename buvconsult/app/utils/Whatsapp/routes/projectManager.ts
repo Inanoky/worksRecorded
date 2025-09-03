@@ -9,6 +9,7 @@ import { handleAudio } from "@/app/utils/Whatsapp/shared/handleAudio";
 import { handleText } from "@/app/utils/Whatsapp/shared/handleText";
 import talkToProjectDiaryAgent from "@/components/AI/ProjectDiary/agent";
 import { AgentFn } from "@/app/utils/Whatsapp/shared/types";
+import { getUserFirstNameById } from "@/app/actions/whatsappActions";
 
 const projectDiaryAgent: AgentFn = async (input, siteId, userId) => {
   if (!siteId) {
@@ -18,6 +19,9 @@ const projectDiaryAgent: AgentFn = async (input, siteId, userId) => {
   return out ?? "Ok.";
 };
 
+
+
+
 export async function handleProjectManagerRoute(args: {
   from: string | null;
   formData: FormData;
@@ -25,11 +29,13 @@ export async function handleProjectManagerRoute(args: {
 }) {
   const { from, formData, user } = args;
 
+  const userName = await getUserFirstNameById(user.id);
+
   const body = (getString(formData, "Body") || "").trim();
   const numMedia = parseInt(getString(formData, "NumMedia") || "0", 10) || 0;
 
   // Ensure project selected
-  const handledSelection = await handleProjectSelector({ user, body, to: from });
+  const handledSelection = await handleProjectSelector({ user, body, to: from, username: userName });
   if (handledSelection) return;
 
   // Re-check selected site
