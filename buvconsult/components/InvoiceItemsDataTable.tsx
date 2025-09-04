@@ -152,7 +152,14 @@ export function InvoiceItemsDataTable({ data, siteId }) {
       {
         accessorKey: "invoice.invoiceDate",
         header: "Date",
-        cell: info => info.row.original.invoice?.invoiceDate || ""
+         cell: ({ row }) =>
+    row.original.invoice?.invoiceDate
+      ? new Date(row.original.invoice.invoiceDate).toLocaleDateString("en-GB", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "No date",
       },
       {
         header: "Invoice#",
