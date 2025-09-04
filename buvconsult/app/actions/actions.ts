@@ -388,6 +388,10 @@ const INVOICE_FIELDS_TO_COPY = [
 
 export async function GetInvoicesFromDB(siteId: string){
 
+  function serializeDate(d: Date | null): string | null {
+  return d ? d.toISOString() : null;
+}
+
     const user = await requireUser();
 
     const invoices = await prisma.invoices.findMany({
@@ -397,30 +401,42 @@ export async function GetInvoicesFromDB(siteId: string){
             SiteId: siteId,
         }
     })
-    return invoices
+     return invoices.map(inv => ({
+    ...inv,
+    invoiceDate: serializeDate(inv.invoiceDate),
+    paymentDate: serializeDate(inv.paymentDate),
+
+      }));
 
 }
 
 
-export async function GetInvoiceItemsFromDB(siteId: string){
+export async function GetInvoiceItemsFromDB(siteId: string) {
+  const user = await requireUser();
 
+  function serializeDate(d: Date | null): string | null {
+    return d ? d.toISOString() : null;
+  }
 
+  const invoiceItems = await prisma.invoiceItems.findMany({
+    where: { siteId },
+    include: { invoice: true },
+  });
 
-    const user = await requireUser();
+  return invoiceItems.map(inv => ({
+    ...inv,
+    invoiceDate: serializeDate(inv.invoiceDate),
+    paymentDate: serializeDate(inv.paymentDate),
 
-    const invoiceItems = await prisma.invoiceItems.findMany({
-
-        where: {
-
-            siteId: siteId,
-        },
-        include: {
-            invoice: true,
+    // also handle nested invoice if needed
+    invoice: inv.invoice
+      ? {
+          ...inv.invoice,
+          invoiceDate: serializeDate(inv.invoice.invoiceDate),
+          paymentDate: serializeDate(inv.invoice.paymentDate),
         }
-
-    })
-    return invoiceItems
-
+      : null,
+  }));
 }
 
 

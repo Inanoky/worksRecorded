@@ -88,8 +88,8 @@ model Invoices {
   invoiceTotalSumNoVat            Float?
   invoiceTotalSumWithVat          Float?
   buyerName                       String?
-  invoiceDate                     String?
-  paymentDate                     String?
+  invoiceDate                     DateTime?
+  paymentDate                     DateTime?
   isInvoice                       Boolean?
   isCreditDebitProformaOrAdvanced String?
   health                          String?
@@ -146,8 +146,9 @@ model InvoiceItems {
   // invoiceTotalSumNoVat   Float?
   // invoiceTotalSumWithVat Float?
   // buyerName              String?
-  invoiceDate   String?
-  paymentDate   String?
+  invoiceDate   DateTime?
+  paymentDate   DateTime?
+
 }
 
 model AIconversation {

@@ -167,12 +167,26 @@ export function InvoicesDataTable({ data, siteId }) {
       {
         accessorKey: "invoiceDate",
         header: "Invoice Date",
-        cell: info => info.getValue() || "",
+        cell: ({ row }) =>
+    row.original.invoiceDate
+      ? new Date(row.original.invoiceDate).toLocaleDateString("en-GB", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "No date",
       },
       {
         accessorKey: "paymentDate",
         header: "Payment Date",
-        cell: info => info.getValue() || "",
+         cell: ({ row }) =>
+    row.original.paymentDate
+      ? new Date(row.original.paymentDate).toLocaleDateString("en-GB", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : "No date",
       },
       {
         accessorKey: "invoiceNumber",
