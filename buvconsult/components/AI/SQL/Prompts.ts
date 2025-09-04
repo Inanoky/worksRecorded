@@ -185,6 +185,43 @@ const databaseSchema_29_07_2025_v3 = `
 
 
 
+const databaseSchema_04_09_2025 = `
+
+                                            This is postgreSQL database. DDL schema.  : 
+
+                                            create table public."InvoiceItems" (
+  id text not null,
+  item text null,
+  currency text null,
+  category text null,
+  "commentsForUser" text null,
+  "invoiceId" text not null,
+  "unitOfMeasure" text null,
+  "siteId" text null,
+  "isInvoice" boolean null,
+  sum double precision null,
+  "pricePerUnitOfMeasure" double precision null,
+  quantity double precision null,
+  "itemDescription" text null,
+  "invoiceNumber" text null,
+  "sellerName" text null,
+  "invoiceDate" timestamp without time zone null,
+  "paymentDate" timestamp without time zone null,
+  constraint InvoiceItems_pkey primary key (id),
+  constraint InvoiceItems_invoiceId_fkey foreign KEY ("invoiceId") references "Invoices" (id) on update CASCADE on delete CASCADE,
+  constraint InvoiceItems_siteId_fkey foreign KEY ("siteId") references "Site" (id) on update CASCADE on delete CASCADE
+) TABLESPACE pg_default;
+
+                                            
+                                            Example of data stored in first 3 rows for better understanding:
+                                            
+                                            [{"idx":0,"id":"003b1812-ae57-4358-8bf3-bb7f29bec3c4","item":"RECKLI MATRIX Nr. 2/90 TRAVERTIN, Type C (e.g., 3140mm x 1834mm)","currency":"EUR","category":"Construction materials.Concrete.Precast","commentsForUser":null,"invoiceId":"cmcumapi100259xagzkq10tb8","unitOfMeasure":"m3","siteId":"48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315","sum":1399.68,"pricePerUnitOfMeasure":243,"quantity":5.76,"itemDescription":"RECKLI MATRIX, Nr. 2/90 TRAVERTIN, Type C. Mold system sized at 3140mm x 1834mm for smaller detailed wall cladding, pattern imprints on architectural concrete. Polyurethane, reusable up to 100 times. Price: 243 EUR/m².","invoiceDate":"2023-12-14","invoiceNumber":"RE-4R23-70","paymentDate":"2023-12-15","sellerName":"REfero SIA"},{"idx":1,"id":"00480ff4-db36-4980-93db-c6fe4e7665db","item":"Rami Risks 5% - INS325","currency":"EUR","category":"Overheads.Other","commentsForUser":null,"invoiceId":"cmcuhxxy7001h9xf0vahwltmk","unitOfMeasure":"day","siteId":"0434c876-c31b-450c-8f92-cdcd37912565","sum":0.73,"pricePerUnitOfMeasure":0.1,"quantity":1,"itemDescription":"Rami Risks 5% - INS325 – Small insurance/service fee for equipment rental, likely covers liability or damage. 1 unit, 7 days at 0.10 EUR/day. Total 0.73 EUR.","invoiceDate":"2024-11-30","invoiceNumber":"IV0084169","paymentDate":"2024-12-15","sellerName":"Ramirent Baltic AS Rīgas filiāle"},{"idx":2,"id":"00589506-1e64-462c-9413-a089404b1e44","item":"Reinforced polypropylene bags 55x100cm (57x95cm)","currency":"EUR","category":"Construction materials.Plastics","commentsForUser":null,"invoiceId":"cmcunasqb00ix9xagpnl8tct7","unitOfMeasure":"pcs","siteId":"48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315","sum":4.65,"pricePerUnitOfMeasure":0.31,"quantity":15,"itemDescription":"Strong woven polypropylene bags, reinforced for increased load capacity, dimensions 55x100cm (alternative size 57x95cm). Often used for carrying or storing building materials, debris, or waste. Cost per unit 0.31 EUR (after 25% discount), total cost 4.65 EUR for 15 bags.","invoiceDate":"2024-08-27","invoiceNumber":"OLM492214","paymentDate":"2024-09-26","sellerName":"Optimera Latvia, SIA"}]
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            `;
 
 
 
@@ -198,7 +235,10 @@ const databaseSchema_29_07_2025_v3 = `
 
 
 
-export const databaseSchema = databaseSchema_29_07_2025_v3
+
+
+
+export const databaseSchema = databaseSchema_04_09_2025
 
 
 export const allowedFieldKeysPrompt = [
