@@ -224,6 +224,43 @@ const databaseSchema_04_09_2025 = `
                                             `;
 
 
+                                            
+const databaseSchema_05_09_2025 = `
+
+                                            This is postgreSQL database. DDL schema.  : 
+
+                                            create table public."InvoiceItems" (
+  id text not null,
+  item text null,
+  currency text null,
+  category text null,
+  "commentsForUser" text null,
+  "invoiceId" text not null,
+  "unitOfMeasure" text null,
+  "siteId" text null,
+  "isInvoice" boolean null,
+  sum double precision null,
+  "pricePerUnitOfMeasure" double precision null,
+  quantity double precision null,
+  "itemDescription" text null,
+  "invoiceNumber" text null,
+  "sellerName" text null,
+  "invoiceDate" timestamp without time zone null,
+  "paymentDate" timestamp without time zone null,
+  constraint InvoiceItems_pkey primary key (id),
+  constraint InvoiceItems_invoiceId_fkey foreign KEY ("invoiceId") references "Invoices" (id) on update CASCADE on delete CASCADE,
+  constraint InvoiceItems_siteId_fkey foreign KEY ("siteId") references "Site" (id) on update CASCADE on delete CASCADE
+) TABLESPACE pg_default;
+
+                                            
+                                            Example of data stored in first 3 rows for better understanding:
+                                            
+                                            
+                                            [{"id":"a7e506ad-84e9-4e28-9ba0-7ccbdff449d6","sum":6.81,"item":"CLABER Watering Gun ERGO","siteId":"48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315","category":"Equipment.Hand tools.Other","currency":"EUR","quantity":1,"invoiceId":"cmf58hnj200039xtkzg5yi58k","isInvoice":null,"sellerName":"Optimera Latvia, SIA","invoiceDate":"2024-09-25T00:00:00","paymentDate":"2024-10-25T00:00:00","invoiceNumber":"PRG-608458","unitOfMeasure":"pcs","commentsForUser":null,"itemDescription":"A garden watering pistol used for controlling water flow during plant irrigation. Typically made of plastic and metal parts, offering ergonomic grip. The cost per unit after discount is 6.81 EUR. Used for watering gardens or construction site landscaping.","pricePerUnitOfMeasure":6.81},{"id":"6a14a196-cec3-49e2-b93c-9ff8ba1607ac","sum":5.81,"item":"Garden valve 1/2'' with quick connector QUICK","siteId":"48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315","category":"Equipment.Hand tools.Plumbing","currency":"EUR","quantity":1,"invoiceId":"cmf58hnj200039xtkzg5yi58k","isInvoice":null,"sellerName":"Optimera Latvia, SIA","invoiceDate":"2024-09-25T00:00:00","paymentDate":"2024-10-25T00:00:00","invoiceNumber":"PRG-608458","unitOfMeasure":"pcs","commentsForUser":null,"itemDescription":"A 1/2 inch garden valve with a quick connection, typically made of metal or durable plastic to control water flow. Used in irrigation systems or construction site plumbing. Unit cost after discount is 5.81 EUR.","pricePerUnitOfMeasure":5.81},{"id":"4d59dbee-d7b3-4cbc-b2c1-365b6c372624","sum":87.1,"item":"GERBAND 586 REINFORCED VAPOR BARRIER ADHESIVE TAPE 6CMX25M","siteId":"48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315","category":"Construction materials.Insulation","currency":"EUR","quantity":5,"invoiceId":"cmf58hnj200039xtkzg5yi58k","isInvoice":null,"sellerName":"Optimera Latvia, SIA","invoiceDate":"2024-09-25T00:00:00","paymentDate":"2024-10-25T00:00:00","invoiceNumber":"PRG-608458","unitOfMeasure":"pcs","commentsForUser":null,"itemDescription":"A 6cm x 25m vapor barrier adhesive tape, reinforced for durability. Used for sealing joints in vapor barrier and insulation layers on construction sites. Each roll is 17.42 EUR. Made from reinforced plastic mesh with an adhesive backing.","pricePerUnitOfMeasure":17.42}]
+                                            
+                                            
+                                            
+                                            `;
 
 
 
@@ -238,7 +275,9 @@ const databaseSchema_04_09_2025 = `
 
 
 
-export const databaseSchema = databaseSchema_04_09_2025
+
+
+export const databaseSchema = databaseSchema_05_09_2025
 
 
 export const allowedFieldKeysPrompt = [
