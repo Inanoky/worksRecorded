@@ -1,7 +1,7 @@
 // app/utils/actions/helpers/isLikelyScannedPdf.ts
 import "server-only";
 import { fetchPdfBuffer } from "./fetchPdfBuffer";
-import { getDocument} from "pdfjs-dist/legacy/build/pdf";
+import { getDocument} from "pdfjs-dist";
 
 export async function isLikelyScannedPdf(url: string): Promise<boolean> {
   const buf = await fetchPdfBuffer(url);
