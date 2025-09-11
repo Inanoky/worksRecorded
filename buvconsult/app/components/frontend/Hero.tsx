@@ -5,7 +5,7 @@ import Image from "next/image";
 import Logo from '@/public/buvconsultLogo.svg'
 import {ThemeToggle} from "@/app/components/dashboard/ThemeToggle";
 import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
-import {Button} from "@/components/ui/button";
+import {Button} from "@/componentsFrontend/ui/button";
 import HeroImage from '@/public/hero.png'
 
 export function Hero(){
@@ -66,7 +66,7 @@ export function Hero(){
                         py-2 rounded-full">Construction Project management solution </span>
 
                         <h1 className="mt-8 text-4x sm:text-6xl md:text-7xl lg:text-8xl
-                        font-medium leading-none">Know your cost <span className="block text-primary">Talk to your project </span>
+                        font-medium leading-none">IT solutions for Construction Industry <span className="block text-primary">Talk to your project </span>
                         </h1>
                         <p className="max-w-xl mx-auto mt-4 text-base font-light lg:text-lg
                         text-muted-foreground tracking-tighter">

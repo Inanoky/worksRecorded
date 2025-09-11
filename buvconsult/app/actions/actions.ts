@@ -10,12 +10,12 @@ import {prisma} from "@/app/utils/db";
 
 import {requireUser} from "@/app/utils/requireUser";
 import {stripe} from "@/app/utils/stripe";
-import gptResponse from "@/components/AI/SQL/ExtractorGptForInvoices";
-import gptInvoiceSchema from "@/components/AI/SQL/ExtractorGptForInvoices"
+import gptResponse from "@/componentsFrontend/AI/SQL/ExtractorGptForInvoices";
+import gptInvoiceSchema from "@/componentsFrontend/AI/SQL/ExtractorGptForInvoices"
 import OpenAI from "openai";
 import { chunk } from "lodash";
-import gptDocumentsResponse from "@/components/AI/RAG/ExtractorGptForDocuments";
-import {LoadEmbeddings} from "@/components/AI/RAG/loadEmbeddings";
+import gptDocumentsResponse from "@/componentsFrontend/AI/RAG/ExtractorGptForDocuments";
+import {LoadEmbeddings} from "@/componentsFrontend/AI/RAG/loadEmbeddings";
 import { Pinecone } from '@pinecone-database/pinecone'
 import { isLikelyScannedPdf } from "../utils/actions/helpers/isLikelyScannedPdf";
 

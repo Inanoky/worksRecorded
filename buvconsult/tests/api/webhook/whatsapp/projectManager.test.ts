@@ -37,7 +37,7 @@ import { getString } from "@/app/utils/Whatsapp/shared/helpers";
 import { handleProjectSelector } from "@/app/utils/Whatsapp/shared/projectSelector";
 import { handleAudio } from "@/app/utils/Whatsapp/shared/handleAudio";
 import { handleText } from "@/app/utils/Whatsapp/shared/handleText";
-import talkToProjectDiaryAgent from "@/components/AI/ProjectDiary/agent";
+import talkToProjectDiaryAgent from "@/componentsFrontend/AI/ProjectDiary/agent";
 
 describe("handleProjectManagerRoute", () => {
   const mockUser = { id: "u1", firstName: "Slava" };

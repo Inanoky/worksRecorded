@@ -1,9 +1,9 @@
-import {Chat} from "@/components/AI/ChatWithPdf/chat";
-import AiWidgetRag from "@/components/AI/RAG/AiWidgetRag";
-import {DocumentsDataTable} from "@/components/DocumentDataTable";
+import {Chat} from "@/componentsFrontend/AI/ChatWithPdf/chat";
+import AiWidgetRag from "@/componentsFrontend/AI/RAG/AiWidgetRag";
+import {DocumentsDataTable} from "@/componentsFrontend/DocumentDataTable";
 import {GetDocumentsFromDB, GetInvoicesFromDB, getProjectNameBySiteId} from "@/app/actions/actions";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
-import {InvoicesDataTable} from "@/components/InvoicesDataTable";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
+import {InvoicesDataTable} from "@/componentsFrontend/InvoicesDataTable";
 
 export default async function Documents({params}:
 

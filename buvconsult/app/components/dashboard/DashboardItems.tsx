@@ -5,7 +5,7 @@ import { navLinks } from "./navLinks";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { useProject } from "@/components/provider/ProjectProvider";
+import { useProject } from "@/componentsFrontend/provider/ProjectProvider";
 import {Wrench, Layers, NotebookPen, HardHat,ChartBarBig, Clock8, ReceiptText, ChartBar, DollarSign, Globe, Home, ChartLine} from "lucide-react";
 
 export const projectNavLinks = [

@@ -1,7 +1,7 @@
 // 06:23
 
 import {FileIcon, PlusCircle} from "lucide-react";
-import {Button} from "@/components/ui/button";
+import {Button} from "@/componentsFrontend/ui/button";
 import Link from "next/link";
 import React from "react";
 

@@ -2,9 +2,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useProject } from "@/components/provider/ProjectProvider";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { useProject } from "@/componentsFrontend/provider/ProjectProvider";
+import { Button } from "@/componentsFrontend/ui/button";
+import { Badge } from "@/componentsFrontend/ui/badge";
 import {
   Home, Globe, DollarSign, ChartBar, Settings
 } from "lucide-react";

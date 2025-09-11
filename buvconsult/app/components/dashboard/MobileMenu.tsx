@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useProject } from "@/components/provider/ProjectProvider";
+import { Button } from "@/componentsFrontend/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/componentsFrontend/ui/dropdown-menu";
+import { useProject } from "@/componentsFrontend/provider/ProjectProvider";
 import { navLinks } from "./navLinks";
 import { projectNavLinks } from "./DashboardItems";
 import Link from "next/link";

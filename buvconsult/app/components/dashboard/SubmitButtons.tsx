@@ -4,7 +4,7 @@
 //All this created around 04:35
 
 import {useFormStatus} from "react-dom";
-import {Button} from "@/components/ui/button";
+import {Button} from "@/componentsFrontend/ui/button";
 import {cn} from "@/lib/utils";
 import {Loader2} from "lucide-react";
 import React from "react";

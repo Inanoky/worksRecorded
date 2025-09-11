@@ -1,6 +1,6 @@
-import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
+import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
 import {Check} from "lucide-react";
-import {Button} from "@/components/ui/button";
+import {Button} from "@/componentsFrontend/ui/button";
 import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
 import Link from "next/link";
 import {CreateSubscription} from "@/app/actions/actions";

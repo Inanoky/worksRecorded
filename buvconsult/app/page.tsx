@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Button } from "@/components/ui/button"
+import { Button } from "@/componentsFrontend/ui/button"
 import {
     RegisterLink,
     LoginLink,

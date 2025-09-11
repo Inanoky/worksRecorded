@@ -3,8 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import {ThemeProvider} from "@/app/components/dashboard/ThemeProvider";
-import {Toaster} from "@/components/ui/sonner"
-import AIChatGeneral from "@/components/AI/SQL/AIwidget";
+import {Toaster} from "@/componentsFrontend/ui/sonner"
+import AIChatGeneral from "@/componentsFrontend/AI/SQL/AIwidget";
 
 const inter = Inter({ subsets: ["latin"] });
 //nothing delete

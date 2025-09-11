@@ -35,7 +35,7 @@ jest.mock("@/components/AI/SiteDiary/agent", () => ({
 
 import { prisma } from "@/app/utils/db";
 import { requireUser } from "@/app/utils/requireUser";
-import { parseExcelToTree } from "@/components/AI/SiteDiary/agent";
+import { parseExcelToTree } from "@/componentsFrontend/AI/SiteDiary/agent";
 
 describe("saveSiteDiaryRecords", () => {
   beforeEach(() => jest.clearAllMocks());

@@ -2,7 +2,7 @@
 
 import {prisma} from "@/app/utils/db";
 import {notFound} from "next/navigation";
-import {Button} from "@/components/ui/button";
+import {Button} from "@/componentsFrontend/ui/button";
 import {ArrowLeft} from "lucide-react";
 import Link from "next/link";
 import {EditArticleForm} from "@/app/components/dashboard/forms/EditArticleForm";

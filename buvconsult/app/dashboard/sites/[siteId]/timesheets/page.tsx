@@ -1,7 +1,7 @@
-import { AddWorkerForm } from "@/components/ClockInOut/AddWorkerFrom";
-import { TemplateTable } from "@/components/templates/frontendTable";
+import { AddWorkerForm } from "@/componentsFrontend/ClockInOut/AddWorkerFrom";
+import { TemplateTable } from "@/componentsFrontend/templates/frontendTable";
 import { getTimelogsBySiteId, getWorkersBySiteId } from "@/app/actions/clockinActions";
-import { WorkerTableCard } from "@/components/AI/ClockInOut/WorkerTableCard";
+import { WorkerTableCard } from "@/componentsFrontend/AI/ClockInOut/WorkerTableCard";
 
 export default async function AddWorkerPage({params}) {
   const {siteId} = await params

@@ -10,7 +10,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
+} from "@/componentsFrontend/ui/card"
 import {
   ChartConfig,
   ChartContainer,
@@ -18,8 +18,8 @@ import {
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/chart"
-import {useProject} from "@/components/provider/ProjectProvider";
+} from "@/componentsFrontend/ui/chart"
+import {useProject} from "@/componentsFrontend/provider/ProjectProvider";
 
 
 

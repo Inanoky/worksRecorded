@@ -5,13 +5,13 @@
 import {prisma} from "@/app/utils/db";
 import {requireUser} from "@/app/utils/requireUser";
 import {EmptyState} from "@/app/components/dashboard/EmptyState";
-import {Card, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
+import {Card, CardDescription, CardFooter, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
 import Image from "next/image";
 import DefaultImage from "@/public/default.png";
-import {Button} from "@/components/ui/button";
+import {Button} from "@/componentsFrontend/ui/button";
 import Link from "next/link";
 import React from "react";
-import OpenProjectButton from "@/components/provider/ButtonClient";
+import OpenProjectButton from "@/componentsFrontend/provider/ButtonClient";
 import {FileIcon, PlusCircle} from "lucide-react";
 
 async function getData(userId: string) {

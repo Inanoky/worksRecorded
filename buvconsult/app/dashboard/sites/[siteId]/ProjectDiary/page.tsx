@@ -1,10 +1,10 @@
 import {GetRecordsFromDB} from "@/app/actions/ProjectDiaryActions"
-import AiWidgetRag from "@/components/AI/RAG/AiWidgetRag";
-import {DocumentsDataTable} from "@/components/DocumentDataTable";
+import AiWidgetRag from "@/componentsFrontend/AI/RAG/AiWidgetRag";
+import {DocumentsDataTable} from "@/componentsFrontend/DocumentDataTable";
 import {GetDocumentsFromDB, GetInvoicesFromDB, getProjectNameBySiteId} from "@/app/actions/actions";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
-import {TemplateTable} from "@/components/templates/frontendTable";
-import {GenericTemplateTable} from "@/components/templates/tableWithGenericActions";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
+import {TemplateTable} from "@/componentsFrontend/templates/frontendTable";
+import {GenericTemplateTable} from "@/componentsFrontend/templates/tableWithGenericActions";
 
 export default async function ProjectDiary ({params}:
 
