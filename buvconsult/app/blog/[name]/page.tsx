@@ -6,9 +6,9 @@ import {notFound} from "next/navigation";
 import Image from "next/image";
 import Logo from "@/public/buvconsultLogo.svg"
 import {ThemeToggle} from "@/app/components/dashboard/ThemeToggle";
-import {Card, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
+import {Card, CardDescription, CardFooter, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
 import DefaultImage from "@/public/default.png";
-import {Button} from "@/components/ui/button";
+import {Button} from "@/componentsFrontend/ui/button";
 import Link from "next/link";
 import React from "react";
 

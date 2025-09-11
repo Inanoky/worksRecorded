@@ -35,7 +35,7 @@ jest.mock("openai", () => {
 });
 
 import { prisma } from "@/app/utils/db";
-import talkToClockInAgent from "@/components/AI/ClockInOut/agent";
+import talkToClockInAgent from "@/componentsFrontend/AI/ClockInOut/agent";
 import OpenAI from "openai";
 import twilio from "twilio";
 

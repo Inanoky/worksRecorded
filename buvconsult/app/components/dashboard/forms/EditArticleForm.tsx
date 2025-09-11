@@ -3,12 +3,12 @@
 
 
 
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
-import {Label} from "@/components/ui/label";
-import {Input} from "@/components/ui/input";
-import {Button} from "@/components/ui/button";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
+import {Label} from "@/componentsFrontend/ui/label";
+import {Input} from "@/componentsFrontend/ui/input";
+import {Button} from "@/componentsFrontend/ui/button";
 import {Atom} from "lucide-react";
-import {Textarea} from "@/components/ui/textarea";
+import {Textarea} from "@/componentsFrontend/ui/textarea";
 import Image from "next/image";
 import {UploadDropzone} from "@/app/utils/UploadthingsComponents";
 import {toast} from "sonner";

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/app/utils/db";
 // import OpenAI from "openai";
 import {openai} from "@ai-sdk/openai"
-import graphQuery from "@/components/AI/SQL/aiDBsearcher";
+import graphQuery from "@/componentsFrontend/AI/SQL/aiDBsearcher";
 import { tool } from "@langchain/core/tools";
 
 // const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

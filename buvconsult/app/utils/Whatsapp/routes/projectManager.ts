@@ -7,7 +7,7 @@ import { getString } from "@/app/utils/Whatsapp/shared/helpers";
 import { handleProjectSelector } from "@/app/utils/Whatsapp/shared/projectSelector";
 import { handleAudio } from "@/app/utils/Whatsapp/shared/handleAudio";
 import { handleText } from "@/app/utils/Whatsapp/shared/handleText";
-import talkToProjectDiaryAgent from "@/components/AI/ProjectDiary/agent";
+import talkToProjectDiaryAgent from "@/componentsFrontend/AI/ProjectDiary/agent";
 import { AgentFn } from "@/app/utils/Whatsapp/shared/types";
 import { getUserFirstNameById } from "@/app/actions/whatsappActions";
 

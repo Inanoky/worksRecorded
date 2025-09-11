@@ -2,7 +2,7 @@
 
 
 
-import SiteDiaryCalendar from "@/components/SiteDiaryComponents/Calendar";
+import SiteDiaryCalendar from "@/componentsFrontend/SiteDiaryComponents/Calendar";
 import {use} from "react";
 
 export default function Home({params}:

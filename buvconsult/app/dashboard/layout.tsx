@@ -5,10 +5,10 @@ import Logo from "@/public/buvconsultLogo.svg"
 import {DashboardItems} from "@/app/components/dashboard/DashboardItems";
 import {HardHat,ChartBar, CircleUser, DollarSign, Globe, Home} from "lucide-react"
 import {ThemeToggle} from "@/app/components/dashboard/ThemeToggle";
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
-import {Button} from "@/components/ui/button";
+import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/componentsFrontend/ui/dropdown-menu";
+import {Button} from "@/componentsFrontend/ui/button";
 import {LogoutLink} from '@kinde-oss/kinde-auth-nextjs/components'
-import {ProjectProvider} from "@/components/provider/ProjectProvider";
+import {ProjectProvider} from "@/componentsFrontend/provider/ProjectProvider";
 import { MobileMenu } from "../components/dashboard/MobileMenu";
 import { requireUser } from "../utils/requireUser";
 

@@ -5,7 +5,7 @@ import { handleProjectSelector } from "@/app/utils/Whatsapp/shared/projectSelect
 import { handleImage } from "@/app/utils/Whatsapp/shared/handleImage";
 import { handleAudio } from "@/app/utils/Whatsapp/shared/handleAudio";
 import { handleText } from "@/app/utils/Whatsapp/shared/handleText";
-import talkToWhatsappAgent from "@/components/AI/Whatsapp/agent";
+import talkToWhatsappAgent from "@/componentsFrontend/AI/Whatsapp/agent";
 import { AgentFn } from "@/app/utils/Whatsapp/shared/types";
 import { prisma } from "@/app/utils/db"; // ⬅️ need prisma
 import { getUserFirstNameById } from "@/app/actions/whatsappActions";

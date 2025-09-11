@@ -1,8 +1,8 @@
-import InvoiceUpload from "@/components/InvoiceUpload";
+import InvoiceUpload from "@/componentsFrontend/InvoiceUpload";
 // export const revalidate = 0
 
 import { ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/componentsFrontend/ui/button";
 import Link from "next/link";
 import {
   Card,
@@ -10,16 +10,16 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/componentsFrontend/ui/card";
 import { SubmitButton } from "@/app/components/dashboard/SubmitButtons";
 import { UploadImageForm } from "@/app/components/dashboard/forms/UploadImageForm";
 import { updateSiteAction } from "@/app/actions/actions";
 import { prisma } from "@/app/utils/db";
-import DocumentUpload from "@/components/DocumentsUpload";
-import XslxUpload from "@/components/XlsxUpload";
-import { SchemaCard } from "@/components/Settings/SchemaCard";
-import { TemplateCard } from "@/components/Settings/Templates";
-import { ConfirmDeleteSite } from "@/components/Settings/ConfirmDeleteSite";
+import DocumentUpload from "@/componentsFrontend/DocumentsUpload";
+import XslxUpload from "@/componentsFrontend/XlsxUpload";
+import { SchemaCard } from "@/componentsFrontend/Settings/SchemaCard";
+import { TemplateCard } from "@/componentsFrontend/Settings/Templates";
+import { ConfirmDeleteSite } from "@/componentsFrontend/Settings/ConfirmDeleteSite";
 
 export default async function SettingsSiteRoute({
   params,

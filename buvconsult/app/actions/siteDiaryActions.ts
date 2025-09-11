@@ -4,7 +4,7 @@
 import { prisma} from "@/app/utils/db";
 import { revalidatePath } from "next/cache";
 import {requireUser} from "@/app/utils/requireUser";
-import {parseExcelToTree} from "@/components/AI/SiteDiary/agent"; // Optional: if you want to refresh data on page
+import {parseExcelToTree} from "@/componentsFrontend/AI/SiteDiary/agent"; // Optional: if you want to refresh data on page
 import { validateExcel } from "../utils/SiteDiary/Settings/validateSchema";
 
 type SiteDiaryRow = {

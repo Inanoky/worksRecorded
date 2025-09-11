@@ -1,7 +1,7 @@
 
 //05:38
-import {Card, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
-import {Button} from "@/components/ui/button";
+import {Card, CardDescription, CardFooter, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
+import {Button} from "@/componentsFrontend/ui/button";
 import Link from "next/link";
 import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
 import {DeletePost} from "@/app/actions/actions";

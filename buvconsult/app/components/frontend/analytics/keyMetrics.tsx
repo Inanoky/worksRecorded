@@ -2,7 +2,7 @@
 
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
 
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "@/componentsFrontend/ui/badge"
 import {
   Card,
   CardAction,
@@ -10,8 +10,8 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import {useProject} from "@/components/provider/ProjectProvider";
+} from "@/componentsFrontend/ui/card"
+import {useProject} from "@/componentsFrontend/provider/ProjectProvider";
 
 export function KeyMetrics() {
   const { projectName } = useProject();

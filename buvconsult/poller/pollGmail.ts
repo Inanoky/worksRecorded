@@ -2,8 +2,8 @@
 "use server";
 
 import { prisma } from "@/app/utils/db";
-import siteIdCheck from "@/components/AI/GmailWorkflow/siteIdCheck";
-import gmailInvoiceAuditNarrative from "@/components/AI/GmailWorkflow/agent";
+import siteIdCheck from "@/componentsFrontend/AI/GmailWorkflow/siteIdCheck";
+import gmailInvoiceAuditNarrative from "@/componentsFrontend/AI/GmailWorkflow/agent";
 import { UTApi } from "uploadthing/server";
 import { saveInvoiceToFromGmailDB } from "@/app/actions/actions";
 

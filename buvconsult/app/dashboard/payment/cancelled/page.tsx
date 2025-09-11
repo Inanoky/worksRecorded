@@ -1,6 +1,6 @@
-import {Card} from "@/components/ui/card";
+import {Card} from "@/componentsFrontend/ui/card";
 import {XIcon} from "lucide-react";
-import {Button} from "@/components/ui/button";
+import {Button} from "@/componentsFrontend/ui/button";
 import Link from "next/link";
 
 export default function CancelledRoute(){
