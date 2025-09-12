@@ -7,107 +7,77 @@ const MONTHS = [
   "Sep", "Oct", "Nov", "Dec"
 ];
 
-export async function getMonthlySpendings(siteId) {
-  // Raw SQL for performance & grouping by month
-  // This works for PostgreSQL; adjust if using MySQL/SQLite
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
- const data = await prisma.$queryRaw<any[]>`
+
+/** Month totals (all categories combined) */
+export async function getMonthlySpendings(siteId: string) {
+  const rows = await prisma.$queryRaw<any[]>`
     SELECT
-      EXTRACT(YEAR FROM TO_DATE("invoiceDate", 'YYYY-MM-DD')) AS year,
-      EXTRACT(MONTH FROM TO_DATE("invoiceDate", 'YYYY-MM-DD')) AS month,
-      SUM(COALESCE("sum",0)) AS spendings
+      DATE_PART('year', "invoiceDate")::int   AS year,
+      DATE_PART('month',"invoiceDate")::int   AS month,
+      SUM(COALESCE("sum",0))                  AS spendings
     FROM "InvoiceItems"
     WHERE "invoiceDate" IS NOT NULL
       AND "siteId" = ${siteId}
-    GROUP BY year, month
-    ORDER BY year, month;
+    GROUP BY 1,2
+    ORDER BY 1,2;
   `;
 
-
-
-  // Format result as required
-   const chartData = data.map(d => ({
-    month: `${MONTHS[d.month - 1]} ${String(d.year).slice(-2)}`,
-    spendings: Number(d.spendings).toFixed(0)
-}));
-
-
-
-  return chartData;
+  return rows.map(r => ({
+    month: `${MONTHS_SHORT[r.month - 1]} ${String(r.year).slice(-2)}`,
+    spendings: Number(r.spendings), // keep as number for charts
+  }));
 }
 
-
-
-
-export async function getCategoryMonthlySpendings(siteId) {
-  const data = await prisma.$queryRaw<any[]>`
+/** Month totals split by top-level category */
+export async function getCategoryMonthlySpendings(siteId: string) {
+  const rows = await prisma.$queryRaw<any[]>`
     SELECT
-      EXTRACT(YEAR FROM TO_DATE("invoiceDate", 'YYYY-MM-DD')) AS year,
-      EXTRACT(MONTH FROM TO_DATE("invoiceDate", 'YYYY-MM-DD')) AS month,
-      split_part("category", '.', 1) as parent_category,
+      DATE_PART('year', "invoiceDate")::int AS year,
+      DATE_PART('month',"invoiceDate")::int AS month,
+      COALESCE(NULLIF(TRIM(split_part("category", '.', 1)), ''), 'Other') AS parent_category,
       SUM(COALESCE("sum",0)) AS spendings
     FROM "InvoiceItems"
     WHERE "invoiceDate" IS NOT NULL
       AND "siteId" = ${siteId}
-    GROUP BY year, month, parent_category
-    ORDER BY year, month, parent_category;
+    GROUP BY 1,2,3
+    ORDER BY 1,2,3;
   `;
 
-  console.log(`this is MonthlyCategoryCahrt before Processing ${JSON.stringify(data)}`)
+  // Build sorted list of month labels present
+  const monthLabels = Array.from(new Set(
+    rows.map(r => `${MONTHS_SHORT[r.month - 1]} ${String(r.year).slice(-2)}`)
+  )).sort((a, b) => {
+    const [am, ay] = a.split(' '); const [bm, by] = b.split(' ');
+    const ayFull = Number(`20${ay}`); const byFull = Number(`20${by}`);
+    return ayFull - byFull || MONTHS_SHORT.indexOf(am) - MONTHS_SHORT.indexOf(bm);
+  });
 
- const MONTHS_SHORT = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-];
+  // Unique categories
+  const categories = Array.from(new Set(rows.map(r => r.parent_category)));
 
-// Build sorted array of all months (labels) present in the data
-const uniqueMonths = Array.from(new Set(
-  data.map(d =>
-    `${MONTHS_SHORT[parseInt(d.month, 10) - 1]} ${String(d.year).slice(-2)}`
-  )
-)).sort((a, b) => {
-  // Sort by year, then month
-  const [aMon, aYr] = a.split(' ');
-  const [bMon, bYr] = b.split(' ');
-  return (
-    Number(`20${aYr}`) - Number(`20${bYr}`) ||
-    MONTHS_SHORT.indexOf(aMon) - MONTHS_SHORT.indexOf(bMon)
-  );
-});
-
-// Build array of all categories (handle "" as "Other")
-const uniqueCategories = Array.from(new Set(
-  data.map(d => d.parent_category && d.parent_category.trim() ? d.parent_category : "Other")
-));
-
-// Build final chartData for recharts
-const chartData = uniqueMonths.map(monthLabel => {
-  // Get numbers for year and month
-  const [mon, yr] = monthLabel.split(' ');
-  const monthNum = MONTHS_SHORT.indexOf(mon) + 1;
-  const yearNum = `20${yr}`;
-  // New row with dynamic keys
-  const row = { month: monthLabel };
-  for (const category of uniqueCategories) {
-    // Use "Other" for empty/blank
-    const catKey = category && category.trim() ? category : "Other";
-    // Find spendings for this month/category
-    const found = data.find(
-      d =>
-        ((d.parent_category && d.parent_category.trim()) ? d.parent_category : "Other") === catKey &&
-        String(d.month) === String(monthNum) &&
-        String(d.year).slice(-2) === yr
-    );
-    row[catKey] = found ? Number(found.spendings) : 0;
+  // Index for quick lookup
+  const key = (y: number, m: number, c: string) => `${y}-${m}-${c}`;
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    map.set(key(r.year, r.month, r.parent_category), Number(r.spendings));
   }
-  return row;
-});
 
-  console.log(`this is MonthlyCategoryCahrt data ${JSON.stringify(chartData)}`)
+  // Assemble chart data
+  const chartData = monthLabels.map(label => {
+    const [monTxt, yr2] = label.split(' ');
+    const monthNum = MONTHS_SHORT.indexOf(monTxt) + 1;
+    const yearNum = Number(`20${yr2}`);
+    const row: Record<string, number | string> = { month: label };
+    for (const c of categories) {
+      row[c] = map.get(key(yearNum, monthNum, c)) ?? 0;
+    }
+    return row;
+  });
 
   return chartData;
 }
-
 //For the ChartAreaInteractive
 
 export async function getDailyAggregatedCosts(siteId: string) {

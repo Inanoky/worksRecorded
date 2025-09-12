@@ -291,7 +291,7 @@ export async function getTimelogsBySiteId(siteId) {
     date: row.date ? new Date(row.date).toLocaleDateString() : "",
     clockIn: row.clockIn ? new Date(row.clockIn).toLocaleTimeString() : "",
     clockOut: row.clockOut ? new Date(row.clockOut).toLocaleTimeString() : "",
-    wocation: row.wocation ?? "",
+    location: row.wocation ?? "",
     works: row.works ?? "",
     workerName: row.workers?.name ?? "",
     workerSurname: row.workers?.surname ?? "",
