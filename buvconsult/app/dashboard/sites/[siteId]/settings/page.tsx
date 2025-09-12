@@ -135,7 +135,7 @@ export default async function SettingsSiteRoute({
 
       <Card>
         <CardHeader>
-          <CardTitle>xlsx here</CardTitle>
+          <CardTitle>Please, upload programm</CardTitle>
         </CardHeader>
         <XslxUpload params={Promise.resolve({ siteId })} />
       </Card>
