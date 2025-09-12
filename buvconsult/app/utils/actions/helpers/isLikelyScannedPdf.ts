@@ -11,7 +11,7 @@ export async function isLikelyScannedPdf(url: string): Promise<boolean> {
 
   try {
     // ✅ loads real node_modules/pdf-parse (bypasses TS/Jest aliases)
-    const pdfParse = require("pdf-parse") as (data: any) => Promise<{ text?: string }>;
+    const pdfParse = require("pdf-parse/lib/pdf-parse") as (data: any) => Promise<{ text?: string }>;
 
     const parsed = await pdfParse(buf);
     const text = (parsed.text ?? "").replace(/\s+/g, " ").trim();
