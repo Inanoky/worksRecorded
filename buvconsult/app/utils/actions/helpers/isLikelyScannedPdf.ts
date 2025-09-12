@@ -1,34 +1,23 @@
 // app/utils/actions/helpers/isLikelyScannedPdf.ts
 import "server-only";
+import { createRequire } from "module";
 import { fetchPdfBuffer } from "./fetchPdfBuffer";
-import { getDocument} from "pdfjs-dist";
+
+const require = createRequire(import.meta.url); // loads from node_modules
 
 export async function isLikelyScannedPdf(url: string): Promise<boolean> {
   const buf = await fetchPdfBuffer(url);
-  if (!buf) {
-    console.log("[scan-check] no buffer -> treating as scanned");
-    return true;
-  }
+  if (!buf) return true;
 
   try {
-    const loadingTask = getDocument({ data: buf });
-    const pdf = await loadingTask.promise;
+    // ✅ loads real node_modules/pdf-parse (bypasses TS/Jest aliases)
+    const pdfParse = require("pdf-parse") as (data: any) => Promise<{ text?: string }>;
 
-    let text = "";
-    const pagesToSample = Math.min(5, pdf.numPages || 1);
-    for (let i = 1; i <= pagesToSample; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      text += content.items.map((it: any) => it.str || "").join(" ") + " ";
-      if (text.length > 300) break; // enough sample
-    }
-
-    text = text.replace(/\s+/g, " ").trim();
-    console.log("[scan-check] extracted sample length:", text.length);
-    // threshold: treat as scanned (image-only) when very little text
+    const parsed = await pdfParse(buf);
+    const text = (parsed.text ?? "").replace(/\s+/g, " ").trim();
     return text.length < 50;
-  } catch (err) {
-    console.log("[scan-check] pdfjs parse failed:", err && (err as any).stack ? (err as any).stack : err);
+  } catch (e) {
+    console.log("[scan-check] pdf-parse failed:", e);
     return true;
   }
 }
