@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/webhook/gmailPoller",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }
