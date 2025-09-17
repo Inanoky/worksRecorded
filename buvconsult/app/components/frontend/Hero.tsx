@@ -20,7 +20,7 @@ export function Hero(){
 
                 <Link href="/" className="flex items-center gap-2">
 
-                    <Image src={Logo} className="size-10" alt="Logo"/>
+                    <Image src={Logo} width={40} height={40}  className="size-10" alt="Logo"/>
 
                     <h4 className ="text-3xl ">
                         Buv<span className="text-primary">consult</span>

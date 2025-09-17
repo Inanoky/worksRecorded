@@ -1,4 +1,4 @@
-
+//C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\dashboard\page.tsx
 //06:55 - creating dashboard
 // Primse.all - runs quieries in parallael
 
