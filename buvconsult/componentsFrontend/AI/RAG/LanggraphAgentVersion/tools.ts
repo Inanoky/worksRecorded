@@ -4,6 +4,7 @@ import {retriever} from "@/componentsFrontend/AI/RAG/LanggraphAgentVersion/retri
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/componentsFrontend/AI/RAG/LanggraphAgentVersion/state";
 import aiGeneral from "@/componentsFrontend/AI/SQL/aiGeneral";
+import InvoiceAgent from "../../BuvconsultAgent/InvoicesAgent/InvoicesAgent";
 
 export const retrieverTool = new DynamicStructuredTool({
   name: "retriever",
@@ -26,7 +27,7 @@ export const aiGeneralLangTool = new DynamicStructuredTool({
   }),
   async func({ prompt, siteId }) {
 
-      const result = await aiGeneral(prompt, siteId);
+      const result = await InvoiceAgent(prompt, siteId);
     // console.log("[general_sql_agent] Tool returned:", result);
     return result;
 

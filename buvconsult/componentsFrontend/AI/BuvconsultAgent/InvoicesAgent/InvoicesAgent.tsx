@@ -123,11 +123,12 @@ const agentNode = async (state) => {
         }
     }
 
-
+    //return the last AI message
+    return finalState.messages[finalState.messages.length - 1].content;
 
 }
 
-await InvoiceAgent("Can you also give me some insights about companies, what kind of companies are involved in this project, what do they sell","123")
+// await InvoiceAgent("Can you also give me some insights about companies, what kind of companies are involved in this project, what do they sell","123")
 
 
 
