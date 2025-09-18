@@ -22,6 +22,8 @@ import {talkToAgentPrompts} from "@/componentsFrontend/AI/RAG/LanggraphAgentVers
 
 export async function talkToAgent(input,siteId) {
 
+    console.log("Graph invoked")
+
 // Define the graph
     const workflow = new StateGraph(GraphState)
         // Define the nodes which we'll cycle between.

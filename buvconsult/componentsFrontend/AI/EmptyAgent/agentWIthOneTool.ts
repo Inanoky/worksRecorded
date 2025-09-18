@@ -1,19 +1,22 @@
 "use server"
-import {Annotation, StateGraph} from "@langchain/langgraph";
+import {Annotation, StateGraph, START, END} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
-import {toolNode} from "@/componentsFrontend/AI/RAG/LanggraphAgentVersion/tools";
+import {tools, toolNode} from "./defaultTool"
 
 
 
 
 
 
-export default async function talkToAgent(question,siteId){
+export default async function agentWithOneTool(question,siteId){
 
 const systemPrompt = "You are a helpful assistant"
+
+//--------------------------State----------------------------------
+
 
 const state = Annotation.Root({
     messages: Annotation<BaseMessage[]>({
@@ -22,16 +25,17 @@ const state = Annotation.Root({
     });
 
 
-const agent = async (state) => {
+//--------------------------Nodes----------------------------------
+
+const agentNode = async (state) => {
 
     const { messages } = state;
 
     const llm = new ChatOpenAI({
-        temperature: 0.5,
+        temperature: 0.1,
         model: "gpt-4.1",
-
-
-    });
+    }).bindTools(tools);
+    ;
 
 
     const response = await llm.invoke(messages);
@@ -45,13 +49,34 @@ const agent = async (state) => {
 
 
 
-    const workflow = new StateGraph(state)
+  const shouldContinue = (state) => {
+        const { messages } = state;
+        const lastMessage = messages[messages.length - 1];
+        console.log("shouldContinue - lastMessage:", lastMessage);
+
+        if (lastMessage && "tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls.length) {
+            console.log("shouldContinue: Detected tool_calls, going to 'tools'");
+            return "tools";
+        }
+        console.log("shouldContinue: No tool_calls, going to END");
+        return END;
+    };
 
 
+//---------------------------Graph routing----------------------------------
 
-        .addNode("generalQuestion", agent)
-        .addEdge("__start__", "generalQuestion")
-        .addEdge("generalQuestion","__end__")
+
+ 
+
+
+     const workflow = new StateGraph(state)
+            .addNode("agentNode", agentNode)
+            .addNode("tools", toolNode)
+            .addEdge(START, "agentNode")
+            .addConditionalEdges("agentNode", shouldContinue, ["tools", END])
+            .addEdge("tools", END)
+            .addEdge("tools", "agentNode") // <--- loop back to agent!
+    
 
 
 
@@ -91,5 +116,7 @@ const agent = async (state) => {
 
 }
 
-await talkToAgent("What is my name?","123")
+await agentWithOneTool("My name is Slava","123")
 
+
+await agentWithOneTool("What is my name?","123")
