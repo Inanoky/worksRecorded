@@ -6,6 +6,7 @@ import {GraphState} from "@/componentsFrontend/AI/RAG/LanggraphAgentVersion/stat
 import aiGeneral from "@/componentsFrontend/AI/SQL/aiGeneral";
 import InvoiceAgent from "../../BuvconsultAgent/InvoicesAgent/InvoicesAgent";
 import SiteDiaryAgent from "../../BuvconsultAgent/SiteDiaryAgent/SiteDiaryAgent";
+import TimesheetsAgent from "../../BuvconsultAgent/TimeSheetsAgent/TimeSheetsAgent";
 
 export const constructionDocumentationTool = new DynamicStructuredTool({
   name: "constructionDocumentationTool",
@@ -53,7 +54,28 @@ export const siteDiaryRecordsTool = new DynamicStructuredTool({
   },
 });
 
-export const tools = [constructionDocumentationTool,invoiceAgentTool,siteDiaryRecordsTool]
+
+export const timeSheetsAgent = new DynamicStructuredTool({
+  name: "timeSheetsTool",
+  description: "This tool has access to all workers timesheets",
+  schema: z.object({
+    prompt: z.string(),
+    siteId: z.string(),
+  }),
+  async func({ prompt, siteId }) {
+
+      const result = await TimesheetsAgent(prompt, siteId);
+    // console.log("[general_sql_agent] Tool returned:", result);
+    return result;
+
+  },
+});
+
+
+
+
+
+export const tools = [constructionDocumentationTool,invoiceAgentTool,siteDiaryRecordsTool,timeSheetsAgent]
 
 export const toolNode = new ToolNode<typeof GraphState.State>(tools)
 
