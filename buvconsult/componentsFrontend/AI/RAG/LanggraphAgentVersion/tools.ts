@@ -5,10 +5,11 @@ import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/componentsFrontend/AI/RAG/LanggraphAgentVersion/state";
 import aiGeneral from "@/componentsFrontend/AI/SQL/aiGeneral";
 import InvoiceAgent from "../../BuvconsultAgent/InvoicesAgent/InvoicesAgent";
+import SiteDiaryAgent from "../../BuvconsultAgent/SiteDiaryAgent/SiteDiaryAgent";
 
-export const retrieverTool = new DynamicStructuredTool({
-  name: "retriever",
-  description: "Retrieve and rerank relevant docs for a given question and site.",
+export const constructionDocumentationTool = new DynamicStructuredTool({
+  name: "constructionDocumentationTool",
+  description: "This tool has access to all project legal and technical documentation",
   schema: z.object({
     prompt: z.string(),
     siteId: z.string(),
@@ -18,9 +19,9 @@ export const retrieverTool = new DynamicStructuredTool({
   },
 });
 
-export const aiGeneralLangTool = new DynamicStructuredTool({
-  name: "general_sql_agent",
-  description: "Run a general SQL agent for the site invoices, answering database-related natural language questions and persisting chat history.",
+export const invoiceAgentTool = new DynamicStructuredTool({
+  name: "invoiceAgentTool",
+  description: "This tool has acess to all invoices in the project",
   schema: z.object({
     prompt: z.string(),
     siteId: z.string(),
@@ -34,7 +35,25 @@ export const aiGeneralLangTool = new DynamicStructuredTool({
   },
 });
 
-export const tools = [retrieverTool,aiGeneralLangTool]
+
+
+export const siteDiaryRecordsTool = new DynamicStructuredTool({
+  name: "siteDiaryRecordsTool",
+  description: "This tool has access to all site diary records and site everyday activities.",
+  schema: z.object({
+    prompt: z.string(),
+    siteId: z.string(),
+  }),
+  async func({ prompt, siteId }) {
+
+      const result = await SiteDiaryAgent(prompt, siteId);
+    // console.log("[general_sql_agent] Tool returned:", result);
+    return result;
+
+  },
+});
+
+export const tools = [constructionDocumentationTool,invoiceAgentTool,siteDiaryRecordsTool]
 
 export const toolNode = new ToolNode<typeof GraphState.State>(tools)
 

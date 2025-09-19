@@ -10,5 +10,12 @@ const talkToAgentPrompt_29_07_2025_v2 = 'You are part of the agentic workflow to
     'retriever has access to all contract, technical specificaitons and other project documentation int he project. '
 
 
+const talkToAgentPrompt_19_09_2025 = 'You are part of the agentic workflow to retrieve and analyze information from' +
+    'construction data database. ' +
+    'Your job is to analyze users query and call correct tools.' 
+   
 
-export const talkToAgentPrompts = talkToAgentPrompt_29_07_2025_v2
+
+
+
+export const talkToAgentPrompts = talkToAgentPrompt_19_09_2025 

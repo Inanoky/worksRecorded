@@ -1,165 +1,44 @@
-import { getUserFirstNameById } from "@/app/actions/whatsappActions"
+//C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\componentsFrontend\AI\BuvconsultAgent\InvoicesAgent\Prompts.ts
+
+
+const table_definition = `
+  create table public.sitediaryrecords (
+  id text not null,
+  "userId" text null,
+  "siteId" text null,
+  "Date" timestamp without time zone null,
+  "Location" text null,
+  "Works" text null,
+  "Comments" text null,
+  "Units" text null,
+  "Amounts" double precision null,
+  "WorkersInvolved" integer null,
+  "TimeInvolved" double precision null,
+  "Photos" text[] null,
+  constraint sitediaryrecords_pkey primary key (id),
+  constraint sitediaryrecords_siteId_fkey foreign KEY ("siteId") references "Site" (id) on update CASCADE on delete CASCADE,
+  constraint sitediaryrecords_userId_fkey foreign KEY ("userId") references "User" (id) on update CASCADE on delete set null
+) TABLESPACE pg_default;`
 
 
 
 
-
-const systemPrompt_05_08_2025 = "You will have a conversation with the user. Your job is to extract necessary information" +
-    "from the user. You need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "Keep asking following up questions until you get the answer" +
-    "WHen you have all information - politely thank the user.  "
+export function systemPrompt(siteId: string) {
 
 
-const systemPrompt_05_08_2025_V2 = "You will have a conversation with the user. Your job is to extract necessary information" +
-    "from the user. You need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "Keep asking following up questions until you get the answer" +
-    "WHen you have all information - politely thank the user, summarize all information gathered and call the save_to_database tool " +
-    "siteId : 48f39d7c-9d7f-4c6e-bb12-b20a8d7e7315"
+const systemPrompt_dd_mm_yyyy = `Answer user queries using the postreSQL_site_diary_records_database_query_tool. When needed,
+ construct a valid SQL query based on the table definition below to retrieve information from the database.
+ Summarize information and present to the user\n
+ '''\n
+ ${table_definition} \n
+ '''\n
+ siteId: ${siteId}\n
+ `
 
-const systemPrompt_08_08_2025_V1 = "You will have a conversation with the user. Your job is to extract necessary information" +
-    "from the user. You need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "Keep asking following up questions until you get the answer" +
-    "WHen you have all information - politely thank the user, summarize all information gathered and call the save_to_database tool "
-
-    const systemPrompt_02_09_2025 = "You will have a conversation with the user. Your job is to extract necessary information" +
-    "from the user. You need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "First of all check if user message already has necessary information. If there is -  politely thank the user, summarize all information gathered and call the save_to_database tool" +
-    "If some information is clearly missing - ask for clarificaiton, but do not ask questions if not necessary"
-
-    
+   
+  
 
 
+ return systemPrompt_dd_mm_yyyy
+} 
 
-
-
-export const systemPrompt = systemPrompt_05_08_2025_V2
-
-export async  function systemPromptFunction(siteId, userId){
-
-  const userName = await getUserFirstNameById(userId);
-
-
-      function getTodayDDMMYYYY() {
-              const d = new Date();
-              const day = String(d.getDate()).padStart(2, '0');
-              const month = String(d.getMonth() + 1).padStart(2, '0');
-              const year = d.getFullYear();
-              return `${day}-${month}-${year}`;
-            }
-
-    const today = getTodayDDMMYYYY()
-
-
-
-      const prompt_old = "You will have a conversation with the user. Your job is to extract necessary information" +
-    "from the user. You need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "Keep asking following up questions until you get the answer" +
-    "WHen you have all information - politely thank the user, summarize all information gathered and call the save_to_database to " +
-    `siteId : ${siteId}
-    userId : ${userId}    
-    Date ${today} (format dd-mm-yyyy)`
-
-
-
-  const prompt_02_09_2025 = "You will have a conversation with the user. Your job is to extract necessary information" +
-    "from the user. You need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "First of all check if user message already has necessary information. If there is -  politely thank the user, summarize all information gathered and call the save_to_database tool" +
-    "If some information is clearly missing - ask for clarificaiton, but do not ask questions if not necessary" +
-    `siteId : ${siteId}
-    userId : ${userId}    
-    Date ${today} (format dd-mm-yyyy)`
-
-
-      const prompt_02_09_2025_v2 = "You will have a conversation with the user. Your job is to extract necessary information" +
-    "from the user. You need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "First of all check if user message already has necessary information. If there is -  politely thank the user, summarize all information gathered and call the save_to_database tool" +
-    "If some information is clearly missing (where work done, how many workers, how mony hours) - ask for clarificaiton, do not assume, but do not ask questions if not necessary" +
-    `siteId : ${siteId}
-    userId : ${userId}    
-    Date ${today} (format dd-mm-yyyy)`
-
-
-    const prompt_02_09_2025_v3 = "You will have a conversation with the user about construction activities on site. Your job is to extract necessary information" +
-    "from the user. You need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "First of all check if user message already has necessary information. If there is -  politely thank the user, summarize all information gathered and call the save_to_database tool" +
-    "If some information is clearly missing (where work done, how many workers, how mony hours) - ask for clarificaiton, do not assume, but do not ask questions if not necessary" +
-    `siteId : ${siteId}
-    userId : ${userId}    
-    Date ${today} (format dd-mm-yyyy)`
-
-    const prompt_02_09_2025_v4 = `You will have a conversation with the user called ${userName} (Call user by his name) about construction. ` +
-    ` activities on site. Your job is to extract necessary information. ` +
-    "from the user. You need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "First of all check if user message already has necessary information. If there is -  politely thank the user, summarize all information gathered and call the save_to_database tool" +
-    "If some information is clearly missing (where work done, how many workers, how mony hours) - ask for clarificaiton, do not assume, but do not ask questions if not necessary" +
-    `siteId : ${siteId}
-    userId : ${userId}    
-    Date ${today} (format dd-mm-yyyy)`
-
-    const prompt = prompt_02_09_2025_v4
-
-
-  console.log(today)
-
-
-
-   return prompt
-}
-
-
-
- const systemPromptSaveToDatabase_05_08_2025 = "You will receive a log of construction activites on site. Map it according to the zod schema you are given"
-
-  const systemPromptSaveToDatabase_10_08_2025 = "You will receive a log of construction activites on site. Map it according to the zod schema you are given \n"  +
-  " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)."
-
-    const systemPromptSaveToDatabase_20_08_2025 = "You will receive a log of construction activites on site. Analyze and map Location and Works" +
-  "     according to the zod schema you are given \n" +
-    "Any additional works mark as additional works. " +
-  " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)."
-
-
-      const systemPromptSaveToDatabase_02_09_2025 = "You will receive a log of construction activites on site. Analyze and map Location and Works" +
-  "     according to the zod schema you are given \n" +
-    "Any additional works mark as additional works. " +
-  " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)." +
-  "For comments describe what was completed, where and with what labor"
-
-
-export const systemPromptSaveToDatabase = systemPromptSaveToDatabase_02_09_2025
