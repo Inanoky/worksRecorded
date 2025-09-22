@@ -3,7 +3,7 @@ import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/componentsFrontend/AI/RAG/LanggraphAgentVersion/state";
-import { nukeBackslashes, SQLexecute } from "./Functions";
+import { nukeBackslashes, SQLexecute } from "@/componentsFrontend/AI/BuvconsultAgent/TimeSheetsAgent/Functions";
 
 
 

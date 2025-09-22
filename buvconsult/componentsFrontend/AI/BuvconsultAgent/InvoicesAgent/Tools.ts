@@ -5,7 +5,7 @@ import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/componentsFrontend/AI/RAG/LanggraphAgentVersion/state";
 import {AIMessage, HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; 
 import { prisma } from "@/app/utils/db";
-import { nukeBackslashes, SQLexecute } from "./Functions";
+import { nukeBackslashes, SQLexecute } from "@/componentsFrontend/AI/BuvconsultAgent/InvoicesAgent/Functions";
 
 
 

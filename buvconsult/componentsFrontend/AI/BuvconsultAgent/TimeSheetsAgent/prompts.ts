@@ -11,6 +11,8 @@ const table_definition = `
   wocation text null,
   works text null,
   "siteId" text null,
+  "WorkerSurname" text null,
+  "workerName" text null,
   constraint timelog_pkey primary key (id),
   constraint timelog_siteId_fkey foreign KEY ("siteId") references "Site" (id) on update CASCADE on delete CASCADE,
   constraint timelog_workerId_fkey foreign KEY ("workerId") references workers (id) on update CASCADE on delete set null
