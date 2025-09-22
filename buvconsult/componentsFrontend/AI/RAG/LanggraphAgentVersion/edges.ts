@@ -167,7 +167,8 @@ export async function agent(state: typeof GraphState.State): Promise<Partial<typ
 
 
   const model = new ChatOpenAI({
-    model: "gpt-5",
+    model: "gpt-4.1",
+    temperature: 0.5,
     
     streaming: true,
   }).bindTools(tools);
