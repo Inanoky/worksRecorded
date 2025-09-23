@@ -87,6 +87,11 @@ export function ProjectProvider({
     }
   };
 
+
+  //We can here also return say schema, list of location and list of works. 
+
+ 
+
   return (
     <ProjectContext.Provider value={{ projectId, projectName, setProject, reset }}>
       {children}

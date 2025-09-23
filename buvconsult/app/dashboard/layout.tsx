@@ -19,6 +19,7 @@ export default  async function DashboardLayout({ children }: { children: ReactNo
 
 const user = await requireUser()
 const userId = user.id
+
 console.log(user.id)
 
 
