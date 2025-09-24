@@ -198,6 +198,19 @@ export async function clockOutWorker(formData: {
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 export async function updateTimeRecord(formData: {
   id: string;
   workerId?: string;
@@ -288,13 +301,14 @@ export async function getTimelogsBySiteId(siteId) {
   // Format the data before returning!
   return raw.map(row => ({
     id: row.id,
-    date: row.date ? new Date(row.date).toLocaleDateString() : "",
+    date: row.date ? new Date(row.date).toLocaleDateString('lv-LV', {
+  day: '2-digit', month: '2-digit', year: 'numeric'
+}).replace(/\.$/, "") :"",
     clockIn: row.clockIn ? new Date(row.clockIn).toLocaleTimeString() : "",
     clockOut: row.clockOut ? new Date(row.clockOut).toLocaleTimeString() : "",
     location: row.wocation ?? "",
     works: row.works ?? "",
-    workerName: row.workers?.name ?? "",
-    workerSurname: row.workers?.surname ?? "",
+    workerName: `${row.workers?.name ?? ""} ${row.workers?.surname ?? ""}`.trim(),   
     workerRole: row.workers?.role ?? "",   // if you have a role field on workers!
     // You can add any other fields you want to flatten or format here.
   }));
@@ -327,3 +341,24 @@ export async function getWorkersBySiteId(siteId) {
     // Add more fields as needed!
   }));
 }
+
+
+export async function getWorkersNameAndSurnameTogether(siteId?: string) {
+  
+    const where = siteId ? { siteId } : undefined;
+    const workers = await prisma.workers.findMany({
+      where,
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        surname: true,
+      },
+    })
+
+    return workers.map(worker => ({
+      id: worker.id,
+      fullName: `${worker.name} ${worker.surname}`
+    }));
+
+  }

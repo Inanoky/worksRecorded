@@ -36,7 +36,7 @@ export default async function AddWorkerPage({params}) {
         </div>
       </div>
       <div className="mt-8">
-        <FrontendTable data={timelogs} pageSize={20}  />
+        <FrontendTable workers= {workers} data={timelogs} pageSize={20}  />
       </div>
        <AiWidgetRag siteId={siteId}/>
     </div>

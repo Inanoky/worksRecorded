@@ -13,6 +13,7 @@ import { Button } from "@/componentsFrontend/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/componentsFrontend/ui/table";
 import { Input } from "@/componentsFrontend/ui/input";
 import { Checkbox } from "@/componentsFrontend/ui/checkbox";
+import { useState } from "react";
 import {
   Pagination,
   PaginationContent,
@@ -23,12 +24,20 @@ import {
 } from "@/componentsFrontend/ui/pagination";
 import {SelectContent, Select, SelectItem, SelectTrigger, SelectValue } from "@/componentsFrontend/ui/select";
 import { useSiteSchema } from "@/componentsFrontend/provider/SiteSchemaProvider";
+import { Popover, PopoverContent, PopoverTrigger } from "@/componentsFrontend/ui/popover";
+import { Calendar } from "@/componentsFrontend/ui/calendar";
+import { Calendar as CalendarIcon, ChevronDownIcon, MoreHorizontal } from "lucide-react"
+import { format } from "date-fns"
+import { Textarea } from "@/componentsFrontend/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/componentsFrontend/ui/dropdown-menu";
 
 
 // --- Auto-generate columns from data ---
 function getColumnsFromData(data) {
   if (!data || data.length === 0) return [];
-  return Object.keys(data[0]).map(key => ({ //So we take a first object from the data array, map agains its keys. 
+  return Object.keys(data[0])
+  .filter(k => k !== "id")   
+  .map(key => ({ //So we take a first object from the data array, map agains its keys. 
     accessorKey: key, // So I guess we createa a new array (of objects) with the keys as accessorKey and heade
     header: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize first letter for header (for display)
   }));
@@ -46,14 +55,96 @@ const defaultGlobalFilterFn = (row, columnId, filterValue) => {
 
 export function FrontendTable({
   data = [],
+  workers = [],
   pageSize ,
   exportFileName = "table_data.xlsx",
 }) {
   // Auto-generate columns from data
   const columns = React.useMemo(() => getColumnsFromData(data), [data]); // So useMemo is some kind of state shenanigans. I think it refeshes? Anyway. 
 
+//-----------------------------------State----------------------------------
+
+
+
+
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
+  const [anyChanges, setAnyChanges] = React.useState(false);
+  const [editRowId, setEditRowId] = React.useState<string | null>(null);
+  const [rowsToSave, setRowsToSave] = React.useState<any[]>([])
+
+  console.log(anyChanges, "Any changes")
+  console.log("Edit row ID:", editRowId)
+  console.log("Rows to save:", rowsToSave)  
+
+
+  const wrapperRef = React.useRef<HTMLDivElement | null>(null); //So this is a wrapper so we can track clicks outside of it.
+
+
+  //So this is a click outside handler.
+  React.useEffect(() => {
+  function onDocPointerDown(e: MouseEvent | PointerEvent | TouchEvent) {
+    const root = wrapperRef.current;
+    if (!root) return;
+
+    const target = e.target as Element | null;
+    if (!target) return;
+
+    const clickedInside = root.contains(target);
+
+    // 👇 Ignore clicks inside Radix/shadcn portals (Select/Popover/Dropdown, etc.)
+    const inRadixPortal =
+      target.closest("[data-radix-portal]") ||
+      target.closest("[data-radix-popper-content]") ||
+      target.closest("[data-radix-popper-content-wrapper]");
+
+    if (!clickedInside && !inRadixPortal) {
+
+       // determine if there are unsaved changes
+       const dirty =  anyChanges 
+
+          if (dirty && !window.confirm("You have unsaved changes. Discard them?")) {
+        return; // keep edits
+      }
+
+
+
+
+      // clear your state here
+      setRowsToSave({});   // or [] if you're using an array
+      setEditRowId(null);
+      setAnyChanges(false);
+    }
+  }
+
+  // pointerdown feels faster than click
+  document.addEventListener("pointerdown", onDocPointerDown);
+  return () => document.removeEventListener("pointerdown", onDocPointerDown);
+}, [anyChanges, editRowId, rowsToSave]);
+ 
+
+  console.log("Rows to save:", rowsToSave);
+  
+
+
+  function handleChange(rowId: string, field: string, value: any) {
+  setRowsToSave(prev => {
+    const row = prev[rowId] ?? {}; //So it there is already a row with changes, we get it, otherwise we create an empty object.
+    return { ...prev, [rowId]: { ...row, [field]: value } }; // So this is a state update? 
+  });
+
+
+
+
+  }
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+
+    const payload = {
+      id: editRowId,
+
+    }
+  }
 
   function exportToExcel() {
     const rows = table.getFilteredRowModel().rows.map(row => row.original);
@@ -66,7 +157,8 @@ export function FrontendTable({
   const table = useReactTable({
     data, //an array of plain objects
     columns, // column definitions
-    state: { globalFilter, rowSelection },
+    state: { globalFilter, rowSelection, },
+    
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -138,12 +230,104 @@ export function FrontendTable({
 
 //--------Rendering cells------------------------------------
 
+
+
+
 function renderCell(cell){
 
-   if (cell.column.id === "location") return (
+  const [open, setOpen] = React.useState(false)
+  const [date, setDate] = React.useState<Date | undefined>(undefined)
+
+  console.log("Edit row ID:", editRowId, "Current cell row ID:", cell.row.id, "Original row Id:", cell.row.original.id);
+ 
+
+
+  if (editRowId === cell.row.id) {
+
+ 
+
+
+   if(cell.column.id === "works") return (
+
+    <Textarea
+      
+      placeholder={cell.getValue()}
+      className="text-pretty field-sizing-fixed"
+      onChange={(e) => {
+             // ← collected value
+            setAnyChanges(true);
+            handleChange(cell.row.original.id, 'works', e.currentTarget.value);
+            // do something with v...
+          }}
+
+    
+    />
+
+    
+
+  )
+
+  if(cell.column.id === "clockIn") return (
+
+       <Input
+          type="time"
+          id="time-picker"
+          step="1"
+          defaultValue={cell.getValue()}
+          onChange={(e) => {
+            setAnyChanges(true)
+            handleChange(cell.row.original.id, 'clockIn', e.currentTarget.value);
+          }}
+          className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+        />
+
+
+  )
+
+   if(cell.column.id === "clockOut") return (
+
+       <Input
+          type="time"
+          id="time-picker"
+          step="1"
+          defaultValue={cell.getValue()}
+          onChange={(e) => {
+            setAnyChanges(true)
+            handleChange(cell.row.original.id, 'clockOut', e.currentTarget.value);
+          }}
+          className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+        />
+
+
+  )
+
+
+   if (cell.column.id === "location") {
+
+        const rowId = cell.row.original.id;
+        const current = String(
+    (rowsToSave[rowId]?.location ?? cell.getValue() ?? "")
+  );
+
+
+
+    return (
    
    
-                      <Select>
+                      <Select 
+
+                 
+                      onValueChange={(v) => {
+
+
+                        
+                      setAnyChanges(true)
+                      handleChange(cell.row.original.id, 'location', v)
+                      
+
+
+                      }
+                      } >
                       <SelectTrigger  className="w-[180px]">
                         <SelectValue placeholder={cell.getValue() } />
                       </SelectTrigger>
@@ -159,9 +343,72 @@ function renderCell(cell){
                       </SelectContent>
 
                     </Select>
-                    )
+                    )}
+
+    if (cell.column.id === "date")      
+      
+      return (
+      
+            <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            id="date"
+            className="w-48 justify-between font-normal"
+          >
+            {date ? date.toLocaleDateString('lv-LV', {
+                      day: '2-digit', month: '2-digit', year: 'numeric'
+                    }).replace(/\.$/, "") : cell.getValue() }
+            <ChevronDownIcon />
+          </Button>
+        </PopoverTrigger >
+        <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+          <Calendar
+            mode="single"
+            selected={date}
+            captionLayout="dropdown"
+            onSelect={(date) => {
+              setDate(date)
+              setOpen(false)
+              setAnyChanges(true)
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+    )
+
+    if (cell.column.id === "workerName") {
+      
+      return ( 
+
+
+                      <Select onValueChange={() => setAnyChanges(true)} >
+                      <SelectTrigger  className="w-[180px]">
+                        <SelectValue placeholder={cell.getValue() } />
+                      </SelectTrigger>
+                      <SelectContent>
+
+                        {/* Now here I need to get a list of available locations somewhore.  */}
+
+                        {workers.map((worker) => (
+                          <SelectItem key={worker.id} value={worker.id}>
+                            {worker.name} {worker.surname}
+                            </SelectItem>
+                        ))}                        
+
+
+                      </SelectContent>
+
+                    </Select>
+
+
+    )}
  
-  return flexRender(cell.column.columnDef.cell, cell.getContext());
+  return flexRender(cell.column.columnDef.cell, cell.getContext()); //This renders cells in normal mode. 
+
+  } else {
+    return flexRender(cell.column.columnDef.cell, cell.getContext()); //This renders other rows not in question at the moment (not being edited).
+  }
 
 }
 
@@ -170,7 +417,8 @@ function renderCell(cell){
 
 
   return (
-    <div className="w-full overflow-x-auto">
+    <form onSubmit={handleSubmit} className="space-y-3">
+    <div ref={wrapperRef} className="w-full overflow-x-auto">
       {/* Toolbar */}
       <div className="flex items-center py-4">
         <Input
@@ -182,6 +430,14 @@ function renderCell(cell){
         <Button className="ml-2" variant="outline" onClick={exportToExcel}>
           Export to Excel
         </Button>
+        {anyChanges ? 
+        <Button className="ml-2" >
+          Save Changes
+          </Button> : null}
+      </div>
+      {/* Table */}
+      <div className="mb-2 text-sm text-muted-foreground">
+        {table.getFilteredRowModel().rows.length} of {data.length} results
       </div>
       <Table>
         <TableHeader>
@@ -189,17 +445,31 @@ function renderCell(cell){
             <TableRow key={headerGroup.id}> 
               {headerGroup.headers.map(header => (
 
-                
+                            
                 <TableHead
                   key={header.id}
                   onClick={header.column.getToggleSortingHandler?.()} //So this is just a sorting functionality. 
                   className="cursor-pointer select-none whitespace-nowrap"
                 >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                  {header.column.getIsSorted() === "asc" && " 🔼"}
-                  {header.column.getIsSorted() === "desc" && " 🔽"}
+
+                  
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                {header.column.getIsSorted() === "asc" && " 🔼"}
+                {header.column.getIsSorted() === "desc" && " 🔽"}
+
+               
+
+                
+
+
                 </TableHead>
+                
               ))}
+
+                  <TableHead>
+                  Edit
+                </TableHead>
+
             </TableRow>
           ))}
         </TableHeader>
@@ -222,6 +492,37 @@ function renderCell(cell){
 
                 )
                 )}
+                <TableCell>
+
+                <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost">
+                        <MoreHorizontal />
+                        </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+
+
+                        <DropdownMenuItem onClick={() => {setEditRowId(row.id)}} >
+                          Edit
+                          </DropdownMenuItem>
+
+
+                        <DropdownMenuItem className="cursor-pointer text-red-600">
+                            Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                </DropdownMenu>
+
+
+
+                  
+
+
+
+                  </TableCell>
               </TableRow>
             ))
           ) : (
@@ -254,5 +555,7 @@ function renderCell(cell){
         </Pagination>
       </div>
     </div>
+   </form>
   );
+   
 }
