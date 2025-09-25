@@ -83,6 +83,10 @@ export function FrontendTable({
   const [rowsToSave, setRowsToSave] = React.useState<any[]>([])
   const { projectId: siteId } = useProject();
   const [result, action] = useActionState(editTimeRecord, undefined)
+
+  const [open, setOpen] = React.useState(false)
+  const [date, setDate] = React.useState<Date | undefined>(undefined)
+
   
 const [submitting, setSubmitting] = useState(false);
    const router = useRouter();
@@ -258,22 +262,22 @@ const handleSubmit = async (e?: React.FormEvent) => {
 
   // -----------------------------------notes----------------------------------
 
-  const headers = table.getHeaderGroups(); //Ok, so this will return and objeckt with the headers included (a separate array with its own field for each header)
+  // const headers = table.getHeaderGroups(); //Ok, so this will return and objeckt with the headers included (a separate array with its own field for each header)
 
-  // console.dir(headers, { depth: null });
+  // // console.dir(headers, { depth: null });
 
 
-  const rows = table.getRowModel()
-  // const first = rows[0]
+  // const rows = table.getRowModel()
+  // // const first = rows[0]
   // console.log("First row:", first.original); //So data is in original. 
 
   // console.dir(rows, { depth: null });
 
-  const cells = rows.rows[0].getVisibleCells() 
+  // const cells = rows.rows[0].getVisibleCells() 
 
-  const contents = cells[0].getValue() //So this returns the actual content of the cell.
+  // const contents = cells[0].getValue() //So this returns the actual content of the cell.
 
-  console.dir(contents, { depth: null });
+  // console.dir(contents, { depth: null });
 
 // -----------------------------------Code -------------------------------------
   function renderPagination() {
@@ -320,9 +324,7 @@ const handleSubmit = async (e?: React.FormEvent) => {
 
 function renderCell(cell){
 
-  const [open, setOpen] = React.useState(false)
-  const [date, setDate] = React.useState<Date | undefined>(undefined)
-
+  
   
 
 

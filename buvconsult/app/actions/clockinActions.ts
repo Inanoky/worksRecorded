@@ -243,10 +243,24 @@ export async function editTimeRecord(
     const data = { workerId, wocation, works, date, clockIn, clockOut };
     console.log("[editTimeRecord] Prisma update data:", JSON.stringify(data, null, 2));
 
+
+     const getNames = await prisma.workers.findUnique({  
+      where: { id: workerId},
+      select: { name: true, surname: true }
+    });
+
     const updated = await prisma.timelog.update({
       where: { id },
-      data,
+      
+      data : {
+        ...data,
+        workerName: getNames?.name,
+        WorkerSurname: getNames?.surname
+      }
+       
     });
+
+   
 
     console.log("[editTimeRecord] Updated record id:", updated.id);
 
