@@ -90,7 +90,13 @@ export async function clockInWorker(formData: {
     // First check if worker is already clocked in
     const worker = await prisma.workers.findUnique({
       where: { id: formData.workerId },
-      select: { isClockedIn: true }
+      select: { 
+        isClockedIn: true, 
+        name: true,
+        surname: true,
+
+      
+      }
     });
 
     if (worker?.isClockedIn) {
@@ -105,7 +111,9 @@ export async function clockInWorker(formData: {
           workerId: formData.workerId,
           date: formData.date,
           clockIn: formData.clockIn,
-          siteId: formData.siteId
+          siteId: formData.siteId,
+          workerName: worker?.name,
+          WorkerSurname: worker?.surname  
           
         },
       });
