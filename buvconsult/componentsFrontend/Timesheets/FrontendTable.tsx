@@ -29,7 +29,14 @@ import { Calendar } from "@/componentsFrontend/ui/calendar";
 import { Calendar as CalendarIcon, ChevronDownIcon, MoreHorizontal } from "lucide-react"
 import { format } from "date-fns"
 import { Textarea } from "@/componentsFrontend/ui/textarea";
+import { editTimeRecord } from "@/app/actions/clockinActions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/componentsFrontend/ui/dropdown-menu";
+import { SubmitButton } from "@/app/components/dashboard/SubmitButtons";
+import { useProject } from "../provider/ProjectProvider";
+import { useRouter } from "next/navigation";
+
+
+
 
 
 // --- Auto-generate columns from data ---
@@ -72,9 +79,15 @@ export function FrontendTable({
   const [anyChanges, setAnyChanges] = React.useState(false);
   const [editRowId, setEditRowId] = React.useState<string | null>(null);
   const [rowsToSave, setRowsToSave] = React.useState<any[]>([])
+  const { projectId: siteId } = useProject();
+  
+const [submitting, setSubmitting] = useState(false);
+   const router = useRouter();
 
-  console.log(anyChanges, "Any changes")
-  console.log("Edit row ID:", editRowId)
+
+
+  // console.log(anyChanges, "Any changes")
+  // console.log("Edit row ID:", editRowId)
   console.log("Rows to save:", rowsToSave)  
 
 
@@ -123,7 +136,7 @@ export function FrontendTable({
 }, [anyChanges, editRowId, rowsToSave]);
  
 
-  console.log("Rows to save:", rowsToSave);
+
   
 
 
@@ -138,13 +151,54 @@ export function FrontendTable({
 
   }
 
-  const handleSubmit = async (e?: React.FormEvent) => {
+const handleSubmit = async (e?: React.FormEvent) => {
 
-    const payload = {
-      id: editRowId,
 
-    }
+  
+
+  e?.preventDefault();
+  console.log("[SUBMIT] fired. rowsToSave =", rowsToSave);
+
+  const entries = Object.entries(rowsToSave);
+  if (entries.length === 0) {
+    console.warn("[SUBMIT] Nothing to save — rowsToSave is empty.");
+    return;
   }
+
+  const [id, patch] = entries[0] as [string, Record<string, unknown>];
+  const payload = { id, ...patch, siteId } as {
+    id: string;
+    workerId?: string;
+    date?: Date | string;
+    clockIn?: string;
+    clockOut?: string;
+    location?: string;
+    works?: string;
+    siteId: string;
+   
+  };
+
+  console.log("[SUBMIT] payload =>", payload);
+
+  try {
+    const res = await editTimeRecord(payload);
+    console.log("[SUBMIT] editTimeRecord result =>", res);
+    // reset local state
+    setRowsToSave({});
+    setEditRowId(null);
+    setAnyChanges(false);
+  } catch (err) {
+    console.error("[SUBMIT] editTimeRecord threw:", err);
+  }
+
+ 
+  router.refresh()
+};
+
+
+
+
+
 
   function exportToExcel() {
     const rows = table.getFilteredRowModel().rows.map(row => row.original);
@@ -238,8 +292,7 @@ function renderCell(cell){
   const [open, setOpen] = React.useState(false)
   const [date, setDate] = React.useState<Date | undefined>(undefined)
 
-  console.log("Edit row ID:", editRowId, "Current cell row ID:", cell.row.id, "Original row Id:", cell.row.original.id);
- 
+  
 
 
   if (editRowId === cell.row.id) {
@@ -371,6 +424,7 @@ function renderCell(cell){
               setDate(date)
               setOpen(false)
               setAnyChanges(true)
+              handleChange(cell.row.original.id, 'date', date)
             }}
           />
         </PopoverContent>
@@ -382,7 +436,21 @@ function renderCell(cell){
       return ( 
 
 
-                      <Select onValueChange={() => setAnyChanges(true)} >
+                      <Select 
+
+                      
+                      
+                      
+                      
+                      onValueChange={(v) => {
+                        
+                     
+                       setAnyChanges(true)
+                       handleChange(cell.row.original.id, 'workerId', v)
+                     
+                       
+                       
+                       } }>
                       <SelectTrigger  className="w-[180px]">
                         <SelectValue placeholder={cell.getValue() } />
                       </SelectTrigger>
@@ -431,9 +499,7 @@ function renderCell(cell){
           Export to Excel
         </Button>
         {anyChanges ? 
-        <Button className="ml-2" >
-          Save Changes
-          </Button> : null}
+       <SubmitButton text="Save changes"  className="ml-2"/>: null}
       </div>
       {/* Table */}
       <div className="mb-2 text-sm text-muted-foreground">

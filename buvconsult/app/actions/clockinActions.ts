@@ -1,5 +1,6 @@
 "use server";
 import {prisma} from "@/app/utils/db";
+import { revalidatePath } from "next/cache";
 
 
 export async function createTeamMember(formData: {
@@ -199,6 +200,52 @@ export async function clockOutWorker(formData: {
 
 
 
+export async function editTimeRecord(formData: {
+  id: string;
+  workerId?: string;
+  date?: Date;
+  clockIn?: Date | string;
+  clockOut?: Date | string;
+  location?: string;
+  works?: string;
+  siteId?: string;
+}) {
+  console.log("[editTimeRecord] input:", formData);
+  
+  const siteId = formData.siteId;
+
+  try {
+    const data = {
+      workerId: formData.workerId,
+      date: formData.date,
+      clockIn: formData.clockIn,
+      clockOut: formData.clockOut,
+      // NOTE: if your column is "location", use this:
+      wocation: formData.location,
+      // if your column is actually misspelled as "wocation", log it explicitly:
+      // wocation: formData.location,
+      works: formData.works,
+    } as const;
+
+    console.log("[editTimeRecord] prisma.timelog.update data:", data);
+    console.log("siteId in data:", siteId); // Check if siteId is present
+
+    const updated = await prisma.timelog.update({
+      where: { id: formData.id },
+      data,
+    });
+
+    console.log("[editTimeRecord] updated:", updated);
+
+    return { success: true, id: updated.id };
+  } catch (error: any) {
+    console.error("[editTimeRecord] ERROR:", error);
+
+    revalidatePath(`/sites/${siteId}/timesheets`)
+    
+    return { success: false, error: error?.message ?? "Failed to update time record" };
+  }
+}
 
 
 
