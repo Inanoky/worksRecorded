@@ -200,55 +200,59 @@ export async function clockOutWorker(formData: {
 
 
 
-export async function editTimeRecord(formData: {
-  id: string;
-  workerId?: string;
-  date?: Date;
-  clockIn?: Date | string;
-  clockOut?: Date | string;
-  location?: string;
-  works?: string;
-  siteId?: string;
-}) {
-  console.log("[editTimeRecord] input:", formData);
-  
-  const siteId = formData.siteId;
-
+export async function editTimeRecord(
+  _prevState: unknown,
+  formData: FormData
+) {
   try {
-    const data = {
-      workerId: formData.workerId,
-      date: formData.date,
-      clockIn: formData.clockIn,
-      clockOut: formData.clockOut,
-      // NOTE: if your column is "location", use this:
-      wocation: formData.location,
-      // if your column is actually misspelled as "wocation", log it explicitly:
-      // wocation: formData.location,
-      works: formData.works,
-    } as const;
+    // Log everything that came from the form
+    console.log("[editTimeRecord] RAW FormData:");
+    formData.forEach((v, k) => {
+      // avoid dumping huge files if any
+      const val = typeof v === "string" ? v : `[File name=${v.name} size=${v.size}]`;
+      console.log(`  - ${k}:`, val);
+    });
 
-    console.log("[editTimeRecord] prisma.timelog.update data:", data);
-    console.log("siteId in data:", siteId); // Check if siteId is present
+    const id     = formData.get("id")?.toString() ?? "";
+    const siteId = formData.get("siteId")?.toString() ?? "";
+
+    console.log("[editTimeRecord] id:", id);
+    console.log("[editTimeRecord] siteId:", siteId);
+
+    if (!id) {
+      console.warn("[editTimeRecord] Missing record id.");
+      return { success: false, error: "Missing record id." };
+    }
+
+    // Pull fields as plain strings (no conversions)
+    const workerId = formData.get("workerId")?.toString() || undefined;
+    const wocation = formData.get("location")?.toString() || undefined; // keep DB field 'wocation'
+    const works    = formData.get("works")?.toString()    || undefined;
+    const date     = formData.get("date")?.toString()     || undefined;
+    const clockIn  = formData.get("clockIn")?.toString()  || undefined; // <-- fixed
+    const clockOut = formData.get("clockOut")?.toString() || undefined;
+
+    const data = { workerId, wocation, works, date, clockIn, clockOut };
+    console.log("[editTimeRecord] Prisma update data:", JSON.stringify(data, null, 2));
 
     const updated = await prisma.timelog.update({
-      where: { id: formData.id },
+      where: { id },
       data,
     });
 
-    console.log("[editTimeRecord] updated:", updated);
+    console.log("[editTimeRecord] Updated record id:", updated.id);
+
+    if (siteId) {
+      console.log("[editTimeRecord] revalidatePath =>", `/sites/${siteId}/timesheets`);
+      revalidatePath(`/sites/${siteId}/timesheets`);
+    }
 
     return { success: true, id: updated.id };
   } catch (error: any) {
     console.error("[editTimeRecord] ERROR:", error);
-
-    revalidatePath(`/sites/${siteId}/timesheets`)
-    
     return { success: false, error: error?.message ?? "Failed to update time record" };
   }
 }
-
-
-
 
 
 

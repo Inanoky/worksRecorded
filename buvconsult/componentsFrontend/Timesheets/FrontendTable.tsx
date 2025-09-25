@@ -34,6 +34,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { SubmitButton } from "@/app/components/dashboard/SubmitButtons";
 import { useProject } from "../provider/ProjectProvider";
 import { useRouter } from "next/navigation";
+import { resourceLimits } from "worker_threads";
+import { useActionState } from "react";
 
 
 
@@ -80,9 +82,11 @@ export function FrontendTable({
   const [editRowId, setEditRowId] = React.useState<string | null>(null);
   const [rowsToSave, setRowsToSave] = React.useState<any[]>([])
   const { projectId: siteId } = useProject();
+  const [result, action] = useActionState(editTimeRecord, undefined)
   
 const [submitting, setSubmitting] = useState(false);
    const router = useRouter();
+   const patch = editRowId ? rowsToSave[Object.keys(rowsToSave)[0]] : undefined;
 
 
 
@@ -92,6 +96,33 @@ const [submitting, setSubmitting] = useState(false);
 
 
   const wrapperRef = React.useRef<HTMLDivElement | null>(null); //So this is a wrapper so we can track clicks outside of it.
+
+
+
+
+
+
+    React.useEffect(() => {
+      if (result?.success) {
+        setAnyChanges(false);
+        setRowsToSave({});
+        setEditRowId(null);
+      }
+    }, [result]);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
   //So this is a click outside handler.
@@ -181,14 +212,14 @@ const handleSubmit = async (e?: React.FormEvent) => {
   console.log("[SUBMIT] payload =>", payload);
 
   try {
-    const res = await editTimeRecord(payload);
-    console.log("[SUBMIT] editTimeRecord result =>", res);
-    // reset local state
-    setRowsToSave({});
-    setEditRowId(null);
-    setAnyChanges(false);
+    // const res = await editTimeRecord(payload);
+    // console.log("[SUBMIT] editTimeRecord result =>", res);
+    // // reset local state
+    // setRowsToSave({});
+    // setEditRowId(null);
+    // setAnyChanges(false);
   } catch (err) {
-    console.error("[SUBMIT] editTimeRecord threw:", err);
+    // console.error("[SUBMIT] editTimeRecord threw:", err);
   }
 
  
@@ -301,6 +332,7 @@ function renderCell(cell){
 
 
    if(cell.column.id === "works") return (
+    <>
 
     <Textarea
       
@@ -315,6 +347,8 @@ function renderCell(cell){
 
     
     />
+     
+    </>
 
     
 
@@ -485,7 +519,34 @@ function renderCell(cell){
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form 
+    
+    
+    
+     action={async (fd) => {
+          fd.set("id", Object.keys(rowsToSave)[0]  ?? "");
+          console.log(Object.keys(rowsToSave)[0]  ?? "")
+          fd.set("siteId", siteId);
+
+          if (patch?.works    != null) fd.set("works",    String(patch.works));
+          if (patch?.location != null) fd.set("location", String(patch.location));
+          if (patch?.clockIn  != null) fd.set("clockIn",  String(patch.clockIn));
+          if (patch?.clockOut != null) fd.set("clockOut", String(patch.clockOut));
+          if (patch?.date     != null) fd.set("date",     String(patch.date));
+          if (patch?.workerId     != null) fd.set("workerId",     String(patch.workerId));
+
+          action(fd);
+
+          
+           
+       
+         
+    
+      }}
+    
+    >
+
+
     <div ref={wrapperRef} className="w-full overflow-x-auto">
       {/* Toolbar */}
       <div className="flex items-center py-4">
@@ -498,6 +559,13 @@ function renderCell(cell){
         <Button className="ml-2" variant="outline" onClick={exportToExcel}>
           Export to Excel
         </Button>
+
+  
+       
+
+
+
+
         {anyChanges ? 
        <SubmitButton text="Save changes"  className="ml-2"/>: null}
       </div>
