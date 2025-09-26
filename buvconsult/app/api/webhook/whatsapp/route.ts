@@ -39,6 +39,7 @@ export async function POST(req: Request) {
 
 async function dispatch(formData: FormData) {
   try {
+    console.dir(formData, { depth: null });
     const smsStatus = getString(formData, "SmsStatus");
     const from = getString(formData, "From");
     const waId = getString(formData, "WaId");

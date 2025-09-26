@@ -36,7 +36,8 @@ import { useProject } from "../provider/ProjectProvider";
 import { useRouter } from "next/navigation";
 import { resourceLimits } from "worker_threads";
 import { useActionState } from "react";
-
+import { z } from "zod";
+import { toast } from "sonner";
 
 
 
@@ -100,6 +101,17 @@ const [submitting, setSubmitting] = useState(false);
 
 
   const wrapperRef = React.useRef<HTMLDivElement | null>(null); //So this is a wrapper so we can track clicks outside of it.
+
+
+  //---------------------------Zod------------------------------
+
+  const ZodRowSchema = z.object({
+   
+    works: z.string().max(200, "Comments must be 200 characters or fewer").optional(),
+    
+  });
+  
+  
 
 
 
@@ -530,6 +542,16 @@ function renderCell(cell){
           console.log(Object.keys(rowsToSave)[0]  ?? "")
           fd.set("siteId", siteId);
 
+          if (patch?.works) {
+
+          const parsed = ZodRowSchema.safeParse({works: patch?.works});
+          if (!parsed.success) {
+                toast.error(parsed.error.errors[0].message);
+                return;
+              }
+
+          }
+        
           if (patch?.works    != null) fd.set("works",    String(patch.works));
           if (patch?.location != null) fd.set("location", String(patch.location));
           if (patch?.clockIn  != null) fd.set("clockIn",  String(patch.clockIn));

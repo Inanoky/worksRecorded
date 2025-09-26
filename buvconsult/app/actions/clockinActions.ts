@@ -208,66 +208,39 @@ export async function clockOutWorker(formData: {
 
 
 
-export async function editTimeRecord(
-  _prevState: unknown,
-  formData: FormData
-) {
+export async function editTimeRecord(_prev: unknown, formData: FormData) {
   try {
-    // Log everything that came from the form
-    console.log("[editTimeRecord] RAW FormData:");
-    formData.forEach((v, k) => {
-      // avoid dumping huge files if any
-      const val = typeof v === "string" ? v : `[File name=${v.name} size=${v.size}]`;
-      console.log(`  - ${k}:`, val);
-    });
-
     const id     = formData.get("id")?.toString() ?? "";
     const siteId = formData.get("siteId")?.toString() ?? "";
 
-    console.log("[editTimeRecord] id:", id);
-    console.log("[editTimeRecord] siteId:", siteId);
+    if (!id) return { success: false, error: "Missing record id." };
 
-    if (!id) {
-      console.warn("[editTimeRecord] Missing record id.");
-      return { success: false, error: "Missing record id." };
-    }
-
-    // Pull fields as plain strings (no conversions)
     const workerId = formData.get("workerId")?.toString() || undefined;
-    const wocation = formData.get("location")?.toString() || undefined; // keep DB field 'wocation'
+    const wocation = formData.get("location")?.toString() || undefined;
     const works    = formData.get("works")?.toString()    || undefined;
     const date     = formData.get("date")?.toString()     || undefined;
-    const clockIn  = formData.get("clockIn")?.toString()  || undefined; // <-- fixed
+    const clockIn  = formData.get("clockIn")?.toString()  || undefined;
     const clockOut = formData.get("clockOut")?.toString() || undefined;
 
-    const data = { workerId, wocation, works, date, clockIn, clockOut };
-    console.log("[editTimeRecord] Prisma update data:", JSON.stringify(data, null, 2));
+    // base update payload with only provided fields
+    const data: any = { workerId, wocation, works, date, clockIn, clockOut };
 
-
-     const getNames = await prisma.workers.findUnique({  
-      where: { id: workerId},
-      select: { name: true, surname: true }
-    });
+    // Only look up names if workerId was provided (i.e., changed)
+    if (workerId) {
+      const w = await prisma.workers.findUnique({
+        where: { id: workerId },
+        select: { name: true, surname: true },
+      });
+      data.workerName   = w?.name ?? null;
+      data.WorkerSurname = w?.surname ?? null;
+    }
 
     const updated = await prisma.timelog.update({
       where: { id },
-      
-      data : {
-        ...data,
-        workerName: getNames?.name,
-        WorkerSurname: getNames?.surname
-      }
-       
+      data,
     });
 
-   
-
-    console.log("[editTimeRecord] Updated record id:", updated.id);
-
-    if (siteId) {
-      console.log("[editTimeRecord] revalidatePath =>", `/sites/${siteId}/timesheets`);
-      revalidatePath(`/sites/${siteId}/timesheets`);
-    }
+    if (siteId) revalidatePath(`/sites/${siteId}/timesheets`);
 
     return { success: true, id: updated.id };
   } catch (error: any) {

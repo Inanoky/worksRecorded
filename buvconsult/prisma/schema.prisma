@@ -226,6 +226,7 @@ model workers {
   phone     String?
   isClockedIn Boolean?
   timelog timelog[]
+ 
 }
 
 model timelog {
@@ -241,6 +242,7 @@ model timelog {
   clockOut DateTime?
   wocation String?
   works String?
+  photo String?
 
 
 

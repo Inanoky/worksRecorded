@@ -54,6 +54,8 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                 const WorksEnum = z.union([
                     z.enum(workNames as [string, ...string[]]),
                     z.literal("Additional works"),
+                    z.literal("Delay due to the Client"),
+                    z.literal("Delay due to internal mistakes"),
                   ]);
 
 

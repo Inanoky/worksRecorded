@@ -10,7 +10,7 @@ import { getUserFirstNameById } from "@/app/actions/whatsappActions";
 
 export default async function talkToWhatsappAgent(question, siteId, userId) {
     console.log("=== talkToWhatsappAgent called ===");
-    console.log("Question:", question, "SiteId:", siteId);
+   
 
    
 
@@ -36,8 +36,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
     const agent = async (state) => {
         const { messages } = state;
-        console.log("agent node - messages to model:", messages);
-
+       
         const llm = new ChatOpenAI({
             temperature: 0.1,
             model: "gpt-4.1",
@@ -45,7 +44,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
         const response = await llm.invoke(messages);
 
-        console.log("agent node - LLM response:", response);
+       
 
         return {
             messages: [response]
@@ -80,26 +79,25 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         ],
     };
 
-    console.log("Graph initial inputs:", JSON.stringify(inputs, null, 2));
+
 
     let finalState;
     let lastMsg;
 
     for await (const output of await graph.stream(inputs, config)) {
-        console.log("Step/Run full output:", JSON.stringify(output, null, 2));
+        
         for (const [key, value] of Object.entries(output)) {
             lastMsg = value.messages[value.messages.length - 1];
             finalState = value;
-            console.log(`Current node: ${key}`);
-            console.log("Last message at node:", lastMsg);
+            
         }
     }
 
     if (finalState && finalState.messages && finalState.messages.length > 0) {
-        console.log("AI content:", finalState.messages[0].content);
+        
         return finalState.messages[0].content;
     } else {
-        console.log("No final AI message content produced.");
+       
         return null;
     }
 }

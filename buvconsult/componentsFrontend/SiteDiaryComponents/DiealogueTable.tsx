@@ -20,6 +20,9 @@ import { z } from "zod";
 
 /* ---------- helpers ---------- */
 const ADDITIONAL_WORKS_OPTION = { value: "__ADDITIONAL__", label: "Additional works" };
+const CLIENT_DELAY_OPTION = { value: "__clientDelay__", label: "Client Delay (hindrance)" };
+const INTERNAL_DELAY_OPTION = { value: "__internalDelay__", label: "Internal Delay" };
+
 
 
 
@@ -157,6 +160,8 @@ export function DialogTable({ date, siteId, onSaved }: {
     const allWorkOptions = [
       ...((schema?.flatMap(root => collectWorks(root))) ?? []),
       ADDITIONAL_WORKS_OPTION,
+      CLIENT_DELAY_OPTION,
+      INTERNAL_DELAY_OPTION,  
     ];
     console.log("[Diary][Submit] allWorkOptions count:", allWorkOptions.length);
 
@@ -376,6 +381,16 @@ export function DialogTable({ date, siteId, onSaved }: {
                             <SelectItem key={ADDITIONAL_WORKS_OPTION.value} value={ADDITIONAL_WORKS_OPTION.value}>
                               {ADDITIONAL_WORKS_OPTION.label}
                             </SelectItem>
+                             <SelectItem key={CLIENT_DELAY_OPTION.value} value={CLIENT_DELAY_OPTION.value}>
+                              {CLIENT_DELAY_OPTION.label}
+                            </SelectItem>
+                            
+                             <SelectItem key={INTERNAL_DELAY_OPTION.value} value={INTERNAL_DELAY_OPTION.value}>
+                              {INTERNAL_DELAY_OPTION.label}
+                            </SelectItem>
+                            
+
+                            
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -394,6 +409,7 @@ export function DialogTable({ date, siteId, onSaved }: {
                                 {unit}
                               </SelectItem>
                             ))}
+                            
                           </SelectContent>
                         </Select>
                       </TableCell>
