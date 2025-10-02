@@ -14,6 +14,11 @@ const DEBUG_SYNC = true;
 
 // Special routing override
 //nothing
+// const OVERRIDE_INCOMING = "37129955255";
+// const OVERRIDE_TARGET   = "37126714739";
+
+const OVERRIDE_INCOMING = "37129955255"
+const OVERRIDE_TARGET   = "37126714739"
 
 
 
@@ -63,8 +68,21 @@ async function dispatch(formData: FormData) {
       return;
     }
 
-    const phone = await normalizePhone(waId, from);
-    console.log("📞 Normalized phone:", phone);
+
+    const normalized = await normalizePhone(waId, from); //This is modified temporary override for testing
+
+    // const phone = await normalizePhone(waId, from); - this is original
+
+        // --- Special routing override
+
+      const phone = normalized === OVERRIDE_INCOMING ? OVERRIDE_TARGET : normalized; //This is modified temporary override for testing
+
+      if (normalized === OVERRIDE_INCOMING) {
+      console.log(`🔀 Override active: incoming ${normalized} -> using user for ${phone}`);
+    } else {
+      console.log("📞 Normalized phone:", phone); 
+    }
+
 
     // Worker route
     const worker = await prisma.workers.findFirst({ where: { phone } });
@@ -77,7 +95,7 @@ async function dispatch(formData: FormData) {
     }
 
     // User lookup
-    const user = await prisma.user.findFirst({
+    let user = await prisma.user.findFirst({
       where: { phone },
       include: { Site: true },
     });
@@ -88,6 +106,37 @@ async function dispatch(formData: FormData) {
       await sendMessage(from, "Sorry, this phone number is not registered. Please contact admin.");
       return;
     }
+
+    // --- Temporary user field override for testing
+
+    try {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          firstName: "Marcis",
+          lastName: "Gedrovics",
+          lastSelectedSiteIdforWhatsapp: user.siteManagerSelectIdforWhatsapp ?? null,
+          role: "site manager"
+        },
+        include: { Site: true },
+      });
+      console.log("🛠️ User fields updated per override.");
+    } catch (e) {
+      console.error("❌ Failed to update user fields:", e);
+      // continue routing even if update fails
+    }
+
+
+
+
+
+
+
+
+
+
+
+
 
     const role = (user.role || "").trim().toLowerCase();
     console.log("🎭 User role:", role);
