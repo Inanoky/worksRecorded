@@ -1,33 +1,42 @@
-"use server"
-
+"use server";
 
 import OpenAI from "openai";
-import {z} from "zod";
-import {zodTextFormat} from "openai/helpers/zod";
+import { PdfImage, PdfResource, PngImageFormat } from "@dynamicpdf/api";
+import { z } from "zod";
 import {constructionCategories} from "@/componentsFrontend/AI/SQL/ConstructionCategories";
-const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
+import {zodTextFormat} from "openai/helpers/zod";
+
+const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+export default async function gptResponse(fileUrl: string) {
+  // 1) Fetch the PDF (public URL)
+  const pdfResp = await fetch(fileUrl);
+  if (!pdfResp.ok) throw new Error(`Failed to fetch PDF: ${pdfResp.status}`);
+  const pdfBytes = Buffer.from(await pdfResp.arrayBuffer());
+
+  // 2) Convert PDF → PNG (base64 per page) via DynamicPDF
+  const pdfImage = new PdfImage(new PdfResource(pdfBytes)); // bytes work too
+  pdfImage.apiKey = process.env.DynamicPDF_API_KEY
+  const png = new PngImageFormat();
+  // Depending on SDK version, this might be .imageFormat:
+  pdfImage.ImageFormat = png;
+
+  const conv = await pdfImage.process();
+  if (!conv.isSuccessful) {
+    throw new Error(
+      `DynamicPDF failed: ${conv["errorMessage"] || JSON.stringify(conv["errorJson"])}`
+    );
+  }
 
 
 
 
 
-export default async function gptResponse(fileUrl) {
-  const response = await fetch(fileUrl);
-  const blob = await response.blob();
-  const file = new File([blob], "invoice.pdf", { type: "application/pdf" });
-
-  const uploadedFile = await client.files.create({
-    file,
-    purpose: "user_data",
-  });
-
-  // ... keep your zod schema code as before ...
 
 
 
-  const invoiceItemSchema = z.object({
+
+const invoiceItemSchema = z.object({
   item: z.string(),
   quantity: z.number(),
   unitOfMeasure: z.enum(["pcs", "m3", "tn","kg",
@@ -56,28 +65,48 @@ export default async function gptResponse(fileUrl) {
 
 
 
-
-
-
-  const gptInvoicesSchema = z.object({
+ const gptInvoicesSchema = z.object({
     items: z.array(invoiceSchema),
   });
 
 
-  //gpt response for invoice items
-  const gptResponse = await client.responses.create({
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // 3) Build input_image items for OpenAI (data URLs)
+  const imageItems = conv.images.map(img => ({
+    type: "input_image" as const,
+    image_url: `data:image/png;base64,${img.data}`, // turn base64 into a data URL
+  }));
+
+  // 4) Ask GPT-4.1 (vision) with multiple images
+  const res = await client.responses.create({
     model: "gpt-4.1",
     input: [
       {
         role: "user",
         content: [
+          ...imageItems,
           {
-            type: "input_file",
-            file_id: uploadedFile.id,
-          },
-          {
-             type: "input_text",
-             text: "Extract general construction invoice metadata and information for each item in the invoice." +
+            type: "input_text",
+            text: "Extract general construction invoice metadata and information for each item in the invoice." +
                  "Translate to english " +
                  "unitsOfMeasure and itemDescription fields return in English " +
                  "seller name should be extracted without single or double qoutes" +
@@ -100,11 +129,12 @@ export default async function gptResponse(fileUrl) {
         ],
       },
     ],
-    text: {
+     text: {
       format: zodTextFormat(gptInvoicesSchema, "event"),
     },
   });
 
+  console.log("GPT raw response:", res.output_text);
 
-  return gptResponse.output_text;
+  return res.output_text;
 }
