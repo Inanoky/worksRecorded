@@ -77,4 +77,3 @@ export async function handleSiteManagerRoute(args: {
   // 4) Text-only
   await handleText({ body, user, to: from, agent: currentAgent });
 }
-
