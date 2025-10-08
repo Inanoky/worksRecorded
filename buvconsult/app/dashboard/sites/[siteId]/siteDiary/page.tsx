@@ -1,28 +1,18 @@
-"use client";
-
-
-
+// app/[...]/page.tsx  (Server Component)
 import SiteDiaryCalendar from "@/componentsFrontend/SiteDiaryComponents/Calendar";
-import {use} from "react";
 import AiWidgetRag from "@/componentsFrontend/AI/RAG/AiWidgetRag";
 
-
-export default async function Home({params}:
-            {params: Promise<{siteId:string}>
-            }){
-
-    const {siteId} = use(params)
-
-    
-
-
+export default function Home({
+  params,
+}: {
+  params: { siteId: string };
+}) {
+  const { siteId } = params;
 
   return (
-      <>
-      <SiteDiaryCalendar siteId={siteId}/>
-       <AiWidgetRag siteId={siteId}/>
-      </>
-  )
+    <>
+      <SiteDiaryCalendar siteId={siteId} />
+      <AiWidgetRag siteId={siteId} />
+    </>
+  );
 }
-
-

@@ -431,7 +431,7 @@ export function DialogTable({ date, siteId, onSaved }: {
 
                       <TableCell className="text-centerpy-2">
                         <Textarea 
-                        className="w-full min-h-0 field-sizing-fixed break-words whitespace-pre-wrap resize-none"
+                        className="w-full min-h-0 field-sizing-fixed break-words whitespace-pre-wrap"
                          value={row.comments}
                                   onChange={e => handleChange(row.id ?? row._tempId, "comments", e.target.value)} />
                       </TableCell>
