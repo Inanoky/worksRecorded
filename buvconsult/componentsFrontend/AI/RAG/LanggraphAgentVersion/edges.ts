@@ -247,8 +247,23 @@ export async function generate(state: typeof GraphState.State): Promise<Partial<
     // Here you can choose to combine or return as array.
     // For RAG, usually you want an array of contexts (or you can join them).
     docs = toolMessages.map(msg => msg.content as string);
+
+
   }
-  const prompt = await pull<ChatPromptTemplate>("rlm/rag-prompt");
+
+
+
+
+    const prompt = ChatPromptTemplate.fromTemplate(
+    `You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know.
+      Question: {question} 
+      Context: {context} 
+      Answer:`,
+  );
+
+
+
+  
 
   const llm = new ChatOpenAI({
     model: "gpt-4.1",
