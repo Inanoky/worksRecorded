@@ -2,7 +2,7 @@
 "use server";
 
 import { prisma } from "@/app/utils/db";
-import talkToClockInAgent from "@/componentsFrontend/AI/ClockInOut/agent";
+import talkToClockInAgent from "@/server/ai/agents/Whatsapp/ClockinAgentForWorkerRoute/agent";
 import twilio from "twilio";
 import OpenAI, { toFile } from "openai";
 

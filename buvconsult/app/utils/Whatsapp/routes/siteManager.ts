@@ -8,7 +8,7 @@ import { handleText } from "@/app/utils/Whatsapp/shared/handleText";
 import talkToWhatsappAgent from "@/componentsFrontend/AI/Whatsapp/agent";
 import { AgentFn } from "@/app/utils/Whatsapp/shared/types";
 import { prisma } from "@/app/utils/db"; // ⬅️ need prisma
-import { getUserFirstNameById } from "@/app/actions/whatsappActions";
+import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 
 const currentAgent: AgentFn = (input, siteId, userId) =>
   talkToWhatsappAgent(input, siteId, userId);

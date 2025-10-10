@@ -1,11 +1,11 @@
 //08:10
 
 
-import {PricingTable} from "@/app/components/shared/Pricing";
+import {PricingTable} from "@/components/shared/Pricing";
 import {prisma} from "@/app/utils/db";
 import {requireUser} from "@/app/utils/requireUser";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
-import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import {SubmitButton} from "@/components/dashboard/SubmitButtons";
 import {stripe} from "@/app/utils/stripe";
 import {redirect} from "next/navigation";
 

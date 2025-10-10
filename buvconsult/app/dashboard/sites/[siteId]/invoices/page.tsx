@@ -1,30 +1,13 @@
-import InvoiceUpload from "@/componentsFrontend/InvoiceUpload";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/componentsFrontend/ui/table";
-import Image from "next/image";
-import {Badge} from "@/componentsFrontend/ui/badge";
-import {
-    DropdownMenu,
-    DropdownMenuContent, DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger
-} from "@/componentsFrontend/ui/dropdown-menu";
-import {Button} from "@/componentsFrontend/ui/button";
-import {MoreHorizontal} from "lucide-react";
-import Link from "next/link";
-import {GetInvoiceItemsFromDB, GetInvoicesFromDB, getProjectNameBySiteId} from "@/app/actions/actions";
-import {InvoiceHoverPreview} from "@/componentsFrontend/ui/InvoiceHoverPreview";
-import {InvoiceItemsDataTable} from "@/componentsFrontend/InvoiceItemsDataTable";
-import { InvoicesDataTable } from "@/componentsFrontend/InvoicesDataTable";
-import {InvoiceChatBox} from "@/componentsFrontend/AI/SQL/InvoiceChatBox";
-import AIassistant from "@/componentsFrontend/AI/SQL/aiAssistant";
-import AIChatGeneral from "@/componentsFrontend/AI/SQL/AIwidget";
-import {ChartAreaInteractive} from "@/app/components/frontend/analytics/ChartAreaInteractive";
-import {getDailyAggregatedCosts} from "@/app/actions/AnalyticsActions";
-import {KeyMetrics} from "@/app/components/frontend/analytics/keyMetrics";
-import {KeyMetricsDashboard} from "@/app/components/frontend/analytics/keyMetricsDashboard";
-import AiWidgetRag from "@/componentsFrontend/AI/RAG/AiWidgetRag";
+
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import { getProjectNameBySiteId} from "@/server/actions/shared-actions";
+import {GetInvoiceItemsFromDB, GetInvoicesFromDB} from "@/server/actions/invoices-actions";
+import {InvoiceItemsDataTable} from "@/components/invoices/InvoiceItemsDataTable";
+import { InvoicesDataTable } from "@/components/invoices/InvoicesDataTable";
+import {ChartAreaInteractive} from "@/components/landing/analytics/ChartAreaInteractive";
+import {getDailyAggregatedCosts} from "@/server/actions/analytics-actions";
+import {KeyMetricsDashboard} from "@/components/landing/analytics/KeyMetricsDashboard";
+import AiWidgetRag from "@/components/ai/AiChat";
 
 
 export default async function InvoiceRoute({params}:

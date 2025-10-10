@@ -2,7 +2,7 @@
 
 
 import type { NextRequest } from "next/server";
-import { runPoller } from "@/poller/pollGmail";
+import { runPoller } from "@/app/api/poller/pollGmail";
 
 export async function GET(request: NextRequest) {
 

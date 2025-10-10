@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import {ThemeProvider} from "@/app/components/dashboard/ThemeProvider";
-import {Toaster} from "@/componentsFrontend/ui/sonner"
-import AIChatGeneral from "@/componentsFrontend/AI/SQL/AIwidget";
+import {ThemeProvider} from "@/components/dashboard/ThemeProvider";
+import {Toaster} from "@/components/ui/sonner"
+import AIChatGeneral from "@/server/ai/sql/AIwidget";
 
 const inter = Inter({ subsets: ["latin"] });
 //nothing delete

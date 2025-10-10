@@ -9,17 +9,17 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/componentsFrontend/ui/card"
-import {Label} from "@/componentsFrontend/ui/label";
-import {Input} from "@/componentsFrontend/ui/input";
-import {Textarea} from "@/componentsFrontend/ui/textarea";
-import {Button} from "@/componentsFrontend/ui/button";
+} from "@/components/ui/card"
+import {Label} from "@/components/ui/label";
+import {Input} from "@/components/ui/input";
+import {Textarea} from "@/components/ui/textarea";
+import {Button} from "@/components/ui/button";
 import {useActionState} from "react";
-import {CreateSiteAction} from "@/app/actions/actions";
+import {CreateSiteAction} from "@/server/actions/shared-actions";
 import {useForm} from "@conform-to/react";
 import {parseWithZod} from "@conform-to/zod";
 import {siteSchema} from "@/app/utils/zodSchemas";
-import {SubmitButton} from "@/app/components/dashboard/SubmitButtons";
+import {SubmitButton} from "@/components/dashboard/SubmitButtons";
 
 
 

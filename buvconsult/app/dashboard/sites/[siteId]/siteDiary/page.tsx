@@ -1,6 +1,6 @@
 // app/[...]/page.tsx  (Server Component)
-import SiteDiaryCalendar from "@/componentsFrontend/SiteDiaryComponents/Calendar";
-import AiWidgetRag from "@/componentsFrontend/AI/RAG/AiWidgetRag";
+import SiteDiaryCalendar from "@/components/sitediary/Calendar";
+import AiWidgetRag from "@/components/ai/AiChat";
 
 export default function Home({
   params,

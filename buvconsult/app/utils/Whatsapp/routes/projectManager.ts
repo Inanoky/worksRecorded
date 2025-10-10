@@ -7,9 +7,9 @@ import { getString } from "@/app/utils/Whatsapp/shared/helpers";
 import { handleProjectSelector } from "@/app/utils/Whatsapp/shared/projectSelector";
 import { handleAudio } from "@/app/utils/Whatsapp/shared/handleAudio";
 import { handleText } from "@/app/utils/Whatsapp/shared/handleText";
-import talkToProjectDiaryAgent from "@/componentsFrontend/AI/ProjectDiary/agent";
+import talkToProjectDiaryAgent from "@/ai/buvconsult-agents/ProjectDiary/agent";
 import { AgentFn } from "@/app/utils/Whatsapp/shared/types";
-import { getUserFirstNameById } from "@/app/actions/whatsappActions";
+import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 
 const projectDiaryAgent: AgentFn = async (input, siteId, userId) => {
   if (!siteId) {
