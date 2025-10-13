@@ -40,19 +40,20 @@ export const clockOutWorkerTool = new DynamicStructuredTool({
   description: "Clock a worker out (end workday)",
   schema: z.object({
     workerId: z.string().describe("The unique worker ID"),
-    location: z.string().describe("Work location "),
-    works: z.string().describe("Description of work performed"),
+    // location: z.string().describe("Work location "),
+    // works: z.string().describe("Description of work performed"),
    
   }),
-  async func({ workerId, location, works}) {
+  async func({ workerId, }) {
 
         const now = new Date()
     const result = await clockOutWorker({
       
       workerId,
       clockOut: now,
-      location,
-      works,
+      location : "",
+      works : ""
+      
      
 
     });
