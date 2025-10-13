@@ -4,7 +4,7 @@ import { z } from "zod";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatOpenAI } from "@langchain/openai";
 import { AIMessage } from "@langchain/core/messages";
-import {GraphState} from "@/server/ai-flows/agents/orchestrating-agent/state";
+import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import {tools} from "@/server/ai-flows/agents/orchestrating-agent/tools";
 
 /**
@@ -148,22 +148,6 @@ export async function agent(state: typeof GraphState.State): Promise<Partial<typ
     return true;
   });
 
-  // // 2. Take only the last N and strip to role/content for context window hygiene
-  //     const N = 10;
-  //     const llmMessages = filteredMessages
-  //       .slice(-N)
-  //       .map(msg =>
-  //         typeof msg.toDict === "function"
-  //           ? msg.toDict()
-  //           : {
-  //               role: msg.kwargs?.role || msg.type,
-  //               content: msg.kwargs?.content || msg.content,
-  //             }
-  //       );
-
-
-
-
 
 
   const model = new ChatOpenAI({
@@ -181,11 +165,7 @@ export async function agent(state: typeof GraphState.State): Promise<Partial<typ
   };
 }
 
-/**
- * Transform the query to produce a better question.
- * @param {typeof GraphState.State} state - The current state of the agent, including all messages.
- * @returns {Promise<Partial<typeof GraphState.State>>} - The updated state with the new message added to the list of messages.
- */
+
 export async function rewrite(state: typeof GraphState.State): Promise<Partial<typeof GraphState.State>> {
   console.log("---TRANSFORM QUERY---");
 
@@ -223,12 +203,7 @@ export async function generate(state: typeof GraphState.State): Promise<Partial<
   const { messages } = state;
   console.log(`Those are messages before they are filtered ${JSON.stringify(messages,null,2)}`)
   const question = messages[0].content as string;
-  // Extract the most recent ToolMessage
 
-
-  // const lastToolMessage = messages.slice().reverse().find((msg) => msg._getType() === "tool");
-
-  // So this supposed to get all tool messages.
   const toolMessages = messages.slice().reverse().filter((msg) =>
   msg.getType() === `tool`)
 

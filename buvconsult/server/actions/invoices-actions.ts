@@ -87,10 +87,7 @@ const INVOICE_FIELDS_TO_COPY = [
 };
 
 
-
-
-
-export async function GetInvoicesFromDB(siteId: string){
+export async function getInvoicesFromDB(siteId: string){
 
   function serializeDate(d: Date | null): string | null {
   return d ? d.toISOString() : null;
@@ -114,7 +111,7 @@ export async function GetInvoicesFromDB(siteId: string){
 
 }
 
-export async function GetInvoiceItemsFromDB(siteId: string) {
+export async function getInvoiceItemsFromDB(siteId: string) {
   const user = await requireUser();
 
   function serializeDate(d: Date | null): string | null {

@@ -4,33 +4,21 @@
 import OpenAI, { toFile } from "openai";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
-import { retriever } from "@/server/ai-flows/agents/orchestrating-agent/retrievers";
+import { retriever } from "@/server/ai-flows/agents/shared-between-agents/retrievers";
 import { ensurePdfFilename } from "@/app/api/poller/filename";
+import { EnrichedEmailPayloadItem, AuditPdfRow} from "./types"
+import { instructions, checklist } from "./prompts";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
-export type EnrichedEmailPayloadItem = {
-  userId: string;
-  email: string;
-  subject: string;
-  body: string;
-  pdfs: { filename: string; buffer: Buffer }[]; // per-PDF state will pass a 1-length array
-  siteId: string;
-  messageId?: string;
-};
+
 
 const auditSchema = z.object({
   summary: z.string(),
   health: z.number().min(0).max(100),
 });
 
-export type AuditPdfRow = {
-  messageId?: string;
-  siteId: string;
-  filename: string;
-  summary: string;
-  health: number;
-};
+
 
 export default async function gmailInvoiceAuditNarrative(
   items: EnrichedEmailPayloadItem[]
@@ -72,21 +60,8 @@ export default async function gmailInvoiceAuditNarrative(
          const today = getTodayDDMMYYYY()
 
 
-        const instructions =
-          `Today is ${today} (format day-month-year)` + 
-          "You are a helpful construction invoice reviewer. Speak plainly and briefly. " +
-          "If the invoice looks fine, say so and why. If something seems off, explain clearly and suggest next steps. " +
-          "Avoid legalese; keep it practical. Assess invoice health from 0–100 (100 = perfect).";
-
-        const checklist =
-          `Consider:\n ` +
-          "- Are payment terms clear/reasonable? Unusual penalties/discounts?\n" +
-          "- Unit prices/quantities typical? Outliers/duplicates?\n" +
-          "- Subtotal, VAT, total add up? Currency consistent?\n" +
-          "- Vendor/buyer names consistent with expectations?\n" +
-          "- Anything to make a PM double-check (dates, PO match, missing details)?\n" +
-          "End with a verdict: OK ✅, Needs review ⚠️, or Problem ❌.";
-
+       
+     
         const content = [
           { type: "input_text", text: instructions },
           { type: "input_text", text: `SiteId: ${siteId}` },

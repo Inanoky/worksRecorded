@@ -1,7 +1,7 @@
 import {useMemo, useState} from "react";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
-import {exportToExcel, getUniqueValues} from "@/components/ai/utils";
+import {exportToExcel, getUniqueValues} from "@/components/shared/utils";
 
 
 

@@ -1,8 +1,8 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import {retriever} from "@/server/ai-flows/agents/orchestrating-agent/retrievers";
+import {retriever} from "@/server/ai-flows/agents/shared-between-agents/retrievers";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
-import {GraphState} from "@/server/ai-flows/agents/orchestrating-agent/state";
+import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 
 
 export const retrieverTool = new DynamicStructuredTool({

@@ -2,7 +2,7 @@
 
 import {END, StateGraph} from "@langchain/langgraph";
 import { START } from "@langchain/langgraph";
-import {GraphState} from "@/server/ai-flows/agents/orchestrating-agent/state";
+import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import {
     agent, checkRelevance,
     generate,

@@ -4,7 +4,7 @@ import { getTimelogsBySiteId, getWorkersBySiteId } from "@/server/actions/timesh
 import AiWidgetRag from "@/components/ai/AiChat";
 import { getLocationsWorksFromSiteSchema } from "@/server/actions/site-diary-actions";
 import { SiteSchemaProvider } from "@/components/providers/SiteSchemaProvider";
-import { WorkerTableCard } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/WorkerTableCard";
+import { WorkerTableCard } from "@/components/ai/WorkerTableCard";
 
 export default async function AddWorkerPage({params}) {
   const {siteId} = await params

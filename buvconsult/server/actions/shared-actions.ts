@@ -10,15 +10,12 @@ import {prisma} from "@/app/utils/db";
 import {requireUser} from "@/app/utils/requireUser";
 import {stripe} from "@/app/utils/stripe";
 import gptResponse from "../ai-flows/agents/action-agents/gpt-extractor-for-invoices";
-import OpenAI from "openai";
+
 import { chunk } from "lodash";
 
 
 
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 
 
@@ -237,12 +234,6 @@ export async function getProjectNameBySiteId(siteId: string): Promise<string | n
 
   return site?.name ?? null;
 }
-//nothing
-
-// ---------------------------------------Documents-----------------------------------------------
-
-
-
 
 
 export const saveInvoiceToFromGmailDB = async (_: unknown, formData: FormData) => {

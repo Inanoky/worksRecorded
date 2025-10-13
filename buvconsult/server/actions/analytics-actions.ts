@@ -1,11 +1,7 @@
 import { prisma } from "@/app/utils/db";
 
 // Helper to get all months, to show 0 if no spendings that month
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr",
-  "May", "Jun", "Jul", "Aug",
-  "Sep", "Oct", "Nov", "Dec"
-];
+
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 

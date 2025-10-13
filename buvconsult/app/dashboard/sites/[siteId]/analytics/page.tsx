@@ -1,10 +1,10 @@
 import {getCategoryMonthlySpendings, getMonthlySpendings} from "@/server/actions/analytics-actions";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { MonthlySpendingsChart} from "@/components/landing/analytics/MonthlySpendingsChart";
-import {MonthlyCategoryChart} from "@/components/landing/analytics/MonthlyCategoryChart";
-import {BudgetVsReal} from "@/components/landing/analytics/BudgetVsReal";
-import {PieCharTotals} from "@/components/landing/analytics/PieCharTotals";
-import {KeyMetrics} from "@/components/landing/analytics/KeyMetrics";
+import { MonthlySpendingsChart} from "@/components/analytics/MonthlySpendingsChart";
+import {MonthlyCategoryChart} from "@/components/analytics/MonthlyCategoryChart";
+import {BudgetVsReal} from "@/components/analytics/BudgetVsReal";
+import {PieCharTotals} from "@/components/analytics/PieCharTotals";
+import {KeyMetrics} from "@/components/analytics/KeyMetrics";
 import AiWidgetRag from "@/components/ai/AiChat";
 
 export default async function Analytics({params}:

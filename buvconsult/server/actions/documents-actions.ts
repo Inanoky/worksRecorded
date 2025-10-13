@@ -1,19 +1,11 @@
 
 "use server";
 
-
-import {redirect} from "next/navigation";
-import {parseWithZod} from '@conform-to/zod'
-import {PostSchema, SiteCreationSchema} from "@/app/utils/zodSchemas";
 import {prisma} from "@/app/utils/db";
 import {requireUser} from "@/app/utils/requireUser";
-import {stripe} from "@/app/utils/stripe";
-import gptResponse from "@/componentsFrontend/AI/SQL/ExtractorGptForInvoices";
-import gptInvoiceSchema from "@/componentsFrontend/AI/SQL/ExtractorGptForInvoices"
-import OpenAI from "openai";
 import { chunk } from "lodash";
 import gptDocumentsResponse from "@/server/ai-flows/agents/action-agents/gpt-extractor-for-documents";
-import {LoadEmbeddings} from "@/server/ai-flows/agents/documents-agent/loadEmbeddings";
+import {LoadEmbeddings} from "@/server/ai-flows/agents/shared-between-agents/loadEmbeddings";
 import { Pinecone } from '@pinecone-database/pinecone'
 import { isLikelyScannedPdf } from "../../app/utils/actions/helpers/isLikelyScannedPdf";
 
@@ -107,7 +99,7 @@ export const saveDocumentsToDB = async (_: unknown, formData: FormData) => {
   return { accepted,total};
 };
 
-export async function GetDocumentsFromDB(siteId: string){
+export async function getDocumentsFromDB(siteId: string){
 
     const user = await requireUser();
 

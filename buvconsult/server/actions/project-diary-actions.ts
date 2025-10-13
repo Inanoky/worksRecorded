@@ -2,9 +2,7 @@
 "use server";
 
 import {requireUser} from "@/app/utils/requireUser";
-
 import { Prisma } from "@prisma/client";
-
 import { prisma } from "@/app/utils/db";
 
 type Params = {
@@ -40,7 +38,6 @@ export async function saveProjectDiaryRecord({
     return "something went wrong";
   }
 }
-
 
 // app/actions/ProjectDiaryActions.ts
 
@@ -82,7 +79,6 @@ export async function GetRecordsFromDB(siteId: string) {
     };
   });
 }
-
 
 //Generic Action
 

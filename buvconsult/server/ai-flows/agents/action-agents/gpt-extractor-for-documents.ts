@@ -11,6 +11,7 @@ const client = new OpenAI({
 
 
 export default async function gptDocumentsResponse(fileUrl) {
+  
   const response = await fetch(fileUrl);
   const blob = await response.blob();
   const file = new File([blob], "invoice.pdf", { type: "application/pdf" });

@@ -1,3 +1,10 @@
+/**
+ * Category node for hierarchical construction classification.
+ * Each node has a display `name` and optional nested `children`.
+ */
+
+// TODO: this need to be automated so user can manually change desired categories. 
+
 
 
 export const constructionCategories = [

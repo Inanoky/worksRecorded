@@ -4,9 +4,9 @@ import { getProjectNameBySiteId} from "@/server/actions/shared-actions";
 import {GetInvoiceItemsFromDB, GetInvoicesFromDB} from "@/server/actions/invoices-actions";
 import {InvoiceItemsDataTable} from "@/components/invoices/InvoiceItemsDataTable";
 import { InvoicesDataTable } from "@/components/invoices/InvoicesDataTable";
-import {ChartAreaInteractive} from "@/components/landing/analytics/ChartAreaInteractive";
+import {ChartAreaInteractive} from "@/components/analytics/ChartAreaInteractive";
 import {getDailyAggregatedCosts} from "@/server/actions/analytics-actions";
-import {KeyMetricsDashboard} from "@/components/landing/analytics/KeyMetricsDashboard";
+import {KeyMetricsDashboard} from "@/components/analytics/KeyMetricsDashboard";
 import AiWidgetRag from "@/components/ai/AiChat";
 
 

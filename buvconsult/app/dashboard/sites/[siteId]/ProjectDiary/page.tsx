@@ -1,6 +1,6 @@
 import {GetRecordsFromDB} from "@/server/actions/project-diary-actions"
 import { getProjectNameBySiteId} from "@/server/actions/shared-actions";
-import {GenericTemplateTable} from "@/components/_templates/tableWithGenericActions";
+import {GenericTemplateTable} from "@/components/_templates/TableWithGenericActions";
 
 export default async function ProjectDiary ({params}:
 

@@ -2,42 +2,21 @@
 "use server";
 
 import { prisma} from "@/app/utils/db";
-
 import {requireUser} from "@/app/utils/requireUser";
 import {parseExcelToTree} from "@/server/ai-flows/agents/settings/schema-upload/agent"; // Optional: if you want to refresh data on page
 import { validateExcel } from "../../app/utils/SiteDiary/Settings/validateSchema";
+import { SavePhotoArgs, GetPhotosByDateArgs, Args} from "./types";
 
 
+// Site diary records actions 
+
+export async function saveSiteDiaryRecord({ rows, userId, siteId }) {
 
 
-
-type SiteDiaryRow = {
-  date: string; // ISO string or null
-  location: string;
-  works: string;
-  comments: string;
-  units: string;
-  amounts: string | number;
-  workers: string | number;
-  hours: string | number;
-};
-
-type SaveArgs = {
-  rows: SiteDiaryRow[];
-  siteId: string | null;
-};
-
-export async function saveSiteDiaryRecords({ rows, userId, siteId }) {
-
-
-  console.log("=== saveSiteDiaryRecords called ===");
-  console.log("Input rows:", JSON.stringify(rows, null, 2));
-  console.log("Input userId:", userId);
-  console.log("Input siteId:", siteId);
-
+  
   // Make sure requireUser() is not triggering a redirect!
 
-  console.log("Authenticated user:", userId);
+
 
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows
@@ -56,48 +35,37 @@ export async function saveSiteDiaryRecords({ rows, userId, siteId }) {
         TimeInvolved: row.hours ? Number(row.hours) : undefined,
         Photos: [],
       };
-      console.log(`Prepared insert row ${idx}:`, out);
+  
       return out;
     });
 
-  console.log("Rows prepared for DB insert:", JSON.stringify(toInsert, null, 2));
+
 
   if (!toInsert.length) {
-    console.log("No records to insert. Exiting early.");
+   
     return { ok: false, message: "No records to insert" };
   }
 
   // Bulk insert
   try {
     const dbResult = await prisma.sitediaryrecords.createMany({ data: toInsert });
-    console.log("Database createMany result:", dbResult);
+    
   } catch (err) {
-    console.error("Error inserting records into DB:", err);
+
     return { ok: false, message: err.message };
   }
 
   // Optionally, revalidate data on page
   // revalidatePath("/site-diary");
 
-  console.log("Insert successful. Inserted:", toInsert.length, "records.");
   return { ok: true, count: toInsert.length };
 }
 
 
-
-export async function saveSiteDiaryRecordsFromWeb({ rows,  siteId }) {
+export async function saveSiteDiaryRecordFromWeb({ rows,  siteId }) {
 
   const user = await requireUser();
-  const userId = user.id
-
-  console.log("=== saveSiteDiaryRecords called ===");
-  console.log("Input rows:", JSON.stringify(rows, null, 2));
-  console.log("Input userId:", userId);
-  console.log("Input siteId:", siteId);
-
-  // Make sure requireUser() is not triggering a redirect!
-
-  console.log("Authenticated user:", userId);
+  
 
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows
@@ -120,19 +88,18 @@ export async function saveSiteDiaryRecordsFromWeb({ rows,  siteId }) {
       return out;
     });
 
-  console.log("Rows prepared for DB insert:", JSON.stringify(toInsert, null, 2));
-
+  
   if (!toInsert.length) {
-    console.log("No records to insert. Exiting early.");
+   
     return { ok: false, message: "No records to insert" };
   }
 
   // Bulk insert
   try {
     const dbResult = await prisma.sitediaryrecords.createMany({ data: toInsert });
-    console.log("Database createMany result:", dbResult);
+    
   } catch (err) {
-    console.error("Error inserting records into DB:", err);
+    
     return { ok: false, message: err.message };
   }
 
@@ -142,8 +109,6 @@ export async function saveSiteDiaryRecordsFromWeb({ rows,  siteId }) {
   console.log("Insert successful. Inserted:", toInsert.length, "records.");
   return { ok: true, count: toInsert.length };
 }
-
-
 
 
 export async function updateSiteDiaryRecord({ id, ...fields }) {
@@ -163,61 +128,16 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
   }
 }
 
-
-
-//This for celendar
-
-type Args = {
-  siteId: string;
-  year: number;
-  month: number; // 0-based (Jan = 0)
-};
-
-/** Returns array of day numbers (1,2,3...) with entries for a month */
-export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {
-  const from = new Date(year, month, 1);
-  const to = new Date(year, month + 1, 1);
-
-  // site diary records in month
-  const records = await prisma.sitediaryrecords.findMany({
-    where: {
-      siteId,
-      Date: { gte: from, lt: to },
-    },
-    select: { Date: true },
+export async function deleteSiteDiaryRecord({ id }: { id: string }) {
+  // id is the Prisma row ID (UUID)
+  await prisma.sitediaryrecords.delete({
+    where: { id },
   });
-
-  // photos in month (with a valid URL)
-  const photos = await prisma.photos.findMany({
-    where: {
-      siteId,
-      Date: { gte: from, lt: to },
-      OR: [
-        { URL: { not: null } },
-        { fileUrl: { not: null } },
-      ],
-    },
-    select: { Date: true },
-  });
-
-  // Collect unique day numbers
-  const daysSet = new Set<number>();
-
-  records.forEach((rec) => {
-    if (rec.Date) daysSet.add(new Date(rec.Date).getDate());
-  });
-
-  photos.forEach((p) => {
-    if (p.Date) daysSet.add(new Date(p.Date).getDate());
-  });
-
-  return Array.from(daysSet).sort((a, b) => a - b);
+  return { success: true };
 }
 
 
-
-// Fetch diary records for a date and site
-export async function getSiteDiaryRecords({ siteId, date }) {
+export async function getSiteDiaryRecord({ siteId, date }) {
   // Get records for the *same day* (ignoring time)
   const start = new Date(date);
   start.setHours(0,0,0,0);
@@ -261,17 +181,44 @@ export async function getSiteDiaryRecords({ siteId, date }) {
 }
 
 
+export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {
+  const from = new Date(year, month, 1);
+  const to = new Date(year, month + 1, 1);
 
-//Delete functionality
-
-
-
-export async function deleteSiteDiaryRecord({ id }: { id: string }) {
-  // id is the Prisma row ID (UUID)
-  await prisma.sitediaryrecords.delete({
-    where: { id },
+  // site diary records in month
+  const records = await prisma.sitediaryrecords.findMany({
+    where: {
+      siteId,
+      Date: { gte: from, lt: to },
+    },
+    select: { Date: true },
   });
-  return { success: true };
+
+  // photos in month (with a valid URL)
+  const photos = await prisma.photos.findMany({
+    where: {
+      siteId,
+      Date: { gte: from, lt: to },
+      OR: [
+        { URL: { not: null } },
+        { fileUrl: { not: null } },
+      ],
+    },
+    select: { Date: true },
+  });
+
+  // Collect unique day numbers
+  const daysSet = new Set<number>();
+
+  records.forEach((rec) => {
+    if (rec.Date) daysSet.add(new Date(rec.Date).getDate());
+  });
+
+  photos.forEach((p) => {
+    if (p.Date) daysSet.add(new Date(p.Date).getDate());
+  });
+
+  return Array.from(daysSet).sort((a, b) => a - b);
 }
 
 
@@ -365,8 +312,6 @@ export async function deleteSchemaBySiteId(formData: FormData) {
 }
 
 
-
-
 export async function getLocationsWorksFromSiteSchema(siteId: string, type: 'Location' | 'Work') {
         
 
@@ -397,22 +342,6 @@ const schema = await getSiteDiarySchema({siteId});
 
 }}
 
-
-type SavePhotoArgs = {
-  userId: string | null;          // from your prisma.user
-  siteId: string | null;          // user.lastSelectedSiteIdforWhatsapp
-  url?: string | null;            // public URL (e.g., UploadThing ufsUrl)
-  fileUrl?: string | null;        // if you also want to store separately
-  comment?: string | null;        // WhatsApp caption / annotation
-  location?: string | null;       // optional manual location string
-  date?: Date | null;             // defaults to now if not provided
-};
-
-type GetPhotosByDateArgs = {
-  siteId: string | null;
-  startISO: string; // inclusive
-  endISO: string;   // exclusive
-};
 
 export async function savePhoto({
   userId,
@@ -464,7 +393,6 @@ export async function getPhotosByDate({ siteId, startISO, endISO }: GetPhotosByD
     },
   });
 }
-
 
 
 export async function deletePhotoById(id: string) {

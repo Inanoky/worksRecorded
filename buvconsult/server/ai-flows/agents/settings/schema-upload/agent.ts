@@ -32,14 +32,11 @@ function chunkText(s: string, size = MAX_CHARS) {
 }
 
 export async function parseExcelToTree(url: string, buf) {
-  console.log("📥 Downloading Excel from:", url);
-
- 
 
   
   // 2) Convert Excel → CSV (all sheets)
   const wb = XLSX.read(buf, { type: "buffer" });
-  console.log("📄 Sheets found:", wb.SheetNames);
+
 
   const csvPieces: string[] = [];
   for (const sheetName of wb.SheetNames) {
@@ -47,17 +44,16 @@ export async function parseExcelToTree(url: string, buf) {
     if (!ws) continue;
     const csv = XLSX.utils.sheet_to_csv(ws, { FS: ",", RS: "\n" }).trim();
     if (csv) {
-      console.log(`📑 Sheet "${sheetName}" rows:`, csv.split("\n").length);
-      console.log(`🔍 Preview of "${sheetName}":\n`, csv.slice(0, 200), "...");
+ 
       csvPieces.push(`# Sheet: ${sheetName}\n${csv}`);
     }
   }
 
   const csvAll = csvPieces.join("\n\n");
   const chunks = chunkText(csvAll);
-  console.log("✂️ CSV split into", chunks.length, "chunks");
+ 
   chunks.forEach((chunk, i) =>
-    console.log(`📦 Chunk ${i + 1} size:`, chunk.length, "chars")
+   
   );
 
   // 3) LangChain LLM with structured output (schema = Node object at the root)
@@ -76,14 +72,10 @@ export async function parseExcelToTree(url: string, buf) {
     ]),
   ];
 
-  console.log("📝 Prompt messages ready:", messages.length);
-  console.log("📝 System prompt:\n", systemPrompt);
-
+ 
   // 4) Invoke model (returns parsed & validated Node object)
   const tree = await structured.invoke(messages);
 
-  console.log("🤖 Model output (parsed & validated Node):");
-  console.log(JSON.stringify(tree, null, 2));
 
   return tree;
 }

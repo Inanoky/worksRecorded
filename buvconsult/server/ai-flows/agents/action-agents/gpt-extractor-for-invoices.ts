@@ -8,17 +8,30 @@ import {zodTextFormat} from "openai/helpers/zod";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
+
+/**
+ * 
+ * @param fileUrl - a URL to uploaded PDF from UploadThing 
+ * 
+ * @returns 
+ */
+
 export default async function gptResponse(fileUrl: string) {
+
   // 1) Fetch the PDF (public URL)
+
   const pdfResp = await fetch(fileUrl);
   if (!pdfResp.ok) throw new Error(`Failed to fetch PDF: ${pdfResp.status}`);
   const pdfBytes = Buffer.from(await pdfResp.arrayBuffer());
 
-  // 2) Convert PDF → PNG (base64 per page) via DynamicPDF
+  // 2) Convert PDF → PNG (base64 per page) via DynamicPDF API
+
   const pdfImage = new PdfImage(new PdfResource(pdfBytes)); // bytes work too
   pdfImage.apiKey = process.env.DynamicPDF_API_KEY
   const png = new PngImageFormat();
-  // Depending on SDK version, this might be .imageFormat:
+
+ 
+
   pdfImage.ImageFormat = png;
 
   const conv = await pdfImage.process();
@@ -27,12 +40,6 @@ export default async function gptResponse(fileUrl: string) {
       `DynamicPDF failed: ${conv["errorMessage"] || JSON.stringify(conv["errorJson"])}`
     );
   }
-
-
-
-
-
-
 
 
 
@@ -47,7 +54,7 @@ const invoiceItemSchema = z.object({
   currency: z.string(),
   category: z.string(),
   itemDescription: z.string(),
-  // Add more fields if you wish
+  
 });
 
   const invoiceSchema = z.object({
@@ -64,30 +71,9 @@ const invoiceItemSchema = z.object({
 });
 
 
-
  const gptInvoicesSchema = z.object({
     items: z.array(invoiceSchema),
   });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
   // 3) Build input_image items for OpenAI (data URLs)

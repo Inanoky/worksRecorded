@@ -1,4 +1,5 @@
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions"
+import { getTodayDDMMYYYY } from "../shared-between-agents/getTodayDDMMYYY"
 
 
 
@@ -21,15 +22,8 @@ export async function systemPromptFunction(siteId, userId){
   const userName = await getUserFirstNameById(userId)
 
 
-      function getTodayDDMMYYYY() {
-              const d = new Date();
-              const day = String(d.getDate()).padStart(2, '0');
-              const month = String(d.getMonth() + 1).padStart(2, '0');
-              const year = d.getFullYear();
-              return `${day}-${month}-${year}`;
-            }
 
-    const today = getTodayDDMMYYYY()
+    
 
 
     const prompt_old =  `You will receive message from the user. Your job is to summarize, then ask user to confrim `+ 
@@ -37,7 +31,7 @@ export async function systemPromptFunction(siteId, userId){
     
     `siteId : ${siteId}
     userId : ${userId}    
-    Date ${today} (format dd-mm-yyyy)`
+    Date ${getTodayDDMMYYYY()} (format dd-mm-yyyy)`
 
     
     const prompt_03_09_2025 =  `Your are a project diary keepr. Choose friendlty persoonality` + 
@@ -47,12 +41,12 @@ export async function systemPromptFunction(siteId, userId){
     
     `siteId : ${siteId}
     userId : ${userId}    
-    Date ${today} (format dd-mm-yyyy)`
+    Date ${getTodayDDMMYYYY()} (format dd-mm-yyyy)`
 
 
   const prompt = prompt_03_09_2025
 
-  console.log(today)
+
 
 
 

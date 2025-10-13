@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
-import { UploadImageForm } from "@/components/dashboard/forms/UploadImageForm";
+import { UploadImageForm } from "@/components/settings/UploadImageForm";
 import { updateSiteAction } from "@/server/actions/shared-actions";
 import { prisma } from "@/app/utils/db";
 import DocumentUpload from "@/components/documents/DocumentsUpload";

@@ -1,5 +1,5 @@
 "use client"
-import { TrendingUp } from "lucide-react"
+
 import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from "recharts"
 import {
   Card,

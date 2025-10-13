@@ -1,4 +1,4 @@
-import {HardHat,ChartBar, CircleUser, DollarSign, Globe, Home} from "lucide-react"
+import {HardHat, DollarSign} from "lucide-react"
 export const navLinks = [
     // {
     //     name: 'Dashboard',

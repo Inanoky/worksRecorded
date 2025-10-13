@@ -1,14 +1,12 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import {retriever} from "@/server/ai-flows/agents/orchestrating-agent/retrievers";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
-import {GraphState} from "@/server/ai-flows/agents/orchestrating-agent/state";
-import aiGeneral from "@/componentsFrontend/AI/SQL/aiGeneral";
+import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import {ChatOpenAI} from "@langchain/openai";
-import {systemPrompt, systemPromptSaveToDatabase} from "@/componentsFrontend/AI/Whatsapp/prompts";
+import { systemPromptSaveToDatabase } from "./prompts";
 import {getSiteDiarySchema} from "@/server/actions/site-diary-actions";
 import { saveSiteDiaryRecords } from "@/server/actions/site-diary-actions";
-import {AIMessage, HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
+import {HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
 
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
@@ -26,7 +24,6 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                     // Extracting schema
 
                const schema = await getSiteDiarySchema({ siteId });
-                console.log("Schema received:", JSON.stringify(schema, null, 2));
 
                 function extractLocationNames(schema) {
                   return schema.filter(node => node.type === "Location").map(node => node.name);
@@ -46,11 +43,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
 
 
-                console.log("Location names:", locationNames);
-                console.log("Work names:", workNames);
-
-
-                const LocationEnum = z.enum(locationNames);
+                     const LocationEnum = z.enum(locationNames);
                 const WorksEnum = z.union([
                     z.enum(workNames as [string, ...string[]]),
                     z.literal("Additional works"),
@@ -76,15 +69,12 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
                 const SiteDiaryRecordSchema = z.array(makeSiteDiaryRecordSchema({ locationNames, workNames }));
 
-                console.log("Zod SiteDiaryRecordSchema created.");
-                //nothing
-
-                // Setup LLM
+                
+                   
                 const llm = new ChatOpenAI({
                   temperature: 0.1,
                   model: "gpt-4.1",
                 });
-                console.log("ChatOpenAI instance created.");
 
                 // Setup Structured LLM
                 const structuredLlm = llm.withStructuredOutput(
@@ -92,24 +82,14 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                     answer: SiteDiaryRecordSchema
                   })
                 );
-                console.log("Structured output schema added to LLM.");
-
-                console.log("Prompting LLM...");
-
-
-
-
+         
 
                 const response = await structuredLlm.invoke([
                   new HumanMessage(`${question} \n ${date} \n ${siteId} \n `),
                   new SystemMessage(systemPromptSaveToDatabase)
                 ]);
 
-
-                console.log("====== Structured LLM Response ======");
-                console.log(JSON.stringify(response, null, 2));
-                console.log("=====================================");
-
+         
                    const rows = (response.answer || []).map((r) => ({
                       date: r.Date ? new Date(r.Date).toISOString() : null,
                       location: r.Location ?? "",
