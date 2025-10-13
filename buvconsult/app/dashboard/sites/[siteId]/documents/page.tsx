@@ -1,9 +1,9 @@
-import {Chat} from "@/componentsFrontend/AI/ChatWithPdf/chat";
-import AiWidgetRag from "@/componentsFrontend/AI/RAG/AiWidgetRag";
-import {DocumentsDataTable} from "@/componentsFrontend/DocumentDataTable";
-import {GetDocumentsFromDB, GetInvoicesFromDB, getProjectNameBySiteId} from "@/app/actions/actions";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/componentsFrontend/ui/card";
-import {InvoicesDataTable} from "@/componentsFrontend/InvoicesDataTable";
+
+import AiWidgetRag from "@/components/ai/AiChat";
+import {DocumentsDataTable} from "@/components/documents/DocumentDataTable";
+import { getProjectNameBySiteId} from "@/server/actions/shared-actions";
+import { getDocumentsFromDB } from "@/server/actions/documents-actions";
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 
 export default async function Documents({params}:
 
@@ -15,7 +15,7 @@ export default async function Documents({params}:
     const {siteId} = await params
     const projectName = getProjectNameBySiteId(siteId)
 
-     const documents = await GetDocumentsFromDB(siteId)
+     const documents = await getDocumentsFromDB(siteId)
 
      return (
 

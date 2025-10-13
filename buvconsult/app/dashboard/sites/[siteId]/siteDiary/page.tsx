@@ -1,13 +1,13 @@
 // app/[...]/page.tsx  (Server Component)
-import SiteDiaryCalendar from "@/componentsFrontend/SiteDiaryComponents/Calendar";
-import AiWidgetRag from "@/componentsFrontend/AI/RAG/AiWidgetRag";
+import SiteDiaryCalendar from "@/components/sitediary/Calendar";
+import AiWidgetRag from "@/components/ai/AiChat";
 
-export default function Home({
+export default async function Home({
   params,
 }: {
   params: { siteId: string };
 }) {
-  const { siteId } = params;
+  const { siteId } = await params;
 
   return (
     <>

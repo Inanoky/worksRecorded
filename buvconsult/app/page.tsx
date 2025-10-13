@@ -1,14 +1,9 @@
-import Image from "next/image";
-import { Button } from "@/componentsFrontend/ui/button"
-import {
-    RegisterLink,
-    LoginLink,
-    LogoutLink} from "@kinde-oss/kinde-auth-nextjs/components";
+
 import {getKindeServerSession} from "@kinde-oss/kinde-auth-nextjs/server";
-import {Hero} from "@/app/components/frontend/Hero";
-import {Logos} from "@/app/components/frontend/Logos";
-import {Features} from "@/app/components/frontend/Features";
-import {PricingTable} from "@/app/components/shared/Pricing";
+import {Hero} from "@/components/landing/Hero";
+import {Logos} from "@/components/landing/Logos";
+import {Features} from "@/components/landing/Features";
+import {PricingTable} from "@/components/shared/Pricing";
 import {redirect} from "next/navigation";
 
 

@@ -1,10 +1,10 @@
-import { AddWorkerForm } from "@/componentsFrontend/ClockInOut/AddWorkerFrom";
-import { FrontendTable } from "@/componentsFrontend/Timesheets/FrontendTable";
-import { getTimelogsBySiteId, getWorkersBySiteId } from "@/app/actions/clockinActions";
-import { WorkerTableCard } from "@/componentsFrontend/AI/ClockInOut/WorkerTableCard";
-import AiWidgetRag from "@/componentsFrontend/AI/RAG/AiWidgetRag";
-import { getLocationsWorksFromSiteSchema } from "@/app/actions/SchemaActions";
-import { SiteSchemaProvider } from "@/componentsFrontend/provider/SiteSchemaProvider";
+import { AddWorkerForm } from "@/components/timesheets/AddWorkerFrom";
+import { FrontendTable } from "@/components/timesheets/FrontendTable";
+import { getTimelogsBySiteId, getWorkersBySiteId } from "@/server/actions/timesheets-actions";
+import AiWidgetRag from "@/components/ai/AiChat";
+import { getLocationsWorksFromSiteSchema } from "@/server/actions/site-diary-actions";
+import { SiteSchemaProvider } from "@/components/providers/SiteSchemaProvider";
+import { WorkerTableCard } from "@/components/ai/WorkerTableCard";
 
 export default async function AddWorkerPage({params}) {
   const {siteId} = await params
