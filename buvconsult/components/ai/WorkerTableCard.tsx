@@ -1,5 +1,5 @@
 "use client";
-import { ScrollTable } from "@/components/_templates/ScrollAreaTemplate";
+import { ScrollTable } from "../_templates/scrollAreaTemplate";
 import { Card, CardTitle, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
 import { useTransition, useState } from "react";
 import { deleteTeamMember, getWorkersBySiteId } from "@/server/actions/timesheets-actions";

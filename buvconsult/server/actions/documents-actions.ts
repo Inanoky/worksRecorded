@@ -1,13 +1,13 @@
 
 "use server";
 
-import {prisma} from "@/app/utils/db";
-import {requireUser} from "@/app/utils/requireUser";
+import {prisma} from "@/lib/utils/db";
+import {requireUser} from "@/lib/utils/requireUser";
 import { chunk } from "lodash";
-import gptDocumentsResponse from "@/server/ai-flows/agents/action-agents/gpt-extractor-for-documents";
+import gptDocumentsResponse from "@/server/ai-flows/agents/extractors/gpt-extractor-for-documents";
 import {LoadEmbeddings} from "@/server/ai-flows/agents/shared-between-agents/loadEmbeddings";
 import { Pinecone } from '@pinecone-database/pinecone'
-import { isLikelyScannedPdf } from "../../app/utils/actions/helpers/isLikelyScannedPdf";
+import { isLikelyScannedPdf } from "../../lib/utils/actions-helpers/is-likely-scanned-pdf";
 
 
 

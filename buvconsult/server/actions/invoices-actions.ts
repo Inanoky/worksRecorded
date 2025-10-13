@@ -1,9 +1,9 @@
 "use server"
 
 
-import {prisma} from "@/app/utils/db";
-import {requireUser} from "@/app/utils/requireUser";
-import gptResponse from "../ai-flows/agents/action-agents/gpt-extractor-for-invoices";
+import {prisma} from "@/lib/utils/db";
+import {requireUser} from "@/lib/utils/requireUser";
+import gptResponse from "../ai-flows/agents/extractors/gpt-extractor-for-invoices";
 import { chunk } from "lodash";
 
 

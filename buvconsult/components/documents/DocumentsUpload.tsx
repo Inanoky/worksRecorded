@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
-import { UploadDropzone } from "@/app/utils/UploadthingsComponents";
+import { UploadDropzone } from "@/lib/utils/UploadthingsComponents";
 import { toast } from "sonner";
 import { saveDocumentsToDB } from "@/server/actions/documents-actions";
 import { useRouter } from "next/navigation"; // <-- Add this

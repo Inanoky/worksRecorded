@@ -11,7 +11,7 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@
 import { Trash2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
-  getSiteDiaryRecords, getSiteDiarySchema,  saveSiteDiaryRecordsFromWeb,
+  getSiteDiaryRecord, getSiteDiarySchema,  saveSiteDiaryRecordFromWeb,
   deleteSiteDiaryRecord, updateSiteDiaryRecord
 } from "@/server/actions/site-diary-actions";
 import { toast } from "sonner";
@@ -234,7 +234,7 @@ export function DialogTable({ date, siteId, onSaved }: {
       const rowsSanitized = newRows.map(({ id: _omit, _tempId: _omit2, ...rest }) => rest);
       console.log("[Diary][CreateNew] payload:", { rows: rowsSanitized, siteId });
       try {
-        const res = await saveSiteDiaryRecordsFromWeb({
+        const res = await saveSiteDiaryRecordFromWeb({
           rows: rowsSanitized,
           siteId,
         });
@@ -262,7 +262,7 @@ export function DialogTable({ date, siteId, onSaved }: {
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
       console.log("[Diary][Effect] loading rows for:", { siteId, isoDate });
-      const loadedRows = await getSiteDiaryRecords({ siteId, date: isoDate });
+      const loadedRows = await getSiteDiaryRecord({ siteId, date: isoDate });
       if (cancelled) return;
 
       const nextRows =

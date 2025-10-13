@@ -1,9 +1,7 @@
 import {getCategoryMonthlySpendings, getMonthlySpendings} from "@/server/actions/analytics-actions";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { MonthlySpendingsChart} from "@/components/analytics/MonthlySpendingsChart";
 import {MonthlyCategoryChart} from "@/components/analytics/MonthlyCategoryChart";
 import {BudgetVsReal} from "@/components/analytics/BudgetVsReal";
-import {PieCharTotals} from "@/components/analytics/PieCharTotals";
 import {KeyMetrics} from "@/components/analytics/KeyMetrics";
 import AiWidgetRag from "@/components/ai/AiChat";
 

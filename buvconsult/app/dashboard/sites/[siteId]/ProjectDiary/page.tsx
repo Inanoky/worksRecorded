@@ -1,6 +1,5 @@
 import {GetRecordsFromDB} from "@/server/actions/project-diary-actions"
-import { getProjectNameBySiteId} from "@/server/actions/shared-actions";
-import {GenericTemplateTable} from "@/components/_templates/TableWithGenericActions";
+import { GenericTemplateTable } from "@/components/_templates/tableWithGenericActions";
 
 export default async function ProjectDiary ({params}:
 
@@ -12,10 +11,6 @@ export default async function ProjectDiary ({params}:
 
     const {siteId} = await params
     const records = await GetRecordsFromDB(siteId)
-    const projectName = await getProjectNameBySiteId(siteId)
-
-
-
 
 
     return (

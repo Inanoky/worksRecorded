@@ -1,7 +1,7 @@
 // app/poller/pollGmail.ts
 "use server";
 
-import { prisma } from "@/app/utils/db";
+import { prisma } from "@/lib/utils/db";
 import siteIdCheck from "@/server/ai-flows/agents/gmail-workflow-agent/site-id-check";
 import gmailInvoiceAuditNarrative from "@/server/ai-flows/agents/gmail-workflow-agent/agent";
 import { UTApi } from "uploadthing/server";

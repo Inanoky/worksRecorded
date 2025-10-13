@@ -4,7 +4,7 @@
 import OpenAI, { toFile } from "openai";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
-import { prisma } from "@/app/utils/db";
+import { prisma } from "@/lib/utils/db";
 import { ensurePdfFilename } from "@/app/api/poller/filename";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });

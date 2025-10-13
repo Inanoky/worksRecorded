@@ -1,13 +1,13 @@
 
-import { getString } from "@/app/utils/Whatsapp/shared/helpers";
-import { sendMessage } from "@/app/utils/Whatsapp/shared/twillio";
-import { handleProjectSelector } from "@/app/utils/Whatsapp/shared/projectSelector";
-import { handleImage } from "@/app/utils/Whatsapp/shared/handleImage";
-import { handleAudio } from "@/app/utils/Whatsapp/shared/handleAudio";
-import { handleText } from "@/app/utils/Whatsapp/shared/handleText";
-import talkToWhatsappAgent from "@/componentsFrontend/AI/Whatsapp/agent";
-import { AgentFn } from "@/app/utils/Whatsapp/shared/types";
-import { prisma } from "@/app/utils/db"; // ⬅️ need prisma
+import { getString } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { handleProjectSelector } from "@/lib/utils/whatsapp-helpers/shared/projectSelector";
+import { handleImage } from "@/lib/utils/whatsapp-helpers/shared/handleImage";
+import { handleAudio } from "@/lib/utils/whatsapp-helpers/shared/handleAudio";
+import { handleText } from "@/lib/utils/whatsapp-helpers/shared/handleText";
+import talkToWhatsappAgent from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/agent";
+import { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
+import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 
 const currentAgent: AgentFn = (input, siteId, userId) =>

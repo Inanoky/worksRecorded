@@ -3,7 +3,7 @@
 import * as React from "react"
 import {Area, AreaChart, CartesianGrid, XAxis, YAxis} from "recharts"
 
-import { useIsMobile} from "@/app/utils/hooks/use-mobile";
+import { useIsMobile} from "@/lib/utils/hooks/use-mobile";
 import {
   Card,
   CardAction,

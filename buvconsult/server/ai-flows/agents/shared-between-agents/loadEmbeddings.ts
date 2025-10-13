@@ -1,7 +1,7 @@
 import { getChunkedDocsFromPDF } from "@/server/ai-flows/agents/shared-between-agents/pdf-loader";
 import { embedAndStoreDocs } from "@/server/ai-flows/agents/shared-between-agents/vector-store";
 import { Pinecone } from "@pinecone-database/pinecone";
-import { prisma } from "@/app/utils/db";
+import { prisma } from "@/lib/utils/db";
 
 // Helper to flatten nested metadata (one level deep)
 

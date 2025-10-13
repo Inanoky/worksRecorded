@@ -1,6 +1,6 @@
 import OpenAI, { toFile } from "openai";
-import { getString, fetchTwilioMediaAsBuffer } from "@/app/utils/Whatsapp/shared/helpers";
-import { sendMessage } from "@/app/utils/Whatsapp/shared/twillio";
+import { getString, fetchTwilioMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 import { AgentFn } from "./types";
 
 /**

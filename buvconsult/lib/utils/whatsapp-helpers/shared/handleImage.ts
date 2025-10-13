@@ -1,7 +1,7 @@
 import { UTApi } from "uploadthing/server";
-import { savePhoto } from "@/server/actions/photo-actions";
-import { getString, fetchTwilioMediaAsBuffer } from "@/app/utils/Whatsapp/shared/helpers";
-import { sendMessage } from "@/app/utils/Whatsapp/shared/twillio";
+import { savePhoto } from "@/server/actions/site-diary-actions";
+import { getString, fetchTwilioMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 import { AgentFn } from "./types";
 
 const utapi = new UTApi();

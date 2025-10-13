@@ -1,10 +1,10 @@
 // app/actions/saveSiteDiaryRecords.ts
 "use server";
 
-import { prisma} from "@/app/utils/db";
-import {requireUser} from "@/app/utils/requireUser";
-import {parseExcelToTree} from "@/server/ai-flows/agents/settings/schema-upload/agent"; // Optional: if you want to refresh data on page
-import { validateExcel } from "../../app/utils/SiteDiary/Settings/validateSchema";
+import { prisma} from "@/lib/utils/db";
+import {requireUser} from "@/lib/utils/requireUser";
+import { parseExcelToTree } from "../ai-flows/agents/settings/schema-upload/agent"; // Optional: if you want to refresh data on page
+import { validateExcel } from "../../lib/utils/SiteDiary/Settings/validateSchema";
 import { SavePhotoArgs, GetPhotosByDateArgs, Args} from "./types";
 
 

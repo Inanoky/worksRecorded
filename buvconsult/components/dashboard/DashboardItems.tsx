@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { navLinks } from "./NavLinks";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
 
-import {Wrench, Layers, NotebookPen, HardHat,ChartBarBig, Clock8, ReceiptText, ChartBar, DollarSign, Globe, Home, ChartLine} from "lucide-react";
+import {Wrench, Layers, NotebookPen,  Clock8, ReceiptText,  ChartLine} from "lucide-react";
 
 export const projectNavLinks = [
   {

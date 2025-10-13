@@ -1,4 +1,4 @@
-import { prisma } from "@/app/utils/db";
+import { prisma } from "@/lib/utils/db";
 
 // Helper to get all months, to show 0 if no spendings that month
 

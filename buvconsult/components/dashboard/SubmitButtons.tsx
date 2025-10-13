@@ -5,7 +5,7 @@
 
 import {useFormStatus} from "react-dom";
 import {Button} from "@/components/ui/button";
-import {cn} from "@/lib/utils";
+import {cn} from "@/lib/utils/utils";
 import {Loader2} from "lucide-react";
 import React from "react";
 

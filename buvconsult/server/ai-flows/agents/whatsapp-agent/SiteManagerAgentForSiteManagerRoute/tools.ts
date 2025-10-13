@@ -5,7 +5,7 @@ import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import {ChatOpenAI} from "@langchain/openai";
 import { systemPromptSaveToDatabase } from "./prompts";
 import {getSiteDiarySchema} from "@/server/actions/site-diary-actions";
-import { saveSiteDiaryRecords } from "@/server/actions/site-diary-actions";
+import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 import {HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
 
 
@@ -102,7 +102,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                     }));
 
 
-                const result = await saveSiteDiaryRecords({
+                const result = await saveSiteDiaryRecord({
                           rows,
                           userId,
                           siteId,

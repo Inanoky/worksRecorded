@@ -14,7 +14,7 @@ import {
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
 import { updateSiteAction } from "@/server/actions/shared-actions";
-import { prisma } from "@/app/utils/db";
+import { prisma } from "@/lib/utils/db";
 import DocumentUpload from "@/components/documents/DocumentsUpload";
 import XslxUpload from "@/components/settings/XlsxUpload";
 import { SchemaCard } from "@/components/settings/SchemaCard";

@@ -1,14 +1,14 @@
 // app/utils/Whatsapp/routes/projectManager.ts
 "use server";
 
-import { prisma } from "@/app/utils/db";
-import { sendMessage } from "@/app/utils/Whatsapp/shared/twillio";
-import { getString } from "@/app/utils/Whatsapp/shared/helpers";
-import { handleProjectSelector } from "@/app/utils/Whatsapp/shared/projectSelector";
-import { handleAudio } from "@/app/utils/Whatsapp/shared/handleAudio";
-import { handleText } from "@/app/utils/Whatsapp/shared/handleText";
-import talkToProjectDiaryAgent from "@/ai/buvconsult-agents/ProjectDiary/agent";
-import { AgentFn } from "@/app/utils/Whatsapp/shared/types";
+import { prisma } from "@/lib/utils/db";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { getString } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { handleProjectSelector } from "@/lib/utils/whatsapp-helpers/shared/projectSelector";
+import { handleAudio } from "@/lib/utils/whatsapp-helpers/shared/handleAudio";
+import { handleText } from "@/lib/utils/whatsapp-helpers/shared/handleText";
+import talkToProjectDiaryAgent from "@/server/ai-flows/agents/project-diary-agent/agent";
+import { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 
 const projectDiaryAgent: AgentFn = async (input, siteId, userId) => {

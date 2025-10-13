@@ -2,11 +2,11 @@
 
 
 import {PricingTable} from "@/components/shared/Pricing";
-import {prisma} from "@/app/utils/db";
-import {requireUser} from "@/app/utils/requireUser";
+import {prisma} from "@/lib/utils/db";
+import {requireUser} from "@/lib/utils/requireUser";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import {SubmitButton} from "@/components/dashboard/SubmitButtons";
-import {stripe} from "@/app/utils/stripe";
+import {stripe} from "@/lib/utils/stripe";
 import {redirect} from "next/navigation";
 
 

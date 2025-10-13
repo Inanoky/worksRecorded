@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/app/utils/db";
+import { prisma } from "@/lib/utils/db";
 import { sendMessage } from "./twillio";
 
 /**

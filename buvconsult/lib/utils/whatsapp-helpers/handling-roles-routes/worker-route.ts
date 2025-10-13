@@ -1,8 +1,8 @@
 // app/utils/workersWorkflow.ts
 "use server";
 
-import { prisma } from "@/app/utils/db";
-import talkToClockInAgent from "@/server/ai/agents/Whatsapp/ClockinAgentForWorkerRoute/agent";
+import { prisma } from "@/lib/utils/db";
+import talkToClockInAgent from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/agent";
 import twilio from "twilio";
 import OpenAI, { toFile } from "openai";
 

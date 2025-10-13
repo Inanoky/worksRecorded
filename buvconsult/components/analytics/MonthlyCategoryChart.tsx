@@ -27,7 +27,7 @@ export function MonthlyCategoryChart({data}) {
 
 const { projectName } = useProject();
 
-  const description = "A stacked bar chart with a legend"
+ 
 
 const chartData = data
   const categoryKeys = Object.keys(chartData[0] || {}).filter(key => key !== "month");

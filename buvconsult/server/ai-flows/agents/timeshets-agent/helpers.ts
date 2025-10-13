@@ -1,5 +1,5 @@
   //C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\componentsFrontend\AI\BuvconsultAgent\InvoicesAgent\Functions.tsx      
-import { prisma } from "@/app/utils/db";
+import { prisma } from "@/lib/utils/db";
 
 
 

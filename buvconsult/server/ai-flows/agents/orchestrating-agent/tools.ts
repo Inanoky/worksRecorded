@@ -3,9 +3,9 @@ import { z } from "zod";
 import {retriever} from "@/server/ai-flows/agents/shared-between-agents/retrievers";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
-import InvoiceAgent from "../invoices-agent/invoicesAgent";
-import SiteDiaryAgent from "../sitediary-agent/SiteDiaryAgent";
-import TimesheetsAgent from "../timeshets-agent/agent";
+import InvoiceAgent from "@/server/ai-flows/agents/invoices-agent/agent";
+import SiteDiaryAgent from "@/server/ai-flows/agents/sitediary-agent/agent";
+import TimesheetsAgent from "@/server/ai-flows/agents/timeshets-agent/agent";
 
 export const constructionDocumentationTool = new DynamicStructuredTool({
   name: "constructionDocumentationTool",

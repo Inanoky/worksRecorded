@@ -54,7 +54,7 @@ export function MonthlySpendingsChart({data}) {
 
   console.log(JSON.stringify(data))
 
-  const description = "A bar chart with a custom label"
+ 
 
       const chartData = data
 

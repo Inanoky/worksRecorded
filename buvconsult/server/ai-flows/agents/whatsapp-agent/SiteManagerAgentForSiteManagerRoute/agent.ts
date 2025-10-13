@@ -1,12 +1,10 @@
 "use server"
 import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import { z } from "zod";
 import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
-import {systemPrompt, systemPromptFunction} from "@/componentsFrontend/AI/Whatsapp/prompts";
-import {toolNode, tools} from "@/componentsFrontend/AI/Whatsapp/tools";
-import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
+import { systemPromptFunction} from "./prompts"
+import {toolNode, tools} from "./tools";
 
 export default async function talkToWhatsappAgent(question, siteId, userId) {
     console.log("=== talkToWhatsappAgent called ===");

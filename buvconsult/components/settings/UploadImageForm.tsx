@@ -3,7 +3,7 @@
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import React, {useState} from "react";
 import Image from "next/image";
-import {UploadDropzone} from "@/app/utils/UploadthingsComponents";
+import {UploadDropzone} from "@/lib/utils/UploadthingsComponents";
 import {SubmitButton} from "@/components/dashboard/SubmitButtons";
 import {toast} from "sonner";
 import {UpdateImage} from "@/server/actions/shared-actions";

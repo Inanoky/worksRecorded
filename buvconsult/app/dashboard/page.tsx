@@ -2,8 +2,8 @@
 //06:55 - creating dashboard
 // Primse.all - runs quieries in parallael
 
-import {prisma} from "@/app/utils/db";
-import {requireUser} from "@/app/utils/requireUser";
+import {prisma} from "@/lib/utils/db";
+import {requireUser} from "@/lib/utils/requireUser";
 import {EmptyState} from "@/components/dashboard/EmptyState";
 import {Card, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card";
 import Image from "next/image";

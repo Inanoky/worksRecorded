@@ -1,4 +1,4 @@
-import {prisma} from "@/app/utils/db";
+import {prisma} from "@/lib/utils/db";
 
 
 export async function getWorkerNameById(workerId: string) {

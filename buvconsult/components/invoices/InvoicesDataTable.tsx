@@ -32,7 +32,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-
 import { deleteInvoice, bulkSetIsInvoice } from "@/server/actions/invoices-actions";
 import { InvoiceEditDialog } from "@/components/invoices/InvoiceEditDialog";
 

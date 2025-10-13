@@ -1,7 +1,7 @@
 // app/utils/actions/helpers/isLikelyScannedPdf.ts
 import "server-only";
 import { createRequire } from "module";
-import { fetchPdfBuffer } from "./fetchPdfBuffer";
+import { fetchPdfBuffer } from "./fetch-pdf-buffer";
 
 const require = createRequire(import.meta.url); // loads from node_modules
 

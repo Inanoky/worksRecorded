@@ -4,7 +4,7 @@ import * as React from "react";
 import { getPhotosByDate, deletePhotoById } from "@/server/actions/site-diary-actions"
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 
 type ImageGalleryProps = {

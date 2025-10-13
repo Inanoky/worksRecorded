@@ -1,7 +1,7 @@
 
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import { getProjectNameBySiteId} from "@/server/actions/shared-actions";
-import {GetInvoiceItemsFromDB, GetInvoicesFromDB} from "@/server/actions/invoices-actions";
+import {getInvoiceItemsFromDB, getInvoicesFromDB} from "@/server/actions/invoices-actions";
 import {InvoiceItemsDataTable} from "@/components/invoices/InvoiceItemsDataTable";
 import { InvoicesDataTable } from "@/components/invoices/InvoicesDataTable";
 import {ChartAreaInteractive} from "@/components/analytics/ChartAreaInteractive";
@@ -17,8 +17,8 @@ export default async function InvoiceRoute({params}:
 }){
 
     const {siteId} = await params
-    const invoices = await GetInvoicesFromDB(siteId)
-    let invoiceItems = await GetInvoiceItemsFromDB(siteId);
+    const invoices = await getInvoicesFromDB(siteId)
+    let invoiceItems = await getInvoiceItemsFromDB(siteId);
     invoiceItems = invoiceItems.filter(item => item.invoice?.isInvoice !== false); // filter out items with invoice.isInvoice === false
     const chartAreaInteractiveData = await getDailyAggregatedCosts(siteId)
     const projectName = getProjectNameBySiteId(siteId)

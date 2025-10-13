@@ -52,9 +52,6 @@ export async function parseExcelToTree(url: string, buf) {
   const csvAll = csvPieces.join("\n\n");
   const chunks = chunkText(csvAll);
  
-  chunks.forEach((chunk, i) =>
-   
-  );
 
   // 3) LangChain LLM with structured output (schema = Node object at the root)
   const llm = new ChatOpenAI({

@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Hero } from './Hero';
-import { before } from 'node:test';
+
 
 
 

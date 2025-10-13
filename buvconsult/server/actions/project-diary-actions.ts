@@ -1,9 +1,9 @@
 // app/actions/saveProjectDiaryRecord.ts
 "use server";
 
-import {requireUser} from "@/app/utils/requireUser";
+import {requireUser} from "@/lib/utils/requireUser";
 import { Prisma } from "@prisma/client";
-import { prisma } from "@/app/utils/db";
+import { prisma } from "@/lib/utils/db";
 
 type Params = {
   userId: string;
