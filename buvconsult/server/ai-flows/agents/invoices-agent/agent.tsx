@@ -6,8 +6,8 @@ import { ChatOpenAI } from "@langchain/openai";
 
 import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
-import {tools, toolNode} from "./tools"
-import {systemPrompt} from "./prompts" 
+import {tools, toolNode} from "@/server/ai-flows/agents/invoices-agent/tools"
+import {systemPrompt} from "@/server/ai-flows/agents/invoices-agent/promts" 
 
 
 

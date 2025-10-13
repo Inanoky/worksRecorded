@@ -43,11 +43,7 @@ export const clockOutWorkerTool = new DynamicStructuredTool({
     // works: z.string().describe("Description of work performed"),
    
   }),
-<<<<<<< HEAD:buvconsult/componentsFrontend/AI/ClockInOut/tools.ts
-  async func({ workerId, }) {
-=======
   async func({ workerId}) {
->>>>>>> cleanedCode:buvconsult/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools.ts
 
         const now = new Date()
     const result = await clockOutWorker({
@@ -56,10 +52,6 @@ export const clockOutWorkerTool = new DynamicStructuredTool({
       clockOut: now,
       location : "",
       works : ""
-<<<<<<< HEAD:buvconsult/componentsFrontend/AI/ClockInOut/tools.ts
-      
-=======
->>>>>>> cleanedCode:buvconsult/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools.ts
      
 
     });

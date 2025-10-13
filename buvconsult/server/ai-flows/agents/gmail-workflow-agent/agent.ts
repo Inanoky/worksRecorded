@@ -7,7 +7,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { retriever } from "@/server/ai-flows/agents/shared-between-agents/retrievers";
 import { ensurePdfFilename } from "@/app/api/poller/filename";
 import { EnrichedEmailPayloadItem, AuditPdfRow} from "./types"
-import { instructions, checklist } from "./prompts";
+import { instructions, checklist } from "@/server/ai-flows/agents/gmail-workflow-agent/prompts";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
