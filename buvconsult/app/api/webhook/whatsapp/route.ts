@@ -124,7 +124,7 @@ async function dispatch(formData: FormData) {
           include: { Site: true },
         });
         console.log("🛠️ DB updated (override): Marcis / site manager with lastSelected from siteManagerSelect.");
-      } else {
+      } else if (normalized === "26714739") {
         // No override → set Kristaps (project manager) and clear lastSelected
         user = await prisma.user.update({
           where: { id: user.id },
