@@ -15,7 +15,7 @@ import OpenProjectButton from "@/components/providers/ButtonClient";
 import { PlusCircle} from "lucide-react";
 
 async function getData(userId: string) {
-  const [sites, articles] = await Promise.all([
+  const [sites] = await Promise.all([
     prisma.site.findMany({
       where: {
         userId: userId,
@@ -25,18 +25,10 @@ async function getData(userId: string) {
       },
 
     }),
-    prisma.post.findMany({
-      where: {
-        userId: userId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: 3,
-    }),
+ 
   ]);
 
-  return { sites, articles };
+  return { sites};
 }
 
 
@@ -47,7 +39,7 @@ async function getData(userId: string) {
 
 export default async function DashboardIndexPage() {
   const user = await requireUser();
-  const { articles, sites } = await getData(user.id);
+  const {  sites } = await getData(user.id);
   return (
 
 

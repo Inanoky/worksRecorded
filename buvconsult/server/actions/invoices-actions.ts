@@ -112,6 +112,7 @@ export async function getInvoicesFromDB(siteId: string){
 }
 
 export async function getInvoiceItemsFromDB(siteId: string) {
+  
   const user = await requireUser();
 
   function serializeDate(d: Date | null): string | null {

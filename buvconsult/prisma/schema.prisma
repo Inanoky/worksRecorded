@@ -15,6 +15,25 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model Organization {
+
+      id        String   @id @default(uuid())
+      name      String
+      createdAt DateTime @default(now())
+      users User[]
+      sites Site[]
+      invoices Invoices[]
+      invoiceItems InvoiceItems[]
+      documents Documents[]
+      sitediaryrecords sitediaryrecords[]
+      sitediarysettings sitediarysettings[]
+      photos photos[]
+      workers workers[]
+      timelog timelog[]
+      projectdiaryrecord projectdiaryrecord[]
+
+}
+
 model User {
   id                            String  @id @unique
   email                         String
@@ -30,17 +49,21 @@ model User {
   createdAt DateTime @default(now())
 
   Site             Site[]
-  posts            Post[]
+  
   Invoices         Invoices[]
   Documents        Documents[]
   sitediaryrecords sitediaryrecords[] // one user can have many site diary records
   projectdiaryrecord projectdiaryrecord[]
 
   Subscription      Subscription?
-  AIconversation    AIconversation[] // User can have many conversations
+ 
 
   sitediarysettings sitediarysettings[]
   photos            photos[]
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
 }
 
 model Site {
@@ -54,7 +77,7 @@ model Site {
   imageUrl          String?
   User              User?              @relation(fields: [userId], references: [id])
   userId            String?
-  posts             Post[]
+  
   invoices          Invoices[]
   InvoiceItems      InvoiceItems[]
   Documents         Documents[]
@@ -62,9 +85,12 @@ model Site {
   photos            photos[] // on site can have many photos
   timelog           timelog[] // on site can have timelogs
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
-  AIconversation    AIconversation? // Site can have one conversation
+  
   sitediarysettings sitediarysettings? //One site can have one site diary setting
   workers           workers[] //on site can have many workers 
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
 }
 
 model Subscription {
@@ -103,23 +129,10 @@ model Invoices {
   Site   Site?          @relation(fields: [SiteId], references: [id], onDelete: Cascade)
   SiteId String?
   items  InvoiceItems[]
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
-model Post {
-  id               String   @id @default(uuid()) // Unique identified, msut have
-  title            String
-  articleContent   Json
-  smallDescription String
-  image            String
-  slug             String   @unique
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  User   User?   @relation(fields: [userId], references: [id])
-  userId String?
-  Site   Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade) // 06:16 - onDelete added
-  siteId String?
-}
 
 model InvoiceItems {
   // Invoice items
@@ -139,6 +152,9 @@ model InvoiceItems {
   invoice               Invoices @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   Site                  Site?    @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId                String?
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
 
   // Invoice information
 
@@ -152,16 +168,7 @@ model InvoiceItems {
 
 }
 
-model AIconversation {
-  id     String @id @default(uuid())
-  thread Json?
-  userId String
-  User   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  siteId String @unique
-  site   Site?  @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, siteId])
-}
 
 model Documents {
   id           String  @id @default(uuid())
@@ -173,6 +180,9 @@ model Documents {
   userId       String?
   Site         Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade) // 06:16 - onDelete added
   siteId       String?
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
 }
 
 model sitediaryrecords {
@@ -190,6 +200,9 @@ model sitediaryrecords {
   WorkersInvolved Int?
   TimeInvolved    Float?
   Photos          String[]
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
 }
 
 model sitediarysettings {
@@ -200,6 +213,9 @@ model sitediarysettings {
   Site    Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId  String? @unique // <- Only one settings per site
   schema  String?
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
 }
 
 model photos {
@@ -213,6 +229,9 @@ model photos {
   fileUrl  String?
   Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId   String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
 }
 
 
@@ -227,6 +246,9 @@ model workers {
   phone     String?
   isClockedIn Boolean?
   timelog timelog[]
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
  
 }
 
@@ -244,6 +266,8 @@ model timelog {
   wocation String?
   works String?
   photo String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
 
 
@@ -260,6 +284,9 @@ siteId   String?
 User    User?   @relation(fields: [userId], references: [id])
 userId  String?
 Record String?
+ organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
 
 
 }
