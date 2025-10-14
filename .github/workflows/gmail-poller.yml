@@ -1,0 +1,30 @@
+name: Gmail Poller (API Trigger)
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 minutes (UTC)
+  workflow_dispatch:         # allow manual trigger
+
+concurrency:
+  group: gmail-poller
+  cancel-in-progress: true
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call poller endpoint
+        env:
+          POLLER_URL: ${{ secrets.POLLER_URL }}
+          POLLER_TOKEN: ${{ secrets.POLLER_TOKEN }}
+        run: |
+          set -e
+          echo "POST $POLLER_URL"
+          RESP=$(curl -sS -X POST "$POLLER_URL" \
+            -H "Authorization: Bearer $POLLER_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{}' \
+            -w '\nHTTP %{http_code}\n')
+          echo "$RESP"
+          CODE=$(echo "$RESP" | tail -n1 | awk '{print $2}')
+          test "$CODE" = "200"
