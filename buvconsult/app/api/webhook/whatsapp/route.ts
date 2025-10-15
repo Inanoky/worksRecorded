@@ -9,22 +9,6 @@ import { handleProjectManagerRoute } from "../../../../lib/utils/whatsapp-helper
 import { handleSiteManagerRoute } from "../../../../lib/utils/whatsapp-helpers/handling-roles-routes/site-manager-route";
 
 // Toggle this to true while debugging to run synchronously
-const DEBUG_SYNC = true;
-
-// // Kristap Route
-// const OVERRIDE_INCOMING = "37120000000";
-// const OVERRIDE_TARGET   = "37124885690";
-
-
-// // Test
-// const OVERRIDE_INCOMING = "37124885690";
-// const OVERRIDE_TARGET   = "37120000000";
-
-
-// Production
-const OVERRIDE_INCOMING = "37129955255";
-const OVERRIDE_TARGET   = "37126714739";
-
 
 export async function POST(req: Request) {
   try {
@@ -60,26 +44,22 @@ async function dispatch(formData: FormData) {
     const waId = getString(formData, "WaId");
     const body = (getString(formData, "Body") || "").trim();
 
-    console.log("🔎 Parsed formData:", { smsStatus, from, waId, body });
+    console.log("🔎 Parsed formData:", {
+      smsStatus,
+      from,
+      waId,
+      body,
+    });
 
     if (smsStatus && smsStatus.toLowerCase() !== "received") {
       console.log("📭 Skipping non-received status:", smsStatus);
       return;
     }
 
-    const normalized = await normalizePhone(waId, from);
-    const isOverride = normalized === OVERRIDE_INCOMING;
+    const phone = await normalizePhone(waId, from);
+    console.log("📞 Normalized phone:", phone);
 
-    // For routing decisions (worker, logs, etc.)
-    const phone = isOverride ? OVERRIDE_TARGET : normalized;
-
-    if (isOverride) {
-      console.log(`🔀 Override active: incoming ${normalized} -> using user for ${phone}`);
-    } else {
-      console.log("📞 Normalized phone:", phone);
-    }
-
-    // Worker route lookup can continue to use the routing `phone`
+    // Worker route
     const worker = await prisma.workers.findFirst({ where: { phone } });
     console.log("👷 Worker found?", !!worker);
     if (worker) {
@@ -89,58 +69,17 @@ async function dispatch(formData: FormData) {
       return;
     }
 
-    // ⬇️ ADJUSTED USER LOOKUP
-    // If override detected → search by OVERRIDE_TARGET; else by actual normalized phone
-    const lookupPhone = isOverride ? OVERRIDE_TARGET : normalized;
-    console.log("🔍 User lookup phone:", lookupPhone);
-
-    let user = await prisma.user.findFirst({
-      where: { phone: lookupPhone },
+    // User lookup
+    const user = await prisma.user.findFirst({
+      where: { phone },
       include: { Site: true },
     });
-
-
-
     console.log("👤 User found?", !!user);
 
     if (!user) {
       console.log("🚫 No user for this phone. Sending rejection.");
       await sendMessage(from, "Sorry, this phone number is not registered. Please contact admin.");
       return;
-    }
-
-    // --- Override data in DATABASE based on override flag
-    try {
-      if (isOverride) {
-        // Using override → set Marcis (site manager) and copy siteManagerSelect -> lastSelected
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            firstName: "Marcis",
-            lastName: "Gedrovics",
-            role: "site manager",
-            lastSelectedSiteIdforWhatsapp: user.siteManagerSelectIdforWhatsapp ?? null,
-          },
-          include: { Site: true },
-        });
-        console.log("🛠️ DB updated (override): Marcis / site manager with lastSelected from siteManagerSelect.");
-      } else if (normalized === "26714739") {
-        // No override → set Kristaps (project manager) and clear lastSelected
-        user = await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            firstName: "Kristaps",
-            lastName: "Ratnieks",
-            role: "project manager",
-            lastSelectedSiteIdforWhatsapp: user.siteManagerSelectIdforWhatsapp ?? null,
-          },
-          include: { Site: true },
-        });
-        console.log("🛠️ DB updated (no override): Kristaps / project manager; lastSelected cleared.");
-      }
-    } catch (e) {
-      console.error("❌ Failed to update user fields in DB:", e);
-      // continue routing even if update fails
     }
 
     const role = (user.role || "").trim().toLowerCase();
