@@ -10,6 +10,9 @@ import { handleSiteManagerRoute } from "../../../../lib/utils/whatsapp-helpers/h
 
 // Toggle this to true while debugging to run synchronously
 
+
+const DEBUG_SYNC = true;
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
