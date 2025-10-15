@@ -4,9 +4,12 @@ import { prisma } from "@/lib/utils/db";
 import { sendMessage } from "./twillio";
 
 /**
- * Project selector with special rule:
- * - If user.firstName === "Marcis", use `siteManagerSelectIdforWhatsapp`
- * - Otherwise, use `lastSelectedSiteIdforWhatsapp`
+ * Reusable "project selection" flow for WhatsApp routes.
+ * - If user sends "change" → clears selection and sends the project list.
+ * - If user has no selection:
+ *    - If they reply with a valid number → select that site, confirm, and return handled=true
+ *    - Else → send the project list prompt and return handled=true
+ * - If user already has a selection → return handled=false (caller continues normal flow)
  */
 export async function handleProjectSelector(args: {
   user: any;
@@ -16,19 +19,13 @@ export async function handleProjectSelector(args: {
 }): Promise<boolean> {
   const { user, body, to, username } = args;
   const text = (body || "").trim().toLowerCase();
-  const userName = username;
 
-  const isMarcis =
-    (user?.firstName || "").trim().toLowerCase() === "marcis";
-  const selectionField = isMarcis
-    ? "siteManagerSelectIdforWhatsapp"
-    : "lastSelectedSiteIdforWhatsapp";
+  const userName = username
 
   console.log("📌 [handleProjectSelector] called with:", {
     userId: user?.id,
     role: user?.role,
-    usingSelectionField: selectionField,
-    currentSelection: user?.[selectionField],
+    currentSelection: user?.lastSelectedSiteIdforWhatsapp,
     body,
     normalizedText: text,
     to,
@@ -40,24 +37,21 @@ export async function handleProjectSelector(args: {
     console.log("🔄 User requested to change project selection.");
     await prisma.user.update({
       where: { id: user.id },
-      data: { [selectionField]: null } as any,
+      data: { lastSelectedSiteIdforWhatsapp: null },
     });
-    console.log(`✅ Cleared ${selectionField} for user:`, user.id);
+    console.log("✅ Cleared lastSelectedSiteIdforWhatsapp for user:", user.id);
 
-    const msg = await buildProjectListPrompt(
-      user,
-      `Hello ${userName}! You have cleared your project selection.`
-    );
+    const msg = await buildProjectListPrompt(user, `Hello ${userName}! You have cleared your project selection.`);
     console.log("📤 Sending project list after change:", msg);
     await sendMessage(to, msg);
     return true;
   }
 
   // 2) No active selection → either select by number or prompt
-  if (!user?.[selectionField]) {
+  if (!user.lastSelectedSiteIdforWhatsapp) {
     console.log("❗ User has no current project selection.");
     const n = parseInt(body, 10);
-    const isValid = Number.isFinite(n) && n >= 1 && n <= (user.Site?.length ?? 0);
+    const isValid = Number.isFinite(n) && n >= 1 && n <= user.Site.length;
     console.log("🔎 Parsed selection:", { n, isValid });
 
     if (isValid) {
@@ -69,7 +63,7 @@ export async function handleProjectSelector(args: {
 
       await prisma.user.update({
         where: { id: user.id },
-        data: { [selectionField]: selected.id } as any,
+        data: { lastSelectedSiteIdforWhatsapp: selected.id },
       });
 
       const msg = `${userName}, You are now talking to project "${selected.name}". To change the project, type "Change".`;
@@ -86,7 +80,7 @@ export async function handleProjectSelector(args: {
   }
 
   // 3) Already selected → nothing to do here
-  console.log("➡️ User already has project selected:", user?.[selectionField]);
+  console.log("➡️ User already has project selected:", user.lastSelectedSiteIdforWhatsapp);
   return false;
 }
 
