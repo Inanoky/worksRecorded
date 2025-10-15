@@ -11,6 +11,7 @@ import {LogoutLink} from '@kinde-oss/kinde-auth-nextjs/components'
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
+import { getUserEmailByUserId } from "@/server/actions/shared-actions";
 
 
 
@@ -19,9 +20,14 @@ export default  async function DashboardLayout({ children }: { children: ReactNo
 
 const user = await requireUser()
 const userId = user.id
+const email = await getUserEmailByUserId(user.id)
+
+
 
 console.log(user.id)
-
+console.log(`this is email ${email}`)
+console.log("[layout] runtime:", typeof EdgeRuntime !== "undefined" ? "EDGE" : "NODE");
+console.log("[layout] email:", email);
 
     return (
         <ProjectProvider userId={userId}>
@@ -44,10 +50,13 @@ console.log(user.id)
       </h3>
     </Link>
   </div>
+  <div className= "max-w-[150px] truncate">
+      {email}
 
+      </div>
   {/* Navigation - hidden on mobile, shown on desktop */}
   <nav className="hidden lg:flex gap-2 items-center flex-1 ml-6">
-    <DashboardItems />
+    <DashboardItems userEmail={email} />
   </nav>
 
   {/* Theme/User menu */}

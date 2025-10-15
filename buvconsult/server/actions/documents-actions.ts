@@ -8,12 +8,16 @@ import gptDocumentsResponse from "@/server/ai-flows/agents/extractors/gpt-extrac
 import {LoadEmbeddings} from "@/server/ai-flows/agents/shared-between-agents/loadEmbeddings";
 import { Pinecone } from '@pinecone-database/pinecone'
 import { isLikelyScannedPdf } from "../../lib/utils/actions-helpers/is-likely-scanned-pdf";
+import { getOrganizationIdByUserId } from "./shared-actions";
 
 
 
 
 export const saveDocumentsToDB = async (_: unknown, formData: FormData) => {
+
+  //Do I need promise all here? 
   const user = await requireUser();
+  const org = await getOrganizationIdByUserId(user.id)
   const siteId = formData.get("siteId") as string;
   const urls = JSON.parse((formData.get("fileUrls") as string) ?? "[]") as string[];
 
@@ -75,6 +79,7 @@ export const saveDocumentsToDB = async (_: unknown, formData: FormData) => {
               ...gptResp, // or pick specific fields
               url,
               userId: user.id,
+              organizationId : org,
               siteId,
             },
           });
@@ -97,29 +102,32 @@ export const saveDocumentsToDB = async (_: unknown, formData: FormData) => {
   }
 
   return { accepted,total};
-};
+}; //Multitenant 
+
+
 
 export async function getDocumentsFromDB(siteId: string){
 
     const user = await requireUser();
+    const org = await getOrganizationIdByUserId(user.id)
 
     const documents = await prisma.documents.findMany({
 
         where: {
-            userId: user.id,
+            organizationId: org,
             siteId: siteId,
         }
     })
     return documents
-
-}
+ 
+} //Multitenant
 
 export async function deleteDocuments(documentId: string, siteId: string) {
 
 
 
   console.log(`DoucumentId passed : ${documentId}`)
-    console.log(`siteId passed : ${siteId}`)
+  console.log(`siteId passed : ${siteId}`)
 
 
 

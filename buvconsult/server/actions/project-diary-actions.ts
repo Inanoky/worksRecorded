@@ -4,6 +4,7 @@
 import {requireUser} from "@/lib/utils/requireUser";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/utils/db";
+import { getOrganizationIdByUserId } from "./shared-actions";
 
 type Params = {
   userId: string;
@@ -18,6 +19,10 @@ export async function saveProjectDiaryRecord({
   date,
   record = null,
 }: Params) {
+
+    
+    const org = await getOrganizationIdByUserId(userId)
+
   try {
     if (!userId || !siteId || !date) {
       return "something went wrong";
@@ -29,6 +34,7 @@ export async function saveProjectDiaryRecord({
         siteId,
         Date: date,
         Record: record,
+        organizationId : org
       },
     });
 
@@ -43,10 +49,10 @@ export async function saveProjectDiaryRecord({
 
 
 export async function GetRecordsFromDB(siteId: string) {
-  const user = await requireUser();
+ 
 
   const raw = await prisma.projectdiaryrecord.findMany({
-    where: { userId: user.id, siteId },
+    where: { siteId },
     select: {
       id: true,
       siteId: true,

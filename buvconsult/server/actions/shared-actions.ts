@@ -9,12 +9,20 @@ import { SiteCreationSchema} from "@/lib/utils/zodSchemas";
 import {prisma} from "@/lib/utils/db";
 import {requireUser} from "@/lib/utils/requireUser";
 import {stripe} from "@/lib/utils/stripe";
-import gptResponse from "../ai-flows/agents/extractors/gpt-extractor-for-invoices";
+import gptResponse from "@/server/ai-flows/agents/extractors/gpt-extractor-for-invoices";
+
 
 import { chunk } from "lodash";
 
 
+export async function getOrganizationIdByUserId(userId: string): Promise<string | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
 
+  return user?.organizationId ?? null;
+}
 
 
 
@@ -24,6 +32,7 @@ import { chunk } from "lodash";
 export async function CreateSiteAction(prevState: unknown,formData: FormData){
 
     const user = await requireUser();    
+    const org = await getOrganizationIdByUserId(user.id)
 
     const [subStatus, sites] = await Promise.all([
 
@@ -81,6 +90,7 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
             name: submission.value.name,
             subdirectory:submission.value.subdirectory,
             userId: user.id,
+            organizationId: org
         }
 
     });
@@ -100,7 +110,7 @@ export async function UpdateImage(formData: FormData){
 
          where: {
 
-             userId: user.id,
+            //  userId: user.id,
              id: formData.get("siteId") as string,
          },
          data: {
@@ -125,7 +135,7 @@ export async function DeleteSite(formData: FormData){
 
     await prisma.site.delete({
         where: {
-            userId: user.id,
+            // userId: user.id,
             id: formData.get('siteId') as string,
 
         },
@@ -240,7 +250,8 @@ export const saveInvoiceToFromGmailDB = async (_: unknown, formData: FormData) =
   console.log("🟨 saveInvoiceToFromGmailDB called");
 
   const siteId = formData.get("siteId") as string;
-  const userId = (formData.get("userId") as string) || null;            // ⬅️ NEW
+  const userId = (formData.get("userId") as string)            // ⬅️ NEW
+  const org = await getOrganizationIdByUserId(userId)
   const urls = JSON.parse((formData.get("fileUrls") as string) ?? "[]") as string[];
 
   const health = ((formData.get("health") as string) ?? "").trim();
@@ -321,6 +332,7 @@ export const saveInvoiceToFromGmailDB = async (_: unknown, formData: FormData) =
                   SiteId: siteId,
                   health: health || null,
                   auditSummary: auditSummary || null,
+                  organizationId : org
                 },
               });
 
@@ -333,6 +345,7 @@ export const saveInvoiceToFromGmailDB = async (_: unknown, formData: FormData) =
                     ...item,
                     invoiceId: savedInvoice.id,
                     siteId: siteId,
+                    organizationId : org,
                     // Copy selected invoice fields to invoiceItems
                     ...INVOICE_FIELDS_TO_COPY.reduce((acc: Record<string, any>, field) => {
                       acc[field] = (savedInvoice as any)[field];
@@ -365,3 +378,13 @@ export const saveInvoiceToFromGmailDB = async (_: unknown, formData: FormData) =
 };
 
 
+export async function getUserEmailByUserId(userId: string): Promise<string | null> {
+  if (!userId) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+
+  return user.email ?? null;
+}

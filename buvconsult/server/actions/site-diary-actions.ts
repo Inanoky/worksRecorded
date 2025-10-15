@@ -3,21 +3,21 @@
 
 import { prisma} from "@/lib/utils/db";
 import {requireUser} from "@/lib/utils/requireUser";
-import { parseExcelToTree } from "../ai-flows/agents/settings/schema-upload/agent"; // Optional: if you want to refresh data on page
-import { validateExcel } from "../../lib/utils/SiteDiary/Settings/validateSchema";
-import { SavePhotoArgs, GetPhotosByDateArgs, Args} from "./types";
+import { parseExcelToTree } from "@/server/ai-flows/agents/settings/schema-upload/agent"; // Optional: if you want to refresh data on page
+import { validateExcel } from "@/lib/utils/SiteDiary/Settings/validateSchema";
+import { SavePhotoArgs, GetPhotosByDateArgs, Args} from "@/server/actions/types";
+import { getOrganizationIdByUserId } from "./shared-actions";
+
 
 
 // Site diary records actions 
 
 export async function saveSiteDiaryRecord({ rows, userId, siteId }) {
 
-
-  
-  // Make sure requireUser() is not triggering a redirect!
+  const org = await getOrganizationIdByUserId(userId)
 
 
-
+    // Make sure requireUser() is not triggering a redirect!
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows
     .filter((r) => r.location || r.works)
@@ -25,6 +25,7 @@ export async function saveSiteDiaryRecord({ rows, userId, siteId }) {
       const out = {
         userId: userId ?? undefined,
         siteId: siteId ?? undefined,
+        organizationId : org ?? undefined,
         Date: row.date ? new Date(row.date) : undefined,
         Location: row.location || undefined,
         Works: row.works || undefined,
@@ -48,7 +49,7 @@ export async function saveSiteDiaryRecord({ rows, userId, siteId }) {
 
   // Bulk insert
   try {
-    const dbResult = await prisma.sitediaryrecords.createMany({ data: toInsert });
+     await prisma.sitediaryrecords.createMany({ data: toInsert });
     
   } catch (err) {
 
@@ -58,14 +59,18 @@ export async function saveSiteDiaryRecord({ rows, userId, siteId }) {
   // Optionally, revalidate data on page
   // revalidatePath("/site-diary");
 
-  return { ok: true, count: toInsert.length };
+  return { ok: true, count: toInsert.length }; //Multitenant
 }
 
 
 export async function saveSiteDiaryRecordFromWeb({ rows,  siteId }) {
 
+
+
+
+
   const user = await requireUser();
-  
+  const org = await getOrganizationIdByUserId(user.id)
 
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows
@@ -74,6 +79,7 @@ export async function saveSiteDiaryRecordFromWeb({ rows,  siteId }) {
       const out = {
         userId: user.id ?? undefined,
         siteId: siteId ?? undefined,
+        organizationId : org ?? undefined,
         Date: row.date ? new Date(row.date) : undefined,
         Location: row.location || undefined,
         Works: row.works || undefined,
@@ -223,18 +229,10 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
 
 
 
-export async function saveSettingsToDB(formData: FormData) {
+export async function saveSettingsToDB(formData: FormData) { //Multitenant
 
-
-
-
-
-
-
-
-
-
-
+  const user = await requireUser();
+  const org = await getOrganizationIdByUserId(user.id)
 
   const siteId = formData.get("siteId") as string;
   let urls = formData.get("fileUrls");
@@ -282,8 +280,8 @@ export async function saveSettingsToDB(formData: FormData) {
   // 2) Upsert
   await prisma.sitediarysettings.upsert({
     where: { siteId },
-    update: { fileUrl, schema: schemaStr },
-    create: { siteId, fileUrl, schema: schemaStr },
+    update: { fileUrl, schema: schemaStr, organizationId: org},
+    create: { siteId, fileUrl, schema: schemaStr, organizationId: org },
   });
 
   return { success: true, siteId, fileUrl, schemaSaved: Boolean(schemaStr) };
@@ -343,7 +341,7 @@ const schema = await getSiteDiarySchema({siteId});
 }}
 
 
-export async function savePhoto({
+export async function savePhoto({ //multitenant
   userId,
   siteId,
   url,
@@ -352,6 +350,10 @@ export async function savePhoto({
   location,
   date,
 }: SavePhotoArgs) {
+
+  const org = await getOrganizationIdByUserId(userId)
+
+
   // Normalize empties to null to satisfy Prisma's optional fields
   const rec = await prisma.photos.create({
     data: {
@@ -362,6 +364,7 @@ export async function savePhoto({
       Location: location ?? null,
       userId: userId ?? null,
       siteId: siteId ?? null,
+      organizationId : org
     },
   });
 

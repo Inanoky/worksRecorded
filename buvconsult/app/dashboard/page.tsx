@@ -13,12 +13,13 @@ import Link from "next/link";
 import React from "react";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import { PlusCircle} from "lucide-react";
+import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 
-async function getData(userId: string) {
+async function getData(orgId: string) {
   const [sites] = await Promise.all([
     prisma.site.findMany({
       where: {
-        userId: userId,
+        organizationId: orgId,
       },
       orderBy: {
         createdAt: "desc",
@@ -39,7 +40,8 @@ async function getData(userId: string) {
 
 export default async function DashboardIndexPage() {
   const user = await requireUser();
-  const {  sites } = await getData(user.id);
+  const org = await getOrganizationIdByUserId(user.id)
+  const {  sites } = await getData(org);
   return (
 
 

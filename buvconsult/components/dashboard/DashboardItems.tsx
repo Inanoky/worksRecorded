@@ -56,9 +56,11 @@ export const projectNavLinks = [
   },
 ];
 
-export function DashboardItems() {
+export function DashboardItems({ userEmail }: { userEmail?: string }) {
   const { projectId, projectName, setProject } = useProject();
   const pathname = usePathname();
+
+  console.log(userEmail)
 
   useEffect(() => {
     const isAboveProject =
@@ -106,12 +108,21 @@ return (
           ))
         }
       </div>
-
+        <div>
+         
+        </div>
       {/* RIGHT: Project name - now with better mobile handling */}
       {projectName && (
+       
+     
         <div className="hidden sm:flex items-center gap-2 rounded-lg px-3 py-2 text-blue-600 font-semibold bg-none max-w-[150px] lg:max-w-[200px]">
+             
           <span className="truncate">{projectName}</span>
+        
         </div>
+       
+
+        
       )}
     </div>
   );

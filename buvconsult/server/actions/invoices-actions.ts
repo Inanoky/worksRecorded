@@ -5,6 +5,7 @@ import {prisma} from "@/lib/utils/db";
 import {requireUser} from "@/lib/utils/requireUser";
 import gptResponse from "../ai-flows/agents/extractors/gpt-extractor-for-invoices";
 import { chunk } from "lodash";
+import { getOrganizationIdByUserId } from "./shared-actions";
 
 
 
@@ -16,6 +17,7 @@ export const saveInvoiceToDB = async (_: unknown, formData: FormData) => {
 
 
   const user = await requireUser();
+  const org = await getOrganizationIdByUserId(user.id)
   const siteId = formData.get("siteId") as string;
   const urls = JSON.parse(formData.get("fileUrls") as string) as string[];
 
@@ -59,6 +61,7 @@ const INVOICE_FIELDS_TO_COPY = [
                 url,
                 userId: user.id,
                 SiteId: siteId,
+                organizationId : org
               },
             });
             if (Array.isArray(items) && items.length > 0) {
@@ -67,6 +70,7 @@ const INVOICE_FIELDS_TO_COPY = [
                   ...item,
                   invoiceId: savedInvoice.id,
                   siteId: siteId,
+                  organizationId : org,
 
                     //This acutally copies fileds from invoices to invoiceItems
 
@@ -98,7 +102,7 @@ export async function getInvoicesFromDB(siteId: string){
     const invoices = await prisma.invoices.findMany({
 
         where: {
-            userId: user.id,
+            
             SiteId: siteId,
         }
     })
