@@ -73,10 +73,17 @@ async function dispatch(formData: FormData) {
     }
 
     // User lookup
-    const user = await prisma.user.findFirst({
-      where: { phone },
-      include: { Site: true },
-    });
+   const user = await prisma.user.findFirst({
+  where: { phone },
+  include: {
+    organization: {
+      include: {
+        sites: true, // ← all sites that belong to the user's organization
+      },
+    },
+  },
+});
+
     console.log("👤 User found?", !!user);
 
     if (!user) {

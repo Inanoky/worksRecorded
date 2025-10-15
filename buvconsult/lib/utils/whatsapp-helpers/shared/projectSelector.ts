@@ -29,7 +29,7 @@ export async function handleProjectSelector(args: {
     body,
     normalizedText: text,
     to,
-    siteCount: user?.Site?.length ?? 0,
+    siteCount:  user?.organization?.sites.length ?? 0,
   });
 
   // 1) Explicit change command
@@ -51,11 +51,11 @@ export async function handleProjectSelector(args: {
   if (!user.lastSelectedSiteIdforWhatsapp) {
     console.log("❗ User has no current project selection.");
     const n = parseInt(body, 10);
-    const isValid = Number.isFinite(n) && n >= 1 && n <= user.Site.length;
+    const isValid = Number.isFinite(n) && n >= 1 && n <=  user?.organization?.sites.length;
     console.log("🔎 Parsed selection:", { n, isValid });
 
     if (isValid) {
-      const selected = user.Site[n - 1];
+      const selected =  user?.organization?.sites[n - 1];
       console.log("✅ User selected valid project:", {
         projectId: selected.id,
         projectName: selected.name,
@@ -89,7 +89,7 @@ export async function buildProjectListPrompt(
   user: any,
   prefix = "Please choose your project:"
 ) {
-  const siteList = (user.Site || [])
+  const siteList = ( user?.organization?.sites || [])
     .map((s: any, i: number) => `${i + 1} - ${s.name}`)
     .join("\n");
 
