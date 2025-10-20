@@ -28,7 +28,7 @@ export default function Page(){
 
 
                         <h1 className="mt-8 text-4x sm:text-6xl md:text-7xl lg:text-8xl
-                        font-medium leading-none">Custom solutions
+                        font-medium leading-none">Custom digital solutions 
                         </h1>
                    
 
@@ -46,13 +46,19 @@ export default function Page(){
 
                                <p className=" text-xl justify-end">
 
-                                     <span className="text-2xl font-semibold">How?</span>
+                                     <span className="text-2xl font-semibold">How do we do that</span>
                                  
                                  
                                  <br/><br/>
-                            We speak construction language. We will get into the very details of your processes
-                            and suggest how we can extract data and which benefits we can offer you from it. Once custom system 
-                            designed it will yiled benefits for you forever. 
+                          We speak <span className="text-primary font-bold">construction language.</span> We dive deep into the details of your processes
+and suggest how we can extract valuable data and the benefits you can gain from it. Once a custom system
+is designed, it will yield long-term benefits for you.
+<br />
+<br />
+<p>
+  Contact us by email with the process you want to digitalize and automate, and we will offer you an effective solution.
+</p>
+
 
                                    
                                 
@@ -70,7 +76,7 @@ export default function Page(){
 
                                <p className=" flex flex-col text-xl justify-start">
                                 
-                                <span className="text-2xl font-semibold">Why?</span>
+                                <span className="text-2xl font-semibold">What is your benefit</span>
                                 
                                   <br/><br/>
                                Construction is a one of the last undigitalized frontiers. Be on top and get benefit from

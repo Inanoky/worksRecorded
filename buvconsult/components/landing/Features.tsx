@@ -1,34 +1,27 @@
 import {CloudRain} from "lucide-react";
 
 const features = [
-
-    {
-
-        name: "Passive Data Capture",
-        description: "We reduce managment work on site instead of adding more paperwork",
-        icon: CloudRain
-    },
-    {
-
-        name: "No integration",
-        description: "No need to install or learn new software. We use whatsapp and email to collect data, rest is done by AI",
-        icon: CloudRain
-    },
-    {
-
-        name: "Visual Dashboards",
-        description: "All your data digitalized, stored and structured in BUVCONSULT platform for your use.",
-        icon: CloudRain
-    },
-     {
-
-        name: "Custom AI solution",
-        description: "We will go deep inside your processes, tailor AI to your needs, so results are such as you expect. For a fraction of digital agency cost",
-        icon: CloudRain
-    },
-
-]
-
+  {
+    name: "Passive Data Capture",
+    description: "We reduce on-site management work instead of adding more paperwork.",
+    icon: CloudRain,
+  },
+  {
+    name: "No Integration",
+    description: "No need to install or learn new software. We use WhatsApp and email to collect data — the rest is handled by AI.",
+    icon: CloudRain,
+  },
+  {
+    name: "Visual Dashboards",
+    description: "All your data is digitized, stored, and structured within the BUVCONSULT platform for your use.",
+    icon: CloudRain,
+  },
+  {
+    name: "Custom AI Solutions",
+    description: "We dive deep into your processes and tailor AI to your needs — delivering the results you expect for a fraction of a digital agency’s cost.",
+    icon: CloudRain,
+  },
+];
 
 
 

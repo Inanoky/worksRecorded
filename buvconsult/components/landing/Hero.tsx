@@ -34,9 +34,8 @@ export function Hero(){
                         <p className="max-w-xl mx-auto mt-4 text-base font-light lg:text-lg
                         text-muted-foreground tracking-tighter">
                            
-                          Do you want to know why your project is where it is in terms of times, budget and quality? Asnwer is in the construction data.
-                          Collection and analysis of consutrction data is costly. We help you to automatically collect and analyze construction data
-                          without overloading your managment                          
+                          Do you want to always know why your project stands where it does in terms of time, budget, and quality? The answer lies in your construction data. 
+                          Collecting and analyzing this data can be costly — we help you automate the process without overloading your management.                      
                         </p>
 
                         <div className="flex items-center gap-x-5 w-full justify-center mt-5">
@@ -66,17 +65,17 @@ export function Hero(){
 
                                <p className=" text-xl justify-end">
 
-                                     <span className="text-2xl font-semibold">What do we do?</span>
+                                     <span className="text-2xl font-semibold">What do we do</span>
                                  
                                  
                                  <br/><br/>
-                                  We collect all data from your construciton projects such as invoices, site diary records, timesheets,
-                                  documents and more. BUVCONSULT engine structurizes data and gives you insights of what is going on
-                                  in your project in real time. 
+                                  We collect all data from your construction projects — invoices, site diary records, timesheets, documents, and more. 
+                                  The BUVCONSULT engine structures your data and gives you real-time insights into what’s happening on your project.
 
                                   <br/><br/>
 
-                                  No integration. No lenghty training.  No lenghty Get ready in minutes. 
+                               <span className="font-bold">    No integrations. 
+                               No lengthy training.  Get ready in minutes. </span>
                                    
                                 
     </p>
@@ -96,10 +95,10 @@ export function Hero(){
                                 
                                   <br/><br/>
                                   <ul className="list-disc pl-6 space-y-1 marker:text-primary marker:text-2xl marker:font-semibold">
-                                        <li> Complete records of your project in one place.</li>
-                                 <li> Saved managment time. </li>
-                                 <li> Detailed cost breakdown - labor, materials and machinery</li>
-                                 <li> Leverage AI advancment for construction industry</li>
+                                <li>Complete records of your project in one place.</li>
+                                <li>Saved management time.</li>
+                                <li>Detailed cost breakdown — labor, materials, and machinery.</li>
+                                <li>Leverage AI advancements for the construction industry.</li>
                                     </ul>
 
                                   

@@ -46,7 +46,7 @@ export default function Page(){
 
                                <p className=" text-xl justify-end">
 
-                                     <span className="text-2xl font-semibold">How?</span>
+                                     <span className="text-2xl font-semibold">How do we do that</span>
                                  
                                  
                                  <br/><br/>
@@ -69,12 +69,15 @@ export default function Page(){
 
                                <p className=" flex flex-col text-xl justify-start">
                                 
-                                <span className="text-2xl font-semibold">Why?</span>
+                                <span className="text-2xl font-semibold">What is your benefit</span>
                                 
                                   <br/><br/>
-                               Get cross-referencing with invoices, site records, quality document. Ask AI to make an 
-                               educated research about the project specific topics. Talk to your project. 
-                                 
+
+                                  <p>
+                            Get cross-referencing between invoices, site records, and quality documents.
+                                Ask AI to perform an informed analysis on project-specific topics.
+                               <span className="text-primary font-bold">Talk to your project.</span>
+                                </p>
                                 
     </p>
 

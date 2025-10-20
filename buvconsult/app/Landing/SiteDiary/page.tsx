@@ -63,12 +63,12 @@ export default function Page(){
 
                                <p className=" text-xl justify-end">
 
-                                     <span className="text-2xl font-semibold">How?</span>
+                                     <span className="text-2xl font-semibold">How do we do that</span>
                                  
                                  
                                  <br/><br/>
-                                  Just send voice message to Buvconsult whatsapp describing what happened today. BUVCONSULT AI 
-                                  will transform your words into organized site diary record. 
+                                  Just send a voice message to BUVCONSULT WhatsApp describing what happened today.
+                                  Our AI will transform your words into a structured site diary record.
                                    
                                 
     </p>
@@ -83,16 +83,24 @@ export default function Page(){
                                
 
 
-                               <p className=" flex flex-col text-xl justify-start">
+                               <div className="space-y-4 flex flex-col text-xl justify-start">
                                 
-                                <span className="text-2xl font-semibold">Why?</span>
+                                <span className="text-2xl font-semibold">What is your benefit</span>
                                 
                                   <br/><br/>
-                                 Everything what is happened on site during project is stored and easily accessible. Claim? You have records to defend.
-                                 Loss? You have records to claim. Estimation? You know exactly how much time you spent. 
+                                <p> Everything that happens on site during the project is stored and easily accessible.</p>
+                                 <p>Claim? You have <span className="text-primary font-bold"> proof to defend.</span></p>
+                                 <p>Loss? You have <span className="text-primary font-bold"> proof to recover.</span> </p>
+                                 <p>Estimation? You know exactly how much time you’ve spent.</p>
+                                 <p>Your project recorded.</p>
+
+
+
+
+
                                  
                                 
-    </p>
+    </div>
 
                                 <Image src={SiteDiary1}
                                 alt="Hero Image"

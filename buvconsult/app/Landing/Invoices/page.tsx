@@ -42,12 +42,11 @@ export default function Page(){
 
                                <p className=" text-xl justify-end">
 
-                                     <span className="text-2xl font-semibold">How?</span>
+                                     <span className="text-2xl font-semibold">How do we do that</span>
                                  
                                  
                                  <br/><br/>
-                                  Add invoices@buvconsult.com to your existing invoice flow. We get copy of your invoices,
-                                  and BUVCOSNULT AI will digitalize them and store in a structured way. 
+                                  Add invoices@buvconsult.com to your existing invoice flow. We’ll receive a copy of your invoices, and the BUVCONSULT AI will digitize and store them in a structured way.
                                   
                                    
                                 
@@ -65,13 +64,14 @@ export default function Page(){
 
                                <p className=" flex flex-col text-xl justify-start">
                                 
-                                <span className="text-2xl font-semibold">Why?</span>
+                                <span className="text-2xl font-semibold">What is your benefit</span>
                                 
                                   <br/><br/>
-                               Get a detailed cost breakdown. Categorize in seconds. Need to change cost codes? Summarize? AI will parse
-                               through thoushands of invoice position to present detaile insights of your cost. 
+                                  <p>
+                              Get a <span className="text-primary font-bold">detailed cost breakdown</span> for every invoice item. Categorize in seconds. Need to change cost codes or summarize?
+AI will parse through thousands of invoice items to present detailed insights into your costs.
                                  
-                                
+                                </p>
     </p>
 
     

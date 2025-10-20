@@ -63,7 +63,7 @@ export function Footer() {
           <div className="space-y-4 text-muted-foreground">
             <p>
               <Link href="/Landing/Custom"className="underline">
-                Custom Digital Solution
+                Custom Digital Solutions
               </Link>
             </p>
             <p>

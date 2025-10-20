@@ -47,13 +47,12 @@ export default function Page(){
 
                                <p className=" text-xl justify-end">
 
-                                     <span className="text-2xl font-semibold">How?</span>
+                                     <span className="text-2xl font-semibold">How do we do that</span>
                                  
                                  
                                  <br/><br/>
-                            We use data science and construction industry knowledge to extract analytics from your data automatically.
-                                  We will tell you what you need to know, bill of quantity, progress statistics, hindrances, delays, average
-                                  perfomance, cost per category, per time period, areas of cost waste and cost improvement and much more.
+                           We combine data science with AI and construction industry expertise to automatically extract analytics from your data.
+We’ll provide insights you need, bill of quantities, progress statistics, hindrances, delays, average performance, cost per category, per time period, areas of waste and improvement, and much more.
 
                                    
                                 
@@ -71,19 +70,16 @@ export default function Page(){
 
                                <p className=" flex flex-col text-xl justify-start">
                                 
-                                <span className="text-2xl font-semibold">Why?</span>
+                                <span className="text-2xl font-semibold">What is your benefit</span>
                                 
                                   <br/><br/>
                               
-                                                                    <ul className="list-disc pl-6 space-y-1 marker:text-primary marker:text-2xl marker:font-semibold">
-                                <li>   Advanced pre-made analytics for immidiate results </li>
-                                 <li>     Custom analytics for specific needs</li>
-                                  <li>   Fully dynamic, updates are project progresses </li>
-                                  <li> Forecasting finance, cash flow, work progress </li>
-                            
-                       
-
-                               </ul>
+                               <ul className="list-disc pl-6 space-y-1 marker:text-primary marker:text-2xl marker:font-semibold">
+                            <li>Advanced pre-made analytics for immediate results.</li>
+                            <li>Custom analytics for specific needs.</li>
+                            <li>Fully dynamic — updates as the project progresses.</li>
+                            <li>Forecast finances, cash flow, and work progress.</li>
+                            </ul>
                                  
                                  
                                 

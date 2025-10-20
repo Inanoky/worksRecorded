@@ -63,12 +63,13 @@ export default function Page(){
 
                                <p className=" text-xl justify-end">
 
-                                     <span className="text-2xl font-semibold">How?</span>
+                                     <span className="text-2xl font-semibold">How do we do that</span>
                                  
                                  
                                  <br/><br/>
-                                 Worker uses whatsapp to chat with BUVCONSULT AI, to clock in/out of work. Before clocking back in AI ask to describe what was achieved during day. Information structurized and stored in database automatically.
-
+                        Workers use WhatsApp to chat with BUVCONSULT AI to clock in and out of work.
+                        Before clocking out, the AI asks them to describe what was achieved during the day.
+                        The information is structured and stored in the database automatically.
                                    
                                 
     </p>
@@ -85,18 +86,15 @@ export default function Page(){
 
                                <p className=" flex flex-col text-xl justify-start">
                                 
-                                <span className="text-2xl font-semibold">Why?</span>
+                                <span className="text-2xl font-semibold">What is your benefit</span>
                                 
                                   <br/><br/>
 
-                                                                    <ul className="list-disc pl-6 space-y-1 marker:text-primary marker:text-2xl marker:font-semibold">
-                                <li>   Get every work hour accounted for. </li>
-                                 <li>     Bid labour precisely next project. </li>
-                                  <li>   Identify wastage, set targets and measure KPI for labour.</li>
-                            
-                       
-
-                               </ul>
+                           <ul className="list-disc pl-6 space-y-1 marker:text-primary marker:text-2xl marker:font-semibold">
+  <li>Get every work hour accounted for.</li>
+  <li>Bid labor precisely on the next project.</li>
+  <li>Identify waste, set targets, and measure KPIs for labor.</li>
+</ul>
                                  
                                 
     </p>

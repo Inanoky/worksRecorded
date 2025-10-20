@@ -46,23 +46,19 @@ export default function Page(){
 
                                      <h1 className="text-2xl font-semibold">SUBSCRIPTION</h1><br/>
 
-                                     <p>
+                              <p>
+  The cost of the service is determined by the amount of data that needs to be collected, analyzed, and structured.
+</p>
 
-                                     Cost of the services is determined by amount of data 
-                                     required to collect, analyze and structurize. 
+<br />
 
-                                     </p>
-
-                                     <br/>
-
-                                     <ul>
-                                        <li>   Cost is 150 EUR/month per 1 project up to 1M project</li><br/>
-                                        <li>   Cost is 250 EUR/month per 1 project up to 5M project</li><br/>
-                                        <li>   Cost is 350 EUR/month per 1 project up to 10M project</li><br/>
-                                        <br/>
-                                        <li>   For larger projects please contact sales</li>
-                                     </ul>
-                                  
+<ul>
+  <li>150 EUR/month per project up to 1 M EUR.</li><br />
+  <li>250 EUR/month per project up to 5 M EUR.</li><br />
+  <li>350 EUR/month per project up to 10 M EUR.</li><br />
+  <br />
+  <li>For larger projects, please contact sales.</li>
+</ul>
 
                                  
                                  
@@ -84,11 +80,9 @@ export default function Page(){
 
                                      <p>
 
-                                    We have our own platform and custom data solution which we are re-using for different client needs.
-                                    For you this means that you will get a custom software solution for a fraction of a Cost
-                                    you would expect from digital agency. We do speak construction, so it will be easy for you to 
-                                    explain your need, we will quickly get a grasp of your processes and offer a digital solution solving
-                                    your particular problem. 
+                                    We have our own platform and custom data solutions that we adapt to different client needs.
+This means you get a tailored software solution for a fraction of the cost you’d expect from a digital agency.
+We speak the construction language, so it’s easy for you to explain your needs, we’ll quickly understand your processes and deliver a digital solution that solves your specific problem.
 
                                     <br/>
                                     <br/>
