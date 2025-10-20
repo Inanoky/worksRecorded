@@ -5,25 +5,25 @@ const features = [
     {
 
         name: "Passive Data Capture",
-        description: "Workers check in via selfie + location. No manual timekeeping.",
+        description: "We reduce managment work on site instead of adding more paperwork",
         icon: CloudRain
     },
     {
 
-        name: "Invoice Auto-Parsing",
-        description: "Send invoices to email or chat. Our AI does the rest.",
+        name: "No integration",
+        description: "No need to install or learn new software. We use whatsapp and email to collect data, rest is done by AI",
         icon: CloudRain
     },
     {
 
         name: "Visual Dashboards",
-        description: "Insightful analytics for cost, hours, and progress.",
+        description: "All your data digitalized, stored and structured in BUVCONSULT platform for your use.",
         icon: CloudRain
     },
      {
 
         name: "Custom AI solution",
-        description: "We will tailor AI to your needs, so results are such as you expect",
+        description: "We will go deep inside your processes, tailor AI to your needs, so results are such as you expect. For a fraction of digital agency cost",
         icon: CloudRain
     },
 

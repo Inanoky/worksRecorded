@@ -109,7 +109,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
                         });
 
-                return {messages: [new ToolMessage({ content : "Saved succesfully"})]}
+                return "Saved succesfully"
 
 
 

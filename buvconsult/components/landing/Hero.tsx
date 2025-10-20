@@ -7,6 +7,8 @@ import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
 import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
 import {Button} from "@/components/ui/button";
 import HeroImage from '@/public/hero.png'
+import Dashboard from '@/public/frontend/pages/Home/Dashboard.png'
+import Dashboard2 from '@/public/frontend/pages/Home/Dashboard2.png'
 import { NavigationMenuDemo } from "./NavigationBar";
 
 export function Hero(){
@@ -33,7 +35,7 @@ export function Hero(){
                         <NavigationMenuDemo />
                     </div>
                     {/* Element 3 */}
-                    <div className="flex justify-end items-center">
+                    <div className="flex justify-end items-center gap-2">
                         <ThemeToggle />
                         <LoginLink>
                             <Button variant="secondary">
@@ -89,7 +91,7 @@ export function Hero(){
                     <div className="grid grid-cols-3 gap-15 relative items-center w-full py-12 mx-auto mt-12">
                    
 
-                        <Image src={HeroImage}
+                        <Image src={Dashboard }
                                alt="Hero Image"
                                priority
                                className=" col-span-2 relative object-cover w-full border rounded-lg shadow-2xl lg:rounded-2xl"></Image>
@@ -103,6 +105,10 @@ export function Hero(){
                                   We collect all data from your construciton projects such as invoices, site diary records, timesheets,
                                   documents and more. BUVCONSULT engine structurizes data and gives you insights of what is going on
                                   in your project in real time. 
+
+                                  <br/><br/>
+
+                                  No integration. No lenghty training.  No lenghty Get ready in minutes. 
                                    
                                 
     </p>
@@ -117,18 +123,24 @@ export function Hero(){
                                
 
 
-                               <p className=" flex text-xl justify-start">
-                                
-                                <span className="text-2xl font-semibold">Benefits?</span>
+                        <p className=" flex flex-col text-xl justify-start">                                
+                                <span className="text-2xl font-semibold">Benefits</span>
                                 
                                   <br/><br/>
-                                 Collecting data is costly. Managment team will never have enoguh time to record what is going on.
+                                  <ul className="list-disc pl-6 space-y-1 marker:text-primary marker:text-2xl marker:font-semibold">
+                                        <li> Complete records of your project in one place.</li>
+                                 <li> Saved managment time. </li>
+                                 <li> Detailed cost breakdown - labor, materials and machinery</li>
+                                 <li> Leverage AI advancment for construction industry</li>
+                                    </ul>
+
+                                  
                                  
                                 
     </p>
 
     
-                        <Image src={HeroImage}
+                        <Image src={Dashboard2}
                                alt="Hero Image"
                                priority
                                className=" col-span-2 relative object-cover w-full border rounded-lg shadow-2xl lg:rounded-2xl"></Image>
