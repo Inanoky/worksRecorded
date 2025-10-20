@@ -25,7 +25,7 @@ export default function Page(){
 
 
                         <h1 className="mt-8 text-4x sm:text-6xl md:text-7xl lg:text-8xl
-                        font-medium leading-none">Pricing
+                        font-medium leading-none">About
                         </h1>
                    
 
@@ -38,56 +38,35 @@ export default function Page(){
 
                     
 
-                               <p className="col-span-1 col-start-2 grid-span-2 text-xl justify-end">
-                                
-
-                                    
-
-                                     <h1 className="text-2xl font-semibold">SUBSCRIPTION</h1><br/>
-
-                                     <p>
-
-                                     Cost of the services is determined by amount of data 
-                                     required to collect, analyze and structurize. 
-
-                                     </p>
-
-                                     <br/>
-
-                                     <ul>
-                                        <li>   Cost is 150 EUR/month per 1 project up to 1M project</li><br/>
-                                        <li>   Cost is 250 EUR/month per 1 project up to 5M project</li><br/>
-                                        <li>   Cost is 350 EUR/month per 1 project up to 10M project</li><br/>
-                                        <br/>
-                                        <li>   For larger projects please contact sales</li>
-                                     </ul>
-                                  
-
-                                 
-                                 
-                                 <br/><br/>
-                           
-
-                                   
-                                
-    </p>
-
 
     
-                               <p className="col-span-1 col-start-2 grid-span-2 text-xl justify-end">
+                               <p className="space-y-6 col-span-2 col-start-1 grid-span-2 text-xl justify-end">
                                 
 
                                     
 
-                                     <h1 className="text-2xl font-semibold">Custom solution</h1><br/>
+                                     <h1 className=" text-2xl font-semibold">Buvconsult</h1><br/>
 
-                                     <p>
+                                 
 
-                                    We have our own platform and custom data solution which we are re-using for different client needs.
-                                    For you this means that you will get a custom software solution for a fraction of a Cost
-                                    you would expect from digital agency. We do speak construction, so it will be easy for you to 
-                                    explain your need, we will quickly get a grasp of your processes and offer a digital solution solving
-                                    your particular problem. 
+                                        <p>
+                                    Construction industry is notorious worldwide for being delyed and overbudget. Why? In Buvconsult we 
+                                    beleive answer is in the data. Lack of record keeping and overloaded managment makes it hard for industry
+                                    to learn from their mistakes. 
+                                            </p>
+                                             <p>
+                                    Why not sovled before? Because of the intricate indsutry details such as lower bid wins, lack of priority on
+                                    data, lack of reliable tehnologie to collecte and structurize data, lack of data science skills to extract
+                                    meaningfull insights. 
+                                            </p>
+                                             <p>
+                                    We are Latvian digital SAAS platform aimed to solve abovementioned issues
+                                    We aim to provide quality data collection analytics cheaply for the ones we believe it needs the most - small 
+                                    and medium trade contractors. 
+                                    </p>
+
+
+
 
                                     <br/>
                                     <br/>
@@ -97,7 +76,6 @@ export default function Page(){
 
                                     
 
-                                     </p>
 
 
                                     

@@ -9,6 +9,28 @@ import {redirect} from "next/navigation";
 
 export default async function Home() {
 
-        return redirect("/Landing")
+    const{getUser} = getKindeServerSession()
+    const session = await getUser()
+
+    if(session?.id){
+
+        return redirect("/dashboard")
     }
 
+
+  return (
+
+      <div className=" mx-auto px-4 sm:px-6 lg:px-8 mb-24">
+
+          <Hero/>
+          <Logos/>
+          <Features/>
+         
+
+
+
+
+      </div>
+
+  )
+}
