@@ -16,39 +16,7 @@ export default function Page(){
 
         <>
 
-        {/* This is parent container for the navigation  */}
-            <div className="relative z-50 grid grid-cols-4 p-5">
-
-                
-                    {/* Element 1 */}
-                    <div className="">
-                        <Link href="/" className="flex flex-row items-center">
-                            <Image src={Logo} width={40} height={40} className="size-12" alt="Logo" />
-                            <h4 className="text-3xl">
-                                Buv<span className="text-primary">consult</span>
-                            </h4>
-                        </Link>
-                    </div>
-                    {/* Element 2 */}
-                    <div className="flex col-span-2 col-start-2 justify-center items-center">
-                        <NavigationMenuDemo />
-                    </div>
-                    {/* Element 3 */}
-                    <div className="flex justify-end items-center">
-                        <ThemeToggle />
-                        <LoginLink>
-                            <Button variant="secondary">
-                                Sign in
-                            </Button>
-                        </LoginLink>
-                        <RegisterLink>
-                            <Button>
-                                Sign up
-                            </Button>
-                        </RegisterLink>
-                    </div>
-            
-            </div>
+    
 
             <section className=" p-5 relative flex items-center justify-center">
 
@@ -153,16 +121,6 @@ export default function Page(){
                    
                                
 
-
-                               <p className=" flex flex-col text-xl justify-start">
-                                
-                                <span className="text-2xl font-semibold">Why?</span>
-                                
-                                  <br/><br/>
-                               Get clear understanding where and how to improve. <br/>  Get an accurate bids for future projects. 
-                                 
-                                
-    </p>
 
     
 

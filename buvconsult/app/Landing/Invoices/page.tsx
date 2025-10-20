@@ -3,9 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import Logo from '@/public/buvconsultLogo.svg'
-import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
-import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
-import {Button} from "@/components/ui/button";
+
 import InvoicesPage from "@/public/frontend/pages/Invoices/InvoicesPage.png"
 import Invoices2 from "@/public/frontend/pages/Invoices/Invoices2.png"
 import { NavigationMenuDemo } from "@/components/landing/NavigationBar";
@@ -17,40 +15,7 @@ export default function Page(){
 
         <>
 
-        {/* This is parent container for the navigation  */}
-            <div className="relative z-50 grid grid-cols-4 p-5">
-
-                
-                    {/* Element 1 */}
-                    <div className="">
-                        <Link href="/" className="flex flex-row items-center">
-                            <Image src={Logo} width={40} height={40} className="size-12" alt="Logo" />
-                            <h4 className="text-3xl">
-                                Buv<span className="text-primary">consult</span>
-                            </h4>
-                        </Link>
-                    </div>
-                    {/* Element 2 */}
-                    <div className="flex col-span-2 col-start-2 justify-center items-center">
-                        <NavigationMenuDemo />
-                    </div>
-                    {/* Element 3 */}
-                    <div className="flex justify-end items-center">
-                        <ThemeToggle />
-                        <LoginLink>
-                            <Button variant="secondary">
-                                Sign in
-                            </Button>
-                        </LoginLink>
-                        <RegisterLink>
-                            <Button>
-                                Sign up
-                            </Button>
-                        </RegisterLink>
-                    </div>
-            
-            </div>
-
+     
             <section className=" p-5 relative flex items-center justify-center">
 
                 <div className="relative items-center w-full py-12 lg:py-20">

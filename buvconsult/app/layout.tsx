@@ -1,9 +1,23 @@
+//C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\layout.tsx
+
 import type { Metadata } from "next";
 
 import { Inter } from "next/font/google";
 import "./globals.css";
 import {ThemeProvider} from "@/components/dashboard/ThemeProvider";
 import {Toaster} from "@/components/ui/sonner"
+
+import Link from "next/link";
+import Image from "next/image";
+import Logo from '@/public/buvconsultLogo.svg'
+import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
+import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
+import {Button} from "@/components/ui/button";
+import HeroImage from '@/public/hero.png'
+import Dashboard from '@/public/frontend/pages/Home/Dashboard.png'
+import Dashboard2 from '@/public/frontend/pages/Home/Dashboard2.png'
+import { NavigationMenuDemo } from "@/components/landing/NavigationBar.tsx";
+import { Footer } from "@/components/landing/Footer";
 
 
 const inter = Inter({ subsets: ["latin"] });
@@ -30,7 +44,44 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
+
+              {/* This is parent container for the navigation  */}
+                        <div className="relative z-50 grid grid-cols-4 p-5">
+            
+                            
+                                {/* Element 1 */}
+                                <div className="">
+                                    <Link href="/" className="flex flex-row items-center">
+                                        <Image src={Logo} width={40} height={40} className="size-12" alt="Logo" />
+                                        <h4 className="text-3xl">
+                                            Buv<span className="text-primary">consult</span>
+                                        </h4>
+                                    </Link>
+                                </div>
+                                {/* Element 2 */}
+                                <div className="flex col-span-2 col-start-2 justify-center items-center">
+                                    <NavigationMenuDemo />
+                                </div>
+                                {/* Element 3 */}
+                                <div className="flex justify-end items-center gap-2">
+                                    <ThemeToggle />
+                                    <LoginLink>
+                                        <Button variant="secondary">
+                                            Sign in
+                                        </Button>
+                                    </LoginLink>
+                                    <RegisterLink>
+                                        <Button>
+                                            Sign up
+                                        </Button>
+                                    </RegisterLink>
+                                </div>
+                        
+                        </div>
+
+            
         {children}
+        <Footer/>
            
            <Toaster richColors closeButton/>
            </ThemeProvider>
