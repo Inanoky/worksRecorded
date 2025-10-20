@@ -8,6 +8,7 @@ import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
 import {Button} from "@/components/ui/button";
 import InvoicesPage from "@/public/frontend/pages/Invoices/InvoicesPage.png"
 import { NavigationMenuDemo } from "@/components/landing/NavigationBar";
+import Selfie from '@/public/frontend/pages/About/Selfie.jpg'
 
 
 export default function Page(){
@@ -33,19 +34,21 @@ export default function Page(){
 
                         </div>
 
-                    <div className="grid grid-cols-3 gap-15 relative items-center w-full py-12 mx-auto mt-12">
+                    <div className="grid grid-cols-4 gap-15 relative items-center w-full py-12 mx-auto mt-12">
                    
 
                     
 
 
     
-                               <p className="space-y-6 col-span-2 col-start-1 grid-span-2 text-xl justify-end">
+                               <p className="space-y-6 col-span-3 col-start-1 grid-span-2 text-xl justify-end">
                                 
 
                                     
 
-                                     <h1 className=" text-2xl font-semibold">Buvconsult</h1><br/>
+                        
+                                     
+                                     <br/>
 
                                  
 
@@ -64,14 +67,25 @@ export default function Page(){
                                     We aim to provide quality data collection analytics cheaply for the ones we believe it needs the most - small 
                                     and medium trade contractors. 
                                     </p>
-
-
-
-
+                                    
                                     <br/>
-                                    <br/>
+                                 
+                                    
+                                    <p>
+                                       Vjaceslavs Gromatovics
+                                     
+                                    </p>
+                                        
 
-                                    Contact to book a free consultation. 
+                                        <p>  Buvconsult team   </p>
+                                  
+                                    <p>From construction professionals for construction professionals</p>
+
+
+                                   <br/>
+                                    
+
+                                 
 
 
                                     
@@ -88,6 +102,16 @@ export default function Page(){
                                    
                                 
     </p>
+
+                <div  className="flex justify-center">
+                                                <Image src={Selfie}
+                                                alt="Hero Image"
+                                                priority
+                                                height = "200"
+                                                width = "350"
+                                               ></Image>
+                
+</div>
 
 
                     </div>
