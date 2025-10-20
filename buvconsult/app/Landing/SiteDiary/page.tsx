@@ -7,7 +7,10 @@ import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
 import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
 import {Button} from "@/components/ui/button";
 import HeroImage from '@/public/hero.png'
-import { NavigationMenuDemo } from "@/components/landing/NavigationBar";
+import { NavigationMenuDemo } from "@/components/landing/NavigationBar"
+import SiteDiary1 from '@/public/frontend/pages/SiteDiary/SiteDiary1.png'
+import SiteDiary2 from '@/public/frontend/pages/SiteDiary/SiteDiary2.png'
+import WhatsappScreen from '@/public/frontend/pages/SiteDiary/WhatsappScreen.png'
 
 
 export default function Page(){
@@ -69,10 +72,10 @@ export default function Page(){
                     <div className="grid grid-cols-3 gap-15 relative items-center w-full py-12 mx-auto mt-12">
                    
 
-                        <Image src={HeroImage}
+                        <Image src={SiteDiary1}
                                alt="Hero Image"
                                priority
-                               className=" col-span-2 relative object-cover w-full border rounded-lg shadow-2xl lg:rounded-2xl"></Image>
+                               className=" col-span-2 relative object-cover w-full border rounded-lg shadow-2xl shadow-black/40 lg:rounded-2xl"></Image>
 
                                <p className=" text-xl justify-end">
 
@@ -106,16 +109,31 @@ export default function Page(){
                                  
                                 
     </p>
+                            <div className="relative col-span-2 "> 
+                  
+                                    <Image
+                                        src={SiteDiary2}
+                                        alt="Site diary"
+                                        priority
+                                        className="relative w-fullrelative object-cover w-full border rounded-lg shadow-2xl 
+                                        shadow-black/40 lg:rounded-2xl"
+                                    />
+                                    
+                                    <Image
+                                        src={WhatsappScreen}
+                                        alt="WhatsApp"
+                                        priority
+                                        width={280}
+                                        height={560}
+                                        className="absolute bottom-4 right-4 rounded-xl shadow-xl border z-10"
+                                    />
 
-    
-                        <Image src={HeroImage}
-                               alt="Hero Image"
-                               priority
-                               className=" col-span-2 relative object-cover w-full border rounded-lg shadow-2xl lg:rounded-2xl"></Image>
 
+                                    </div>
 
+</div>
 
-                    </div>
+                   
 
                 </div>
 

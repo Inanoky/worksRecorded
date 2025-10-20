@@ -8,6 +8,7 @@ import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
 import {Button} from "@/components/ui/button";
 import InvoicesPage from "@/public/frontend/pages/Invoices/InvoicesPage.png"
 import { NavigationMenuDemo } from "@/components/landing/NavigationBar";
+import Development from "@/public/frontend/pages/CustomSolutions/Development.png"
 
 
 export default function Page(){
@@ -69,7 +70,7 @@ export default function Page(){
                     <div className="grid grid-cols-3 gap-15 relative items-center w-full py-12 mx-auto mt-12">
                    
 
-                        <Image src={InvoicesPage}
+                        <Image src={Development}
                                alt="Hero Image"
                                priority
                                className=" col-span-2 relative object-cover w-full border rounded-lg shadow-2xl lg:rounded-2xl"></Image>

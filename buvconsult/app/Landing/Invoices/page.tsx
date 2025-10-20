@@ -7,6 +7,7 @@ import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
 import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
 import {Button} from "@/components/ui/button";
 import InvoicesPage from "@/public/frontend/pages/Invoices/InvoicesPage.png"
+import Invoices2 from "@/public/frontend/pages/Invoices/Invoices2.png"
 import { NavigationMenuDemo } from "@/components/landing/NavigationBar";
 
 
@@ -109,7 +110,7 @@ export default function Page(){
     </p>
 
     
-                        <Image src={InvoicesPage}
+                        <Image src={Invoices2}
                                alt="Hero Image"
                                priority
                                className=" col-span-2 relative object-cover w-full border rounded-lg shadow-2xl lg:rounded-2xl"></Image>
