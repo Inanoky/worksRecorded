@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/utils";
 import { Menu } from "lucide-react";
-import { DATA_LINKS, MAIN_LINKS } from "@/components/landing/NavigationLinks"
+import { DATA_LINKS, MAIN_LINKS, COMBINED_LINKS } from "@/components/landing/NavigationLinks"
 
 export function NavigationMenuMobile() {
  
@@ -22,7 +22,7 @@ export function NavigationMenuMobile() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="">
         {/* Main navigation links */}
-        {DATA_LINKS.map((item) => (
+        {COMBINED_LINKS.map((item) => (
           <DropdownMenuItem key={item.id} asChild>
             <Link 
               href={item.href} 
