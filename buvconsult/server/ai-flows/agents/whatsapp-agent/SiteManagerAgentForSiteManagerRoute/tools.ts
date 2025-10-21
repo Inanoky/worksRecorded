@@ -10,7 +10,7 @@ import {HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages
 
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
-  name: "Save_to_database",
+  name: "save_to_database",
   description: "Save construction site log to the database",
   schema: z.object({
     question: z.string(),
