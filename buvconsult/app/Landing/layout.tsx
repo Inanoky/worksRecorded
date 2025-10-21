@@ -7,21 +7,11 @@ import "../globals.css";
 import {ThemeProvider} from "@/components/dashboard/ThemeProvider";
 import {Toaster} from "@/components/ui/sonner"
 
-import Link from "next/link";
-import Image from "next/image";
-import Logo from '@/public/buvconsultLogo.svg'
-import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
-import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
-import {Button} from "@/components/ui/button";
-import HeroImage from '@/public/hero.png'
-import Dashboard from '@/public/frontend/pages/Home/Dashboard.png'
-import Dashboard2 from '@/public/frontend/pages/Home/Dashboard2.png'
-
-import { Footer } from "@/components/landing/Footer";
-import Header from "@/components/landing/HeaderDesktop";
 import { useIsMobile } from "@/lib/utils/hooks/use-mobile"
 import HeaderMobile from "@/components/landing/HeaderMobile";
 import HeaderDesktop from "@/components/landing/HeaderDesktop";
+import FooterMobile from "@/components/landing/FooterMobile";
+import FooterDesktop from "@/components/landing/FooterDesktop";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -56,7 +46,8 @@ export default function LadningLayout({
  
      
         {children}
-        <Footer/>
+       {isMobile ?
+       <FooterMobile/> :<FooterDesktop/>  }
            
            <Toaster richColors closeButton/>
       

@@ -9,7 +9,7 @@ import {
   CardContent,
 } from "@/components/ui/card";
 
-export function Footer() {
+export default function FooterDesktop() {
   return (
     <>
       <div className="grid grid-cols-4 p-15 gap-5">
