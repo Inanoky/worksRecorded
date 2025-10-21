@@ -58,7 +58,7 @@ export async function talkToAgent(input,siteId) {
 
  
 
-    const config = {configurable: {thread_id: siteId }};
+    const config = {configurable: {thread_id: `orchestrating${siteId}`}};
 
 
 

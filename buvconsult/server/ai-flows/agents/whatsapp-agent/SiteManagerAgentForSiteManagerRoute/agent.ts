@@ -53,8 +53,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         .addNode("agent", agent)
         .addNode("tools", toolNode)
         .addEdge(START, "agent")
-        .addConditionalEdges("agent", shouldContinue, ["tools", END])
-        .addEdge("tools", END)
+        .addConditionalEdges("agent", shouldContinue, ["tools", END])       
         .addEdge("tools", "agent") // <--- loop back to agent!
 
     const checkpointer = PostgresSaver.fromConnString(
@@ -62,7 +61,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
     );
 
     await checkpointer.setup();
-    const config = { configurable: { thread_id: siteId} };
+    const config = { configurable: { thread_id: `siteManager${siteId}`} };
 
 
 
