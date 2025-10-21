@@ -45,7 +45,7 @@ const DiaryRowSchema = z.object({
     (val) => val === "" || !isNaN(Number(val)),
     { message: "Hours must be a number" }
   ),
-  comments: z.string().max(200, "Comments must be 200 characters or fewer").optional(),
+  comments: z.string().max(1500, "Comments must be 1500 characters or fewer").optional(),
   units: z.enum(allowedUnits).optional(),
 });
 const DiaryRowsSchema = z.array(DiaryRowSchema);
