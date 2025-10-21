@@ -7,7 +7,7 @@ import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
 import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
 import {Button} from "@/components/ui/button";
 import HeroImage from '@/public/hero.png'
-import { NavigationMenuDemo } from "@/components/landing/NavigationBar"
+import { NavigationMenuDemo } from "@/components/landing/NavigationMenuDesktop"
 import SiteDiary1 from '@/public/frontend/pages/SiteDiary/SiteDiary1.png'
 import SiteDiary2 from '@/public/frontend/pages/SiteDiary/SiteDiary2.png'
 import WhatsappScreen from '@/public/frontend/pages/SiteDiary/WhatsappScreen.png'

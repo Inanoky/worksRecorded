@@ -7,7 +7,7 @@ import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
 import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
 import {Button} from "@/components/ui/button";
 import InvoicesPage from "@/public/frontend/pages/Invoices/InvoicesPage.png"
-import { NavigationMenuDemo } from "@/components/landing/NavigationBar";
+import { NavigationMenuDemo } from "@/components/landing/NavigationMenuDesktop";
 import Analytics1 from  '@/public/frontend/pages/Analytics/Analytics1.png'
 import Analytics2 from  '@/public/frontend/pages/Analytics/Analytics2.png'
 

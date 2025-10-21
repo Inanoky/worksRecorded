@@ -6,7 +6,7 @@ import Logo from '@/public/buvconsultLogo.svg'
 
 import InvoicesPage from "@/public/frontend/pages/Invoices/InvoicesPage.png"
 import Invoices2 from "@/public/frontend/pages/Invoices/Invoices2.png"
-import { NavigationMenuDemo } from "@/components/landing/NavigationBar";
+import { NavigationMenuDemo } from "@/components/landing/NavigationMenuDesktop";
 
 
 export default function Page(){

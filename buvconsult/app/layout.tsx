@@ -16,7 +16,7 @@ import {Button} from "@/components/ui/button";
 import HeroImage from '@/public/hero.png'
 import Dashboard from '@/public/frontend/pages/Home/Dashboard.png'
 import Dashboard2 from '@/public/frontend/pages/Home/Dashboard2.png'
-import { NavigationMenuDemo } from "@/components/landing/NavigationBar.tsx";
+import { NavigationMenuDemo } from "@/components/landing/NavigationMenuDesktop";
 import { Footer } from "@/components/landing/Footer";
 
 
