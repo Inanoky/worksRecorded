@@ -346,8 +346,20 @@ export async function getTimelogsBySiteId(siteId) {
     date: row.date ? new Date(row.date).toLocaleDateString('lv-LV', {
   day: '2-digit', month: '2-digit', year: 'numeric'
 }).replace(/\.$/, "") :"",
-    clockIn: row.clockIn ? new Date(row.clockIn).toLocaleTimeString() : "",
-    clockOut: row.clockOut ? new Date(row.clockOut).toLocaleTimeString() : "",
+    clockIn: row.clockIn ? new Date(row.clockIn).toLocaleTimeString("lv-LV", {
+  timeZone: "Europe/Riga",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+}): "",
+    clockOut: row.clockOut ? new Date(row.clockOut).toLocaleTimeString("lv-LV", {
+  timeZone: "Europe/Riga",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+}) : "",
     location: row.wocation ?? "",
     works: row.works ?? "",
     workerName: `${row.workers?.name ?? ""} ${row.workers?.surname ?? ""}`.trim(),   
