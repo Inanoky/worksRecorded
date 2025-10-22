@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/utils/db";
+import { startOfWeek, endOfWeek, endOfDay , addWeeks } from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 // Helper to get all months, to show 0 if no spendings that month
 
@@ -76,7 +78,7 @@ export async function getCategoryMonthlySpendings(siteId: string) {
 }
 //For the ChartAreaInteractive
 
-export async function getDailyAggregatedCosts(siteId: string) {
+export async function getDailyAggregatedCosts(siteId) {
   const data = await prisma.invoiceItems.groupBy({
     by: ['invoiceDate'],
     _sum: {
@@ -96,4 +98,151 @@ export async function getDailyAggregatedCosts(siteId: string) {
     date: row.invoiceDate,
     cost: Number(row._sum.sum) || 0,
   }));
+}
+
+
+// ------------------------Metrics dashboard -----------------------
+
+//get previous week range in UTC based on timezone
+
+
+
+
+
+
+
+export function currentWeekRangeUTC(tz: string = "Europe/Riga") {
+  const now = new Date();
+  const nowZoned = toZonedTime(now, tz);
+
+  // Monday 00:00 of *this* week in tz
+  const startOfThisWeekZoned = startOfWeek(nowZoned, { weekStartsOn: 1 });
+  // End of *today* in tz (e.g., if Wed, it's Wed 23:59:59.999)
+  const endOfTodayZoned = endOfDay(nowZoned);
+
+  // Convert zoned boundaries to UTC instants for DB querying
+  const startUTC = fromZonedTime(startOfThisWeekZoned, tz);
+  const endUTC = fromZonedTime(endOfTodayZoned, tz);
+
+  return { startUTC, endUTC };
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+export function previousWeekRangeUTC(tz: string = "Europe/Riga") {
+  const now = new Date();
+  const nowZoned = toZonedTime(now, tz);
+
+  const startOfThisWeekZoned = startOfWeek(nowZoned, { weekStartsOn: 1 });
+  const startOfPrevWeekZoned = addWeeks(startOfThisWeekZoned, -1);
+  const endOfPrevWeekZoned = endOfWeek(startOfPrevWeekZoned, { weekStartsOn: 1 });
+
+  const startUTC = fromZonedTime(startOfPrevWeekZoned, tz);
+  const endUTC = fromZonedTime(endOfPrevWeekZoned, tz);
+
+  return { startUTC, endUTC };
+}
+/**
+ * Fetch Site Diary records for the *previous* Monday–Sunday week
+ * relative to now, calculated in the given timezone.
+ */
+export async function getSiteDiaryPreviousWeek(siteId : string, tz: string = "Europe/Riga") {
+
+  console.log("Fetching Site Diary records for previous week for siteId:", siteId);
+  const { startUTC, endUTC } = previousWeekRangeUTC(tz);
+
+  return prisma.sitediaryrecords.findMany({
+    where: {
+      Date: { gte: startUTC, lte: endUTC },
+      siteId : siteId,
+    },
+ 
+    orderBy: { Date: "desc" },
+  });
+}
+
+type MetricsData = {
+  elementsAssembled: number;
+  hoursWorked: number;
+  additionalHoursWorked: number;
+  delayedHours: number;
+  reason: string;
+};
+
+
+export async function savePreviousWeekMetrics(siteId: string, metrics: Record<string, any>) {
+
+  return prisma.analytics.upsert({
+    where: { siteId },                       // uses the @unique field
+    update: { lastWeekProgress : metrics },
+    create: { siteId, lastWeekProgress:metrics },
+  });
+}
+
+
+export async function getPreviousWeekMetrics(siteId: string): Promise<MetricsData | null> {
+  const analytics = await prisma.analytics.findUnique({
+    where: { siteId },
+  });
+
+  return analytics?.lastWeekProgress as MetricsData || null;
+}
+
+
+
+
+
+
+export async function getSiteDiaryCurrentsWeek(siteId : string, tz: string = "Europe/Riga") {
+
+  console.log("Fetching Site Diary records for previous week for siteId:", siteId);
+  const { startUTC, endUTC } = currentWeekRangeUTC(tz);
+
+  return prisma.sitediaryrecords.findMany({
+    where: {
+      Date: { gte: startUTC, lte: endUTC },
+      siteId : siteId,
+    },
+ 
+    orderBy: { Date: "desc" },
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+export async function saveCurrentWeekMetrics(siteId: string, metrics: Record<string, any>) {
+
+  return prisma.analytics.upsert({
+    where: { siteId },                       // uses the @unique field
+    update: { currentWeekProgress : metrics },
+    create: { siteId, currentWeekProgress:metrics },
+  });
+}
+
+
+export async function getCurrentWeekMetrics(siteId: string): Promise<MetricsData | null> {
+  const analytics = await prisma.analytics.findUnique({
+    where: { siteId },
+  });
+
+  return analytics?.currentWeekProgress as MetricsData || null;
 }

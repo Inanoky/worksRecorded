@@ -87,6 +87,7 @@ model Site {
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
   
   sitediarysettings sitediarysettings? //One site can have one site diary setting
+  analytics analytics?
   workers           workers[] //on site can have many workers 
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -287,6 +288,17 @@ Record String?
  organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+
+
+}
+
+model analytics {
+
+  id       String    @id @default(uuid())
+  lastWeekProgress Json?
+  currentWeekProgress Json? 
+  Site    Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId  String? @unique // <- Only one analytics per site
 
 
 }

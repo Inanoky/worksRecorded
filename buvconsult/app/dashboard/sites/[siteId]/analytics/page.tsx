@@ -5,6 +5,7 @@ import {BudgetVsReal} from "@/components/analytics/BudgetVsReal";
 import {KeyMetrics} from "@/components/analytics/KeyMetrics";
 import AiWidgetRag from "@/components/ai/AiChat";
 
+
 export default async function Analytics({params}:
 
 {params : Promise <{siteId:string}>
@@ -13,6 +14,7 @@ export default async function Analytics({params}:
 
      const {siteId} = await params
     const data = await getMonthlySpendings(siteId)
+   
     const MonthlyCategoryChartData = await getCategoryMonthlySpendings(siteId)
 
   return (
@@ -21,7 +23,7 @@ export default async function Analytics({params}:
                     <MonthlySpendingsChart data={data}/>
                     <MonthlyCategoryChart data={MonthlyCategoryChartData}/>
                     <BudgetVsReal data={data}/>
-                    <KeyMetrics/>
+                    <KeyMetrics  />
 
                 </div>
                 <AiWidgetRag siteId={siteId}/>

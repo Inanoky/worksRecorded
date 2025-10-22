@@ -1,6 +1,7 @@
 "use client"
 
-import { IconTrendingUp } from "@tabler/icons-react"
+import { IconTrendingUp, } from "@tabler/icons-react"
+import { RefreshCw } from 'lucide-react';
 
 import { Badge } from "@/components/ui/badge"
 import {

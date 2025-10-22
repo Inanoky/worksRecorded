@@ -5,9 +5,10 @@ import {getInvoiceItemsFromDB, getInvoicesFromDB} from "@/server/actions/invoice
 import {InvoiceItemsDataTable} from "@/components/invoices/InvoiceItemsDataTable";
 import { InvoicesDataTable } from "@/components/invoices/InvoicesDataTable";
 import {ChartAreaInteractive} from "@/components/analytics/ChartAreaInteractive";
-import {getDailyAggregatedCosts} from "@/server/actions/analytics-actions";
-import {KeyMetricsDashboard} from "@/components/analytics/KeyMetricsDashboard";
+import {getCurrentWeekMetrics, getDailyAggregatedCosts} from "@/server/actions/analytics-actions";
+import {KeyMetricsDashboard} from "@/components/analytics/KeyMetricsDashboard/KeyMetricsDashboard";
 import AiWidgetRag from "@/components/ai/AiChat";
+import {getPreviousWeekMetrics} from "@/server/actions/analytics-actions";
 
 
 export default async function InvoiceRoute({params}:
@@ -22,6 +23,9 @@ export default async function InvoiceRoute({params}:
     invoiceItems = invoiceItems.filter(item => item.invoice?.isInvoice !== false); // filter out items with invoice.isInvoice === false
     const chartAreaInteractiveData = await getDailyAggregatedCosts(siteId)
     const projectName = getProjectNameBySiteId(siteId)
+    const metricsData = await getPreviousWeekMetrics(siteId)
+    const currentWeekData = await getCurrentWeekMetrics(siteId)
+    
 
 
 
@@ -50,7 +54,7 @@ export default async function InvoiceRoute({params}:
       <>
           {/* 2️⃣ Your client upload form */}
 
-            <KeyMetricsDashboard/>
+            <KeyMetricsDashboard siteId={siteId} displayData={metricsData} currentWeekData={currentWeekData}/>
           <ChartAreaInteractive data={chartAreaInteractiveData}/>
 
 
