@@ -24,13 +24,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
 
-  const idGa = process.env.NEXT_PUBLIC_GA_ID as string
+  // const idGa = process.env.NEXT_PUBLIC_GA_ID as string
 
   
 
   return (
     <html lang="en">
-            <GoogleAnalytics gaId={idGa} />
+            <GoogleAnalytics gaId="G-3F0SR7QQEQ"/>
 
       <body
         className={`${inter.className}  antialiased`}
