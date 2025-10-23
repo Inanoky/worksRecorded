@@ -8,7 +8,7 @@ import {ChartAreaInteractive} from "@/components/analytics/ChartAreaInteractive"
 import {getCurrentWeekMetrics, getDailyAggregatedCosts} from "@/server/actions/analytics-actions";
 import {KeyMetricsDashboard} from "@/components/analytics/KeyMetricsDashboard/KeyMetricsDashboard";
 import AiWidgetRag from "@/components/ai/AiChat";
-import {getPreviousWeekMetrics} from "@/server/actions/analytics-actions";
+import {getPreviousWeekMetrics, getCurrentWorkersOnSite} from "@/server/actions/analytics-actions";
 
 
 export default async function InvoiceRoute({params}:
@@ -25,6 +25,7 @@ export default async function InvoiceRoute({params}:
     const projectName = getProjectNameBySiteId(siteId)
     const metricsData = await getPreviousWeekMetrics(siteId)
     const currentWeekData = await getCurrentWeekMetrics(siteId)
+    const workersOnSite = await getCurrentWorkersOnSite(siteId) //reuse current week metrics for workers on site
     
 
 
@@ -54,7 +55,7 @@ export default async function InvoiceRoute({params}:
       <>
           {/* 2️⃣ Your client upload form */}
 
-            <KeyMetricsDashboard siteId={siteId} displayData={metricsData} currentWeekData={currentWeekData}/>
+            <KeyMetricsDashboard siteId={siteId} displayData={metricsData} currentWeekData={currentWeekData} workersData={workersOnSite}/>
           <ChartAreaInteractive data={chartAreaInteractiveData}/>
 
 

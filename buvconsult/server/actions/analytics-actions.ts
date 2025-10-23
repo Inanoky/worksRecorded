@@ -234,6 +234,7 @@ export async function getSiteDiaryCurrentWeek(siteId : string, tz: string = "Eur
 
 
 export async function saveCurrentWeekMetrics(siteId: string, metrics: Record<string, any>) {
+  
 
   return prisma.analytics.upsert({
     where: { siteId },                       // uses the @unique field
@@ -244,9 +245,28 @@ export async function saveCurrentWeekMetrics(siteId: string, metrics: Record<str
 
 
 export async function getCurrentWeekMetrics(siteId: string): Promise<MetricsData | null> {
+
   const analytics = await prisma.analytics.findUnique({
     where: { siteId },
   });
 
+  console.log("Current week metrics fetched:", analytics?.currentWeekProgress);
+
   return analytics?.currentWeekProgress as MetricsData || null;
+}
+
+
+// ---------------------- workers on site metrics -----------------------
+
+export async function getCurrentWorkersOnSite(siteId: string) { 
+
+
+
+  const count = await prisma.workers.count({
+    where: { siteId ,
+      isClockedIn : true
+    },
+  });
+
+  return count;
 }

@@ -214,6 +214,7 @@ model sitediarysettings {
   Site    Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId  String? @unique // <- Only one settings per site
   schema  String?
+  weeklyTarget Float? 
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

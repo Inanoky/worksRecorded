@@ -2,9 +2,9 @@
  "use client"
  
  import * as React from "react";
- import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react"
+
  import { RefreshCw, Dot, CircleQuestionMark } from 'lucide-react';
- import { extractSiteDiaryPreviouseWeek } from "@/server/ai-flows/agents/extractors/extractLastWeekProgressMetrics"; 
+
  import { Badge } from "@/components/ui/badge"
  import {
    Card,
@@ -14,11 +14,9 @@
    CardHeader,
    CardTitle,
  } from "@/components/ui/card"
- import { useProject } from "@/components/providers/ProjectProvider"
- import { savePreviousWeekMetrics } from "@/server/actions/analytics-actions";
+
  import { ReasonHover } from "./HooverCardMetrics";
- import { extractSiteDiaryCurrentWeek } from "@/server/ai-flows/agents/extractors/extractCurrentWeekProgressMetrics";
- import { is } from "date-fns/locale";
+
  import { Spinner } from "@/components/ui/spinner";
  
  
@@ -34,7 +32,7 @@
  
  
  
- export default function MetricsCard({cardName, siteId,  currentWeekData, onRefresh }) 
+ export default function MetricsCardWorkers({cardName, siteId,  workerCount, onRefresh }) 
  
     
  { 
@@ -61,23 +59,7 @@
 <CardHeader className={onCardRefresh? "opacity-100  pointer-events-none" : ""}>
           <CardDescription>{cardName}</CardDescription>
           <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-           Target : 80 
-           <p  >Assembled : <span 
-           
-           className={currentWeekData?.elementsAssembled/80 > 0.8 
-            ? "text-green-600" 
-            : currentWeekData?.elementsAssembled/80 > 0.5
-            ? "text-yellow-500"                           
-            
-            :  "text-red-600" 
-           }
-           
-           
-           >
-            
-            
-            
-             {currentWeekData?.elementsAssembled}</span> </p> 
+            {workerCount?.elementsAssembled} workers on site : { workerCount}
           </CardTitle>
           <CardAction>
             <Badge
@@ -91,15 +73,15 @@
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
              <div className="line-clamp-1 flex gap-2 font-medium">
-            Total hours worked : {currentWeekData?.hoursWorked} manhours 
+            Latest Issue : 
           </div>
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Additional works :  {currentWeekData?.additionalHoursWorked} manhours
+            Next deadline : 
           </div>
           <div className="flex items-center text-muted-foreground w-full">
-    <span>Delays hours worked {currentWeekData?.delayedHours} </span>
+    <span>Next milestone </span>
     <div  className="flex flex-row gap-2 items-center size-14 ml-auto ">
-     <ReasonHover markdown={currentWeekData?.reason} title="How this was calculated"  />
+     <ReasonHover markdown={"preview"} title="How this was calculated"  />
     <RefreshCw 
     className="hover:animate-spin cursor-pointer size-12" 
     onClick={async () => 
