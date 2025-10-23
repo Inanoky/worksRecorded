@@ -5,7 +5,8 @@ import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getSiteDiaryPreviousWeek } from "@/server/actions/analytics-actions";
-import { savePreviousWeekMetrics } from "@/server/actions/analytics-actions";
+import { saveCurrentWeekMetrics } from "@/server/actions/analytics-actions";
+import { getSiteDiaryCurrentWeek } from "@/server/actions/analytics-actions";
 
 const schema = z.object({
 
@@ -22,7 +23,7 @@ const schema = z.object({
 export async function extractSiteDiaryCurrentWeek(siteId: string) {
   console.log("Extracting Site Diary metrics for current week for siteId:", siteId);
 
-  const records = await getSiteDiaryPreviousWeek(siteId);
+  const records = await getSiteDiaryCurrentWeek(siteId);
 
   
   // 2) Convert Excel → CSV (all sheets)
@@ -59,7 +60,7 @@ export async function extractSiteDiaryCurrentWeek(siteId: string) {
 
           
   
-  await savePreviousWeekMetrics(siteId, results);
+  await saveCurrentWeekMetrics(siteId, results);
 
 
   console.log("Extracted Site Diary metrics for current week:", results);

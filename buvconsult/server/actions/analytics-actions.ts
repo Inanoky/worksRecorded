@@ -159,8 +159,10 @@ export function previousWeekRangeUTC(tz: string = "Europe/Riga") {
  */
 export async function getSiteDiaryPreviousWeek(siteId : string, tz: string = "Europe/Riga") {
 
-  console.log("Fetching Site Diary records for previous week for siteId:", siteId);
+ 
   const { startUTC, endUTC } = previousWeekRangeUTC(tz);
+
+   console.log(`Fetching Site Diary records for previous week (${startUTC}) (${endUTC}) for siteId:`, siteId);
 
   return prisma.sitediaryrecords.findMany({
     where: {
@@ -204,10 +206,12 @@ export async function getPreviousWeekMetrics(siteId: string): Promise<MetricsDat
 
 
 
-export async function getSiteDiaryCurrentsWeek(siteId : string, tz: string = "Europe/Riga") {
+export async function getSiteDiaryCurrentWeek(siteId : string, tz: string = "Europe/Riga") {
 
-  console.log("Fetching Site Diary records for previous week for siteId:", siteId);
+ 
   const { startUTC, endUTC } = currentWeekRangeUTC(tz);
+
+ console.log(`Fetching Site Diary records for current week (${startUTC}) (${endUTC})  for siteId:`, siteId);
 
   return prisma.sitediaryrecords.findMany({
     where: {
