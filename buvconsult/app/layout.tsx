@@ -1,4 +1,5 @@
-//C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\layout.tsx
+"use server"
+// /C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\layout.tsx
 
 import type { Metadata } from "next";
 
@@ -6,18 +7,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import {ThemeProvider} from "@/components/dashboard/ThemeProvider";
 import {Toaster} from "@/components/ui/sonner"
-
-import Link from "next/link";
-import Image from "next/image";
-import Logo from '@/public/buvconsultLogo.svg'
-import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
-import {LoginLink, RegisterLink} from "@kinde-oss/kinde-auth-nextjs/components";
-import {Button} from "@/components/ui/button";
-import HeroImage from '@/public/hero.png'
-import Dashboard from '@/public/frontend/pages/Home/Dashboard.png'
-import Dashboard2 from '@/public/frontend/pages/Home/Dashboard2.png'
-import { NavigationMenuDemo } from "@/components/landing/NavigationMenuDesktop";
-import { Footer } from "@/components/landing/FooterDesktop";
+import { GoogleAnalytics} from '@next/third-parties/google'
 
 
 const inter = Inter({ subsets: ["latin"] });
@@ -33,8 +23,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
+  const idGa = process.env.NEXT_PUBLIC_GA_ID as string
+
+  
+
   return (
     <html lang="en">
+            <GoogleAnalytics gaId={idGa} />
+
       <body
         className={`${inter.className}  antialiased`}
       >
