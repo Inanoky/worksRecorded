@@ -98,7 +98,7 @@ const agentNode = async (state) => {
 
     await checkpointer.setup();
     
-    const config = {configurable: {thread_id: `${siteId}_SiteDiaryAgent`}};
+    const config = {configurable: {thread_id: `${siteId}_Timesheets-agent`}}; // Unique thread ID per site
 
 
 

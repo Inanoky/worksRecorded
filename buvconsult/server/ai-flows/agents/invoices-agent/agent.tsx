@@ -96,7 +96,7 @@ const agentNode = async (state) => {
 
 
     await checkpointer.setup();
-    const config = {configurable: {thread_id: "change_this_to_something"}};
+    const config = {configurable: {thread_id: "invoices-agent-" + siteId}}; // Unique thread ID per site
 
 
 

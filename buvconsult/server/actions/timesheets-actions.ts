@@ -335,36 +335,49 @@ export async function getSiteIdByWorkerId(workerId: string): Promise<string | nu
 
 export async function getTimelogsBySiteId(siteId) {
   const raw = await prisma.timelog.findMany({
-    where: { siteId },                // <-- this is correct!
-    include: { workers: true },       // <-- include worker details if you want
+    where: { siteId },
+    include: { workers: true },
     orderBy: { date: "desc" },
   });
 
-  // Format the data before returning!
-  return raw.map(row => ({
+  const calcTimeWorked = (clockIn?: Date | null, clockOut?: Date | null) => {
+    if (!clockIn || !clockOut) return "";
+    const ms = new Date(clockOut).getTime() - new Date(clockIn).getTime();
+    if (ms <= 0) return "";
+    const hours = ms / 3_600_000;
+    return Math.round(hours * 100) / 100; // number like 7.58, 8, 7.25
+  };
+
+  return raw.map((row) => ({
     id: row.id,
-    date: row.date ? new Date(row.date).toLocaleDateString('lv-LV', {
-  day: '2-digit', month: '2-digit', year: 'numeric'
-}).replace(/\.$/, "") :"",
-    clockIn: row.clockIn ? new Date(row.clockIn).toLocaleTimeString("lv-LV", {
-  timeZone: "Europe/Riga",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-}): "",
-    clockOut: row.clockOut ? new Date(row.clockOut).toLocaleTimeString("lv-LV", {
-  timeZone: "Europe/Riga",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: false,
-}) : "",
+    date: row.date
+      ? new Date(row.date)
+          .toLocaleDateString("lv-LV", { day: "2-digit", month: "2-digit", year: "numeric" })
+          .replace(/\.$/, "")
+      : "",
+    clockIn: row.clockIn
+      ? new Date(row.clockIn).toLocaleTimeString("lv-LV", {
+          timeZone: "Europe/Riga",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        })
+      : "",
+    clockOut: row.clockOut
+      ? new Date(row.clockOut).toLocaleTimeString("lv-LV", {
+          timeZone: "Europe/Riga",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        })
+      : "",
+    timeWorked: calcTimeWorked(row.clockIn, row.clockOut), // number, no "h", not quarter-rounded
     location: row.wocation ?? "",
     works: row.works ?? "",
-    workerName: `${row.workers?.name ?? ""} ${row.workers?.surname ?? ""}`.trim(),   
-    workerRole: row.workers?.role ?? "",   // if you have a role field on workers!
-    // You can add any other fields you want to flatten or format here.
+    workerName: `${row.workers?.name ?? ""} ${row.workers?.surname ?? ""}`.trim(),
+    workerRole: row.workers?.role ?? "",
   }));
 }
 
