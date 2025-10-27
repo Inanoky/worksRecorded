@@ -21,7 +21,7 @@ import MetricsCardWorkers from "./MetricsCardWorkersOnSite";
 
 
 
-export function KeyMetricsDashboard({ siteId, displayData, currentWeekData, workersData }) {
+export function KeyMetricsDashboard({ siteId, previousWeekData, currentWeekData, workersData }) {
 
   type MetricsData = {
     elementsAssembled: number;
@@ -77,7 +77,7 @@ export function KeyMetricsDashboard({ siteId, displayData, currentWeekData, work
 
 
          <MetricsCard 
-          cardName={'Previous week progress'} 
+          cardName={'Current week progress'} 
           siteId={siteId}
           currentWeekData={currentWeekData}
           onRefresh={async (siteId: string) => {          
@@ -87,9 +87,9 @@ export function KeyMetricsDashboard({ siteId, displayData, currentWeekData, work
         />
 
           <MetricsCard
-          cardName={'Current week progress'} 
+          cardName={'Previous week progress'} 
           siteId={siteId}
-          currentWeekData={displayData}
+          currentWeekData={previousWeekData}
           onRefresh={async (siteId: string) => {          
           await handlePreviousWeekClick(siteId);
           ;

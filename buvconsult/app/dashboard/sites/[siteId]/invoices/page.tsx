@@ -23,7 +23,7 @@ export default async function InvoiceRoute({params}:
     invoiceItems = invoiceItems.filter(item => item.invoice?.isInvoice !== false); // filter out items with invoice.isInvoice === false
     const chartAreaInteractiveData = await getDailyAggregatedCosts(siteId)
     const projectName = getProjectNameBySiteId(siteId)
-    const metricsData = await getPreviousWeekMetrics(siteId)
+    const previousWeekData = await getPreviousWeekMetrics(siteId)
     const currentWeekData = await getCurrentWeekMetrics(siteId)
     const workersOnSite = await getCurrentWorkersOnSite(siteId) //reuse current week metrics for workers on site
     
@@ -55,7 +55,7 @@ export default async function InvoiceRoute({params}:
       <>
           {/* 2️⃣ Your client upload form */}
 
-            <KeyMetricsDashboard siteId={siteId} displayData={metricsData} currentWeekData={currentWeekData} workersData={workersOnSite}/>
+            <KeyMetricsDashboard siteId={siteId} previousWeekData={previousWeekData} currentWeekData={currentWeekData} workersData={workersOnSite}/>
           <ChartAreaInteractive data={chartAreaInteractiveData}/>
 
 
