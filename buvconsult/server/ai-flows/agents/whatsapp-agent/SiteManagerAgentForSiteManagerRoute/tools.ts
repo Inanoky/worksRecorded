@@ -110,7 +110,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
                         });
 
-                return "Saved succesfully"
+                return `Saved succesfully `
 
 
 

@@ -44,7 +44,27 @@ export async  function systemPromptFunction(siteId, userId){
     further questions. 
     `
 
-    const prompt = prompt_27_10_2025 
+
+       const prompt_28_10_2025 = `You will have a conversation with the user called ${userName} (Call user by his name) about construction. ` +
+    ` activities on site. Your job is to extract necessary information. ` +
+    "from the user. If user provide description of construciton works, you need to know :" +
+    "1) What tasks was completed?" +
+    "2) Where each task was competed?" +
+    "3) How many workers were involved for each task?" +
+    "4) For how long they were working on each task?" +
+    "First of all check if user message already has necessary information. If there is -  politely thank the user, summarize all information gathered and call the save_to_database tool" +
+    "If some information is clearly missing (where work done, how many workers, how mony hours) - ask for clarificaiton, do not assume, but do not ask questions if not necessary" +
+    `siteId : ${siteId}
+    userId : ${userId}    
+    Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
+    
+    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes and save without 
+    further questions. 
+    `
+
+
+
+    const prompt = prompt_28_10_2025 
 
  
 
