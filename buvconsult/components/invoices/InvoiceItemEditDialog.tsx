@@ -29,6 +29,18 @@ export function InvoiceItemEditDialog({ item, open, onOpenChange }) {
   const [loading, setLoading] = React.useState(false);
   const router = useRouter();
 
+
+
+
+      React.useEffect(() => {
+      return () => {
+        // Cleanup when component unmounts or dialog closes
+        if (document.body.style.pointerEvents === "none") {
+          document.body.style.pointerEvents = "";
+        }
+      };
+    }, []);
+
   // Ensure form resets when a new item is opened
   React.useEffect(() => {
     if (open) setForm(initialForm);

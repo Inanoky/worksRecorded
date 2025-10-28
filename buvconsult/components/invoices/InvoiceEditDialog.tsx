@@ -22,6 +22,15 @@ export function InvoiceEditDialog({ invoice, open, onOpenChange }) {
     isInvoice: invoice.isInvoice ? "true" : "false",
   });
 
+    React.useEffect(() => {
+    return () => {
+      // Cleanup when component unmounts or dialog closes
+      if (document.body.style.pointerEvents === "none") {
+        document.body.style.pointerEvents = "";
+      }
+    };
+  }, []);
+
   React.useEffect(() => {
     setForm({
       invoiceNumber: invoice.invoiceNumber || "",

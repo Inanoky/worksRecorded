@@ -1,4 +1,4 @@
-
+//C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\dashboard\sites\[siteId]\invoices\page.tsx
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 import { getProjectNameBySiteId} from "@/server/actions/shared-actions";
 import {getInvoiceItemsFromDB, getInvoicesFromDB} from "@/server/actions/invoices-actions";

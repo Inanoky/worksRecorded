@@ -1,3 +1,4 @@
+
 "use client";
 import * as React from "react";
 import * as XLSX from "xlsx";
@@ -96,7 +97,7 @@ export function InvoicesDataTable({ data, siteId }) {
     try {
       await deleteInvoice(id);
       toast.success("Invoice deleted");
-      router.refresh();
+  
     } catch {
       toast.error("Delete failed");
     }
@@ -110,7 +111,7 @@ export function InvoicesDataTable({ data, siteId }) {
 
   function handleEditOpenChange(v: boolean) {
   setEditOpen(v);
-  if (!v) setEditInvoice(null);
+  if (!v) setEditInvoice(null)  
 }
 
   async function handleBulkDelete() {
@@ -121,7 +122,7 @@ export function InvoicesDataTable({ data, siteId }) {
       await Promise.all(ids.map(deleteInvoice));
       toast.success("Invoices deleted");
       setRowSelection({});
-      router.refresh();
+
     } catch {
       toast.error("Bulk delete failed");
     }
@@ -134,7 +135,7 @@ export function InvoicesDataTable({ data, siteId }) {
       await bulkSetIsInvoice(ids, value);
       toast.success(`Invoices marked as isInvoice=${value}`);
       setRowSelection({});
-      router.refresh();
+   
     } catch {
       toast.error("Bulk update failed");
     }
