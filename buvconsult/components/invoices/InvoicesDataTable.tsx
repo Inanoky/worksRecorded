@@ -107,6 +107,12 @@ export function InvoicesDataTable({ data, siteId }) {
     setEditOpen(true);
   }
 
+
+  function handleEditOpenChange(v: boolean) {
+  setEditOpen(v);
+  if (!v) setEditInvoice(null);
+}
+
   async function handleBulkDelete() {
     const ids = table.getSelectedRowModel().rows.map((row) => row.original.id);
     if (ids.length === 0) return;
@@ -448,9 +454,10 @@ export function InvoicesDataTable({ data, siteId }) {
 
       {editInvoice && (
         <InvoiceEditDialog
+          key={editInvoice.id}
           invoice={editInvoice}
           open={editOpen}
-          onOpenChange={setEditOpen}
+          onOpenChange={handleEditOpenChange}
         />
       )}
     </div>

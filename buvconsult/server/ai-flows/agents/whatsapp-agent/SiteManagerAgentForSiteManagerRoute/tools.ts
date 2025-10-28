@@ -86,8 +86,8 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
          
 
                 const response = await structuredLlm.invoke([
-                  new HumanMessage(`${question} \n ${date} \n ${siteId} \n `),
-                  new SystemMessage(systemPromptSaveToDatabase)
+                  new HumanMessage(`${question}`),
+                  new SystemMessage(`${systemPromptSaveToDatabase} \n today is : ${date} \n ${siteId} `)
                 ]);
 
          

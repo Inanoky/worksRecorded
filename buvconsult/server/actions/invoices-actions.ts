@@ -150,10 +150,30 @@ export async function deleteInvoice(invoiceId: string) {
 }
 
 export async function updateInvoice(id: string, data: any) {
+  const toNullableDate = (v: unknown) => {
+    if (v === "" || v === null || v === undefined) return null;
+    // Accept Date or string
+    const d = v instanceof Date ? v : new Date(String(v));
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const toBool = (v: unknown) => {
+    if (typeof v === "boolean") return v;
+    if (v === "true") return true;
+    if (v === "false") return false;
+    return Boolean(v);
+  };
+
   await prisma.invoices.update({
     where: { id },
-    data,
+    data: {
+      ...data,
+      invoiceDate: toNullableDate(data.invoiceDate),
+      paymentDate: toNullableDate(data.paymentDate),
+      isInvoice: toBool(data.isInvoice),
+    },
   });
+
   return { ok: true };
 }
 
