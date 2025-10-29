@@ -8,6 +8,8 @@ import "./globals.css";
 import {ThemeProvider} from "@/components/dashboard/ThemeProvider";
 import {Toaster} from "@/components/ui/sonner"
 import {GoogleTagManager, GoogleAnalytics} from '@next/third-parties/google'
+import Script from "next/script";
+
 
 
 const inter = Inter({ subsets: ["latin"] });
@@ -31,6 +33,15 @@ export default function RootLayout({
   return (
     <html lang="en">
             <GoogleAnalytics gaId="G-3F0SR7QQEQ"/>
+
+
+            <Script id="ga-ads-config" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('config', 'AW-17670426077');
+        `}
+      </Script>
 
       <body
         className={`${inter.className}  antialiased`}

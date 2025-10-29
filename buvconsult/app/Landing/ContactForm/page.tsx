@@ -7,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 export default function ContactForm() {
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<null | { ok: boolean; msg: string }>(null);
+  const router = useRouter();
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,9 +38,14 @@ export default function ContactForm() {
     setPending(false);
 
     if (res.ok) {
-      setStatus({ ok: true, msg: "Message sent. We’ll get back to you soon." });
-      e.currentTarget.reset();
-    } else {
+    // Fire Google Ads conversion before redirect (optional)
+    window.gtag?.("event", "conversion", {
+      send_to: "AW-17670426077/3OXOCMXV7rUbEN2b9elB",
+    });
+
+    router.push("/Landing/ThankYou");
+    return;
+}else {
       const data = await res.json().catch(() => ({}));
       setStatus({
         ok: false,

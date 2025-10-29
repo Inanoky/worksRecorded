@@ -10,7 +10,6 @@ import Image from "next/image";
 import DefaultImage from "@/public/default.png";
 import {Button} from "@/components/ui/button";
 import Link from "next/link";
-import React from "react";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import { PlusCircle} from "lucide-react";
 import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
