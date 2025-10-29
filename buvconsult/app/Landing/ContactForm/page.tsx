@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { sendGAEvent } from '@next/third-parties/google'
 
 export default function ContactForm() {
   const [pending, setPending] = useState(false);
@@ -39,9 +40,8 @@ export default function ContactForm() {
 
     if (res.ok) {
     // Fire Google Ads conversion before redirect (optional)
-    window.gtag?.("event", "conversion", {
-      send_to: "AW-17670426077/3OXOCMXV7rUbEN2b9elB",
-    });
+
+    sendGAEvent('event', 'conversion', { value:  {'send_to': 'AW-17670426077/3OXOCMXV7rUbEN2b9elB'} })
 
     router.push("/Landing/ThankYou");
     return;

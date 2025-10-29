@@ -33,6 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en">
             <GoogleAnalytics gaId="G-3F0SR7QQEQ"/>
+             <GoogleTagManager gtmId="GTM-TFB37MS4" />
 
 
             <Script id="ga-ads-config" strategy="afterInteractive">
