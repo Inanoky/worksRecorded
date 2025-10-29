@@ -48,7 +48,7 @@ export default function ContactForm() {
   }
 
   return (
-    <section className="mx-auto max-w-6xl rounded-2xl border bg-background p-6 sm:p-10">
+    <section className="mx-auto max-w-6xl rounded-2xl border bg-background p-15 sm:p-10">
       <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
         {/* Left: Intro + details */}
         <div className="space-y-8">
