@@ -150,6 +150,8 @@ export async function deleteInvoice(invoiceId: string) {
 }
 
 export async function updateInvoice(id: string, data: any) {
+
+
   const toNullableDate = (v: unknown) => {
     if (v === "" || v === null || v === undefined) return null;
     // Accept Date or string
@@ -186,9 +188,28 @@ export async function bulkSetIsInvoice(ids: string[], value: boolean) {
 
 
 export async function updateInvoiceItem(id: string, data: any) {
+  const toNullableDate = (v: unknown) => {
+    if (v === "" || v === null || v === undefined) return null;
+    const d = v instanceof Date ? v : new Date(String(v));
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  // Convert string numbers to actual numbers
+  const toNumber = (v: unknown) => {
+    if (v === "" || v === null || v === undefined) return null;
+    const num = Number(v);
+    return isNaN(num) ? null : num;
+  };
+
   await prisma.invoiceItems.update({
     where: { id },
-    data,
+    data: {
+      ...data,
+      invoiceDate: toNullableDate(data.invoiceDate),
+      quantity: toNumber(data.quantity),
+      pricePerUnitOfMeasure: toNumber(data.pricePerUnitOfMeasure),
+      sum: toNumber(data.sum),
+    }
   });
   return { ok: true };
 }

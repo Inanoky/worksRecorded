@@ -31,6 +31,8 @@ export function InvoiceEditDialog({ invoice, open, onOpenChange }) {
     };
   }, []);
 
+   
+
   React.useEffect(() => {
     setForm({
       invoiceNumber: invoice.invoiceNumber || "",

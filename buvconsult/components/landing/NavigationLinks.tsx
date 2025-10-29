@@ -29,6 +29,7 @@ export const DATA_LINKS = [
     title: "Analytics",
     description: "Get live custom analytics",
   },
+    
 ] as const
 
 
@@ -36,6 +37,7 @@ export const MAIN_LINKS = [
   { href: "/Landing/Custom", label: "Custom solutions" },
   { href: "/Landing/Pricing", label: "Pricing" },
   { href: "/Landing/About", label: "About" },
+  { href: "/Landing/ContactForm", label: "Contacts" },
 ] as const
 
 

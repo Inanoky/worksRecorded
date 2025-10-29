@@ -55,8 +55,7 @@ export default function ContactForm() {
           <div className="space-y-4">
             <h1 className="text-5xl font-bold tracking-tight">Contact Us</h1>
             <p className="text-muted-foreground max-w-[46ch]">
-              We are available for questions, feedback, or collaboration opportunities.
-              Let us know how we can help!
+              Call us, send an email, write in whatsapp or fill the form and we will get in touch the same day!
             </p>
           </div>
 
@@ -64,7 +63,7 @@ export default function ContactForm() {
             <h2 className="text-2xl font-semibold">Contact Details</h2>
             <ul className="list-disc space-y-2 pl-5">
               <li>
-                <span className="font-medium">Phone:</span> (123) 34567890
+                <span className="font-medium">Phone:</span> +371 24885690
               </li>
               <li>
                 <span className="font-medium">Email:</span>{" "}

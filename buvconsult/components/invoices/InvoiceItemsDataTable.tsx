@@ -81,6 +81,27 @@ export function InvoiceItemsDataTable({ data, siteId }) {
   const [editItem, setEditItem] = React.useState(null);
   const [editOpen, setEditOpen] = React.useState(false);
 
+  
+
+
+
+    React.useEffect(() => {
+    if (editOpen) {
+      // When dialog opens: clear pointer-events after Radix UI sets it
+      const timer = setTimeout(() => {
+        document.body.style.pointerEvents = "";
+      }, 0);
+      return () => clearTimeout(timer);
+    } else {
+      // When dialog closes: ALSO clear pointer-events with a slight delay
+      const timer = setTimeout(() => {
+        document.body.style.pointerEvents = "";
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [editOpen]);
+  
+
 
   function exportToExcel() {
     // get only the currently filtered rows
@@ -108,6 +129,9 @@ export function InvoiceItemsDataTable({ data, siteId }) {
   function handleEdit(item) {
     setEditItem(item);
     setEditOpen(true);
+     setTimeout(() => {
+    document.body.style.pointerEvents = "";
+  }, 100);
   }
 
   // BULK DELETE HANDLER
@@ -126,88 +150,88 @@ export function InvoiceItemsDataTable({ data, siteId }) {
   }
 
   const columns = React.useMemo<ColumnDef<any>[]>(
-    () => [
-      {
-        id: "select",
-        header: ({ table }) => (
-          <Checkbox
-            checked={
-              table.getIsAllPageRowsSelected() ||
-              (table.getIsSomePageRowsSelected() && "indeterminate")
-            }
-            onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
-            aria-label="Select all"
-          />
-        ),
-        cell: ({ row }) => (
-          <Checkbox
-            checked={row.getIsSelected()}
-            onCheckedChange={value => row.toggleSelected(!!value)}
-            aria-label="Select row"
-          />
-        ),
-        enableSorting: false,
-        enableHiding: false
-      },
-      {
-        accessorKey: "invoice.invoiceDate",
-        header: "Date",
-         cell: ({ row }) =>
-    row.original.invoice?.invoiceDate
-      ? new Date(row.original.invoice.invoiceDate).toLocaleDateString("en-GB", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
-      : "No date",
-      },
-      {
-        header: "Invoice#",
-        cell: info => {
-          const invoice = info.row.original.invoice;
-          return invoice?.url
-            ? <InvoiceHoverPreview url={invoice.url} label={invoice.invoiceNumber || "Invoice"} />
-            : invoice?.invoiceNumber || "";
-        }
-      },
-      {
-        accessorKey: "sellerName",
-        header: "Seller",
-        cell: info => info.row.original.invoice?.sellerName || ""
-      },
-      { accessorKey: "item", header: "Item", cell: info => info.getValue() || "" },
-      { accessorKey: "quantity", header: "Qty", cell: info => info.getValue() || "" },
-      { accessorKey: "unitOfMeasure", header: "Unit", cell: info => info.getValue() || "" },
-      { accessorKey: "pricePerUnitOfMeasure", header: "Unit Price", cell: info => info.getValue() || "" },
-      { accessorKey: "sum", header: "Sum", cell: info => info.getValue() || "" },
-      { accessorKey: "currency", header: "Currency", cell: info => info.getValue() || "" },
-      { accessorKey: "category", header: "Category", cell: info => info.getValue() || "" },
-      {
-        accessorKey: "isInvoice",
-        header: "Is Invoice",
-        cell: info =>
-          info.getValue()
-            ? <Badge variant="default">Yes</Badge>
-            : <Badge variant="outline">No</Badge>
-      },
-      {
-        id: "actions",
-        header: "Actions",
-        cell: info => (
-          <RowActions
-            siteId={siteId}
-            id={info.row.original.id}
-            item={info.row.original}
-            onDelete={handleDeleteItem}
-            onEdit={handleEdit}
-          />
-        ),
-        enableSorting: false,
-        enableFiltering: false
+  () => [
+    {
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={value => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={value => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false
+    },
+    {
+      accessorKey: "invoiceDate",
+      header: "Date",
+      cell: ({ row }) =>
+        row.original.invoiceDate // ✅ Fixed: using invoiceItems date
+          ? new Date(row.original.invoiceDate).toLocaleDateString("en-GB", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : "No date",
+    },
+    {
+      header: "Invoice#",
+      cell: info => {
+        const invoice = info.row.original.invoice;
+        return invoice?.url
+          ? <InvoiceHoverPreview url={invoice.url} label={invoice.invoiceNumber || "Invoice"} />
+          : invoice?.invoiceNumber || "";
       }
-    ],
-    [siteId]
-  );
+    },
+    {
+      accessorKey: "sellerName",
+      header: "Seller",
+      cell: info => info.row.original.sellerName || "" // ✅ Using invoiceItems sellerName
+    },
+    { accessorKey: "item", header: "Item", cell: info => info.getValue() || "" },
+    { accessorKey: "quantity", header: "Qty", cell: info => info.getValue() || "" },
+    { accessorKey: "unitOfMeasure", header: "Unit", cell: info => info.getValue() || "" },
+    { accessorKey: "pricePerUnitOfMeasure", header: "Unit Price", cell: info => info.getValue() || "" },
+    { accessorKey: "sum", header: "Sum", cell: info => info.getValue() || "" },
+    { accessorKey: "currency", header: "Currency", cell: info => info.getValue() || "" },
+    { accessorKey: "category", header: "Category", cell: info => info.getValue() || "" },
+    {
+      accessorKey: "isInvoice",
+      header: "Is Invoice",
+      cell: info =>
+        info.getValue()
+          ? <Badge variant="default">Yes</Badge>
+          : <Badge variant="outline">No</Badge>
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: info => (
+        <RowActions
+          siteId={siteId}
+          id={info.row.original.id}
+          item={info.row.original}
+          onDelete={handleDeleteItem}
+          onEdit={handleEdit}
+        />
+      ),
+      enableSorting: false,
+      enableFiltering: false
+    }
+  ],
+  [siteId]
+);
 
   const table = useReactTable({
     data,
@@ -264,8 +288,7 @@ export function InvoiceItemsDataTable({ data, siteId }) {
 
   // --- Subtotal calculation (filtered rows only) ---
   const filteredRows = table.getFilteredRowModel().rows;
-  const subtotalQty = filteredRows.reduce((sum, row) => sum + (parseFloat(row.original.quantity) || 0), 0);
-  const subtotalUnitPrice = filteredRows.reduce((sum, row) => sum + (parseFloat(row.original.pricePerUnitOfMeasure) || 0), 0);
+ 
   const subtotalSum = filteredRows.reduce((sum, row) => sum + (parseFloat(row.original.sum) || 0), 0);
 
   return (
