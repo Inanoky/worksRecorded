@@ -32,7 +32,7 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-            <GoogleAnalytics gaId="G-3F0SR7QQEQ"/>
+            
              <GoogleTagManager gtmId="GTM-TFB37MS4" />
 
 
@@ -58,6 +58,7 @@ export default function RootLayout({
 
             
         {children}
+        <GoogleAnalytics gaId="G-3F0SR7QQEQ"/>
    
            
            <Toaster richColors closeButton/>
