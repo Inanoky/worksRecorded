@@ -138,7 +138,8 @@ export function AddWorkerForm({
         setForm({ name: "", surname: "", personalId: "", siteId, phone: "" });
         setErrors({});
         onSuccess?.(res.worker);
-        router.push(`/dashboard/sites/${siteId}/timesheets`);
+        router.refresh()
+        
       } else {
         toast.error(res.error || "Failed to add worker");
       }

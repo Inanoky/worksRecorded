@@ -4,22 +4,25 @@ import { Card, CardTitle, CardHeader, CardContent, CardFooter } from "@/componen
 import { useTransition, useState } from "react";
 import { deleteTeamMember, getWorkersBySiteId } from "@/server/actions/timesheets-actions";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+
 
 // Pass siteId as prop
 export function WorkerTableCard({ siteId, initialWorkers }) {
-  const [workers, setWorkers] = useState(initialWorkers);
-  const [pending, startTransition] = useTransition();
+
+  const router = useRouter(); 
+
 
   async function handleDeleteRow(id) {
-    startTransition(async () => {
+
       const res = await deleteTeamMember(id);
-      if (res.success) {
-        setWorkers(w => w.filter(worker => worker.id !== id));
+      if (res.success) {       
         toast.success("Worker deleted");
+        router.refresh()
       } else {
         toast.error("Failed to delete worker");
       }
-    });
+
   }
 
   return (
@@ -29,7 +32,7 @@ export function WorkerTableCard({ siteId, initialWorkers }) {
       </CardHeader>
       <CardContent>
         <ScrollTable
-          data={workers}
+          data={initialWorkers}
           pageSize={25}
           visibleColumns={[2,3,4,5,6,7,8,9,10]} // adjust to your actual data shape
           columnLabels={["ID", "First Name", "Last Name", "ID", "Phone", "On site?", "Clock In", "Last Work"]}
