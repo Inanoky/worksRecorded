@@ -405,3 +405,27 @@ export async function deletePhotoById(id: string) {
   });
   return { ok: true };
 }
+
+
+export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
+  if (!siteId) throw new Error("Missing siteId");
+
+  return  prisma.sitediaryrecords.findMany({
+      where: { siteId },
+      orderBy: [{ Date: "asc" }],
+          select: {
+      Date: true,
+      Location: true,
+      Works: true,
+      Comments: true,
+      Units: true,
+      Amounts: true,
+      WorkersInvolved: true,
+      TimeInvolved: true,
+      Photos: true,
+      // add/remove fields as needed
+      // id: true,
+      // siteId: true,
+    },
+    })
+  }

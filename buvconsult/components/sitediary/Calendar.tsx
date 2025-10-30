@@ -6,8 +6,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import { getFilledDays } from "@/server/actions/site-diary-actions";
+import * as XLSX from "xlsx";
+import { getSitediaryRecordsBySiteIdForExcel } from "@/server/actions/site-diary-actions";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+
 
 function getCalendarGrid(year, month) {
   const firstDay = new Date(year, month, 1);
@@ -38,6 +42,17 @@ export default function SiteDiaryCalendar({ siteId }) {
   const weeks = getCalendarGrid(currentYear, currentMonth);
   const monthName = new Date(currentYear, currentMonth).toLocaleString("default", { month: "long" });
 
+
+  async function exportToExcel(){
+    const rows = await getSitediaryRecordsBySiteIdForExcel(siteId)
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Invoices");
+    XLSX.writeFile(workbook, "invoices.xlsx");
+
+}
+
+
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) return setFilledDays([]);
     getFilledDays({ siteId, year: currentYear, month: currentMonth }).then(setFilledDays);
@@ -56,7 +71,20 @@ export default function SiteDiaryCalendar({ siteId }) {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4">
-      <h2 className="text-xl sm:text-2xl font-semibold mb-2">Site Diary</h2>
+      <div className="flex flex-row justify-between">
+      <h2 className="text-xl sm:text-2xl gap-5 font-semibold mb-2">
+        Site Diary
+          
+        
+        
+        </h2>
+        <div>
+
+           <Button className="ml-2" variant="outline"  onClick={exportToExcel}>
+                    Export to Excel
+                  </Button>
+        </div>
+    </div>
       
       {/* Month Navigation */}
       <div className="flex items-center justify-between mb-4">

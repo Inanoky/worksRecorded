@@ -1,6 +1,10 @@
 // app/[...]/page.tsx  (Server Component)
 import SiteDiaryCalendar from "@/components/sitediary/Calendar";
 import AiWidgetRag from "@/components/ai/AiChat";
+import { Button } from "@/components/ui/button";
+
+
+
 
 export default async function Home({
   params,
@@ -11,6 +15,7 @@ export default async function Home({
 
   return (
     <>
+     
       <SiteDiaryCalendar siteId={siteId} />
       <AiWidgetRag siteId={siteId} />
     </>
