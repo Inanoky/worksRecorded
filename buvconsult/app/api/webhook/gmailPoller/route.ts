@@ -1,5 +1,5 @@
 // app/api/webhook/gmailPoller/route.ts
-
+export const maxDuration = 800
 
 import type { NextRequest } from "next/server";
 import { runPoller } from "@/app/api/poller/pollGmail";
