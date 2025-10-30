@@ -434,12 +434,21 @@ export function DialogTable({ date, siteId, onSaved }: {
                                onChange={e => handleChange(row.id ?? row._tempId, "hours", e.target.value)} />
                       </TableCell>
 
-                      <TableCell className="text-centerpy-2">
-                        <Textarea 
-                        className="w-full min-h-0 field-sizing-fixed break-words whitespace-pre-wrap"
-                         value={row.comments}
-                                  onChange={e => handleChange(row.id ?? row._tempId, "comments", e.target.value)} />
-                      </TableCell>
+                    <TableCell className="text-center py-2">
+  <Textarea
+    rows={1}
+    className="w-full max-w-full min-h-0 resize-y overflow-x-hidden overflow-y-hidden break-words whitespace-pre-wrap"
+    value={row.comments ?? ""}
+    onInput={(e) => {
+      const t = e.currentTarget
+      t.style.height = "auto"
+      t.style.height = `${t.scrollHeight}px`
+    }}
+    onChange={(e) =>
+      handleChange(row.id ?? row._tempId, "comments", e.target.value)
+    }
+  />
+</TableCell>
 
                       <TableCell className="text-center py-2">
                         <Button

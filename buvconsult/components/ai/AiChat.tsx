@@ -3,18 +3,25 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Card, CardHeader, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User, SendHorizonal } from "lucide-react";
+import { Bot, User, SendHorizonal, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { TableModal } from "@/components/ai/TableModal";
 import ReactMarkdown from "react-markdown";
 import { talkToAgent } from "@/server/ai-flows/agents/orchestrating-agent/graph";
 import { Rnd } from "react-rnd";
+import { Textarea } from "../ui/textarea";
+import remarkGfm from "remark-gfm";
 
-export default function AiWidgetRag({ siteId }) {
-  const [messages, setMessages] = useState([
+type Message =
+  | { sender: "bot"; aiComment: string; answer?: string | any }
+  | { sender: "user"; text: string };
+
+const STORAGE_KEY = (siteId?: string) => `aiwidget:${siteId ?? "default"}`;
+
+export default function AiWidgetRag({ siteId }: { siteId?: string }) {
+  const [messages, setMessages] = useState<Message[]>([
     { sender: "bot", aiComment: "Hi! 👋 How can I help you today?", answer: "" },
   ]);
   const [input, setInput] = useState("");
@@ -47,44 +54,88 @@ export default function AiWidgetRag({ siteId }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  // ---- localStorage: load on mount ----
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY(siteId));
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed?.messages) && parsed.messages.length) {
+        setMessages(parsed.messages);
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, [siteId]);
+
+  // ---- localStorage: save on change ----
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY(siteId),
+        JSON.stringify({ messages })
+      );
+    } catch {
+      // quota errors, private mode, etc.
+    }
+  }, [messages, siteId]);
+
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    const userMsg = { sender: "user", text: input };
+    const userMsg: Message = { sender: "user", text: input };
     setMessages((m) => [...m, userMsg]);
     setLoading(true);
     setInput("");
     try {
       const result = await talkToAgent(input, siteId);
-      const botMsg = {
+      const botMsg: Message = {
         sender: "bot",
         aiComment: result ?? "",
+        // keep any structured results in `answer`
         answer: result?.acceptedResults ?? "",
       };
       setMessages((m) => [...m, botMsg]);
     } catch {
-      setMessages((m) => [...m, { sender: "bot", aiComment: "Something went wrong.", answer: "" }]);
+      setMessages((m) => [
+        ...m,
+        { sender: "bot", aiComment: "Something went wrong.", answer: "" },
+      ]);
     }
     setLoading(false);
     inputRef.current?.focus();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !loading) handleSend();
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && !loading) {
+      e.preventDefault();
+      handleSend();
+    }
   };
 
-  function renderMessage(msg: any) {
-    if (msg.sender === "bot" && msg.aiComment !== undefined) {
+  function clearHistory() {
+    try {
+      localStorage.removeItem(STORAGE_KEY(siteId));
+    } catch {}
+    setMessages([
+      { sender: "bot", aiComment: "Hi! 👋 How can I help you today?", answer: "" },
+    ]);
+  }
+
+  function renderMessage(msg: Message) {
+    if (msg.sender === "bot" && "aiComment" in msg) {
       let isTable = false;
       let tableData: any = null;
-      if (msg.answer) {
-        if (Array.isArray(msg.answer) && typeof msg.answer[0] === "object") {
+
+      const rawAnswer = (msg as any).answer;
+      if (rawAnswer) {
+        if (Array.isArray(rawAnswer) && typeof rawAnswer[0] === "object") {
           isTable = true;
-          tableData = msg.answer;
+          tableData = rawAnswer;
         } else {
           try {
-            const parsed = JSON.parse(msg.answer);
+            const parsed = JSON.parse(rawAnswer);
             if (Array.isArray(parsed) && typeof parsed[0] === "object") {
               isTable = true;
               tableData = parsed;
@@ -92,11 +143,15 @@ export default function AiWidgetRag({ siteId }) {
           } catch {}
         }
       }
+
       return (
         <span>
           <Bot size={18} className="inline mr-2" />
-          <ReactMarkdown>{String(msg.aiComment)}</ReactMarkdown>
-          <span>: </span>
+          <div className="prose dark:prose-invert max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {String((msg as any).aiComment)}
+            </ReactMarkdown>
+          </div>
           {isTable ? (
             <button
               className="text-blue-700 dark:text-blue-400 underline hover:text-blue-900 dark:hover:text-blue-300 ml-1"
@@ -104,20 +159,18 @@ export default function AiWidgetRag({ siteId }) {
             >
               View table
             </button>
-          ) : (
-            <span className="ml-1">{String(msg.answer ?? "")}</span>
-          )}
+          ) : rawAnswer ? (
+            <span className="ml-1">{String(rawAnswer ?? "")}</span>
+          ) : null}
         </span>
       );
     }
+
+    // user
     return (
       <span>
-        {msg.sender === "user" ? (
-          <User size={18} className="inline mr-2" />
-        ) : (
-          <Bot size={18} className="inline mr-2" />
-        )}
-        {msg.text}
+        <User size={18} className="inline mr-2" />
+        {(msg as any).text}
       </span>
     );
   }
@@ -171,7 +224,7 @@ export default function AiWidgetRag({ siteId }) {
                 top: { height: "10px", top: "-4px", cursor: "ns-resize" },
                 bottomRight: { width: "16px", height: "16px", right: "-6px", bottom: "-6px", cursor: "nwse-resize" },
                 bottomLeft: { width: "16px", height: "16px", left: "-6px", bottom: "-6px", cursor: "nesw-resize" },
-                topRight: { width: "16px", height: "16px", right: "-6px", top: "-6px", cursor: "nesw-resize" },
+                topRight: { width: "16px", height: "16px", right: "-6px", top: "-6px", cursor: "nwse-resize" },
                 topLeft: { width: "16px", height: "16px", left: "-6px", top: "-6px", cursor: "nwse-resize" },
               }}
               minWidth={350}
@@ -179,21 +232,32 @@ export default function AiWidgetRag({ siteId }) {
               className="pointer-events-auto border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl bg-white dark:bg-gray-900 flex flex-col"
             >
               <Card className="pt-0 w-full h-full rounded-2xl shadow-none border-0 bg-transparent flex flex-col overflow-hidden">
-                {/* Header stays visible */}
+                {/* Header */}
                 <CardHeader className="shrink-0 flex items-center justify-between py-3 px-4 bg-blue-600 text-white dark:bg-blue-800 dark:text-white rounded-t-2xl">
                   <span className="text-lg font-semibold">AI Assistant</span>
-                  <button
-                    onClick={() => setOpen(false)}
-                    className="text-white hover:text-gray-200 dark:hover:text-gray-300 transition"
-                    aria-label="Close Chat"
-                  >
-                    ×
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={clearHistory}
+                      className="text-white hover:text-gray-200 dark:hover:text-gray-300"
+                      title="Clear history"
+                    >
+                      <Trash2 size={18} />
+                    </Button>
+                    <button
+                      onClick={() => setOpen(false)}
+                      className="text-white hover:text-gray-200 dark:hover:text-gray-300 transition text-2xl leading-none"
+                      aria-label="Close Chat"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </CardHeader>
 
                 <Separator className="shrink-0" />
 
-                {/* Chat area: scrolls, can shrink */}
+                {/* Chat area */}
                 <ScrollArea className="flex-1 min-h-0 p-4">
                   <div className="flex flex-col gap-4">
                     {messages.map((msg, idx) => (
@@ -224,16 +288,16 @@ export default function AiWidgetRag({ siteId }) {
 
                 <Separator className="shrink-0" />
 
-                {/* Footer stays visible; input stretches horizontally */}
+                {/* Footer */}
                 <CardFooter className="shrink-0 flex gap-2 bg-white dark:bg-gray-900 p-3">
-                  <Input
+                  <Textarea
                     ref={inputRef}
                     placeholder="Type your message…"
                     value={input}
                     disabled={loading}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="flex-1 min-w-0 bg-white dark:bg-gray-800 dark:text-gray-100"
+                    className="flex-1 min-w-0 bg-white dark:bg-gray-8 00 dark:text-gray-100"
                   />
                   <Button
                     onClick={handleSend}

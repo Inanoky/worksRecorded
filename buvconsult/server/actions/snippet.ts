@@ -10,7 +10,7 @@ await prisma.user.updateMany({
   where: {
     id: {
       in: [
-        'kp_bcf47b7ff02248e1bc215bc5f7238a75',        
+        'kp_27aa26503a744b7abbbb6f785a197ab2',        
       ],
     },
   },
