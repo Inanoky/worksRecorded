@@ -273,6 +273,7 @@ export const saveInvoiceToFromGmailDB = async (_: unknown, formData: FormData) =
     "sellerName",
     "invoiceDate",
     "paymentDate",
+    "isInvoice"
   ] as const;
 
   let totalUrls = urls.length;

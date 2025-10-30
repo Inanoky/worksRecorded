@@ -36,7 +36,7 @@ const agentNode = async (state) => {
 
     const llm = new ChatOpenAI({
         
-        model: "gpt-5",
+        model: "gpt-5-mini",
     }).bindTools(tools);
     ;
 

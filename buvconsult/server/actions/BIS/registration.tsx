@@ -1,5 +1,5 @@
 
-import fetch from "node-fetch"; // if Node <18, run: npm install node-fetch
+import fetch from "node-fetch"; 
 
 const url = "https://bis.gov.lv/services/auth/oauth2.0/registration";
 
@@ -7,7 +7,7 @@ const body = {
   client_name: "Buvconsult",
   client_description: "Buvconsult BIS Integration",
   person_code: "251291-12961",
-  redirect_uri: "http://localhost:3000/callback",
+  redirect_uri: "http://buvconsult.com/api/webhook/bis/callback",
   scopes: "bis_case_documents:manage projects:manage logbooks:manage",
 };
 

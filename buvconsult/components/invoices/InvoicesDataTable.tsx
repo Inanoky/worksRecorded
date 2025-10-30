@@ -122,6 +122,7 @@ export function InvoicesDataTable({ data, siteId }) {
       await Promise.all(ids.map(deleteInvoice));
       toast.success("Invoices deleted");
       setRowSelection({});
+      router.refresh()
 
     } catch {
       toast.error("Bulk delete failed");
