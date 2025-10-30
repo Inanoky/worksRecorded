@@ -47,8 +47,8 @@ export default function SiteDiaryCalendar({ siteId }) {
     const rows = await getSitediaryRecordsBySiteIdForExcel(siteId)
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Invoices");
-    XLSX.writeFile(workbook, "invoices.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
+    XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
 
 }
 
