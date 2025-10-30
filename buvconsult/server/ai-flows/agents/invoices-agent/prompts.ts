@@ -39,11 +39,20 @@ const systemPrompt_dd_mm_yyyy = `Answer user queries using the postgreSQL_invoic
  '''\n
  siteId: ${siteId}\n
  `
+const systemPrompt_30_10_2025 = `Answer user queries using the postgreSQL_invoice_database_query_tool. \n
+When needed, construct a valid SQL query based on the table definition below to retrieve information from the database.\n
+Always filter(scope) by siteId.\n
+ Summarize information and present to the user\n
+ '''\n
+ ${table_definition} \n
+ '''\n
+ siteId: ${siteId}\n
+ `
 
    
   
 
 
- return systemPrompt_dd_mm_yyyy
+ return systemPrompt_30_10_2025
 } 
 

@@ -62,8 +62,8 @@ export async function gradeDocuments(state: typeof GraphState.State): Promise<Pa
   );
 
   const model = new ChatOpenAI({
-    model: "gpt-4.1",
-    temperature: 0,
+    model: "gpt-5",
+    // temperature: 0,
   }).bindTools([tool], {
     tool_choice: tool.name,
   });

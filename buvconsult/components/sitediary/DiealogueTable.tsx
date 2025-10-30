@@ -22,6 +22,7 @@ import { z } from "zod";
 const ADDITIONAL_WORKS_OPTION = { value: "__ADDITIONAL__", label: "Additional works" };
 const CLIENT_DELAY_OPTION = { value: "__clientDelay__", label: "Client Delay (hindrance)" };
 const INTERNAL_DELAY_OPTION = { value: "__internalDelay__", label: "Internal Delay" };
+const NOTE_OPTION = { value: "__note__", label: "Note" };
 
 
 
@@ -162,6 +163,7 @@ export function DialogTable({ date, siteId, onSaved }: {
       ADDITIONAL_WORKS_OPTION,
       CLIENT_DELAY_OPTION,
       INTERNAL_DELAY_OPTION,  
+      NOTE_OPTION
     ];
     console.log("[Diary][Submit] allWorkOptions count:", allWorkOptions.length);
 
@@ -387,6 +389,9 @@ export function DialogTable({ date, siteId, onSaved }: {
                             
                              <SelectItem key={INTERNAL_DELAY_OPTION.value} value={INTERNAL_DELAY_OPTION.value}>
                               {INTERNAL_DELAY_OPTION.label}
+                            </SelectItem>
+                              <SelectItem key={NOTE_OPTION.value} value={NOTE_OPTION.value}>
+                              {NOTE_OPTION.label}
                             </SelectItem>
                             
 

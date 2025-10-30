@@ -28,6 +28,7 @@ const systemPrompt_dd_mm_yyyy = `Answer user queries using the timesheets_record
  construct a valid SQL query based on the table definition below to retrieve information from the database.
  Never mention worker ID, adress worker by his name and surname
  Summarize information and present to the user\n
+ Always filter(scope) by siteId.\n
  '''\n
  ${table_definition} \n
  '''\n

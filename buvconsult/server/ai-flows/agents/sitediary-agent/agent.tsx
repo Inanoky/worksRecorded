@@ -36,8 +36,8 @@ const agentNode = async (state) => {
     const { messages } = state;
 
     const llm = new ChatOpenAI({
-        temperature: 0.1,
-        model: "gpt-4.1",
+        
+        model: "gpt-5",
     }).bindTools(tools);
     ;
 

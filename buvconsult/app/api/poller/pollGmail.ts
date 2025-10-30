@@ -6,6 +6,7 @@ import siteIdCheck from "@/server/ai-flows/agents/gmail-workflow-agent/site-id-c
 import gmailInvoiceAuditNarrative from "@/server/ai-flows/agents/gmail-workflow-agent/agent";
 import { UTApi } from "uploadthing/server";
 import { saveInvoiceToFromGmailDB } from "@/server/actions/shared-actions";
+import { releaseLock,tryAcquireLock } from "@/app/api/poller/cronLock";
 
 // If your runtime doesn't expose File globally, uncomment:
 // import { File } from "undici";
@@ -220,6 +221,16 @@ async function saveState(state: PdfState): Promise<void> {
 
 // ---------- Exported runner ----------
 export async function runPoller() {
+
+  const got = await tryAcquireLock();
+
+  if (!got) {
+    console.log("Poller skipped (already running)");
+    return { skipped: true };
+  }
+  try {
+
+
   const emailPayload = await buildPayloadFromUnread();
 
   const states = expandToPdfStates(emailPayload);
@@ -262,4 +273,12 @@ export async function runPoller() {
   }
 
   return { emails: emailPayload.length, pdfs: states.length, processed, saved: savedTotal, failed: failedTotal, markedRead };
+}
+finally {
+    await releaseLock();
+}
+
+
+
+
 }
