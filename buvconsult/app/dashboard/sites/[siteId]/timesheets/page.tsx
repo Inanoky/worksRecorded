@@ -5,9 +5,22 @@ import AiWidgetRag from "@/components/ai/AiChat";
 import { getLocationsWorksFromSiteSchema } from "@/server/actions/site-diary-actions";
 import { SiteSchemaProvider } from "@/components/providers/SiteSchemaProvider";
 import { WorkerTableCard } from "@/components/ai/WorkerTableCard";
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "@/server/actions/shared-actions";
+import { notFound } from "next/navigation";
+
+
 
 export default async function AddWorkerPage({params}) {
   const {siteId} = await params
+
+
+    const user = await requireUser();
+    const siteCheck = await orgCheck(user.id, siteId);
+    if (!siteCheck) {
+      notFound();
+    }
+  
 
 
   const [timelogs, workers, locations, works] = await Promise.all([

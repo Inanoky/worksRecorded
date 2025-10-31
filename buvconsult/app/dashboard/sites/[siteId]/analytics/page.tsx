@@ -4,6 +4,10 @@ import {MonthlyCategoryChart} from "@/components/analytics/MonthlyCategoryChart"
 import {BudgetVsReal} from "@/components/analytics/BudgetVsReal";
 import {KeyMetrics} from "@/components/analytics/KeyMetrics";
 import AiWidgetRag from "@/components/ai/AiChat";
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "@/server/actions/shared-actions";
+import { notFound } from "next/navigation";
+
 
 
 export default async function Analytics({params}:
@@ -12,10 +16,24 @@ export default async function Analytics({params}:
 
 }) {
 
+  
+
+
+
+
      const {siteId} = await params
     const data = await getMonthlySpendings(siteId)
    
     const MonthlyCategoryChartData = await getCategoryMonthlySpendings(siteId)
+
+
+        const user = await requireUser();  
+        const site = await orgCheck(user.id, siteId);
+        if (!site) {
+        notFound();
+        }
+
+    
 
   return (
       <>

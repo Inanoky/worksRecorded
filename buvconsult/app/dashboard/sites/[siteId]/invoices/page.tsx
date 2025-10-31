@@ -3,30 +3,47 @@ import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/compo
 import { getProjectNameBySiteId} from "@/server/actions/shared-actions";
 import {getInvoiceItemsFromDB, getInvoicesFromDB} from "@/server/actions/invoices-actions";
 import {InvoiceItemsDataTable} from "@/components/invoices/InvoiceItemsDataTable";
-import { InvoicesDataTable } from "@/components/invoices/InvoicesDataTable";
+import {InvoicesDataTable} from "@/components/invoices/InvoicesDataTable";
 import {ChartAreaInteractive} from "@/components/analytics/ChartAreaInteractive";
 import {getCurrentWeekMetrics, getDailyAggregatedCosts} from "@/server/actions/analytics-actions";
 import {KeyMetricsDashboard} from "@/components/analytics/KeyMetricsDashboard/KeyMetricsDashboard";
 import AiWidgetRag from "@/components/ai/AiChat";
 import {getPreviousWeekMetrics, getCurrentWorkersOnSite} from "@/server/actions/analytics-actions";
+import { notFound } from "next/navigation";
+import {prisma} from "@/lib/utils/db";
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "@/server/actions/shared-actions";
+
 
 
 export default async function InvoiceRoute({params}:
+  
 
 {params : Promise <{siteId:string}>
 
 }){
-
+    
     const {siteId} = await params
+
+    
+
     const invoices = await getInvoicesFromDB(siteId)
     let invoiceItems = await getInvoiceItemsFromDB(siteId);
     invoiceItems = invoiceItems.filter(item => item.invoice?.isInvoice !== false); // filter out items with invoice.isInvoice === false
     const chartAreaInteractiveData = await getDailyAggregatedCosts(siteId)
-    const projectName = getProjectNameBySiteId(siteId)
+    const projectName = await getProjectNameBySiteId(siteId)
     const previousWeekData = await getPreviousWeekMetrics(siteId)
     const currentWeekData = await getCurrentWeekMetrics(siteId)
     const workersOnSite = await getCurrentWorkersOnSite(siteId) //reuse current week metrics for workers on site
-    
+
+   const user = await requireUser();
+    const site = await orgCheck(user.id, siteId);
+      if (!site) {
+    notFound();
+  }
+
+    //This we check if siteId is gibberish
+
 
 
 

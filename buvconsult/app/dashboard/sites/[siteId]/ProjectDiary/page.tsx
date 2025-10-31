@@ -1,5 +1,11 @@
 import {GetRecordsFromDB} from "@/server/actions/project-diary-actions"
 import { GenericTemplateTable } from "@/components/_templates/tableWithGenericActions";
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "@/server/actions/shared-actions";
+import { notFound } from "next/navigation";
+
+
+
 
 export default async function ProjectDiary ({params}:
 
@@ -11,6 +17,14 @@ export default async function ProjectDiary ({params}:
 
     const {siteId} = await params
     const records = await GetRecordsFromDB(siteId)
+
+    
+       const user = await requireUser();
+        const site = await orgCheck(user.id, siteId);
+          if (!site) {
+        notFound();
+      }
+    
 
 
     return (

@@ -21,12 +21,27 @@ import { SchemaCard } from "@/components/settings/SchemaCard";
 import { TemplateCard } from "@/components/settings/Templates";
 import { ConfirmDeleteSite } from "@/components/settings/ConfirmDeleteSite";
 
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "@/server/actions/shared-actions";
+import { notFound } from "next/navigation";
+
+
 export default async function SettingsSiteRoute({
   params,
 }: {
   params: Promise<{ siteId: string }>;
 }) {
   const { siteId } = await params;
+
+
+      const user = await requireUser();
+      const siteCheck = await orgCheck(user.id, siteId);
+      if (!siteCheck) {
+      notFound();
+        }
+
+
+
 
   // Fetch current site data
   const site = await prisma.site.findUnique({

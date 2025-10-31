@@ -26,7 +26,8 @@ export const saveInvoiceToDB = async (_: unknown, formData: FormData) => {
 const INVOICE_FIELDS_TO_COPY = [
   "invoiceNumber",
   "sellerName",
-  "invoiceDate",   
+  "invoiceDate", 
+  
   "paymentDate",
   "isInvoice"
 ];
@@ -144,13 +145,14 @@ export async function getInvoiceItemsFromDB(siteId: string) {
 }
 
 export async function deleteInvoice(invoiceId: string) {
+    const user = await requireUser();
   await prisma.invoices.delete({ where: { id: invoiceId } });
   return { ok: true };
 }
 
 export async function updateInvoice(id: string, data: any) {
 
-
+    const user = await requireUser();
   const toNullableDate = (v: unknown) => {
     if (v === "" || v === null || v === undefined) return null;
     // Accept Date or string
@@ -179,6 +181,7 @@ export async function updateInvoice(id: string, data: any) {
 }
 
 export async function bulkSetIsInvoice(ids: string[], value: boolean) {
+    const user = await requireUser();
   await prisma.invoices.updateMany({
     where: { id: { in: ids } },
     data: { isInvoice: value }
@@ -187,6 +190,7 @@ export async function bulkSetIsInvoice(ids: string[], value: boolean) {
 
 
 export async function updateInvoiceItem(id: string, data: any) {
+    const user = await requireUser();
   const toNullableDate = (v: unknown) => {
     if (v === "" || v === null || v === undefined) return null;
     const d = v instanceof Date ? v : new Date(String(v));
@@ -214,6 +218,7 @@ export async function updateInvoiceItem(id: string, data: any) {
 }
 
 export async function deleteInvoiceItem(id: string) {
+    const user = await requireUser();
   await prisma.invoiceItems.delete({
     where: { id },
   });
@@ -221,61 +226,3 @@ export async function deleteInvoiceItem(id: string) {
 }
 
 //I am not sure I am using this one anywhere
-export async function askInvoiceGpt(siteId: string, question: string) {
-  // 1. Fetch relevant data (summary for best results)
-  const invoices = await prisma.invoices.findMany({
-    where: { SiteId: siteId, isInvoice: true},
-    select: {
-      id: true, sellerName: true, invoiceNumber: true, invoiceDate: true,
-      isInvoice: true, isCreditDebitProformaOrAdvanced: true
-    }
-  });
-
-  const invoiceIds = invoices.map(inv => inv.id);
-
-  const items = await prisma.invoiceItems.findMany({
-    where: {
-        siteId,
-        invoiceId: {in: invoiceIds}
-
-
-    },
-    select: {
-        invoiceId: true,
-        item: true,
-        quantity: true,
-        unitOfMeasure: true,
-        pricePerUnitOfMeasure: true,
-        sum: true,
-        // date: true,
-        itemDescription:true
-    }
-  });
-
-  // 2. (Optional) If you have a lot of data, summarize or limit it here!
-
-  // 3. Build the prompt for GPT
-  const context = [
-    "Here is a summary of the invoices and invoice items from my project database.",
-    `Invoices: ${JSON.stringify(invoices)}`,
-    `InvoiceItems: ${JSON.stringify(items)}`,
-    "InvoiceItems are extracted items from Invoices, related by invoiceId" +
-    "Use the data to get helpful insight for the user. Deeply analyze data. If some spendings are not clear" +
-    "you can make educated guesses " +
-    "be concise and try to be specific",
-    "",
-    `User question: ${question}`
-  ].join("\n");
-
-  // 4. Call OpenAI
-  const res = await openai.chat.completions.create({
-    model: "gpt-4.1", // Or "gpt-4-turbo" or "gpt-4"
-    messages: [
-      { role: "system", content: "You are a helpful construction specialist" },
-      { role: "user", content: context }
-    ],
-    max_tokens: 10000
-  });
-
-  return res.choices[0].message.content || "No answer";
-}

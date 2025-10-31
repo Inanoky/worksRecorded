@@ -26,6 +26,26 @@ export async function getOrganizationIdByUserId(userId: string): Promise<string 
 
 
 
+export async function orgCheck (userId, paramSiteId){
+
+  const org = await getOrganizationIdByUserId(userId)
+
+  const site = await prisma.site.findFirst({
+
+    where: {
+      id: paramSiteId,
+      organizationId: org // <-- key security check
+    },
+    select: { id: true, name: true },
+  });
+
+    if (!site) {
+    return false; // site not found or not in user's org
+  }
+
+  return site; // site exists and belongs to org
+}
+
 
 //Action to create a construction project
 
