@@ -125,22 +125,12 @@ export function checkRelevance(state: typeof GraphState.State): string {
   return "no";
 }
 
-// Nodes
 
-/**
- * Invokes the agent model to generate a response based on the current state.
- * This function calls the agent model to generate a response to the current conversation state.
- * The response is added to the state's messages.
- * @param {typeof GraphState.State} state - The current state of the agent, including all messages.
- * @returns {Promise<Partial<typeof GraphState.State>>} - The updated state with the new message added to the list of messages.
- */
 export async function agent(state: typeof GraphState.State): Promise<Partial<typeof GraphState.State>> {
   console.log("---CALL AGENT---");
 
   const { messages } = state;
-  // Find the AIMessage which contains the `give_relevance_score` tool call,
-  // and remove it if it exists. This is because the agent does not need to know
-  // the relevance score.
+
   const filteredMessages = messages.filter((message) => {
     if ("tool_calls" in message && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
       return message.tool_calls[0].name !== "give_relevance_score";

@@ -33,9 +33,12 @@ export async function GET(){
         })
     }
 
+
+    
+
     return NextResponse.redirect(process.env.NODE_ENV === "production"
-     ? "https://buvconsult.com/dashboard"
-    : "http://localhost:3000/dashboard",
+     ? "https://buvconsult.com/dashboard/welcome"
+    : "http://localhost:3000/dashboard/welcome",
 
     )
 }

@@ -43,16 +43,28 @@ const systemPrompt_30_10_2025 = `Answer user queries using the postgreSQL_invoic
 When needed, construct a valid SQL query based on the table definition below to retrieve information from the database.\n
 Always filter(scope) by siteId.\n
  Summarize information and present to the user\n
+ 
  '''\n
  ${table_definition} \n
  '''\n
  siteId: ${siteId}\n
  `
 
-   
+
+
+ const systemPrompt_31_10_2025 = `Answer user queries using the postgreSQL_invoice_database_query_tool. \n
+When needed, construct a valid SQL query based on the table definition below to retrieve information from the database.\n
+Always filter(scope) by siteId.\n
+ Summarize information and present to the user\n
+You are only allowed to make Select statements \n
+ '''\n
+ ${table_definition} \n
+ '''\n
+ You are only allowed to query for this siteId: ${siteId}\n
+ `
   
 
 
- return systemPrompt_30_10_2025
+ return systemPrompt_31_10_2025 
 } 
 
