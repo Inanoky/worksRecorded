@@ -12,6 +12,8 @@ export async function GET(){
         throw new Error("Something went wrong")
     }
 
+    let createdNewUser = false;
+
 
     let dbUser = await prisma.user.findUnique({
         where: {
@@ -31,14 +33,18 @@ export async function GET(){
             }
 
         })
+
+        createdNewUser = true;
     }
 
 
     
+  const base =
+    process.env.NODE_ENV === "production"
+      ? "https://buvconsult.com"
+      : "http://localhost:3000";
 
-    return NextResponse.redirect(process.env.NODE_ENV === "production"
-     ? "https://buvconsult.com/dashboard/welcome"
-    : "http://localhost:3000/dashboard/welcome",
+  const path = createdNewUser ? "/dashboard/welcome" : "/dashboard";
 
-    )
+  return NextResponse.redirect(`${base}${path}`);
 }
