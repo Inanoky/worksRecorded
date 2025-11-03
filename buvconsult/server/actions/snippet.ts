@@ -3,14 +3,14 @@ import { prisma } from "@/lib/utils/db";
 
 
 const org =
-  (await prisma.organization.findFirst({ where: { name: 'DEPROM' } })) ??
-  (await prisma.organization.create({ data: { name: 'DEPROM' } }));
+  (await prisma.organization.findFirst({ where: { name: 'locmele.renate@gmail.com' } })) ??
+  (await prisma.organization.create({ data: { name: 'locmele.renate@gmail.com' } }));
 
 await prisma.user.updateMany({
   where: {
     id: {
       in: [
-        'kp_27aa26503a744b7abbbb6f785a197ab2',        
+        'kp_37f8c3081c6849c2bebaa351dc4983c1',        
       ],
     },
   },

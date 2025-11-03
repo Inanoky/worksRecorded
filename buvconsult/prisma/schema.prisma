@@ -31,6 +31,7 @@ model Organization {
       workers workers[]
       timelog timelog[]
       projectdiaryrecord projectdiaryrecord[]
+      
 
 }
 

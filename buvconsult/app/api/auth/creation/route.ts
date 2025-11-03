@@ -22,12 +22,23 @@ export async function GET(){
     });
 
     if(!dbUser){
+
+        const organization = await prisma.organization.create({
+
+            data  : {
+                name: user.email ?? ""
+            }
+
+        })
+
+
         dbUser = await prisma.user.create({
             data: {
                 id: user.id,
                 firstName: user.given_name ?? "",
                 lastName: user.family_name?? "",
                 email: user.email ?? "",
+                organizationId: organization.id ?? "",
                 profileImage:
                     user.picture ?? `https://avatar.vercel.sh/rauchg${user.given_name}`,
             }
