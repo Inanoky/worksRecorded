@@ -58,7 +58,7 @@ export default function RootLayout({
 
             
         {children}
-        <GoogleAnalytics gaId="G-3F0SR7QQEQ"/>
+ 
    
            
            <Toaster richColors closeButton/>
