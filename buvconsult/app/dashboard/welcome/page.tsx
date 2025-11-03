@@ -1,6 +1,4 @@
-//C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\dashboard\page.tsx
-//06:55 - creating dashboard
-// Primse.all - runs quieries in parallael
+// C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\dashboard\welcome\page.tsx
 
 import {prisma} from "@/lib/utils/db";
 import {requireUser} from "@/lib/utils/requireUser";
@@ -13,6 +11,8 @@ import Link from "next/link";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import { PlusCircle} from "lucide-react";
 import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 async function getData(orgId: string) {
   const [sites] = await Promise.all([
@@ -38,6 +38,16 @@ async function getData(orgId: string) {
 
 
 export default async function Welcome() {
+
+
+        const headerList = await headers();
+        const referer = headerList.get("referer") ?? "";
+        if (!referer || referer.includes("/dashboard/welcome")) {
+        redirect("/dashboard");
+        }
+
+
+
   const user = await requireUser();
   const org = await getOrganizationIdByUserId(user.id)
   const {  sites } = await getData(org);
