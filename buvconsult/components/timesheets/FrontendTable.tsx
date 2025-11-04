@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+
 import { useState } from "react";
 import {
   Pagination,
@@ -27,14 +27,12 @@ import { useSiteSchema } from "../providers/SiteSchemaProvider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon, ChevronDownIcon, MoreHorizontal } from "lucide-react"
-import { format } from "date-fns"
 import { Textarea } from "@/components/ui/textarea";
 import { editTimeRecord } from "@/server/actions/timesheets-actions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { useProject } from "../providers/ProjectProvider";
 import { useRouter } from "next/navigation";
-import { resourceLimits } from "worker_threads";
 import { useActionState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -84,7 +82,6 @@ export function FrontendTable({
   const [rowsToSave, setRowsToSave] = React.useState<any[]>([])
   const { projectId: siteId } = useProject();
   const [result, action] = useActionState(editTimeRecord, undefined)
-
   const [open, setOpen] = React.useState(false)
   const [date, setDate] = React.useState<Date | undefined>(undefined)
 

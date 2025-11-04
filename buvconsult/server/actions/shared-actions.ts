@@ -10,6 +10,7 @@ import {prisma} from "@/lib/utils/db";
 import {requireUser} from "@/lib/utils/requireUser";
 import {stripe} from "@/lib/utils/stripe";
 import gptResponse from "@/server/ai-flows/agents/extractors/gpt-extractor-for-invoices";
+import { defaultProgram } from "@/lib/utils/DefaultProgram";
 
 
 import { chunk } from "lodash";
@@ -110,7 +111,16 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
             name: submission.value.name,
             subdirectory:submission.value.subdirectory,
             userId: user.id,
-            organizationId: org
+            organizationId: org,
+            sitediarysettings: {
+            create: {
+            userId: user.id,
+            organizationId: org,
+            // schema column is String? → store stringified JSON
+            schema: JSON.stringify(defaultProgram),
+            // fileUrl can remain null for now
+          },
+        },
         }
 
     });

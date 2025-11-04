@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
-import { updateSiteAction } from "@/server/actions/shared-actions";
+import { getOrganizationIdByUserId, updateSiteAction } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 import DocumentUpload from "@/components/documents/DocumentsUpload";
 import XslxUpload from "@/components/settings/XlsxUpload";
@@ -24,6 +24,8 @@ import { ConfirmDeleteSite } from "@/components/settings/ConfirmDeleteSite";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
+import { MembersTable } from "@/components/settings/MembersTable";
+import { getUserData } from "@/server/actions/settings-actions";
 
 
 export default async function SettingsSiteRoute({
@@ -31,16 +33,17 @@ export default async function SettingsSiteRoute({
 }: {
   params: Promise<{ siteId: string }>;
 }) {
-  const { siteId } = await params;
 
 
-      const user = await requireUser();
-      const siteCheck = await orgCheck(user.id, siteId);
-      if (!siteCheck) {
-      notFound();
-        }
+  const { siteId } = await params
+  const user = await requireUser();
+  const siteCheck = await orgCheck(user.id, siteId);
+  if (!siteCheck) {
+  notFound();
+    }
 
-
+  const orgId = await getOrganizationIdByUserId(user.id)
+  const userData = await getUserData(orgId)
 
 
   // Fetch current site data
@@ -176,6 +179,8 @@ export default async function SettingsSiteRoute({
           <ConfirmDeleteSite siteId={siteId} />
         </CardFooter>
       </Card>
+
+      <MembersTable pageSize={5} data={userData} exportFileName="Members" />
     </>
   );
 }

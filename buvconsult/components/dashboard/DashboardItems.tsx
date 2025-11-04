@@ -11,9 +11,9 @@ import {Wrench, Layers, NotebookPen,  Clock8, ReceiptText,  ChartLine} from "luc
 
 export const projectNavLinks = [
   {
-    name: "Invoices",
-    href: "/invoices",
-    path: "invoices",
+    name: "Dashboard",
+    href: "/dashboard/dashboard",
+    path: "dashboard",
     icon: ReceiptText,
   },
     
