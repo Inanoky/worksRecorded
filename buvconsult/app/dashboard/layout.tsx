@@ -3,7 +3,7 @@ import Link from "next/link"
 import Image from "next/image";
 import Logo from "@/public/buvconsultLogo.svg"
 import {DashboardItems} from "@/components/dashboard/DashboardItems";
-import { CircleUser} from "lucide-react"
+import { BadgeQuestionMark, CircleUser} from "lucide-react"
 import {ThemeToggle} from "@/components/dashboard/ThemeToggle";
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from "@/components/ui/dropdown-menu";
 import {Button} from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
 import { getUserEmailByUserId } from "@/server/actions/shared-actions";
+import { clearUserTourAction } from "@/components/joyride/user-tour-action";
+
+
 
 
 
@@ -67,6 +70,7 @@ console.log("[layout] email:", email);
         <Button variant="secondary" size="icon" className="rounded-full size-8 lg:size-10">
           <CircleUser className="h-4 w-4 lg:h-5 lg:w-5" />
         </Button>
+       
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem asChild>
@@ -74,6 +78,25 @@ console.log("[layout] email:", email);
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+<DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <Button variant="secondary" size="icon" className="rounded-full size-8 lg:size-10">
+      <BadgeQuestionMark className="h-4 w-4 lg:h-5 lg:w-5" />
+    </Button>
+  </DropdownMenuTrigger>
+
+  <DropdownMenuContent align="end">
+    <DropdownMenuItem asChild>
+      <form action={clearUserTourAction}>
+        <button type="submit" className="w-full text-left">Repeat Tutorial</button>
+      </form>
+    </DropdownMenuItem>
+
+    <DropdownMenuItem asChild>
+      <Link href="/contact">Contact us</Link>
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
   </div>
 </header>
                 {/* Main content */}

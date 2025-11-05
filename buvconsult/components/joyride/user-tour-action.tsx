@@ -3,6 +3,13 @@
 
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
+import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
+import { collectRoutesUsingEdgeRuntime } from "next/dist/build/utils";
+import { routerServerGlobal } from "next/dist/server/lib/router-utils/router-server-context";
+
+import { redirect } from "next/navigation";
+
 
 type UserTourMap = Record<string, boolean>;
 
@@ -34,5 +41,22 @@ export async function markTourCompleted(stepName: string): Promise<{ ok: true }>
     data: { userTour: updated },
   });
 
+  return { ok: true };
+}
+
+
+export async function clearUserTourAction() {
+
+
+  
+  const user = await requireUser();
+
+  await prisma.user.update({
+    where: { id: user.id },
+    // Set the column to DB NULL (not JSON "null")
+    data: { userTour: Prisma.DbNull },
+  });
+  
+redirect("/dashboard");
   return { ok: true };
 }
