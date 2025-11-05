@@ -1,5 +1,7 @@
 "use client";
 
+// C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\components\settings\MembersTable.tsx
+
 import * as React from "react";
 import * as XLSX from "xlsx";
 import {
@@ -24,13 +26,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { toast } from "sonner";
-import { editUserData } from "@/server/actions/settings-actions";
+
+// server actions
+import { editUserData, saveTemporaryUser } from "@/server/actions/settings-actions";
+import { inviteUserByEmail } from "@/server/actions/settings-actions";
+
 
 type Role = "project manager" | "site manager";
+
 export type Member = {
   id: string;
   email: string | null;       // READ-ONLY
@@ -74,7 +82,9 @@ export function MembersTable({
   data,
   pageSize,
   exportFileName = "table_data.xlsx",
-}: MembersTableProps) {
+  userid,
+  orgId
+}) {
   const router = useRouter();
   const columns = React.useMemo(() => getColumns(), []);
   const [globalFilter, setGlobalFilter] = React.useState("");
@@ -82,6 +92,11 @@ export function MembersTable({
   const [editRowId, setEditRowId] = React.useState<string | null>(null);
   const [draftById, setDraftById] = React.useState<Record<string, Partial<Member>>>({});
   const [anyChanges, setAnyChanges] = React.useState(false);
+  
+
+  // ----- Add User dialog state -----
+  const [openAdd, setOpenAdd] = React.useState(false);
+  const [newEmail, setNewEmail] = React.useState("");
 
   // Save only editable fields (email excluded)
   const [result, action] = useActionState(async (_prev: any, fd: FormData) => {
@@ -170,20 +185,73 @@ export function MembersTable({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center py-4">
+        <div className="flex items-center py-4 gap-2">
           <Input
             placeholder="Search..."
             value={globalFilter ?? ""}
             onChange={e => setGlobalFilter(e.target.value)}
             className="max-w-sm"
           />
-          <Button className="ml-2" variant="outline" onClick={exportToExcel} type="button">
+          <Button variant="outline" onClick={exportToExcel} type="button">
             Export to Excel
           </Button>
+
+          {/* -------- Add User dialog & action -------- */}
+          <Dialog open={openAdd} onOpenChange={setOpenAdd}>
+            <DialogTrigger asChild>
+              <Button>Add user</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invite user</DialogTitle>
+              </DialogHeader>
+
+              <form
+                action={async (formData) => {
+                  formData.set("email", newEmail);
+                  if (!newEmail) {
+                    toast.error("Email is required");
+                    return;
+                  }
+
+                  const res = await inviteUserByEmail(formData)
+                     const saveToDatabase = await saveTemporaryUser(
+                   newEmail, orgId,
+                   
+                  )
+                  router.refresh()
+                  if (res?.ok) {
+                    toast.success("Invitation email sent");
+                    setNewEmail("");
+                    setOpenAdd(false);
+                  } else {
+                    toast.error(res?.message ?? "Failed to send invite");
+                  }
+                }}
+              >
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="mt-3"
+                  required
+                />
+
+                <div className="flex justify-end gap-2 mt-4">
+                  <Button type="button" variant="ghost" onClick={() => setOpenAdd(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Send invite</Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+
           {anyChanges && (
             <>
-              <Button className="ml-2" type="submit" form="members-form">Save changes</Button>
-              <Button className="ml-2" variant="ghost" type="button" onClick={cancelEdit}>
+              <Button type="submit" form="members-form">Save changes</Button>
+              <Button variant="ghost" type="button" onClick={cancelEdit}>
                 Cancel
               </Button>
             </>
@@ -321,7 +389,7 @@ export function MembersTable({
                                   Edit
                                 </DropdownMenuItem>
                               ) : (
-                                <DropdownMenuItem onClick={() => { /* use Save button above */ }}>
+                                <DropdownMenuItem onClick={() => { /* use Save changes button above */ }}>
                                   Use “Save changes” above
                                 </DropdownMenuItem>
                               )}

@@ -13,6 +13,8 @@ import Link from "next/link";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import { PlusCircle} from "lucide-react";
 import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
+import TourRunner from "@/components/joyride/TourRunner";
+import { steps_dashboard } from "@/components/joyride/JoyRideSteps";
 
 async function getData(orgId: string) {
   const [sites] = await Promise.all([
@@ -45,13 +47,19 @@ export default async function DashboardIndexPage() {
 
 
     <>
+      <TourRunner steps={steps_dashboard} />
     <div className="flex w-full justify-end">
             <Button asChild>
-              <Link href={"/dashboard/sites/new"}>
+              <Link 
+              href={"/dashboard/sites/new"}
+              data-tour="create-project"
+              
+              >
                 <PlusCircle className="mr-2 size-4" /> Create Project
               </Link>
             </Button>
           </div>
+       
     
     
     

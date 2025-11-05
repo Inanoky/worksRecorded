@@ -19,6 +19,8 @@ import {useForm} from "@conform-to/react";
 import {parseWithZod} from "@conform-to/zod";
 import {siteSchema} from "@/lib/utils/zodSchemas";
 import {SubmitButton} from "@/components/dashboard/SubmitButtons";
+import { steps_dashboard_sites_new } from "@/components/joyride/JoyRideSteps";
+import TourRunner from "@/components/joyride/TourRunner";
 
 
 
@@ -38,8 +40,14 @@ export default function NewSiteRoute(){
 
 
     return(
+
         <div className="flex flex-col flex-1 items-center justify-center">
-            <Card className="max-w-[450px]">
+            <TourRunner steps={steps_dashboard_sites_new} />
+            <Card 
+            className="max-w-[450px]"
+            data-tour="sites/new/card"
+            
+            >
               <CardHeader>
                     <CardTitle>New Project</CardTitle>
                     <CardDescription>Enter project information</CardDescription>

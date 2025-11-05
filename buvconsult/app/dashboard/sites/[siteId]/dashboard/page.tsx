@@ -13,6 +13,8 @@ import { notFound } from "next/navigation";
 import {prisma} from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
+import TourRunner from "@/components/joyride/TourRunner";
+import { steps_dashboard_siteid_dashboard } from "@/components/joyride/JoyRideSteps";
 
 
 
@@ -70,6 +72,8 @@ export default async function InvoiceRoute({params}:
 
   return (
       <>
+          
+      
           {/* 2️⃣ Your client upload form */}
 
             <KeyMetricsDashboard siteId={siteId} previousWeekData={previousWeekData} currentWeekData={currentWeekData} workersData={workersOnSite}/>
@@ -80,7 +84,14 @@ export default async function InvoiceRoute({params}:
 
 
           <div>
-             <Card className="mt-10">
+              <TourRunner steps={steps_dashboard_siteid_dashboard} />
+             <Card 
+             className="mt-10"
+
+             data-tour="invoice-table"
+             
+             
+             >
   <CardHeader>
     <CardTitle>Invoices</CardTitle>
     <CardDescription>
@@ -88,7 +99,10 @@ export default async function InvoiceRoute({params}:
     </CardDescription>
   </CardHeader>
   <CardContent>
-    <InvoicesDataTable data={invoices} siteId={siteId} />
+    <InvoicesDataTable 
+    data={invoices} siteId={siteId} 
+    
+    />
   </CardContent>
 </Card>
           </div>

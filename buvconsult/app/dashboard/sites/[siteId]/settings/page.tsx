@@ -180,7 +180,7 @@ export default async function SettingsSiteRoute({
         </CardFooter>
       </Card>
 
-      <MembersTable pageSize={5} data={userData} exportFileName="Members" />
+      <MembersTable pageSize={5} data={userData} exportFileName="Members" userid={user.id} orgId={orgId} />
     </>
   );
 }

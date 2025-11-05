@@ -46,6 +46,7 @@ model User {
   siteManagerSelectIdforWhatsapp  String? 
   lastSelectedSiteIdforWhatsapp String? // <-- add this field!
   role                          String? 
+  status                        String?
 
   createdAt DateTime @default(now())
 
