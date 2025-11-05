@@ -26,6 +26,9 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 import { MembersTable } from "@/components/settings/MembersTable";
 import { getUserData } from "@/server/actions/settings-actions";
+import TourRunner from "@/components/joyride/TourRunner";
+import { steps_dashboard_siteid_settings} from "@/components/joyride/JoyRideSteps";
+
 
 
 export default async function SettingsSiteRoute({
@@ -60,6 +63,7 @@ export default async function SettingsSiteRoute({
     <>
       {/* Back Button */}
       <div className="flex items-center gap-x-2 mb-6">
+         <TourRunner steps={steps_dashboard_siteid_settings} stepName="steps_dashboard_siteid_settings"/>
         <Button variant="outline" size="icon" asChild>
           <Link href={`/dashboard/sites/${siteId}/analytics`}>
             <ChevronLeft className="size-4" />
@@ -137,28 +141,37 @@ export default async function SettingsSiteRoute({
       </Card>
 
       {/* Upload Sections */}
-      <Card>
+      <Card
+      data-tour="upload-invoices">
         <CardHeader>
           <CardTitle>Upload invoices here</CardTitle>
         </CardHeader>
         <InvoiceUpload params={Promise.resolve({ siteId })} />
       </Card>
 
-      <Card>
+      <Card
+      data-tour="upload-documents">
         <CardHeader>
-          <CardTitle>Documents here</CardTitle>
+          <CardTitle>Upload Documents</CardTitle>
         </CardHeader>
         <DocumentUpload params={Promise.resolve({ siteId })} />
       </Card>
 
-      <Card>
+      <Card
+      data-tour="programm">
         <CardHeader>
           <CardTitle>Please, upload programm</CardTitle>
         </CardHeader>
         <XslxUpload params={Promise.resolve({ siteId })} />
       </Card>
+      <div
+      data-tour="template"
+      >
 
+
+      
       <TemplateCard />
+      </div>
 
       <SchemaCard
         siteId={siteId}
@@ -179,8 +192,10 @@ export default async function SettingsSiteRoute({
           <ConfirmDeleteSite siteId={siteId} />
         </CardFooter>
       </Card>
-
+      <div
+      data-tour="members">
       <MembersTable pageSize={5} data={userData} exportFileName="Members" userid={user.id} orgId={orgId} />
+      </div>
     </>
   );
 }

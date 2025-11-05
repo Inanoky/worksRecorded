@@ -6,6 +6,9 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 
+import TourRunner from "@/components/joyride/TourRunner";
+import { steps_dashboard_siteid_site_diary} from "@/components/joyride/JoyRideSteps";
+
 
 
 export default async function Home({
@@ -26,9 +29,16 @@ export default async function Home({
 
   return (
     <>
-
-      <SiteDiaryCalendar siteId={siteId} />
+    <div
+    
+    data-tour="calendar">
+         <TourRunner steps={steps_dashboard_siteid_site_diary} stepName="steps_dashboard_siteid_site_diary"/>
+   
+              
+      <SiteDiaryCalendar siteId={siteId} 
+       />
       <AiWidgetRag siteId={siteId} />
+       </div>
     </>
   );
 }

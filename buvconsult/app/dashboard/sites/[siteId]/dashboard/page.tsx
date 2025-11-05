@@ -76,15 +76,19 @@ export default async function InvoiceRoute({params}:
       
           {/* 2️⃣ Your client upload form */}
 
+          <div
+          data-tour="key-metrics">
+
             <KeyMetricsDashboard siteId={siteId} previousWeekData={previousWeekData} currentWeekData={currentWeekData} workersData={workersOnSite}/>
           <ChartAreaInteractive data={chartAreaInteractiveData}/>
+          </div>
 
 
 
 
 
           <div>
-              <TourRunner steps={steps_dashboard_siteid_dashboard} />
+              <TourRunner steps={steps_dashboard_siteid_dashboard}  stepName="steps_dashboard_siteid_dashboard"/>
              <Card 
              className="mt-10"
 

@@ -47,6 +47,7 @@ model User {
   lastSelectedSiteIdforWhatsapp String? // <-- add this field!
   role                          String? 
   status                        String?
+  userTour                      Json?
 
   createdAt DateTime @default(now())
 

@@ -47,7 +47,7 @@ export default async function DashboardIndexPage() {
 
 
     <>
-      <TourRunner steps={steps_dashboard} />
+      <TourRunner steps={steps_dashboard} stepName="steps_dashboard" />
     <div className="flex w-full justify-end">
             <Button asChild>
               <Link 

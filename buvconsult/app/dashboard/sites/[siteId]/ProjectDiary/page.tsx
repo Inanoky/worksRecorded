@@ -3,7 +3,8 @@ import { GenericTemplateTable } from "@/components/_templates/tableWithGenericAc
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
-
+import TourRunner from "@/components/joyride/TourRunner";
+import { steps_dashboard_siteid_project_diary} from "@/components/joyride/JoyRideSteps";
 
 
 
@@ -30,7 +31,9 @@ export default async function ProjectDiary ({params}:
     return (
 
        
-               <div className="w-full">
+               <div className="w-full"
+               data-tour="project-diary">
+                <TourRunner steps={steps_dashboard_siteid_project_diary} stepName="steps_dashboard_siteid_project_diary"/>
        
                              <GenericTemplateTable
                                 data={records}               // your rows with UI keys like "record", "date"

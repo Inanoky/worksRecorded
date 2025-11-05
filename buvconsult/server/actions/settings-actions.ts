@@ -111,6 +111,7 @@ export async function getUserData(orgId){
             lastName : true,
             phone : true,
             role : true,
+            status: true,
 
         }
     })

@@ -66,6 +66,7 @@ function getColumns(): ColumnDef<Member, any>[] {
     { accessorKey: "lastName", header: "Last name" },
     { accessorKey: "phone", header: "Phone" },
     { accessorKey: "role", header: "Role" },
+    { accessorKey: "status", header: "Status" },
   ];
 }
 
