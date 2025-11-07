@@ -74,7 +74,7 @@ export async function saveSiteDiaryRecordFromWeb({ rows,  siteId }) {
 
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows
-    .filter((r) => r.location || r.works)
+   
     .map((row, idx) => {
       const out = {
         userId: user.id ?? undefined,

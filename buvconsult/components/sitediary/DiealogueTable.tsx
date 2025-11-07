@@ -33,26 +33,17 @@ const allowedUnits = [
   "hour", "set", "minute", "lifts",
 ] as const;
 
+
+
 const DiaryRowSchema = z.object({
-  amounts: z.union([z.string(), z.number()]).optional().refine(
-    (val) => val === "" || !isNaN(Number(val)),
-    { message: "Amounts must be a number" }
-  ),
-  workers: z.union([z.string(), z.number()]).optional().refine(
-    (val) => val === "" || Number.isInteger(Number(val)),
-    { message: "Workers must be an integer" }
-  ),
-  hours: z.union([z.string(), z.number()]).optional().refine(
-    (val) => val === "" || !isNaN(Number(val)),
-    { message: "Hours must be a number" }
-  ),
-  comments: z.string().max(1500, "Comments must be 1500 characters or fewer").optional(),
-  units: z.enum(allowedUnits).optional(),
+  amounts: z.coerce.number().finite().optional().or(z.literal("")),
+  workers: z.coerce.number().int().optional().or(z.literal("")),
+  hours:   z.coerce.number().finite().optional().or(z.literal("")),
+  comments: z.string().max(1500).optional().or(z.literal("")),
+//   units:    z.enum(allowedUnits).optional().or(z.literal("")),
 });
+
 const DiaryRowsSchema = z.array(DiaryRowSchema);
-
-
-
 
 
 
