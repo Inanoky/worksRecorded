@@ -13,6 +13,7 @@ import { talkToAgent } from "@/server/ai-flows/agents/orchestrating-agent/graph"
 import { Rnd } from "react-rnd";
 import { Textarea } from "../ui/textarea";
 import remarkGfm from "remark-gfm";
+import OrchestratingAgentV2 from "@/server/ai-flows/agents/orchestrating-agent-v2/agent";
 
 type Message =
   | { sender: "bot"; aiComment: string; answer?: string | any }
@@ -89,7 +90,8 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
     setLoading(true);
     setInput("");
     try {
-      const result = await talkToAgent(input, siteId);
+      // const result = await talkToAgent(input, siteId);
+      const result = await OrchestratingAgentV2(input,siteId)
       const botMsg: Message = {
         sender: "bot",
         aiComment: result ?? "",
