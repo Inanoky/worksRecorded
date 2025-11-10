@@ -46,7 +46,7 @@ export function Features(){
                     {features.map((feature) => (
 
                         <div key={feature.name} className="relative pl-16">
-                            <div className="text-bas font-semibold leading-7">
+                            <div className="text-2xl font-semibold leading-7">
 
                                 <div className="absolute left-0 top-0 flex size-10 items-center justify-center rounded-lg bg-primary">
                                     <feature.icon className="w-6 h-6 text-white"/>
@@ -56,7 +56,7 @@ export function Features(){
                                 {feature.name}
                             </div>
 
-                            <p className="mt-2 text-sm text-muted-foreground leading-snug">{feature.description}</p>
+                            <p className="mt-5 text-xl text-muted-foreground leading-snug">{feature.description}</p>
 
 
                         </div>
