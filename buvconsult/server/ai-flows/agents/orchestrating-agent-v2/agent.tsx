@@ -96,7 +96,7 @@ const agentNode = async (state) => {
 
 
     await checkpointer.setup();
-    const config = {configurable: {thread_id: "orchestrating-agent-v2" + siteId}}; // Unique thread ID per site
+    const config = {configurable: {thread_id: "orchestrating-agent-v2" + siteId }}; // Unique thread ID per site
 
 
 
