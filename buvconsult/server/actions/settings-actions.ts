@@ -112,6 +112,8 @@ export async function getUserData(orgId){
             phone : true,
             role : true,
             status: true,
+            reminderTime: true,
+            remindersEnabled: true
 
         }
     })

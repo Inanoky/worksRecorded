@@ -28,6 +28,8 @@ import { MembersTable } from "@/components/settings/MembersTable";
 import { getUserData } from "@/server/actions/settings-actions";
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard_siteid_settings} from "@/components/joyride/JoyRideSteps";
+import Reminder from "@/components/settings/ReminderUI";
+import { getRemindersData, getReminderTimes, getDataForReminderTable} from "@/server/actions/reminder-actions";
 
 
 
@@ -58,6 +60,14 @@ export default async function SettingsSiteRoute({
     where: { siteId },
     select: { fileUrl: true, schema: true },
   });
+
+  const remindersData = await getDataForReminderTable(orgId)
+  console.log(`this is page.tsx ${remindersData}`)
+  const reminderTimes = await getReminderTimes(orgId)
+  console.log(remindersData)
+
+
+
 
   return (
     <>
@@ -194,7 +204,15 @@ export default async function SettingsSiteRoute({
       </Card>
       <div
       data-tour="members">
-      <MembersTable pageSize={5} data={userData} exportFileName="Members" userid={user.id} orgId={orgId} />
+      <MembersTable pageSize={5} data={userData} exportFileName="Members" userid={user.id} orgId={orgId}  />
+      </div>
+      <div>
+        <Reminder
+        
+        orgId={orgId}
+        reminderData={remindersData}
+       
+      />
       </div>
     </>
   );

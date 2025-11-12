@@ -48,26 +48,30 @@ model User {
   role                          String? 
   status                        String?
   userTour                      Json?
-
   createdAt DateTime @default(now())
 
-  Site             Site[]
-  
+  // NEW
+  reminderTime   DateTime?  // interpreted in user's timezone
+  timezone       String?    // e.g. "Europe/Riga"; default on write if missing
+  remindersEnabled Boolean   @default(true)
+
+
+
+  Site             Site[]  
   Invoices         Invoices[]
   Documents        Documents[]
   sitediaryrecords sitediaryrecords[] // one user can have many site diary records
   projectdiaryrecord projectdiaryrecord[]
-
   Subscription      Subscription?
- 
-
   sitediarysettings sitediarysettings[]
   photos            photos[]
-
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
 }
+
+
+
 
 model Site {
   id           String   @id @default(uuid())
@@ -80,6 +84,7 @@ model Site {
   imageUrl          String?
   User              User?              @relation(fields: [userId], references: [id])
   userId            String?
+  reminders       String?
   
   invoices          Invoices[]
   InvoiceItems      InvoiceItems[]
@@ -94,7 +99,7 @@ model Site {
   workers           workers[] //on site can have many workers 
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
+  
 }
 
 model Subscription {

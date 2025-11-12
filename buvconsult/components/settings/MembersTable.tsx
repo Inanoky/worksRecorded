@@ -36,22 +36,26 @@ import { toast } from "sonner";
 import { editUserData, saveTemporaryUser } from "@/server/actions/settings-actions";
 import { inviteUserByEmail } from "@/server/actions/settings-actions";
 
-
 type Role = "project manager" | "site manager";
 
 export type Member = {
   id: string;
-  email: string | null;       // READ-ONLY
-  firstName: string | null;   // editable
-  lastName: string | null;    // editable
-  phone: string | null;       // editable
-  role: Role | null;          // editable (enum)
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  role: Role | null;
+  status?: string | null;
+  reminderTime?: string | Date | null;     // renders HH:mm; edits via <input type="time">
+  remindersEnabled?: boolean | null;       // edits via checkbox
 };
 
 type MembersTableProps = {
   data: Member[];
   pageSize: number;
   exportFileName?: string;
+  userid?: string;
+  orgId?: string;
 };
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
@@ -61,12 +65,14 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
 
 function getColumns(): ColumnDef<Member, any>[] {
   return [
-    { accessorKey: "email", header: "Email" },         // read-only
+    { accessorKey: "email", header: "Email" },
     { accessorKey: "firstName", header: "First name" },
     { accessorKey: "lastName", header: "Last name" },
     { accessorKey: "phone", header: "Phone" },
     { accessorKey: "role", header: "Role" },
     { accessorKey: "status", header: "Status" },
+    { accessorKey: "reminderTime", header: "Whatsapp reminder" },
+    { accessorKey: "remindersEnabled", header: "Allow reminders" },
   ];
 }
 
@@ -79,13 +85,23 @@ const defaultGlobalFilterFn = (row: any, _colId: string, filterValue: string) =>
   return flat.includes(filterValue.toLowerCase());
 };
 
+// format Date/ISO → "HH:mm" for <input type="time"> and display
+function toHHmm(dt: string | Date | null | undefined) {
+  if (!dt) return "";
+  const d = new Date(dt);
+  if (Number.isNaN(d.getTime())) return "";
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
 export function MembersTable({
   data,
   pageSize,
   exportFileName = "table_data.xlsx",
   userid,
   orgId
-}) {
+}: MembersTableProps) {
   const router = useRouter();
   const columns = React.useMemo(() => getColumns(), []);
   const [globalFilter, setGlobalFilter] = React.useState("");
@@ -93,13 +109,12 @@ export function MembersTable({
   const [editRowId, setEditRowId] = React.useState<string | null>(null);
   const [draftById, setDraftById] = React.useState<Record<string, Partial<Member>>>({});
   const [anyChanges, setAnyChanges] = React.useState(false);
-  
 
-  // ----- Add User dialog state -----
+  // Add User dialog
   const [openAdd, setOpenAdd] = React.useState(false);
   const [newEmail, setNewEmail] = React.useState("");
 
-  // Save only editable fields (email excluded)
+  // Save (server action)
   const [result, action] = useActionState(async (_prev: any, fd: FormData) => {
     const id = String(fd.get("id") || "");
     if (!id) return { ok: false, message: "Missing id" };
@@ -109,11 +124,21 @@ export function MembersTable({
     const lastName  = fd.get("lastName");
     const phone     = fd.get("phone");
     const role      = fd.get("role");
+    const reminderTime = fd.get("reminderTime");
+    const remindersEnabled = fd.get("remindersEnabled");
 
     if (firstName !== null) patch.firstName = String(firstName);
     if (lastName  !== null) patch.lastName  = String(lastName);
     if (phone     !== null) patch.phone     = String(phone);
     if (role      !== null && role !== "") patch.role = String(role) as Role;
+
+    // Send "HH:mm" string upstream; backend can persist as Date in org TZ
+    if (reminderTime !== null) patch.reminderTime = String(reminderTime);
+
+    if (remindersEnabled !== null) {
+      const v = String(remindersEnabled);
+      patch.remindersEnabled = v === "true" || v === "on"; // handle checkbox semantics
+    }
 
     try {
       await editUserData(id, patch);
@@ -165,6 +190,8 @@ export function MembersTable({
         lastName:  rowData.lastName  ?? "",
         phone:     rowData.phone     ?? "",
         role:      rowData.role      ?? null,
+        reminderTime: toHHmm(rowData.reminderTime),              // seed "HH:mm"
+        remindersEnabled: !!rowData.remindersEnabled,            // seed boolean
       }
     });
     setAnyChanges(false);
@@ -176,9 +203,8 @@ export function MembersTable({
     setAnyChanges(false);
   };
 
-  // Only editable keys here
-  type EditableKey = "firstName" | "lastName" | "phone" | "role";
-  const handleChange = (rowId: string, field: EditableKey, value: string) => {
+  type EditableKey = "firstName" | "lastName" | "phone" | "role" | "reminderTime" | "remindersEnabled";
+  const handleChange = (rowId: string, field: EditableKey, value: any) => {
     setAnyChanges(true);
     setDraftById(prev => ({ ...prev, [rowId]: { ...prev[rowId], [field]: value } }));
   };
@@ -197,7 +223,6 @@ export function MembersTable({
             Export to Excel
           </Button>
 
-          {/* -------- Add User dialog & action -------- */}
           <Dialog open={openAdd} onOpenChange={setOpenAdd}>
             <DialogTrigger asChild>
               <Button>Add user</Button>
@@ -214,13 +239,9 @@ export function MembersTable({
                     toast.error("Email is required");
                     return;
                   }
-
-                  const res = await inviteUserByEmail(formData)
-                     const saveToDatabase = await saveTemporaryUser(
-                   newEmail, orgId,
-                   
-                  )
-                  router.refresh()
+                  const res = await inviteUserByEmail(formData);
+                  await saveTemporaryUser(newEmail, orgId || "");
+                  router.refresh();
                   if (res?.ok) {
                     toast.success("Invitation email sent");
                     setNewEmail("");
@@ -272,6 +293,10 @@ export function MembersTable({
             if (patch.lastName  != null) fd.set("lastName",  String(patch.lastName));
             if (patch.phone     != null) fd.set("phone",     String(patch.phone));
             if (patch.role      != null) fd.set("role",      String(patch.role));
+            if (patch.reminderTime != null && patch.reminderTime !== "") {
+  fd.set("reminderTime", new Date(`1970-01-01T${patch.reminderTime}:00`).toISOString());
+}
+            if (patch.remindersEnabled != null) fd.set("remindersEnabled", String(!!patch.remindersEnabled)); // "true"/"false"
             // @ts-expect-error bound server action
             return action(fd);
           }}
@@ -313,7 +338,59 @@ export function MembersTable({
                         {row.getVisibleCells().map(cell => {
                           const col = cell.column.id as keyof Member;
 
-                          // Email is always read-only
+                          // reminderTime
+                          if (col === "reminderTime") {
+                            if (isEditing) {
+                              const valueHHmm = (draft.reminderTime as string | undefined) ?? toHHmm(r.reminderTime);
+                              return (
+                                <TableCell key={cell.id}>
+                                  <Input
+                                    type="time"
+                                    value={valueHHmm}
+                                    onChange={(e) => handleChange(r.id, "reminderTime", e.currentTarget.value)}
+                                    className="border rounded px-2 py-1"
+                                  />
+                                </TableCell>
+                              );
+                            }
+                            // read-only display
+                            return (
+                              <TableCell key={cell.id}>
+                                {r.reminderTime
+                                  ? new Date(r.reminderTime as any).toLocaleTimeString([], {
+                                      hour: "2-digit", minute: "2-digit", hour12: false
+                                    })
+                                  : ""}
+                              </TableCell>
+                            );
+                          }
+
+                          // remindersEnabled
+                          if (col === "remindersEnabled") {
+                            if (isEditing) {
+                              const checked = (draft.remindersEnabled as boolean | undefined) ?? !!r.remindersEnabled;
+                              return (
+                                <TableCell key={cell.id}>
+                                  <label className="inline-flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      onChange={(e) => handleChange(r.id, "remindersEnabled", e.currentTarget.checked)}
+                                    />
+                                    <span>{checked ? "Enabled" : "Disabled"}</span>
+                                  </label>
+                                </TableCell>
+                              );
+                            }
+                            // read-only display
+                            return (
+                              <TableCell key={cell.id}>
+                                {r.remindersEnabled ? "Enabled" : "Disabled"}
+                              </TableCell>
+                            );
+                          }
+
+                          // Email read-only
                           if (col === "email") {
                             return (
                               <TableCell key={cell.id}>
@@ -322,18 +399,14 @@ export function MembersTable({
                             );
                           }
 
-                          // Editable fields in edit mode
+                          // Editable fields
                           if (isEditing && (col === "firstName" || col === "lastName" || col === "phone")) {
+                            type EditTxt = "firstName" | "lastName" | "phone";
                             return (
                               <TableCell key={cell.id}>
                                 <Input
-                                  value={String(
-                                    (draft[col as EditableKey] ??
-                                      (r[col] ?? "")) as string
-                                  )}
-                                  onChange={(e) =>
-                                    handleChange(r.id, col as EditableKey, e.currentTarget.value)
-                                  }
+                                  value={String((draft[col as EditTxt] ?? (r[col] ?? "")) as string)}
+                                  onChange={(e) => handleChange(r.id, col as EditTxt, e.currentTarget.value)}
                                 />
                               </TableCell>
                             );
@@ -361,8 +434,8 @@ export function MembersTable({
                             );
                           }
 
-                          // Read-only display (not editing)
-                          const value = r[col];
+                          // read-only for others
+                          const value = r[col as keyof Member];
                           const display =
                             col === "role"
                               ? ROLE_OPTIONS.find(o => o.value === value)?.label ?? ""
@@ -390,7 +463,7 @@ export function MembersTable({
                                   Edit
                                 </DropdownMenuItem>
                               ) : (
-                                <DropdownMenuItem onClick={() => { /* use Save changes button above */ }}>
+                                <DropdownMenuItem onClick={() => { /* use Save changes above */ }}>
                                   Use “Save changes” above
                                 </DropdownMenuItem>
                               )}

@@ -9,7 +9,6 @@ import { Bot, User, SendHorizonal, Trash2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { TableModal } from "@/components/ai/TableModal";
 import ReactMarkdown from "react-markdown";
-import { talkToAgent } from "@/server/ai-flows/agents/orchestrating-agent/graph";
 import { Rnd } from "react-rnd";
 import { Textarea } from "../ui/textarea";
 import remarkGfm from "remark-gfm";
@@ -34,6 +33,14 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
   const [size, setSize] = useState({ width: 520, height: 600 });
   const [pos, setPos] = useState({ x: 0, y: 0 });
 
+  // Refs for input focus and bottom anchor
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
+    bottomRef.current?.scrollIntoView({ behavior, block: "end" });
+  };
+
   // Place bottom-right when opened and clamp on window resize
   useEffect(() => {
     function placeBottomRight(w = size.width, h = size.height) {
@@ -55,7 +62,7 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // ---- localStorage: load on mount ----
+  // Load from localStorage
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY(siteId));
@@ -65,23 +72,34 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
         setMessages(parsed.messages);
       }
     } catch {
-      // ignore parse errors
+      // ignore
     }
   }, [siteId]);
 
-  // ---- localStorage: save on change ----
+  // Save to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(
-        STORAGE_KEY(siteId),
-        JSON.stringify({ messages })
-      );
+      localStorage.setItem(STORAGE_KEY(siteId), JSON.stringify({ messages }));
     } catch {
-      // quota errors, private mode, etc.
+      // ignore
     }
   }, [messages, siteId]);
 
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  // When chat opens, jump to bottom and focus input
+  useEffect(() => {
+    if (!open) return;
+    const id = requestAnimationFrame(() => {
+      scrollToBottom("auto");
+      inputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
+  // Keep pinned to bottom when messages/loading change
+  useEffect(() => {
+    if (!open) return;
+    scrollToBottom("smooth");
+  }, [messages, loading, open]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -90,12 +108,10 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
     setLoading(true);
     setInput("");
     try {
-      // const result = await talkToAgent(input, siteId);
-      const result = await OrchestratingAgentV2(input,siteId)
+      const result = await OrchestratingAgentV2(input, siteId);
       const botMsg: Message = {
         sender: "bot",
         aiComment: result ?? "",
-        // keep any structured results in `answer`
         answer: result?.acceptedResults ?? "",
       };
       setMessages((m) => [...m, botMsg]);
@@ -285,6 +301,7 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
                         </div>
                       </div>
                     )}
+                    <div ref={bottomRef} />
                   </div>
                 </ScrollArea>
 
@@ -299,7 +316,7 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
                     disabled={loading}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="flex-1 min-w-0 bg-white dark:bg-gray-8 00 dark:text-gray-100"
+                    className="flex-1 min-w-0 bg-white dark:bg-gray-800 dark:text-gray-100"
                   />
                   <Button
                     onClick={handleSend}
