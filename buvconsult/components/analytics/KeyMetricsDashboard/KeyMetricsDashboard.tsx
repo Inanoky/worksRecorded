@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { IconTrendingUp } from "@tabler/icons-react";
-import { extractSiteDiaryPreviouseWeek } from "@/server/ai-flows/agents/extractors/extractLastWeekProgressMetrics";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -13,16 +12,36 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useProject } from "@/components/providers/ProjectProvider";
+import { extractSiteDiaryPreviouseWeek } from "@/server/ai-flows/agents/extractors/extractLastWeekProgressMetrics";
 import { extractSiteDiaryCurrentWeek } from "@/server/ai-flows/agents/extractors/extractCurrentWeekProgressMetrics";
 
 import MetricsCard from "./MetricsCard";
 import MetricsCardWorkers from "./MetricsCardWorkersOnSite";
+
+type WeeklyTarget = { amounts: number; units: string };
+type TargetsJson = {
+  byWeek?: Record<string, WeeklyTarget>;
+  records?: Record<string, WeeklyTarget>;
+};
 
 export function KeyMetricsDashboard({
   siteId,
   previousWeekData,
   currentWeekData,
   workersData,
+  targets,
+  saveTargetAction,
+  currentWeekKey,
+  previousWeekKey,
+}: {
+  siteId: string;
+  previousWeekData: any;
+  currentWeekData: any;
+  workersData: any;
+  targets?: TargetsJson | null;
+  saveTargetAction?: (formData: FormData) => Promise<void>;
+  currentWeekKey: string;
+  previousWeekKey: string;
 }) {
   type MetricsData = {
     elementsAssembled: number;
@@ -32,18 +51,19 @@ export function KeyMetricsDashboard({
     reason: string;
   };
 
-  const [data, updateDate] = React.useState<MetricsData | null>(null);
+  const [data, updateData] = React.useState<MetricsData | null>(null);
   const [, setOnRefreshCurrentWeek] = React.useState<boolean>(false);
 
-  async function handlePreviousWeekClick(siteId: string) {
-    const newData = await extractSiteDiaryPreviouseWeek(siteId);
-    updateDate(newData);
+  console.log(`from key metrics dashbotsd ${JSON.stringify(targets)}`)
+  async function handlePreviousWeekClick(sid: string) {
+    const newData = await extractSiteDiaryPreviouseWeek(sid);
+    updateData(newData);
   }
 
-  async function handleCurrentWeekClick(siteId: string) {
-    const newData = await extractSiteDiaryCurrentWeek(siteId);
+  async function handleCurrentWeekClick(sid: string) {
+    const newData = await extractSiteDiaryCurrentWeek(sid);
     setOnRefreshCurrentWeek(false);
-    updateDate(newData);
+    updateData(newData);
   }
 
   const { projectName } = useProject();
@@ -57,7 +77,6 @@ export function KeyMetricsDashboard({
         </CardDescription>
       </CardHeader>
 
-      {/* MOBILE-FIRST GRID */}
       <div
         className="
           grid grid-cols-1 gap-3 px-3 pb-3
@@ -67,25 +86,28 @@ export function KeyMetricsDashboard({
         "
       >
         <MetricsCard
-          cardName={"Current week progress"}
+          cardName="Current week progress"
           siteId={siteId}
           currentWeekData={currentWeekData}
-          onRefresh={async (sid: string) => {
-            await handleCurrentWeekClick(sid);
-          }}
+          onRefresh={async (sid) => handleCurrentWeekClick(sid)}
+          targets={targets ?? undefined}
+          saveTargetAction={saveTargetAction}
+          currentWeekKey={currentWeekKey}
+          previousWeekKey={previousWeekKey}
         />
 
         <MetricsCard
-          cardName={"Previous week progress"}
+          cardName="Previous week progress"
           siteId={siteId}
           currentWeekData={previousWeekData}
-          onRefresh={async (sid: string) => {
-            await handlePreviousWeekClick(sid);
-          }}
+          onRefresh={async (sid) => handlePreviousWeekClick(sid)}
+          targets={targets ?? undefined}
+          currentWeekKey={currentWeekKey}
+          previousWeekKey={previousWeekKey}
         />
 
         <MetricsCardWorkers
-          cardName={"Works Progress"}
+          cardName="Works Progress"
           siteId={siteId}
           workerCount={workersData}
           onRefresh={async (sid: string) => {
