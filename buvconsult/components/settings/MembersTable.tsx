@@ -1,7 +1,5 @@
 "use client";
 
-// C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\components\settings\MembersTable.tsx
-
 import * as React from "react";
 import * as XLSX from "xlsx";
 import {
@@ -31,10 +29,10 @@ import { MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { toast } from "sonner";
+import { z } from "zod"; // <-- Zod
 
 // server actions
-import { editUserData, saveTemporaryUser } from "@/server/actions/settings-actions";
-import { inviteUserByEmail } from "@/server/actions/settings-actions";
+import { editUserData, saveTemporaryUser, inviteUserByEmail } from "@/server/actions/settings-actions";
 
 type Role = "project manager" | "site manager";
 
@@ -43,11 +41,11 @@ export type Member = {
   email: string | null;
   firstName: string | null;
   lastName: string | null;
-  phone: string | null;
+  phone: string | null; // stored WITHOUT '+'
   role: Role | null;
   status?: string | null;
-  reminderTime?: string | Date | null;     // renders HH:mm; edits via <input type="time">
-  remindersEnabled?: boolean | null;       // edits via checkbox
+  reminderTime?: string | Date | null;
+  remindersEnabled?: boolean | null;
 };
 
 type MembersTableProps = {
@@ -85,7 +83,7 @@ const defaultGlobalFilterFn = (row: any, _colId: string, filterValue: string) =>
   return flat.includes(filterValue.toLowerCase());
 };
 
-// format Date/ISO → "HH:mm" for <input type="time"> and display
+// ---- Helpers ----
 function toHHmm(dt: string | Date | null | undefined) {
   if (!dt) return "";
   const d = new Date(dt);
@@ -94,6 +92,43 @@ function toHHmm(dt: string | Date | null | undefined) {
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }
+
+// display with "+" if digits exist
+function formatPhoneForDisplay(v: string | null | undefined) {
+  const digits = String(v ?? "").replace(/\D/g, "");
+  return digits ? `+${digits}` : "";
+}
+
+// keep only digits, max 15
+function sanitizePhoneDigits(v: string) {
+  return v.replace(/\D/g, "").slice(0, 15);
+}
+
+// ---- Zod schema (client-side) ----
+const PatchSchema = z.object({
+  firstName: z
+    .string()
+    .trim()
+    .max(15, "First name must be ≤ 15 characters")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  lastName: z
+    .string()
+    .trim()
+    .max(15, "Last name must be ≤ 15 characters")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  // phone comes in as display form (+digits); store digits only (no '+')
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .refine(v => v === undefined || v === "" || /^\+?\d{1,15}$/.test(v), "Phone must be +digits (max 15)")
+    .transform(v => (v ? sanitizePhoneDigits(v) : undefined)),
+  role: z.enum(["project manager","site manager"]).optional(),
+  reminderTime: z.string().optional(),        // ISO string
+  remindersEnabled: z.boolean().optional(),
+});
 
 export function MembersTable({
   data,
@@ -110,35 +145,43 @@ export function MembersTable({
   const [draftById, setDraftById] = React.useState<Record<string, Partial<Member>>>({});
   const [anyChanges, setAnyChanges] = React.useState(false);
 
-  // Add User dialog
   const [openAdd, setOpenAdd] = React.useState(false);
   const [newEmail, setNewEmail] = React.useState("");
 
-  // Save (server action)
+  // Save (server action) — validate with Zod, then strip '+' from phone before save
   const [result, action] = useActionState(async (_prev: any, fd: FormData) => {
     const id = String(fd.get("id") || "");
     if (!id) return { ok: false, message: "Missing id" };
 
-    const patch: Partial<Member> = {};
-    const firstName = fd.get("firstName");
-    const lastName  = fd.get("lastName");
-    const phone     = fd.get("phone");
-    const role      = fd.get("role");
-    const reminderTime = fd.get("reminderTime");
-    const remindersEnabled = fd.get("remindersEnabled");
+    const raw = {
+      firstName: fd.get("firstName")?.toString(),
+      lastName: fd.get("lastName")?.toString(),
+      phone: fd.get("phone")?.toString(), // may be "+digits"
+      role: fd.get("role")?.toString() as Role | undefined,
+      reminderTime: fd.get("reminderTime")?.toString(),
+      remindersEnabled: (() => {
+        const v = fd.get("remindersEnabled");
+        return v != null ? String(v) === "true" || String(v) === "on" : undefined;
+      })(),
+    };
 
-    if (firstName !== null) patch.firstName = String(firstName);
-    if (lastName  !== null) patch.lastName  = String(lastName);
-    if (phone     !== null) patch.phone     = String(phone);
-    if (role      !== null && role !== "") patch.role = String(role) as Role;
-
-    // Send "HH:mm" string upstream; backend can persist as Date in org TZ
-    if (reminderTime !== null) patch.reminderTime = String(reminderTime);
-
-    if (remindersEnabled !== null) {
-      const v = String(remindersEnabled);
-      patch.remindersEnabled = v === "true" || v === "on"; // handle checkbox semantics
+    let parsed: z.infer<typeof PatchSchema>;
+    try {
+      parsed = PatchSchema.parse(raw);
+    } catch (e: any) {
+      const msg = e?.errors?.[0]?.message ?? "Validation failed";
+      return { ok: false, message: msg };
     }
+
+    // Build patch for DB: phone is digits only (no '+')
+    const patch: Partial<Member> = {
+      ...(parsed.firstName !== undefined ? { firstName: parsed.firstName } : {}),
+      ...(parsed.lastName  !== undefined ? { lastName:  parsed.lastName }  : {}),
+      ...(parsed.phone     !== undefined ? { phone:     parsed.phone }     : {}),
+      ...(parsed.role      !== undefined ? { role:      parsed.role }       : {}),
+      ...(parsed.reminderTime !== undefined ? { reminderTime: parsed.reminderTime } : {}),
+      ...(parsed.remindersEnabled !== undefined ? { remindersEnabled: parsed.remindersEnabled } : {}),
+    };
 
     try {
       await editUserData(id, patch);
@@ -188,10 +231,11 @@ export function MembersTable({
       [rowData.id]: {
         firstName: rowData.firstName ?? "",
         lastName:  rowData.lastName  ?? "",
-        phone:     rowData.phone     ?? "",
-        role:      rowData.role      ?? null,
-        reminderTime: toHHmm(rowData.reminderTime),              // seed "HH:mm"
-        remindersEnabled: !!rowData.remindersEnabled,            // seed boolean
+        // store only digits in draft state
+        phone: sanitizePhoneDigits(rowData.phone ?? ""),
+        role:  rowData.role ?? null,
+        reminderTime: toHHmm(rowData.reminderTime),
+        remindersEnabled: !!rowData.remindersEnabled,
       }
     });
     setAnyChanges(false);
@@ -206,7 +250,20 @@ export function MembersTable({
   type EditableKey = "firstName" | "lastName" | "phone" | "role" | "reminderTime" | "remindersEnabled";
   const handleChange = (rowId: string, field: EditableKey, value: any) => {
     setAnyChanges(true);
-    setDraftById(prev => ({ ...prev, [rowId]: { ...prev[rowId], [field]: value } }));
+    setDraftById(prev => {
+      const next = { ...(prev[rowId] ?? {}) };
+      if (field === "phone") {
+        // keep only digits in state, limit 15
+        next.phone = sanitizePhoneDigits(String(value));
+      } else if (field === "firstName" || field === "lastName") {
+        // limit to 15 client-side
+        const v = String(value).slice(0, 15);
+        next[field] = v;
+      } else {
+        (next as any)[field] = value;
+      }
+      return { ...prev, [rowId]: next };
+    });
   };
 
   return (
@@ -289,14 +346,26 @@ export function MembersTable({
             if (!id) return;
             fd.set("id", id);
             const patch = draftById[id] ?? {};
-            if (patch.firstName != null) fd.set("firstName", String(patch.firstName));
-            if (patch.lastName  != null) fd.set("lastName",  String(patch.lastName));
-            if (patch.phone     != null) fd.set("phone",     String(patch.phone));
-            if (patch.role      != null) fd.set("role",      String(patch.role));
+
+            // Enforce max length and display/save rules before sending
+            if (patch.firstName != null) fd.set("firstName", String(patch.firstName).trim().slice(0, 15));
+            if (patch.lastName  != null) fd.set("lastName",  String(patch.lastName).trim().slice(0, 15));
+
+            if (patch.phone != null) {
+              // draft keeps digits only; display uses '+'
+              const digits = sanitizePhoneDigits(String(patch.phone));
+              // for UI we show +; for DB we save without '+'
+              fd.set("phone", digits); // <-- save without '+'
+            }
+
+            if (patch.role != null) fd.set("role", String(patch.role));
+
             if (patch.reminderTime != null && patch.reminderTime !== "") {
-  fd.set("reminderTime", new Date(`1970-01-01T${patch.reminderTime}:00`).toISOString());
-}
-            if (patch.remindersEnabled != null) fd.set("remindersEnabled", String(!!patch.remindersEnabled)); // "true"/"false"
+              fd.set("reminderTime", new Date(`1970-01-01T${patch.reminderTime}:00`).toISOString());
+            }
+            if (patch.remindersEnabled != null) {
+              fd.set("remindersEnabled", String(!!patch.remindersEnabled));
+            }
             // @ts-expect-error bound server action
             return action(fd);
           }}
@@ -353,7 +422,6 @@ export function MembersTable({
                                 </TableCell>
                               );
                             }
-                            // read-only display
                             return (
                               <TableCell key={cell.id}>
                                 {r.reminderTime
@@ -382,12 +450,7 @@ export function MembersTable({
                                 </TableCell>
                               );
                             }
-                            // read-only display
-                            return (
-                              <TableCell key={cell.id}>
-                                {r.remindersEnabled ? "Enabled" : "Disabled"}
-                              </TableCell>
-                            );
+                            return <TableCell key={cell.id}>{r.remindersEnabled ? "Enabled" : "Disabled"}</TableCell>;
                           }
 
                           // Email read-only
@@ -399,19 +462,39 @@ export function MembersTable({
                             );
                           }
 
-                          // Editable fields
+                          // Editable text fields
                           if (isEditing && (col === "firstName" || col === "lastName" || col === "phone")) {
-                            type EditTxt = "firstName" | "lastName" | "phone";
+                            if (col === "phone") {
+                              const digits = String(draft.phone ?? r.phone ?? "");
+                              return (
+                                <TableCell key={cell.id}>
+                                  <Input
+                                    inputMode="tel"
+                                    pattern="\+?\d{1,15}"
+                                    maxLength={16} // '+' + 15 digits
+                                    value={formatPhoneForDisplay(digits)}
+                                    onChange={(e) => handleChange(r.id, "phone", e.currentTarget.value)}
+                                    placeholder="+371xxxxxxxx"
+                                  />
+                                </TableCell>
+                              );
+                            }
+
+                            // firstName / lastName
+                            type EditTxt = "firstName" | "lastName";
+                            const val = String((draft[col as EditTxt] ?? (r[col] ?? "")) as string);
                             return (
                               <TableCell key={cell.id}>
                                 <Input
-                                  value={String((draft[col as EditTxt] ?? (r[col] ?? "")) as string)}
+                                  value={val}
+                                  maxLength={15}
                                   onChange={(e) => handleChange(r.id, col as EditTxt, e.currentTarget.value)}
                                 />
                               </TableCell>
                             );
                           }
 
+                          // Role select
                           if (isEditing && col === "role") {
                             return (
                               <TableCell key={cell.id}>
@@ -439,7 +522,9 @@ export function MembersTable({
                           const display =
                             col === "role"
                               ? ROLE_OPTIONS.find(o => o.value === value)?.label ?? ""
-                              : String(value ?? "");
+                              : col === "phone"
+                                ? formatPhoneForDisplay(String(value ?? "")) // display with '+'
+                                : String(value ?? "");
 
                           return (
                             <TableCell key={cell.id} className="whitespace-normal">
@@ -458,12 +543,12 @@ export function MembersTable({
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
                               <DropdownMenuSeparator />
-                              {!isEditing ? (
-                                <DropdownMenuItem onClick={() => startEdit(row.id, r)}>
+                              {editRowId !== row.id ? (
+                                <DropdownMenuItem onClick={() => startEdit(row.id, row.original)}>
                                   Edit
                                 </DropdownMenuItem>
                               ) : (
-                                <DropdownMenuItem onClick={() => { /* use Save changes above */ }}>
+                                <DropdownMenuItem onClick={() => {}}>
                                   Use “Save changes” above
                                 </DropdownMenuItem>
                               )}
