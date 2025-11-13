@@ -220,65 +220,91 @@ async function saveState(state: PdfState): Promise<void> {
 }
 
 // ---------- Exported runner ----------
+// ---------- Exported runner ----------
 export async function runPoller() {
-
   const got = await tryAcquireLock();
 
   if (!got) {
     console.log("Poller skipped (already running)");
     return { skipped: true };
   }
+
   try {
+    const emailPayload = await buildPayloadFromUnread();
 
+    const states = expandToPdfStates(emailPayload);
+    const totalPdfsByMessage = new Map<string, number>();
+    for (const it of emailPayload) {
+      totalPdfsByMessage.set(it.messageId, it.pdfs.length);
+    }
 
-  const emailPayload = await buildPayloadFromUnread();
+    // fire ALL pdfs in parallel
+    const results = await Promise.all(
+      states.map(async (original) => {
+        try {
+          const s1 = await enrichState(original);
+          const s2 = await auditState(s1);
+          const s3 = await uploadState(s2);
+          await saveState(s3);
 
-  const states = expandToPdfStates(emailPayload);
-  const totalPdfsByMessage = new Map<string, number>();
-  for (const it of emailPayload) totalPdfsByMessage.set(it.messageId, it.pdfs.length);
+          return {
+            messageId: s3.messageId,
+            success: true as const,
+          };
+        } catch (err) {
+          console.error("Poller PDF failure:", (err as any)?.message ?? err);
+          return {
+            messageId: original.messageId,
+            success: false as const,
+          };
+        }
+      })
+    );
 
-  const savedPdfsByMessage = new Map<string, number>();
-  const failedPdfsByMessage = new Map<string, number>();
-  const markedAsRead = new Set<string>();
+    // aggregate per message
+    const savedPdfsByMessage = new Map<string, number>();
+    const failedPdfsByMessage = new Map<string, number>();
 
-  let processed = 0, savedTotal = 0, failedTotal = 0, markedRead = 0;
+    for (const r of results) {
+      if (r.success) {
+        savedPdfsByMessage.set(
+          r.messageId,
+          (savedPdfsByMessage.get(r.messageId) ?? 0) + 1
+        );
+      } else {
+        failedPdfsByMessage.set(
+          r.messageId,
+          (failedPdfsByMessage.get(r.messageId) ?? 0) + 1
+        );
+      }
+    }
 
-  for (const original of states) {
-    processed += 1;
-    try {
-      const s1 = await enrichState(original);
-      const s2 = await auditState(s1);
-      const s3 = await uploadState(s2);
-      await saveState(s3);
+    // mark messages read if all PDFs for that message were saved successfully
+    let markedRead = 0;
+    for (const [messageId, total] of totalPdfsByMessage.entries()) {
+      const saved = savedPdfsByMessage.get(messageId) ?? 0;
+      const failed = failedPdfsByMessage.get(messageId) ?? 0;
 
-      const msgId = s3.messageId;
-      const saved = (savedPdfsByMessage.get(msgId) ?? 0) + 1;
-      savedPdfsByMessage.set(msgId, saved);
-      savedTotal += 1;
-
-      const total = totalPdfsByMessage.get(msgId) ?? 0;
-      const failed = failedPdfsByMessage.get(msgId) ?? 0;
-      if (saved >= total && failed === 0 && !markedAsRead.has(msgId)) {
-        await markMessageRead(msgId);
-        markedAsRead.add(msgId);
+      if (saved >= total && failed === 0) {
+        await markMessageRead(messageId);
         markedRead += 1;
       }
-    } catch (err) {
-      failedTotal += 1;
-      const msgId = original.messageId;
-      failedPdfsByMessage.set(msgId, (failedPdfsByMessage.get(msgId) ?? 0) + 1);
-      // leave UNREAD
-      console.error("Poller PDF failure:", (err as any)?.message ?? err);
     }
-  }
 
-  return { emails: emailPayload.length, pdfs: states.length, processed, saved: savedTotal, failed: failedTotal, markedRead };
-}
-finally {
+    const processed = results.length;
+    const savedTotal = results.filter((r) => r.success).length;
+    const failedTotal = results.filter((r) => !r.success).length;
+
+    return {
+      emails: emailPayload.length,
+      pdfs: states.length,
+      processed,
+      saved: savedTotal,
+      failed: failedTotal,
+      markedRead,
+    };
+  } finally {
     await releaseLock();
+  }
 }
 
-
-
-
-}
