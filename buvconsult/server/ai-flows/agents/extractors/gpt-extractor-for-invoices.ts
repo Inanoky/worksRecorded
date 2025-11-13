@@ -54,6 +54,7 @@ const invoiceItemSchema = z.object({
   currency: z.string(),
   category: z.string(),
   itemDescription: z.string(),
+  invoiceItemDate: z.coerce.date().nullable().optional(),
   
 });
 
@@ -84,7 +85,7 @@ const invoiceItemSchema = z.object({
 
   // 4) Ask GPT-4.1 (vision) with multiple images
   const res = await client.responses.create({
-    model: "gpt-4.1",
+    model: "gpt-5",
     input: [
       {
         role: "user",

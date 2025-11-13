@@ -75,8 +75,7 @@ export default async function gmailInvoiceAuditNarrative(
         ];
 
         const resp = await client.responses.create({
-          model: "gpt-4.1",
-          temperature: 0.4,
+          model: "gpt-5",        
           input: [{ role: "user", content }],
           text: { format: zodTextFormat(auditSchema, "audit") },
         });

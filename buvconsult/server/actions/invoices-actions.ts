@@ -7,34 +7,22 @@ import gptResponse from "../ai-flows/agents/extractors/gpt-extractor-for-invoice
 import { chunk } from "lodash";
 import { getOrganizationIdByUserId } from "./shared-actions";
 
+const INVOICE_FIELDS_TO_COPY = [
+  "invoiceNumber",
+  "sellerName",
+  "paymentDate",
+  "isInvoice",
+] as const;
 
 
 
 
 export const saveInvoiceToDB = async (_: unknown, formData: FormData) => {
-
-  
-
-
   const user = await requireUser();
-  const org = await getOrganizationIdByUserId(user.id)
+  const org = await getOrganizationIdByUserId(user.id);
   const siteId = formData.get("siteId") as string;
   const urls = JSON.parse(formData.get("fileUrls") as string) as string[];
 
-
-
-const INVOICE_FIELDS_TO_COPY = [
-  "invoiceNumber",
-  "sellerName",
-  "invoiceDate", 
-  
-  "paymentDate",
-  "isInvoice"
-];
-
-
-
- 
   const urlBatches = chunk(urls, 15);
 
   for (const batch of urlBatches) {
@@ -51,34 +39,42 @@ const INVOICE_FIELDS_TO_COPY = [
     await Promise.all(
       gptResults.map(async ({ url, gptResp }) => {
         if (!Array.isArray(gptResp.items)) return;
+
         await Promise.all(
-          gptResp.items.map(async (inv) => {
-            // destructure to drop `items`
+          gptResp.items.map(async (inv: any) => {
             const { items, ...invoiceData } = inv;
+
             const savedInvoice = await prisma.invoices.create({
               data: {
                 ...invoiceData,
                 url,
                 userId: user.id,
                 SiteId: siteId,
-                organizationId : org
+                organizationId: org,
               },
             });
+
             if (Array.isArray(items) && items.length > 0) {
               await prisma.invoiceItems.createMany({
-                data: items.map(item => ({
-                  ...item,
-                  invoiceId: savedInvoice.id,
-                  siteId: siteId,
-                  organizationId : org,
+                data: items.map((item: any) => {
+                  const { invoiceItemDate, ...rest } = item;
 
-                    //This acutally copies fileds from invoices to invoiceItems
-
-                    ...INVOICE_FIELDS_TO_COPY.reduce((acc, field) => {
-                    acc[field] = savedInvoice[field];
-                    return acc;
-                  }, {}),
-                })),
+                  return {
+                    ...rest,
+                    invoiceDate: invoiceItemDate ?? null,
+                    invoiceId: savedInvoice.id,
+                    siteId,
+                    organizationId: org,
+                    // copy fields from invoice to invoiceItems
+                    ...INVOICE_FIELDS_TO_COPY.reduce(
+                      (acc, field) => {
+                        acc[field] = (savedInvoice as any)[field];
+                        return acc;
+                      },
+                      {} as Record<string, any>
+                    ),
+                  };
+                }),
               });
             }
           })
