@@ -232,6 +232,11 @@ export async function runPoller() {
   try {
     const emailPayload = await buildPayloadFromUnread();
 
+    // ✅ Mark all selected messages as READ at the beginning
+    await Promise.all(
+      emailPayload.map((item) => markMessageRead(item.messageId))
+    );
+
     const states = expandToPdfStates(emailPayload);
     const totalPdfsByMessage = new Map<string, number>();
     for (const it of emailPayload) {
@@ -261,7 +266,7 @@ export async function runPoller() {
       })
     );
 
-    // aggregate per message
+    // ⛔️ optional: this block is now only for stats; it no longer controls read/unread
     const savedPdfsByMessage = new Map<string, number>();
     const failedPdfsByMessage = new Map<string, number>();
 
@@ -279,21 +284,12 @@ export async function runPoller() {
       }
     }
 
-    // mark messages read if all PDFs for that message were saved successfully
-    let markedRead = 0;
-    for (const [messageId, total] of totalPdfsByMessage.entries()) {
-      const saved = savedPdfsByMessage.get(messageId) ?? 0;
-      const failed = failedPdfsByMessage.get(messageId) ?? 0;
-
-      if (saved >= total && failed === 0) {
-        await markMessageRead(messageId);
-        markedRead += 1;
-      }
-    }
-
     const processed = results.length;
     const savedTotal = results.filter((r) => r.success).length;
     const failedTotal = results.filter((r) => !r.success).length;
+
+    // markedRead is now just `emailPayload.length` since we marked them upfront
+    const markedRead = emailPayload.length;
 
     return {
       emails: emailPayload.length,
