@@ -371,22 +371,23 @@ export const saveInvoiceToFromGmailDB = async (_: unknown, formData: FormData) =
               console.log("   ✅ Invoice saved. id:", savedInvoice.id);
 
               if (Array.isArray(items) && items.length > 0) {
-                const res = await prisma.invoiceItems.createMany({
-                  data: items.map((item: any) => ({
-                    ...item,
-                    invoiceId: savedInvoice.id,
-                    siteId: siteId,
-                    organizationId : org,
-                    // Copy selected invoice fields to invoiceItems
-                    ...INVOICE_FIELDS_TO_COPY.reduce((acc: Record<string, any>, field) => {
-                      acc[field] = (savedInvoice as any)[field];
-                      return acc;
-                    }, {}),
-                  })),
-                });
-                totalItemsSaved += res.count ?? items.length;
-                console.log(`   ✅ invoiceItems saved:`, res);
-              } else {
+  const res = await prisma.invoiceItems.createMany({
+    data: items.map((item: any) => {
+      const { invoiceItemDate, ...rest } = item; // ← strip it out
+
+      return {
+        ...rest,
+        invoiceId: savedInvoice.id,
+        siteId: siteId,
+        organizationId: org,
+        ...INVOICE_FIELDS_TO_COPY.reduce((acc: Record<string, any>, field) => {
+          acc[field] = (savedInvoice as any)[field];
+          return acc;
+        }, {}),
+      };
+    }),
+  });
+} else {
                 console.log("   ℹ️ No items to save for this invoice.");
               }
             } catch (err) {
