@@ -1,15 +1,12 @@
 "use server"
 import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import { BaseMessage, HumanMessage, SystemMessage, ToolCall } from "@langchain/core/messages";
+import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/prompts";
 import {toolNode, tools } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools"
 import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/server/actions/timesheets-actions";
 import { clickInAgentForWorkersModel, clockInAgentForWorkersModelTemperature } from "@/server/ai-flows/ai-models-settings";
-
-
-
 
 
 export default async function talkToClockInAgent(question, workerId) {
@@ -22,8 +19,8 @@ export default async function talkToClockInAgent(question, workerId) {
 
     console.log(`Worker is currently ${status}`)
 
-    const nowISO = new Date().toISOString();
-
+    // NEW: Get current date/time once for the diary tool
+    const nowISO = new Date().toISOString(); 
 
     console.log("Question:", question, "WorkerId", workerId, "SiteId" , siteId);
 
@@ -34,31 +31,43 @@ export default async function talkToClockInAgent(question, workerId) {
         }),
     });
 
-   const shouldContinue = (state) => {
+    const shouldContinue = (state) => {
         const { messages } = state;
         const lastMessage = messages[messages.length - 1];
         console.log("shouldContinue - lastMessage:", lastMessage);
-        
-        // UPDATE: Cast lastMessage to check for tool_calls property
-        const lastMessageWithTools = lastMessage as any; 
 
-        if (lastMessageWithTools && "tool_calls" in lastMessageWithTools && Array.isArray(lastMessageWithTools.tool_calls) && lastMessageWithTools.tool_calls.length) {
+        // Safely access tool_calls array (using 'as any' to avoid importing ToolCall type)
+        const toolCalls = (lastMessage as any)?.tool_calls;
+
+        if (lastMessage && toolCalls && Array.isArray(toolCalls) && toolCalls.length) {
             
-            // NEW: Inject missing siteId, workerId, and date into tool calls if needed.
-            // This is crucial for the new workerDiaryToDatabaseTool.
-            for (const toolCall of lastMessageWithTools.tool_calls as ToolCall[]) {
-                if (toolCall.function.name === "WorkerDiaryToDatabase" || toolCall.function.name === "ClockInWorker") {
-                    try {
-                        const args = JSON.parse(toolCall.function.arguments);
-                        if (!args.workerId) args.workerId = workerId;
-                        if (!args.siteId) args.siteId = siteId;
-                        // NEW: Inject current date/time for diary tool
-                        if (toolCall.function.name === "WorkerDiaryToDatabase" && !args.date) {
-                            args.date = nowISO; 
+            // CRITICAL FIX: Inject context data into tool call arguments
+            for (const toolCall of toolCalls) {
+                // Ensure toolCall.function and toolCall.function.arguments exist
+                if (toolCall.function && toolCall.function.arguments) { 
+                    const toolName = toolCall.function.name;
+                    
+                    if (toolName === "ClockInWorker" || toolName === "ClockOutWorker" || toolName === "WorkerDiaryToDatabase") {
+                        try {
+                            // Arguments are a JSON string, so we must parse them
+                            let args = JSON.parse(toolCall.function.arguments); 
+
+                            // Inject context data
+                            if (!args.workerId) args.workerId = workerId;
+                            if (!args.siteId) args.siteId = siteId;
+                            
+                            // Inject current date/time for diary tool
+                            if (toolName === "WorkerDiaryToDatabase" && !args.date) {
+                                args.date = nowISO; 
+                            }
+
+                            // Re-stringify the arguments and update the tool call object in place
+                            toolCall.function.arguments = JSON.stringify(args);
+                            console.log(`Injected context into arguments for tool: ${toolName}`);
+                        } catch (e) {
+                            console.error(`Error modifying arguments for ${toolName}:`, e);
+                            // Continue to next tool call
                         }
-                        toolCall.function.arguments = JSON.stringify(args);
-                    } catch (e) {
-                        console.error("Error modifying tool arguments:", e);
                     }
                 }
             }
@@ -104,7 +113,6 @@ export default async function talkToClockInAgent(question, workerId) {
     const config = { configurable: { thread_id: workerId} };
 
 
-
     const graph = workflow.compile({ checkpointer });
 
     const systemPrompt = systemPromptFunction(siteId, workerId, status)
@@ -132,10 +140,16 @@ export default async function talkToClockInAgent(question, workerId) {
     }
 
     if (finalState && finalState.messages && finalState.messages.length > 0) {
-        console.log("AI content:", finalState.messages[0].content);
-        return finalState.messages[0].content;
+        // Find the last actual message content (usually after tool execution)
+        const lastContentMsg = finalState.messages.findLast(
+            (msg: BaseMessage) => typeof msg.content === 'string' && msg.content.length > 0
+        );
+        
+        const content = lastContentMsg ? lastContentMsg.content : "Completed action with no response.";
+        console.log("AI content:", content);
+        return content;
     } else {
         console.log("No final AI message content produced.");
-        return null;
+        return "Sorry, I ran into an error processing your request.";
     }
 }
