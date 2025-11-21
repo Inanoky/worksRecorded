@@ -1,10 +1,14 @@
-// C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\lib\utils\whatsapp-helpers\handling-roles-routes\worker-route.ts
 "use server";
 
 import { prisma } from "@/lib/utils/db";
 import talkToClockInAgent from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/agent";
 import twilio from "twilio";
 import OpenAI, { toFile } from "openai";
+// UPDATE: Ensure this import path is correct for your file structure
+// (assuming handleImage.ts is in the same directory as this file based on surrounding context)
+import { handleImage } from "../shared/handleImage";
+// NOTE: I am using './handleImage' as a placeholder. You used '../shared/handleImage', 
+// ensure the path matches where you placed the updated handleImage.ts file.
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID!;
 const authToken = process.env.TWILIO_AUTH_TOKEN!;
@@ -21,8 +25,50 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
   const body = (formData.get("Body") || "").toString().trim();
   const from = formData.get("From") as string;
   const NumMedia = (formData.get("NumMedia") || "0").toString();
+  const numMedia = parseInt(NumMedia, 10); // NEW: parse NumMedia for general checks
 
   let messageText = body;
+
+  // Find worker by phone number (FIRST LOOKUP)
+  const worker = await prisma.workers.findFirst({
+    where: { phone },
+  });
+  console.log("  Worker lookup result:", worker);
+
+  if (!worker) {
+    console.warn("[handleWorkerMessage] No worker found for phone:", phone);
+    await sendMessage(from, "Worker not found in system.");
+    return;
+  }
+
+
+  // === NEW: Image message handling ===
+  if (numMedia > 0) {
+    // We only call handleImage if there is media, and it will check for image type inside.
+    const siteId = worker.siteId; // Worker's site ID is needed for photo submission
+    
+    // Skip if worker doesn't have an assigned site.
+    if (!siteId) {
+        await sendMessage(from, "Sorry, you must be assigned to a site to submit photos.");
+        return;
+    }
+    
+    // NEW: Check if it's an image and handle it
+    const imageHandled = await handleImage({
+        formData,
+        numMedia,
+        workerId: worker.id, // Pass workerId
+        siteId: siteId, // Pass siteId
+        to: from,
+        body: body,
+        agent: talkToClockInAgent, 
+    });
+
+    if (imageHandled) {
+        // If an image was handled, we are done with this message.
+        return;
+    }
+  }
 
   // === Audio message transcription support ===
   if (NumMedia === "1") {
@@ -61,22 +107,17 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
   console.log("  Body:", body);
   console.log("  Used Text:", messageText);
 
+  // The second `worker` lookup and check block has been REMOVED here.
   try {
-    // Find worker by phone number
-    const worker = await prisma.workers.findFirst({
-      where: { phone },
-    });
-
-    console.log("  Worker lookup result:", worker);
-
-    if (!worker) {
-      console.warn("[handleWorkerMessage] No worker found for phone:", phone);
-      await sendMessage(from, "Worker not found in system.");
-      return;
+    // Worker found, send to AI agent (only if messageText is not empty or non-transcribed audio)
+    // NOTE: This assumes that if an image was handled, the function returned earlier.
+    if (messageText.length === 0) {
+        // Handles cases where there was no message body and no transcribable audio
+        return;
     }
-
-    // Worker found, send to AI agent
+    
     console.log("[handleWorkerMessage] Sending to talkToClockInAgent...");
+    // We use the worker object retrieved at the start of the function.
     const message = await talkToClockInAgent(messageText, worker.id);
     await sendMessage(from, message);
 

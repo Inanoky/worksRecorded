@@ -198,6 +198,8 @@ model sitediaryrecords {
   id              String    @id @default(uuid())
   User            User?     @relation(fields: [userId], references: [id])
   userId          String?
+  Worker          workers?  @relation(fields: [workerId], references: [id])
+  workerId        String?
   Site            Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade) // 06:16 - onDelete added
   siteId          String?
   Date            DateTime?
@@ -237,6 +239,8 @@ model photos {
   Location String?
   User     User?     @relation(fields: [userId], references: [id])
   userId   String?
+  Worker           workers?  @relation(fields: [workerId], references: [id])
+  workerId         String?
   fileUrl  String?
   Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId   String?
@@ -257,6 +261,8 @@ model workers {
   phone     String?
   isClockedIn Boolean?
   timelog timelog[]
+  photos photos[]
+  sitediaryrecords sitediaryrecords[]
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

@@ -1,7 +1,7 @@
 "use server"
 import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
+import { BaseMessage, HumanMessage, SystemMessage, ToolCall } from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/prompts";
 import {toolNode, tools } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools"
@@ -22,6 +22,8 @@ export default async function talkToClockInAgent(question, workerId) {
 
     console.log(`Worker is currently ${status}`)
 
+    const nowISO = new Date().toISOString();
+
 
     console.log("Question:", question, "WorkerId", workerId, "SiteId" , siteId);
 
@@ -32,12 +34,35 @@ export default async function talkToClockInAgent(question, workerId) {
         }),
     });
 
-    const shouldContinue = (state) => {
+   const shouldContinue = (state) => {
         const { messages } = state;
         const lastMessage = messages[messages.length - 1];
         console.log("shouldContinue - lastMessage:", lastMessage);
+        
+        // UPDATE: Cast lastMessage to check for tool_calls property
+        const lastMessageWithTools = lastMessage as any; 
 
-        if (lastMessage && "tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls.length) {
+        if (lastMessageWithTools && "tool_calls" in lastMessageWithTools && Array.isArray(lastMessageWithTools.tool_calls) && lastMessageWithTools.tool_calls.length) {
+            
+            // NEW: Inject missing siteId, workerId, and date into tool calls if needed.
+            // This is crucial for the new workerDiaryToDatabaseTool.
+            for (const toolCall of lastMessageWithTools.tool_calls as ToolCall[]) {
+                if (toolCall.function.name === "WorkerDiaryToDatabase" || toolCall.function.name === "ClockInWorker") {
+                    try {
+                        const args = JSON.parse(toolCall.function.arguments);
+                        if (!args.workerId) args.workerId = workerId;
+                        if (!args.siteId) args.siteId = siteId;
+                        // NEW: Inject current date/time for diary tool
+                        if (toolCall.function.name === "WorkerDiaryToDatabase" && !args.date) {
+                            args.date = nowISO; 
+                        }
+                        toolCall.function.arguments = JSON.stringify(args);
+                    } catch (e) {
+                        console.error("Error modifying tool arguments:", e);
+                    }
+                }
+            }
+
             console.log("shouldContinue: Detected tool_calls, going to 'tools'");
             return "tools";
         }

@@ -1,31 +1,44 @@
 // app/actions/saveSiteDiaryRecords.ts
 "use server";
 
-import { prisma} from "@/lib/utils/db";
-import {requireUser} from "@/lib/utils/requireUser";
+import { prisma } from "@/lib/utils/db";
+import { requireUser } from "@/lib/utils/requireUser";
 import { parseExcelToTree } from "@/server/ai-flows/agents/settings/schema-upload/agent"; // Optional: if you want to refresh data on page
 import { validateExcel } from "@/lib/utils/SiteDiary/Settings/validateSchema";
-import { SavePhotoArgs, GetPhotosByDateArgs, Args} from "@/server/actions/types";
+import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
+import { getOrganizationIdByWorkerId } from "./shared-actions";
 
 
 
 // Site diary records actions 
 
-export async function saveSiteDiaryRecord({ rows, userId, siteId }) {
+export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) { // UPDATED: added workerId
 
-  const org = await getOrganizationIdByUserId(userId)
+  // NEW: Determine the entity and fetch the organization ID
+  const entityId = workerId ?? userId;
+  const isWorker = !!workerId;
 
+  let org: string | null = null;
+  if (entityId) {
+    // Assuming getOrganizationIdByWorkerId and getOrganizationIdByUserId exist
+    // NEW: Use the appropriate lookup function based on whether workerId or userId is present
+    org = isWorker
+      ? await getOrganizationIdByWorkerId(entityId)
+      : await getOrganizationIdByUserId(entityId);
+  }
 
-    // Make sure requireUser() is not triggering a redirect!
+  // Make sure requireUser() is not triggering a redirect!
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows
     .filter((r) => r.location || r.works)
     .map((row, idx) => {
       const out = {
+        // UPDATE: Conditionally set userId or workerId
         userId: userId ?? undefined,
+        workerId: workerId ?? undefined, // NEW
         siteId: siteId ?? undefined,
-        organizationId : org ?? undefined,
+        organizationId: org ?? undefined,
         Date: row.date ? new Date(row.date) : undefined,
         Location: row.location || undefined,
         Works: row.works || undefined,
@@ -36,21 +49,18 @@ export async function saveSiteDiaryRecord({ rows, userId, siteId }) {
         TimeInvolved: row.hours ? Number(row.hours) : undefined,
         Photos: [],
       };
-  
+
       return out;
     });
 
-
-
   if (!toInsert.length) {
-   
     return { ok: false, message: "No records to insert" };
   }
 
   // Bulk insert
   try {
-     await prisma.sitediaryrecords.createMany({ data: toInsert });
-    
+    await prisma.sitediaryrecords.createMany({ data: toInsert });
+
   } catch (err) {
 
     return { ok: false, message: err.message };
@@ -58,12 +68,10 @@ export async function saveSiteDiaryRecord({ rows, userId, siteId }) {
 
   // Optionally, revalidate data on page
   // revalidatePath("/site-diary");
-
   return { ok: true, count: toInsert.length }; //Multitenant
 }
 
-
-export async function saveSiteDiaryRecordFromWeb({ rows,  siteId }) {
+export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
 
 
 
@@ -74,12 +82,12 @@ export async function saveSiteDiaryRecordFromWeb({ rows,  siteId }) {
 
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows
-   
+
     .map((row, idx) => {
       const out = {
         userId: user.id ?? undefined,
         siteId: siteId ?? undefined,
-        organizationId : org ?? undefined,
+        organizationId: org ?? undefined,
         Date: row.date ? new Date(row.date) : undefined,
         Location: row.location || undefined,
         Works: row.works || undefined,
@@ -94,18 +102,18 @@ export async function saveSiteDiaryRecordFromWeb({ rows,  siteId }) {
       return out;
     });
 
-  
+
   if (!toInsert.length) {
-   
+
     return { ok: false, message: "No records to insert" };
   }
 
   // Bulk insert
   try {
     const dbResult = await prisma.sitediaryrecords.createMany({ data: toInsert });
-    
+
   } catch (err) {
-    
+
     return { ok: false, message: err.message };
   }
 
@@ -146,9 +154,9 @@ export async function deleteSiteDiaryRecord({ id }: { id: string }) {
 export async function getSiteDiaryRecord({ siteId, date }) {
   // Get records for the *same day* (ignoring time)
   const start = new Date(date);
-  start.setHours(0,0,0,0);
+  start.setHours(0, 0, 0, 0);
   const end = new Date(date);
-  end.setHours(23,59,59,999);
+  end.setHours(23, 59, 59, 999);
 
   const records = await prisma.sitediaryrecords.findMany({
     where: {
@@ -254,7 +262,7 @@ export async function saveSettingsToDB(formData: FormData) { //Multitenant
   }
 
 
-   // ✅ Download file buffer and validate
+  // ✅ Download file buffer and validate
   const res = await fetch(fileUrl);
   if (!res.ok) throw new Error(`Failed to download file. HTTP ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
@@ -266,7 +274,7 @@ export async function saveSettingsToDB(formData: FormData) { //Multitenant
   // 1) Run AI – normalize to an array before saving
   let schemaStr: string | null = null;
   try {
-    const result = await parseExcelToTree(fileUrl,buf ); // could be Node[] or { tree: Node[] }
+    const result = await parseExcelToTree(fileUrl, buf); // could be Node[] or { tree: Node[] }
     const treeArray = Array.isArray(result) ? result : result?.tree;
     if (Array.isArray(treeArray)) {
       schemaStr = JSON.stringify(treeArray);
@@ -280,7 +288,7 @@ export async function saveSettingsToDB(formData: FormData) { //Multitenant
   // 2) Upsert
   await prisma.sitediarysettings.upsert({
     where: { siteId },
-    update: { fileUrl, schema: schemaStr, organizationId: org},
+    update: { fileUrl, schema: schemaStr, organizationId: org },
     create: { siteId, fileUrl, schema: schemaStr, organizationId: org },
   });
 
@@ -311,38 +319,41 @@ export async function deleteSchemaBySiteId(formData: FormData) {
 
 
 export async function getLocationsWorksFromSiteSchema(siteId: string, type: 'Location' | 'Work') {
-        
 
-const schema = await getSiteDiarySchema({siteId});
+
+  const schema = await getSiteDiarySchema({ siteId });
 
   function extractLocationNames(schema) {
     return schema.filter(node => node.type === "Location").map(node => node.name);
 
-    }
+  }
   function extractWorkNames(schema) {
     const worksSet = new Set();
     function walk(node) {
-        if (node.type === "Work") worksSet.add(node.name);
-        node.children?.forEach(walk);
+      if (node.type === "Work") worksSet.add(node.name);
+      node.children?.forEach(walk);
     }
     schema.forEach(walk);
     return Array.from(worksSet);
-    }
+  }
 
-    if (type === 'Location'){
-        return extractLocationNames(schema);
-    } else {    
-        return extractWorkNames(schema);
-
-                
-              
+  if (type === 'Location') {
+    return extractLocationNames(schema);
+  } else {
+    return extractWorkNames(schema);
 
 
-}}
+
+
+
+  }
+}
 
 
 export async function savePhoto({ //multitenant
   userId,
+  // NEW: Destructure workerId
+  workerId,
   siteId,
   url,
   fileUrl,
@@ -351,7 +362,14 @@ export async function savePhoto({ //multitenant
   date,
 }: SavePhotoArgs) {
 
-  const org = await getOrganizationIdByUserId(userId)
+  // NEW: Determine which ID to use for organization lookup and photo record
+  const entityId = workerId ?? userId;
+  const isWorker = !!workerId;
+
+  // NEW: Use getOrganizationIdByWorkerId if it's a worker, otherwise use getOrganizationIdByUserId
+  const org = entityId ?
+    (isWorker ? await getOrganizationIdByWorkerId(entityId) : await getOrganizationIdByUserId(entityId))
+    : null;
 
 
   // Normalize empties to null to satisfy Prisma's optional fields
@@ -362,9 +380,11 @@ export async function savePhoto({ //multitenant
       fileUrl: fileUrl ?? url ?? null,
       Comment: comment ?? null,
       Location: location ?? null,
+      // UPDATE: Conditionally save userId or workerId
       userId: userId ?? null,
+      workerId: workerId ?? null,
       siteId: siteId ?? null,
-      organizationId : org
+      organizationId: org
     },
   });
 
@@ -410,10 +430,10 @@ export async function deletePhotoById(id: string) {
 export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
   if (!siteId) throw new Error("Missing siteId");
 
-  return  prisma.sitediaryrecords.findMany({
-      where: { siteId },
-      orderBy: [{ Date: "asc" }],
-          select: {
+  return prisma.sitediaryrecords.findMany({
+    where: { siteId },
+    orderBy: [{ Date: "asc" }],
+    select: {
       Date: true,
       Location: true,
       Works: true,
@@ -427,5 +447,5 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       // id: true,
       // siteId: true,
     },
-    })
-  }
+  })
+}

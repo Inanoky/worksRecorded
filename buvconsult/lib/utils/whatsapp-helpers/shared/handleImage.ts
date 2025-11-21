@@ -14,12 +14,15 @@ const utapi = new UTApi();
 export async function handleImage(args: {
   formData: FormData;
   numMedia: number;
-  user: any;
+  // UPDATE: Change 'user' to 'workerId' and 'siteId'
+  workerId: string; // NEW: Pass workerId directly
+  siteId: string; // NEW: Pass siteId directly
   to: string | null;
   body: string;
   agent: AgentFn; // <- accepted but not used now
 }): Promise<boolean> {
-  const { formData, numMedia, user, to, body } = args;
+  // UPDATE: Destructure workerId and siteId instead of user
+  const { formData, numMedia, workerId, siteId, to, body } = args;
 
   const idx = findFirstImageIndex(formData, numMedia);
   if (idx < 0) return false;
@@ -44,9 +47,11 @@ export async function handleImage(args: {
 
     const publicUrl = first.data.ufsUrl ?? first.data.url;
 
+    // UPDATE: Use workerId and siteId in savePhoto
     await savePhoto({
-      userId: user.id,
-      siteId: user.lastSelectedSiteIdforWhatsapp,
+      workerId: workerId, // NEW: Pass workerId
+      userId: null, // NEW: Set userId to null
+      siteId: siteId,
       url: publicUrl,
       fileUrl: publicUrl,
       comment: body || null,

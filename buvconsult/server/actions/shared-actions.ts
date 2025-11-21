@@ -420,3 +420,12 @@ export async function getUserEmailByUserId(userId: string): Promise<string | nul
 
   return user.email ?? null;
 }
+
+
+export async function getOrganizationIdByWorkerId(workerId: string): Promise<string | null> {
+  const worker = await prisma.workers.findUnique({
+    where: { id: workerId },
+    select: { organizationId: true },
+  });
+  return worker?.organizationId ?? null;
+}
