@@ -7,6 +7,7 @@ import { BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messag
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction } from "@/server/ai-flows/agents/project-diary-agent/prompts";
 import { toolNode, tools } from "@/server/ai-flows/agents/project-diary-agent/tools"
+import { projectDiaryAgentModel,projectDiaryAgentModelTemperature } from "@/server/ai-flows/ai-models-settings";
 
 
 export default async function talkToProjectDiaryAgent(
@@ -27,7 +28,7 @@ export default async function talkToProjectDiaryAgent(
   };
 
   const agent = async (s: { messages: BaseMessage[] }) => {
-    const llm = new ChatOpenAI({ temperature: 0.1, model: "gpt-4.1" }).bindTools(tools);
+    const llm = new ChatOpenAI({ temperature: projectDiaryAgentModelTemperature, model: projectDiaryAgentModel }).bindTools(tools);
     const response = await llm.invoke(s.messages);
     return { messages: [response] };
   };

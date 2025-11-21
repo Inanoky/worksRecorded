@@ -5,6 +5,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 import * as XLSX from "xlsx";
 import { systemPrompt } from "@/server/ai-flows/agents/settings/schema-upload/prompts";
+import { settingsAgentModel,settingsAgentModelTemperature } from "@/server/ai-flows/ai-models-settings";
 
 
 const MAX_CHARS = 120_000;
@@ -55,8 +56,8 @@ export async function parseExcelToTree(url: string, buf) {
 
   // 3) LangChain LLM with structured output (schema = Node object at the root)
   const llm = new ChatOpenAI({
-    model: "gpt-4.1",
-    temperature: 0,
+    model: settingsAgentModel,
+    temperature: settingsAgentModelTemperature
   });
 
   const structured = llm.withStructuredOutput(WrappedSchema);

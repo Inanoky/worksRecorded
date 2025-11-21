@@ -5,6 +5,8 @@ import { PdfImage, PdfResource, PngImageFormat } from "@dynamicpdf/api";
 import { z } from "zod";
 import { constructionCategories } from "./construction-categories";
 import {zodTextFormat} from "openai/helpers/zod";
+import { gptExtractorForInvociesModel, } from "@/server/ai-flows/ai-models-settings";
+
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -85,7 +87,7 @@ const invoiceItemSchema = z.object({
 
   // 4) Ask GPT-4.1 (vision) with multiple images
   const res = await client.responses.create({
-    model: "gpt-5",
+    model: gptExtractorForInvociesModel ,
     input: [
       {
         role: "user",

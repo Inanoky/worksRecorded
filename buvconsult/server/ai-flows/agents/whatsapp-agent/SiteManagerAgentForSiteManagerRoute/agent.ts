@@ -5,6 +5,11 @@ import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/prompts"
 import {toolNode, tools} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
+import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSiteManagerRouteModelModelTemperature } from "@/server/ai-flows/ai-models-settings";
+
+
+
+
 
 export default async function talkToWhatsappAgent(question, siteId, userId) {
     console.log("=== talkToWhatsappAgent called ===");
@@ -36,8 +41,8 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         const { messages } = state;
        
         const llm = new ChatOpenAI({
-            temperature: 0.1,
-            model: "gpt-4.1",
+            temperature: siteManagerAgentForSiteManagerRouteModelModelTemperature,
+            model: siteManagerAgentForSiteManagerRouteModelModel,
         }).bindTools(tools);
 
         const response = await llm.invoke(messages);

@@ -8,6 +8,9 @@ import { retriever } from "@/server/ai-flows/agents/shared-between-agents/retrie
 import { ensurePdfFilename } from "@/app/api/poller/filename";
 import { EnrichedEmailPayloadItem, AuditPdfRow} from "./types"
 import { instructions, checklist } from "@/server/ai-flows/agents/gmail-workflow-agent/prompts";
+import { gmalWorkFlowAgentModel, } from "@/server/ai-flows/ai-models-settings";
+
+
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
@@ -75,7 +78,7 @@ export default async function gmailInvoiceAuditNarrative(
         ];
 
         const resp = await client.responses.create({
-          model: "gpt-5",        
+          model: gmalWorkFlowAgentModel,        
           input: [{ role: "user", content }],
           text: { format: zodTextFormat(auditSchema, "audit") },
         });

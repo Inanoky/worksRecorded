@@ -8,6 +8,7 @@ import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import {tools, toolNode} from "@/server/ai-flows/agents/sitediary-agent/Tools" 
 import {systemPrompt} from "@/server/ai-flows/agents/sitediary-agent/Prompts";
+import { siteDiaryAgentModel } from "@/server/ai-flows/ai-models-settings";
 
 
 
@@ -37,7 +38,7 @@ const agentNode = async (state) => {
 
     const llm = new ChatOpenAI({
         
-        model: "gpt-5-mini",
+        model: siteDiaryAgentModel,
     }).bindTools(tools);
     ;
 

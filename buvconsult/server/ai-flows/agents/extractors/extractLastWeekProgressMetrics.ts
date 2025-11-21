@@ -6,7 +6,7 @@ import { z } from "zod";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { getSiteDiaryPreviousWeek } from "@/server/actions/analytics-actions";
 import { savePreviousWeekMetrics } from "@/server/actions/analytics-actions";
-
+import { extractLastWeekProgressMetricsModel, extractLastWeekProgressMetricsModelTemperature } from "@/server/ai-flows/ai-models-settings";
 const schema = z.object({
 
 
@@ -33,8 +33,8 @@ export async function extractSiteDiaryPreviouseWeek(siteId: string) {
 
 
   const llm = new ChatOpenAI({
-    model: "gpt-4.1",
-    temperature: 0,
+    model: extractLastWeekProgressMetricsModel,
+    temperature: extractLastWeekProgressMetricsModelTemperature
    
   });
 

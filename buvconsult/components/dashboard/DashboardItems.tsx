@@ -16,25 +16,32 @@ export const projectNavLinks = [
     path: "dashboard",
     icon: ReceiptText,
   },
-    
-     {
-    name: "Documents",
-    href: "/dashboard/documents",
-    path: "documents",
-    icon: Layers,
-  },
   {
     name: "Site Diary",
     href: "/dashboard/siteDiary",
     path: "siteDiary",
     icon: NotebookPen,
   },
-   {
+      {
     name: "Project Diary",
     href: "/dashboard/projectDiary",
     path: "projectDiary",
     icon: NotebookPen,
   },
+    {
+    name: "Invoices",
+    href: "/dashboard/invoices",
+    path: "invoices",
+    icon: ReceiptText,
+  },
+     {
+    name: "Documents",
+    href: "/dashboard/documents",
+    path: "documents",
+    icon: Layers,
+  },
+  
+ 
   {
     name: "Timesheets",
     href: "/dashboard/timesheets",

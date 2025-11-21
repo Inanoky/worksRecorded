@@ -6,6 +6,11 @@ import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/prompts";
 import {toolNode, tools } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools"
 import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/server/actions/timesheets-actions";
+import { clickInAgentForWorkersModel, clockInAgentForWorkersModelTemperature } from "@/server/ai-flows/ai-models-settings";
+
+
+
+
 
 export default async function talkToClockInAgent(question, workerId) {
     console.log("=== talkToWhatsappAgent called ===");
@@ -45,8 +50,8 @@ export default async function talkToClockInAgent(question, workerId) {
         console.log("agent node - messages to model:", messages);
 
         const llm = new ChatOpenAI({
-            temperature: 0.5,
-            model: "gpt-4.1",
+            temperature: clockInAgentForWorkersModelTemperature,
+            model: clickInAgentForWorkersModel,
         }).bindTools(tools);
 
         const response = await llm.invoke(messages);

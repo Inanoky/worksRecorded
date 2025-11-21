@@ -7,6 +7,7 @@ import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import {tools, toolNode} from "@/server/ai-flows/agents/invoices-agent/tools"
 import {systemPrompt} from "@/server/ai-flows/agents/invoices-agent/prompts" 
+import { invoiceAgentModel, } from "@/server/ai-flows/ai-models-settings";
 
 
 
@@ -36,7 +37,7 @@ const agentNode = async (state) => {
 
     const llm = new ChatOpenAI({
         
-        model: "gpt-5-mini",
+        model: invoiceAgentModel,
     }).bindTools(tools);
     ;
 

@@ -7,6 +7,7 @@ import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import {tools, toolNode} from "@/server/ai-flows/agents/orchestrating-agent-v2/tools"
 import { systemPrompt } from "@/server/ai-flows/agents/orchestrating-agent-v2/prompts";
+import { orchestratingAgentV2ModelModel, } from "@/server/ai-flows/ai-models-settings";
 
 
 
@@ -36,7 +37,7 @@ const agentNode = async (state) => {
 
     const llm = new ChatOpenAI({
         
-        model: "gpt-5",
+        model: orchestratingAgentV2ModelModel,
     }).bindTools(tools);
     ;
 

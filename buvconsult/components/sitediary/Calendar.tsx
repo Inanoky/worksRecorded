@@ -8,6 +8,9 @@ import DialogWindow from "@/components/sitediary/DialogWindow";
 import { getFilledDays } from "@/server/actions/site-diary-actions";
 import * as XLSX from "xlsx";
 import { getSitediaryRecordsBySiteIdForExcel } from "@/server/actions/site-diary-actions";
+import { Label } from "@/components/ui/label";
+
+
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -78,6 +81,9 @@ export default function SiteDiaryCalendar({ siteId }) {
         
         
         </h2>
+        <div>
+          <Label> Start talking to AI +13135131153 (Whatsapp) </Label>
+        </div>
         <div>
 
            <Button className="ml-2" variant="outline"  onClick={exportToExcel}>

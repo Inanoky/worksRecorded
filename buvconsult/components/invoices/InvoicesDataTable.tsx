@@ -97,6 +97,7 @@ export function InvoicesDataTable({ data, siteId }) {
     try {
       await deleteInvoice(id);
       toast.success("Invoice deleted");
+      router.refresh()
   
     } catch {
       toast.error("Delete failed");

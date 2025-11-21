@@ -30,13 +30,22 @@ export const steps_dashboard_sites_new = [
 export const steps_dashboard_siteid_dashboard = [
   {
     target: '[data-tour="key-metrics"]',
-    content: `This is your dashboard for the project progress and finances. Lets make it live by uploading first invocie!`,
+    content: `This is your dashboard for the project progress and finances. Make it live by starting using site diary and uploading invoices`,
     disableBeacon: true
   },
+   
+  
+]
+
+
+
+
+export const steps_dashboard_siteid_invoices= [
+
     {
     target: '[data-tour="invoice-table"]',
     content: ' Send an PDF invoice to the invoices@buvconsult.com, and mention project name in the ' +
-    `subject or body of the email. In a cuple of minutes you will see invoice here`,
+    `subject or body of the email. In a couple of minutes you will see invoice here`,
     disableBeacon: true
   },
   

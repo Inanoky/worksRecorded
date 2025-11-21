@@ -5,6 +5,7 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard_siteid_project_diary} from "@/components/joyride/JoyRideSteps";
+import { Label } from "@/components/ui/label";
 
 
 
@@ -33,6 +34,8 @@ export default async function ProjectDiary ({params}:
        
                <div className="w-full"
                data-tour="project-diary">
+                          <Label> Start talking to AI +13135131153 (Whatsapp) </Label>
+                
                 <TourRunner steps={steps_dashboard_siteid_project_diary} stepName="steps_dashboard_siteid_project_diary"/>
        
                              <GenericTemplateTable

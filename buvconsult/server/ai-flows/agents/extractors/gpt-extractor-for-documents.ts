@@ -4,6 +4,8 @@
 import OpenAI from "openai";
 import {z} from "zod";
 import {zodTextFormat} from "openai/helpers/zod";
+import { gptExtractorForDocumentsModel, } from "@/server/ai-flows/ai-models-settings";
+
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -34,7 +36,7 @@ export default async function gptDocumentsResponse(fileUrl) {
 
  
   const gptDocumentResponse = await client.responses.create({
-    model: "gpt-4.1",
+    model: gptExtractorForDocumentsModel,
     input: [
       {
         role: "user",
