@@ -174,5 +174,5 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
   }
 });
 
-export const tools = [clockInWorkerTool, clockOutWorkerTool];
+export const tools = [clockInWorkerTool, clockOutWorkerTool, workerDiaryToDatabaseTool];
 export const toolNode = new ToolNode<typeof GraphState.State>(tools);
