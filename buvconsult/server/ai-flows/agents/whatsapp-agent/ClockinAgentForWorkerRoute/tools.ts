@@ -9,7 +9,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 
 
-const systemPromptSaveToDatabase = `You are an expert at extracting and structuring construction site log data from a human-readable message. Your output MUST be a JSON array that strictly adheres to the provided Zod schema. Analyze the user's message and fill the fields accurately. Date must be in ISO format. Today's date is for context only.`;
+const systemPromptSaveToDatabase = ` Save users's message. Your output MUST be a JSON array that strictly adheres to the provided Zod schema.  Date must be in ISO format. Today's date is for context only.`;
 // === HELPER FUNCTIONS (re-copied from SiteManager's tools.ts for context) ===
 function extractLocationNames(schema) {
   return schema.filter(node => node.type === "Location").map(node => node.name);
