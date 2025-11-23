@@ -98,7 +98,7 @@ export async  function systemPromptFunction(siteId, userId){
     
     If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes 
 
-    Store also original comment
+    Store also original comment in original language (wihtout changes)
     `
 
     const prompt = prompt_10_11_2025
