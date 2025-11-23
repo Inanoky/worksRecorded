@@ -5,13 +5,13 @@ import {
   Table, TableBody, TableHead, TableHeader, TableRow, TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-  import { Input } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
-  getSiteDiaryRecord, getSiteDiarySchema,  saveSiteDiaryRecordFromWeb,
+  getSiteDiaryRecord, getSiteDiarySchema, saveSiteDiaryRecordFromWeb,
   deleteSiteDiaryRecord, updateSiteDiaryRecord
 } from "@/server/actions/site-diary-actions";
 import { toast } from "sonner";
@@ -38,9 +38,9 @@ const allowedUnits = [
 const DiaryRowSchema = z.object({
   amounts: z.coerce.number().finite().optional().or(z.literal("")),
   workers: z.coerce.number().int().optional().or(z.literal("")),
-  hours:   z.coerce.number().finite().optional().or(z.literal("")),
+  hours: z.coerce.number().finite().optional().or(z.literal("")),
   comments: z.string().max(1500).optional().or(z.literal("")),
-//   units:    z.enum(allowedUnits).optional().or(z.literal("")),
+  //   units:    z.enum(allowedUnits).optional().or(z.literal("")),
 });
 
 const DiaryRowsSchema = z.array(DiaryRowSchema);
@@ -84,7 +84,7 @@ export function useSiteSchema(siteId: string | null) {
 
 /* ---------- component ---------- */
 export function DialogTable({ date, siteId, onSaved }: {
-  
+
   date: Date | null;
   siteId: string | null;
   onSaved?: () => void;
@@ -106,6 +106,9 @@ export function DialogTable({ date, siteId, onSaved }: {
     workers: "",
     hours: "",
     comments: "",
+    // >>> NEW FIELD
+    createdBy: "",
+    // <<< NEW FIELD
   });
 
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
@@ -142,7 +145,7 @@ export function DialogTable({ date, siteId, onSaved }: {
     console.log("[Diary][Submit] raw rows:", rows);
 
 
-     const parsed = DiaryRowsSchema.safeParse(rows);
+    const parsed = DiaryRowsSchema.safeParse(rows);
     if (!parsed.success) {
       toast.error(parsed.error.errors[0].message);
       return;
@@ -153,7 +156,7 @@ export function DialogTable({ date, siteId, onSaved }: {
       ...((schema?.flatMap(root => collectWorks(root))) ?? []),
       ADDITIONAL_WORKS_OPTION,
       CLIENT_DELAY_OPTION,
-      INTERNAL_DELAY_OPTION,  
+      INTERNAL_DELAY_OPTION,
       NOTE_OPTION
     ];
     console.log("[Diary][Submit] allWorkOptions count:", allWorkOptions.length);
@@ -189,7 +192,7 @@ export function DialogTable({ date, siteId, onSaved }: {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
     const existingRows = rowsToSave.filter(r => isUUID(r.id));
-    const newRows      = rowsToSave.filter(r => !isUUID(r.id));
+    const newRows = rowsToSave.filter(r => !isUUID(r.id));
 
     console.log("[Diary][Submit] split:", {
       existingCount: existingRows.length,
@@ -256,16 +259,18 @@ export function DialogTable({ date, siteId, onSaved }: {
       const isoDate = typeof date === "string" ? date : date.toISOString();
       console.log("[Diary][Effect] loading rows for:", { siteId, isoDate });
       const loadedRows = await getSiteDiaryRecord({ siteId, date: isoDate });
+      console.log(`this are loaded rows ${loadedRows}`)
+      
       if (cancelled) return;
 
       const nextRows =
         loadedRows.length
           ? loadedRows.map((row: any) => ({
-              ...row,
-              _tempId: crypto.randomUUID(),
-              location_code: "",
-              works_code: "",
-            }))
+            ...row,
+            _tempId: crypto.randomUUID(),
+            location_code: "",
+            works_code: "",
+          }))
           : [newEmptyRow()];
 
       console.log("[Diary][Effect] loaded rows:", nextRows);
@@ -284,13 +289,13 @@ export function DialogTable({ date, siteId, onSaved }: {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
-          <Button type="button" variant="outline" onClick={handleAddRow} className="w-full sm:w-auto">
+        <Button type="button" variant="outline" onClick={handleAddRow} className="w-full sm:w-auto">
 
           Add task
         </Button>
-         <Button type="submit" className="w-full sm:w-auto">
+        <Button type="submit" className="w-full sm:w-auto">
           Save diary
-          </Button>
+        </Button>
       </div>
 
       <ScrollArea className="w-full h-[25vh] sm:h-[35vh] rounded-none border">
@@ -307,6 +312,9 @@ export function DialogTable({ date, siteId, onSaved }: {
                   <TableHead className="text-center w-[120px]">Workers</TableHead>
                   <TableHead className="text-center w-[110px]">Hours</TableHead>
                   <TableHead className="text-center min-w-[480px]">Comments</TableHead>
+                  {/* >>> START: NEW TABLE HEAD */}
+                  <TableHead className="text-center w-[150px]">Created by</TableHead>
+                  {/* <<< END: NEW TABLE HEAD */}
                   <TableHead className="text-center w-[80px]">Delete</TableHead>
                 </TableRow>
               </TableHeader>
@@ -374,19 +382,19 @@ export function DialogTable({ date, siteId, onSaved }: {
                             <SelectItem key={ADDITIONAL_WORKS_OPTION.value} value={ADDITIONAL_WORKS_OPTION.value}>
                               {ADDITIONAL_WORKS_OPTION.label}
                             </SelectItem>
-                             <SelectItem key={CLIENT_DELAY_OPTION.value} value={CLIENT_DELAY_OPTION.value}>
+                            <SelectItem key={CLIENT_DELAY_OPTION.value} value={CLIENT_DELAY_OPTION.value}>
                               {CLIENT_DELAY_OPTION.label}
                             </SelectItem>
-                            
-                             <SelectItem key={INTERNAL_DELAY_OPTION.value} value={INTERNAL_DELAY_OPTION.value}>
+
+                            <SelectItem key={INTERNAL_DELAY_OPTION.value} value={INTERNAL_DELAY_OPTION.value}>
                               {INTERNAL_DELAY_OPTION.label}
                             </SelectItem>
-                              <SelectItem key={NOTE_OPTION.value} value={NOTE_OPTION.value}>
+                            <SelectItem key={NOTE_OPTION.value} value={NOTE_OPTION.value}>
                               {NOTE_OPTION.label}
                             </SelectItem>
-                            
 
-                            
+
+
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -405,41 +413,46 @@ export function DialogTable({ date, siteId, onSaved }: {
                                 {unit}
                               </SelectItem>
                             ))}
-                            
+
                           </SelectContent>
                         </Select>
                       </TableCell>
 
                       <TableCell className="text-center py-2">
                         <Input className="w-full text-center" inputMode="decimal" value={row.amounts}
-                               onChange={e => handleChange(row.id ?? row._tempId, "amounts", e.target.value)} />
+                          onChange={e => handleChange(row.id ?? row._tempId, "amounts", e.target.value)} />
                       </TableCell>
 
                       <TableCell className="text-center py-2">
                         <Input className="w-full text-center" inputMode="numeric" value={row.workers}
-                               onChange={e => handleChange(row.id ?? row._tempId, "workers", e.target.value)} />
+                          onChange={e => handleChange(row.id ?? row._tempId, "workers", e.target.value)} />
                       </TableCell>
 
                       <TableCell className="text-center py-2">
                         <Input className="w-full text-center" inputMode="decimal" value={row.hours}
-                               onChange={e => handleChange(row.id ?? row._tempId, "hours", e.target.value)} />
+                          onChange={e => handleChange(row.id ?? row._tempId, "hours", e.target.value)} />
                       </TableCell>
 
-                    <TableCell className="text-center py-2">
-  <Textarea
-    rows={1}
-    className="w-full max-w-full min-h-0 resize-y overflow-x-hidden overflow-y-hidden break-words whitespace-pre-wrap"
-    value={row.comments ?? ""}
-    onInput={(e) => {
-      const t = e.currentTarget
-      t.style.height = "auto"
-      t.style.height = `${t.scrollHeight}px`
-    }}
-    onChange={(e) =>
-      handleChange(row.id ?? row._tempId, "comments", e.target.value)
-    }
-  />
-</TableCell>
+                      <TableCell className="text-center py-2">
+                        <Textarea
+                          rows={1}
+                          className="w-full max-w-full min-h-0 resize-y overflow-x-hidden overflow-y-hidden break-words whitespace-pre-wrap"
+                          value={row.comments ?? ""}
+                          onInput={(e) => {
+                            const t = e.currentTarget
+                            t.style.height = "auto"
+                            t.style.height = `${t.scrollHeight}px`
+                          }}
+                          onChange={(e) =>
+                            handleChange(row.id ?? row._tempId, "comments", e.target.value)
+                          }
+                        />
+                      </TableCell>
+                      {/* >>> START: NEW TABLE CELL for 'Created by' */}
+                      <TableCell className="text-center py-2 text-muted-foreground">
+                        {row.createdBy}
+                      </TableCell>
+                      {/* <<< END: NEW TABLE CELL */}
 
                       <TableCell className="text-center py-2">
                         <Button

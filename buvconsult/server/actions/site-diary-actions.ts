@@ -221,21 +221,64 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       WorkersInvolved: true,
       TimeInvolved: true,
       Comments: true,
+      // >>> START: NEW FIELDS for 'Created by' logic
+      userId: true, // Keep userId for update payload
+      workerId: true, // Keep workerId for update payload
+      User: {
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      },
+      Worker: {
+        select: {
+          name: true,
+          surname: true,
+        },
+      },
+      // <<< END: NEW FIELDS
     },
   });
 
+  // Helper function to build the full name from parts
+  const formatCreatorName = (firstName: string | null | undefined, lastName: string | null | undefined): string => {
+    const parts = [];
+    if (firstName) parts.push(firstName);
+    if (lastName) parts.push(lastName);
+    return parts.join(" ");
+  };
+
   // Map to frontend row structure
-  return records.map((rec) => ({
-    id: rec.id,
-    date: rec.Date,
-    location: rec.Location || "",
-    works: rec.Works || "",
-    units: rec.Units || "",
-    amounts: rec.Amounts?.toString() || "",
-    workers: rec.WorkersInvolved?.toString() || "",
-    hours: rec.TimeInvolved?.toString() || "",
-    comments: rec.Comments || "",
-  }));
+  return records.map((rec) => {
+    let createdBy = "";
+
+    if (rec.User) {
+      // Created by User
+      createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
+    } else if (rec.Worker) {
+      // Created by Worker
+      // Worker name/surname are not explicitly marked as nullable in your model,
+      // but we use formatCreatorName just in case to handle potential nulls/undefineds cleanly.
+      createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
+    }
+
+    return {
+      id: rec.id,
+      date: rec.Date,
+      location: rec.Location || "",
+      works: rec.Works || "",
+      units: rec.Units || "",
+      amounts: rec.Amounts?.toString() || "",
+      workers: rec.WorkersInvolved?.toString() || "",
+      hours: rec.TimeInvolved?.toString() || "",
+      comments: rec.Comments || "",
+      // >>> NEW FIELD
+      createdBy: createdBy || "N/A", // Use the resolved name, default to N/A if empty
+      // <<< NEW FIELD
+      // The userId and workerId are implicitly included in `rec` from the `select` above,
+      // but they are only needed for saving/updating, not the display logic here.
+    };
+  });
 }
 
 
