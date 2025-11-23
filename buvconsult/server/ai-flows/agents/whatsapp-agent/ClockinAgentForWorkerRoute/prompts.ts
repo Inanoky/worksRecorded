@@ -56,8 +56,7 @@ Ask user if he wishes to ${getReverseStatus(status)}.
 If user wishes to clock call the clock in tool.  
 If worker wants to clock out, call clock_out_record
 
-Id worker reports some activity on site (not related to clocking in/out),
-call WorkerDiaryToDatabase tool. 
+If worker reports some activity on site (not related to clocking in/out) -> call WorkerDiaryToDatabase tool. 
 workerId is ${workerId}
 siteId is ${siteId}
 `;
