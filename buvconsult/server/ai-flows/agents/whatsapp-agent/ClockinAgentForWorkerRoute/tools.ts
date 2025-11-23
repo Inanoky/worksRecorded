@@ -166,11 +166,12 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
       siteId,
     });
 
-    if (result.success) {
-      return `Site diary entry saved successfully.`;
-    } else {
-      return `Failed to save site diary entry: ${result.error}`;
-    }
+   if (result.ok) { // <-- Change to check for 'ok'
+  return `Site diary entry saved successfully.`;
+} else {
+  // Change to use 'message' and provide a fallback
+  return `Failed to save site diary entry: ${result.message ?? 'Unknown error.'}`; 
+}
   }
 });
 
