@@ -25,4 +25,4 @@ export const clickInAgentForWorkersModel = "gpt-4.1"
 export const clockInAgentForWorkersModelTemperature = 0.5
 
 export const siteManagerAgentForSiteManagerRouteModelModel = "gpt-4.1"
-export const siteManagerAgentForSiteManagerRouteModelModelTemperature = "gpt-4.1"
+export const siteManagerAgentForSiteManagerRouteModelModelTemperature = 0.5
