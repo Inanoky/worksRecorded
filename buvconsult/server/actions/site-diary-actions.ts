@@ -13,20 +13,43 @@ import { getOrganizationIdByWorkerId } from "./shared-actions";
 
 // Site diary records actions 
 
-export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) { // UPDATED: added workerId
+export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
+  // 🪵 LOG: Initial inputs for context
+  console.log("--- saveSiteDiaryRecord START ---");
+  console.log("Input Parameters:");
+  console.log(`  userId: ${userId}`);
+  console.log(`  workerId: ${workerId}`);
+  console.log(`  siteId: ${siteId}`);
+  console.log(`  rows received: ${rows.length}`);
+  console.log("---------------------------------");
 
   // NEW: Determine the entity and fetch the organization ID
   const entityId = workerId ?? userId;
   const isWorker = !!workerId;
 
-  let org: string | null = null;
+  // 🪵 LOG: Derived entity info
+  console.log(`Derived Entity:`);
+  console.log(`  isWorker (true if workerId is present): ${isWorker}`);
+  console.log(`  entityId (workerId or userId): ${entityId}`);
+  console.log("---------------------------------");
+
+  let org = null;
   if (entityId) {
     // Assuming getOrganizationIdByWorkerId and getOrganizationIdByUserId exist
     // NEW: Use the appropriate lookup function based on whether workerId or userId is present
-    org = isWorker
-      ? await getOrganizationIdByWorkerId(entityId)
-      : await getOrganizationIdByUserId(entityId);
+    if (isWorker) {
+      org = await getOrganizationIdByWorkerId(entityId);
+    } else {
+      org = await getOrganizationIdByUserId(entityId);
+    }
+
+    // 🪵 LOG: Organization lookup result
+    console.log(`Organization ID found: ${org}`);
+  } else {
+    // 🪵 LOG: No entity
+    console.log("Organization ID skipped: No userId or workerId found.");
   }
+  console.log("---------------------------------");
 
   // Make sure requireUser() is not triggering a redirect!
   // Defensive: Only save if at least one row with location or works
@@ -50,25 +73,46 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) { 
         Photos: [],
       };
 
+      // 🪵 LOG: Transformed row object
+      console.log(`Transformed Row #${idx + 1} (Original Data: ${JSON.stringify({ location: row.location, works: row.works })}):`);
+      console.log(out);
+
       return out;
     });
 
+  // 🪵 LOG: Filtering result
+  console.log("---------------------------------");
+  console.log(`Rows filtered and mapped: ${toInsert.length} (out of ${rows.length} received)`);
+
   if (!toInsert.length) {
+    console.log("--- saveSiteDiaryRecord END: No records to insert ---");
     return { ok: false, message: "No records to insert" };
   }
+
+  // 🪵 LOG: Final data to be inserted
+  console.log("Final Data for prisma.sitediaryrecords.createMany:");
+  console.log(toInsert);
+  console.log("---------------------------------");
 
   // Bulk insert
   try {
     await prisma.sitediaryrecords.createMany({ data: toInsert });
+    
+    // 🪵 LOG: Successful insertion
+    console.log(`Bulk insert successful. Count: ${toInsert.length}`);
+    console.log("--- saveSiteDiaryRecord END: Success ---");
+
+    // Optionally, revalidate data on page
+    // revalidatePath("/site-diary");
+    return { ok: true, count: toInsert.length }; //Multitenant
 
   } catch (err) {
+    // 🪵 LOG: Error during insertion
+    console.error("Database Insert Error:", err.message);
+    console.log("--- saveSiteDiaryRecord END: Error ---");
 
     return { ok: false, message: err.message };
   }
-
-  // Optionally, revalidate data on page
-  // revalidatePath("/site-diary");
-  return { ok: true, count: toInsert.length }; //Multitenant
 }
 
 export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
