@@ -8,6 +8,7 @@ import { notFound } from "next/navigation";
 
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard_siteid_site_diary} from "@/components/joyride/JoyRideSteps";
+import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 
 
 
@@ -38,6 +39,11 @@ export default async function Home({
       <SiteDiaryCalendar siteId={siteId} 
        />
       <AiWidgetRag siteId={siteId} />
+
+      <FullPhotoGallery siteId={siteId}/>
+
+
+      
        </div>
     </>
   );

@@ -536,3 +536,73 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     },
   })
 }
+
+const PHOTOS_PER_PAGE = 30;
+/**
+ * Fetches a paginated list of photos for a given site ID, optionally filtered by date range.
+ * @param siteId The ID of the site (project).
+ * @param page The current page number (1-based index).
+ * @param startDate Optional starting date for the filter (inclusive).
+ * @param endDate Optional ending date for the filter (inclusive).
+ * @returns A promise that resolves to an object containing photos and the total count.
+ */
+export async function getAllPhotos(
+    siteId: string, 
+    page: number,
+    startDate?: Date, // New optional parameter
+    endDate?: Date    // New optional parameter
+) {
+  try {
+    const skip = (page - 1) * PHOTOS_PER_PAGE;
+    
+    // Build the WHERE clause
+    let dateFilter = {};
+    if (startDate && endDate) {
+        // Ensure both ends of the range are used for filtering
+        dateFilter = {
+            Date: {
+                gte: startDate,
+                lte: endDate,
+            },
+        };
+    }
+    
+    const whereClause = {
+        siteId: siteId,
+        ...dateFilter, // Include date filter if present
+    };
+
+    // 1. Fetch the photos for the current page
+    const photos = await prisma.photos.findMany({
+      where: whereClause,
+      orderBy: {
+        Date: 'desc',
+      },
+      skip: skip,
+      take: PHOTOS_PER_PAGE, 
+      select: {
+        id: true,
+        fileUrl: true,
+        Date: true,
+        Comment: true,
+        Location: true,
+      },
+    });
+
+    // 2. Get the total count of all photos for pagination logic
+    const totalCount = await prisma.photos.count({
+      where: whereClause, // Use the same where clause for counting
+    });
+
+    const filteredPhotos = photos.filter(photo => photo.fileUrl !== null);
+
+    return { 
+        photos: filteredPhotos, 
+        totalCount: totalCount 
+    };
+
+  } catch (error) {
+    console.error(`Failed to fetch photos for siteId ${siteId}:`, error);
+    throw new Error('Could not retrieve paginated project photos.');
+  }
+}
