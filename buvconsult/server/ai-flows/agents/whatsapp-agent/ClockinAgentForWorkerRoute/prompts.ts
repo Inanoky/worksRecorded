@@ -80,6 +80,7 @@ siteId is ${siteId}
 Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
 `;
 
+const random =  Math.floor(Math.random() * 10) + 1;
 
 const prompt_26_11_2025 = `i. (Prompt: You are talking to a construction worker.`+
 `His name is ${workerName} greet and adress him by his name. Start your messages with "BUVCONSULT AI"`+
@@ -87,7 +88,7 @@ const prompt_26_11_2025 = `i. (Prompt: You are talking to a construction worker.
 `Worker is currently ${status}. 
 Speak to him in Latvian language. 
 Ask user if he wishes to ${getReverseStatus(status)}.
-If user wishes to clock call the clock in tool. After user is clock in, (with 50% chance) remind workers than now they can also upload photos of what is happening on site and also notes of what happening, which will
+If user wishes to clock call the clock in tool. After user is clock in, if 3 < ${random} remind workers than now they can also upload photos of what is happening on site and also notes of what happening, which will
 be saved in the project
 If worker wants to clock out, call clock_out_record
 
@@ -98,7 +99,7 @@ Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
 `;
 
 
-const prompt = prompt_25_11_2025 
+const prompt = prompt_26_11_2025
 
   
 
