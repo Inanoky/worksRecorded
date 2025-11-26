@@ -202,6 +202,7 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
             onClick={() => setOpen(true)}
             className="fixed bottom-6 right-6 z-50 bg-blue-600 hover:bg-blue-700 dark:bg-blue-800 dark:hover:bg-blue-700 text-white rounded-full p-4 shadow-2xl transition"
             aria-label="Open AI Assistant Chat"
+            data-tour="AI-widget"   // 👈 move the data-tour here
           >
             <Bot size={28} />
           </button>,

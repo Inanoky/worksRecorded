@@ -38,7 +38,9 @@ export default async function Home({
               
       <SiteDiaryCalendar siteId={siteId} 
        />
-      <AiWidgetRag siteId={siteId} />
+ 
+    <AiWidgetRag siteId={siteId} />
+  
 
       <FullPhotoGallery siteId={siteId}/>
 
