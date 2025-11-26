@@ -6,6 +6,7 @@ import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import InvoiceAgent from "@/server/ai-flows/agents/invoices-agent/agent";
 import SiteDiaryAgent from "@/server/ai-flows/agents/sitediary-agent/agent";
 import TimesheetsAgent from "@/server/ai-flows/agents/timeshets-agent/agent";
+import { siteDiaryToDatabaseTool } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
 
 export const constructionDocumentationTool = new DynamicStructuredTool({
   name: "constructionDocumentationTool",
@@ -74,7 +75,7 @@ export const timeSheetsAgent = new DynamicStructuredTool({
 
 
 
-export const tools = [constructionDocumentationTool,invoiceAgentTool,siteDiaryRecordsTool,timeSheetsAgent]
+export const tools = [constructionDocumentationTool,invoiceAgentTool,siteDiaryRecordsTool,timeSheetsAgent, siteDiaryToDatabaseTool]
 
 export const toolNode = new ToolNode<typeof GraphState.State>(tools)
 

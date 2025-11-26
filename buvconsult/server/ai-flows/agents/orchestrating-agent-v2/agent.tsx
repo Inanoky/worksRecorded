@@ -8,13 +8,17 @@ import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import {tools, toolNode} from "@/server/ai-flows/agents/orchestrating-agent-v2/tools"
 import { systemPrompt } from "@/server/ai-flows/agents/orchestrating-agent-v2/prompts";
 import { orchestratingAgentV2ModelModel, } from "@/server/ai-flows/ai-models-settings";
-
+import { requireUser } from "@/lib/utils/requireUser";
 
 
 
 
 export default async function OrchestratingAgentV2(question,siteId){
 
+    const user = await requireUser();
+
+
+    
 //--------------------------State----------------------------------
 
 const state = Annotation.Root({
@@ -106,7 +110,7 @@ const agentNode = async (state) => {
 
     const inputs = {
          messages: [
-            new SystemMessage(systemPrompt(siteId)),
+            new SystemMessage(systemPrompt(siteId, user.id)),
             new HumanMessage(question),
         ],
     };

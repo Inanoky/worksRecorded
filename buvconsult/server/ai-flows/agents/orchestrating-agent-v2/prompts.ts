@@ -9,7 +9,7 @@ const talkToAgentPrompt_19_09_2025 = 'You are part of the agentic workflow to re
 
 
 
-export function systemPrompt(siteId: string) {
+export function systemPrompt(siteId: string, userId: string) {
     
   const systemPrompt_31_10_2025 = `
 You are part of the agentic workflow to retrieve and analyze information from
@@ -17,6 +17,7 @@ construction data database.
 Your job is to analyze the user's query and call the correct tools.
 
 You are only allowed to query for this siteId: ${siteId}
+user id : ${userId}
 `;
 
   return systemPrompt_31_10_2025;
