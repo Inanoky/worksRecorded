@@ -8,7 +8,7 @@
 export const steps_dashboard = [
   {
     target: '[data-tour="create-project"]',
-    content: 'Create a project',
+    content: 'Welcome to Buvconsult site record! Start by crearting a new project',
     disableBeacon: true
   },
   
@@ -26,6 +26,16 @@ export const steps_dashboard_sites_new = [
   
 ]
 
+export const steps_dashboard_sites_open_project = [
+  {
+    target: '[data-tour="dashboard/page"]',
+    content: 'Open your project',
+    disableBeacon: true
+  },
+  
+]
+
+
 
 export const steps_dashboard_siteid_dashboard = [
   {
@@ -33,6 +43,12 @@ export const steps_dashboard_siteid_dashboard = [
     content: `This is your dashboard for the project progress and finances. Make it live by starting using site diary and uploading invoices`,
     disableBeacon: true
   },
+    {
+    target: '[data-tour="nav-site-diary"]',
+    content: `Navigate to the site diary`,
+    disableBeacon: true
+  },
+   
    
   
 ]
@@ -48,6 +64,7 @@ export const steps_dashboard_siteid_invoices= [
     `subject or body of the email. In a couple of minutes you will see invoice here`,
     disableBeacon: true
   },
+  
   
   
 ]
@@ -69,13 +86,35 @@ export const steps_dashboard_siteid_documents = [
 export const steps_dashboard_siteid_site_diary = [
   {
     target: '[data-tour="calendar"]',
-    content: `You can fill site diary from the web or from Whatsapp. To start using Whatsapp - go to settings and set up phone number.`,
+    content: `This is your calendar with site diaries. You can fill it form web, from Whatsapp or using AI.
+    Let's try AI first!`,
     disableBeacon: true
   },
+    {
+    target: '[data-tour="AI-widget"]',
+    content: `Open AI assistant and report what has been completed today.`,
+    disableBeacon: true
+  },
+ 
+  ]
 
-  
-  
-]
+export const steps_ai_widget_open = [
+  {
+    target: '[data-tour="AI-chat-input"]',
+    content: "Start typing to tell the AI what was completed today.\n" + 
+    "You can say something like : Today we 5 workers casted 10m3, and 3 workers we doing steel fixing for 5 hours additional work, delivery of timber was delayed",
+    disableBeacon: true,
+  },
+];
+
+export const steps_dashboard_siteid_site_diary_filled = [
+  {
+    target: '[data-tour="site-diary-filled-day"]',
+    content:
+      "Days that have site diary entries are highlighted like this. This is the day you just filled with AI.",
+    disableBeacon: true,
+  },
+];
 
 
 export const steps_dashboard_siteid_project_diary = [
@@ -88,6 +127,8 @@ export const steps_dashboard_siteid_project_diary = [
   
   
 ]
+
+
 
 
 export const steps_dashboard_siteid_timesheets = [

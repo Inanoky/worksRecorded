@@ -108,6 +108,9 @@ return (
                   : "bg-none",
                 "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-blue-700"
               )}
+                 {...(item.path === "siteDiary"
+        ? { "data-tour": "nav-site-diary" } // 👈 always present for Site Diary (this is is Jouyride thingy from 111 : 113)
+        : {})}
             >
               <item.icon className="size-4" />
               <span className="hidden md:inline-block">{item.name}</span>

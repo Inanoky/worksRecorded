@@ -14,7 +14,7 @@ import OpenProjectButton from "@/components/providers/ButtonClient";
 import { PlusCircle} from "lucide-react";
 import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard } from "@/components/joyride/JoyRideSteps";
+import { steps_dashboard_sites_open_project} from "@/components/joyride/JoyRideSteps";
 
 async function getData(orgId: string) {
   const [sites] = await Promise.all([
@@ -47,12 +47,12 @@ export default async function DashboardIndexPage() {
 
 
     <>
-      <TourRunner steps={steps_dashboard} stepName="steps_dashboard" />
+       <TourRunner steps={steps_dashboard_sites_open_project} stepName="steps_dashboard_sites_open_project" />
     <div className="flex w-full justify-end">
             <Button asChild>
               <Link 
               href={"/dashboard/sites/new"}
-              data-tour="create-project"
+             
               
               >
                 <PlusCircle className="mr-2 size-4" /> Create Project
@@ -86,8 +86,13 @@ export default async function DashboardIndexPage() {
                 </CardDescription>
               </CardHeader>
 
-              <CardFooter>
-                <OpenProjectButton projectId={item.id} projectName={item.name} />
+              <CardFooter
+               data-tour="dashboard/page"
+               >
+                <OpenProjectButton
+                 projectId={item.id} 
+                 projectName={item.name}
+                 />
 
               </CardFooter>
             </Card>

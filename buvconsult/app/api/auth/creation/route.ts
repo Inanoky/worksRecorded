@@ -6,18 +6,23 @@ export async function GET() {
   const { getUser } = getKindeServerSession();
   const user = await getUser();
 
+  console.log("➡️ Authenticated user from Kinde:", user);
+
   if (!user || !user.id) {
+    console.error("❌ No user returned from Kinde.");
     throw new Error("Something went wrong");
   }
 
   let createdNewUser = false;
 
-  // If user doesn't exist by ID, check for a pending record by email
+  console.log("🔍 Checking if user exists in DB by ID...");
   let dbUser = await prisma.user.findUnique({
     where: { id: user.id },
   });
 
   if (!dbUser) {
+    console.log("ℹ️ No existing user by ID. Checking for pending user by email...");
+
     const pending = await prisma.user.findFirst({
       where: {
         email: user.email ?? "",
@@ -27,11 +32,13 @@ export async function GET() {
     });
 
     if (pending) {
-      // Replace pending record with the authenticated user id
+      console.log("🟠 Found pending user:", pending);
+
       dbUser = await prisma.$transaction(async (tx) => {
-        // capture org from pending, or create if missing
         let orgId = pending.organizationId;
+
         if (!orgId) {
+          console.log("🏗️ Pending record has no organization — creating new one...");
           const org = await tx.organization.create({
             data: { name: user.email ?? "" },
             select: { id: true },
@@ -39,10 +46,10 @@ export async function GET() {
           orgId = org.id;
         }
 
-        // delete pending user
+        console.log("🗑️ Deleting pending user record:", pending.id);
         await tx.user.delete({ where: { id: pending.id } });
 
-        // create active user with correct id
+        console.log("🧱 Creating active user from pending record...");
         const created = await tx.user.create({
           data: {
             id: user.id,
@@ -58,12 +65,17 @@ export async function GET() {
 
         return created;
       });
+
+      console.log("✅ Pending user migrated to active user:", dbUser.id);
     } else {
-      // proceed as normal (no pending by email) -> create org + user
+      console.log("🆕 No pending user. Creating brand new org + user...");
+
       const organization = await prisma.organization.create({
         data: { name: user.email ?? "" },
         select: { id: true },
       });
+
+      console.log("🏗️ New organization created:", organization.id);
 
       dbUser = await prisma.user.create({
         data: {
@@ -78,8 +90,11 @@ export async function GET() {
         },
       });
 
+      console.log("🎉 New user created:", dbUser.id);
       createdNewUser = true;
     }
+  } else {
+    console.log("✅ User already exists in DB:", dbUser.id);
   }
 
   const base =
@@ -88,5 +103,8 @@ export async function GET() {
       : "http://localhost:3000";
 
   const path = createdNewUser ? "/dashboard/welcome" : "/dashboard";
+
+  console.log("🔀 Redirecting to:", `${base}${path}`);
+
   return NextResponse.redirect(`${base}${path}`);
 }
