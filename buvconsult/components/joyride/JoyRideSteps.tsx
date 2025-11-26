@@ -111,6 +111,24 @@ export const steps_dashboard_siteid_site_diary_completed = [
 ];
 
 
+//Step 9. This will run when site diary day is open
+
+export const steps_site_diary_dialog = [
+  {
+    target: '[data-tour="dialog-table"]',
+    content:
+      "Here you see the structured site diary records for this day. You can edit or add new entries. You can also upload records from Whatsapp, text to +1 (313) 513-1153",
+    disableBeacon: true,
+  },
+  {
+    target: '[data-tour="dialog-gallery"]',
+    content:
+      "Here you see all photos linked to this day. You can review visual evidence for your records.",
+    disableBeacon: true,
+  },
+];
+
+
 export const steps_dashboard_siteid_site_diary_filled = [
   {
     target: '[data-tour="site-diary-filled-day"]',
