@@ -1,4 +1,4 @@
-// C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\components\joyride\TourRunner.tsx
+// C:\...\components\joyride\TourRunner.tsx
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -7,13 +7,13 @@ import { hasCompletedTour, markTourCompleted } from "@/components/joyride/user-t
 
 type Props = {
   steps: { target: string; content: string; disableBeacon?: boolean }[];
-  /** e.g. "steps_dashboard", "steps_dashboard_sites_new" */
   stepName: string;
+  onFinished?: () => void;   // 👈 add this
 };
 
-export default function TourRunner({ steps, stepName }: Props) {
+export default function TourRunner({ steps, stepName, onFinished }: Props) {
   const [shouldRun, setShouldRun] = useState<boolean>(false);
-  const [checked, setChecked] = useState<boolean>(false); // gate render until we know
+  const [checked, setChecked] = useState<boolean>(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,15 +33,15 @@ export default function TourRunner({ steps, stepName }: Props) {
     async (data: CallBackProps) => {
       const { status } = data;
       if (status === STATUS.FINISHED || status === STATUS.SKIPPED) {
-        // mark group as completed only after the run is done
         await markTourCompleted(stepName);
         setShouldRun(false);
+        onFinished?.();        // 👈 call optional redirect callback
       }
     },
-    [stepName]
+    [stepName, onFinished]
   );
 
-  if (!checked) return null; // don't flash the tour before we know
+  if (!checked) return null;
 
   return (
     <Joyride

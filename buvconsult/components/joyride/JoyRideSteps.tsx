@@ -5,6 +5,8 @@
  * Otherwise you can set it as a state inside your component.
  */
 
+
+// Step 1
 export const steps_dashboard = [
   {
     target: '[data-tour="create-project"]',
@@ -16,7 +18,7 @@ export const steps_dashboard = [
 
 
 
-
+// Step 2
 export const steps_dashboard_sites_new = [
   {
     target: '[data-tour="sites/new/card"]',
@@ -26,6 +28,7 @@ export const steps_dashboard_sites_new = [
   
 ]
 
+//Step 3
 export const steps_dashboard_sites_open_project = [
   {
     target: '[data-tour="dashboard/page"]',
@@ -36,7 +39,7 @@ export const steps_dashboard_sites_open_project = [
 ]
 
 
-
+//Step 4
 export const steps_dashboard_siteid_dashboard = [
   {
     target: '[data-tour="key-metrics"]',
@@ -56,32 +59,8 @@ export const steps_dashboard_siteid_dashboard = [
 
 
 
-export const steps_dashboard_siteid_invoices= [
 
-    {
-    target: '[data-tour="invoice-table"]',
-    content: ' Send an PDF invoice to the invoices@buvconsult.com, and mention project name in the ' +
-    `subject or body of the email. In a couple of minutes you will see invoice here`,
-    disableBeacon: true
-  },
-  
-  
-  
-]
-
-
-
-export const steps_dashboard_siteid_documents = [
-  {
-    target: '[data-tour="Documents"]',
-    content: `To upload documents - go to settings - Upload Documents `,
-    disableBeacon: true
-  },
-
-  
-  
-]
-
+//Step 5. This will point to the the AI widget button.
 
 export const steps_dashboard_siteid_site_diary = [
   {
@@ -98,14 +77,39 @@ export const steps_dashboard_siteid_site_diary = [
  
   ]
 
+
+//Step 6. This should point to the the textarea inside the opened AI widget.
+
 export const steps_ai_widget_open = [
   {
-    target: '[data-tour="AI-chat-input"]',
+    target: '[data-tour="AI-widget-open"]',
     content: "Start typing to tell the AI what was completed today.\n" + 
     "You can say something like : Today we 5 workers casted 10m3, and 3 workers we doing steel fixing for 5 hours additional work, delivery of timber was delayed",
     disableBeacon: true,
   },
 ];
+
+//Step 7. This will run when AI has repplied
+export const steps_ai_diary_updated = [
+  {
+    target: '[data-tour="AI-responed-received"]', // already on your textarea
+    content: "Nice! I’ve updated your site diary. Let’s go and see it in the calendar.",
+    disableBeacon: true,
+  },
+];
+
+
+//Step 8. This will run when there is a first completed day
+
+export const steps_dashboard_siteid_site_diary_completed = [
+  {
+    target: '[data-tour="first-completed-diary-record"]',
+    content:
+      "This green day has a completed site diary entry. Coick to open the day to edit or add more info",
+    disableBeacon: true,
+  },
+];
+
 
 export const steps_dashboard_siteid_site_diary_filled = [
   {
@@ -116,17 +120,6 @@ export const steps_dashboard_siteid_site_diary_filled = [
   },
 ];
 
-
-export const steps_dashboard_siteid_project_diary = [
-  {
-    target: '[data-tour="project-diary"]',
-    content: `Project diary is to be filled via Whatsapp - go to settings and set up phone number.`,
-    disableBeacon: true
-  },
-
-  
-  
-]
 
 
 
@@ -181,6 +174,47 @@ export const steps_dashboard_siteid_settings = [
     disableBeacon: true
   },
 
+
+  
+  
+]
+
+
+
+export const steps_dashboard_siteid_invoices= [
+
+    {
+    target: '[data-tour="invoice-table"]',
+    content: ' Send an PDF invoice to the invoices@buvconsult.com, and mention project name in the ' +
+    `subject or body of the email. In a couple of minutes you will see invoice here`,
+    disableBeacon: true
+  },
+  
+  
+  
+]
+
+
+
+export const steps_dashboard_siteid_documents = [
+  {
+    target: '[data-tour="Documents"]',
+    content: `To upload documents - go to settings - Upload Documents `,
+    disableBeacon: true
+  },
+
+  
+  
+]
+
+
+
+export const steps_dashboard_siteid_project_diary = [
+  {
+    target: '[data-tour="project-diary"]',
+    content: `Project diary is to be filled via Whatsapp - go to settings and set up phone number.`,
+    disableBeacon: true
+  },
 
   
   
