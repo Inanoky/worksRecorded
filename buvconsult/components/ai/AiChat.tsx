@@ -13,6 +13,11 @@ import { Rnd } from "react-rnd";
 import { Textarea } from "../ui/textarea";
 import remarkGfm from "remark-gfm";
 import OrchestratingAgentV2 from "@/server/ai-flows/agents/orchestrating-agent-v2/agent";
+import TourRunner from "@/components/joyride/TourRunner";
+import { steps_ai_widget_open } from "@/components/joyride/JoyRideSteps";
+
+
+
 
 type Message =
   | { sender: "bot"; aiComment: string; answer?: string | any }
@@ -195,6 +200,14 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
 
   return (
     <>
+
+     {/* Run this tour only once when widget is open */}
+    {open && (
+      <TourRunner
+        steps={steps_ai_widget_open}
+        stepName="steps_ai_widget_open"
+      />
+    )}
       {/* Launcher */}
       {!open &&
         createPortal(
@@ -318,6 +331,7 @@ export default function AiWidgetRag({ siteId }: { siteId?: string }) {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     className="flex-1 min-w-0 bg-white dark:bg-gray-800 dark:text-gray-100"
+                    data-tour="AI-chat-input"
                   />
                   <Button
                     onClick={handleSend}
