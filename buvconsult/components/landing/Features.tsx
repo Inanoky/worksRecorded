@@ -13,7 +13,7 @@ const features = [
   },
   {
     name: "Visual Dashboards",
-    description: "All your data is digitized, stored, and structured within the BUVCONSULT platform for your use.",
+    description: "Your construciton data is digitized, stored, and structured within the BUVCONSULT platform for your use.",
     icon: CloudRain,
   },
   {
@@ -35,7 +35,7 @@ export function Features(){
             <div className="max-w-2xl mx-auto lg:text-center">
 
                 <p className="font-semibold leading-7 text-primary">Control, effortless</p>
-                <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Get your project setup in minutes</h1>
+                <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Easy project setup</h1>
                 <p className="mt-6 text-base leading-snug text-muted-foreground"></p>
 
             </div>
