@@ -2,7 +2,7 @@
 
 import { CheckCircle2 } from "lucide-react";
 
-export const Header = "Turn WhatsApp site chats into a structured site diary";
+export const Header = "Construction data management";
 export const Header2 = "Protect your margin with proper records";
 
 export const SmallDescription =
