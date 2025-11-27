@@ -99,7 +99,7 @@ export default function MetricsCard({
         <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
           Target: {weeklyTarget} {weeklyUnits}
           <p>
-            Assembled:{" "}
+            Completed:{" "}
             <span
               className={
                 weeklyRatio > 0.8

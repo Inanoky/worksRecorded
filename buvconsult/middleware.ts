@@ -11,7 +11,7 @@ export default withAuth(async function middleware(req: NextRequest) {
   const match = pathname.match(/^\/dashboard\/sites\/([^/]+)(?:\/|$)/);
   const siteId = match?.[1];
 
-  console.log("MW siteId =", siteId);
+ 
 
   if (siteId === "new"){
     return NextResponse.next()
