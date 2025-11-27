@@ -350,7 +350,11 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
         ) : (photos?.length ?? 0) === 0 ? (
           <div className="text-sm text-muted-foreground p-2">No photos for this date.</div>
         ) : (
-          <ScrollArea className="h-[600px]">
+          <div
+            data-tour="dialog-gallery" >
+          <ScrollArea 
+          className="h-[600px]"
+        >
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 p-2">
               {photos!.map((p, idx) => {
                 const src = p.URL ?? p.fileUrl ?? "";
@@ -408,6 +412,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
               })}
             </div>
           </ScrollArea>
+          </div>
         )}
       </div>
 

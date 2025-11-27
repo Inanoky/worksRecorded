@@ -15,7 +15,7 @@ import { Rnd } from "react-rnd";
 import { Textarea } from "@/components/ui/textarea";
 import remarkGfm from "remark-gfm";
 import OrchestratingAgentV2 from "@/server/ai-flows/agents/orchestrating-agent-v2/agent";
-
+import { hasCompletedTour } from "@/components/joyride/user-tour-action";
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_ai_diary_updated ,steps_ai_widget_open } from "@/components/joyride/JoyRideSteps";
 
@@ -38,6 +38,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
   const [open, setOpen] = useState(false);
   const [expandedData, setExpandedData] = useState<any>(null);
   const [showDiaryUpdatedTour, setShowDiaryUpdatedTour] = useState(false); // 👈
+  const [tutorialLocked, setTutorialLocked] = useState(false); // 👈 NEW
 
   const router = useRouter();
 
@@ -72,6 +73,24 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+
+  //This one for the tutorial
+  useEffect(() => {
+  if (!open) return;
+
+  (async () => {
+    const done = await hasCompletedTour("steps_ai_widget_open"); // 👈 same key as stepName
+    if (!done) {
+      const preset =
+        "Today we 5 workers casted 10m3, and 3 workers we doing steel fixing for 5 hours additional work, delivery of timber was delayed";
+      setInput(preset);
+      setTutorialLocked(true);     // lock input while in tutorial
+    } else {
+      setTutorialLocked(false);
+    }
+  })();
+}, [open]);
 
   useEffect(() => {
     try {
@@ -132,6 +151,8 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     }
 
     setLoading(false);
+    setTutorialLocked(false);     // 👈 after first send, free typing
+
     inputRef.current?.focus();
   };
 
@@ -368,7 +389,12 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
                     placeholder="Type your message…"
                     value={input}
                     disabled={loading}
-                    onChange={(e) => setInput(e.target.value)}
+                    readOnly={tutorialLocked}                 // 👈 NEW
+
+                     onChange={(e) => {
+    if (tutorialLocked) return;            // block edits during tutorial
+    setInput(e.target.value);
+  }}
                     onKeyDown={handleKeyDown}
                     className="flex-1 min-w-0 bg-white dark:bg-gray-800 dark:text-gray-100"
                     data-tour="AI-widget-open"

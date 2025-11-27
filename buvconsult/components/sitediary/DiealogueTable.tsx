@@ -289,7 +289,10 @@ export function DialogTable({ date, siteId, onSaved }: {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
      
-      <ScrollArea className="w-full h-[45vh] sm:h-[56vh] rounded-none border">
+      <ScrollArea 
+      className="w-full h-[45vh] sm:h-[56vh] rounded-none border"
+ 
+      >
          <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
         <Button type="button" variant="outline" onClick={handleAddRow} className="w-full sm:w-auto">
 

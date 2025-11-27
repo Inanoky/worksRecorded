@@ -126,6 +126,12 @@ export const steps_site_diary_dialog = [
       "Here you see all photos linked to this day. You can review visual evidence for your records.",
     disableBeacon: true,
   },
+    {
+    target: '[data-tour="dialog-gallery"]',
+    content:
+      "If you want to repeat tutorial use `?` button in the right top corner. Enjoy using BUVCONSULT for your site actities! ",
+    disableBeacon: true,
+  },
 ];
 
 
