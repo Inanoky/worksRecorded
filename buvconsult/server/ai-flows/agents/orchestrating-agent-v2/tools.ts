@@ -7,6 +7,16 @@ import InvoiceAgent from "@/server/ai-flows/agents/invoices-agent/agent";
 import SiteDiaryAgent from "@/server/ai-flows/agents/sitediary-agent/agent";
 import TimesheetsAgent from "@/server/ai-flows/agents/timeshets-agent/agent";
 import { siteDiaryToDatabaseTool } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
+import { ChatOpenAI } from "@langchain/openai";
+import OpenAI from "openai";
+
+
+// ⬅️ new helper
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
+
+
 
 export const constructionDocumentationTool = new DynamicStructuredTool({
   name: "constructionDocumentationTool",
@@ -72,10 +82,48 @@ export const timeSheetsAgent = new DynamicStructuredTool({
 });
 
 
+export const webSearchTool = new DynamicStructuredTool({
+  name: "webSearchTool",
+  description: "This tool has access to the live web for up-to-date info, news, prices, and company data.",
+  schema: z.object({
+    userQuestion: z
+      .string()
+      .describe("The user question or search query to perform on the web."),
+  }),
+  async func({ userQuestion }) {
+    const response = await client.responses.create({
+      model: "gpt-4.1", // or "o4-mini", "gpt-4.1", etc.
+      tools: [
+        {
+          type: "web_search",
+          // Optional:
+          // filters: { allowed_domains: ["ec.europa.eu", "likumi.lv"] },
+          // user_location: {
+          //   type: "approximate",
+          //   country: "LV",
+          //   city: "Riga",
+          //   region: "Riga",
+          // },
+        },
+      ],
+      tool_choice: "auto",
+      input: userQuestion,
+    });
+
+    // @ts-ignore: Responses API helper
+    return response.output_text ?? "No result from web search.";
+  },
+});
 
 
 
-export const tools = [constructionDocumentationTool,invoiceAgentTool,siteDiaryRecordsTool,timeSheetsAgent, siteDiaryToDatabaseTool]
+export const tools = [
+  constructionDocumentationTool,
+  invoiceAgentTool,
+  siteDiaryRecordsTool,
+  timeSheetsAgent,
+   siteDiaryToDatabaseTool,
+   webSearchTool]
 
 export const toolNode = new ToolNode<typeof GraphState.State>(tools)
 
