@@ -21,30 +21,45 @@ import {
 export default async function InvoiceRoute({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
 
-  const invoices = await getInvoicesFromDB(siteId);
-  let invoiceItems = await getInvoiceItemsFromDB(siteId);
-  invoiceItems = invoiceItems.filter((item) => item.invoice?.isInvoice !== false);
+  // --- Group 1: Invoice and Core Metrics Data (all run concurrently) ---
+  const [
+    invoices,
+    invoiceItems, // This is the *raw* array of all items, to be filtered next
+    chartAreaInteractiveData,
+    projectName,
+    previousWeekData,
+    currentWeekData,
+    workersOnSite,
+  ] = await Promise.all([
+    getInvoicesFromDB(siteId),
+    getInvoiceItemsFromDB(siteId),
+    getDailyAggregatedCosts(siteId),
+    getProjectNameBySiteId(siteId),
+    getPreviousWeekMetrics(siteId),
+    getCurrentWeekMetrics(siteId),
+    getCurrentWorkersOnSite(siteId),
+  ]);
 
-  const chartAreaInteractiveData = await getDailyAggregatedCosts(siteId);
-  const projectName = await getProjectNameBySiteId(siteId);
-  const previousWeekData = await getPreviousWeekMetrics(siteId);
-  const currentWeekData = await getCurrentWeekMetrics(siteId);
-  const workersOnSite = await getCurrentWorkersOnSite(siteId);
+  // Filter invoiceItems after the concurrent fetch is complete
+  const filteredInvoiceItems = invoiceItems.filter((item) => item.invoice?.isInvoice !== false);
+  // Note: 'invoices' is not used in the return, but kept for completeness based on original code flow.
 
+  // --- Group 2: User Check (sequential, as it uses the returned 'user' for 'orgCheck') ---
   const user = await requireUser();
   const site = await orgCheck(user.id, siteId);
   if (!site) notFound();
 
-  const targets = await getTargetData(siteId);
-  const currentWeekKey = await getCurrentWeekKey();
-  const previousWeekKey = await getPrevWeekKey();
-
-
+  // --- Group 3: Target and Week Key Data (all run concurrently) ---
+  const [targets, currentWeekKey, previousWeekKey] = await Promise.all([
+    getTargetData(siteId),
+    getCurrentWeekKey(),
+    getPrevWeekKey(),
+  ]);
 
   return (
     <>
       <div data-tour="key-metrics">
-      <TourRunner steps={steps_dashboard_siteid_dashboard} stepName="steps_dashboard_siteid_dashboard" />
+        <TourRunner steps={steps_dashboard_siteid_dashboard} stepName="steps_dashboard_siteid_dashboard" />
         
         <KeyMetricsDashboard
           siteId={siteId}
@@ -58,10 +73,6 @@ export default async function InvoiceRoute({ params }: { params: Promise<{ siteI
         />
         <ChartAreaInteractive data={chartAreaInteractiveData} />
       </div>
-
-     
-
-   
 
       <AiWidgetRag siteId={siteId} />
     </>
