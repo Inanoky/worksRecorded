@@ -10,27 +10,27 @@ export const SmallDescription =
 
 export function WhatDoWeDo() {
   const items = [
-    { title: "Claim documentation", desc: "because there is no clear daily record" },
-    { title: "Scope gaps", desc: "when extra work is done but not documented" },
-    { title: "Incorrect bids", desc: "due to missing data from previous jobs" },
+    { title: "Claim documentation", desc: "often harder to prepare without clear daily records" },
+    { title: "Scope gaps", desc: "can occur when extra work is not consistently documented" },
+    { title: "Estimating challenges", desc: "sometimes caused by limited data from previous jobs" },
     {
       title: "Inefficient site processes",
-      desc: "when problems repeat but are not analysed",
+      desc: "may arise when recurring issues are not reviewed or analysed",
     },
     {
-      title: "Unreasonable client behaviour",
-      desc: "when you cannot show exact evidence",
+      title: "Client communication issues",
+      desc: "especially when precise evidence is difficult to retrieve",
     },
     {
-      title: "Profit-destroying mistakes",
-      desc: "from poor visibility of what actually happened on site",
+      title: "Costly mistakes",
+      desc: "which can stem from limited visibility of day-to-day site activity",
     },
   ];
 
   return (
     <div className="space-y-4">
       <h3 className="text-xl font-semibold text-gray-900">
-        We help contractors with construction data management.
+        We help construction contractors with :
       </h3>
       <ul className="space-y-3">
         {items.map(({ title, desc }) => (
