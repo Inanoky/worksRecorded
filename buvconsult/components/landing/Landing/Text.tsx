@@ -10,7 +10,7 @@ export const SmallDescription =
 
 export function WhatDoWeDo() {
   const items = [
-    { title: "Lost claims", desc: "because there is no clear daily record" },
+    { title: "Claim documentation", desc: "because there is no clear daily record" },
     { title: "Scope gaps", desc: "when extra work is done but not documented" },
     { title: "Incorrect bids", desc: "due to missing data from previous jobs" },
     {
