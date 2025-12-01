@@ -30,7 +30,7 @@ export function WhatDoWeDo() {
   return (
     <div className="space-y-4">
       <h3 className="text-xl font-semibold text-gray-900">
-        We help contractors stop losing money because of missing records.
+        We help contractors with construction data management.
       </h3>
       <ul className="space-y-3">
         {items.map(({ title, desc }) => (
