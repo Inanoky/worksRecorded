@@ -437,9 +437,8 @@ export async function getLocationsWorksFromSiteSchema(siteId: string, type: 'Loc
 }
 
 
-export async function savePhoto({ //multitenant
+export async function savePhoto({
   userId,
-  // NEW: Destructure workerId
   workerId,
   siteId,
   url,
@@ -448,34 +447,67 @@ export async function savePhoto({ //multitenant
   location,
   date,
 }: SavePhotoArgs) {
+  console.log("=== savePhoto() CALLED ===");
 
-  // NEW: Determine which ID to use for organization lookup and photo record
+  console.log("Incoming args:", {
+    userId,
+    workerId,
+    siteId,
+    url,
+    fileUrl,
+    comment,
+    location,
+    date,
+  });
+
+  // Determine entity identity & mode
   const entityId = workerId ?? userId;
   const isWorker = !!workerId;
 
-  // NEW: Use getOrganizationIdByWorkerId if it's a worker, otherwise use getOrganizationIdByUserId
-  const org = entityId ?
-    (isWorker ? await getOrganizationIdByWorkerId(entityId) : await getOrganizationIdByUserId(entityId))
-    : null;
-
-
-  // Normalize empties to null to satisfy Prisma's optional fields
-  const rec = await prisma.photos.create({
-    data: {
-      Date: date ?? new Date(),
-      URL: url ?? null,
-      fileUrl: fileUrl ?? url ?? null,
-      Comment: comment ?? null,
-      Location: location ?? null,
-      // UPDATE: Conditionally save userId or workerId
-      userId: userId ?? null,
-      workerId: workerId ?? null,
-      siteId: siteId ?? null,
-      organizationId: org
-    },
+  console.log("Entity identification:", {
+    entityId,
+    isWorkerMode: isWorker ? "WORKER" : "USER",
   });
 
-  return rec;
+  // Fetch organization
+  let org = null;
+  if (entityId) {
+    try {
+      org = isWorker
+        ? await getOrganizationIdByWorkerId(entityId)
+        : await getOrganizationIdByUserId(entityId);
+
+      console.log("Resolved organizationId:", org);
+    } catch (err) {
+      console.error("Error resolving organization ID:", err);
+    }
+  } else {
+    console.warn("No entityId provided → organizationId will be NULL");
+  }
+
+  // Prepare data for Prisma
+  const data = {
+    Date: date ?? new Date(),
+    URL: url ?? null,
+    fileUrl: fileUrl ?? url ?? null,
+    Comment: comment ?? null,
+    Location: location ?? null,
+    userId: userId ?? null,
+    workerId: workerId ?? null,
+    siteId: siteId ?? null,
+    organizationId: org,
+  };
+
+  console.log("Prisma create payload:", data);
+
+  try {
+    const rec = await prisma.photos.create({ data });
+    console.log("Photo saved successfully:", rec);
+    return rec;
+  } catch (err) {
+    console.error("❌ Error saving photo:", err);
+    throw err;
+  }
 }
 
 export async function getPhotosByDate({ siteId, startISO, endISO }: GetPhotosByDateArgs) {
