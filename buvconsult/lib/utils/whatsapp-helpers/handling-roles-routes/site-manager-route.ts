@@ -51,11 +51,13 @@ export async function handleSiteManagerRoute(args: {
   }
 
   // 3) Media path
-  if (numMedia > 0) {
+   if (numMedia > 0) {
     const img = await handleImage({
       formData,
       numMedia,
-      user,
+      siteId: user.lastSelectedSiteIdforWhatsapp,
+      userId: user.id,      // ✅ used inside savePhoto as userId
+      workerId: null,       // ✅ make sure org lookup uses userId path
       to: from,
       body,
       agent: currentAgent,

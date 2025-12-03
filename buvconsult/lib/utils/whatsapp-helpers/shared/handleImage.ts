@@ -1,3 +1,4 @@
+
 import { UTApi } from "uploadthing/server";
 import { savePhoto } from "@/server/actions/site-diary-actions";
 import { getString, fetchTwilioMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
@@ -14,15 +15,14 @@ const utapi = new UTApi();
 export async function handleImage(args: {
   formData: FormData;
   numMedia: number;
-  // UPDATE: Change 'user' to 'workerId' and 'siteId'
-  workerId: string; // NEW: Pass workerId directly
-  siteId: string; // NEW: Pass siteId directly
+  userId: string | null;      // ✅ allow userId for site manager route
+  workerId?: string | null;   // ✅ optional workerId for worker route
+  siteId: string;
   to: string | null;
   body: string;
-  agent: AgentFn; // <- accepted but not used now
+  agent: AgentFn;
 }): Promise<boolean> {
-  // UPDATE: Destructure workerId and siteId instead of user
-  const { formData, numMedia, workerId, siteId, to, body } = args;
+  const { formData, numMedia, workerId, siteId, to, body, userId } = args;
 
   const idx = findFirstImageIndex(formData, numMedia);
   if (idx < 0) return false;
@@ -47,11 +47,10 @@ export async function handleImage(args: {
 
     const publicUrl = first.data.ufsUrl ?? first.data.url;
 
-    // UPDATE: Use workerId and siteId in savePhoto
     await savePhoto({
-      workerId: workerId, // NEW: Pass workerId
-      userId: null, // NEW: Set userId to null
-      siteId: siteId,
+      workerId: workerId ?? null, // ✅ worker images
+      userId: userId ?? null,     // ✅ site-manager images
+      siteId,
       url: publicUrl,
       fileUrl: publicUrl,
       comment: body || null,
