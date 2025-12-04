@@ -42,7 +42,9 @@ const agentNode = async (state) => {
     const llm = new ChatOpenAI({
         
         model: orchestratingAgentV2ModelModel,
-    }).bindTools(tools);
+    }).bindTools(
+        tools
+    );
     ;
 
 

@@ -9,21 +9,21 @@ export const SmallDescription =
   "Buvconsult converts WhatsApp messages, voice notes, photos, delivery notes and emails into organised site diary entries and project evidence — without changing how your team communicates.";
 
 export function WhatDoWeDo() {
-  const items = [
-    { title: "Claim documentation", desc: "often harder to prepare without clear daily records" },
-    { title: "Scope gaps", desc: "can occur when extra work is not consistently documented" },
-    { title: "Estimating challenges", desc: "sometimes caused by limited data from previous jobs" },
+ const items = [
+    { title: "Claim documentation", desc: "because there is no clear daily record" },
+    { title: "Scope gaps", desc: "when extra work is done but not documented" },
+    { title: "Incorrect bids", desc: "due to missing data from previous jobs" },
     {
       title: "Inefficient site processes",
-      desc: "may arise when recurring issues are not reviewed or analysed",
+      desc: "when problems repeat but are not analysed",
     },
     {
-      title: "Client communication issues",
-      desc: "especially when precise evidence is difficult to retrieve",
+      title: "Unreasonable client behaviour",
+      desc: "when you cannot show exact evidence",
     },
     {
-      title: "Costly mistakes",
-      desc: "which can stem from limited visibility of day-to-day site activity",
+      title: "Profit-destroying mistakes",
+      desc: "from poor visibility of what actually happened on site",
     },
   ];
 

@@ -117,13 +117,49 @@ export const webSearchTool = new DynamicStructuredTool({
 
 
 
+export const thePythonTool= new DynamicStructuredTool({
+  name: "thePythonTool",
+  description: "This tool has access Python code interpreter and can create and run a code for data analysis",
+  schema: z.object({
+    prompt: z.string(),
+   
+  }),
+  async func({ prompt, }) {
+
+    const instructions = `
+      You are a personal math tutor. When asked a math question,
+      write and run code using the python tool to answer the question.
+      `;
+
+     const resp = await client.responses.create({
+        model: "gpt-4.1",
+        tools: [
+          {
+            type: "code_interpreter",
+            container: { type: "auto", memory_limit: "4g" },
+          },
+        ],
+        instructions,
+        input: prompt
+      });
+
+
+    return resp.output_text ?? "No result from python tool.";
+
+  },
+});
+
+
+
 export const tools = [
   constructionDocumentationTool,
   invoiceAgentTool,
   siteDiaryRecordsTool,
   timeSheetsAgent,
    siteDiaryToDatabaseTool,
-   webSearchTool]
+   webSearchTool,
+   thePythonTool
+  ]
 
 export const toolNode = new ToolNode<typeof GraphState.State>(tools)
 
