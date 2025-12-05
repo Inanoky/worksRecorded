@@ -1,0 +1,56 @@
+import {GetRecordsFromDB} from "@/server/actions/project-diary-actions"
+import { GenericTemplateTable } from "@/components/_templates/tableWithGenericActions";
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "@/server/actions/shared-actions";
+import { notFound } from "next/navigation";
+import TourRunner from "@/components/joyride/TourRunner";
+import { steps_dashboard_siteid_project_diary} from "@/components/joyride/JoyRideSteps";
+import { Label } from "@/components/ui/label";
+
+
+
+export default async function ProjectDiary ({params}:
+
+{params : Promise <{siteId:string}>
+
+}){
+
+
+
+    const {siteId} = await params
+    const records = await GetRecordsFromDB(siteId)
+
+    
+       const user = await requireUser();
+        const site = await orgCheck(user.id, siteId);
+          if (!site) {
+        notFound();
+      }
+    
+
+
+    return (
+
+       
+               <div className="w-full"
+               data-tour="project-diary">
+                          <Label> Start talking to AI +13135131153 (Whatsapp) </Label>
+                
+                <TourRunner steps={steps_dashboard_siteid_project_diary} stepName="steps_dashboard_siteid_project_diary"/>
+       
+                             <GenericTemplateTable
+                                data={records}               // your rows with UI keys like "record", "date"
+                                pageSize={20}
+                                tableName="projectdiaryrecord"
+                                siteId={siteId}
+                                editableFields={[3]}         // which UI columns are editable (1-based index)
+                                fieldMap={{                  // 👈 UI key -> DB key
+                                    record: "Record",          // UI "record" maps to DB "Record"
+                                    date: "Date",              // (only if you plan to edit Date)
+                                }}
+/>
+               </div>
+       
+    )
+}
+

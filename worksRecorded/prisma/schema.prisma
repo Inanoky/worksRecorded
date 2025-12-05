@@ -1,0 +1,321 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider      = "prisma-client-js"  
+  binaryTargets = ["native", "linux-musl", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Organization {
+
+      id        String   @id @default(uuid())
+      name      String
+      createdAt DateTime @default(now())
+      users User[]
+      sites Site[]
+      invoices Invoices[]
+      invoiceItems InvoiceItems[]
+      documents Documents[]
+      sitediaryrecords sitediaryrecords[]
+      sitediarysettings sitediarysettings[]
+      photos photos[]
+      workers workers[]
+      timelog timelog[]
+      projectdiaryrecord projectdiaryrecord[]
+      
+
+}
+
+model User {
+  id                            String  @id @unique
+  email                         String
+  phone                         String?
+  firstName                     String
+  lastName                      String
+  profileImage                  String
+  customerId                    String? @unique
+  siteManagerSelectIdforWhatsapp  String? 
+  lastSelectedSiteIdforWhatsapp String? // <-- add this field!
+  role                          String? 
+  status                        String?
+  userTour                      Json?
+  createdAt DateTime @default(now())
+
+  // NEW
+  reminderTime   DateTime?  // interpreted in user's timezone
+  timezone       String?    // e.g. "Europe/Riga"; default on write if missing
+  remindersEnabled Boolean   @default(true)
+
+
+
+  Site             Site[]  
+  Invoices         Invoices[]
+  Documents        Documents[]
+  sitediaryrecords sitediaryrecords[] // one user can have many site diary records
+  projectdiaryrecord projectdiaryrecord[]
+  Subscription      Subscription?
+  sitediarysettings sitediarysettings[]
+  photos            photos[]
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+}
+
+
+
+
+model Site {
+  id           String   @id @default(uuid())
+  name         String
+  description  String
+  subdirectory String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  imageUrl          String?
+  User              User?              @relation(fields: [userId], references: [id])
+  userId            String?
+  reminders       String?
+  
+  invoices          Invoices[]
+  InvoiceItems      InvoiceItems[]
+  Documents         Documents[]
+  projectdiaryrecord projectdiaryrecord[]
+  photos            photos[] // on site can have many photos
+  timelog           timelog[] // on site can have timelogs
+  sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
+  
+  sitediarysettings sitediarysettings? //One site can have one site diary setting
+  analytics analytics?
+  workers           workers[] //on site can have many workers 
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+}
+
+model Subscription {
+  stripeSubscriptionId String   @id @unique
+  interval             String
+  status               String
+  planId               String
+  currentPeriodStart   Int
+  currentPeriodEnd     Int
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  User   User?   @relation(fields: [userId], references: [id])
+  userId String? @unique
+}
+
+model Invoices {
+  id                              String   @id @default(cuid())
+  url                             String
+  invoiceNumber                   String?
+  sellerName                      String?
+  invoiceTotalSumNoVat            Float?
+  invoiceTotalSumWithVat          Float?
+  buyerName                       String?
+  invoiceDate                     DateTime?
+  paymentDate                     DateTime?
+  isInvoice                       Boolean?
+  isCreditDebitProformaOrAdvanced String?
+  health                          String?
+  auditSummary                    String?
+
+  uploadedAt DateTime @default(now())
+
+  User   User?          @relation(fields: [userId], references: [id])
+  userId String?
+  Site   Site?          @relation(fields: [SiteId], references: [id], onDelete: Cascade)
+  SiteId String?
+  items  InvoiceItems[]
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+
+model InvoiceItems {
+  // Invoice items
+  id String @id @default(uuid())
+
+  item                  String?
+  quantity              Float?
+  unitOfMeasure         String?
+  pricePerUnitOfMeasure Float?
+  sum                   Float?
+  currency              String?
+  category              String?
+  itemDescription       String?
+  commentsForUser       String?
+  isInvoice             Boolean?
+  invoiceId             String
+  invoice               Invoices @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  Site                  Site?    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId                String?
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+
+  // Invoice information
+
+  invoiceNumber String?
+  sellerName    String?
+  // invoiceTotalSumNoVat   Float?
+  // invoiceTotalSumWithVat Float?
+  // buyerName              String?
+  invoiceDate   DateTime?
+  paymentDate   DateTime?
+
+}
+
+
+
+model Documents {
+  id           String  @id @default(uuid())
+  url          String
+  documentType String
+  documentName String
+  description  String
+  User         User?   @relation(fields: [userId], references: [id])
+  userId       String?
+  Site         Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade) // 06:16 - onDelete added
+  siteId       String?
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+}
+
+model sitediaryrecords {
+  id              String    @id @default(uuid())
+  User            User?     @relation(fields: [userId], references: [id])
+  userId          String?
+  Worker          workers?  @relation(fields: [workerId], references: [id])
+  workerId        String?
+  Site            Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade) // 06:16 - onDelete added
+  siteId          String?
+  Date            DateTime?
+  Location        String?
+  Works           String?
+  Comments        String?
+  Units           String?
+  Amounts         Float?
+  WorkersInvolved Int?
+  TimeInvolved    Float?
+  Photos          String[]
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+}
+
+model sitediarysettings {
+  id      String  @id @default(uuid())
+  User    User?   @relation(fields: [userId], references: [id])
+  userId  String?
+  fileUrl String?
+  Site    Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId  String? @unique // <- Only one settings per site
+  schema  String?
+  targets Json?
+
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+}
+
+model photos {
+  id       String    @id @default(uuid())
+  Date     DateTime?
+  URL      String?
+  Comment  String?
+  Location String?
+  User     User?     @relation(fields: [userId], references: [id])
+  userId   String?
+  Worker           workers?  @relation(fields: [workerId], references: [id])
+  workerId         String?
+  fileUrl  String?
+  Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId   String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+}
+
+
+
+model workers {
+  id       String    @id @default(uuid())
+  name String?
+  surname String?
+  personalId String?
+  Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId   String?
+  phone     String?
+  isClockedIn Boolean?
+  timelog timelog[]
+  photos photos[]
+  sitediaryrecords sitediaryrecords[]
+   organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+ 
+}
+
+model timelog {
+  id       String    @id @default(uuid())
+  workers  workers?     @relation(fields: [workerId], references: [id], onDelete: SetNull)
+  workerName String?
+  WorkerSurname String? 
+  workerId   String?
+  Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId   String?
+  date DateTime?
+  clockIn DateTime?
+  clockOut DateTime?
+  wocation String?
+  works String?
+  photo String?
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+
+
+}
+
+
+model projectdiaryrecord {
+  
+
+id       String    @id @default(uuid())
+Date DateTime?
+Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+siteId   String?
+User    User?   @relation(fields: [userId], references: [id])
+userId  String?
+Record String?
+ organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+
+
+}
+
+model analytics {
+
+  id       String    @id @default(uuid())
+  lastWeekProgress Json?
+  currentWeekProgress Json? 
+  Site    Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId  String? @unique // <- Only one analytics per site
+
+
+}
+

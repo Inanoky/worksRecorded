@@ -1,0 +1,122 @@
+ 
+ "use client"
+ 
+ import * as React from "react";
+
+ import { RefreshCw, Dot, CircleQuestionMark } from 'lucide-react';
+
+ import { Badge } from "@/components/ui/badge"
+ import {
+   Card,
+   CardAction,
+   CardDescription,
+   CardFooter,
+   CardHeader,
+   CardTitle,
+ } from "@/components/ui/card"
+
+ import { ReasonHover } from "./HooverCardMetrics";
+
+ import { Spinner } from "@/components/ui/spinner";
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ export default function MetricsCardWorkers({cardName, siteId,  workerCount, onRefresh }) 
+ 
+    
+ { 
+    const [onCardRefresh, setOnCardRefresh] = React.useState<boolean>(false)  ;
+
+
+
+
+
+
+    return (
+
+
+        <Card className="@container/card relative overflow-hidden">     
+
+      {onCardRefresh && (
+                <div className="absolute inset-0 z-10 grid place-items-center bg-background/60 backdrop-blur-xs rounded-inherit">
+                <Spinner className="size-8" />
+                </div>
+      )}
+
+
+        
+<CardHeader className={onCardRefresh? "opacity-100  pointer-events-none" : ""}>
+          <CardDescription>{cardName}</CardDescription>
+          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {workerCount?.elementsAssembled} workers on site : { workerCount}
+          </CardTitle>
+          <CardAction>
+            <Badge
+              variant="outline"
+              className="bg-green-50 text-green-700 border-green-300 hover:bg-green-100 inline-flex items-center gap-1.5"
+            >
+              <Dot className="size-4 text-green-600 fill-current" />
+              LIVE
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardFooter className="flex-col items-start gap-1.5 text-sm">
+             <div className="line-clamp-1 flex gap-2 font-medium">
+            Latest Issue : 
+          </div>
+          <div className="line-clamp-1 flex gap-2 font-medium">
+            Next deadline : 
+          </div>
+          <div className="flex items-center text-muted-foreground w-full">
+    <span>Next milestone </span>
+    <div  className="flex flex-row gap-2 items-center size-14 ml-auto ">
+     <ReasonHover markdown={"preview"} title="How this was calculated"  />
+    <RefreshCw 
+    className="hover:animate-spin cursor-pointer size-12" 
+    onClick={async () => 
+    
+    {
+        setOnCardRefresh(true);
+      await onRefresh(siteId).then(() => setOnCardRefresh(false));
+      
+      
+      
+              
+              }} />
+            </div>
+          </div>
+        </CardFooter>
+
+   
+
+
+        
+      </Card>
+       
+
+
+
+
+
+
+    )
+
+
+ 
+ }
+ 
+ 
+ 
+ 
+ 

@@ -1,0 +1,258 @@
+import { END } from "@langchain/langgraph";
+
+import { z } from "zod";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { ChatOpenAI } from "@langchain/openai";
+import { AIMessage } from "@langchain/core/messages";
+import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
+import {tools} from "@/server/ai-flows/agents/orchestrating-agent/tools";
+
+/**
+ * Decides whether the agent should retrieve more information or end the process.
+ * This function checks the last message in the state for a function call. If a tool call is
+ * present, the process continues to retrieve information. Otherwise, it ends the process.
+ * @param {typeof GraphState.State} state - The current state of the agent, including all messages.
+ * @returns {string} - A decision to either "continue" the retrieval process or "end" it.
+ */
+export function shouldRetrieve(state: typeof GraphState.State): string {
+  const { messages } = state;
+  console.log("---DECIDE TO RETRIEVE---");
+  const lastMessage = messages[messages.length - 1];
+
+  if ("tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls.length) {
+    console.log("---DECISION: RETRIEVE---");
+    return "retrieve";
+  }
+  // If there are no tool calls then we finish.
+  return END;
+}
+
+/**
+ * Determines whether the Agent should continue based on the relevance of retrieved documents.
+ * This function checks if the last message in the conversation is of type FunctionMessage, indicating
+ * that document retrieval has been performed. It then evaluates the relevance of these documents to the user's
+ * initial question using a predefined model and output parser. If the documents are relevant, the conversation
+ * is considered complete. Otherwise, the retrieval process is continued.
+ * @param {typeof GraphState.State} state - The current state of the agent, including all messages.
+ * @returns {Promise<Partial<typeof GraphState.State>>} - The updated state with the new message added to the list of messages.
+ */
+export async function gradeDocuments(state: typeof GraphState.State): Promise<Partial<typeof GraphState.State>> {
+  console.log("---GET RELEVANCE---");
+
+  const { messages } = state;
+  const tool = {
+    name: "give_relevance_score",
+    description: "Give a relevance score to the retrieved documents.",
+    schema: z.object({
+      binaryScore: z.string().describe("Relevance score 'yes' or 'no'"),
+    })
+  }
+
+  const prompt = ChatPromptTemplate.fromTemplate(
+    `You are a grader assessing relevance of retrieved docs to a user question.
+  Here are the retrieved docs:
+  \n ------- \n
+  {context} 
+  \n ------- \n
+  Here is the user question: {question}
+  If the content of the docs are relevant to the users question, score them as relevant.
+  Give a binary score 'yes' or 'no' score to indicate whether the docs are relevant to the question.
+  Yes: The docs are relevant to the question.
+  No: The docs are not relevant to the question.`,
+  );
+
+  const model = new ChatOpenAI({
+    model: "gpt-5-mini",
+    // temperature: 0,
+  }).bindTools([tool], {
+    tool_choice: tool.name,
+  });
+
+  const chain = prompt.pipe(model);
+
+  //So here it is not clear for me what exactly is lastMessage ???
+
+  const lastMessage = messages[messages.length - 1];
+
+  console.log("messages:", messages);
+  console.log("messages[1]:", messages[1]);
+  console.log("messages[1]?.kwargs:", messages[1].content);
+
+  console.log(`This is state :${JSON.stringify(messages)}`)
+
+  console.log(`----------------------------------------------------------------------------------------------------------`)
+
+  console.log(`So this is a context for the grader :${lastMessage.content}`)
+
+  //ok so here we find a correct object in the array of objects :
+
+
+
+  const score = await chain.invoke({
+    question: messages[1].content as string,
+    context: lastMessage.content as string,
+  });
+
+  return {
+    messages: [score]
+  };
+}
+
+/**
+ * Check the relevance of the previous LLM tool call.
+ *
+ * @param {typeof GraphState.State} state - The current state of the agent, including all messages.
+ * @returns {string} - A directive to either "yes" or "no" based on the relevance of the documents.
+ */
+export function checkRelevance(state: typeof GraphState.State): string {
+  console.log("---CHECK RELEVANCE---");
+
+  const { messages } = state;
+  const lastMessage = messages[messages.length - 1];
+  if (!("tool_calls" in lastMessage)) {
+    throw new Error("The 'checkRelevance' node requires the most recent message to contain tool calls.")
+  }
+  const toolCalls = (lastMessage as AIMessage).tool_calls;
+  if (!toolCalls || !toolCalls.length) {
+    throw new Error("Last message was not a function message");
+  }
+
+  if (toolCalls[0].args.binaryScore === "yes") {
+    console.log("---DECISION: DOCS RELEVANT---");
+    return "yes";
+  }
+  console.log("---DECISION: DOCS NOT RELEVANT---");
+  return "no";
+}
+
+
+export async function agent(state: typeof GraphState.State): Promise<Partial<typeof GraphState.State>> {
+  console.log("---CALL AGENT---");
+
+  const { messages } = state;
+
+  const filteredMessages = messages.filter((message) => {
+    if ("tool_calls" in message && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
+      return message.tool_calls[0].name !== "give_relevance_score";
+    }
+    return true;
+  });
+
+
+
+  const model = new ChatOpenAI({
+    model: "gpt-4.1",
+    temperature: 0.5,
+    
+    streaming: true,
+  }).bindTools(tools);
+
+  const response = await model.invoke(filteredMessages); //Here llmMessages is not of BaseMessage type anymore
+
+  console.log(`This is what is returned to state after Agent uses tools : `)
+  return {
+    messages: [response],
+  };
+}
+
+
+export async function rewrite(state: typeof GraphState.State): Promise<Partial<typeof GraphState.State>> {
+  console.log("---TRANSFORM QUERY---");
+
+  const { messages } = state;
+  const question = messages[0].content as string;
+  const prompt = ChatPromptTemplate.fromTemplate(
+    `Look at the input and try to reason about the underlying semantic intent / meaning. \n 
+Here is the initial question:
+\n ------- \n
+{question} 
+\n ------- \n
+Formulate an improved question:`,
+  );
+
+  // Grader
+  const model = new ChatOpenAI({
+    model: "gpt-4.1",
+    temperature: 0,
+    streaming: true,
+  });
+  const response = await prompt.pipe(model).invoke({ question });
+  return {
+    messages: [response],
+  };
+}
+
+/**
+ * Generate answer
+ * @param {typeof GraphState.State} state - The current state of the agent, including all messages.
+ * @returns {Promise<Partial<typeof GraphState.State>>} - The updated state with the new message added to the list of messages.
+ */
+export async function generate(state: typeof GraphState.State): Promise<Partial<typeof GraphState.State>> {
+  console.log("---GENERATE---");
+
+  const { messages } = state;
+  console.log(`Those are messages before they are filtered ${JSON.stringify(messages,null,2)}`)
+  const question = messages[0].content as string;
+
+  const toolMessages = messages.slice().reverse().filter((msg) =>
+  msg.getType() === `tool`)
+
+
+
+
+  if (!toolMessages) {
+    throw new Error("No tool message found in the conversation history");
+  }
+
+   // If only 1 tool message, keep as before; if >1, take all
+  let docs: string | string[];
+  if (toolMessages.length === 1) {
+    docs = toolMessages[0].content as string;
+  } else {
+    // Here you can choose to combine or return as array.
+    // For RAG, usually you want an array of contexts (or you can join them).
+    docs = toolMessages.map(msg => msg.content as string);
+
+
+  }
+
+
+
+
+    const prompt = ChatPromptTemplate.fromTemplate(
+    `You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know.
+      Question: {question} 
+      Context: {context} 
+      Answer:`,
+  );
+
+
+
+  
+
+  const llm = new ChatOpenAI({
+    model: "gpt-4.1",
+    temperature: 0,
+    top_p: 0.1,
+    streaming: true,
+  });
+
+  const ragChain = prompt.pipe(llm);
+
+  console.log(`This is context of Generate ${JSON.stringify(docs,null,2)}`)
+
+   // If docs is array, join it for the context or handle as you wish
+  const context = Array.isArray(docs) ? docs.join('\n---\n') : docs;
+
+  const response = await ragChain.invoke({
+
+    // context: docs,
+    context,
+
+    question: messages[1].content as string,
+  });
+
+  return {
+    messages: [response],
+  };
+}
