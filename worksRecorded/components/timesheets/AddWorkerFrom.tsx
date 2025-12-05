@@ -1,24 +1,19 @@
-// app/components/AddWorkerForm.tsx
 "use client";
 
 import { useState, useTransition } from "react";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { createTeamMember } from "@/server/actions/timesheets-actions";
 import { checkPhoneUnique } from "@/lib/utils/Timesheets/phone-check";
 
-// --- Zod schema & helpers ---
-
-// Unicode-friendly name validation: letters, spaces, hyphens, apostrophes; 2–50 chars
 const nameRegex = /^[\p{L}][\p{L}\s'-]{1,49}$/u;
 
 const normalizePhone = (raw: string) => {
-  const digits = (raw || "").replace(/\D/g, ""); // keep numbers only
-  // If already starts with 371, keep; else prefix it
+  const digits = (raw || "").replace(/\D/g, "");
   const withCc = digits.startsWith("371") ? digits : `371${digits}`;
   return withCc;
 };
@@ -42,7 +37,7 @@ const formSchema = z.object({
     .regex(/^\d{6}-\d{5}$/, "Personal ID must be in the format xxxxxx-xxxxx"),
   phone: z
     .string()
-    .transform((s) => normalizePhone(s)) // normalize to digits, ensure it starts with 371
+    .transform((s) => normalizePhone(s))
     .refine((s) => /^371\d{8}$/.test(s), {
       message: "Incorrect phone number",
     }),
@@ -68,13 +63,14 @@ export function AddWorkerForm({
     siteId,
     phone: "",
   });
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>(
+    {},
+  );
   const [pending, startTransition] = useTransition();
-   const router = useRouter(); 
+  const router = useRouter();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
-    // clear field-specific error on change
     if (errors[e.target.name as keyof FormState]) {
       setErrors((prev) => ({ ...prev, [e.target.name]: undefined }));
     }
@@ -83,7 +79,6 @@ export function AddWorkerForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate & normalize
     const parsed = formSchema.safeParse(form);
     if (!parsed.success) {
       const fieldErrors: Partial<Record<keyof FormState, string>> = {};
@@ -92,7 +87,8 @@ export function AddWorkerForm({
         if (path) fieldErrors[path] = issue.message;
       }
       setErrors(fieldErrors);
-      const firstError = parsed.error.issues[0]?.message ?? "Please fix validation errors.";
+      const firstError =
+        parsed.error.issues[0]?.message ?? "Please fix validation errors.";
       toast.error(firstError);
       return;
     }
@@ -100,9 +96,6 @@ export function AddWorkerForm({
     const data: NormalizedForm = parsed.data;
 
     startTransition(async () => {
-
-
-         // --- NEW: check phone uniqueness ---
       const phoneCheck = await checkPhoneUnique(data.phone);
       if (!phoneCheck.unique) {
         setErrors((prev) => ({ ...prev, phone: "Phone number already used" }));
@@ -110,27 +103,12 @@ export function AddWorkerForm({
         return;
       }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
       const res = await createTeamMember({
         name: data.name,
         surname: data.surname,
         personalId: data.personalId,
         siteId: data.siteId,
-        phone: data.phone, // already normalized like 371XXXXXXXX
+        phone: data.phone,
       });
 
       if (res.success) {
@@ -138,8 +116,7 @@ export function AddWorkerForm({
         setForm({ name: "", surname: "", personalId: "", siteId, phone: "" });
         setErrors({});
         onSuccess?.(res.worker);
-        router.refresh()
-        
+        router.refresh();
       } else {
         toast.error(res.error || "Failed to add worker");
       }
@@ -147,75 +124,88 @@ export function AddWorkerForm({
   };
 
   return (
-    <Card className="max-w-md w-full h-85">
-      <form onSubmit={handleSubmit} className="grid gap-2">
-        <CardHeader>
-          <CardTitle>Add Worker</CardTitle>
-        </CardHeader>
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="space-y-1">
+        <Label htmlFor="name">Name</Label>
+        <Input
+          id="name"
+          name="name"
+          placeholder="John"
+          value={form.name}
+          onChange={handleChange}
+          aria-invalid={!!errors.name}
+          required
+        />
+        {errors.name && (
+          <p className="mt-1 text-xs text-destructive">{errors.name}</p>
+        )}
+      </div>
 
-        <CardContent className="space-y-3">
-          <div>
-            <Input
-              name="name"
-              placeholder="Name"
-              value={form.name}
-              onChange={handleChange}
-              aria-invalid={!!errors.name}
-              required
-            />
-            {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name}</p>}
-          </div>
+      <div className="space-y-1">
+        <Label htmlFor="surname">Surname</Label>
+        <Input
+          id="surname"
+          name="surname"
+          placeholder="Doe"
+          value={form.surname}
+          onChange={handleChange}
+          aria-invalid={!!errors.surname}
+          required
+        />
+        {errors.surname && (
+          <p className="mt-1 text-xs text-destructive">{errors.surname}</p>
+        )}
+      </div>
 
-          <div>
-            <Input
-              name="surname"
-              placeholder="Surname"
-              value={form.surname}
-              onChange={handleChange}
-              aria-invalid={!!errors.surname}
-              required
-            />
-            {errors.surname && <p className="text-sm text-red-600 mt-1">{errors.surname}</p>}
-          </div>
+      <div className="space-y-1">
+        <Label htmlFor="personalId">Personal ID</Label>
+        <Input
+          id="personalId"
+          name="personalId"
+          placeholder="010203-12345"
+          value={form.personalId}
+          onChange={handleChange}
+          aria-invalid={!!errors.personalId}
+          required
+        />
+        {errors.personalId && (
+          <p className="mt-1 text-xs text-destructive">{errors.personalId}</p>
+        )}
+      </div>
 
-          <div>
-            <Input
-              name="personalId"
-              placeholder="Personal ID (e.g. 010203-12345)"
-              value={form.personalId}
-              onChange={handleChange}
-              aria-invalid={!!errors.personalId}
-              required
-            />
-            {errors.personalId && <p className="text-sm text-red-600 mt-1">{errors.personalId}</p>}
-          </div>
+      <div className="space-y-1">
+        <Label htmlFor="phone">Phone</Label>
+        <Input
+          id="phone"
+          name="phone"
+          placeholder="+371 24885690"
+          inputMode="tel"
+          value={form.phone}
+          onChange={handleChange}
+          aria-invalid={!!errors.phone}
+          required
+        />
+        {errors.phone && (
+          <p className="mt-1 text-xs text-destructive">{errors.phone}</p>
+        )}
+      </div>
 
-          <div>
-            <Input
-              name="phone"
-              placeholder="+371 24885690"
-              inputMode="tel"
-              value={form.phone}
-              onChange={handleChange}
-              aria-invalid={!!errors.phone}
-              required
-            />
-           
-            {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone}</p>}
-          </div>
-        </CardContent>
-
-        <CardFooter className="flex justify-end gap-2">
-          {onCancel && (
-            <Button type="button" variant="ghost" onClick={onCancel} disabled={pending}>
-              Cancel
-            </Button>
-          )}
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving..." : "Add Worker"}
+      <div className="flex justify-end gap-2 pt-1">
+        {onCancel && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            disabled={pending}
+          >
+            Cancel
           </Button>
-        </CardFooter>
-      </form>
-    </Card>
+        )}
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending ? "Saving..." : "Add worker"}
+        </Button>
+      </div>
+    </form>
   );
 }

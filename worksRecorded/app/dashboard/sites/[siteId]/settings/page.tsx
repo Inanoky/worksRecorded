@@ -151,21 +151,7 @@ export default async function SettingsSiteRoute({
       </Card>
 
       {/* Upload Sections */}
-      <Card
-      data-tour="upload-invoices">
-        <CardHeader>
-          <CardTitle>Upload invoices here</CardTitle>
-        </CardHeader>
-        <InvoiceUpload params={Promise.resolve({ siteId })} />
-      </Card>
-
-      <Card
-      data-tour="upload-documents">
-        <CardHeader>
-          <CardTitle>Upload Documents</CardTitle>
-        </CardHeader>
-        <DocumentUpload params={Promise.resolve({ siteId })} />
-      </Card>
+ 
 
       <Card
       data-tour="programm">

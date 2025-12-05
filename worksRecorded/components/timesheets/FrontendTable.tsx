@@ -1,4 +1,5 @@
 "use client";
+
 import * as React from "react";
 import * as XLSX from "xlsx";
 import {
@@ -10,10 +11,15 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-
-import { useState } from "react";
 import {
   Pagination,
   PaginationContent,
@@ -22,14 +28,21 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import {SelectContent, Select, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSiteSchema } from "../providers/SiteSchemaProvider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon, ChevronDownIcon, MoreHorizontal } from "lucide-react"
+import { Calendar as CalendarIcon, ChevronDownIcon, MoreHorizontal } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { editTimeRecord } from "@/server/actions/timesheets-actions";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { useProject } from "../providers/ProjectProvider";
 import { useRouter } from "next/navigation";
@@ -37,215 +50,109 @@ import { useActionState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 
-
-
-
-// --- Auto-generate columns from data ---
-function getColumnsFromData(data) {
+function getColumnsFromData(data: any[]) {
   if (!data || data.length === 0) return [];
   return Object.keys(data[0])
-  .filter(k => k !== "id")   
-  .map(key => ({ //So we take a first object from the data array, map agains its keys. 
-    accessorKey: key, // So I guess we createa a new array (of objects) with the keys as accessorKey and heade
-    header: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize first letter for header (for display)
-  }));
+    .filter((k) => k !== "id")
+    .map((key) => ({
+      accessorKey: key,
+      header: key.charAt(0).toUpperCase() + key.slice(1),
+    }));
 }
 
-// --- Global filter ---
-const defaultGlobalFilterFn = (row, columnId, filterValue) => {
+const defaultGlobalFilterFn = (row: any, _columnId: string, filterValue: string) => {
   if (!filterValue) return true;
   const flatString = Object.values(row.original)
-    .filter(v => typeof v === "string" || typeof v === "number" || typeof v === "boolean")
+    .filter(
+      (v) =>
+        typeof v === "string" || typeof v === "number" || typeof v === "boolean",
+    )
     .join(" ")
     .toLowerCase();
   return flatString.includes(filterValue.toLowerCase());
 };
 
+type FrontendTableProps = {
+  data?: any[];
+  workers?: any[];
+  pageSize: number;
+  exportFileName?: string;
+};
+
 export function FrontendTable({
   data = [],
   workers = [],
-  pageSize ,
+  pageSize,
   exportFileName = "table_data.xlsx",
-}) {
-  // Auto-generate columns from data
-  const columns = React.useMemo(() => getColumnsFromData(data), [data]); // So useMemo is some kind of state shenanigans. I think it refeshes? Anyway. 
-
-//-----------------------------------State----------------------------------
-
-
-
+}: FrontendTableProps) {
+  const columns = React.useMemo(() => getColumnsFromData(data), [data]);
 
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
   const [anyChanges, setAnyChanges] = React.useState(false);
   const [editRowId, setEditRowId] = React.useState<string | null>(null);
-  const [rowsToSave, setRowsToSave] = React.useState<any[]>([])
+  const [rowsToSave, setRowsToSave] = React.useState<any[]>([]);
   const { projectId: siteId } = useProject();
-  const [result, action] = useActionState(editTimeRecord, undefined)
-  const [open, setOpen] = React.useState(false)
-  const [date, setDate] = React.useState<Date | undefined>(undefined)
+  const [result, action] = useActionState(editTimeRecord, undefined);
+  const [open, setOpen] = React.useState(false);
+  const [date, setDate] = React.useState<Date | undefined>(undefined);
 
-  
-const [submitting, setSubmitting] = useState(false);
-   const router = useRouter();
-   const patch = editRowId ? rowsToSave[Object.keys(rowsToSave)[0]] : undefined;
+  const router = useRouter();
+  const patch = editRowId ? rowsToSave[Object.keys(rowsToSave)[0]] : undefined;
 
-
-
-  // console.log(anyChanges, "Any changes")
-  // console.log("Edit row ID:", editRowId)
-  console.log("Rows to save:", rowsToSave)  
-
-
-  const wrapperRef = React.useRef<HTMLDivElement | null>(null); //So this is a wrapper so we can track clicks outside of it.
-
-
-  //---------------------------Zod------------------------------
+  const wrapperRef = React.useRef<HTMLDivElement | null>(null);
 
   const ZodRowSchema = z.object({
-   
     works: z.string().max(200, "Comments must be 200 characters or fewer").optional(),
-    
   });
-  
-  
 
+  React.useEffect(() => {
+    if (result?.success) {
+      setAnyChanges(false);
+      setRowsToSave({});
+      setEditRowId(null);
+    }
+  }, [result]);
 
+  React.useEffect(() => {
+    function onDocPointerDown(e: MouseEvent | PointerEvent | TouchEvent) {
+      const root = wrapperRef.current;
+      if (!root) return;
 
+      const target = e.target as Element | null;
+      if (!target) return;
 
+      const clickedInside = root.contains(target);
+      const inRadixPortal =
+        target.closest("[data-radix-portal]") ||
+        target.closest("[data-radix-popper-content]") ||
+        target.closest("[data-radix-popper-content-wrapper]");
 
+      if (!clickedInside && !inRadixPortal) {
+        const dirty = anyChanges;
+        if (dirty && !window.confirm("You have unsaved changes. Discard them?")) {
+          return;
+        }
 
-    React.useEffect(() => {
-      if (result?.success) {
-        setAnyChanges(false);
         setRowsToSave({});
         setEditRowId(null);
+        setAnyChanges(false);
       }
-    }, [result]);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  //So this is a click outside handler.
-  React.useEffect(() => {
-  function onDocPointerDown(e: MouseEvent | PointerEvent | TouchEvent) {
-    const root = wrapperRef.current;
-    if (!root) return;
-
-    const target = e.target as Element | null;
-    if (!target) return;
-
-    const clickedInside = root.contains(target);
-
-    // 👇 Ignore clicks inside Radix/shadcn portals (Select/Popover/Dropdown, etc.)
-    const inRadixPortal =
-      target.closest("[data-radix-portal]") ||
-      target.closest("[data-radix-popper-content]") ||
-      target.closest("[data-radix-popper-content-wrapper]");
-
-    if (!clickedInside && !inRadixPortal) {
-
-       // determine if there are unsaved changes
-       const dirty =  anyChanges 
-
-          if (dirty && !window.confirm("You have unsaved changes. Discard them?")) {
-        return; // keep edits
-      }
-
-
-
-
-      // clear your state here
-      setRowsToSave({});   // or [] if you're using an array
-      setEditRowId(null);
-      setAnyChanges(false);
     }
-  }
 
-  // pointerdown feels faster than click
-  document.addEventListener("pointerdown", onDocPointerDown);
-  return () => document.removeEventListener("pointerdown", onDocPointerDown);
-}, [anyChanges, editRowId, rowsToSave]);
- 
-
-
-  
-
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, [anyChanges, editRowId, rowsToSave]);
 
   function handleChange(rowId: string, field: string, value: any) {
-  setRowsToSave(prev => {
-    const row = prev[rowId] ?? {}; //So it there is already a row with changes, we get it, otherwise we create an empty object.
-    return { ...prev, [rowId]: { ...row, [field]: value } }; // So this is a state update? 
-  });
-
-
-
-
+    setRowsToSave((prev: any) => {
+      const row = prev[rowId] ?? {};
+      return { ...prev, [rowId]: { ...row, [field]: value } };
+    });
   }
-
-const handleSubmit = async (e?: React.FormEvent) => {
-
-
-  
-
-  e?.preventDefault();
-  console.log("[SUBMIT] fired. rowsToSave =", rowsToSave);
-
-  const entries = Object.entries(rowsToSave);
-  if (entries.length === 0) {
-    console.warn("[SUBMIT] Nothing to save — rowsToSave is empty.");
-    return;
-  }
-
-  const [id, patch] = entries[0] as [string, Record<string, unknown>];
-  const payload = { id, ...patch, siteId } as {
-    id: string;
-    workerId?: string;
-    date?: Date | string;
-    clockIn?: string;
-    clockOut?: string;
-    location?: string;
-    works?: string;
-    siteId: string;
-   
-  };
-
-  console.log("[SUBMIT] payload =>", payload);
-
-  try {
-    // const res = await editTimeRecord(payload);
-    // console.log("[SUBMIT] editTimeRecord result =>", res);
-    // // reset local state
-    // setRowsToSave({});
-    // setEditRowId(null);
-    // setAnyChanges(false);
-  } catch (err) {
-    // console.error("[SUBMIT] editTimeRecord threw:", err);
-  }
-
- 
-  router.refresh()
-};
-
-
-
-
-
 
   function exportToExcel() {
-    const rows = table.getFilteredRowModel().rows.map(row => row.original);
+    const rows = table.getFilteredRowModel().rows.map((row) => row.original);
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
@@ -253,10 +160,9 @@ const handleSubmit = async (e?: React.FormEvent) => {
   }
 
   const table = useReactTable({
-    data, //an array of plain objects
-    columns, // column definitions
-    state: { globalFilter, rowSelection, },
-    
+    data,
+    columns,
+    state: { globalFilter, rowSelection },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -267,28 +173,8 @@ const handleSubmit = async (e?: React.FormEvent) => {
     initialState: { pagination: { pageSize } },
   });
 
-  const {locations,works} = useSiteSchema();
+  const { locations, works } = useSiteSchema();
 
-  // -----------------------------------notes----------------------------------
-
-  // const headers = table.getHeaderGroups(); //Ok, so this will return and objeckt with the headers included (a separate array with its own field for each header)
-
-  // // console.dir(headers, { depth: null });
-
-
-  // const rows = table.getRowModel()
-  // // const first = rows[0]
-  // console.log("First row:", first.original); //So data is in original. 
-
-  // console.dir(rows, { depth: null });
-
-  // const cells = rows.rows[0].getVisibleCells() 
-
-  // const contents = cells[0].getValue() //So this returns the actual content of the cell.
-
-  // console.dir(contents, { depth: null });
-
-// -----------------------------------Code -------------------------------------
   function renderPagination() {
     const pageCount = table.getPageCount();
     const current = table.getState().pagination.pageIndex;
@@ -298,7 +184,10 @@ const handleSubmit = async (e?: React.FormEvent) => {
 
     if (pageCount > maxPages) {
       if (current > Math.floor(maxPages / 2)) {
-        start = Math.max(0, Math.min(current - Math.floor(maxPages / 2), pageCount - maxPages));
+        start = Math.max(
+          0,
+          Math.min(current - Math.floor(maxPages / 2), pageCount - maxPages),
+        );
         end = start + maxPages;
       }
     }
@@ -320,397 +209,291 @@ const handleSubmit = async (e?: React.FormEvent) => {
       items.push(
         <PaginationItem key="ellipsis">
           <span className="px-2 select-none text-muted-foreground">…</span>
-        </PaginationItem>
+        </PaginationItem>,
       );
     }
     return items;
   }
 
-//--------Rendering cells------------------------------------
-
-
-
-
-function renderCell(cell){
-
-  
-  
-
-
-  if (editRowId === cell.row.id) {
-
- 
-
-
-   if(cell.column.id === "works") return (
-    <>
-
-    <Textarea
-      
-      placeholder={cell.getValue()}
-      className="text-pretty field-sizing-fixed"
-      onChange={(e) => {
-             // ← collected value
-            setAnyChanges(true);
-            handleChange(cell.row.original.id, 'works', e.currentTarget.value);
-            // do something with v...
-          }}
-
-    
-    />
-     
-    </>
-
-    
-
-  )
-
-  if(cell.column.id === "clockIn") return (
-
-       <Input
-          type="time"
-          id="time-picker"
-          step="1"
-          defaultValue={cell.getValue()}
-          onChange={(e) => {
-            setAnyChanges(true)
-            handleChange(cell.row.original.id, 'clockIn', e.currentTarget.value);
-          }}
-          className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-        />
-
-
-  )
-
-   if(cell.column.id === "clockOut") return (
-
-       <Input
-          type="time"
-          id="time-picker"
-          step="1"
-          defaultValue={cell.getValue()}
-          onChange={(e) => {
-            setAnyChanges(true)
-            handleChange(cell.row.original.id, 'clockOut', e.currentTarget.value);
-          }}
-          className="bg-background appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
-        />
-
-
-  )
-
-
-   if (cell.column.id === "location") {
-
-        const rowId = cell.row.original.id;
-        const current = String(
-    (rowsToSave[rowId]?.location ?? cell.getValue() ?? "")
-  );
-
-
-
-    return (
-   
-   
-                      <Select 
-
-                 
-                      onValueChange={(v) => {
-
-
-                        
-                      setAnyChanges(true)
-                      handleChange(cell.row.original.id, 'location', v)
-                      
-
-
-                      }
-                      } >
-                      <SelectTrigger  className="w-[180px]">
-                        <SelectValue placeholder={cell.getValue() } />
-                      </SelectTrigger>
-                      <SelectContent>
-
-                        {/* Now here I need to get a list of available locations somewhore.  */}
-
-                        {locations.map((loc) => (
-                          <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-                        ))}                        
-
-
-                      </SelectContent>
-
-                    </Select>
-                    )}
-
-    if (cell.column.id === "date")      
-      
-      return (
-      
-            <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            id="date"
-            className="w-48 justify-between font-normal"
-          >
-            {date ? date.toLocaleDateString('lv-LV', {
-                      day: '2-digit', month: '2-digit', year: 'numeric'
-                    }).replace(/\.$/, "") : cell.getValue() }
-            <ChevronDownIcon />
-          </Button>
-        </PopoverTrigger >
-        <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-          <Calendar
-            mode="single"
-            selected={date}
-            captionLayout="dropdown"
-            onSelect={(date) => {
-              setDate(date)
-              setOpen(false)
-              setAnyChanges(true)
-              handleChange(cell.row.original.id, 'date', date)
+  function renderCell(cell: any) {
+    if (editRowId === cell.row.id) {
+      if (cell.column.id === "works")
+        return (
+          <Textarea
+            placeholder={cell.getValue()}
+            className="resize-none text-sm"
+            onChange={(e) => {
+              setAnyChanges(true);
+              handleChange(cell.row.original.id, "works", e.currentTarget.value);
             }}
           />
-        </PopoverContent>
-      </Popover>
-    )
+        );
 
-    if (cell.column.id === "workerName") {
-      
-      return ( 
+      if (cell.column.id === "clockIn" || cell.column.id === "clockOut")
+        return (
+          <Input
+            type="time"
+            step="1"
+            defaultValue={cell.getValue()}
+            onChange={(e) => {
+              setAnyChanges(true);
+              handleChange(cell.row.original.id, cell.column.id, e.currentTarget.value);
+            }}
+            className="bg-background"
+          />
+        );
 
+      if (cell.column.id === "location") {
+        const rowId = cell.row.original.id;
+        const current = String(
+          rowsToSave[rowId]?.location ?? cell.getValue() ?? "",
+        );
 
-                      <Select 
+        return (
+          <Select
+            defaultValue={current}
+            onValueChange={(v) => {
+              setAnyChanges(true);
+              handleChange(cell.row.original.id, "location", v);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder={cell.getValue()} />
+            </SelectTrigger>
+            <SelectContent>
+              {locations.map((loc: string) => (
+                <SelectItem key={loc} value={loc}>
+                  {loc}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      }
 
-                      
-                      
-                      
-                      
-                      onValueChange={(v) => {
-                        
-                     
-                       setAnyChanges(true)
-                       handleChange(cell.row.original.id, 'workerId', v)
-                     
-                       
-                       
-                       } }>
-                      <SelectTrigger  className="w-[180px]">
-                        <SelectValue placeholder={cell.getValue() } />
-                      </SelectTrigger>
-                      <SelectContent>
+      if (cell.column.id === "date")
+        return (
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                id="date"
+                className="w-48 justify-between font-normal"
+              >
+                <span>
+                  {date
+                    ? date
+                        .toLocaleDateString("lv-LV", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })
+                        .replace(/\.$/, "")
+                    : cell.getValue()}
+                </span>
+                <CalendarIcon className="h-4 w-4 opacity-70" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto overflow-hidden p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={date}
+                captionLayout="dropdown"
+                onSelect={(d) => {
+                  setDate(d);
+                  setOpen(false);
+                  setAnyChanges(true);
+                  handleChange(cell.row.original.id, "date", d);
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        );
 
-                        {/* Now here I need to get a list of available locations somewhore.  */}
+      if (cell.column.id === "workerName") {
+        return (
+          <Select
+            onValueChange={(v) => {
+              setAnyChanges(true);
+              handleChange(cell.row.original.id, "workerId", v);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder={cell.getValue()} />
+            </SelectTrigger>
+            <SelectContent>
+              {workers.map((worker: any) => (
+                <SelectItem key={worker.id} value={worker.id}>
+                  {worker.name} {worker.surname}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        );
+      }
+    }
 
-                        {workers.map((worker) => (
-                          <SelectItem key={worker.id} value={worker.id}>
-                            {worker.name} {worker.surname}
-                            </SelectItem>
-                        ))}                        
-
-
-                      </SelectContent>
-
-                    </Select>
-
-
-    )}
- 
-  return flexRender(cell.column.columnDef.cell, cell.getContext()); //This renders cells in normal mode. 
-
-  } else {
-    return flexRender(cell.column.columnDef.cell, cell.getContext()); //This renders other rows not in question at the moment (not being edited).
+    return flexRender(cell.column.columnDef.cell, cell.getContext());
   }
 
-}
-
-  
-  
-
-
   return (
-    <form 
-    
-    
-    
-     action={async (fd) => {
-          fd.set("id", Object.keys(rowsToSave)[0]  ?? "");
-          console.log(Object.keys(rowsToSave)[0]  ?? "")
-          fd.set("siteId", siteId);
+    <form
+      action={async (fd) => {
+        fd.set("id", Object.keys(rowsToSave)[0] ?? "");
+        fd.set("siteId", siteId);
 
-          if (patch?.works) {
-
-          const parsed = ZodRowSchema.safeParse({works: patch?.works});
+        if (patch?.works) {
+          const parsed = ZodRowSchema.safeParse({ works: patch?.works });
           if (!parsed.success) {
-                toast.error(parsed.error.errors[0].message);
-                return;
-              }
-
+            toast.error(parsed.error.errors[0].message);
+            return;
           }
-        
-          if (patch?.works    != null) fd.set("works",    String(patch.works));
-          if (patch?.location != null) fd.set("location", String(patch.location));
-          if (patch?.clockIn  != null) fd.set("clockIn",  String(patch.clockIn));
-          if (patch?.clockOut != null) fd.set("clockOut", String(patch.clockOut));
-          if (patch?.date     != null) fd.set("date",     String(patch.date));
-          if (patch?.workerId     != null) fd.set("workerId",     String(patch.workerId));
+        }
 
-          action(fd);
+        if (patch?.works != null) fd.set("works", String(patch.works));
+        if (patch?.location != null) fd.set("location", String(patch.location));
+        if (patch?.clockIn != null) fd.set("clockIn", String(patch.clockIn));
+        if (patch?.clockOut != null) fd.set("clockOut", String(patch.clockOut));
+        if (patch?.date != null) fd.set("date", String(patch.date));
+        if (patch?.workerId != null) fd.set("workerId", String(patch.workerId));
 
-          
-           
-       
-         
-    
+        action(fd);
       }}
-    
     >
+      <div
+        ref={wrapperRef}
+        className="w-full overflow-hidden rounded-md border border-muted/60 bg-background"
+      >
+        {/* Toolbar */}
+        <div className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex w-full flex-1 items-center gap-2">
+            <Input
+              placeholder="Search records..."
+              value={globalFilter ?? ""}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="h-8 max-w-sm text-sm"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={exportToExcel}
+            >
+              Export to Excel
+            </Button>
+          </div>
 
+          {anyChanges && (
+            <div className="flex justify-end">
+              <SubmitButton text="Save changes" className="h-8 px-3 text-xs" />
+            </div>
+          )}
+        </div>
 
-    <div ref={wrapperRef} className="w-full overflow-x-auto">
-      {/* Toolbar */}
-      <div className="flex items-center py-4">
-        <Input
-          placeholder="Search..."
-          value={globalFilter ?? ""}
-          onChange={e => setGlobalFilter(e.target.value)}
-          className="max-w-sm"
-        />
-        <Button className="ml-2" variant="outline" onClick={exportToExcel}>
-          Export to Excel
-        </Button>
+        {/* Info row */}
+        <div className="border-b px-3 py-2 text-xs text-muted-foreground">
+          {table.getFilteredRowModel().rows.length} of {data.length} results
+        </div>
 
-  
-       
-
-
-
-
-        {anyChanges ? 
-       <SubmitButton text="Save changes"  className="ml-2"/>: null}
-      </div>
-      {/* Table */}
-      <div className="mb-2 text-sm text-muted-foreground">
-        {table.getFilteredRowModel().rows.length} of {data.length} results
-      </div>
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map(headerGroup => ( //So this return a array of header objejts, and we map over each of them. 
-            <TableRow key={headerGroup.id}> 
-              {headerGroup.headers.map(header => (
-
-                            
-                <TableHead
-                  key={header.id}
-                  onClick={header.column.getToggleSortingHandler?.()} //So this is just a sorting functionality. 
-                  className="cursor-pointer select-none whitespace-nowrap"
-                >
-
-                  
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                {header.column.getIsSorted() === "asc" && " 🔼"}
-                {header.column.getIsSorted() === "desc" && " 🔽"}
-
-               
-
-                
-
-
-                </TableHead>
-                
+        {/* Table */}
+        <div className="w-full overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/60">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      onClick={header.column.getToggleSortingHandler?.()}
+                      className="cursor-pointer select-none whitespace-nowrap text-xs font-medium"
+                    >
+                      {flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )}
+                      {header.column.getIsSorted() === "asc" && " 🔼"}
+                      {header.column.getIsSorted() === "desc" && " 🔽"}
+                    </TableHead>
+                  ))}
+                  <TableHead className="whitespace-nowrap text-xs font-medium">
+                    Edit
+                  </TableHead>
+                </TableRow>
               ))}
-
-                  <TableHead>
-                  Edit
-                </TableHead>
-
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.length ? ( //I think getRowModel returns the actual rows of data, after all the filtering and sorting and stuff.
-            table.getRowModel().rows.map(row => (
-              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                {row.getVisibleCells().map(cell => (
-
-                 
-                  <TableCell key={cell.id} className="whitespace-normal">
-                    {renderCell (cell)}
-                  </TableCell>
-
-                
-
-                 
-
-
-
-                )
-                )}
-                <TableCell>
-
-                <DropdownMenu>
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className="hover:bg-muted/40"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className="whitespace-normal break-words text-xs align-top"
+                      >
+                        {renderCell(cell)}
+                      </TableCell>
+                    ))}
+                    <TableCell className="w-12 text-right">
+                      <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost">
-                        <MoreHorizontal />
-                        </Button>
+                          <Button size="icon" variant="ghost" className="h-7 w-7">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-
-
-                        <DropdownMenuItem onClick={() => {setEditRowId(row.id)}} >
-                          Edit
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setEditRowId(row.id)}>
+                            Edit
                           </DropdownMenuItem>
-
-
-                        <DropdownMenuItem className="cursor-pointer text-red-600">
+                          <DropdownMenuItem className="cursor-pointer text-destructive">
                             Delete
-                            </DropdownMenuItem>
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
-                </DropdownMenu>
-
-
-
-                  
-
-
-
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length + 1}
+                    className="py-10 text-center text-sm text-muted-foreground"
+                  >
+                    No data found.
                   </TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="text-center">
-                No data found.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-      {/* Pagination */}
-      <div className="flex justify-end mt-4">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              />
-            </PaginationItem>
-            {renderPagination()}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex justify-end border-t bg-background px-3 py-2">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => table.previousPage()}
+                  disabled={!table.getCanPreviousPage()}
+                />
+              </PaginationItem>
+              {renderPagination()}
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() => table.nextPage()}
+                  disabled={!table.getCanNextPage()}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
       </div>
-    </div>
-   </form>
+    </form>
   );
-   
 }

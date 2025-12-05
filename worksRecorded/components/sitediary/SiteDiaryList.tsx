@@ -15,10 +15,9 @@ import {
   getFilledDays,
   getSitediaryRecordsBySiteIdForExcel,
 } from "@/server/actions/site-diary-actions";
-import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend"; // 👈 NEW
+import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import * as XLSX from "xlsx";
 import {
-  MessageCircle,
   CalendarIcon,
   Filter,
   Images,
@@ -139,11 +138,16 @@ function toLocalDateKey(d: Date) {
   return `${year}-${month}-${day}`;
 }
 
-export default function SiteDiaryCalendar({ siteId }: { siteId: string | null }) {
+export default function SiteDiaryCalendar({
+  siteId,
+}: {
+  siteId: string | null;
+}) {
   const today = new Date();
 
-  // View toggle
-  const [viewMode, setViewMode] = React.useState<"calendar" | "list">("list");
+  // View toggle – LIST is default now 👇
+  const [viewMode, setViewMode] =
+    React.useState<"calendar" | "list">("list");
 
   // Shared dialog for editing a day
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -159,7 +163,10 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
   const [calendarDate, setCalendarDate] = React.useState<Date | null>(null);
   const [filledDays, setFilledDays] = React.useState<number[]>([]);
   const weeks = getCalendarGrid(currentYear, currentMonth);
-  const monthName = new Date(currentYear, currentMonth).toLocaleString("default", {
+  const monthName = new Date(
+    currentYear,
+    currentMonth,
+  ).toLocaleString("default", {
     month: "long",
   });
 
@@ -170,9 +177,11 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
   const [dateFrom, setDateFrom] = React.useState<Date | null>(null);
   const [dateTo, setDateTo] = React.useState<Date | null>(null);
   const [workFilter, setWorkFilter] = React.useState<string>("__ALL__");
+  const [floorFilter, setFloorFilter] = React.useState<string>("__ALL__"); // 👈 NEW
 
   // PDF loading per day (key = yyyy-mm-dd)
-  const [pdfLoadingKey, setPdfLoadingKey] = React.useState<string | null>(null); // 👈 NEW
+  const [pdfLoadingKey, setPdfLoadingKey] =
+    React.useState<string | null>(null);
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -180,7 +189,7 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
       return;
     }
     getFilledDays({ siteId, year: currentYear, month: currentMonth }).then(
-      setFilledDays
+      setFilledDays,
     );
   }, [siteId, currentMonth, currentYear]);
 
@@ -216,7 +225,8 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
       setLoading(true);
       setError(null);
       try {
-        const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+        const data: DiaryRow[] =
+          await getSitediaryRecordsBySiteIdForExcel(siteId);
         if (!cancelled) {
           setRows(data || []);
         }
@@ -247,9 +257,17 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  // List view: filter + group by day
-  const dayGroups: DayGroup[] = React.useMemo(() => {
-    const res: Record<string, DayGroup> = {};
+  // Floor filter options (based on Location)
+  const floorOptions = React.useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (r.Location && r.Location.trim()) set.add(r.Location.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  // Rows after applying all filters (date, works, floor)
+  const filteredRows: DiaryRow[] = React.useMemo(() => {
     const startMs = dateFrom
       ? new Date(dateFrom.setHours(0, 0, 0, 0)).getTime()
       : null;
@@ -257,39 +275,54 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
       ? new Date(dateTo.setHours(23, 59, 59, 999)).getTime()
       : null;
 
-    for (const r of rows) {
+    return rows.filter((r) => {
       const d = new Date(r.Date);
-      if (Number.isNaN(d.getTime())) continue;
-
+      if (Number.isNaN(d.getTime())) return false;
       const t = d.getTime();
-      if (startMs !== null && t < startMs) continue;
-      if (endMs !== null && t > endMs) continue;
+      if (startMs !== null && t < startMs) return false;
+      if (endMs !== null && t > endMs) return false;
 
       if (workFilter !== "__ALL__") {
-        if (!r.Works || r.Works !== workFilter) continue;
+        if (!r.Works || r.Works !== workFilter) return false;
       }
 
+      if (floorFilter !== "__ALL__") {
+        if (!r.Location || r.Location !== floorFilter) return false;
+      }
+
+      return true;
+    });
+  }, [rows, dateFrom, dateTo, workFilter, floorFilter]);
+
+  // Group filtered rows by day
+  const dayGroups: DayGroup[] = React.useMemo(() => {
+    const res: Record<string, DayGroup> = {};
+    for (const r of filteredRows) {
+      const d = new Date(r.Date);
+      if (Number.isNaN(d.getTime())) continue;
       const key = toLocalDateKey(d);
       if (!res[key]) res[key] = { key, date: d, rows: [] };
       res[key].rows.push(r);
     }
-
-    return Object.values(res).sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [rows, dateFrom, dateTo, workFilter]);
+    return Object.values(res).sort(
+      (a, b) => b.date.getTime() - a.date.getTime(),
+    );
+  }, [filteredRows]);
 
   const clearFilters = () => {
     setDateFrom(null);
     setDateTo(null);
     setWorkFilter("__ALL__");
+    setFloorFilter("__ALL__");
   };
 
-  async function exportToExcel() {
-    const rows = await getSitediaryRecordsBySiteIdForExcel(siteId);
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+  // Export ONLY currently filtered rows
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(filteredRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
     XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
-  }
+  };
 
   const openDayDialog = (date: Date) => {
     setDialogDate(date);
@@ -310,7 +343,7 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
       weekday: "short",
     });
 
-  // 👇 NEW: call server action and download PDF
+  // Call server action and download PDF
   const handleDownloadPdf = async (groupKey: string, date: Date) => {
     if (!siteId) return;
 
@@ -324,7 +357,6 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
 
       const { fileName, base64 } = res;
 
-      // decode base64 to Blob
       const byteChars = atob(base64);
       const byteNumbers = new Array(byteChars.length);
       for (let i = 0; i < byteChars.length; i++) {
@@ -368,7 +400,7 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
           onValueChange={(v) => setViewMode(v as "calendar" | "list")}
         >
           {/* Header with toggle */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">
                 Site Diary
@@ -378,22 +410,19 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 items-stretch sm:items-end">
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
               <TabsList className="self-start sm:self-end">
                 <TabsTrigger value="calendar">Calendar</TabsTrigger>
                 <TabsTrigger value="list">List</TabsTrigger>
               </TabsList>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                 <button
                   type="button"
                   onClick={() =>
                     window.open("https://wa.me/13135131153", "_blank")
                   }
-                  className="inline-flex items-center justify-center gap-2 text-sm font-medium
-                             text-green-600 hover:text-green-700 
-                             cursor-pointer px-3 py-1.5 rounded-md 
-                             hover:bg-green-50 transition border border-green-100 bg-white shadow-sm"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-green-100 bg-white px-3 py-1.5 text-sm font-medium text-green-600 shadow-sm transition hover:bg-green-50 hover:text-green-700"
                 >
                   <WhatsAppIcon />
                   <span className="hidden sm:inline">
@@ -412,11 +441,11 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
           {/* CALENDAR VIEW */}
           <TabsContent value="calendar" className="mt-0">
             {/* Month Navigation */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <Button
                 variant="outline"
                 size="sm"
-                className="text-sm p-2 sm:px-4 sm:py-2"
+                className="p-2 text-sm sm:px-4 sm:py-2"
                 onClick={() => {
                   if (currentMonth === 0) {
                     setCurrentMonth(11);
@@ -426,13 +455,13 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
               >
                 &lt;
               </Button>
-              <div className="text-lg sm:text-xl font-medium px-2 text-center">
+              <div className="px-2 text-center text-lg font-medium sm:text-xl">
                 {monthName} {currentYear}
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                className="text-sm p-2 sm:px-4 sm:py-2"
+                className="p-2 text-sm sm:px-4 sm:py-2"
                 onClick={() => {
                   if (currentMonth === 11) {
                     setCurrentMonth(0);
@@ -445,11 +474,11 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
             </div>
 
             {/* Days of Week Header */}
-            <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-1">
+            <div className="mb-1 grid grid-cols-7 gap-1 sm:gap-2">
               {daysOfWeek.map((day) => (
                 <div
                   key={day}
-                  className="text-xs sm:text-sm text-center font-medium text-gray-500 truncate"
+                  className="truncate text-center text-xs font-medium text-gray-500 sm:text-sm"
                 >
                   {day.substring(0, 2)}
                 </div>
@@ -474,37 +503,33 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                       key={`${i}-${j}`}
                       data-tour={dataTour}
                       className={cn(
-                        "aspect-square min-h-[32px] sm:min-h-[64px] flex items-center justify-center transition-all",
-                        !dateObj && "bg-transparent border-0 shadow-none",
+                        "flex aspect-square min-h-[32px] items-center justify-center transition-all sm:min-h-[64px]",
+                        !dateObj && "border-0 bg-transparent shadow-none",
                         isFilled && "bg-green-50",
-                        dateObj && "hover:shadow-md cursor-pointer"
+                        dateObj && "cursor-pointer hover:shadow-md",
                       )}
                       onClick={() => {
-                        if (dateObj) {
-                          openDayDialog(dateObj);
-                        }
+                        if (dateObj) openDayDialog(dateObj);
                       }}
                     >
-                      <CardContent className="flex items-center justify-center p-0 h-full w-full">
+                      <CardContent className="flex h-full w-full items-center justify-center p-0">
                         {dateObj && (
                           <span
                             className={cn(
                               "text-xs sm:text-sm",
-                              isFilled ? "text-green-700" : "text-gray-700"
+                              isFilled ? "text-green-700" : "text-gray-700",
                             )}
                           >
                             {dateObj.getDate()}
                             {isFilled && (
-                              <span className="hidden sm:inline ml-1">
-                                ✓
-                              </span>
+                              <span className="ml-1 hidden sm:inline">✓</span>
                             )}
                           </span>
                         )}
                       </CardContent>
                     </Card>
                   );
-                })
+                }),
               )}
             </div>
           </TabsContent>
@@ -513,14 +538,14 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
           <TabsContent value="list" className="mt-0">
             {/* Filters */}
             <Card className="mb-4 border-muted bg-muted/30">
-              <CardContent className="py-3 px-3 sm:px-4">
-                <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
+              <CardContent className="px-3 py-3 sm:px-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
                   <div className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Filter className="w-4 h-4" />
+                    <Filter className="h-4 w-4" />
                     Filters
                   </div>
 
-                  <div className="flex flex-wrap gap-2 md:flex-1">
+                  <div className="flex flex-1 flex-wrap gap-2">
                     {/* Date from */}
                     <Popover>
                       <PopoverTrigger asChild>
@@ -528,8 +553,8 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                           variant="outline"
                           size="sm"
                           className={cn(
-                            "justify-start w-full sm:w-auto text-left font-normal",
-                            !dateFrom && "text-muted-foreground"
+                            "w-full justify-start text-left font-normal sm:w-auto",
+                            !dateFrom && "text-muted-foreground",
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
@@ -559,8 +584,8 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                           variant="outline"
                           size="sm"
                           className={cn(
-                            "justify-start w-full sm:w-auto text-left font-normal",
-                            !dateTo && "text-muted-foreground"
+                            "w-full justify-start text-left font-normal sm:w-auto",
+                            !dateTo && "text-muted-foreground",
                           )}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
@@ -588,7 +613,7 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                       value={workFilter}
                       onValueChange={(val) => setWorkFilter(val)}
                     >
-                      <SelectTrigger className="w-full sm:w-[220px] h-9 text-sm">
+                      <SelectTrigger className="h-9 w-full text-sm sm:w-[220px]">
                         <SelectValue placeholder="Filter by works" />
                       </SelectTrigger>
                       <SelectContent>
@@ -596,6 +621,26 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                         {worksOptions.map((w) => (
                           <SelectItem key={w} value={w}>
                             {w}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Floor filter (Location) */}
+                    <Select
+                      value={floorFilter}
+                      onValueChange={(val) => setFloorFilter(val)}
+                    >
+                      <SelectTrigger className="h-9 w-full text-sm sm:w-[200px]">
+                        <SelectValue placeholder="Filter by floor/location" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__ALL__">
+                          All floors / locations
+                        </SelectItem>
+                        {floorOptions.map((f) => (
+                          <SelectItem key={f} value={f}>
+                            {f}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -613,7 +658,7 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                     </Button>
                     {loading && (
                       <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <Loader2 className="h-3 w-3 animate-spin" />
                         Loading…
                       </div>
                     )}
@@ -640,17 +685,17 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
             )}
 
             {/* List of days */}
-            <ScrollArea className="h-[60vh] sm:h-[70vh] rounded-md border bg-background">
-              <div className="p-2 sm:p-3 space-y-3">
+            <ScrollArea className="h-[60vh] rounded-md border bg-background sm:h-[70vh]">
+              <div className="space-y-3 p-2 sm:p-3">
                 {dayGroups.map((group) => {
                   const totalTasks = group.rows.length;
                   const totalHours = group.rows.reduce(
                     (sum, r) => sum + (r.TimeInvolved ?? 0),
-                    0
+                    0,
                   );
                   const totalWorkers = group.rows.reduce(
                     (sum, r) => sum + (r.WorkersInvolved ?? 0),
-                    0
+                    0,
                   );
 
                   const dataTour =
@@ -665,14 +710,14 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                     <Card
                       key={group.key}
                       data-tour={dataTour}
-                      className="border-border/80 shadow-sm hover:shadow-md transition-shadow"
+                      className="border-border/80 shadow-sm transition-shadow hover:shadow-md"
                     >
-                      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3 px-3 sm:px-4">
+                      <CardHeader className="flex flex-col gap-2 py-3 px-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
                         <div className="space-y-1">
-                          <CardTitle className="text-base sm:text-lg font-semibold">
+                          <CardTitle className="text-base font-semibold sm:text-lg">
                             {dayLabel(group.date)}
                           </CardTitle>
-                          <div className="flex flex-wrap gap-2 text-xs sm:text-sm text-muted-foreground">
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground sm:text-sm">
                             <span>
                               {totalTasks} task
                               {totalTasks === 1 ? "" : "s"}
@@ -691,7 +736,7 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                                 className="rounded-full"
                                 onClick={() => openPhotos(group.date)}
                               >
-                                <Images className="w-5 h-5" />
+                                <Images className="h-5 w-5" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -699,7 +744,6 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                             </TooltipContent>
                           </Tooltip>
 
-                          {/* 👇 NEW: PDF button per day */}
                           <Button
                             size="sm"
                             variant="secondary"
@@ -728,9 +772,9 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                         </div>
                       </CardHeader>
 
-                      <CardContent className="px-2 sm:px-4 pb-3">
+                      <CardContent className="px-2 pb-3 sm:px-4">
                         <div className="overflow-x-auto">
-                          <Table className="min-w-[700px] text-xs sm:text-sm table-fixed">
+                          <Table className="table-fixed min-w-[700px] text-xs sm:text-sm">
                             <TableHeader>
                               <TableRow>
                                 <TableHead className="w-[140px]">
@@ -739,22 +783,18 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                                 <TableHead className="w-[180px]">
                                   Works
                                 </TableHead>
-
-                                {/* Narrow numeric columns */}
-                                <TableHead className="text-center w-[50px]">
+                                <TableHead className="w-[50px] text-center">
                                   Units
                                 </TableHead>
-                                <TableHead className="text-center w-[70px]">
+                                <TableHead className="w-[70px] text-center">
                                   Amount
                                 </TableHead>
-                                <TableHead className="text-center w-[70px]">
+                                <TableHead className="w-[70px] text-center">
                                   Workers
                                 </TableHead>
-                                <TableHead className="text-center w-[70px]">
+                                <TableHead className="w-[70px] text-center">
                                   Hours
                                 </TableHead>
-
-                                {/* Wider comments column */}
                                 <TableHead className="w-[400px]">
                                   Comments
                                 </TableHead>
@@ -766,10 +806,10 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                                 <TableRow
                                   key={r.id ?? `${group.key}-${idx}`}
                                 >
-                                  <TableCell className="truncate max-w-[140px]">
+                                  <TableCell className="max-w-[140px] truncate">
                                     {r.Location || "—"}
                                   </TableCell>
-                                  <TableCell className="truncate max-w-[180px]">
+                                  <TableCell className="max-w-[180px] truncate">
                                     {r.Works || "—"}
                                   </TableCell>
 
@@ -786,7 +826,6 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                                     {r.TimeInvolved ?? "—"}
                                   </TableCell>
 
-                                  {/* Comments with more space */}
                                   <TableCell className="max-w-[400px] align-top">
                                     <span className="text-xs sm:text-sm break-words whitespace-normal line-clamp-4">
                                       {r.Comments || "—"}
@@ -828,10 +867,7 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
         </DialogWindow>
 
         {/* Photos dialog with ImageGallery */}
-        <Dialog
-          open={photosDialogOpen}
-          onOpenChange={setPhotosDialogOpen}
-        >
+        <Dialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen}>
           <DialogContent className="max-w-[95vw] sm:max-w-4xl">
             <DialogHeader>
               <DialogTitle className="text-base sm:text-lg">
