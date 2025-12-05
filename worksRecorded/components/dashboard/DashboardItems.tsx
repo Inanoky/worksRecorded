@@ -16,30 +16,30 @@ export const projectNavLinks = [
     path: "dashboard",
     icon: ReceiptText,
   },
-  {
-    name: "Site Diary",
-    href: "/dashboard/siteDiary",
-    path: "siteDiary",
-    icon: NotebookPen,
-  },
-      {
-    name: "Project Diary",
-    href: "/dashboard/projectDiary",
-    path: "projectDiary",
-    icon: NotebookPen,
-  },
-    {
-    name: "Invoices",
-    href: "/dashboard/invoices",
-    path: "invoices",
-    icon: ReceiptText,
-  },
-     {
-    name: "Documents",
-    href: "/dashboard/documents",
-    path: "documents",
-    icon: Layers,
-  },
+  // {
+  //   name: "Site Diary",
+  //   href: "/dashboard/siteDiary",
+  //   path: "siteDiary",
+  //   icon: NotebookPen,
+  // },
+  //     {
+  //   name: "Project Diary",
+  //   href: "/dashboard/projectDiary",
+  //   path: "projectDiary",
+  //   icon: NotebookPen,
+  // },
+  //   {
+  //   name: "Invoices",
+  //   href: "/dashboard/invoices",
+  //   path: "invoices",
+  //   icon: ReceiptText,
+  // },
+  //    {
+  //   name: "Documents",
+  //   href: "/dashboard/documents",
+  //   path: "documents",
+  //   icon: Layers,
+  // },
   
  
   {
@@ -48,12 +48,12 @@ export const projectNavLinks = [
     path: "timesheets",
     icon: Clock8,
   },
-  {
-    name: "Analytics",
-    href: "/dashboard/programm",
-    path: "analytics",
-    icon: ChartLine,
-  },
+  // {
+  //   name: "Analytics",
+  //   href: "/dashboard/programm",
+  //   path: "analytics",
+  //   icon: ChartLine,
+  // },
 
     {
     name: "Settings",

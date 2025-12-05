@@ -71,7 +71,7 @@ export default async function InvoiceRoute({ params }: { params: Promise<{ siteI
        
 
       <AiWidgetRag siteId={siteId} />
-          <FullPhotoGallery siteId={siteId}/>
+    
     </>
   );
 }

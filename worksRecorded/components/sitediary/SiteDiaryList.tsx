@@ -15,6 +15,7 @@ import {
   getFilledDays,
   getSitediaryRecordsBySiteIdForExcel,
 } from "@/server/actions/site-diary-actions";
+import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend"; // 👈 NEW
 import * as XLSX from "xlsx";
 import {
   MessageCircle,
@@ -142,7 +143,7 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
   const today = new Date();
 
   // View toggle
-  const [viewMode, setViewMode] = React.useState<"calendar" | "list">("calendar");
+  const [viewMode, setViewMode] = React.useState<"calendar" | "list">("list");
 
   // Shared dialog for editing a day
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -169,6 +170,9 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
   const [dateFrom, setDateFrom] = React.useState<Date | null>(null);
   const [dateTo, setDateTo] = React.useState<Date | null>(null);
   const [workFilter, setWorkFilter] = React.useState<string>("__ALL__");
+
+  // PDF loading per day (key = yyyy-mm-dd)
+  const [pdfLoadingKey, setPdfLoadingKey] = React.useState<string | null>(null); // 👈 NEW
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -305,6 +309,46 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
       day: "numeric",
       weekday: "short",
     });
+
+  // 👇 NEW: call server action and download PDF
+  const handleDownloadPdf = async (groupKey: string, date: Date) => {
+    if (!siteId) return;
+
+    try {
+      setPdfLoadingKey(groupKey);
+
+      const res = await generateSiteDiaryPdf({
+        siteId,
+        dateISO: date.toISOString(),
+      });
+
+      const { fileName, base64 } = res;
+
+      // decode base64 to Blob
+      const byteChars = atob(base64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNumbers[i] = byteChars.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        fileName || `SiteDiary_${date.toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error generating PDF via server action", err);
+    } finally {
+      setPdfLoadingKey(null);
+    }
+  };
 
   // this flag is reset on every render – used to mark only the first green day / first card
   let firstFilledMarked = false;
@@ -615,6 +659,8 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                         "first-completed-diary-record")
                       : undefined;
 
+                  const isPdfLoading = pdfLoadingKey === group.key;
+
                   return (
                     <Card
                       key={group.key}
@@ -653,6 +699,25 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
                             </TooltipContent>
                           </Tooltip>
 
+                          {/* 👇 NEW: PDF button per day */}
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={isPdfLoading}
+                            onClick={() =>
+                              handleDownloadPdf(group.key, group.date)
+                            }
+                          >
+                            {isPdfLoading ? (
+                              <>
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                Generating…
+                              </>
+                            ) : (
+                              "PDF report"
+                            )}
+                          </Button>
+
                           <Button
                             size="sm"
                             variant="outline"
@@ -665,47 +730,72 @@ export default function SiteDiaryCalendar({ siteId }: { siteId: string | null })
 
                       <CardContent className="px-2 sm:px-4 pb-3">
                         <div className="overflow-x-auto">
-                         {/* ...inside the List view Table... */}
-<Table className="min-w-[700px] text-xs sm:text-sm table-fixed">
-  <TableHeader>
-    <TableRow>
-      <TableHead className="w-[140px]">Location</TableHead>
-      <TableHead className="w-[180px]">Works</TableHead>
+                          <Table className="min-w-[700px] text-xs sm:text-sm table-fixed">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[140px]">
+                                  Location
+                                </TableHead>
+                                <TableHead className="w-[180px]">
+                                  Works
+                                </TableHead>
 
-      {/* Narrow numeric columns */}
-      <TableHead className="text-center w-[50px]">Units</TableHead>
-      <TableHead className="text-center w-[70px]">Amount</TableHead>
-      <TableHead className="text-center w-[70px]">Workers</TableHead>
-      <TableHead className="text-center w-[70px]">Hours</TableHead>
+                                {/* Narrow numeric columns */}
+                                <TableHead className="text-center w-[50px]">
+                                  Units
+                                </TableHead>
+                                <TableHead className="text-center w-[70px]">
+                                  Amount
+                                </TableHead>
+                                <TableHead className="text-center w-[70px]">
+                                  Workers
+                                </TableHead>
+                                <TableHead className="text-center w-[70px]">
+                                  Hours
+                                </TableHead>
 
-      {/* Wider comments column */}
-      <TableHead className="w-[400px]">Comments</TableHead>
-    </TableRow>
-  </TableHeader>
+                                {/* Wider comments column */}
+                                <TableHead className="w-[400px]">
+                                  Comments
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
 
-  <TableBody>
-    {group.rows.map((r, idx) => (
-      <TableRow key={r.id ?? `${group.key}-${idx}`}>
-        <TableCell className="truncate max-w-[140px]">{r.Location || "—"}</TableCell>
-        <TableCell className="truncate max-w-[180px]">{r.Works || "—"}</TableCell>
+                            <TableBody>
+                              {group.rows.map((r, idx) => (
+                                <TableRow
+                                  key={r.id ?? `${group.key}-${idx}`}
+                                >
+                                  <TableCell className="truncate max-w-[140px]">
+                                    {r.Location || "—"}
+                                  </TableCell>
+                                  <TableCell className="truncate max-w-[180px]">
+                                    {r.Works || "—"}
+                                  </TableCell>
 
-        <TableCell className="text-center">{r.Units || "—"}</TableCell>
-        <TableCell className="text-center">{r.Amounts ?? "—"}</TableCell>
-        <TableCell className="text-center">{r.WorkersInvolved ?? "—"}</TableCell>
-        <TableCell className="text-center">{r.TimeInvolved ?? "—"}</TableCell>
+                                  <TableCell className="text-center">
+                                    {r.Units || "—"}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {r.Amounts ?? "—"}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {r.WorkersInvolved ?? "—"}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {r.TimeInvolved ?? "—"}
+                                  </TableCell>
 
-        {/* Comments with more space */}
-        <TableCell className="max-w-[400px] align-top">
-          <span className="text-xs sm:text-sm break-words whitespace-normal line-clamp-4">
-            {r.Comments || "—"}
-          </span>
-        </TableCell>
-      </TableRow>
-    ))}
-  </TableBody>
-</Table>
-
-
+                                  {/* Comments with more space */}
+                                  <TableCell className="max-w-[400px] align-top">
+                                    <span className="text-xs sm:text-sm break-words whitespace-normal line-clamp-4">
+                                      {r.Comments || "—"}
+                                    </span>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
                         </div>
                       </CardContent>
                     </Card>
