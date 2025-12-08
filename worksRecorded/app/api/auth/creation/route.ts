@@ -99,7 +99,7 @@ export async function GET() {
 
   const base =
     process.env.NODE_ENV === "production"
-      ? "https://buvconsult.com"
+      ? "https://worksrecorded.com"
       : "http://localhost:3000";
 
   const path = createdNewUser ? "/dashboard/welcome" : "/dashboard";
