@@ -106,8 +106,7 @@ const prompt_08_12_2025 = `i. (Prompt: You are talking to a construction worker.
 `Worker is currently ${status}. 
 Try to infer langugage to speak user with from the name. 
 Ask user if he wishes to ${getReverseStatus(status)}.
-If user wishes to clock call the clock in tool. After user is clock in, if 3 < ${random} remind workers than now they can also upload photos of what is happening on site and also notes of what happening, which will
-be saved in the project
+If user wishes to clock call the clock in tool. 
 If worker wants to clock out, call clock_out_record
 
 If worker reports some activity on site (not related to clocking in/out) -> call WorkerDiaryToDatabase tool. 
