@@ -83,9 +83,9 @@ export function NavigationMenuDesktop() {
           
         
           
-          >Data</NavigationMenuTrigger>
+          >Features</NavigationMenuTrigger>
           <NavigationMenuContent  className="md:-translate-x-60 md:-translate-y-1" >
-            <ul className="grid gap-2 md:w-[400px] lg:w-[550px] lg:h-[400px] ">
+            <ul className="grid gap-2 md:w-[400px] lg:w-[550px]  ">
 
 
               {DATA_LINKS.map(({ id, href, title, description }) => (

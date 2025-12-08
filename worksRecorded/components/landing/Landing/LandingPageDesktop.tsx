@@ -31,7 +31,7 @@ export default function LandingPage() {
           </span>
 
           <h1 className="mt-5 text-3xl sm:text-4xl md:text-6xl font-semibold leading-tight">
-            Site records with WhatsApp
+            Construction Site records with WhatsApp
           </h1>
 
           <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto">
