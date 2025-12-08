@@ -2,14 +2,14 @@
 
 import { CheckCircle2 } from "lucide-react";
 
-export const Header = "Trade contractors";
+export const Header = "Site records with Whatsapp";
 export const Header2 = "Get your works recorded";
 
 export const SmallDescription =
-  "Buvconsult converts WhatsApp messages, voice notes, photos, delivery notes and emails into organised site diary entries and project evidence — without changing how your team communicates.";
+  "WorksRecorded turns WhatsApp messages, voice notes, photos, delivery notes and emails into organised site diary entries and project evidence — without changing how your team communicates.";
 
 export function WhatDoWeDo() {
- const items = [
+  const items = [
     { title: "Claim documentation", desc: "because there is no clear daily record" },
     { title: "Scope gaps", desc: "when extra work is done but not documented" },
     { title: "Incorrect bids", desc: "due to missing data from previous jobs" },
@@ -30,7 +30,7 @@ export function WhatDoWeDo() {
   return (
     <div className="space-y-4">
       <h3 className="text-xl font-semibold text-gray-900">
-        We help construction contractors with :
+        We help trade contractors with:
       </h3>
       <ul className="space-y-3">
         {items.map(({ title, desc }) => (
@@ -48,40 +48,40 @@ export function WhatDoWeDo() {
 }
 
 export const NoIntegration =
-  "No extra admin. No forms. No spreadsheets. Just talk, send, done.";
+  "No extra admin. No forms. No new apps. Just WhatsApp, talk, send, done.";
 
 export function HowDoWeDoThat() {
   const items = [
     {
       title: "Site diary from WhatsApp",
-      desc: "Site manager or foreman sends messages, photos and voice notes — AI turns them into structured records.",
+      desc: "Site managers or foremen send messages, photos and voice notes — AI turns them into structured daily records.",
     },
     {
       title: "Evidence for claims",
-      desc: "Daily log with who worked, what was done, delays, instructions and issues.",
+      desc: "Daily log with who worked, what was done, delays, instructions and issues, ready when a dispute appears.",
     },
     {
       title: "Real costs from previous jobs",
-      desc: "Labour, materials and subcontractors are linked to work packages for future estimating.",
+      desc: "Labour, materials and subcontractors are linked to work packages so you can see real historic costs.",
     },
     {
       title: "Daily performance insight",
-      desc: "See where time and money are lost before it becomes a problem.",
+      desc: "See where time and money are lost before it becomes a problem, not months later in final accounts.",
     },
     {
       title: "Supplier and change tracking",
-      desc: "Invoices and delivery notes are attached to days and locations.",
+      desc: "Invoices and delivery notes are attached to days, locations and work packages in one record.",
     },
     {
       title: "Everything in one project record",
-      desc: "So you are not searching through WhatsApp chats and folders when a dispute appears.",
+      desc: "So you are not searching through WhatsApp chats, folders and email when you need to prove your case.",
     },
   ];
 
   return (
     <div className="space-y-6">
       <h3 className="text-2xl font-semibold text-gray-900">
-        How Buvconsult helps trade contractors
+        How worksRecorded helps trade contractors
       </h3>
       <ul className="space-y-3">
         {items.map(({ title, desc }) => (
@@ -101,20 +101,20 @@ export function HowDoWeDoThat() {
 export function Why() {
   const bullets = [
     "Most tools require forms and manual input. Site teams don’t have time for that.",
-    "Buvconsult works with the channels you already use: WhatsApp, email and photos.",
-    "AI keeps a consistent, structured site diary in the background.",
+    "worksRecorded works with the channels you already use: WhatsApp, email and photos.",
+    "AI keeps a consistent, structured site diary running in the background.",
     "When you need to defend a variation, claim delay costs or explain a decision, the evidence is already organised.",
   ];
 
   return (
     <div className="space-y-4">
       <h3 className="text-2xl font-semibold text-gray-900">
-        Why Buvconsult is different
+        Why worksRecorded is different
       </h3>
       <p className="text-gray-700">
-        We are not another task app or form system. Buvconsult captures the real
+        We are not another task app or form system. worksRecorded captures the real
         conversation happening every day on your projects and turns it into a reliable
-        project record.
+        project record you can actually use in meetings, claims and negotiations.
       </p>
       <ul className="space-y-3">
         {bullets.map((text) => (
