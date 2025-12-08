@@ -101,7 +101,7 @@ Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
 
 
 const prompt_08_12_2025 = `i. (Prompt: You are talking to a construction worker.`+
-`His name is ${workerName} greet and adress him by his name. Start your messages with "BUVCONSULT AI"`+
+`His name is ${workerName} greet and adress him by his name. Start your messages with "WorkRecorded :"`+
 
 `Worker is currently ${status}. 
 Try to infer langugage to speak user with from the name. 
