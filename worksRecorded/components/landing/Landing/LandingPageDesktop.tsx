@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 
 import Dashboard2 from "@/public/frontend/pages/Home/Dashboard2.png";
 import LandingHero from "@/public/frontend/pages/Home/LandingHero.png";
+import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
 
 import { Features } from "@/components/landing/Features";
 import {
@@ -69,25 +70,53 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+{/* SECTION 2 – What you capture every day */}
+<section className="bg-background">
+  <div className="w-full max-w-6xl mx-auto px-4 lg:px-6 py-14 lg:py-20">
+    <div className="grid gap-10 lg:gap-14 lg:grid-cols-[1.1fr,1fr] items-center">
+      {/* LEFT – Text */}
+      <div className="space-y-6">
+        <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary tracking-tight">
+          Site records that actually get done
+        </span>
 
-      {/* SECTION 2 – What problems we solve */}
-      <section className="bg-background">
-        <div className="w-full max-w-6xl mx-auto px-4 lg:px-6 py-12 lg:py-16 grid gap-10 lg:grid-cols-2 items-center">
-          <div className="order-2 lg:order-1">
-            <WhatDoWeDo />
-          </div>
-          <div className="order-1 lg:order-2">
-            <div className="rounded-2xl border bg-background shadow-xl overflow-hidden">
-              <Image
-                src={Dashboard2}
-                alt="Project records and analytics in worksRecorded"
-                priority
-                className="w-full h-auto object-cover"
-              />
-            </div>
-          </div>
+        <div className="space-y-3">
+          <h2 className="text-2xl sm:text-3xl font-semibold leading-tight">
+            What you can record with worksRecorded
+          </h2>
+          <p className="text-sm sm:text-base text-muted-foreground max-w-xl">
+            Make it easy for managers and foremen to log what really happened on site –
+            without extra apps, forms or late-night paperwork.
+          </p>
         </div>
-      </section>
+
+        {/* Existing bullet list */}
+        <WhatDoWeDo />
+      </div>
+
+      {/* RIGHT – Screenshot */}
+      <div className="relative">
+        {/* Glow / shadow behind */}
+        <div className="pointer-events-none absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-tr from-primary/10 via-emerald-100/40 to-transparent dark:from-primary/20 dark:via-primary/5 blur-2xl" />
+
+        <div className="rounded-2xl border bg-background shadow-2xl overflow-hidden">
+          <Image
+            src={ScreenshotSiteDiary}
+            alt="Site diary and project records in worksRecorded"
+            priority
+            className="w-full h-auto object-cover"
+          />
+        </div>
+
+        {/* Small caption */}
+        <p className="mt-3 text-xs text-muted-foreground text-center">
+          WhatsApp notes become structured daily records – with workers, locations, works and photos in one place.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
 
       {/* SECTION 3 – How we help + why different */}
       <section className="bg-slate-50/60 dark:bg-slate-950 ">

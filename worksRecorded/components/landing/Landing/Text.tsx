@@ -10,20 +10,20 @@ export const SmallDescription =
 
 export function WhatDoWeDo() {
   const items = [
-    { title: "Claim documentation", desc: "because there is no clear daily record" },
-    { title: "Scope gaps", desc: "when extra work is done but not documented" },
-    { title: "Incorrect bids", desc: "due to missing data from previous jobs" },
+    { title: "Easy and quick for managers to records site activities." },
+    { title: "Structurized automatically" },
+    { title: "Edit records from the web if necessary"},
     {
-      title: "Inefficient site processes",
-      desc: "when problems repeat but are not analysed",
+      title: "Whatsapp Timesheets - add workers, records times, workers can take notes and photos",
+   
     },
     {
-      title: "Unreasonable client behaviour",
-      desc: "when you cannot show exact evidence",
+      title: "Site records - get analytics, track additional works and delays",
+     
     },
     {
-      title: "Profit-destroying mistakes",
-      desc: "from poor visibility of what actually happened on site",
+      title: "Photos - stored sistematically."
+  
     },
   ];
 
