@@ -58,7 +58,7 @@ export async function handleImage(args: {
       date: new Date(),
     });
 
-    await sendMessage(to, "Bilde saglabāta");
+    await sendMessage(to, "✅");
   } catch (e) {
     console.error("❌ [handleImage] error:", e);
     await sendMessage(to, "Sorry, we couldn't process your image.");

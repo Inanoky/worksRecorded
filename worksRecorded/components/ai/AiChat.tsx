@@ -18,7 +18,7 @@ import OrchestratingAgentV2 from "@/server/ai-flows/agents/orchestrating-agent-v
 import { hasCompletedTour } from "@/components/joyride/user-tour-action";
 import TourRunner from "@/components/joyride/TourRunner";
 import {
-  steps_ai_diary_updated,
+
   steps_ai_widget_open,
 } from "@/components/joyride/JoyRideSteps";
 
@@ -366,25 +366,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
   return (
     <>
-      {open && (
-        <TourRunner
-          steps={steps_ai_widget_open}
-          stepName="steps_ai_widget_open"
-        />
-      )}
-      {showDiaryUpdatedTour && (
-        <TourRunner
-          steps={steps_ai_diary_updated}
-          stepName="steps_ai_diary_updated"
-          onFinished={() => {
-            setShowDiaryUpdatedTour(false);
-            if (siteId) {
-              window.location.reload();
-            }
-          }}
-        />
-      )}
-
+  
       {/* Floating button */}
       {!open &&
         createPortal(

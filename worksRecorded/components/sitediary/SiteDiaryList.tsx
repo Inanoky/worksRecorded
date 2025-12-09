@@ -24,7 +24,7 @@ import {
   Loader2,
 } from "lucide-react";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard_siteid_site_diary_completed } from "@/components/joyride/JoyRideSteps";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
@@ -66,6 +66,10 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
+
+// 👇 NEW: full gallery view
+import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
+
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -145,9 +149,9 @@ export default function SiteDiaryCalendar({
 }) {
   const today = new Date();
 
-  // View toggle – LIST is default now 👇
+  // 👇 add "gallery" to view mode
   const [viewMode, setViewMode] =
-    React.useState<"calendar" | "list">("list");
+    React.useState<"calendar" | "list" | "gallery">("list");
 
   // Shared dialog for editing a day
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -388,16 +392,13 @@ export default function SiteDiaryCalendar({
   return (
     <TooltipProvider>
       <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4">
-        {(hasFilledDays || hasRecords) && (
-          <TourRunner
-            steps={steps_dashboard_siteid_site_diary_completed}
-            stepName="steps_dashboard_siteid_site_diary_completed"
-          />
-        )}
+       
 
         <Tabs
           value={viewMode}
-          onValueChange={(v) => setViewMode(v as "calendar" | "list")}
+          onValueChange={(v) =>
+            setViewMode(v as "calendar" | "list" | "gallery")
+          }
         >
           {/* Header with toggle */}
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -406,14 +407,17 @@ export default function SiteDiaryCalendar({
                 Site Diary
               </h2>
               <p className="text-sm text-muted-foreground">
-                Switch between calendar and list to review recorded site works.
+                Switch between calendar, list and gallery views.
               </p>
             </div>
 
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
               <TabsList className="self-start sm:self-end">
+                 <TabsTrigger value="list">List</TabsTrigger>
                 <TabsTrigger value="calendar">Calendar</TabsTrigger>
-                <TabsTrigger value="list">List</TabsTrigger>
+             
+                {/* 👇 NEW toggle */}
+                <TabsTrigger value="gallery">Gallery</TabsTrigger>
               </TabsList>
 
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
@@ -773,106 +777,126 @@ export default function SiteDiaryCalendar({
                       </CardHeader>
 
                       <CardContent className="px-2 pb-3 sm:px-4">
-  {/* MOBILE: stacked record cards */}
-  <div className="space-y-2 sm:hidden">
-    {group.rows.map((r, idx) => (
-      <div
-        key={r.id ?? `${group.key}-${idx}`}
-        className="rounded-md border bg-muted/40 p-2 text-[11px]"
-      >
-        <div className="flex flex-wrap items-baseline justify-between gap-1">
-          <span className="font-medium">
-            {r.Location || "No location"}
-          </span>
-          <span className="text-[10px] text-muted-foreground">
-            {r.Units && r.Amounts != null
-              ? `${r.Amounts} ${r.Units}`
-              : r.Units || r.Amounts || ""}
-          </span>
-        </div>
+                        {/* MOBILE: stacked record cards */}
+                        <div className="space-y-2 sm:hidden">
+                          {group.rows.map((r, idx) => (
+                            <div
+                              key={r.id ?? `${group.key}-${idx}`}
+                              className="rounded-md border bg-muted/40 p-2 text-[11px]"
+                            >
+                              <div className="flex flex-wrap items-baseline justify-between gap-1">
+                                <span className="font-medium">
+                                  {r.Location || "No location"}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {r.Units && r.Amounts != null
+                                    ? `${r.Amounts} ${r.Units}`
+                                    : r.Units || r.Amounts || ""}
+                                </span>
+                              </div>
 
-        <div className="mt-1 text-[11px]">
-          <div className="font-semibold">
-            {r.Works || "No works recorded"}
-          </div>
-        </div>
+                              <div className="mt-1 text-[11px]">
+                                <div className="font-semibold">
+                                  {r.Works || "No works recorded"}
+                                </div>
+                              </div>
 
-        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-          <span>
-            Workers:{" "}
-            <span className="font-medium text-foreground">
-              {r.WorkersInvolved ?? "—"}
-            </span>
-          </span>
-          <span>
-            Hours:{" "}
-            <span className="font-medium text-foreground">
-              {r.TimeInvolved ?? "—"}
-            </span>
-          </span>
-        </div>
+                              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                                <span>
+                                  Workers:{" "}
+                                  <span className="font-medium text-foreground">
+                                    {r.WorkersInvolved ?? "—"}
+                                  </span>
+                                </span>
+                                <span>
+                                  Hours:{" "}
+                                  <span className="font-medium text-foreground">
+                                    {r.TimeInvolved ?? "—"}
+                                  </span>
+                                </span>
+                              </div>
 
-        <div className="mt-1">
-          <p className="line-clamp-4 whitespace-pre-wrap text-[11px] leading-snug text-foreground">
-            {r.Comments || "No comments"}
-          </p>
-        </div>
-      </div>
-    ))}
-  </div>
+                              <div className="mt-1">
+                                <p className="line-clamp-4 whitespace-pre-wrap text-[11px] leading-snug text-foreground">
+                                  {r.Comments || "No comments"}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
 
-  {/* DESKTOP: existing table */}
-  <div className="hidden sm:block overflow-x-auto">
-    <Table className="table-fixed min-w-[700px] text-xs sm:text-sm">
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-[140px]">Location</TableHead>
-          <TableHead className="w-[180px]">Works</TableHead>
-          <TableHead className="w-[50px] text-center">Units</TableHead>
-          <TableHead className="w-[70px] text-center">Amount</TableHead>
-          <TableHead className="w-[70px] text-center">Workers</TableHead>
-          <TableHead className="w-[70px] text-center">Hours</TableHead>
-          <TableHead className="w-[400px]">Comments</TableHead>
-        </TableRow>
-      </TableHeader>
+                        {/* DESKTOP: existing table */}
+                        <div className="hidden sm:block overflow-x-auto">
+                          <Table className="table-fixed min-w-[700px] text-xs sm:text-sm">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[140px]">
+                                  Location
+                                </TableHead>
+                                <TableHead className="w-[180px]">
+                                  Works
+                                </TableHead>
+                                <TableHead className="w-[50px] text-center">
+                                  Units
+                                </TableHead>
+                                <TableHead className="w-[70px] text-center">
+                                  Amount
+                                </TableHead>
+                                <TableHead className="w-[70px] text-center">
+                                  Workers
+                                </TableHead>
+                                <TableHead className="w-[70px] text-center">
+                                  Hours
+                                </TableHead>
+                                <TableHead className="w-[400px]">
+                                  Comments
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
 
-      <TableBody>
-        {group.rows.map((r, idx) => (
-          <TableRow key={r.id ?? `${group.key}-${idx}`}>
-            <TableCell className="max-w-[140px] truncate">
-              {r.Location || "—"}
-            </TableCell>
-            <TableCell className="max-w-[180px] truncate">
-              {r.Works || "—"}
-            </TableCell>
-            <TableCell className="text-center">
-              {r.Units || "—"}
-            </TableCell>
-            <TableCell className="text-center">
-              {r.Amounts ?? "—"}
-            </TableCell>
-            <TableCell className="text-center">
-              {r.WorkersInvolved ?? "—"}
-            </TableCell>
-            <TableCell className="text-center">
-              {r.TimeInvolved ?? "—"}
-            </TableCell>
-            <TableCell className="max-w-[400px] align-top">
-              <span className="text-xs sm:text-sm break-words whitespace-normal line-clamp-4">
-                {r.Comments || "—"}
-              </span>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  </div>
-</CardContent>
+                            <TableBody>
+                              {group.rows.map((r, idx) => (
+                                <TableRow key={r.id ?? `${group.key}-${idx}`}>
+                                  <TableCell className="max-w-[140px] truncate">
+                                    {r.Location || "—"}
+                                  </TableCell>
+                                  <TableCell className="max-w-[180px] truncate">
+                                    {r.Works || "—"}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {r.Units || "—"}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {r.Amounts ?? "—"}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {r.WorkersInvolved ?? "—"}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {r.TimeInvolved ?? "—"}
+                                  </TableCell>
+                                  <TableCell className="max-w-[400px] align-top">
+                                    <span className="text-xs sm:text-sm break-words whitespace-normal line-clamp-4">
+                                      {r.Comments || "—"}
+                                    </span>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </CardContent>
                     </Card>
                   );
                 })}
               </div>
             </ScrollArea>
+          </TabsContent>
+
+          {/* GALLERY VIEW */}
+          <TabsContent value="gallery" className="mt-0">
+            {/* full-page gallery for this site */}
+            <FullPhotoGallery siteId={siteId ?? ""} />
           </TabsContent>
         </Tabs>
 
@@ -899,22 +923,22 @@ export default function SiteDiaryCalendar({
 
         {/* Photos dialog with ImageGallery */}
         <Dialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen}>
-  <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[90vw] sm:max-w-[90vw] lg:max-w-[1200px] max-h-[90vh]">
-    <DialogHeader>
-      <DialogTitle className="text-base sm:text-lg">
-        Photos –{" "}
-        {photosDate
-          ? photosDate.toLocaleDateString("en-GB", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })
-          : "No date selected"}
-      </DialogTitle>
-    </DialogHeader>
-    <ImageGallery date={photosDate} siteId={siteId} className="h-[70vh]" />
-  </DialogContent>
-</Dialog>
+          <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[90vw] sm:max-w-[90vw] lg:max-w-[1200px] max-h-[90vh]">
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg">
+                Photos –{" "}
+                {photosDate
+                  ? photosDate.toLocaleDateString("en-GB", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })
+                  : "No date selected"}
+              </DialogTitle>
+            </DialogHeader>
+            <ImageGallery date={photosDate} siteId={siteId} className="h-[70vh]" />
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   );

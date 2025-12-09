@@ -7,7 +7,16 @@ import { systemPromptSaveToDatabase } from "./prompts";
 import {getSiteDiarySchema} from "@/server/actions/site-diary-actions";
 import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 import {HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
-import { allowedUnits } from "@/components/sitediary/DiealogueTable";
+
+
+
+
+
+export const allowedUnits = [
+  "m", "m2", "m3", "tn", "kg",
+  "pcs", "package", "project",
+  "hour", "set", "minute", "lifts",
+] as const;
 
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
@@ -66,7 +75,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                     Location: LocationEnum.nullable().optional(),
                     Works:  WorksEnum.nullable().optional(),
                     Comments: z.string().nullable().optional(),
-                    Units: z.string().nullable().optional(),
+                    Units: UnitEnum.nullable().optional(),
                     Amounts: z.number().nullable().optional(),
                     WorkersInvolved: z.number().int().nullable().optional(),
                     TimeInvolved: z.number().nullable().optional(),

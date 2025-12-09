@@ -10,7 +10,6 @@ import * as XLSX from "xlsx";
 import { Label } from "@/components/ui/label";
 import { MessageCircle } from "lucide-react";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard_siteid_site_diary_completed } from "@/components/joyride/JoyRideSteps";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WhatsAppIcon = ({ size = 22 }) => (
@@ -103,13 +102,7 @@ export default function SiteDiaryCalendar({ siteId }) {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4">
-      {/* 👇 Run the "completed day" tour only when we know there is at least one filled day */}
-      {hasFilledDays && (
-        <TourRunner
-          steps={steps_dashboard_siteid_site_diary_completed}
-          stepName="steps_dashboard_siteid_site_diary_completed"
-        />
-      )}
+      
 
       <div className="flex flex-row justify-between">
         <h2 className="text-xl sm:text-2xl gap-5 font-semibold mb-2">Site Diary</h2>

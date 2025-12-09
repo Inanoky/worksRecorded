@@ -13,19 +13,14 @@ import { Button } from "@/components/ui/button";
 import { DialogTable } from "@/components/sitediary/DiealogueTable";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_site_diary_dialog } from "@/components/joyride/JoyRideSteps";
+
 
 export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
   const [refreshKey, setRefreshKey] = React.useState(0);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      {open && (
-        <TourRunner
-          steps={steps_site_diary_dialog}
-          stepName="steps_site_diary_dialog"
-        />
-      )}
+  
 
       <DialogContent
         className="
