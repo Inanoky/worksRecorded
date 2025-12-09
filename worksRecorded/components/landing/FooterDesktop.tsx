@@ -14,14 +14,14 @@ export default function FooterDesktop() {
     <>
       <div className="grid grid-cols-4 p-15 gap-5">
         <div className="space-y-6 mt-6 text-base leading-snug">
-          <p>SIA "BUVCONSULT"</p>
+          <p>WorksRecorded</p>
 
           <div className="text-muted-foreground space-y-2">
             <p>LV40203643527, 23.04.2025</p>
             <p>Rīga, Brīvības iela 91–22, LV-1001</p>
             <p>
-              <a href="https://www.buvconsult.com" className="underline">
-                buvconsult.com
+              <a href="https://www.worksrecorded.com" className="underline">
+                worksrecorded.com
               </a>
             </p>
             <p>All rights reserved</p>
@@ -36,16 +36,7 @@ export default function FooterDesktop() {
               Site diary
             </Link>
           </p>
-          <p>
-            <Link href="/Landing/Invoices" className="underline text-muted-foreground">
-              Invoices
-            </Link>
-          </p>
-          <p>
-            <Link href="/Landing/Documents" className="underline text-muted-foreground">
-              Documents
-            </Link>
-          </p>
+   
           <p>
             <Link href="/Landing/Timesheets" className="underline text-muted-foreground">
               Timesheets
@@ -85,7 +76,7 @@ export default function FooterDesktop() {
               <CardTitle>Contact</CardTitle>
               <CardDescription>
                 <h4 className="text-3xl">
-                  Buv<span className="text-primary">consult</span>
+                  Works<span className="text-primary">Recorded</span>
                 </h4>
               </CardDescription>
               <CardAction>Contact us anytime!</CardAction>

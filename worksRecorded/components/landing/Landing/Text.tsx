@@ -29,14 +29,14 @@ export function WhatDoWeDo() {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-semibold text-gray-900">
+      <h3 className="text-xl font-semibold text-foreground">
         We help trade contractors with:
       </h3>
       <ul className="space-y-3">
         {items.map(({ title, desc }) => (
           <li key={title} className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
-            <p className="leading-relaxed text-gray-700">
+            <p className="leading-relaxed text-foreground">
               <span className="font-semibold">{title}</span>
               {desc ? <span> — {desc}</span> : null}
             </p>
@@ -52,42 +52,42 @@ export const NoIntegration =
 
 export function HowDoWeDoThat() {
   const items = [
-    {
-      title: "Site diary from WhatsApp",
-      desc: "Site managers or foremen send messages, photos and voice notes — AI turns them into structured daily records.",
-    },
-    {
-      title: "Evidence for claims",
-      desc: "Daily log with who worked, what was done, delays, instructions and issues, ready when a dispute appears.",
-    },
-    {
-      title: "Real costs from previous jobs",
-      desc: "Labour, materials and subcontractors are linked to work packages so you can see real historic costs.",
-    },
-    {
-      title: "Daily performance insight",
-      desc: "See where time and money are lost before it becomes a problem, not months later in final accounts.",
-    },
-    {
-      title: "Supplier and change tracking",
-      desc: "Invoices and delivery notes are attached to days, locations and work packages in one record.",
-    },
-    {
-      title: "Everything in one project record",
-      desc: "So you are not searching through WhatsApp chats, folders and email when you need to prove your case.",
-    },
-  ];
+  {
+    title: "Site diary from WhatsApp",
+    desc: "Send messages, photos or voice notes — AI turns them into clear daily records.",
+  },
+  {
+    title: "Evidence for claims",
+    desc: "Work done, delays and instructions captured automatically and ready when needed.",
+  },
+  {
+    title: "Daily performance insight",
+    desc: "See issues early instead of discovering them weeks later.",
+  },
+  {
+    title: "Real history of work",
+    desc: "Every note, photo and update stored by day, location and activity.",
+  },
+  {
+    title: "Simple change tracking",
+    desc: "Variations, issues and notes kept organised in one place.",
+  },
+  {
+    title: "Everything in one project log",
+    desc: "No more digging through WhatsApp, folders or emails to find what happened.",
+  },
+];
 
   return (
     <div className="space-y-6">
-      <h3 className="text-2xl font-semibold text-gray-900">
+      <h3 className="text-2xl font-semibold text-foreground">
         How worksRecorded helps trade contractors
       </h3>
       <ul className="space-y-3">
         {items.map(({ title, desc }) => (
           <li key={title} className="flex items-start gap-3">
             <CheckCircle2 className="size-5 shrink-0 text-primary" aria-hidden />
-            <p className="leading-relaxed text-gray-700">
+            <p className="leading-relaxed text-foreground">
               <span className="font-semibold">{title}</span>
               {desc ? <span> — {desc}</span> : null}
             </p>
@@ -101,26 +101,24 @@ export function HowDoWeDoThat() {
 export function Why() {
   const bullets = [
     "Most tools require forms and manual input. Site teams don’t have time for that.",
-    "worksRecorded works with the channels you already use: WhatsApp, email and photos.",
-    "AI keeps a consistent, structured site diary running in the background.",
+    "WorksRecorded works with the channels you already use: WhatsApp, email and photos.",
+    "WorksRecorded keeps a consistent, structured site diary running in the background.",
     "When you need to defend a variation, claim delay costs or explain a decision, the evidence is already organised.",
   ];
 
   return (
     <div className="space-y-4">
-      <h3 className="text-2xl font-semibold text-gray-900">
+      <h3 className="text-2xl font-semibold text-foreground">
         Why worksRecorded is different
       </h3>
-      <p className="text-gray-700">
-        We are not another task app or form system. worksRecorded captures the real
-        conversation happening every day on your projects and turns it into a reliable
-        project record you can actually use in meetings, claims and negotiations.
+      <p className="text-foreground">
+        You only need whatsapp to start using. No additional burden to site management
       </p>
       <ul className="space-y-3">
         {bullets.map((text) => (
           <li key={text} className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
-            <p className="leading-relaxed text-gray-700">{text}</p>
+            <p className="leading-relaxed text-foreground">{text}</p>
           </li>
         ))}
       </ul>

@@ -130,8 +130,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Existing features section */}
-      <Features />
+      {/* Existing features section
+      <Features /> */}
     </>
   );
 }

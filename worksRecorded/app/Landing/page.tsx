@@ -14,8 +14,8 @@ export default function LandingPage(){
 
         <>
 
-                {isMobile ? 
-                <LandingPageMobile/> : <LandingPageDesktop/>    }
+              
+           <LandingPageDesktop/>  
           
 
       
