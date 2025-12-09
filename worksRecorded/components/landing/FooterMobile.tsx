@@ -31,7 +31,7 @@ export default function FooterMobile() {
                 <CardTitle>Contact</CardTitle>
                 <CardDescription>
                   <h4 className="text-2xl sm:text-3xl">
-                    Buv<span className="text-primary">consult</span>
+                    Works<span className="text-primary">Recorded</span>
                   </h4>
                 </CardDescription>
                 <CardAction>Contact us anytime!</CardAction>
@@ -54,7 +54,7 @@ export default function FooterMobile() {
           </div>
 
             <div className="space-y-4">
-            <p className="text-sm sm:text-base font-medium">SIA &quot;BUVCONSULT&quot;</p>
+            <p className="text-sm sm:text-base font-medium"> &quot;WorksRecorded&quot;</p>
             <div className="text-muted-foreground space-y-1 text-sm sm:text-base leading-relaxed">
               <p>LV40203643527, 23.04.2025</p>
               <p>Rīga, Brīvības iela 91–22, LV-1001</p>

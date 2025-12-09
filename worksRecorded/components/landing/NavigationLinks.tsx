@@ -40,18 +40,7 @@ export const COMBINED_LINKS = [
     title: "Site records",
     description: "Use custom Whatsapp channel for reporting with voice/text",
   },
-  {
-    id: "Invoices",
-    href: "/Landing/Invoices",
-    title: "Invoices",
-    description: "Invoices are automatically uploaded and parsed",
-  },
-  {
-    id: "Documents",
-    href: "/Landing/Documents",
-    title: "Documents",
-    description: "All project documentation in one place",
-  },
+ 
   {
     id: "Timesheets",
     href: "/Landing/Timesheets",
