@@ -66,7 +66,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                     Location: LocationEnum.nullable().optional(),
                     Works:  WorksEnum.nullable().optional(),
                     Comments: z.string().nullable().optional(),
-                    Units: UnitEnum.nullable().optional(),
+                    Units: z.string().nullable().optional(),
                     Amounts: z.number().nullable().optional(),
                     WorkersInvolved: z.number().int().nullable().optional(),
                     TimeInvolved: z.number().nullable().optional(),
