@@ -27,7 +27,7 @@ const NOTE_OPTION = { value: "__note__", label: "Note" };
 
 
 
-const allowedUnits = [
+export const allowedUnits = [
   "m", "m2", "m3", "tn", "kg",
   "pcs", "package", "project",
   "hour", "set", "minute", "lifts",
