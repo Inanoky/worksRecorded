@@ -429,3 +429,26 @@ export async function getOrganizationIdByWorkerId(workerId: string): Promise<str
   });
   return worker?.organizationId ?? null;
 }
+
+
+
+
+export async function saveUserPhone(formData: FormData) {
+  const user = await requireUser();
+  let phone = String(formData.get("phone") ?? "").trim();
+
+  // allow only digits
+  phone = phone.replace(/[^\d]/g, "");
+
+  if (!phone) {
+    throw new Error("Invalid phone number");
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      phone,
+      role: "site manager",
+    },
+  });
+}

@@ -18,9 +18,7 @@ import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 import { redirect } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard } from "@/components/joyride/JoyRideSteps";
-
-//n
-
+import { PhoneRequiredDialog } from "@/components/dashboard/PhoneRequiredDialog";
 
 async function getData(orgId: string) {
   const [sites] = await Promise.all([
@@ -42,25 +40,32 @@ export default async function Welcome() {
 
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { userTour: true },
+    select: { userTour: true, phone: true },
   });
 
   const tour = dbUser?.userTour as Record<string, any> | null;
   const isFirstTime =
     !tour || (typeof tour === "object" && Object.keys(tour).length === 0);
 
-  // 👉 if this is NOT first time, immediately redirect to dashboard
+  // if this is NOT first time, immediately redirect to dashboard
   if (!isFirstTime) {
     redirect("/dashboard");
   }
 
-  // 👇 This is FIRST TIME → stay on welcome page
+  const needsPhone = !dbUser?.phone;
+
   const orgId = await getOrganizationIdByUserId(user.id);
   const { sites } = await getData(orgId);
 
   return (
     <>
-      <TourRunner steps={steps_dashboard} stepName="steps_dashboard" />
+      {/* Force phone number BEFORE tour + usage */}
+      <PhoneRequiredDialog needsPhone={needsPhone} />
+
+      {/* Tour only runs after phone is set */}
+      {!needsPhone && (
+        <TourRunner steps={steps_dashboard} stepName="steps_dashboard" />
+      )}
 
       <div className="flex w-full justify-end">
         <Button asChild>

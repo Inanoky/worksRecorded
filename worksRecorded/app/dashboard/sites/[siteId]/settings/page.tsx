@@ -175,7 +175,13 @@ export default async function SettingsSiteRoute({
         schemaExists={!!settings?.schema}
       />
 
-      {/* Danger Card */}
+   
+      <div
+      data-tour="members">
+      <MembersTable pageSize={5} data={userData} exportFileName="Members" userid={user.id} orgId={orgId}  />
+      </div>
+      
+         {/* Danger Card */}
       <Card className="border-red-500 bg-red-500/10">
         <CardHeader>
           <CardTitle className="text-red-500">Danger</CardTitle>
@@ -188,18 +194,6 @@ export default async function SettingsSiteRoute({
           <ConfirmDeleteSite siteId={siteId} />
         </CardFooter>
       </Card>
-      <div
-      data-tour="members">
-      <MembersTable pageSize={5} data={userData} exportFileName="Members" userid={user.id} orgId={orgId}  />
-      </div>
-      <div>
-        <Reminder
-        
-        orgId={orgId}
-        reminderData={remindersData}
-       
-      />
-      </div>
     </>
   );
 }

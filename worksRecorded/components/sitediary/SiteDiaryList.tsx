@@ -899,22 +899,22 @@ export default function SiteDiaryCalendar({
 
         {/* Photos dialog with ImageGallery */}
         <Dialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-4xl">
-            <DialogHeader>
-              <DialogTitle className="text-base sm:text-lg">
-                Photos –{" "}
-                {photosDate
-                  ? photosDate.toLocaleDateString("en-GB", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
-                  : "No date selected"}
-              </DialogTitle>
-            </DialogHeader>
-            <ImageGallery date={photosDate} siteId={siteId} />
-          </DialogContent>
-        </Dialog>
+  <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[90vw] sm:max-w-[90vw] lg:max-w-[1200px] max-h-[90vh]">
+    <DialogHeader>
+      <DialogTitle className="text-base sm:text-lg">
+        Photos –{" "}
+        {photosDate
+          ? photosDate.toLocaleDateString("en-GB", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : "No date selected"}
+      </DialogTitle>
+    </DialogHeader>
+    <ImageGallery date={photosDate} siteId={siteId} className="h-[70vh]" />
+  </DialogContent>
+</Dialog>
       </div>
     </TooltipProvider>
   );

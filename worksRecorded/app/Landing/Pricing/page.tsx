@@ -52,14 +52,14 @@ export default function Page() {
                 <div className="border-b pb-4 last:border-b-0 last:pb-0">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-bold text-lg">Up to 1M EUR</p>
+                      <p className="font-bold text-lg">1 project </p>
                       <p className="text-muted-foreground text-sm">
                         Smaller or single-discipline contracts.
                       </p>
                     </div>
                     <div className="text-right flex flex-col items-end">
-                      <p className="font-extrabold text-2xl whitespace-nowrap text-primary">10&nbsp;EUR</p>
-                      <span className="text-xs text-muted-foreground">/ month</span>
+                      <p className="font-extrabold text-2xl whitespace-nowrap text-primary">&nbsp;FREE</p>
+                   
                     </div>
                   </div>
                 </div>
@@ -68,7 +68,7 @@ export default function Page() {
                 <div className="border-b pb-4 last:border-b-0 last:pb-0">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-bold text-lg">Up to 5M EUR</p>
+                      <p className="font-bold text-lg">Up to 5 Projects</p>
                       <p className="text-muted-foreground text-sm">
                         Mid-size projects with several trades involved.
                       </p>
@@ -84,13 +84,13 @@ export default function Page() {
                 <div className="border-b pb-4 last:border-b-0 last:pb-0">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="font-bold text-lg">Up to 10M EUR</p>
+                      <p className="font-bold text-lg">Unlimited projects</p>
                       <p className="text-muted-foreground text-sm">
                         Larger sites with higher data volume.
                       </p>
                     </div>
                     <div className="text-right flex flex-col items-end">
-                      <p className="font-extrabold text-2xl whitespace-nowrap text-primary">20&nbsp;EUR</p>
+                      <p className="font-extrabold text-2xl whitespace-nowrap text-primary">30&nbsp;EUR</p>
                       <span className="text-xs text-muted-foreground">/ month</span>
                     </div>
                   </div>
