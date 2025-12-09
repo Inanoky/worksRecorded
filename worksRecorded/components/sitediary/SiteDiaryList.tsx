@@ -773,70 +773,101 @@ export default function SiteDiaryCalendar({
                       </CardHeader>
 
                       <CardContent className="px-2 pb-3 sm:px-4">
-                        <div className="overflow-x-auto">
-                          <Table className="table-fixed min-w-[700px] text-xs sm:text-sm">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-[140px]">
-                                  Location
-                                </TableHead>
-                                <TableHead className="w-[180px]">
-                                  Works
-                                </TableHead>
-                                <TableHead className="w-[50px] text-center">
-                                  Units
-                                </TableHead>
-                                <TableHead className="w-[70px] text-center">
-                                  Amount
-                                </TableHead>
-                                <TableHead className="w-[70px] text-center">
-                                  Workers
-                                </TableHead>
-                                <TableHead className="w-[70px] text-center">
-                                  Hours
-                                </TableHead>
-                                <TableHead className="w-[400px]">
-                                  Comments
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
+  {/* MOBILE: stacked record cards */}
+  <div className="space-y-2 sm:hidden">
+    {group.rows.map((r, idx) => (
+      <div
+        key={r.id ?? `${group.key}-${idx}`}
+        className="rounded-md border bg-muted/40 p-2 text-[11px]"
+      >
+        <div className="flex flex-wrap items-baseline justify-between gap-1">
+          <span className="font-medium">
+            {r.Location || "No location"}
+          </span>
+          <span className="text-[10px] text-muted-foreground">
+            {r.Units && r.Amounts != null
+              ? `${r.Amounts} ${r.Units}`
+              : r.Units || r.Amounts || ""}
+          </span>
+        </div>
 
-                            <TableBody>
-                              {group.rows.map((r, idx) => (
-                                <TableRow
-                                  key={r.id ?? `${group.key}-${idx}`}
-                                >
-                                  <TableCell className="max-w-[140px] truncate">
-                                    {r.Location || "—"}
-                                  </TableCell>
-                                  <TableCell className="max-w-[180px] truncate">
-                                    {r.Works || "—"}
-                                  </TableCell>
+        <div className="mt-1 text-[11px]">
+          <div className="font-semibold">
+            {r.Works || "No works recorded"}
+          </div>
+        </div>
 
-                                  <TableCell className="text-center">
-                                    {r.Units || "—"}
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    {r.Amounts ?? "—"}
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    {r.WorkersInvolved ?? "—"}
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    {r.TimeInvolved ?? "—"}
-                                  </TableCell>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+          <span>
+            Workers:{" "}
+            <span className="font-medium text-foreground">
+              {r.WorkersInvolved ?? "—"}
+            </span>
+          </span>
+          <span>
+            Hours:{" "}
+            <span className="font-medium text-foreground">
+              {r.TimeInvolved ?? "—"}
+            </span>
+          </span>
+        </div>
 
-                                  <TableCell className="max-w-[400px] align-top">
-                                    <span className="text-xs sm:text-sm break-words whitespace-normal line-clamp-4">
-                                      {r.Comments || "—"}
-                                    </span>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </CardContent>
+        <div className="mt-1">
+          <p className="line-clamp-4 whitespace-pre-wrap text-[11px] leading-snug text-foreground">
+            {r.Comments || "No comments"}
+          </p>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  {/* DESKTOP: existing table */}
+  <div className="hidden sm:block overflow-x-auto">
+    <Table className="table-fixed min-w-[700px] text-xs sm:text-sm">
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[140px]">Location</TableHead>
+          <TableHead className="w-[180px]">Works</TableHead>
+          <TableHead className="w-[50px] text-center">Units</TableHead>
+          <TableHead className="w-[70px] text-center">Amount</TableHead>
+          <TableHead className="w-[70px] text-center">Workers</TableHead>
+          <TableHead className="w-[70px] text-center">Hours</TableHead>
+          <TableHead className="w-[400px]">Comments</TableHead>
+        </TableRow>
+      </TableHeader>
+
+      <TableBody>
+        {group.rows.map((r, idx) => (
+          <TableRow key={r.id ?? `${group.key}-${idx}`}>
+            <TableCell className="max-w-[140px] truncate">
+              {r.Location || "—"}
+            </TableCell>
+            <TableCell className="max-w-[180px] truncate">
+              {r.Works || "—"}
+            </TableCell>
+            <TableCell className="text-center">
+              {r.Units || "—"}
+            </TableCell>
+            <TableCell className="text-center">
+              {r.Amounts ?? "—"}
+            </TableCell>
+            <TableCell className="text-center">
+              {r.WorkersInvolved ?? "—"}
+            </TableCell>
+            <TableCell className="text-center">
+              {r.TimeInvolved ?? "—"}
+            </TableCell>
+            <TableCell className="max-w-[400px] align-top">
+              <span className="text-xs sm:text-sm break-words whitespace-normal line-clamp-4">
+                {r.Comments || "—"}
+              </span>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  </div>
+</CardContent>
                     </Card>
                   );
                 })}
