@@ -30,9 +30,8 @@ export default async function Home({
 
   return (
     <>
-    <div
-    
-    data-tour="calendar">
+    <div  
+>
          <TourRunner steps={steps_dashboard_siteid_site_diary} stepName="steps_dashboard_siteid_site_diary"/>
    
               

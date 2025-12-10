@@ -33,16 +33,10 @@ export default function RootLayout({
   return (
     <html lang="en">
             
-             {/* <GoogleTagManager gtmId="GTM-TFB37MS4" />
+              <GoogleTagManager gtmId="GTM-TSLDCSGF" />
 
 
-            <Script id="ga-ads-config" strategy="afterInteractive">
-        {`
-          window.dataLayer = window.dataLayer || [];
-          function gtag(){dataLayer.push(arguments);}
-          gtag('config', 'AW-17670426077');
-        `}
-      </Script> */}
+      
 
       <body
         className={`${inter.className}  antialiased`}

@@ -42,13 +42,13 @@ export const steps_dashboard_sites_open_project = [
 //Step 4
 export const steps_dashboard_siteid_dashboard = [
   {
-    target: '[data-tour="key-metrics"]',
-    content: `This is your dashboard for the project progress and finances. Make it live by starting using site diary and uploading invoices`,
+    target: '[data-tour="calendar"]',
+    content: `Start reporting works from whatsapp `,
     disableBeacon: true
   },
     {
-    target: '[data-tour="nav-site-diary"]',
-    content: `Navigate to the site diary`,
+    target: '[data-tour="AI-widget"]',
+    content: `You can also report from assistant or directly on the diary`,
     disableBeacon: true
   },
    
@@ -65,8 +65,7 @@ export const steps_dashboard_siteid_dashboard = [
 export const steps_dashboard_siteid_site_diary = [
   {
     target: '[data-tour="calendar"]',
-    content: `This is your calendar with site diaries. You can fill it form web, from Whatsapp or using AI.
-    Let's try AI first!`,
+    content: `Start reporting works from whatsapp `,
     disableBeacon: true
   },
     {

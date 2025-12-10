@@ -12,7 +12,7 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard_siteid_timesheets } from "@/components/joyride/JoyRideSteps";
+
 import {
   Card,
   CardContent,
@@ -44,10 +44,7 @@ export default async function AddWorkerPage({
       schemaLocations={locations}
       schemaWorks={works}
     >
-      <TourRunner
-        steps={steps_dashboard_siteid_timesheets}
-        stepName="steps_dashboard_siteid_timesheets"
-      />
+
 
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
         {/* Header */}

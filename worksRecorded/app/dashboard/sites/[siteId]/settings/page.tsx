@@ -27,7 +27,7 @@ import { notFound } from "next/navigation";
 import { MembersTable } from "@/components/settings/MembersTable";
 import { getUserData } from "@/server/actions/settings-actions";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard_siteid_settings} from "@/components/joyride/JoyRideSteps";
+
 import Reminder from "@/components/settings/ReminderUI";
 import { getRemindersData, getReminderTimes, getDataForReminderTable} from "@/server/actions/reminder-actions";
 
@@ -73,7 +73,7 @@ export default async function SettingsSiteRoute({
     <>
       {/* Back Button */}
       <div className="flex items-center gap-x-2 mb-6">
-         <TourRunner steps={steps_dashboard_siteid_settings} stepName="steps_dashboard_siteid_settings"/>
+ 
         <Button variant="outline" size="icon" asChild>
           <Link href={`/dashboard/sites/${siteId}/analytics`}>
             <ChevronLeft className="size-4" />
