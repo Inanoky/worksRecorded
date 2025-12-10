@@ -10,7 +10,6 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard_siteid_documents} from "@/components/joyride/JoyRideSteps";
 
 
 export default async function Documents({params}:
