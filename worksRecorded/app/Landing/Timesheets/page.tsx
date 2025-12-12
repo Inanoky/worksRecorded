@@ -51,7 +51,7 @@ export default function Page() {
             <p className="text-base sm:text-lg md:text-xl leading-relaxed text-center md:text-left">
               <span className="block text-xl sm:text-2xl font-semibold">How do we do that</span>
               <span className="block h-3 sm:h-4" />
-              Workers use WhatsApp to chat with BUVCONSULT AI to clock in and out of work. Before clocking out, the AI
+              Workers use WhatsApp to chat with WorksRecorded to clock in and out of work. Before clocking out, the AI
               asks them to describe what was achieved during the day. The information is structured and stored in the
               database automatically.
             </p>

@@ -54,7 +54,7 @@ export default function Page() {
             <p className="text-base sm:text-lg md:text-xl leading-relaxed text-center md:text-left">
               <span className="block text-xl sm:text-2xl font-semibold">How do we do that</span>
               <span className="block h-3 sm:h-4" />
-              Just send a voice message to BUVCONSULT WhatsApp describing what happened today. Our AI will transform
+              Just send a voice message to WorksRecorded WhatsApp describing what happened today. Our AI will transform
               your words into a structured site diary record.
             </p>
           </div>
