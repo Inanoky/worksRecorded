@@ -14,6 +14,9 @@ import SiteDiaryCalendar from "@/components/sitediary/Calendar";
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import SiteDiaryList from "@/components/sitediary/SiteDiaryList";
 
+export const maxDuration = 800;
+
+
 import {
   getTargetData,
   saveTargetDataForm,

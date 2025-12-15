@@ -1,4 +1,4 @@
-import { AddWorkerForm } from "@/components/timesheets/AddWorkerFrom";
+
 import { FrontendTable } from "@/components/timesheets/FrontendTable";
 import {
   getTimelogsBySiteId,
@@ -11,7 +11,9 @@ import { WorkerTableCard } from "@/components/ai/WorkerTableCard";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
-import TourRunner from "@/components/joyride/TourRunner";
+
+export const maxDuration = 800;
+
 
 import {
   Card,

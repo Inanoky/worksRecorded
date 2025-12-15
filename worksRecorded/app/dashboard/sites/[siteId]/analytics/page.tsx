@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 
-
+export const maxDuration = 800;
 
 export default async function Analytics({params}:
 
