@@ -319,3 +319,8 @@ model analytics {
 
 }
 
+model WhatsappTextLock {
+  phone      String   @id
+  lockedAt   DateTime @default(now())
+  messageSid String?
+}
