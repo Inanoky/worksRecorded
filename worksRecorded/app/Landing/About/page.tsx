@@ -14,7 +14,7 @@ export default function Page() {
   return (
     <>
       <section className="relative flex items-center justify-center">
-        <div className="w-full  mx-auto px-4 sm:px-6 py-12 lg:py-20">
+        <div className="w-full mx-auto px-4 sm:px-6 py-12 lg:py-20">
           <div className="text-center">
             <h1 className="mt-8 text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-medium leading-tight sm:leading-none">
               About
@@ -24,24 +24,53 @@ export default function Page() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-10 items-start w-full py-12 mx-auto mt-12">
             <div className="md:col-span-2 text-base sm:text-lg md:text-xl leading-relaxed space-y-5">
               <p>
-                The construction industry is notorious worldwide for delays and cost overruns. Why? At BUVCONSULT we
-                believe the answer is in the data. Poor record-keeping and overloaded management make it hard for the
-                industry to learn from mistakes.
+                Do you knows what is happening on your construction site? Tracking construction works is not easy.
               </p>
+
               <p>
-                Why hasn’t it been solved before? Because of industry specifics such as “lowest bid wins,” low priority
-                on data, lack of reliable technology to collect and structure it, and limited data-science capabilities
-                to extract meaningful insights.
+                Site managment often overloaded and reluctant to take up additional admin burden to keep records
               </p>
+
               <p>
-                We are a Latvian SaaS platform focused on fixing exactly that. We deliver high-quality data collection
-                and analytics—affordably—for the companies that need it most: small and medium trade contractors.
+                Even if exist, records are often scattered, unorganized and need large effort to be sorted to become usefull.
               </p>
-              <div className="space-y-1">
-                <p>Vjaceslavs Gromatovičs</p>
-                <p>BUVCONSULT Team</p>
-                <p>From construction professionals, for construction professionals.</p>
-              </div>
+
+              <p>
+                When records are missing, it is hard to improve processes, track metrics, argument claims/additional works,
+                account for lost time or just generally understand why things are where they are.
+              </p>
+
+              <p>
+                Current digital tools are complex, take time and effort to integrate and often met with resistance from
+                overloaded site teams.
+              </p>
+
+              <p>
+                To help I created a small tool called <strong>WorksRecorded.com</strong>
+              </p>
+
+              <p>
+                Site manager uses WhatsApp to take a voice/text notes of site activities. System then automatically sorts
+                and stores records, which can be viewed from browser.
+              </p>
+
+              <p>
+                This allows site managment to spend more times on site, overseeing works and less time in office doing admin.
+              </p>
+
+              <p>
+                Simultaniously this also lets project management better understand the project so they can analyze, act,
+                and argue their position confidently to the GC/Client.
+              </p>
+
+              <p>
+                I have used this tool myself and find it simply yet powerfull during complicated construction projects.
+              </p>
+
+              <p>
+                I will be happy if it will help you too, it is free for 1 project everyone while in beta and I will be happy
+                to discuss and help if you have any quesiton.
+              </p>
             </div>
 
             <div className="flex justify-center md:justify-end">
@@ -56,7 +85,6 @@ export default function Page() {
             </div>
           </div>
 
-          {/* Reserved block if needed later */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-10 w-full py-12 mx-auto mt-12" />
         </div>
       </section>
