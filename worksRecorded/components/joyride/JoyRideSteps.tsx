@@ -10,7 +10,7 @@
 export const steps_dashboard = [
   {
     target: '[data-tour="create-project"]',
-    content: 'Welcome to Buvconsult site record! Start by crearting a new project',
+    content: 'Welcome to WorksRecorded site records! Start by crearting a new project',
     disableBeacon: true
   },
   

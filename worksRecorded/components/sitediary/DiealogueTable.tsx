@@ -2,59 +2,81 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  Table, TableBody, TableHead, TableHeader, TableRow, TableCell,
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import { Trash2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
-  getSiteDiaryRecord, getSiteDiarySchema, saveSiteDiaryRecordFromWeb,
-  deleteSiteDiaryRecord, updateSiteDiaryRecord
+  getSiteDiaryRecord,
+  getSiteDiarySchema,
+  saveSiteDiaryRecordFromWeb,
+  deleteSiteDiaryRecord,
+  updateSiteDiaryRecord,
 } from "@/server/actions/site-diary-actions";
 import { toast } from "sonner";
 import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
 
 /* ---------- helpers ---------- */
-const ADDITIONAL_WORKS_OPTION = { value: "__ADDITIONAL__", label: "Additional works" };
-const CLIENT_DELAY_OPTION = { value: "__clientDelay__", label: "Client Delay (hindrance)" };
+const ADDITIONAL_WORKS_OPTION = {
+  value: "__ADDITIONAL__",
+  label: "Additional works",
+};
+const CLIENT_DELAY_OPTION = {
+  value: "__clientDelay__",
+  label: "Client Delay (hindrance)",
+};
 const INTERNAL_DELAY_OPTION = { value: "__internalDelay__", label: "Internal Delay" };
 const NOTE_OPTION = { value: "__note__", label: "Note" };
 
-
-
+const ADD_NEW_LOCATION = "__add_new_location__";
+const ADD_NEW_WORK = "__add_new_work__";
 
 export const allowedUnits = [
-  "m", "m2", "m3", "tn", "kg",
-  "pcs", "package", "project",
-  "hour", "set", "minute", "lifts",
+  "m",
+  "m2",
+  "m3",
+  "tn",
+  "kg",
+  "pcs",
+  "package",
+  "project",
+  "hour",
+  "set",
+  "minute",
+  "lifts",
 ] as const;
-
-
 
 const DiaryRowSchema = z.object({
   amounts: z.coerce.number().finite().optional().or(z.literal("")),
   workers: z.coerce.number().int().optional().or(z.literal("")),
   hours: z.coerce.number().finite().optional().or(z.literal("")),
   comments: z.string().max(1500).optional().or(z.literal("")),
-  //   units:    z.enum(allowedUnits).optional().or(z.literal("")),
 });
 
 const DiaryRowsSchema = z.array(DiaryRowSchema);
-
-
-
-
 
 function collectWorks(node: any, prefix = "") {
   let options: { value: string; label: string }[] = [];
   if (node.type === "Work") {
     options.push({
       value: node.code,
-      label: prefix ? `${prefix} / ${node.name}` : node.name
+      label: prefix ? `${prefix} / ${node.name}` : node.name,
     });
   }
   if (node.children) {
@@ -62,7 +84,11 @@ function collectWorks(node: any, prefix = "") {
       options = options.concat(
         collectWorks(
           child,
-          node.type === "Work" ? (prefix ? `${prefix} / ${node.name}` : node.name) : prefix
+          node.type === "Work"
+            ? prefix
+              ? `${prefix} / ${node.name}`
+              : node.name
+            : prefix
         )
       );
     }
@@ -73,7 +99,10 @@ function collectWorks(node: any, prefix = "") {
 export function useSiteSchema(siteId: string | null) {
   const [schema, setSchema] = useState<any[] | null>(null);
   useEffect(() => {
-    if (!siteId) { setSchema(null); return; }
+    if (!siteId) {
+      setSchema(null);
+      return;
+    }
     getSiteDiarySchema({ siteId }).then((s) => {
       console.log("[Diary][Schema] fetched:", s);
       setSchema(s);
@@ -83,8 +112,11 @@ export function useSiteSchema(siteId: string | null) {
 }
 
 /* ---------- component ---------- */
-export function DialogTable({ date, siteId, onSaved }: {
-
+export function DialogTable({
+  date,
+  siteId,
+  onSaved,
+}: {
   date: Date | null;
   siteId: string | null;
   onSaved?: () => void;
@@ -94,8 +126,8 @@ export function DialogTable({ date, siteId, onSaved }: {
   const [loading, setLoading] = useState(true);
 
   const newEmptyRow = () => ({
-    id: undefined as string | undefined,     // ← never synthesize DB id
-    _tempId: crypto.randomUUID(),            // ← client-only key
+    id: undefined as string | undefined,
+    _tempId: crypto.randomUUID(),
     date,
     location: "",
     location_code: "",
@@ -106,36 +138,40 @@ export function DialogTable({ date, siteId, onSaved }: {
     workers: "",
     hours: "",
     comments: "",
-    // >>> NEW FIELD
     createdBy: "",
-    // <<< NEW FIELD
+
+    // Manual entry support
+    location_mode: "select" as "select" | "manual",
+    works_mode: "select" as "select" | "manual",
+    location_manual: "",
+    works_manual: "",
   });
 
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
 
   const handleAddRow = () => {
     console.log("[Diary][AddRow]");
-    setRows(prev => [...prev, newEmptyRow()]);
+    setRows((prev) => [...prev, newEmptyRow()]);
   };
 
   const handleDeleteRow = async (idOrTemp: string | undefined, tempId?: string) => {
-    const row = rows.find(r => r.id === idOrTemp || r._tempId === tempId);
+    const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
     console.log("[Diary][DeleteRow] target:", { idOrTemp, tempId, row });
     if (row?.id) {
-      await deleteSiteDiaryRecord({ id: row.id }); // real Prisma id (string)
+      await deleteSiteDiaryRecord({ id: row.id });
       console.log("[Diary][DeleteRow] deleted from DB:", row.id);
       toast.success("Record deleted!");
       onSaved?.();
     } else {
-      setRows(prev => prev.filter(r => r._tempId !== (tempId ?? idOrTemp)));
+      setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
     }
   };
 
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
     console.log("[Diary][Change]", { rowIdOrTemp, field, value });
-    setRows(prev =>
-      prev.map(r =>
-        (r.id === rowIdOrTemp || r._tempId === rowIdOrTemp) ? { ...r, [field]: value } : r
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
       )
     );
   };
@@ -144,42 +180,89 @@ export function DialogTable({ date, siteId, onSaved }: {
     e?.preventDefault();
     console.log("[Diary][Submit] raw rows:", rows);
 
-
     const parsed = DiaryRowsSchema.safeParse(rows);
     if (!parsed.success) {
       toast.error(parsed.error.errors[0].message);
       return;
     }
 
-    // Global works list + Additional works
+    // Manual required checks
+    for (const r of rows) {
+      const key = r.id ?? r._tempId;
+
+      if (r.location_mode === "manual") {
+        const v = String(r.location_manual ?? "").trim();
+        if (!v) {
+          toast.error("Please type a location for manual entry.");
+          console.log("[Diary][Submit] missing location_manual:", key);
+          return;
+        }
+      } else {
+        if (!String(r.location_code ?? "").trim() && !String(r.location ?? "").trim()) {
+          toast.error("Please select a location.");
+          console.log("[Diary][Submit] missing location selection:", key);
+          return;
+        }
+      }
+
+      if (r.works_mode === "manual") {
+        const v = String(r.works_manual ?? "").trim();
+        if (!v) {
+          toast.error("Please type a work for manual entry.");
+          console.log("[Diary][Submit] missing works_manual:", key);
+          return;
+        }
+      } else {
+        if (!String(r.works_code ?? "").trim() && !String(r.works ?? "").trim()) {
+          toast.error("Please select a work.");
+          console.log("[Diary][Submit] missing works selection:", key);
+          return;
+        }
+      }
+    }
+
     const allWorkOptions = [
-      ...((schema?.flatMap(root => collectWorks(root))) ?? []),
+      ...((schema?.flatMap((root) => collectWorks(root))) ?? []),
       ADDITIONAL_WORKS_OPTION,
       CLIENT_DELAY_OPTION,
       INTERNAL_DELAY_OPTION,
-      NOTE_OPTION
+      NOTE_OPTION,
     ];
     console.log("[Diary][Submit] allWorkOptions count:", allWorkOptions.length);
 
-    const rowsToSave = rows.map(row => {
-      const locationByCode = schema?.find(n => n.code === row.location_code);
-      const locationByName = schema?.find(n => n.name === row.location);
+    const rowsToSave = rows.map((row) => {
+      const locationByCode = schema?.find((n) => n.code === row.location_code);
+      const locationByName = schema?.find((n) => n.name === row.location);
       const locationNode = locationByCode || locationByName || null;
 
       const worksNode = allWorkOptions.find((opt: any) => opt.value === row.works_code);
 
+      const resolvedLocation =
+        row.location_mode === "manual"
+          ? String(row.location_manual ?? "").trim()
+          : locationNode?.name || row.location;
+
+      const resolvedWorks =
+        row.works_mode === "manual"
+          ? String(row.works_manual ?? "").trim()
+          : worksNode?.label || row.works;
+
       const resolved = {
         ...row,
-        location: locationNode?.name || row.location,
-        works: worksNode?.label || row.works,
+        location: resolvedLocation,
+        works: resolvedWorks,
       };
 
       console.log("[Diary][MapRow]", {
         rowId: row.id ?? row._tempId,
+        location_mode: row.location_mode,
         location_code: row.location_code,
+        location_manual: row.location_manual,
         location_before: row.location,
         location_resolved: resolved.location,
+        works_mode: row.works_mode,
         works_code: row.works_code,
+        works_manual: row.works_manual,
         works_before: row.works,
         works_resolved: resolved.works,
       });
@@ -189,10 +272,12 @@ export function DialogTable({ date, siteId, onSaved }: {
 
     const isUUID = (id: unknown) =>
       typeof id === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        id
+      );
 
-    const existingRows = rowsToSave.filter(r => isUUID(r.id));
-    const newRows = rowsToSave.filter(r => !isUUID(r.id));
+    const existingRows = rowsToSave.filter((r) => isUUID(r.id));
+    const newRows = rowsToSave.filter((r) => !isUUID(r.id));
 
     console.log("[Diary][Submit] split:", {
       existingCount: existingRows.length,
@@ -210,7 +295,8 @@ export function DialogTable({ date, siteId, onSaved }: {
         Comments: r.comments,
         Units: r.units,
         Amounts: r.amounts !== "" && r.amounts !== undefined ? Number(r.amounts) : undefined,
-        WorkersInvolved: r.workers !== "" && r.workers !== undefined ? Number(r.workers) : undefined,
+        WorkersInvolved:
+          r.workers !== "" && r.workers !== undefined ? Number(r.workers) : undefined,
         TimeInvolved: r.hours !== "" && r.hours !== undefined ? Number(r.hours) : undefined,
         Photos: [],
         userId: r.userId,
@@ -227,7 +313,20 @@ export function DialogTable({ date, siteId, onSaved }: {
     }
 
     if (newRows.length) {
-      const rowsSanitized = newRows.map(({ id: _omit, _tempId: _omit2, ...rest }) => rest);
+      const rowsSanitized = newRows.map(
+        ({
+          id: _omit,
+          _tempId: _omit2,
+          location_code: _omit3,
+          works_code: _omit4,
+          location_mode: _omit5,
+          works_mode: _omit6,
+          location_manual: _omit7,
+          works_manual: _omit8,
+          ...rest
+        }) => rest
+      );
+
       console.log("[Diary][CreateNew] payload:", { rows: rowsSanitized, siteId });
       try {
         const res = await saveSiteDiaryRecordFromWeb({
@@ -259,19 +358,22 @@ export function DialogTable({ date, siteId, onSaved }: {
       const isoDate = typeof date === "string" ? date : date.toISOString();
       console.log("[Diary][Effect] loading rows for:", { siteId, isoDate });
       const loadedRows = await getSiteDiaryRecord({ siteId, date: isoDate });
-      console.log(`this are loaded rows ${loadedRows}`)
-      
+      console.log(`this are loaded rows ${loadedRows}`);
+
       if (cancelled) return;
 
-      const nextRows =
-        loadedRows.length
-          ? loadedRows.map((row: any) => ({
+      const nextRows = loadedRows.length
+        ? loadedRows.map((row: any) => ({
             ...row,
             _tempId: crypto.randomUUID(),
             location_code: "",
             works_code: "",
+            location_mode: "select",
+            works_mode: "select",
+            location_manual: "",
+            works_manual: "",
           }))
-          : [newEmptyRow()];
+        : [newEmptyRow()];
 
       console.log("[Diary][Effect] loaded rows:", nextRows);
 
@@ -279,7 +381,9 @@ export function DialogTable({ date, siteId, onSaved }: {
       setLoading(false);
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [date, siteId]);
 
   if (loading) {
@@ -288,20 +392,20 @@ export function DialogTable({ date, siteId, onSaved }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-     
-      <ScrollArea 
-      className="w-full h-[45vh] sm:h-[56vh] rounded-none border"
- 
-      >
-         <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
-        <Button type="button" variant="outline" onClick={handleAddRow} className="w-full sm:w-auto">
-
-          Add task
-        </Button>
-        <Button type="submit" className="w-full sm:w-auto">
-          Save diary
-        </Button>
-      </div>
+      <ScrollArea className="w-full h-[45vh] sm:h-[56vh] rounded-none border">
+        <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddRow}
+            className="w-full sm:w-auto"
+          >
+            Add task
+          </Button>
+          <Button type="submit" className="w-full sm:w-auto">
+            Save diary
+          </Button>
+        </div>
 
         <div className="overflow-x-auto">
           <div className={isMobile ? "w-full" : "min-w-[1000px]"}>
@@ -316,93 +420,163 @@ export function DialogTable({ date, siteId, onSaved }: {
                   <TableHead className="text-center w-[120px]">Workers</TableHead>
                   <TableHead className="text-center w-[110px]">Hours</TableHead>
                   <TableHead className="text-center min-w-[480px]">Comments</TableHead>
-                  {/* >>> START: NEW TABLE HEAD */}
                   <TableHead className="text-center w-[150px]">Created by</TableHead>
-                  {/* <<< END: NEW TABLE HEAD */}
                   <TableHead className="text-center w-[80px]">Delete</TableHead>
                 </TableRow>
               </TableHeader>
 
               <TableBody>
                 {rows.map((row) => {
-                  const locationOptions = schema?.filter(n => n.type === "Location") || [];
+                  const locationOptions = schema?.filter((n) => n.type === "Location") || [];
                   const selectedLocationNode =
-                    schema?.find(n => n.code === row.location_code) ||
-                    schema?.find(n => n.name === row.location);
-                  const dynamicWorkOptions = selectedLocationNode ? collectWorks(selectedLocationNode) : [];
+                    schema?.find((n) => n.code === row.location_code) ||
+                    schema?.find((n) => n.name === row.location);
+                  const dynamicWorkOptions = selectedLocationNode
+                    ? collectWorks(selectedLocationNode)
+                    : [];
 
                   const rowKey = row.id ?? row._tempId;
 
                   console.log("[Diary][RenderRow]", {
                     rowKey,
+                    location_mode: row.location_mode,
                     location_code: row.location_code,
+                    location_manual: row.location_manual,
                     location: row.location,
+                    works_mode: row.works_mode,
                     works_code: row.works_code,
+                    works_manual: row.works_manual,
                     works: row.works,
-                    dynamicWorkOptions: dynamicWorkOptions.length
+                    dynamicWorkOptions: dynamicWorkOptions.length,
                   });
 
                   return (
                     <TableRow key={rowKey} className="align-top">
                       <TableCell className="py-3 text-muted-foreground">
                         {row.date
-                          ? new Date(row.date).toLocaleDateString("en-GB", { year: "numeric", month: "long", day: "numeric" })
+                          ? new Date(row.date).toLocaleDateString("en-GB", {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })
                           : "No date"}
                       </TableCell>
 
+                      {/* Location */}
                       <TableCell className="py-2">
-                        <Select
-                          value={row.location_code || ""}
-                          onValueChange={val => handleChange(row.id ?? row._tempId, "location_code", val)}
-                        >
-                          <SelectTrigger className="w-[160px]">
-                            <SelectValue placeholder={row.location || "Select location"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {locationOptions.map((loc: any) => (
-                              <SelectItem key={loc.code} value={loc.code}>
-                                {loc.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {row.location_mode === "manual" ? (
+                          <div className="flex gap-2">
+                            <Input
+                              className="w-[160px]"
+                              placeholder="Type location…"
+                              value={row.location_manual || row.location || ""}
+                              onChange={(e) =>
+                                handleChange(rowKey, "location_manual", e.target.value)
+                              }
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                handleChange(rowKey, "location_mode", "select");
+                                handleChange(rowKey, "location_manual", "");
+                              }}
+                            >
+                              Use list
+                            </Button>
+                          </div>
+                        ) : (
+                          <Select
+                            value={row.location_code || ""}
+                            onValueChange={(val) => {
+                              if (val === ADD_NEW_LOCATION) {
+                                handleChange(rowKey, "location_mode", "manual");
+                                handleChange(rowKey, "location_code", "");
+                                return;
+                              }
+                              handleChange(rowKey, "location_mode", "select");
+                              handleChange(rowKey, "location_code", val);
+                            }}
+                          >
+                            <SelectTrigger className="w-[160px]">
+                              <SelectValue placeholder={row.location || "Select location"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {locationOptions.map((loc: any) => (
+                                <SelectItem key={loc.code} value={loc.code}>
+                                  {loc.name}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value={ADD_NEW_LOCATION}>+ Add new location…</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                       </TableCell>
 
+                      {/* Works */}
                       <TableCell className="py-2">
-                        <Select
-                          value={row.works_code || ""}
-                          onValueChange={val => handleChange(row.id ?? row._tempId, "works_code", val)}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder={row.works || "Select work"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {dynamicWorkOptions.map((opt: any) => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                {opt.label}
+                        {row.works_mode === "manual" ? (
+                          <div className="flex gap-2">
+                            <Input
+                              className="w-[180px]"
+                              placeholder="Type work…"
+                              value={row.works_manual || row.works || ""}
+                              onChange={(e) =>
+                                handleChange(rowKey, "works_manual", e.target.value)
+                              }
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                handleChange(rowKey, "works_mode", "select");
+                                handleChange(rowKey, "works_manual", "");
+                              }}
+                            >
+                              Use list
+                            </Button>
+                          </div>
+                        ) : (
+                          <Select
+                            value={row.works_code || ""}
+                            onValueChange={(val) => {
+                              if (val === ADD_NEW_WORK) {
+                                handleChange(rowKey, "works_mode", "manual");
+                                handleChange(rowKey, "works_code", "");
+                                return;
+                              }
+                              handleChange(rowKey, "works_mode", "select");
+                              handleChange(rowKey, "works_code", val);
+                            }}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder={row.works || "Select work"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {dynamicWorkOptions.map((opt: any) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+
+                              <SelectItem value={ADDITIONAL_WORKS_OPTION.value}>
+                                {ADDITIONAL_WORKS_OPTION.label}
                               </SelectItem>
-                            ))}
-                            {/* Always last: Additional works */}
-                            <SelectItem key={ADDITIONAL_WORKS_OPTION.value} value={ADDITIONAL_WORKS_OPTION.value}>
-                              {ADDITIONAL_WORKS_OPTION.label}
-                            </SelectItem>
-                            <SelectItem key={CLIENT_DELAY_OPTION.value} value={CLIENT_DELAY_OPTION.value}>
-                              {CLIENT_DELAY_OPTION.label}
-                            </SelectItem>
+                              <SelectItem value={CLIENT_DELAY_OPTION.value}>
+                                {CLIENT_DELAY_OPTION.label}
+                              </SelectItem>
+                              <SelectItem value={INTERNAL_DELAY_OPTION.value}>
+                                {INTERNAL_DELAY_OPTION.label}
+                              </SelectItem>
+                              <SelectItem value={NOTE_OPTION.value}>{NOTE_OPTION.label}</SelectItem>
 
-                            <SelectItem key={INTERNAL_DELAY_OPTION.value} value={INTERNAL_DELAY_OPTION.value}>
-                              {INTERNAL_DELAY_OPTION.label}
-                            </SelectItem>
-                            <SelectItem key={NOTE_OPTION.value} value={NOTE_OPTION.value}>
-                              {NOTE_OPTION.label}
-                            </SelectItem>
-
-
-
-                          </SelectContent>
-                        </Select>
+                              <SelectItem value={ADD_NEW_WORK}>+ Add new work…</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
                       </TableCell>
 
+                      {/* Units */}
                       <TableCell className="text-center py-2">
                         <Select
                           value={row.units || ""}
@@ -417,24 +591,35 @@ export function DialogTable({ date, siteId, onSaved }: {
                                 {unit}
                               </SelectItem>
                             ))}
-
                           </SelectContent>
                         </Select>
                       </TableCell>
 
                       <TableCell className="text-center py-2">
-                        <Input className="w-full text-center" inputMode="decimal" value={row.amounts}
-                          onChange={e => handleChange(row.id ?? row._tempId, "amounts", e.target.value)} />
+                        <Input
+                          className="w-full text-center"
+                          inputMode="decimal"
+                          value={row.amounts}
+                          onChange={(e) => handleChange(rowKey, "amounts", e.target.value)}
+                        />
                       </TableCell>
 
                       <TableCell className="text-center py-2">
-                        <Input className="w-full text-center" inputMode="numeric" value={row.workers}
-                          onChange={e => handleChange(row.id ?? row._tempId, "workers", e.target.value)} />
+                        <Input
+                          className="w-full text-center"
+                          inputMode="numeric"
+                          value={row.workers}
+                          onChange={(e) => handleChange(rowKey, "workers", e.target.value)}
+                        />
                       </TableCell>
 
                       <TableCell className="text-center py-2">
-                        <Input className="w-full text-center" inputMode="decimal" value={row.hours}
-                          onChange={e => handleChange(row.id ?? row._tempId, "hours", e.target.value)} />
+                        <Input
+                          className="w-full text-center"
+                          inputMode="decimal"
+                          value={row.hours}
+                          onChange={(e) => handleChange(rowKey, "hours", e.target.value)}
+                        />
                       </TableCell>
 
                       <TableCell className="text-center py-2">
@@ -443,20 +628,17 @@ export function DialogTable({ date, siteId, onSaved }: {
                           className="w-full max-w-full min-h-0 resize-y overflow-x-hidden overflow-y-hidden break-words whitespace-pre-wrap"
                           value={row.comments ?? ""}
                           onInput={(e) => {
-                            const t = e.currentTarget
-                            t.style.height = "auto"
-                            t.style.height = `${t.scrollHeight}px`
+                            const t = e.currentTarget;
+                            t.style.height = "auto";
+                            t.style.height = `${t.scrollHeight}px`;
                           }}
-                          onChange={(e) =>
-                            handleChange(row.id ?? row._tempId, "comments", e.target.value)
-                          }
+                          onChange={(e) => handleChange(rowKey, "comments", e.target.value)}
                         />
                       </TableCell>
-                      {/* >>> START: NEW TABLE CELL for 'Created by' */}
+
                       <TableCell className="text-center py-2 text-muted-foreground">
                         {row.createdBy}
                       </TableCell>
-                      {/* <<< END: NEW TABLE CELL */}
 
                       <TableCell className="text-center py-2">
                         <Button
@@ -475,6 +657,7 @@ export function DialogTable({ date, siteId, onSaved }: {
             </Table>
           </div>
         </div>
+
         <ScrollBar orientation="horizontal" />
         <ScrollBar orientation="vertical" />
       </ScrollArea>
