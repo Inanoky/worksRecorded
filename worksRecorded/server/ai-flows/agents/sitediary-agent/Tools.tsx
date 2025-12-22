@@ -18,7 +18,7 @@ export const postreSQL_site_diary_records_database_query_tool= new DynamicStruct
    
     
   }),
-  async func({ postgreSQL_query }: {postgreSQL_query: string; userId: string, siteId:string }) {
+  async func({ postgreSQL_query }: {postgreSRQL_query: string; userId: string, siteId:string }) {
 
                 
 

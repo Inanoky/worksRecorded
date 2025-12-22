@@ -91,8 +91,7 @@ const agentNode = async (state) => {
             .addNode("agentNode", agentNode)
             .addNode("tools", toolNode)
             .addEdge(START, "agentNode")
-            .addConditionalEdges("agentNode", shouldContinue, ["tools", END])
-            .addEdge("tools", END)
+            .addConditionalEdges("agentNode", shouldContinue, ["tools", END])          
             .addEdge("tools", "agentNode") // <--- loop back to agent!
     
 
