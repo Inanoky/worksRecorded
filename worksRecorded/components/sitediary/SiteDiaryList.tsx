@@ -700,10 +700,11 @@ export default function SiteDiaryCalendar({
               <div className="space-y-3 p-2 sm:p-3">
                 {dayGroups.map((group) => {
                   const totalTasks = group.rows.length;
-                  const totalHours = group.rows.reduce(
-                    (sum, r) => sum + (r.TimeInvolved ?? 0),
-                    0,
-                  );
+                  const totalHours = group.rows.reduce((sum, r) => {
+  const workers = Number(r.WorkersInvolved ?? 0);
+  const hours = Number(r.TimeInvolved ?? 0);
+  return sum + workers * hours;
+}, 0);
                   const totalWorkers = group.rows.reduce(
                     (sum, r) => sum + (r.WorkersInvolved ?? 0),
                     0,
@@ -733,7 +734,7 @@ export default function SiteDiaryCalendar({
                               {totalTasks} task
                               {totalTasks === 1 ? "" : "s"}
                             </span>
-                            <span>• {totalWorkers} worker entries</span>
+                           
                             <span>• {totalHours} h recorded</span>
                           </div>
                         </div>
