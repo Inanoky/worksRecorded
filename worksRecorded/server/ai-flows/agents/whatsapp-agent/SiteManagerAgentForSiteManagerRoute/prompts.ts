@@ -124,10 +124,25 @@ export async  function systemPromptFunction(siteId, userId){
   " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)." +
   "For comments describe what was completed, where and with what labor in english, and then include original log in brackets (without change)"
 
-const glossary = "This is glossary for better project understanding : \n" + 
-"1) If shoring or DOKA is mentioned, then this work associated with walls, unless\n" + 
-"explicitelly stated that this is baclony DOKA or baclony props/shoring\n" + 
-"2) CSW - concrete sandwhich walls\n" + 
-"3) HCS - hollow core slabs"
+  
+        const systemPromptSaveToDatabase_02_01_2026 = "You will receive a log of construction activites on site. Analyze and map Location and Works" +
+  "     according to the zod schema you are given \n" +
 
-export const systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_29_10_2025}\n ${glossary}`
+  " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)." +
+  "For comments describe what was completed, where and with what labor in english, and then include original log in brackets (without change)"
+
+
+const glossary = "This is isntruction for better maping : \n" + 
+
+
+" - If you are not sure - mark works as other works" + 
+" - If there are several works mentioned in a same text, break into separate daiary entries" + 
+" - DOKA prop - construction temporary supports used in assembly for supporting walls" + 
+" - CSW - concrete sandwhich walls\n" + 
+" - HCS - hollow core slabs\n" + 
+" - Works that doesn't fit any other categorization mark as additional works " + 
+"When mapping, try to determine with which Works fit best from provided Zod schema. Some examples :  " + 
+"Example 1 : Work: Shoring props (Doka) were dismantled on the 2nd floor by 2 workers over 3 hours. -> mark as Assembly Walls "  + 
+"Example 2 : Text : (Kāpņu laukumu liešanas darbi, darbinieki: 1, laiks: 08:00–15:00 (7 h)) -> mark as Stairs assembly"
+
+export const systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${glossary}`

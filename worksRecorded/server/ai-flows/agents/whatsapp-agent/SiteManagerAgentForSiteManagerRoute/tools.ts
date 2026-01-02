@@ -64,6 +64,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                     z.literal("Delay due to the Client"),
                     z.literal("Delay due to internal mistakes"),
                     z.literal("Notes"),
+                    z.literal("Other works"),
                   ]);
 
 

@@ -174,6 +174,7 @@ model InvoiceItems {
   // buyerName              String?
   invoiceDate   DateTime?
   paymentDate   DateTime?
+  createdAt       DateTime  @default(now())
 
 }
 
@@ -191,6 +192,7 @@ model Documents {
   siteId       String?
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
 
 }
 
@@ -213,6 +215,9 @@ model sitediaryrecords {
   Photos          String[]
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  
 
 }
 
@@ -228,6 +233,7 @@ model sitediarysettings {
 
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
 
 }
 
@@ -246,6 +252,7 @@ model photos {
   siteId   String?
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
 
 }
 
@@ -265,6 +272,7 @@ model workers {
   sitediaryrecords sitediaryrecords[]
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
 
  
 }
@@ -285,6 +293,7 @@ model timelog {
   photo String?
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
 
 
 
@@ -303,6 +312,7 @@ userId  String?
 Record String?
  organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt       DateTime  @default(now())
 
 
 
@@ -315,6 +325,7 @@ model analytics {
   currentWeekProgress Json? 
   Site    Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId  String? @unique // <- Only one analytics per site
+  createdAt       DateTime  @default(now())
 
 
 }
