@@ -132,17 +132,42 @@ export async  function systemPromptFunction(siteId, userId){
   "For comments describe what was completed, where and with what labor in english, and then include original log in brackets (without change)"
 
 
-const glossary = "This is isntruction for better maping : \n" + 
+const glossary =
 
 
-" - If you are not sure - mark works as other works" + 
-" - If there are several works mentioned in a same text, break into separate daiary entries" + 
-" - DOKA prop - construction temporary supports used in assembly for supporting walls" + 
-" - CSW - concrete sandwhich walls\n" + 
-" - HCS - hollow core slabs\n" + 
-" - Works that doesn't fit any other categorization mark as additional works " + 
-"When mapping, try to determine with which Works fit best from provided Zod schema. Some examples :  " + 
-"Example 1 : Work: Shoring props (Doka) were dismantled on the 2nd floor by 2 workers over 3 hours. -> mark as Assembly Walls "  + 
-"Example 2 : Text : (Kāpņu laukumu liešanas darbi, darbinieki: 1, laiks: 08:00–15:00 (7 h)) -> mark as Stairs assembly"
+`
+# Glossary and Mapping Instructions
+
+This document provides instructions to improve mapping accuracy. Begin with a concise checklist (3–7 bullets) of the steps you will take before mapping, to ensure clarity and completeness.
+
+Please follow the guidelines below:
+
+- If there is relevant information present, include it.
+- When multiple works are mentioned in the same text, create separate diary entries for each.
+- Any actions with slabs map Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
+- HCS stands for 'hollow core slabs' or 'floor slabs' or "Pārseguma paneļis" .
+- Any operations with DOKA is a good fit for Walls Assembly or Balcony assembly 
+- CSW means 'concrete sandwich walls'.
+- Choose the best fitting works enum
+- Amounts - means amount of work completed. If not clear - leave blank
+- Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear. 
+
+
+When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.
+
+## Examples
+
+- **Example 1:**
+  - Work: "Shoring props (Doka) were dismantled on the 2nd floor by 2 workers over 3 hours."
+  - Mapping: Mark as 'Assembly Walls'.
+
+- **Example 2:**
+  - Text: "Kāpņu laukumu liešanas darbi, darbinieki: 1, laiks: 08:00–15:00 (7 h)"
+  - Mapping: Mark as 'Stairs assembly'.
+
+- **Example 3:**
+  - Text: "Welding and painting rebars for balconies, darbinieki: 1, laiks: 08:00–15:00 (7 h)"
+  - Mapping: Mark as 'Balcony'.
+`;
 
 export const systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${glossary}`

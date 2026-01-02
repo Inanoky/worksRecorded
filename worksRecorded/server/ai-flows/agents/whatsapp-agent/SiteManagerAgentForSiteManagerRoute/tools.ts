@@ -23,12 +23,12 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
   name: "save_to_database",
   description: "Save construction site log to the database",
   schema: z.object({
-    question: z.string(),
+    question: z.string().describe("Original user's question in original language"),
     siteId: z.string(),
     userId: z.string(),
     date: z.string(),
   }),
-  async func({ question, userId, siteId , date }: {question: string; userId: string, siteId:string }) {
+  async func({ question, userId, siteId , date }: {question: string; userId: string, siteId:string, date: DateTime }) {
 
 
                     // Extracting schema
@@ -75,11 +75,12 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                     Date: z.coerce.date().nullable().optional(),
                     Location: LocationEnum.nullable().optional(),
                     Works:  WorksEnum.nullable().optional(),
-                    Comments: z.string().nullable().optional(),
+                    Comments: z.string().nullable().optional().describe("Extracted task + original user's message"),
                     Units: UnitEnum.nullable().optional(),
                     Amounts: z.number().nullable().optional(),
                     WorkersInvolved: z.number().int().nullable().optional(),
                     TimeInvolved: z.number().nullable().optional(),
+                    Reason: z.string().describe("Specifiy your reason for your choices")
                   });
                 }
 
@@ -88,8 +89,9 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                 
                    
                 const llm = new ChatOpenAI({
-                  temperature: 0.1,
-                  model: "gpt-4.1",
+                 
+                  model: "gpt-5.2",
+                  reasoning: {effort: "high"}
                 });
 
                 // Setup Structured LLM
@@ -101,7 +103,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
          
 
                 const response = await structuredLlm.invoke([
-                  new HumanMessage(`${question}`),
+                  new HumanMessage(`${question} Date is : ${date}`),
                   new SystemMessage(`${systemPromptSaveToDatabase} \n today is : ${date} \n ${siteId} `)
                 ]);
 
