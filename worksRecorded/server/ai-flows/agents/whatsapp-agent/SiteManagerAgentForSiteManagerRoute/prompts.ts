@@ -124,7 +124,7 @@ export async  function systemPromptFunction(siteId, userId){
   " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)." +
   "For comments describe what was completed, where and with what labor in english, and then include original log in brackets (without change)"
 
-const glossary = "This is glossary for better project understanding : \n"
+const glossary = "This is glossary for better project understanding : \n" + 
 "1) If shoring or DOKA is mentioned, then this work associated with walls, unless\n" + 
 "explicitelly stated that this is baclony DOKA or baclony props/shoring\n" + 
 "2) CSW - concrete sandwhich walls\n" + 
