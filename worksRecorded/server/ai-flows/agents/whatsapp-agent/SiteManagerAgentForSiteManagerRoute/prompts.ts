@@ -41,7 +41,7 @@ export async  function systemPromptFunction(siteId, userId){
   export async function systemPromptSaveToDatabaseFunction( userId){ 
 
 
-
+ const language = await getOrganizationLanguageByUserId(userId)
 
       const systemPromptSaveToDatabase_02_09_2025 = "You will receive a log of construction activites on site. Analyze and map Location and Works" +
   "     according to the zod schema you are given \n" +
@@ -57,14 +57,14 @@ export async  function systemPromptFunction(siteId, userId){
   "For comments describe what was completed, where and with what labor in english, and then include original log in brackets (without change)"
 
   
-        const systemPromptSaveToDatabase_02_01_2026 = "You will receive a log of construction activites on site. Analyze and map Location and Works" +
-  "     according to the zod schema you are given \n" +
+        const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map Location and Works
+    according to the zod schema you are given
 
-  " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)." +
-  "For comments describe what was completed, where and with what labor in english, and then include original log in brackets (without change)"
+  Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
+  For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)` 
 
 
-   const language = await getOrganizationLanguageByUserId(userId)
+  
 
 const glossary =
 
@@ -78,7 +78,6 @@ Please follow the guidelines below:
 
 
 
-- Regardless users's message language, save note in ${language}
 - If there is relevant information present, include it.
 - When multiple works are mentioned in the same text, create separate diary entries for each.
 - Any actions with floor slabs including formworks and rebars good match will be Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
