@@ -88,7 +88,7 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const transcriptResult = await openai.audio.transcriptions.create({
           file,
-          model: "whisper-1",
+          model: "gpt-4o-transcribe",
         });
 
         messageText = transcriptResult.text || "(No text recognized)";

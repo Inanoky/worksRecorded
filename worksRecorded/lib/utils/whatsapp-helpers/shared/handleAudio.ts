@@ -25,7 +25,7 @@ export async function handleAudio(args: {
     const file = await toFile(buf, "voice-message.ogg");
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const tr = await openai.audio.transcriptions.create({ file, model: "whisper-1" });
+    const tr = await openai.audio.transcriptions.create({ file, model: "gpt-4o-transcribe" });
     const transcript = tr.text || "(No text recognized)";
 
     const aiMessage = await agent(transcript, user.lastSelectedSiteIdforWhatsapp, user.id);
