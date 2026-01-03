@@ -452,3 +452,22 @@ export async function saveUserPhone(formData: FormData) {
     },
   });
 }
+
+
+
+export async function getOrganizationLanguageByUserId(userId) {
+ 
+
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      organization: {
+        select: {
+          orgLanguage: true,
+        },
+      },
+    },
+  });
+
+  return u?.organization?.orgLanguage ?? "en";
+}

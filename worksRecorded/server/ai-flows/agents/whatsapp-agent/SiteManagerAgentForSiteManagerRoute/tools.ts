@@ -3,10 +3,11 @@ import { z } from "zod";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import {ChatOpenAI} from "@langchain/openai";
-import { systemPromptSaveToDatabase } from "./prompts";
+
 import {getSiteDiarySchema} from "@/server/actions/site-diary-actions";
 import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 import {HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
+import { systemPromptSaveToDatabaseFunction } from "./prompts";
 
 
 
@@ -104,7 +105,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
                 const response = await structuredLlm.invoke([
                   new HumanMessage(`${question} Date is : ${date}`),
-                  new SystemMessage(`${systemPromptSaveToDatabase} \n today is : ${date} \n ${siteId} `)
+                  new SystemMessage(`${await systemPromptSaveToDatabaseFunction(userId)} \n today is : ${date} \n ${siteId} `)
                 ]);
 
          

@@ -1,3 +1,4 @@
+// DialogTable.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -43,6 +44,9 @@ const CLIENT_DELAY_OPTION = {
 };
 const INTERNAL_DELAY_OPTION = { value: "__internalDelay__", label: "Internal Delay" };
 const NOTE_OPTION = { value: "__note__", label: "Note" };
+const OTHER_OPTION = { value: "__other__", label: "Other Works"  }
+
+
 
 const ADD_NEW_LOCATION = "__add_new_location__";
 const ADD_NEW_WORK = "__add_new_work__";
@@ -62,11 +66,78 @@ export const allowedUnits = [
   "lifts",
 ] as const;
 
+const MAX_FREE_TEXT = 100;
+const MAX_NUM = 1_000_000_000;
+
+const coerceOptionalFloat = (v: unknown) => {
+  if (v === "" || v === undefined || v === null) return undefined;
+  if (typeof v === "number") return Number.isFinite(v) ? v : undefined;
+  const n = Number(String(v).trim());
+  return Number.isFinite(n) ? n : undefined;
+};
+
+const coerceOptionalInt = (v: unknown) => {
+  if (v === "" || v === undefined || v === null) return undefined;
+  if (typeof v === "number") return Number.isFinite(v) ? Math.trunc(v) : undefined;
+  const n = Number(String(v).trim());
+  return Number.isFinite(n) ? Math.trunc(n) : undefined;
+};
+
+const isUUID = (id: unknown) =>
+  typeof id === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+
+const showZodErrorToast = (err: z.ZodError) => {
+  const first = err.errors[0];
+  const path = first?.path?.length ? first.path.join(".") : "row";
+  toast.error(`${path}: ${first.message}`);
+};
+
+/**
+ * VALIDATION RULES (as requested):
+ * - location/work can be empty (no selection OR manual input blank is ok)
+ * - location/work free text allowed up to 100 chars (only validate length if provided)
+ * - units: NO VALIDATION (only pass through whatever string is there)
+ * - amounts/hours: floats, <= 1B, empty ok
+ * - workers: int, <= 1B, empty ok
+ */
 const DiaryRowSchema = z.object({
-  amounts: z.coerce.number().finite().optional().or(z.literal("")),
-  workers: z.coerce.number().int().optional().or(z.literal("")),
-  hours: z.coerce.number().finite().optional().or(z.literal("")),
+  amounts: z
+    .union([z.coerce.number().finite(), z.literal("")])
+    .optional()
+    .refine(
+      (v) => v === "" || v === undefined || (typeof v === "number" && Math.abs(v) <= MAX_NUM),
+      { message: `Amounts must be a number <= ${MAX_NUM}` }
+    ),
+  workers: z
+    .union([z.coerce.number().int(), z.literal("")])
+    .optional()
+    .refine(
+      (v) =>
+        v === "" ||
+        v === undefined ||
+        (typeof v === "number" && Math.abs(v) <= MAX_NUM && Number.isInteger(v)),
+      { message: `Workers must be an integer <= ${MAX_NUM}` }
+    ),
+  hours: z
+    .union([z.coerce.number().finite(), z.literal("")])
+    .optional()
+    .refine(
+      (v) => v === "" || v === undefined || (typeof v === "number" && Math.abs(v) <= MAX_NUM),
+      { message: `Hours must be a number <= ${MAX_NUM}` }
+    ),
   comments: z.string().max(1500).optional().or(z.literal("")),
+
+  // soft validation (length only)
+  location_mode: z.enum(["select", "manual"]).optional(),
+  works_mode: z.enum(["select", "manual"]).optional(),
+  location_manual: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+  works_manual: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+  location: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+  works: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+
+  // units: no validation at all
+  units: z.any().optional(),
 });
 
 const DiaryRowsSchema = z.array(DiaryRowSchema);
@@ -176,50 +247,45 @@ export function DialogTable({
     );
   };
 
+  const validateRows = (rowsToValidate: any[]) => {
+    const parsed = DiaryRowsSchema.safeParse(rowsToValidate);
+    if (!parsed.success) {
+      showZodErrorToast(parsed.error);
+      return { ok: false as const, rows: null as any };
+    }
+
+    // Extra clear numeric reason toasts (in case zod msg is too generic)
+    for (const r of rowsToValidate) {
+      const key = r.id ?? r._tempId;
+
+      const a = coerceOptionalFloat(r.amounts);
+      if (a !== undefined && Math.abs(a) > MAX_NUM) {
+        toast.error(`Row ${key}: Amounts must be <= ${MAX_NUM}`);
+        return { ok: false as const, rows: null as any };
+      }
+
+      const h = coerceOptionalFloat(r.hours);
+      if (h !== undefined && Math.abs(h) > MAX_NUM) {
+        toast.error(`Row ${key}: Hours must be <= ${MAX_NUM}`);
+        return { ok: false as const, rows: null as any };
+      }
+
+      const w = coerceOptionalInt(r.workers);
+      if (w !== undefined && Math.abs(w) > MAX_NUM) {
+        toast.error(`Row ${key}: Workers must be <= ${MAX_NUM}`);
+        return { ok: false as const, rows: null as any };
+      }
+    }
+
+    return { ok: true as const, rows: parsed.data };
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     console.log("[Diary][Submit] raw rows:", rows);
 
-    const parsed = DiaryRowsSchema.safeParse(rows);
-    if (!parsed.success) {
-      toast.error(parsed.error.errors[0].message);
-      return;
-    }
-
-    // Manual required checks
-    for (const r of rows) {
-      const key = r.id ?? r._tempId;
-
-      if (r.location_mode === "manual") {
-        const v = String(r.location_manual ?? "").trim();
-        if (!v) {
-          toast.error("Please type a location for manual entry.");
-          console.log("[Diary][Submit] missing location_manual:", key);
-          return;
-        }
-      } else {
-        if (!String(r.location_code ?? "").trim() && !String(r.location ?? "").trim()) {
-          toast.error("Please select a location.");
-          console.log("[Diary][Submit] missing location selection:", key);
-          return;
-        }
-      }
-
-      if (r.works_mode === "manual") {
-        const v = String(r.works_manual ?? "").trim();
-        if (!v) {
-          toast.error("Please type a work for manual entry.");
-          console.log("[Diary][Submit] missing works_manual:", key);
-          return;
-        }
-      } else {
-        if (!String(r.works_code ?? "").trim() && !String(r.works ?? "").trim()) {
-          toast.error("Please select a work.");
-          console.log("[Diary][Submit] missing works selection:", key);
-          return;
-        }
-      }
-    }
+    const validated = validateRows(rows);
+    if (!validated.ok) return;
 
     const allWorkOptions = [
       ...((schema?.flatMap((root) => collectWorks(root))) ?? []),
@@ -227,6 +293,7 @@ export function DialogTable({
       CLIENT_DELAY_OPTION,
       INTERNAL_DELAY_OPTION,
       NOTE_OPTION,
+      OTHER_OPTION,
     ];
     console.log("[Diary][Submit] allWorkOptions count:", allWorkOptions.length);
 
@@ -240,60 +307,31 @@ export function DialogTable({
       const resolvedLocation =
         row.location_mode === "manual"
           ? String(row.location_manual ?? "").trim()
-          : locationNode?.name || row.location;
+          : locationNode?.name || String(row.location ?? "").trim();
 
       const resolvedWorks =
         row.works_mode === "manual"
           ? String(row.works_manual ?? "").trim()
-          : worksNode?.label || row.works;
+          : worksNode?.label || String(row.works ?? "").trim();
 
-      const resolved = {
+      return {
         ...row,
         location: resolvedLocation,
         works: resolvedWorks,
       };
-
-      console.log("[Diary][MapRow]", {
-        rowId: row.id ?? row._tempId,
-        location_mode: row.location_mode,
-        location_code: row.location_code,
-        location_manual: row.location_manual,
-        location_before: row.location,
-        location_resolved: resolved.location,
-        works_mode: row.works_mode,
-        works_code: row.works_code,
-        works_manual: row.works_manual,
-        works_before: row.works,
-        works_resolved: resolved.works,
-      });
-
-      return resolved;
     });
-
-    const isUUID = (id: unknown) =>
-      typeof id === "string" &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        id
-      );
 
     const existingRows = rowsToSave.filter((r) => isUUID(r.id));
     const newRows = rowsToSave.filter((r) => !isUUID(r.id));
-
-    console.log("[Diary][Submit] split:", {
-      existingCount: existingRows.length,
-      newCount: newRows.length,
-      existingRows,
-      newRowsSample: newRows.slice(0, 3),
-    });
 
     for (const r of existingRows) {
       const payload = {
         id: r.id,
         Date: r.date,
-        Location: r.location,
-        Works: r.works,
+        Location: r.location || undefined,
+        Works: r.works || undefined,
         Comments: r.comments,
-        Units: r.units,
+        Units: r.units || undefined, // no validation
         Amounts: r.amounts !== "" && r.amounts !== undefined ? Number(r.amounts) : undefined,
         WorkersInvolved:
           r.workers !== "" && r.workers !== undefined ? Number(r.workers) : undefined,
@@ -302,13 +340,12 @@ export function DialogTable({
         userId: r.userId,
         siteId,
       };
-      console.log("[Diary][UpdateExisting] payload:", payload);
 
       try {
-        const res = await updateSiteDiaryRecord(payload);
-        console.log("[Diary][UpdateExisting] result:", res);
-      } catch (err) {
-        console.error("[Diary][UpdateExisting] ERROR for id:", r.id, err);
+        await updateSiteDiaryRecord(payload);
+      } catch (err: any) {
+        toast.error(`Failed to update row ${r.id}: ${err?.message ?? "Unknown error"}`);
+        return;
       }
     }
 
@@ -324,18 +361,27 @@ export function DialogTable({
           location_manual: _omit7,
           works_manual: _omit8,
           ...rest
-        }) => rest
+        }) => ({
+          ...rest,
+          location: rest.location || undefined,
+          works: rest.works || undefined,
+          units: rest.units || undefined, // no validation
+          amounts:
+            rest.amounts !== "" && rest.amounts !== undefined ? Number(rest.amounts) : undefined,
+          workers:
+            rest.workers !== "" && rest.workers !== undefined ? Number(rest.workers) : undefined,
+          hours: rest.hours !== "" && rest.hours !== undefined ? Number(rest.hours) : undefined,
+        })
       );
 
-      console.log("[Diary][CreateNew] payload:", { rows: rowsSanitized, siteId });
       try {
-        const res = await saveSiteDiaryRecordFromWeb({
+        await saveSiteDiaryRecordFromWeb({
           rows: rowsSanitized,
           siteId,
         });
-        console.log("[Diary][CreateNew] result:", res);
-      } catch (err) {
-        console.error("[Diary][CreateNew] ERROR:", err);
+      } catch (err: any) {
+        toast.error(`Failed to create rows: ${err?.message ?? "Unknown error"}`);
+        return;
       }
     }
 
@@ -348,7 +394,6 @@ export function DialogTable({
     setLoading(true);
 
     if (!date || !siteId) {
-      console.log("[Diary][Effect] missing date/siteId", { date, siteId });
       setRows([newEmptyRow()]);
       setLoading(false);
       return;
@@ -356,9 +401,7 @@ export function DialogTable({
 
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
-      console.log("[Diary][Effect] loading rows for:", { siteId, isoDate });
       const loadedRows = await getSiteDiaryRecord({ siteId, date: isoDate });
-      console.log(`this are loaded rows ${loadedRows}`);
 
       if (cancelled) return;
 
@@ -372,10 +415,13 @@ export function DialogTable({
             works_mode: "select",
             location_manual: "",
             works_manual: "",
+            units: row.units ?? "",
+            amounts: row.amounts ?? "",
+            workers: row.workers ?? "",
+            hours: row.hours ?? "",
+            comments: row.comments ?? "",
           }))
         : [newEmptyRow()];
-
-      console.log("[Diary][Effect] loaded rows:", nextRows);
 
       setRows(nextRows);
       setLoading(false);
@@ -437,19 +483,6 @@ export function DialogTable({
 
                   const rowKey = row.id ?? row._tempId;
 
-                  console.log("[Diary][RenderRow]", {
-                    rowKey,
-                    location_mode: row.location_mode,
-                    location_code: row.location_code,
-                    location_manual: row.location_manual,
-                    location: row.location,
-                    works_mode: row.works_mode,
-                    works_code: row.works_code,
-                    works_manual: row.works_manual,
-                    works: row.works,
-                    dynamicWorkOptions: dynamicWorkOptions.length,
-                  });
-
                   return (
                     <TableRow key={rowKey} className="align-top">
                       <TableCell className="py-3 text-muted-foreground">
@@ -469,6 +502,7 @@ export function DialogTable({
                             <Input
                               className="w-[160px]"
                               placeholder="Type location…"
+                              maxLength={MAX_FREE_TEXT}
                               value={row.location_manual || row.location || ""}
                               onChange={(e) =>
                                 handleChange(rowKey, "location_manual", e.target.value)
@@ -520,6 +554,7 @@ export function DialogTable({
                             <Input
                               className="w-[180px]"
                               placeholder="Type work…"
+                              maxLength={MAX_FREE_TEXT}
                               value={row.works_manual || row.works || ""}
                               onChange={(e) =>
                                 handleChange(rowKey, "works_manual", e.target.value)
@@ -569,7 +604,7 @@ export function DialogTable({
                                 {INTERNAL_DELAY_OPTION.label}
                               </SelectItem>
                               <SelectItem value={NOTE_OPTION.value}>{NOTE_OPTION.label}</SelectItem>
-
+                          <SelectItem value={OTHER_OPTION.value}>{OTHER_OPTION.label}</SelectItem>
                               <SelectItem value={ADD_NEW_WORK}>+ Add new work…</SelectItem>
                             </SelectContent>
                           </Select>
