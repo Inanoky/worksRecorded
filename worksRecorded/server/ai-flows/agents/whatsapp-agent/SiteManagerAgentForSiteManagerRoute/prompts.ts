@@ -81,7 +81,7 @@ Please follow the guidelines below:
 - Regardless users's message language, save note in ${language}
 - If there is relevant information present, include it.
 - When multiple works are mentioned in the same text, create separate diary entries for each.
-- Any actions with slabs map Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
+- Any actions with floor slabs including formworks and rebars good match will be Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
 - HCS stands for 'hollow core slabs' or 'floor slabs' or "Pārseguma paneļis" .
 - CSW means 'concrete sandwich walls'.
 - Choose the best fitting works enum
