@@ -83,7 +83,6 @@ Please follow the guidelines below:
 - When multiple works are mentioned in the same text, create separate diary entries for each.
 - Any actions with slabs map Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
 - HCS stands for 'hollow core slabs' or 'floor slabs' or "Pārseguma paneļis" .
-- Any operations with DOKA is a good fit for Walls Assembly or Balcony assembly 
 - CSW means 'concrete sandwich walls'.
 - Choose the best fitting works enum
 - Amounts - means amount of work completed. If not clear - leave blank
