@@ -28,7 +28,7 @@ import { NavigationMenuMobile } from "./NavigationMenuMobile"
                                     <Link href="/" className="flex flex-row items-center">
                                    
                                         <h4 className="text-3xl">
-                                            Buv<span className="text-primary">consult</span>
+                                            Works<span className="text-primary">Recorded</span>
                                         </h4>
                                     </Link>
                                 </div>
