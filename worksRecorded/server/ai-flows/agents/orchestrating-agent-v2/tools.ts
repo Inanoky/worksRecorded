@@ -239,8 +239,7 @@ or manual PDF byte construction, IGNORE those parts and follow these rules inste
 
 
 export const tools = [
-  constructionDocumentationTool,
-  invoiceAgentTool,
+
   siteDiaryRecordsTool,
   timeSheetsAgent,
    siteDiaryToDatabaseTool,
