@@ -6,6 +6,8 @@ const FROM = "whatsapp:+13135131153";
 
 export const REMINDERS = [
   { toE164: "+37124885690" },
+  { toE164: "+37126714739" },
+
 ];
 
 const client = Twilio(
@@ -34,7 +36,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const text = "Kindly reminder to complete site diary for today!";
+  const text = "WorksRecorded : Atgādinājums aizpildīt būvdarbu žurnālu 👷‍♂️ ";
   const results: any[] = [];
 
   for (const r of REMINDERS) {
