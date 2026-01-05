@@ -7,6 +7,9 @@ const FROM = "whatsapp:+13135131153";
 export const REMINDERS = [
   { toE164: "+37124885690" },
   { toE164: "+37126714739" },
+   { toE164: "+37129955255" },
+
+
 
 ];
 
@@ -36,7 +39,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const text = "WorksRecorded : Atgādinājums aizpildīt būvdarbu žurnālu 👷‍♂️ ";
+  const text = "Atgādinājums aizpildīt būvdarbu žurnālu 👷‍♂️ ";
   const results: any[] = [];
 
   for (const r of REMINDERS) {
