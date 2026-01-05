@@ -5,7 +5,7 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/webhooks/send-whatsapp-reminders?secret=sgef313534552afawd1524435tsfefwer13t3",
+      "path": "/api/webhook/reminders?secret=sgef313534552afawd1524435tsfefwer13t3",
       "schedule": "0 15 * * 1-5"
     }
   ]
