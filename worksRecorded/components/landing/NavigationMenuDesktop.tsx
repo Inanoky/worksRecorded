@@ -1,7 +1,7 @@
 "use client"
+
 import * as React from "react"
 import Link from "next/link"
-import { CircleCheckIcon, CircleHelpIcon, CircleIcon } from "lucide-react"
 import { useIsMobile } from "@/lib/utils/hooks/use-mobile"
 import {
   NavigationMenu,
@@ -12,115 +12,59 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
-import Image from 'next/image'
 import { useState } from "react"
-import Invoices from "@/public/frontend/features/Invoices.png"
-import Whatsapp from "@/public/frontend/features/Whatsapp.png"
-import Documents from "@/public/frontend/features/Documents.png"
-import { DATA_LINKS, MAIN_LINKS } from "@/components/landing/NavigationLinks.tsx"
-
-
-const IMAGES = {
-
-  Whatsapp,
-  Invoices,
-  Documents
-} as const;
-
-
-const features = {
-
-  Whatsapp : "Site records",
-  Invoices : "Invoices",
-  Documents : "Documents",
-  Timesheets : "Timesheets",
-  Analytics : "Analytics"
-
-}
-
-const featuresText = {
-
-
-  Whatsapp : "Use whatsapp for site activity reporting",
-  Invoices : "Digitalized automatically",
-  Documents : "Used as a contexed for AI",
-  Timesheets : "Worker report via voice message",
-  Analytics : "AI assisted"
-
-}
-
-
-const featuresDescription = {
-
-
-  Whatsapp : "Use custom Whatsapp channel for reporting with voice/text",
-  Invoices : "Invoices are automatically uploaded and parsed",
-  Documents : "All project documentation in one place",
-  Timesheets : "Workers clock in/out via whatsapp chat",
-  Analytics : "Get live custom analytics"
-}
-
-
-
+import { useLocale } from "next-intl"
+import { DATA_LINKS, MAIN_LINKS } from "@/components/landing/NavigationLinks"
 
 export function NavigationMenuDesktop() {
-
   const [selectedFeature, setSelectedFeature] = useState("Whatsapp")
-  const [stateUrl, setStateUrl] = useState("")
-
   const isMobile = useIsMobile()
+  const locale = useLocale()
 
-
+  const withLocale = (href: string) => {
+    if (/^https?:\/\//.test(href)) return href
+    if (/^\/(en|lv)(\/|$)/.test(href)) return href
+    const clean = href.startsWith("/") ? href : `/${href}`
+    return `/${locale}${clean}`
+  }
 
   return (
-
-
-    
     <NavigationMenu viewport={isMobile}>
       <NavigationMenuList className="flex-wrap">
         <NavigationMenuItem>
-          <NavigationMenuTrigger
-          
-        
-          
-          >Features</NavigationMenuTrigger>
-          <NavigationMenuContent  className="md:-translate-x-60 md:-translate-y-1" >
-            <ul className="grid gap-2 md:w-[400px] lg:w-[550px]  ">
+          <NavigationMenuTrigger>Features</NavigationMenuTrigger>
 
-
+          <NavigationMenuContent className="md:-translate-x-60 md:-translate-y-1">
+            <ul className="grid gap-2 md:w-[400px] lg:w-[550px]">
               {DATA_LINKS.map(({ id, href, title, description }) => (
-                  <ListItem
+                <ListItem
                   key={id}
-                  href={href}
+                  href={withLocale(href)}
                   title={title}
                   onMouseEnter={() => setSelectedFeature(id)}
                   onFocus={() => setSelectedFeature(id)}
                 >
                   {description}
-                  </ListItem>
+                </ListItem>
               ))}
-  
-
-
             </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
-       
-         {MAIN_LINKS.map(({ href, label }) => (
+
+        {MAIN_LINKS.map(({ href, label }) => (
           <NavigationMenuItem key={href}>
             <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-              <Link href={href} className="text-2xl">
+              <Link href={withLocale(href)} className="text-2xl">
                 {label}
               </Link>
             </NavigationMenuLink>
           </NavigationMenuItem>
         ))}
-        
       </NavigationMenuList>
-      
     </NavigationMenu>
   )
 }
+
 function ListItem({
   title,
   children,
@@ -131,7 +75,9 @@ function ListItem({
     <li {...props}>
       <NavigationMenuLink asChild>
         <Link href={href}>
-          <div className="text-lg leading-none font-large font-medium">{title}</div>
+          <div className="text-lg leading-none font-large font-medium">
+            {title}
+          </div>
           <p className="text-muted-foreground line-clamp-3 text-l leading-snug">
             {children}
           </p>
