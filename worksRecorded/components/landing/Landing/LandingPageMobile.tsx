@@ -29,12 +29,12 @@ export default function LandingPageMobile() {
             </span>
 
             <h1 className="mt-6 sm:mt-8 text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold leading-tight sm:leading-none">
-              {Header}
-              <span className="block text-primary">{Header2}</span>
+              {Header()}
+              <span className="block text-primary">{Header2()}</span>
             </h1>
 
             <p className="max-w-2xl mx-auto mt-4 sm:mt-6 text-sm sm:text-base lg:text-lg font-light text-muted-foreground tracking-tight">
-              {SmallDescription}
+              {SmallDescription()}
             </p>
 
             <p className="max-w-xl mx-auto mt-3 text-xs sm:text-sm text-muted-foreground">

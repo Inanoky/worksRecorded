@@ -7,8 +7,7 @@ import { ThemeToggle } from "@/components/dashboard/ThemeToggle"
 import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components"
 import { Button } from "@/components/ui/button"
 import { NavigationMenuDesktop } from "@/components/landing/NavigationMenuDesktop"
-
-
+import LanguageSwitcher from "../ui/LanguageSwitcher"
 
 
 
@@ -40,6 +39,7 @@ import { NavigationMenuDesktop } from "@/components/landing/NavigationMenuDeskto
                                 </div>
                                 {/* Element 3 */}
                                 <div className="flex justify-end items-center gap-2">
+                                    <LanguageSwitcher/>
                                     <ThemeToggle />
                                     <LoginLink>
                                         <Button variant="secondary">

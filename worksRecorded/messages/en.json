@@ -1,0 +1,72 @@
+{
+  "LandingPageDesktop": {
+    "topPill": "Built for trade contractors & site managers",
+    "heroTitle": "Construction Site records with WhatsApp",
+    "smallDescription": "WorksRecorded turns WhatsApp messages, voice notes, photos, delivery notes and emails into organised site diary entries and project evidence — without changing how your team communicates.",
+    "startFreeTrial": "Start free trial",
+    "signIn": "Sign in",
+    "noCardNote": "No credit card required. Free while in beta.",
+    "heroImageAlt": "worksRecorded hero preview",
+
+    "section2Pill": "Site records that actually get done",
+    "section2Title": "What you can record with worksRecorded",
+    "section2Description": "Make it easy for managers and foremen to log what really happened on site – without extra apps, forms or late-night paperwork.",
+    "section2ImageAlt": "Site diary and project records in worksRecorded",
+    "section2Caption": "WhatsApp notes become structured daily records – with workers, locations, works and photos in one place."
+  },
+
+  "LandingText": {
+    "whatDoWeDo": {
+      "heading": "We help trade contractors with:",
+      "items": [
+        { "title": "Easy and quick for managers to records site activities." },
+        { "title": "Structurized automatically" },
+        { "title": "Edit records from the web if necessary" },
+        { "title": "Whatsapp Timesheets - add workers, records times, workers can take notes and photos" },
+        { "title": "Site records - get analytics, track additional works and delays" },
+        { "title": "Photos - stored sistematically." }
+      ]
+    },
+
+    "howDoWeDoThat": {
+      "heading": "How worksRecorded helps trade contractors",
+      "items": [
+        {
+          "title": "Site diary from WhatsApp",
+          "desc": "Send messages, photos or voice notes — AI turns them into clear daily records."
+        },
+        {
+          "title": "Evidence for claims",
+          "desc": "Work done, delays and instructions captured automatically and ready when needed."
+        },
+        {
+          "title": "Daily performance insight",
+          "desc": "See issues early instead of discovering them weeks later."
+        },
+        {
+          "title": "Real history of work",
+          "desc": "Every note, photo and update stored by day, location and activity."
+        },
+        {
+          "title": "Simple change tracking",
+          "desc": "Variations, issues and notes kept organised in one place."
+        },
+        {
+          "title": "Everything in one project log",
+          "desc": "No more digging through WhatsApp, folders or emails to find what happened."
+        }
+      ]
+    },
+
+    "why": {
+      "heading": "Why worksRecorded is different",
+      "description": "You only need whatsapp to start using. No additional burden to site management",
+      "bullets": [
+        "Most tools require forms and manual input. Site teams don’t have time for that.",
+        "WorksRecorded works with the channels you already use: WhatsApp, email and photos.",
+        "WorksRecorded keeps a consistent, structured site diary running in the background.",
+        "When you need to defend a variation, claim delay costs or explain a decision, the evidence is already organised."
+      ]
+    }
+  }
+}

@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { z, ZodError } from "zod";
 import { Resend } from "resend";
-import { EmailTemplate } from "@/app/Landing/ContactForm/email-template";
+import { EmailTemplate } from "@/app/[locale]/Landing/ContactForm/email-template";
 
 const ContactSchema = z.object({
   firstName: z.string().min(1),

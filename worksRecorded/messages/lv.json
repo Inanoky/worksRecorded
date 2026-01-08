@@ -1,0 +1,72 @@
+{
+  "LandingPageDesktop": {
+    "topPill": "Izstrādāts būvniecības apakšuzņēmējiem",
+    "heroTitle": "Būvdarbu žurnāls caur WhatsApp",
+    "smallDescription": "WorksRecorded pārvērš WhatsApp ziņas, balss ziņas, bildes, pavadzīmes un e-pastus par sakārtotiem būvdienasgrāmatas ierakstiem, nemainot veidu, kā jūsu komanda komunicē.",
+    "startFreeTrial": "Pamēģināt bezmaksas",
+    "signIn": "Pieteikties",
+    "noCardNote": "Nav nepieciešama bankas karte. Bezmaksas beta versijas laikā.",
+    "heroImageAlt": "worksRecorded galvenais priekšskatījums",
+
+    "section2Pill": "Būvlaukuma pieraksti, kas patiešām tiek veikti",
+    "section2Title": "Ko var sasniegt ar worksRecorded",
+    "section2Description": "Atvieglojiet vadītājiem un meistariem reģistrēt to, kas patiesībā notika būvlaukumā — bez papildu lietotnēm, formām vai vēla vakara dokumentēšanas.",
+    "section2ImageAlt": "Būvdienasgrāmata un projekta pieraksti worksRecorded",
+    "section2Caption": "WhatsApp piezīmes kļūst par strukturētiem ikdienas ierakstiem — ar darbiniekiem, vietām, darbiem un fotoattēliem vienuviet."
+  },
+
+  "LandingText": {
+    "whatDoWeDo": {
+      "heading": "Mēs palīdzam apakšuzņēmējiem ar:",
+      "items": [
+        { "title": "Vienkārša un ātra būvdarbu pierakstīšana" },
+        { "title": "Automātiska strukturēšana" },
+        { "title": "Iespēja rediģēt ierakstus tīmeklī, ja nepieciešams" },
+        { "title": "WhatsApp darba laika uzskaite – pievienojiet darbiniekus, reģistrējiet laikus, darbinieki var pievienot piezīmes un bildes" },
+        { "title": "Būvdarbu žurnāls – analītika, papildu darbu un kavējumu uzskaite" },
+        { "title": "Bildes – sistemātiski uzglabāti." }
+      ]
+    },
+
+    "howDoWeDoThat": {
+      "heading": "Kā worksRecorded palīdz apakšuzņēmējiem",
+      "items": [
+        {
+          "title": "Būvdarbu žurnāls no WhatsApp",
+          "desc": "Sūtiet ziņas, bildes vai balss piezīmes — AI pārvērš tās skaidros ikdienas ierakstos."
+        },
+        {
+          "title": "Pierādījumi",
+          "desc": "Izpildītie darbi, kavējumi un norādījumi tiek automātiski fiksēti un ir gatavi izmantošanai."
+        },
+        {
+          "title": "Ikdienas veiktspējas pārskats",
+          "desc": "Atklājiet problēmas savlaicīgi, nevis pēc vairākām nedēļām."
+        },
+        {
+          "title": "Reāla darbu vēsture",
+          "desc": "Katrs ieraksts, bilde un atjauninājums tiek saglabāts pēc dienas, vietas un aktivitātes."
+        },
+        {
+          "title": "Vienkārša izmaiņu uzskaite",
+          "desc": "Izmaiņas, problēmas un piezīmes tiek glabātas sakārtoti vienuviet."
+        },
+        {
+          "title": "Viss vienā projekta žurnālā",
+          "desc": "Vairs nav jāmeklē WhatsApp ziņās, mapēs vai e-pastos, lai saprastu, kas notika."
+        }
+      ]
+    },
+
+    "why": {
+      "heading": "Kāpēc worksRecorded ir atšķirīgs",
+      "description": "Lai sāktu lietot, nepieciešams tikai WhatsApp. Nav papildu sloga būvlaukuma vadībai",
+      "bullets": [
+        "Lielākajai daļai rīku nepieciešamas formas un manuāla ievade. Būvlaukuma komandām tam nav laika.",
+        "WorksRecorded strādā ar kanāliem, kurus jūs jau izmantojat: WhatsApp, e-pastu un bildes.",
+        "WorksRecorded fonā uztur konsekventu, strukturētu būvdienasgrāmatu.",
+        "Kad nepieciešams pamatot izmaiņas, pieprasīt kavējumu izmaksas vai izskaidrot lēmumu, visi pierādījumi jau ir sakārtoti."
+      ]
+    }
+  }
+}

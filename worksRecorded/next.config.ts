@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+
 // const { PrismaPlugin } = require("@prisma/nextjs-monorepo-workaround-plugin");
 // const withBundleAnalyzer = require("@next/bundle-analyzer")({
 //
@@ -43,5 +46,7 @@ const nextConfig: NextConfig = {
 //------------------------------
 
 //Comment this in for production
+const withNextIntl = createNextIntlPlugin();
+export default withNextIntl(nextConfig);
 
-export default nextConfig
+

@@ -1,39 +1,58 @@
 // middleware.ts
 import { withAuth } from "@kinde-oss/kinde-auth-nextjs/middleware";
-import { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import createIntlMiddleware from "next-intl/middleware";
+import { NextRequest, NextResponse } from "next/server";
 
-export default withAuth(async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  
+const dashboardMiddleware = withAuth(
+  async function middleware(req: NextRequest) {
+    const { pathname } = req.nextUrl;
 
-  // Try to capture siteId from URLs like: /dashboard/sites/<siteId>/...
-  const match = pathname.match(/^\/dashboard\/sites\/([^/]+)(?:\/|$)/);
-  const siteId = match?.[1];
+    const match = pathname.match(/^\/dashboard\/sites\/([^/]+)(?:\/|$)/);
+    const siteId = match?.[1];
 
- 
+    if (siteId === "new") return NextResponse.next();
 
-  if (siteId === "new"){
-    return NextResponse.next()
+    if (siteId && !/^[0-9a-fA-F\-]{36}$/.test(siteId)) {
+      return NextResponse.rewrite(new URL("/404", req.url));
+    }
 
-
+    return NextResponse.next();
+  },
+  {
+    loginPage: "/api/auth/login",
+    isReturnToCurrentPage: true,
   }
+);
 
-  
-
-  // Example: If siteId exists but we want to early-block when it’s obviously invalid format:
-  if (siteId && !/^[0-9a-fA-F\-]{36}$/.test(siteId)) {
-    // Optionally: redirect to 404 or block
-    return NextResponse.rewrite(new URL("/404", req.url));
-  }
-
-  // Let request proceed
-  return NextResponse.next();
-}, {
-  loginPage: "/api/auth/login",
-  isReturnToCurrentPage: true,
+const intlMiddleware = createIntlMiddleware({
+  locales: ["en", "lv"],
+  defaultLocale: "en",
 });
 
+export default function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // Protect dashboard
+  if (pathname.startsWith("/dashboard")) {
+    return dashboardMiddleware(req);
+  }
+
+  // FORCE default language to EN on root
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("/en/Landing", req.url));
+  }
+
+  // Redirect /en or /lv to /<locale>/Landing
+  const m = pathname.match(/^\/(en|lv)\/?$/);
+  if (m) {
+    const locale = m[1];
+    return NextResponse.redirect(new URL(`/${locale}/Landing`, req.url));
+  }
+
+  return intlMiddleware(req);
+}
+
+
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/", "/(en|lv)/:path*", "/dashboard/:path*"],
 };
