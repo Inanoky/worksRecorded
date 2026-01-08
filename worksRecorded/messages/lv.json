@@ -71,7 +71,7 @@
   },
 
    "SiteDiary": {
-    "title": "Būvdarbu pieraksti",
+    "title": "Būvdarbu žurnāls",
 
     "block1": {
       "title": "Kā tas darbojas",
@@ -235,7 +235,7 @@
 
     "data": {
       "whatsapp": {
-        "title": "Būvdarbu pieraksti",
+        "title": "Būvdarbu žurnāls",
         "description": "Izmantojiet pielāgotu WhatsApp kanālu pierakstiem ar balsi vai tekstu"
       },
       "timesheets": {
