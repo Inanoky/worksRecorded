@@ -68,5 +68,166 @@
         "When you need to defend a variation, claim delay costs or explain a decision, the evidence is already organised."
       ]
     }
+    
+  },
+  
+    "SiteDiary": {
+    "title": "Construction site records",
+
+    "block1": {
+      "title": "How do we do that",
+      "text": "Just send a voice message to WorksRecorded WhatsApp describing what happened today. Our AI will transform your words into a structured site diary record."
+    },
+
+    "block2": {
+      "title": "What is your benefit",
+      "p1": "Everything that happens on site during the project is stored and easily accessible.",
+      "p2": {
+        "prefix": "Claim? You have",
+        "highlight": "proof to defend."
+      },
+      "p3": {
+        "prefix": "Loss? You have",
+        "highlight": "proof to recover."
+      },
+      "p4": "Estimation? You know exactly how much time you’ve spent.",
+      "p5": "Your project recorded."
+    },
+
+    "images": {
+      "siteDiaryAlt": "Site diary",
+      "whatsappAlt": "WhatsApp",
+      "galleryAlt": "Site diary gallery"
+    }
+  },
+
+   "Timesheets": {
+    "title": "Timesheets",
+
+    "block1": {
+      "title": "How do we do that",
+      "text": "Workers use WhatsApp to chat with WorksRecorded to clock in and out of work. Before clocking out, the AI asks them to describe what was achieved during the day. The information is structured and stored in the database automatically."
+    },
+
+    "block2": {
+      "title": "What is your benefit",
+      "li1": "Get every work hour accounted for.",
+      "li2": "Bid labor precisely on the next project.",
+      "li3": "Identify waste, set targets, and measure KPIs for labor."
+    },
+
+    "images": {
+      "dashboardAlt": "Timesheets dashboard",
+      "whatsappAlt": "WhatsApp",
+      "analyticsAlt": "Timesheet analytics"
+    }
+  },
+
+    "Analytics": {
+    "title": "Analytics",
+
+    "block1": {
+      "title": "How do we do that",
+      "text": "We combine data science with AI and construction industry expertise to automatically extract analytics from your data. We’ll provide the insights you need—bill of quantities, progress statistics, hindrances, delays, average performance, cost per category and period, areas of waste and improvement, and more."
+    },
+
+    "block2": {
+      "title": "What is your benefit",
+      "li1": "Advanced pre-made analytics for immediate results.",
+      "li2": "Custom analytics for specific needs.",
+      "li3": "Fully dynamic — updates as the project progresses.",
+      "li4": "Forecast finances, cash flow, and work progress."
+    },
+
+    "images": {
+      "overviewAlt": "Analytics overview",
+      "detailsAlt": "Analytics details"
+    }
+  },
+
+  "CustomSolutions": {
+    "title": "Custom digital solutions",
+
+    "block1": {
+      "title": "How do we do that",
+      "p1": {
+        "prefix": "We speak ",
+        "highlight": "construction language",
+        "suffix": ". We dive into your processes, map where value is created, and identify what data to capture and how you’ll benefit from it."
+      },
+      "p2": "Once a custom system is designed and implemented, it keeps paying off—clean records, less manual work, and analytics that support decisions.",
+      "p3": "Email us the process you want to digitalize and automate, and we’ll propose an effective, pragmatic solution."
+    },
+
+    "block2": {
+      "title": "What is your benefit",
+      "p1": "Construction is one of the last under-digitalized frontiers. Get ahead and leverage the AI wave to improve margins, bids, and day-to-day processes.",
+      "p2": "From construction professionals to construction professionals. Practical tools, minimal friction, real outcomes."
+    },
+
+    "images": {
+      "siteAlt": "On-site digital solutions",
+      "developmentAlt": "Custom development"
+    }
+  },
+  "Pricing": {
+    "title": {
+      "prefix": "Pricing Built for",
+      "highlight": "Construction"
+    },
+    "description": "Transparent monthly pricing per project, designed to scale with your project's size and complexity. Contact for more custom qoute."
+  },
+
+   "About": {
+    "title": "About",
+    "p1": "Do you knows what is happening on your construction site? Tracking construction works is not easy.",
+    "p2": "Site managment often overloaded and reluctant to take up additional admin burden to keep records",
+    "p3": "Even if exist, records are often scattered, unorganized and need large effort to be sorted to become usefull.",
+    "p4": "When records are missing, it is hard to improve processes, track metrics, argument claims/additional works, account for lost time or just generally understand why things are where they are.",
+    "p5": "Current digital tools are complex, take time and effort to integrate and often met with resistance from overloaded site teams.",
+    "p6": {
+      "prefix": "To help I created a small tool called",
+      "bold": "WorksRecorded.com"
+    },
+    "p7": "Site manager uses WhatsApp to take a voice/text notes of site activities. System then automatically sorts and stores records, which can be viewed from browser.",
+    "p8": "This allows site managment to spend more times on site, overseeing works and less time in office doing admin.",
+    "p9": "Simultaniously this also lets project management better understand the project so they can analyze, act, and argue their position confidently to the GC/Client.",
+    "p10": "I have used this tool myself and find it simply yet powerfull during complicated construction projects.",
+    "p11": "I will be happy if it will help you too, it is free for 1 project everyone while in beta and I will be happy to discuss and help if you have any quesiton.",
+    "images": {
+      "selfieAlt": "Vjaceslavs Gromatovičs"
+    }
+  },
+
+  "Contact": {
+    "heroTitle": "Let's Connect! 🚀",
+    "heroDescription": "Call us, send an email, write on WhatsApp, or fill out the form. We guarantee to get in touch with you **the same day**!",
+
+    "quickDetailsTitle": "Quick Details",
+    "phoneLabel": "Phone:",
+    "emailLabel": "Email:",
+    "webLabel": "Web:",
+
+    "formTitle": "Send us a Message",
+
+    "firstNameLabel": "First Name",
+    "lastNameLabel": "Last Name",
+    "emailFieldLabel": "Email",
+    "subjectLabel": "Subject",
+    "messageLabel": "Message",
+
+    "firstNamePlaceholder": "First Name",
+    "lastNamePlaceholder": "Last Name",
+    "emailPlaceholder": "Your best email",
+    "subjectPlaceholder": "Project Inquiry, Consultation, etc.",
+    "messagePlaceholder": "Tell us about your project or inquiry...",
+
+    "sending": "Sending…",
+    "sendMessage": "Send Message",
+
+    "status": {
+      "errorDefault": "Something went wrong. Please try again."
+    }
   }
+
 }
