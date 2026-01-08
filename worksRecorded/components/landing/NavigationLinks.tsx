@@ -1,75 +1,68 @@
+// components/landing/NavigationLinks.ts
+
 export const DATA_LINKS = [
   {
     id: "Whatsapp",
     href: "/Landing/SiteDiary",
-    title: "Site records",
-    description: "Use custom Whatsapp channel for reporting with voice/text",
+    titleKey: "data.whatsapp.title",
+    descriptionKey: "data.whatsapp.description",
   },
- 
-
   {
     id: "Timesheets",
     href: "/Landing/Timesheets",
-    title: "Timesheets",
-    description: "Workers clock in/out via whatsapp chat",
+    titleKey: "data.timesheets.title",
+    descriptionKey: "data.timesheets.description",
   },
   {
     id: "Analytics",
     href: "/Landing/Analytics",
-    title: "Analytics",
-    description: "Get live custom analytics",
+    titleKey: "data.analytics.title",
+    descriptionKey: "data.analytics.description",
   },
-    
-] as const
-
+] as const;
 
 export const MAIN_LINKS = [
-  { href: "/Landing/Custom", label: "Custom solutions" },
-  { href: "/Landing/Pricing", label: "Pricing" },
-  { href: "/Landing/About", label: "About" },
-  { href: "/Landing/ContactForm", label: "Contacts" },
-] as const
-
-
-
+  { href: "/Landing/Custom", labelKey: "main.custom" },
+  { href: "/Landing/Pricing", labelKey: "main.pricing" },
+  { href: "/Landing/About", labelKey: "main.about" },
+  { href: "/Landing/ContactForm", labelKey: "main.contacts" },
+] as const;
 
 export const COMBINED_LINKS = [
   {
     id: "Whatsapp",
     href: "/Landing/SiteDiary",
-    title: "Site records",
-    description: "Use custom Whatsapp channel for reporting with voice/text",
+    titleKey: "data.whatsapp.title",
+    descriptionKey: "data.whatsapp.description",
   },
- 
   {
     id: "Timesheets",
     href: "/Landing/Timesheets",
-    title: "Timesheets",
-    description: "Workers clock in/out via whatsapp chat",
+    titleKey: "data.timesheets.title",
+    descriptionKey: "data.timesheets.description",
   },
   {
     id: "Analytics",
     href: "/Landing/Analytics",
-    title: "Analytics",
-    description: "Get live custom analytics",
+    titleKey: "data.analytics.title",
+    descriptionKey: "data.analytics.description",
   },
-   {
-    id: "Custom solutions",
+  {
+    id: "Custom",
     href: "/Landing/Custom",
-    title: "Custom solutions",
-    description: "Get live custom analytics",
+    titleKey: "main.custom",
+    descriptionKey: "combined.generic",
   },
-   {
+  {
     id: "Pricing",
-    href:  "/Landing/Pricing",
-    title: "Pricing",
-    description: "Get live custom analytics",
+    href: "/Landing/Pricing",
+    titleKey: "main.pricing",
+    descriptionKey: "combined.generic",
   },
-   {
+  {
     id: "About",
-    href:  "/Landing/About",
-    title: "About",
-    description: "Get live custom analytics",
+    href: "/Landing/About",
+    titleKey: "main.about",
+    descriptionKey: "combined.generic",
   },
-  
-] as const
+] as const;

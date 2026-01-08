@@ -228,6 +228,36 @@
     "status": {
       "errorDefault": "Something went wrong. Please try again."
     }
+  },
+
+    "Navigation": {
+    "features": "Features",
+
+    "data": {
+      "whatsapp": {
+        "title": "Site records",
+        "description": "Use custom WhatsApp channel for reporting with voice/text"
+      },
+      "timesheets": {
+        "title": "Timesheets",
+        "description": "Workers clock in/out via WhatsApp chat"
+      },
+      "analytics": {
+        "title": "Analytics",
+        "description": "Get live custom analytics"
+      }
+    },
+
+    "main": {
+      "custom": "Custom solutions",
+      "pricing": "Pricing",
+      "about": "About",
+      "contacts": "Contacts"
+    },
+
+    "combined": {
+      "generic": "Get live custom analytics"
+    }
   }
 
 }

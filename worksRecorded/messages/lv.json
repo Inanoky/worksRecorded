@@ -228,7 +228,38 @@
     "status": {
       "errorDefault": "Kaut kas nogāja greizi. Lūdzu, mēģiniet vēlreiz."
     }
+  },
+
+    "Navigation": {
+    "features": "Funkcijas",
+
+    "data": {
+      "whatsapp": {
+        "title": "Būvdarbu pieraksti",
+        "description": "Izmantojiet pielāgotu WhatsApp kanālu pierakstiem ar balsi vai tekstu"
+      },
+      "timesheets": {
+        "title": "Darba laika uzskaite",
+        "description": "Darbinieki reģistrē darba sākumu un beigas WhatsApp sarakstē"
+      },
+      "analytics": {
+        "title": "Analītika",
+        "description": "Tiešsaistes pielāgota analītika"
+      }
+    },
+
+    "main": {
+      "custom": "Pielāgoti risinājumi",
+      "pricing": "Cenas",
+      "about": "Par mums",
+      "contacts": "Kontakti"
+    },
+
+    "combined": {
+      "generic": "Tiešsaistes pielāgota analītika"
+    }
   }
+
 
 
 }
