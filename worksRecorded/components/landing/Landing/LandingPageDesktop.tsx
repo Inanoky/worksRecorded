@@ -51,6 +51,33 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* VIDEO (embedded nicely) */}
+      <section className="bg-slate-50/60 dark:bg-slate-950 ">
+        <div className="w-full max-w-7xl mx-auto px-4 lg:px-6 pb-10 lg:pb-12">
+          <div className="relative rounded-2xl border bg-background shadow-2xl overflow-hidden">
+            {/* subtle glow */}
+            <div className="pointer-events-none absolute -inset-6 -z-10 rounded-3xl bg-gradient-to-tr from-primary/10 via-emerald-100/40 to-transparent dark:from-primary/20 dark:via-primary/5 blur-2xl" />
+
+            {/* responsive 16:9 */}
+            <div className="relative w-full aspect-video">
+              <iframe
+                className="absolute inset-0 h-full w-full"
+                src="https://www.youtube-nocookie.com/embed/agwUZ3InxYk?rel=0&modestbranding=1&playsinline=1"
+                title="WorksRecorded demo"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+              />
+            </div>
+          </div>
+
+          <p className="mt-3 text-xs text-muted-foreground text-center">
+            2-minute walkthrough — how WhatsApp updates become a structured site diary.
+          </p>
+        </div>
+      </section>
+
       {/* LARGE WIDE IMAGE */}
       <section className="bg-slate-50/60 dark:bg-slate-950 ">
         <div className="w-full max-w-7xl mx-auto px-0 lg:px-4 pb-12 lg:pb-16">
