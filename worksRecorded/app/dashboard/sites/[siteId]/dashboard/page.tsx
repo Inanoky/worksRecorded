@@ -10,8 +10,6 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard_siteid_dashboard } from "@/components/joyride/JoyRideSteps";
-import SiteDiaryCalendar from "@/components/sitediary/Calendar";
-import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import SiteDiaryList from "@/components/sitediary/SiteDiaryList";
 
 export const maxDuration = 800;
@@ -24,13 +22,27 @@ import {
   getPrevWeekKey,
 } from "@/server/actions/metrics-card-actions";
 
-export default async function InvoiceRoute({ params }: { params: Promise<{ siteId: string }> }) {
+export default async function InvoiceRoute({
+  params,
+}: {
+  params: Promise<{ siteId: string }>;
+}) {
   const { siteId } = await params;
 
-  // --- Group 1: Invoice and Core Metrics Data (all run concurrently) ---
+  // --- Group 2: User Check ---
+  const user = await requireUser();
+
+  const isSuperAdmin = user.id === process.env.SUPERADMIN;
+
+  if (!isSuperAdmin) {
+    const site = await orgCheck(user.id, siteId);
+    if (!site) notFound();
+  }
+
+  // --- Group 1: Data fetch (can stay as-is) ---
   const [
     invoices,
-    invoiceItems, // This is the *raw* array of all items, to be filtered next
+    invoiceItems,
     chartAreaInteractiveData,
     projectName,
     previousWeekData,
@@ -46,16 +58,11 @@ export default async function InvoiceRoute({ params }: { params: Promise<{ siteI
     getCurrentWorkersOnSite(siteId),
   ]);
 
-  // Filter invoiceItems after the concurrent fetch is complete
-  const filteredInvoiceItems = invoiceItems.filter((item) => item.invoice?.isInvoice !== false);
-  // Note: 'invoices' is not used in the return, but kept for completeness based on original code flow.
+  const filteredInvoiceItems = invoiceItems.filter(
+    (item) => item.invoice?.isInvoice !== false
+  );
 
-  // --- Group 2: User Check (sequential, as it uses the returned 'user' for 'orgCheck') ---
-  const user = await requireUser();
-  const site = await orgCheck(user.id, siteId);
-  if (!site) notFound();
-
-  // --- Group 3: Target and Week Key Data (all run concurrently) ---
+  // --- Group 3 ---
   const [targets, currentWeekKey, previousWeekKey] = await Promise.all([
     getTargetData(siteId),
     getCurrentWeekKey(),
@@ -65,16 +72,14 @@ export default async function InvoiceRoute({ params }: { params: Promise<{ siteI
   return (
     <>
       <div data-tour="key-metrics">
-        <TourRunner steps={steps_dashboard_siteid_dashboard} stepName="steps_dashboard_siteid_dashboard" />
-        
-  
+        <TourRunner
+          steps={steps_dashboard_siteid_dashboard}
+          stepName="steps_dashboard_siteid_dashboard"
+        />
       </div>
-      <SiteDiaryList siteId={siteId}/>
-        
-       
 
+      <SiteDiaryList siteId={siteId} />
       <AiWidgetRag siteId={siteId} />
-    
     </>
   );
 }
