@@ -10,11 +10,11 @@ export const navLinks = [
         href: '/dashboard/sites',
         icon: HardHat,
     },
-    {
-        name: 'Pricing',
-        href: '/dashboard/pricing',
-        icon: DollarSign
-    },
+    // {
+    //     name: 'Pricing',
+    //     href: '/dashboard/pricing',
+    //     icon: DollarSign
+    // },
 
 
 ]
