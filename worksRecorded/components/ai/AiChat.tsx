@@ -15,12 +15,12 @@ import { Rnd } from "react-rnd";
 import { Textarea } from "@/components/ui/textarea";
 import remarkGfm from "remark-gfm";
 import OrchestratingAgentV2 from "@/server/ai-flows/agents/orchestrating-agent-v2/agent";
-import { hasCompletedTour } from "@/components/joyride/user-tour-action";
-import TourRunner from "@/components/joyride/TourRunner";
 import {
-
-  steps_ai_widget_open,
-} from "@/components/joyride/JoyRideSteps";
+  hasCompletedTour,
+  markTourCompleted,
+} from "@/components/joyride/user-tour-action";
+import TourRunner from "@/components/joyride/TourRunner";
+import { steps_ai_widget_open } from "@/components/joyride/JoyRideSteps";
 
 type Message =
   | { sender: "bot"; aiComment: string; answer?: string | any }
@@ -53,6 +53,9 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // ✅ tracks whether the current send is the preset/tutorial send
+  const presetPendingMarkRef = useRef(false);
 
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
     bottomRef.current?.scrollIntoView({ behavior, block: "end" });
@@ -96,13 +99,16 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
     (async () => {
       const done = await hasCompletedTour("steps_ai_widget_open");
+
       if (!done) {
         const preset =
           "Today we 5 workers casted 10m3, and 3 workers we doing steel fixing for 5 hours additional work, delivery of timber was delayed";
         setInput(preset);
         setTutorialLocked(true);
+        presetPendingMarkRef.current = true; // ✅ next successful send will mark tour completed
       } else {
         setTutorialLocked(false);
+        presetPendingMarkRef.current = false;
       }
     })();
   }, [open]);
@@ -141,14 +147,18 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
   }, [messages, loading, open]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
-    const userMsg: Message = { sender: "user", text: input };
+    const textToSend = input.trim();
+    if (!textToSend) return;
+
+    const shouldMarkPresetSent = presetPendingMarkRef.current;
+
+    const userMsg: Message = { sender: "user", text: textToSend };
     setMessages((m) => [...m, userMsg]);
     setLoading(true);
     setInput("");
 
     try {
-      const result = await OrchestratingAgentV2(input, siteId);
+      const result = await OrchestratingAgentV2(textToSend, siteId);
 
       const botMsg: Message = {
         sender: "bot",
@@ -158,6 +168,12 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
       setMessages((m) => [...m, botMsg]);
 
       setShowDiaryUpdatedTour(true);
+
+      // ✅ mark AFTER preset has been successfully sent to AI
+      if (shouldMarkPresetSent) {
+        await markTourCompleted("steps_ai_widget_open");
+        presetPendingMarkRef.current = false;
+      }
     } catch {
       setMessages((m) => [
         ...m,
@@ -301,10 +317,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
       <Separator className="shrink-0" />
 
-      <ScrollArea
-        className="flex-1 min-h-0 p-4"
-        data-tour="AI-responed-received"
-      >
+      <ScrollArea className="flex-1 min-h-0 p-4" data-tour="AI-responed-received">
         <div className="flex flex-col gap-4">
           {messages.map((msg, idx) => (
             <div
@@ -366,7 +379,14 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
   return (
     <>
-  
+      {/* Optional: Joyride tour UI */}
+      {open && (
+        <TourRunner
+          steps={steps_ai_widget_open}
+          stepName="steps_ai_widget_open"
+        />
+      )}
+
       {/* Floating button */}
       {!open &&
         createPortal(
@@ -382,7 +402,8 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
         )}
 
       {/* Desktop: floating resizable window */}
-      {open && !isMobile &&
+      {open &&
+        !isMobile &&
         createPortal(
           <div className="fixed inset-0 z-50 pointer-events-none">
             <Rnd
@@ -453,7 +474,8 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
         )}
 
       {/* Mobile: bottom sheet */}
-      {open && isMobile &&
+      {open &&
+        isMobile &&
         createPortal(
           <div className="fixed inset-0 z-50 flex flex-col bg-black/30 backdrop-blur-sm">
             <div className="mt-auto w-full max-h-[80vh] rounded-t-2xl bg-white dark:bg-gray-900 shadow-2xl flex flex-col">
