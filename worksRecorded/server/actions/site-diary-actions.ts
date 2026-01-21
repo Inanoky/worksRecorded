@@ -9,7 +9,7 @@ import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types
 import { getOrganizationIdByUserId } from "./shared-actions";
 import { getOrganizationIdByWorkerId } from "./shared-actions";
 
-
+//nothing
 
 // Site diary records actions 
 
