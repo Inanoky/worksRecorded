@@ -3,6 +3,46 @@ import { getString, fetchTwilioMediaAsBuffer } from "@/lib/utils/whatsapp-helper
 import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 import { AgentFn } from "./types";
 
+
+
+
+
+
+const WHATSAPP_SAFE_LIMIT = 1400;
+
+async function sendWithLengthCheck(
+  to: string | null,
+  text: string,
+) {
+  if (!to) return;
+
+  if (text.length <= WHATSAPP_SAFE_LIMIT) {
+    await sendMessage(to, text);
+    return;
+  }
+
+  await sendMessage(
+    to,
+    "Your message is a bit too long to transcribe, but it is saved and stored online."
+  );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
  * Try to handle a single audio clip (MediaUrl0).
  * Uses Whisper for transcription, then calls the injected agent with the transcript.
@@ -29,7 +69,14 @@ export async function handleAudio(args: {
     const transcript = tr.text || "(No text recognized)";
 
     const aiMessage = await agent(transcript, user.lastSelectedSiteIdforWhatsapp, user.id);
-    await sendMessage(to, `Transcription: ${transcript}\nAI message: ${aiMessage}`);
+
+
+
+    const out = `Transcription:\n${transcript}\n\nAI message:\n${aiMessage}`;
+    await sendWithLengthCheck(to, out);
+
+
+
   } catch (err) {
     console.error("❌ [handleAudio] error", err);
     await sendMessage(to, "Sorry, we could not process your audio message.");
