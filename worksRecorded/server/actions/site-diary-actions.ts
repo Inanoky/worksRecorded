@@ -15,23 +15,14 @@ import { getOrganizationIdByWorkerId } from "./shared-actions";
 
 export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
   // 🪵 LOG: Initial inputs for context
-  console.log("--- saveSiteDiaryRecord START ---");
-  console.log("Input Parameters:");
-  console.log(`  userId: ${userId}`);
-  console.log(`  workerId: ${workerId}`);
-  console.log(`  siteId: ${siteId}`);
-  console.log(`  rows received: ${rows.length}`);
-  console.log("---------------------------------");
+
 
   // NEW: Determine the entity and fetch the organization ID
   const entityId = workerId ?? userId;
   const isWorker = !!workerId;
 
   // 🪵 LOG: Derived entity info
-  console.log(`Derived Entity:`);
-  console.log(`  isWorker (true if workerId is present): ${isWorker}`);
-  console.log(`  entityId (workerId or userId): ${entityId}`);
-  console.log("---------------------------------");
+
 
   let org = null;
   if (entityId) {
@@ -80,19 +71,14 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
       return out;
     });
 
-  // 🪵 LOG: Filtering result
-  console.log("---------------------------------");
-  console.log(`Rows filtered and mapped: ${toInsert.length} (out of ${rows.length} received)`);
+
 
   if (!toInsert.length) {
     console.log("--- saveSiteDiaryRecord END: No records to insert ---");
     return { ok: false, message: "No records to insert" };
   }
 
-  // 🪵 LOG: Final data to be inserted
-  console.log("Final Data for prisma.sitediaryrecords.createMany:");
-  console.log(toInsert);
-  console.log("---------------------------------");
+
 
   // Bulk insert
   try {

@@ -100,6 +100,7 @@ model Site {
   workers           workers[] //on site can have many workers 
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  siteDiaryRecordsMap Json?
   
 }
 
@@ -206,9 +207,17 @@ model sitediaryrecords {
   Site            Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade) // 06:16 - onDelete added
   siteId          String?
   Date            DateTime?
+  Date_Custom_1   DateTime?
+  Date_Custom_2   DateTime?
   Location        String?
+  Location_Custom_1 String?
+  Location_Custom_2 String?
   Works           String?
+  Works_Custom_1  String?
+  Works_Custom_2  String?
   Comments        String?
+  Comments_Custom_1 String?
+  Comments_Custom_2 String?
   Units           String?
   Amounts         Float?
   WorkersInvolved Int?
