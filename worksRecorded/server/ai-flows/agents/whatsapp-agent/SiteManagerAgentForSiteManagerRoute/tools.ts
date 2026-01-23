@@ -110,14 +110,14 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
          
                    const rows = (response.answer || []).map((r) => ({
-                      date: r.Date ? new Date(r.Date).toISOString() : null,
-                      location: r.Location ?? "",
-                      works: r.Works ?? "",
-                      comments: r.Comments ?? "",
-                      units: r.Units ?? "",
-                      amounts: r.Amounts ?? "",
-                      workers: r.WorkersInvolved ?? "",
-                      hours: r.TimeInvolved ?? "",
+                      Date: r.Date ? new Date(r.Date).toISOString() : null,
+                      Location: r.Location ?? "",
+                      Works: r.Works ?? "",
+                      Comments: r.Comments ?? "",
+                      Units: r.Units ?? "",
+                      Amounts: r.Amounts ?? "",
+                      Workers: r.WorkersInvolved ?? "",
+                      Hours: r.TimeInvolved ?? "",
                     }));
 
 

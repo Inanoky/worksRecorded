@@ -8,6 +8,7 @@ import { validateExcel } from "@/lib/utils/SiteDiary/Settings/validateSchema";
 import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
 import { getOrganizationIdByWorkerId } from "./shared-actions";
+import { Turret_Road } from "next/font/google";
 
 //nothing
 
@@ -53,14 +54,25 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
         workerId: workerId ?? undefined, // NEW
         siteId: siteId ?? undefined,
         organizationId: org ?? undefined,
-        Date: row.date ? new Date(row.date) : undefined,
-        Location: row.location || undefined,
+
+        //This comes from the parameter
+
+        Date: row.Date ? new Date(row.date) : undefined,
+        Date_Custom_1 : row.Date_Custom_1 ? new Date(row.date) : undefined,
+        Date_Custom_2 : row.Date_Custom_1 ? new Date(row.date) : undefined,
+        Location: row.Location || undefined,
+        Location_Custom_1: row.Date_Custom_1|| undefined,
+        Location_Custom_2: row.Date_Custom_2|| undefined,
         Works: row.works || undefined,
-        Comments: row.comments || undefined,
-        Units: row.units || undefined,
-        Amounts: row.amounts ? Number(row.amounts) : undefined,
-        WorkersInvolved: row.workers ? Number(row.workers) : undefined,
-        TimeInvolved: row.hours ? Number(row.hours) : undefined,
+        Works_Custom_1 : row.Works_Custom_1 || undefined,
+        Works_Custom_2 : row.Works_Custom_2 || undefined,
+        Comments: row.Comments || undefined,
+        Comments_Custom_1 : row.Comments_Custom_1 || undefined,
+        Comments_Custom_2 : row.Comments_Custom_2 || undefined,
+        Units: row.Units || undefined,
+        Amounts: row.Amounts ? Number(row.amounts) : undefined,
+        WorkersInvolved: row.Workers ? Number(row.workers) : undefined,
+        TimeInvolved: row.Hours ? Number(row.hours) : undefined,
         Photos: [],
       };
 
@@ -78,7 +90,10 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
     return { ok: false, message: "No records to insert" };
   }
 
-
+  // 🪵 LOG: Final data to be inserted
+  console.log("Final Data for prisma.sitediaryrecords.createMany:");
+  console.log(toInsert);
+  console.log("---------------------------------");
 
   // Bulk insert
   try {
@@ -118,15 +133,35 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
         userId: user.id ?? undefined,
         siteId: siteId ?? undefined,
         organizationId: org ?? undefined,
-        Date: row.date ? new Date(row.date) : undefined,
-        Location: row.location || undefined,
-        Works: row.works || undefined,
-        Comments: row.comments || undefined,
+
+
+
+
+
+
+
+        Date: row.Date ? new Date(row.date) : undefined,
+        Date_Custom_1 : row.Date_Custom_1 ? new Date(row.date) : undefined,
+        Date_Custom_2 : row.Date_Custom_1 ? new Date(row.date) : undefined,
+        Location: row.Location || undefined,
+        Location_Custom_1: row.Date_Custom_1|| undefined,
+        Location_Custom_2: row.Date_Custom_2|| undefined,
+        Works: row.Works || undefined,
+        Works_Custom_1 : row.Works_Custom_1 || undefined,
+        Works_Custom_2 : row.Works_Custom_2 || undefined,
+        Comments: row.Comments || undefined,
+        Comments_Custom_1 : row.Comments_Custom_1 || undefined,
+        Comments_Custom_2 : row.Comments_Custom_2 || undefined,
         Units: row.units || undefined,
-        Amounts: row.amounts ? Number(row.amounts) : undefined,
-        WorkersInvolved: row.workers ? Number(row.workers) : undefined,
-        TimeInvolved: row.hours ? Number(row.hours) : undefined,
+        Amounts: row.Amounts ? Number(row.amounts) : undefined,
+        WorkersInvolved: row.Workers ? Number(row.workers) : undefined,
+        TimeInvolved: row.Hours ? Number(row.hours) : undefined,
         Photos: [],
+
+
+
+
+
       };
       console.log(`Prepared insert row ${idx}:`, out);
       return out;
@@ -200,13 +235,22 @@ export async function getSiteDiaryRecord({ siteId, date }) {
     select: {
       id: true,
       Date: true,
+      Date_Custom_1 :true,
+      Date_Custom_2 : true,
       Location: true,
+      Location_Custom_1: true,
+      Location_Custom_2: true,
       Works: true,
+      Works_Custom_1 : true,
+      Works_Custom_2 :true,
+
       Units: true,
       Amounts: true,
       WorkersInvolved: true,
       TimeInvolved: true,
       Comments: true,
+      Comments_Custom_1 : true,
+      Comments_Custom_2 : true, 
       // >>> START: NEW FIELDS for 'Created by' logic
       userId: true, // Keep userId for update payload
       workerId: true, // Keep workerId for update payload
@@ -265,6 +309,42 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       // but they are only needed for saving/updating, not the display logic here.
     };
   });
+}
+
+export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
+  if (!siteId) throw new Error("Missing siteId");
+
+  return prisma.sitediaryrecords.findMany({
+    where: { siteId },
+    orderBy: [{ Date: "asc" }],
+    select: {
+
+      Date: true,
+      Date_Custom_1: true,
+      Date_Custom_2: true,
+
+      Location: true,
+      Location_Custom_1:true,
+      Location_Custom_2:true,
+
+      Works: true,
+      Works_Custom_1 : true,
+      Works_Custom_2 : true,
+
+      Comments: true,
+      Comments_Custom_1: true,
+      Comments_Custom_2 :true,
+
+      Units: true,
+      Amounts: true,
+      WorkersInvolved: true,
+      TimeInvolved: true,
+      Photos: true,
+      // add/remove fields as needed
+      // id: true,
+      // siteId: true,
+    },
+  })
 }
 
 
@@ -532,28 +612,6 @@ export async function deletePhotoById(id: string) {
 }
 
 
-export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
-  if (!siteId) throw new Error("Missing siteId");
-
-  return prisma.sitediaryrecords.findMany({
-    where: { siteId },
-    orderBy: [{ Date: "asc" }],
-    select: {
-      Date: true,
-      Location: true,
-      Works: true,
-      Comments: true,
-      Units: true,
-      Amounts: true,
-      WorkersInvolved: true,
-      TimeInvolved: true,
-      Photos: true,
-      // add/remove fields as needed
-      // id: true,
-      // siteId: true,
-    },
-  })
-}
 
 const PHOTOS_PER_PAGE = 30;
 /**

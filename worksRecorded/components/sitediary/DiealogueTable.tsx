@@ -1,7 +1,7 @@
 // DialogTable.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -24,7 +24,6 @@ import { Trash2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   getSiteDiaryRecord,
-  getSiteDiarySchema,
   saveSiteDiaryRecordFromWeb,
   deleteSiteDiaryRecord,
   updateSiteDiaryRecord,
@@ -33,20 +32,9 @@ import { toast } from "sonner";
 import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
 
-/* ---------- helpers ---------- */
-const ADDITIONAL_WORKS_OPTION = {
-  value: "__ADDITIONAL__",
-  label: "Additional works",
-};
-const CLIENT_DELAY_OPTION = {
-  value: "__clientDelay__",
-  label: "Client Delay (hindrance)",
-};
-const INTERNAL_DELAY_OPTION = { value: "__internalDelay__", label: "Internal Delay" };
-const NOTE_OPTION = { value: "__note__", label: "Note" };
-const OTHER_OPTION = { value: "__other__", label: "Other Works"  }
+import defaultMap from "./defaultMap.json";
 
-
+/* ----------------------------- constants ----------------------------- */
 
 const ADD_NEW_LOCATION = "__add_new_location__";
 const ADD_NEW_WORK = "__add_new_work__";
@@ -68,6 +56,8 @@ export const allowedUnits = [
 
 const MAX_FREE_TEXT = 100;
 const MAX_NUM = 1_000_000_000;
+
+/* ------------------------------ helpers ------------------------------ */
 
 const coerceOptionalFloat = (v: unknown) => {
   if (v === "" || v === undefined || v === null) return undefined;
@@ -93,14 +83,22 @@ const showZodErrorToast = (err: z.ZodError) => {
   toast.error(`${path}: ${first.message}`);
 };
 
-/**
- * VALIDATION RULES (as requested):
- * - location/work can be empty (no selection OR manual input blank is ok)
- * - location/work free text allowed up to 100 chars (only validate length if provided)
- * - units: NO VALIDATION (only pass through whatever string is there)
- * - amounts/hours: floats, <= 1B, empty ok
- * - workers: int, <= 1B, empty ok
- */
+function mapToSelectItems(dropdown?: Record<string, string>) {
+  if (!dropdown) return [];
+  return Object.entries(dropdown).map(([value, label]) => ({ value, label }));
+}
+
+function formatDateCell(v: any) {
+  if (!v) return "No date";
+  return new Date(v).toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+/* ----------------------------- validation ---------------------------- */
+
 const DiaryRowSchema = z.object({
   amounts: z
     .union([z.coerce.number().finite(), z.literal("")])
@@ -128,7 +126,6 @@ const DiaryRowSchema = z.object({
     ),
   comments: z.string().max(1500).optional().or(z.literal("")),
 
-  // soft validation (length only)
   location_mode: z.enum(["select", "manual"]).optional(),
   works_mode: z.enum(["select", "manual"]).optional(),
   location_manual: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
@@ -136,53 +133,170 @@ const DiaryRowSchema = z.object({
   location: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
   works: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
 
-  // units: no validation at all
   units: z.any().optional(),
 });
 
 const DiaryRowsSchema = z.array(DiaryRowSchema);
 
-function collectWorks(node: any, prefix = "") {
-  let options: { value: string; label: string }[] = [];
-  if (node.type === "Work") {
-    options.push({
-      value: node.code,
-      label: prefix ? `${prefix} / ${node.name}` : node.name,
-    });
+/* ---------------------------- types (local) --------------------------- */
+
+type RowKey = string;
+
+type DiaryRow = {
+  id?: string;
+  _tempId: string;
+  date: any;
+
+  location: string;
+  works: string;
+  units: string;
+
+  amounts: any;
+  workers: any;
+  hours: any;
+
+  comments: string;
+  createdBy: string;
+
+  location_mode: "select" | "manual";
+  works_mode: "select" | "manual";
+  location_manual: string;
+  works_manual: string;
+
+  userId?: string;
+};
+
+type OnCellChange = (rowKey: RowKey, field: keyof DiaryRow | string, value: any) => void;
+
+/* -------------------------- generic renders -------------------------- */
+
+// dropdownRender covers: Location, Works, Units (same behavior: select + optional manual)
+function dropdownRender(args: {
+  rowKey: RowKey;
+  value: string;
+  placeholder: string;
+  widthClass?: string; // e.g. "w-[160px]" or "w-full"
+  options: { value: string; label: string }[];
+  allowCustom?: boolean;
+  customValue?: string;
+  mode?: "select" | "manual"; // if allowCustom
+  onModeChange?: (mode: "select" | "manual") => void; // if allowCustom
+  onCustomChange?: (v: string) => void; // if allowCustom
+  onValueChange: (v: string) => void;
+  customTriggerValue?: string; // value used for "custom..." option item
+  customLabel?: string; // text for custom option
+  customPlaceholder?: string; // placeholder for custom input
+  customWidthClass?: string; // input width in manual mode
+}) {
+  const {
+    value,
+    placeholder,
+    widthClass = "w-full",
+    options,
+    allowCustom = false,
+    mode = "select",
+    onModeChange,
+    customValue = "",
+    onCustomChange,
+    onValueChange,
+    customTriggerValue = "__custom__",
+    customLabel = "+ Custom…",
+    customPlaceholder = "Type…",
+    customWidthClass = "w-[180px]",
+  } = args;
+
+  if (allowCustom && mode === "manual") {
+    return (
+      <div className="flex gap-2">
+        <Input
+          className={customWidthClass}
+          placeholder={customPlaceholder}
+          maxLength={MAX_FREE_TEXT}
+          value={customValue || value || ""}
+          onChange={(e) => onCustomChange?.(e.target.value)}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            onModeChange?.("select");
+            onCustomChange?.("");
+          }}
+        >
+          Use list
+        </Button>
+      </div>
+    );
   }
-  if (node.children) {
-    for (const child of node.children) {
-      options = options.concat(
-        collectWorks(
-          child,
-          node.type === "Work"
-            ? prefix
-              ? `${prefix} / ${node.name}`
-              : node.name
-            : prefix
-        )
-      );
-    }
-  }
-  return options;
+
+  return (
+    <Select
+      value={value || ""}
+      onValueChange={(val) => {
+        if (allowCustom && val === customTriggerValue) {
+          onModeChange?.("manual");
+          onValueChange("");
+          return;
+        }
+        onModeChange?.("select");
+        onValueChange(val);
+      }}
+    >
+      <SelectTrigger className={widthClass}>
+        <SelectValue placeholder={value || placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((opt) => (
+          <SelectItem key={opt.value} value={opt.value}>
+            {opt.label}
+          </SelectItem>
+        ))}
+        {allowCustom && <SelectItem value={customTriggerValue}>{customLabel}</SelectItem>}
+      </SelectContent>
+    </Select>
+  );
 }
 
-export function useSiteSchema(siteId: string | null) {
-  const [schema, setSchema] = useState<any[] | null>(null);
-  useEffect(() => {
-    if (!siteId) {
-      setSchema(null);
-      return;
-    }
-    getSiteDiarySchema({ siteId }).then((s) => {
-      console.log("[Diary][Schema] fetched:", s);
-      setSchema(s);
-    });
-  }, [siteId]);
-  return schema;
+// textInputRender covers: comments (textarea auto-grow)
+function textInputRender(args: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const { value, onChange } = args;
+  return (
+    <Textarea
+      rows={1}
+      className="w-full max-w-full min-h-0 resize-y overflow-x-hidden overflow-y-hidden break-words whitespace-pre-wrap"
+      value={value ?? ""}
+      onInput={(e) => {
+        const t = e.currentTarget;
+        t.style.height = "auto";
+        t.style.height = `${t.scrollHeight}px`;
+      }}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
 }
 
-/* ---------- component ---------- */
+// floatRender covers: amounts, hours, workers (workers can still use inputMode numeric)
+function floatRender(args: {
+  value: any;
+  onChange: (v: string) => void;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+}) {
+  const { value, onChange, inputMode = "decimal" } = args;
+  return (
+    <Input
+      className="w-full text-center"
+      inputMode={inputMode}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+
+/* ------------------------------ component ---------------------------- */
+
 export function DialogTable({
   date,
   siteId,
@@ -193,53 +307,60 @@ export function DialogTable({
   onSaved?: () => void;
 }) {
   const isMobile = useMediaQuery("(max-width: 640px)");
-  const schema = useSiteSchema(siteId);
   const [loading, setLoading] = useState(true);
 
-  const newEmptyRow = () => ({
-    id: undefined as string | undefined,
+  const locationOptions = useMemo(
+    () => mapToSelectItems((defaultMap as any)?.Location?.DropDownOptions),
+    []
+  );
+  const workOptions = useMemo(
+    () => mapToSelectItems((defaultMap as any)?.Works?.DropDownOptions),
+    []
+  );
+
+  const newEmptyRow = (): DiaryRow => ({
+    id: undefined,
     _tempId: crypto.randomUUID(),
     date,
+
     location: "",
-    location_code: "",
     works: "",
-    works_code: "",
     units: "",
+
     amounts: "",
     workers: "",
     hours: "",
+
     comments: "",
     createdBy: "",
 
-    // Manual entry support
-    location_mode: "select" as "select" | "manual",
-    works_mode: "select" as "select" | "manual",
+    location_mode: "select",
+    works_mode: "select",
     location_manual: "",
     works_manual: "",
+
+    userId: undefined,
   });
 
-  const [rows, setRows] = useState<any[]>([newEmptyRow()]);
+  const [rows, setRows] = useState<DiaryRow[]>([newEmptyRow()]);
 
-  const handleAddRow = () => {
-    console.log("[Diary][AddRow]");
-    setRows((prev) => [...prev, newEmptyRow()]);
-  };
+  const handleAddRow = () => setRows((prev) => [...prev, newEmptyRow()]);
 
   const handleDeleteRow = async (idOrTemp: string | undefined, tempId?: string) => {
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
-    console.log("[Diary][DeleteRow] target:", { idOrTemp, tempId, row });
+
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
-      console.log("[Diary][DeleteRow] deleted from DB:", row.id);
       toast.success("Record deleted!");
       onSaved?.();
-    } else {
-      setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      return;
     }
+
+    setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
   };
 
-  const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
-    console.log("[Diary][Change]", { rowIdOrTemp, field, value });
+  const handleChange: OnCellChange = (rowIdOrTemp, field, value) => {
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
@@ -247,14 +368,13 @@ export function DialogTable({
     );
   };
 
-  const validateRows = (rowsToValidate: any[]) => {
+  const validateRows = (rowsToValidate: DiaryRow[]) => {
     const parsed = DiaryRowsSchema.safeParse(rowsToValidate);
     if (!parsed.success) {
       showZodErrorToast(parsed.error);
       return { ok: false as const, rows: null as any };
     }
 
-    // Extra clear numeric reason toasts (in case zod msg is too generic)
     for (const r of rowsToValidate) {
       const key = r.id ?? r._tempId;
 
@@ -282,43 +402,23 @@ export function DialogTable({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    console.log("[Diary][Submit] raw rows:", rows);
+    if (!siteId) return;
 
     const validated = validateRows(rows);
     if (!validated.ok) return;
 
-    const allWorkOptions = [
-      ...((schema?.flatMap((root) => collectWorks(root))) ?? []),
-      ADDITIONAL_WORKS_OPTION,
-      CLIENT_DELAY_OPTION,
-      INTERNAL_DELAY_OPTION,
-      NOTE_OPTION,
-      OTHER_OPTION,
-    ];
-    console.log("[Diary][Submit] allWorkOptions count:", allWorkOptions.length);
-
     const rowsToSave = rows.map((row) => {
-      const locationByCode = schema?.find((n) => n.code === row.location_code);
-      const locationByName = schema?.find((n) => n.name === row.location);
-      const locationNode = locationByCode || locationByName || null;
-
-      const worksNode = allWorkOptions.find((opt: any) => opt.value === row.works_code);
-
       const resolvedLocation =
         row.location_mode === "manual"
           ? String(row.location_manual ?? "").trim()
-          : locationNode?.name || String(row.location ?? "").trim();
+          : String(row.location ?? "").trim();
 
       const resolvedWorks =
         row.works_mode === "manual"
           ? String(row.works_manual ?? "").trim()
-          : worksNode?.label || String(row.works ?? "").trim();
+          : String(row.works ?? "").trim();
 
-      return {
-        ...row,
-        location: resolvedLocation,
-        works: resolvedWorks,
-      };
+      return { ...row, location: resolvedLocation, works: resolvedWorks };
     });
 
     const existingRows = rowsToSave.filter((r) => isUUID(r.id));
@@ -331,13 +431,13 @@ export function DialogTable({
         Location: r.location || undefined,
         Works: r.works || undefined,
         Comments: r.comments,
-        Units: r.units || undefined, // no validation
+        Units: r.units || undefined,
         Amounts: r.amounts !== "" && r.amounts !== undefined ? Number(r.amounts) : undefined,
         WorkersInvolved:
           r.workers !== "" && r.workers !== undefined ? Number(r.workers) : undefined,
         TimeInvolved: r.hours !== "" && r.hours !== undefined ? Number(r.hours) : undefined,
         Photos: [],
-        userId: r.userId,
+        userId: (r as any).userId,
         siteId,
       };
 
@@ -354,31 +454,33 @@ export function DialogTable({
         ({
           id: _omit,
           _tempId: _omit2,
-          location_code: _omit3,
-          works_code: _omit4,
-          location_mode: _omit5,
-          works_mode: _omit6,
-          location_manual: _omit7,
-          works_manual: _omit8,
+          location_mode: _omit3,
+          works_mode: _omit4,
+          location_manual: _omit5,
+          works_manual: _omit6,
           ...rest
         }) => ({
           ...rest,
-          location: rest.location || undefined,
-          works: rest.works || undefined,
-          units: rest.units || undefined, // no validation
+          location: (rest as any).location || undefined,
+          works: (rest as any).works || undefined,
+          units: (rest as any).units || undefined,
           amounts:
-            rest.amounts !== "" && rest.amounts !== undefined ? Number(rest.amounts) : undefined,
+            (rest as any).amounts !== "" && (rest as any).amounts !== undefined
+              ? Number((rest as any).amounts)
+              : undefined,
           workers:
-            rest.workers !== "" && rest.workers !== undefined ? Number(rest.workers) : undefined,
-          hours: rest.hours !== "" && rest.hours !== undefined ? Number(rest.hours) : undefined,
+            (rest as any).workers !== "" && (rest as any).workers !== undefined
+              ? Number((rest as any).workers)
+              : undefined,
+          hours:
+            (rest as any).hours !== "" && (rest as any).hours !== undefined
+              ? Number((rest as any).hours)
+              : undefined,
         })
       );
 
       try {
-        await saveSiteDiaryRecordFromWeb({
-          rows: rowsSanitized,
-          siteId,
-        });
+        await saveSiteDiaryRecordFromWeb({ rows: rowsSanitized, siteId });
       } catch (err: any) {
         toast.error(`Failed to create rows: ${err?.message ?? "Unknown error"}`);
         return;
@@ -409,8 +511,6 @@ export function DialogTable({
         ? loadedRows.map((row: any) => ({
             ...row,
             _tempId: crypto.randomUUID(),
-            location_code: "",
-            works_code: "",
             location_mode: "select",
             works_mode: "select",
             location_manual: "",
@@ -430,6 +530,7 @@ export function DialogTable({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, siteId]);
 
   if (loading) {
@@ -440,12 +541,7 @@ export function DialogTable({
     <form onSubmit={handleSubmit} className="space-y-3">
       <ScrollArea className="w-full h-[45vh] sm:h-[56vh] rounded-none border">
         <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleAddRow}
-            className="w-full sm:w-auto"
-          >
+          <Button type="button" variant="outline" onClick={handleAddRow} className="w-full sm:w-auto">
             Add task
           </Button>
           <Button type="submit" className="w-full sm:w-auto">
@@ -473,202 +569,95 @@ export function DialogTable({
 
               <TableBody>
                 {rows.map((row) => {
-                  const locationOptions = schema?.filter((n) => n.type === "Location") || [];
-                  const selectedLocationNode =
-                    schema?.find((n) => n.code === row.location_code) ||
-                    schema?.find((n) => n.name === row.location);
-                  const dynamicWorkOptions = selectedLocationNode
-                    ? collectWorks(selectedLocationNode)
-                    : [];
-
-                  const rowKey = row.id ?? row._tempId;
+                  const rowKey: RowKey = (row.id ?? row._tempId) as string;
 
                   return (
                     <TableRow key={rowKey} className="align-top">
                       <TableCell className="py-3 text-muted-foreground">
-                        {row.date
-                          ? new Date(row.date).toLocaleDateString("en-GB", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                            })
-                          : "No date"}
+                        {formatDateCell(row.date)}
                       </TableCell>
 
-                      {/* Location */}
                       <TableCell className="py-2">
-                        {row.location_mode === "manual" ? (
-                          <div className="flex gap-2">
-                            <Input
-                              className="w-[160px]"
-                              placeholder="Type location…"
-                              maxLength={MAX_FREE_TEXT}
-                              value={row.location_manual || row.location || ""}
-                              onChange={(e) =>
-                                handleChange(rowKey, "location_manual", e.target.value)
-                              }
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                handleChange(rowKey, "location_mode", "select");
-                                handleChange(rowKey, "location_manual", "");
-                              }}
-                            >
-                              Use list
-                            </Button>
-                          </div>
-                        ) : (
-                          <Select
-                            value={row.location_code || ""}
-                            onValueChange={(val) => {
-                              if (val === ADD_NEW_LOCATION) {
-                                handleChange(rowKey, "location_mode", "manual");
-                                handleChange(rowKey, "location_code", "");
-                                return;
-                              }
-                              handleChange(rowKey, "location_mode", "select");
-                              handleChange(rowKey, "location_code", val);
-                            }}
-                          >
-                            <SelectTrigger className="w-[160px]">
-                              <SelectValue placeholder={row.location || "Select location"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {locationOptions.map((loc: any) => (
-                                <SelectItem key={loc.code} value={loc.code}>
-                                  {loc.name}
-                                </SelectItem>
-                              ))}
-                              <SelectItem value={ADD_NEW_LOCATION}>+ Add new location…</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
+                        {dropdownRender({
+                          rowKey,
+                          value: row.location,
+                          placeholder: "Select location",
+                          widthClass: "w-[160px]",
+                          options: locationOptions,
+                          allowCustom: true,
+                          mode: row.location_mode,
+                          onModeChange: (m) => handleChange(rowKey, "location_mode", m),
+                          customValue: row.location_manual,
+                          onCustomChange: (v) => handleChange(rowKey, "location_manual", v),
+                          onValueChange: (v) => handleChange(rowKey, "location", v),
+                          customTriggerValue: ADD_NEW_LOCATION,
+                          customLabel: "+ Custom location…",
+                          customPlaceholder: "Type location…",
+                          customWidthClass: "w-[160px]",
+                        })}
                       </TableCell>
 
-                      {/* Works */}
                       <TableCell className="py-2">
-                        {row.works_mode === "manual" ? (
-                          <div className="flex gap-2">
-                            <Input
-                              className="w-[180px]"
-                              placeholder="Type work…"
-                              maxLength={MAX_FREE_TEXT}
-                              value={row.works_manual || row.works || ""}
-                              onChange={(e) =>
-                                handleChange(rowKey, "works_manual", e.target.value)
-                              }
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                handleChange(rowKey, "works_mode", "select");
-                                handleChange(rowKey, "works_manual", "");
-                              }}
-                            >
-                              Use list
-                            </Button>
-                          </div>
-                        ) : (
-                          <Select
-                            value={row.works_code || ""}
-                            onValueChange={(val) => {
-                              if (val === ADD_NEW_WORK) {
-                                handleChange(rowKey, "works_mode", "manual");
-                                handleChange(rowKey, "works_code", "");
-                                return;
-                              }
-                              handleChange(rowKey, "works_mode", "select");
-                              handleChange(rowKey, "works_code", val);
-                            }}
-                          >
-                            <SelectTrigger className="w-[180px]">
-                              <SelectValue placeholder={row.works || "Select work"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {dynamicWorkOptions.map((opt: any) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-
-                              <SelectItem value={ADDITIONAL_WORKS_OPTION.value}>
-                                {ADDITIONAL_WORKS_OPTION.label}
-                              </SelectItem>
-                              <SelectItem value={CLIENT_DELAY_OPTION.value}>
-                                {CLIENT_DELAY_OPTION.label}
-                              </SelectItem>
-                              <SelectItem value={INTERNAL_DELAY_OPTION.value}>
-                                {INTERNAL_DELAY_OPTION.label}
-                              </SelectItem>
-                              <SelectItem value={NOTE_OPTION.value}>{NOTE_OPTION.label}</SelectItem>
-                          <SelectItem value={OTHER_OPTION.value}>{OTHER_OPTION.label}</SelectItem>
-                              <SelectItem value={ADD_NEW_WORK}>+ Add new work…</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </TableCell>
-
-                      {/* Units */}
-                      <TableCell className="text-center py-2">
-                        <Select
-                          value={row.units || ""}
-                          onValueChange={(val) => handleChange(rowKey, "units", val)}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select unit" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allowedUnits.map((unit) => (
-                              <SelectItem key={unit} value={unit}>
-                                {unit}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {dropdownRender({
+                          rowKey,
+                          value: row.works,
+                          placeholder: "Select work",
+                          widthClass: "w-[180px]",
+                          options: workOptions,
+                          allowCustom: true,
+                          mode: row.works_mode,
+                          onModeChange: (m) => handleChange(rowKey, "works_mode", m),
+                          customValue: row.works_manual,
+                          onCustomChange: (v) => handleChange(rowKey, "works_manual", v),
+                          onValueChange: (v) => handleChange(rowKey, "works", v),
+                          customTriggerValue: ADD_NEW_WORK,
+                          customLabel: "+ Custom work…",
+                          customPlaceholder: "Type work…",
+                          customWidthClass: "w-[180px]",
+                        })}
                       </TableCell>
 
                       <TableCell className="text-center py-2">
-                        <Input
-                          className="w-full text-center"
-                          inputMode="decimal"
-                          value={row.amounts}
-                          onChange={(e) => handleChange(rowKey, "amounts", e.target.value)}
-                        />
+                        {dropdownRender({
+                          rowKey,
+                          value: row.units,
+                          placeholder: "Select unit",
+                          widthClass: "w-full",
+                          options: allowedUnits.map((u) => ({ value: u, label: u })),
+                          allowCustom: false,
+                          onValueChange: (v) => handleChange(rowKey, "units", v),
+                        })}
                       </TableCell>
 
                       <TableCell className="text-center py-2">
-                        <Input
-                          className="w-full text-center"
-                          inputMode="numeric"
-                          value={row.workers}
-                          onChange={(e) => handleChange(rowKey, "workers", e.target.value)}
-                        />
+                        {floatRender({
+                          value: row.amounts,
+                          inputMode: "decimal",
+                          onChange: (v) => handleChange(rowKey, "amounts", v),
+                        })}
                       </TableCell>
 
                       <TableCell className="text-center py-2">
-                        <Input
-                          className="w-full text-center"
-                          inputMode="decimal"
-                          value={row.hours}
-                          onChange={(e) => handleChange(rowKey, "hours", e.target.value)}
-                        />
+                        {floatRender({
+                          value: row.workers,
+                          inputMode: "numeric",
+                          onChange: (v) => handleChange(rowKey, "workers", v),
+                        })}
                       </TableCell>
 
                       <TableCell className="text-center py-2">
-                        <Textarea
-                          rows={1}
-                          className="w-full max-w-full min-h-0 resize-y overflow-x-hidden overflow-y-hidden break-words whitespace-pre-wrap"
-                          value={row.comments ?? ""}
-                          onInput={(e) => {
-                            const t = e.currentTarget;
-                            t.style.height = "auto";
-                            t.style.height = `${t.scrollHeight}px`;
-                          }}
-                          onChange={(e) => handleChange(rowKey, "comments", e.target.value)}
-                        />
+                        {floatRender({
+                          value: row.hours,
+                          inputMode: "decimal",
+                          onChange: (v) => handleChange(rowKey, "hours", v),
+                        })}
+                      </TableCell>
+
+                      <TableCell className="text-center py-2">
+                        {textInputRender({
+                          value: row.comments ?? "",
+                          onChange: (v) => handleChange(rowKey, "comments", v),
+                        })}
                       </TableCell>
 
                       <TableCell className="text-center py-2 text-muted-foreground">

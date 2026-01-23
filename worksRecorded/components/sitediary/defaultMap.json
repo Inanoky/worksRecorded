@@ -1,0 +1,118 @@
+{
+  "Date": {
+    "Type": "fixed",
+    "DisplayName": "Date",
+    "customSettings": {}
+  },
+  "Date_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Date_Custom_1",
+    "customSettings": {}
+  },
+  "Date_Custom_2": {
+    "Type": "timePicker",
+    "DisplayName": "Date_Custom_1",
+    "customSettings": {}
+  },
+  "Location": {
+    "Type": "dropdown",
+    "DisplayName": "Location",
+    "DropDownOptions": {
+      "Location_1": "Location_1",
+      "Location_2": "Location_2"
+    },
+    "customSettings": {}
+  },
+  "Location_Custom_1": {
+    "Type": "dropdown",
+    "DisplayName": "Location_Custom_1",
+    "DropDownOptions": {
+      "Location_Custom_1_1": "Location_Custom_1_1",
+      "Location_Custom_1_2": "Location_Custom_1_2"
+    },
+    "customSettings": {}
+  },
+  "Location_Custom_2 ": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_2",
+    "DropDownOptions": {
+      "Location_Custom_2_1": "Location_Custom_2_1",
+      "Location_Custom_2_2": "Location_Custom_2_2"
+    },
+    "customSettings": {}
+  },
+  "Works": {
+    "Type": "dropdown",
+    "DisplayName": "Works",
+    "DropDownOptions": {
+      "Works_1": "Works_1",
+      "Works_2": "Works_2",
+      "Additional_works": "Additional_works"
+    },
+    "customSettings": {}
+  },
+  "Works_Custom_1": {
+    "Type": "dropdown",
+    "DisplayName": "Works_Custom_1",
+    "DropDownOptions": {
+      "Works_Custom_1_1": "Works_Custom_1_1",
+      "Works_Custom_1_2": "Works_Custom_1_2"
+    },
+    "customSettings": {}
+  },
+  "Works_Custom_2": {
+    "Type": "dropdown",
+    "DisplayName": "Works_Custom_2",
+    "DropDownOptions": {
+      "Works_Custom_2_1": "Works_Custom_2_1",
+      "Works_Custom_2_2": "Works_Custom_2_2"
+    },
+    "customSettings": {}
+  },
+  "Comments": {
+    "Type": "textInput",
+    "DisplayName": "Comments",
+    "customSettings": {}
+  },
+  "Comments_Custom_1": {
+    "Type": "textInput",
+    "DisplayName": "textInput",
+    "customSettings": {}
+  },
+  "  Comments_Custom_2": {
+    "Type": "textInput",
+    "DisplayName": "textInput",
+    "customSettings": {}
+  },
+  "Units": {
+    "Type": "dropdown",
+    "DisplayName": "Units",
+    "DropDownOptions": {
+      "m": "m",
+      "m2": "m2",
+      "m3": "m3",
+      "tn": "tn",
+      "kg": "kg",
+      "pcs": "pcs",
+      "package": "package",
+      "project": "project",
+      "hour": "hour",
+      "set": "set",
+      "minute": "minute",
+      "lifts": "lifts"
+    },
+    "customSettings": {}
+  },
+  "Amounts": {
+    "Type": "float",
+    "DisplayName": "Amounts",
+    "customSettings": {}
+  },
+  "WorkersInvolved": {
+    "Type": "float",
+    "DisplayName": "Workers",
+    "customSettings": {
+      "integer": true
+    }
+  }
+}
