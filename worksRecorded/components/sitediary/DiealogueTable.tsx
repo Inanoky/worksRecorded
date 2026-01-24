@@ -1,7 +1,7 @@
 // DialogTable.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -24,6 +24,7 @@ import { Trash2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   getSiteDiaryRecord,
+  getSiteDiarySchema,
   saveSiteDiaryRecordFromWeb,
   deleteSiteDiaryRecord,
   updateSiteDiaryRecord,
@@ -31,10 +32,22 @@ import {
 import { toast } from "sonner";
 import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
+import defaultMap from "./defaultMap.json"
 
-import defaultMap from "./defaultMap.json";
+/* ---------- helpers ---------- */
+const ADDITIONAL_WORKS_OPTION = {
+  value: "__ADDITIONAL__",
+  label: "Additional works",
+};
+const CLIENT_DELAY_OPTION = {
+  value: "__clientDelay__",
+  label: "Client Delay (hindrance)",
+};
+const INTERNAL_DELAY_OPTION = { value: "__internalDelay__", label: "Internal Delay" };
+const NOTE_OPTION = { value: "__note__", label: "Note" };
+const OTHER_OPTION = { value: "__other__", label: "Other Works" }
 
-/* ----------------------------- constants ----------------------------- */
+
 
 const ADD_NEW_LOCATION = "__add_new_location__";
 const ADD_NEW_WORK = "__add_new_work__";
@@ -56,8 +69,6 @@ export const allowedUnits = [
 
 const MAX_FREE_TEXT = 100;
 const MAX_NUM = 1_000_000_000;
-
-/* ------------------------------ helpers ------------------------------ */
 
 const coerceOptionalFloat = (v: unknown) => {
   if (v === "" || v === undefined || v === null) return undefined;
@@ -83,22 +94,14 @@ const showZodErrorToast = (err: z.ZodError) => {
   toast.error(`${path}: ${first.message}`);
 };
 
-function mapToSelectItems(dropdown?: Record<string, string>) {
-  if (!dropdown) return [];
-  return Object.entries(dropdown).map(([value, label]) => ({ value, label }));
-}
-
-function formatDateCell(v: any) {
-  if (!v) return "No date";
-  return new Date(v).toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
-
-/* ----------------------------- validation ---------------------------- */
-
+/**
+ * VALIDATION RULES (as requested):
+ * - location/work can be empty (no selection OR manual input blank is ok)
+ * - location/work free text allowed up to 100 chars (only validate length if provided)
+ * - units: NO VALIDATION (only pass through whatever string is there)
+ * - amounts/hours: floats, <= 1B, empty ok
+ * - workers: int, <= 1B, empty ok
+ */
 const DiaryRowSchema = z.object({
   amounts: z
     .union([z.coerce.number().finite(), z.literal("")])
@@ -126,6 +129,7 @@ const DiaryRowSchema = z.object({
     ),
   comments: z.string().max(1500).optional().or(z.literal("")),
 
+  // soft validation (length only)
   location_mode: z.enum(["select", "manual"]).optional(),
   works_mode: z.enum(["select", "manual"]).optional(),
   location_manual: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
@@ -133,170 +137,29 @@ const DiaryRowSchema = z.object({
   location: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
   works: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
 
+  // units: no validation at all
   units: z.any().optional(),
 });
 
 const DiaryRowsSchema = z.array(DiaryRowSchema);
 
-/* ---------------------------- types (local) --------------------------- */
 
-type RowKey = string;
-
-type DiaryRow = {
-  id?: string;
-  _tempId: string;
-  date: any;
-
-  location: string;
-  works: string;
-  units: string;
-
-  amounts: any;
-  workers: any;
-  hours: any;
-
-  comments: string;
-  createdBy: string;
-
-  location_mode: "select" | "manual";
-  works_mode: "select" | "manual";
-  location_manual: string;
-  works_manual: string;
-
-  userId?: string;
-};
-
-type OnCellChange = (rowKey: RowKey, field: keyof DiaryRow | string, value: any) => void;
-
-/* -------------------------- generic renders -------------------------- */
-
-// dropdownRender covers: Location, Works, Units (same behavior: select + optional manual)
-function dropdownRender(args: {
-  rowKey: RowKey;
-  value: string;
-  placeholder: string;
-  widthClass?: string; // e.g. "w-[160px]" or "w-full"
-  options: { value: string; label: string }[];
-  allowCustom?: boolean;
-  customValue?: string;
-  mode?: "select" | "manual"; // if allowCustom
-  onModeChange?: (mode: "select" | "manual") => void; // if allowCustom
-  onCustomChange?: (v: string) => void; // if allowCustom
-  onValueChange: (v: string) => void;
-  customTriggerValue?: string; // value used for "custom..." option item
-  customLabel?: string; // text for custom option
-  customPlaceholder?: string; // placeholder for custom input
-  customWidthClass?: string; // input width in manual mode
-}) {
-  const {
-    value,
-    placeholder,
-    widthClass = "w-full",
-    options,
-    allowCustom = false,
-    mode = "select",
-    onModeChange,
-    customValue = "",
-    onCustomChange,
-    onValueChange,
-    customTriggerValue = "__custom__",
-    customLabel = "+ Custom…",
-    customPlaceholder = "Type…",
-    customWidthClass = "w-[180px]",
-  } = args;
-
-  if (allowCustom && mode === "manual") {
-    return (
-      <div className="flex gap-2">
-        <Input
-          className={customWidthClass}
-          placeholder={customPlaceholder}
-          maxLength={MAX_FREE_TEXT}
-          value={customValue || value || ""}
-          onChange={(e) => onCustomChange?.(e.target.value)}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            onModeChange?.("select");
-            onCustomChange?.("");
-          }}
-        >
-          Use list
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <Select
-      value={value || ""}
-      onValueChange={(val) => {
-        if (allowCustom && val === customTriggerValue) {
-          onModeChange?.("manual");
-          onValueChange("");
-          return;
-        }
-        onModeChange?.("select");
-        onValueChange(val);
-      }}
-    >
-      <SelectTrigger className={widthClass}>
-        <SelectValue placeholder={value || placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        {options.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value}>
-            {opt.label}
-          </SelectItem>
-        ))}
-        {allowCustom && <SelectItem value={customTriggerValue}>{customLabel}</SelectItem>}
-      </SelectContent>
-    </Select>
-  );
+export function useSiteSchema(siteId: string | null) {
+  const [schema, setSchema] = useState<any[] | null>(null);
+  useEffect(() => {
+    if (!siteId) {
+      setSchema(null);
+      return;
+    }
+    getSiteDiarySchema({ siteId }).then((s) => {
+      console.log("[Diary][Schema] fetched:", s);
+      setSchema(s);
+    });
+  }, [siteId]);
+  return schema;
 }
 
-// textInputRender covers: comments (textarea auto-grow)
-function textInputRender(args: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const { value, onChange } = args;
-  return (
-    <Textarea
-      rows={1}
-      className="w-full max-w-full min-h-0 resize-y overflow-x-hidden overflow-y-hidden break-words whitespace-pre-wrap"
-      value={value ?? ""}
-      onInput={(e) => {
-        const t = e.currentTarget;
-        t.style.height = "auto";
-        t.style.height = `${t.scrollHeight}px`;
-      }}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  );
-}
-
-// floatRender covers: amounts, hours, workers (workers can still use inputMode numeric)
-function floatRender(args: {
-  value: any;
-  onChange: (v: string) => void;
-  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
-}) {
-  const { value, onChange, inputMode = "decimal" } = args;
-  return (
-    <Input
-      className="w-full text-center"
-      inputMode={inputMode}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  );
-}
-
-/* ------------------------------ component ---------------------------- */
-
+/* ---------- component ---------- */
 export function DialogTable({
   date,
   siteId,
@@ -306,61 +169,64 @@ export function DialogTable({
   siteId: string | null;
   onSaved?: () => void;
 }) {
+
+
+
+
+  //---------------------------------------State---------------------------------------
   const isMobile = useMediaQuery("(max-width: 640px)");
+  const schema = useSiteSchema(siteId);
   const [loading, setLoading] = useState(true);
+  const [tableHeads, setTableHeads] = useState<string[]>([]);
 
-  const locationOptions = useMemo(
-    () => mapToSelectItems((defaultMap as any)?.Location?.DropDownOptions),
-    []
-  );
-  const workOptions = useMemo(
-    () => mapToSelectItems((defaultMap as any)?.Works?.DropDownOptions),
-    []
-  );
-
-  const newEmptyRow = (): DiaryRow => ({
-    id: undefined,
+  const newEmptyRow = () => ({
+    id: undefined as string | undefined,
     _tempId: crypto.randomUUID(),
-    date,
+    Date: date,
+    Location: "",
+    Location_code: "",
+    Works: "",
+    Works_code: "",
+    Units: "",
+    Amounts: "",
+    Workers: "",
+    Hours: "",
+    Comments: "",
+    CreatedBy: "",
 
-    location: "",
-    works: "",
-    units: "",
-
-    amounts: "",
-    workers: "",
-    hours: "",
-
-    comments: "",
-    createdBy: "",
-
-    location_mode: "select",
-    works_mode: "select",
+    // Manual entry support
+    location_mode: "select" as "select" | "manual",
+    location_custom_1_mode: "select" as "select" | "manual",
+    location_custom_2_mode: "select" as "select" | "manual",
+    works_mode: "select" as "select" | "manual",
+    works_custom_1_mode: "select" as "select" | "manual",
+    works_custom_2_mode: "select" as "select" | "manual",
     location_manual: "",
     works_manual: "",
-
-    userId: undefined,
   });
 
-  const [rows, setRows] = useState<DiaryRow[]>([newEmptyRow()]);
+  const [rows, setRows] = useState<any[]>([newEmptyRow()]);
 
-  const handleAddRow = () => setRows((prev) => [...prev, newEmptyRow()]);
+  const handleAddRow = () => {
+    console.log("[Diary][AddRow]");
+    setRows((prev) => [...prev, newEmptyRow()]);
+  };
 
   const handleDeleteRow = async (idOrTemp: string | undefined, tempId?: string) => {
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
-
+    console.log("[Diary][DeleteRow] target:", { idOrTemp, tempId, row });
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
+      console.log("[Diary][DeleteRow] deleted from DB:", row.id);
       toast.success("Record deleted!");
       onSaved?.();
-      setRows((prev) => prev.filter((r) => r.id !== row.id));
-      return;
+    } else {
+      setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
     }
-
-    setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
   };
 
-  const handleChange: OnCellChange = (rowIdOrTemp, field, value) => {
+  const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
+    console.log("[Diary][Change]", { rowIdOrTemp, field, value });
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
@@ -368,13 +234,14 @@ export function DialogTable({
     );
   };
 
-  const validateRows = (rowsToValidate: DiaryRow[]) => {
+  const validateRows = (rowsToValidate: any[]) => {
     const parsed = DiaryRowsSchema.safeParse(rowsToValidate);
     if (!parsed.success) {
       showZodErrorToast(parsed.error);
       return { ok: false as const, rows: null as any };
     }
 
+    // Extra clear numeric reason toasts (in case zod msg is too generic)
     for (const r of rowsToValidate) {
       const key = r.id ?? r._tempId;
 
@@ -402,42 +269,56 @@ export function DialogTable({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!siteId) return;
+    console.log("[Diary][Submit] raw rows:", rows); //Here it comes from state. 
 
     const validated = validateRows(rows);
     if (!validated.ok) return;
 
-    const rowsToSave = rows.map((row) => {
-      const resolvedLocation =
-        row.location_mode === "manual"
-          ? String(row.location_manual ?? "").trim()
-          : String(row.location ?? "").trim();
 
-      const resolvedWorks =
-        row.works_mode === "manual"
-          ? String(row.works_manual ?? "").trim()
-          : String(row.works ?? "").trim();
+   
 
-      return { ...row, location: resolvedLocation, works: resolvedWorks };
-    });
+    const existingRows = rows.filter((r) => isUUID(r.id));
 
-    const existingRows = rowsToSave.filter((r) => isUUID(r.id));
-    const newRows = rowsToSave.filter((r) => !isUUID(r.id));
+    console.log(`existing rows ${existingRows}`)
 
+    const newRows = rows.filter((r) => !isUUID(r.id));
+
+
+
+    //This we need to strip any UI only fields 
+   const stripUiFields = (r: any) => {
+            const {
+              _tempId,
+
+              Location_code,
+              Works_code,
+
+              location_mode,
+              works_mode,
+              location_manual,
+              works_manual,
+
+              location_custom_1_mode,
+              location_custom_2_mode,
+              works_custom_1_mode,
+              works_custom_2_mode,
+
+              ...db
+            } = r;
+
+            return db;
+          };
+
+
+    // Here we actually update existing rows 
     for (const r of existingRows) {
+
+
+      const dbRow = stripUiFields(r);
+
       const payload = {
-        id: r.id,
-        Date: r.date,
-        Location: r.location || undefined,
-        Works: r.works || undefined,
-        Comments: r.comments,
-        Units: r.units || undefined,
-        Amounts: r.amounts !== "" && r.amounts !== undefined ? Number(r.amounts) : undefined,
-        WorkersInvolved:
-          r.workers !== "" && r.workers !== undefined ? Number(r.workers) : undefined,
-        TimeInvolved: r.hours !== "" && r.hours !== undefined ? Number(r.hours) : undefined,
-        Photos: [],
-        userId: (r as any).userId,
+        //So here we will only save original dbRows + siteId
+        ...dbRow,   
         siteId,
       };
 
@@ -448,48 +329,180 @@ export function DialogTable({
         return;
       }
     }
-
+      //for create we also need to strip of id
+    const stripUiFieldsForCreate = (r: any) => {
+        const { id, ...rest } = stripUiFields(r);
+        return rest;
+      };
+    // Here we create new rows
     if (newRows.length) {
-      const rowsSanitized = newRows.map(
-        ({
-          id: _omit,
-          _tempId: _omit2,
-          location_mode: _omit3,
-          works_mode: _omit4,
-          location_manual: _omit5,
-          works_manual: _omit6,
-          ...rest
-        }) => ({
-          ...rest,
-          location: (rest as any).location || undefined,
-          works: (rest as any).works || undefined,
-          units: (rest as any).units || undefined,
-          amounts:
-            (rest as any).amounts !== "" && (rest as any).amounts !== undefined
-              ? Number((rest as any).amounts)
-              : undefined,
-          workers:
-            (rest as any).workers !== "" && (rest as any).workers !== undefined
-              ? Number((rest as any).workers)
-              : undefined,
-          hours:
-            (rest as any).hours !== "" && (rest as any).hours !== undefined
-              ? Number((rest as any).hours)
-              : undefined,
-        })
-      );
 
-      try {
-        await saveSiteDiaryRecordFromWeb({ rows: rowsSanitized, siteId });
-      } catch (err: any) {
-        toast.error(`Failed to create rows: ${err?.message ?? "Unknown error"}`);
-        return;
-      }
-    }
+      //same, strip UI only fields 
+
+      
+       const rowsToCreate = newRows.map(stripUiFieldsForCreate);
+
+       try {
+            await saveSiteDiaryRecordFromWeb({
+              rows: rowsToCreate,
+              siteId,
+            });
+          } catch (err: any) {
+            toast.error(`Failed to create rows: ${err?.message ?? "Unknown error"}`);
+            return;
+          }
+        }
+
 
     toast.success("Records saved!");
     onSaved?.();
   };
+
+
+
+
+
+
+  //------------------------map helpers----------------------------------------------
+
+  function getTypeByKey(key: string) {
+  return defaultMap[key]?.Type ?? null;
+}
+
+
+  function getDisplayNameByKey(key) {
+    return defaultMap[key]?.DisplayName ?? key;
+  }
+
+
+  //----------------------cell renders-----------------------------------------------------
+
+function cellRender(args: {
+  field: string;
+  row: any;
+  rowKey: string;
+}) {
+  const { field, row, rowKey } = args;
+  const type = getTypeByKey(field);
+
+  // fixed / default
+ if (type === "fixed") {
+  const value = row[field];
+  const renderAs = defaultMap?.[field]?.customSettings?.renderAs ?? "String";
+
+  let display = "";
+
+  if (value !== null && value !== undefined && value !== "") {
+    if (renderAs === "Day" || renderAs === "Time") {
+      const d = new Date(value);
+
+      if (!isNaN(d.getTime())) {
+        if (renderAs === "Day") {
+          const day = String(d.getDate()).padStart(2, "0");
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const year = d.getFullYear();
+          display = `${day}.${month}.${year}`;
+        } else {
+          const h = String(d.getHours()).padStart(2, "0");
+          const m = String(d.getMinutes()).padStart(2, "0");
+          display = `${h}:${m}`;
+        }
+      } else {
+        // if it's not a valid date, just show as string
+        display = String(value);
+      }
+    } else {
+      display = String(value);
+    }
+  }
+
+  return <span className="text-sm text-muted-foreground select-none">{display}</span>;
+}
+
+
+  // textInput
+  if (type === "textInput") {
+    return (
+      <Textarea
+        rows={1}
+        value={String(row[field] ?? "")}
+        onChange={(e) => handleChange(rowKey, field, e.target.value)}
+      />
+    );
+  }
+
+  // float (you can also add integer logic via customSettings)
+  if (type === "float") {
+    return (
+      <Input
+        inputMode="decimal"
+        value={String(row[field] ?? "")}
+        onChange={(e) => handleChange(rowKey, field, e.target.value)}
+      />
+    );
+  }
+
+  // dropdown
+  if (type === "dropdown") {
+
+
+    
+
+   const optionsObj = defaultMap[field]?.DropDownOptions ?? {};
+
+let options = Object.entries(optionsObj).map(([value, label]) => ({
+  value,
+  label: String(label),
+}));
+
+const currentValue = String(row[field] ?? "");
+
+if (
+  currentValue &&
+  !options.some((opt) => opt.value === currentValue)
+) {
+  options.unshift({
+    value: currentValue,
+    label: currentValue,
+  });
+}
+    console.dir(options)
+
+    return (
+      <Select
+        value={currentValue}
+        onValueChange={(val) => handleChange(rowKey, field, val)}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder={String(row[field] ?? "Select…")} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((opt) => (
+            <SelectItem key={opt.key} value={opt.label}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  // fallback
+  return <span>{String(row[field] ?? "")}</span>;
+}
+
+
+
+
+  useEffect(() => {
+    console.log("rows state changed:", rows);
+    console.log("tableheades ", tableHeads)
+  }, [rows]);
+
+
+
+
+
 
   useEffect(() => {
     let cancelled = false;
@@ -503,45 +516,130 @@ export function DialogTable({
 
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
+
+
+
+
+      //Rhis is funciton will map out noRender fields. 
+
+     function getRenderableFieldsOrdered(map: Record<string, any>): string[] {
+  return Object.entries(map)
+    .filter(([_, cfg]) => cfg?.Type !== "noRender")
+    .sort((a, b) => {
+      const ao = a[1]?.customSettings?.order;
+      const bo = b[1]?.customSettings?.order;
+
+      const aOrder = typeof ao === "number" ? ao : Number.POSITIVE_INFINITY;
+      const bOrder = typeof bo === "number" ? bo : Number.POSITIVE_INFINITY;
+
+      // primary sort: order asc
+      if (aOrder !== bOrder) return aOrder - bOrder;
+
+      // tie-breaker: stable deterministic (key name)
+      return a[0].localeCompare(b[0]);
+    })
+    .map(([key]) => key.trim());
+}
+
+      const renderableFields = getRenderableFieldsOrdered(defaultMap)
+
+      setTableHeads(renderableFields)
+
+
+
+
+      console.log(`renderable fields ${renderableFields}`)
+
+
+
+
+      //Load rows 
       const loadedRows = await getSiteDiaryRecord({ siteId, date: isoDate });
+
+
+      //Filter out rows we don't need according to map. But let's keep id Row also. 
+
+      function pickRenderableRows(
+          rows: Record<string, any>[],
+          renderableFields: string[]
+        ) {
+          return rows.map((row) => ({
+            id: row.id ?? undefined, // keep DB id even if not renderable
+            ...Object.fromEntries(
+              renderableFields.map((field) => [field, row[field] ?? ""])
+            ),
+          }));
+        }
+
+
+      //So this will only leave rows which are not marked as noRender. 
+
+
+
+      const formattedRows = pickRenderableRows(
+        loadedRows,
+        renderableFields
+      );
+
+      //This function returns corrected table name :
+
+
+
+
+
+
 
       if (cancelled) return;
 
-      const nextRows = loadedRows.length
-        ? loadedRows.map((row: any) => ({
-            ...row,
-            _tempId: crypto.randomUUID(),
-            location_mode: "select",
-            works_mode: "select",
-            location_manual: "",
-            works_manual: "",
-            units: row.units ?? "",
-            amounts: row.amounts ?? "",
-            workers: row.workers ?? "",
-            hours: row.hours ?? "",
-            comments: row.comments ?? "",
-          }))
+      //This mess I just hate. It just needs to be same as fucking data.
+      
+    
+
+      const nextRows = formattedRows.length
+        ? formattedRows.map((row: any) => ({
+          ...row,
+          _tempId: crypto.randomUUID(),
+          location_code: "",
+          works_code: "",
+          location_mode: "select",
+          works_mode: "select",
+          location_manual: "",
+          works_manual: "",
+          //Database rows
+
+
+        }))
         : [newEmptyRow()];
+      console.dir(loadedRows)
+      console.dir(nextRows)
 
       setRows(nextRows);
+
       setLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, siteId]);
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-[300px]">Loading…</div>;
   }
 
+
+
+
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <ScrollArea className="w-full h-[45vh] sm:h-[56vh] rounded-none border">
         <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
-          <Button type="button" variant="outline" onClick={handleAddRow} className="w-full sm:w-auto">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddRow}
+            className="w-full sm:w-auto"
+          >
             Add task
           </Button>
           <Button type="submit" className="w-full sm:w-auto">
@@ -554,129 +652,51 @@ export function DialogTable({
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-background">
                 <TableRow>
-                  <TableHead className="w-[120px]">Date</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Works</TableHead>
-                  <TableHead className="text-center w-[110px]">Units</TableHead>
-                  <TableHead className="text-center w-[120px]">Amounts</TableHead>
-                  <TableHead className="text-center w-[120px]">Workers</TableHead>
-                  <TableHead className="text-center w-[110px]">Hours</TableHead>
-                  <TableHead className="text-center min-w-[480px]">Comments</TableHead>
+                  {tableHeads.map((head) => (
+                    <TableHead
+                      key={head}
+                      className="text-center whitespace-nowrap"
+                    >
+                      {getDisplayNameByKey(head)}
+                    </TableHead>
+
+                  )
+
+
+                  )}
+
                   <TableHead className="text-center w-[150px]">Created by</TableHead>
                   <TableHead className="text-center w-[80px]">Delete</TableHead>
                 </TableRow>
               </TableHeader>
-
               <TableBody>
-                {rows.map((row) => {
-                  const rowKey: RowKey = (row.id ?? row._tempId) as string;
+                {rows.map((row) => (
+                  <TableRow key={row.id ?? row._tempId}>
+                    {tableHeads.map((field) => (
+                      <TableCell key={field} className="text-center">
 
-                  return (
-                    <TableRow key={rowKey} className="align-top">
-                      <TableCell className="py-3 text-muted-foreground">
-                        {formatDateCell(row.date)}
-                      </TableCell>
 
-                      <TableCell className="py-2">
-                        {dropdownRender({
-                          rowKey,
-                          value: row.location,
-                          placeholder: "Select location",
-                          widthClass: "w-[160px]",
-                          options: locationOptions,
-                          allowCustom: true,
-                          mode: row.location_mode,
-                          onModeChange: (m) => handleChange(rowKey, "location_mode", m),
-                          customValue: row.location_manual,
-                          onCustomChange: (v) => handleChange(rowKey, "location_manual", v),
-                          onValueChange: (v) => handleChange(rowKey, "location", v),
-                          customTriggerValue: ADD_NEW_LOCATION,
-                          customLabel: "+ Custom location…",
-                          customPlaceholder: "Type location…",
-                          customWidthClass: "w-[160px]",
-                        })}
-                      </TableCell>
+                        {cellRender({ field, row, rowKey: row.id ?? row._tempId })}
 
-                      <TableCell className="py-2">
-                        {dropdownRender({
-                          rowKey,
-                          value: row.works,
-                          placeholder: "Select work",
-                          widthClass: "w-[180px]",
-                          options: workOptions,
-                          allowCustom: true,
-                          mode: row.works_mode,
-                          onModeChange: (m) => handleChange(rowKey, "works_mode", m),
-                          customValue: row.works_manual,
-                          onCustomChange: (v) => handleChange(rowKey, "works_manual", v),
-                          onValueChange: (v) => handleChange(rowKey, "works", v),
-                          customTriggerValue: ADD_NEW_WORK,
-                          customLabel: "+ Custom work…",
-                          customPlaceholder: "Type work…",
-                          customWidthClass: "w-[180px]",
-                        })}
-                      </TableCell>
 
-                      <TableCell className="text-center py-2">
-                        {dropdownRender({
-                          rowKey,
-                          value: row.units,
-                          placeholder: "Select unit",
-                          widthClass: "w-full",
-                          options: allowedUnits.map((u) => ({ value: u, label: u })),
-                          allowCustom: false,
-                          onValueChange: (v) => handleChange(rowKey, "units", v),
-                        })}
-                      </TableCell>
 
-                      <TableCell className="text-center py-2">
-                        {floatRender({
-                          value: row.amounts,
-                          inputMode: "decimal",
-                          onChange: (v) => handleChange(rowKey, "amounts", v),
-                        })}
                       </TableCell>
+                    ))}
 
-                      <TableCell className="text-center py-2">
-                        {floatRender({
-                          value: row.workers,
-                          inputMode: "numeric",
-                          onChange: (v) => handleChange(rowKey, "workers", v),
-                        })}
-                      </TableCell>
+                    <TableCell className="text-center">{row.createdBy ?? ""}</TableCell>
 
-                      <TableCell className="text-center py-2">
-                        {floatRender({
-                          value: row.hours,
-                          inputMode: "decimal",
-                          onChange: (v) => handleChange(rowKey, "hours", v),
-                        })}
-                      </TableCell>
-
-                      <TableCell className="text-center py-2">
-                        {textInputRender({
-                          value: row.comments ?? "",
-                          onChange: (v) => handleChange(rowKey, "comments", v),
-                        })}
-                      </TableCell>
-
-                      <TableCell className="text-center py-2 text-muted-foreground">
-                        {row.createdBy}
-                      </TableCell>
-
-                      <TableCell className="text-center py-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          type="button"
-                          onClick={() => handleDeleteRow(row.id, row._tempId)}
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        onClick={() => handleDeleteRow(row.id, row._tempId)}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>

@@ -1,26 +1,18 @@
 {
   "Date": {
     "Type": "fixed",
-    "DisplayName": "SlavaTest",
-    "customSettings": {
-      "renderAs" : "Day",
-      "order" : 1
-    }
+    "DisplayName": "Date",
+    "customSettings": {}
   },
   "Date_Custom_1": {
     "Type": "noRender",
     "DisplayName": "Date_Custom_1",
-    "customSettings": {
-      "order" : 2
-    }
-    
+    "customSettings": {}
   },
   "Date_Custom_2": {
-    "Type": "noRender",
-    "DisplayName": "Date_Custom_2",
-    "customSettings": {
-      "order" : 3
-    }
+    "Type": "timePicker",
+    "DisplayName": "Date_Custom_1",
+    "customSettings": {}
   },
   "Location": {
     "Type": "dropdown",
@@ -29,31 +21,25 @@
       "Location_1": "Location_1",
       "Location_2": "Location_2"
     },
-    "customSettings": {
-      "order" : 4
-    }
+    "customSettings": {}
   },
   "Location_Custom_1": {
-    "Type": "noRender",
+    "Type": "dropdown",
     "DisplayName": "Location_Custom_1",
     "DropDownOptions": {
       "Location_Custom_1_1": "Location_Custom_1_1",
       "Location_Custom_1_2": "Location_Custom_1_2"
     },
-    "customSettings": {
-      "order" : 5
-    }
+    "customSettings": {}
   },
-  "Location_Custom_2": {
+  "Location_Custom_2 ": {
     "Type": "noRender",
     "DisplayName": "Location_Custom_2",
     "DropDownOptions": {
       "Location_Custom_2_1": "Location_Custom_2_1",
       "Location_Custom_2_2": "Location_Custom_2_2"
     },
-    "customSettings": {
-      "order" : 6
-    }
+    "customSettings": {}
   },
   "Works": {
     "Type": "dropdown",
@@ -63,52 +49,40 @@
       "Works_2": "Works_2",
       "Additional_works": "Additional_works"
     },
-    "customSettings": {
-      "order" : 7
-    }
+    "customSettings": {}
   },
   "Works_Custom_1": {
-    "Type": "noRender",
+    "Type": "dropdown",
     "DisplayName": "Works_Custom_1",
     "DropDownOptions": {
       "Works_Custom_1_1": "Works_Custom_1_1",
       "Works_Custom_1_2": "Works_Custom_1_2"
     },
-    "customSettings": {
-      "order" : 8
-    }
+    "customSettings": {}
   },
   "Works_Custom_2": {
-    "Type": "noRender",
+    "Type": "dropdown",
     "DisplayName": "Works_Custom_2",
     "DropDownOptions": {
       "Works_Custom_2_1": "Works_Custom_2_1",
       "Works_Custom_2_2": "Works_Custom_2_2"
     },
-    "customSettings": {
-      "order" : 9
-    }
+    "customSettings": {}
   },
   "Comments": {
     "Type": "textInput",
     "DisplayName": "Comments",
-    "customSettings": {
-      "order" : 10
-    }
+    "customSettings": {}
   },
   "Comments_Custom_1": {
-    "Type": "noRender",
+    "Type": "textInput",
     "DisplayName": "textInput",
-    "customSettings": {
-      "order" : 11
-    }
+    "customSettings": {}
   },
-  "Comments_Custom_2": {
-    "Type": "noRender",
+  "  Comments_Custom_2": {
+    "Type": "textInput",
     "DisplayName": "textInput",
-    "customSettings": {
-      "order" : 12
-    }
+    "customSettings": {}
   },
   "Units": {
     "Type": "dropdown",
@@ -127,24 +101,18 @@
       "minute": "minute",
       "lifts": "lifts"
     },
-    "customSettings": {
-      "order" : 4
-    }
+    "customSettings": {}
   },
   "Amounts": {
     "Type": "float",
     "DisplayName": "Amounts",
-    "customSettings": {
-      "order" : 5
-    }
+    "customSettings": {}
   },
   "WorkersInvolved": {
     "Type": "float",
     "DisplayName": "Workers",
     "customSettings": {
-      "integer": true,
-       "order" : 6
-
+      "integer": true
     }
   }
 }

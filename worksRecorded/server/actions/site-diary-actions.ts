@@ -294,14 +294,32 @@ export async function getSiteDiaryRecord({ siteId, date }) {
 
     return {
       id: rec.id,
-      date: rec.Date,
-      location: rec.Location || "",
-      works: rec.Works || "",
-      units: rec.Units || "",
-      amounts: rec.Amounts?.toString() || "",
-      workers: rec.WorkersInvolved?.toString() || "",
-      hours: rec.TimeInvolved?.toString() || "",
-      comments: rec.Comments || "",
+      Date: rec.Date,
+      Date_Custom_1 : rec.Date_Custom_1,
+      Date_Custom_2 : rec.Date_Custom_2,
+
+
+      Location: rec.Location || "",
+
+      Works: rec.Works || "",
+      Works_Custom_1: rec.Works_Custom_1 || "", 
+      Works_Custom_2: rec.Works_Custom_2 || "", 
+
+
+      Units: rec.Units || "",
+      Amounts: rec.Amounts?.toString() || "",
+      Workers: rec.WorkersInvolved?.toString() || "",
+      Hours: rec.TimeInvolved?.toString() || "",
+
+
+      Comments: rec.Comments || "",
+      Comments_Custom_1: rec.Comments_Custom_1 || "", 
+      Comments_Custom_2: rec.Comments_Custom_2 || "", 
+
+
+
+
+
       // >>> NEW FIELD
       createdBy: createdBy || "N/A", // Use the resolved name, default to N/A if empty
       // <<< NEW FIELD
