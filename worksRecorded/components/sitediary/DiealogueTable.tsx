@@ -28,11 +28,18 @@ import {
   saveSiteDiaryRecordFromWeb,
   deleteSiteDiaryRecord,
   updateSiteDiaryRecord,
+  getConfig,
 } from "@/server/actions/site-diary-actions";
 import { toast } from "sonner";
 import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
-import defaultMap from "./defaultMap.json"
+import defaultConfig from "./defaultConfig.json"
+import GMCIRLmap from "./GMCIRLmap.json"
+
+
+
+
+const defaultMap = GMCIRLmap
 
 /* ---------- helpers ---------- */
 const ADDITIONAL_WORKS_OPTION = {
@@ -66,6 +73,8 @@ export const allowedUnits = [
   "minute",
   "lifts",
 ] as const;
+
+// ------------------------------------Validation------------------------------------------------
 
 const MAX_FREE_TEXT = 100;
 const MAX_NUM = 1_000_000_000;
@@ -103,14 +112,20 @@ const showZodErrorToast = (err: z.ZodError) => {
  * - workers: int, <= 1B, empty ok
  */
 const DiaryRowSchema = z.object({
-  amounts: z
+
+
+    id: z.string().uuid().optional(),          // DB id (only if real UUID)
+  _tempId: z.string().optional(),            // UI id (always present for new rows)
+  // numbers in your table are strings while editing, so allow "" and coerce
+  Amounts: z
     .union([z.coerce.number().finite(), z.literal("")])
     .optional()
     .refine(
       (v) => v === "" || v === undefined || (typeof v === "number" && Math.abs(v) <= MAX_NUM),
       { message: `Amounts must be a number <= ${MAX_NUM}` }
     ),
-  workers: z
+
+  WorkersInvolved: z
     .union([z.coerce.number().int(), z.literal("")])
     .optional()
     .refine(
@@ -120,44 +135,80 @@ const DiaryRowSchema = z.object({
         (typeof v === "number" && Math.abs(v) <= MAX_NUM && Number.isInteger(v)),
       { message: `Workers must be an integer <= ${MAX_NUM}` }
     ),
-  hours: z
+
+  TimeInvolved: z
     .union([z.coerce.number().finite(), z.literal("")])
     .optional()
     .refine(
       (v) => v === "" || v === undefined || (typeof v === "number" && Math.abs(v) <= MAX_NUM),
       { message: `Hours must be a number <= ${MAX_NUM}` }
     ),
-  comments: z.string().max(1500).optional().or(z.literal("")),
 
-  // soft validation (length only)
-  location_mode: z.enum(["select", "manual"]).optional(),
-  works_mode: z.enum(["select", "manual"]).optional(),
-  location_manual: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
-  works_manual: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
-  location: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
-  works: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+  Comments: z.string().max(1500).optional().or(z.literal("")),
+  Comments_Custom_1: z.string().max(1500).optional().or(z.literal("")),
+  Comments_Custom_2: z.string().max(1500).optional().or(z.literal("")),
 
-  // units: no validation at all
-  units: z.any().optional(),
+  // allow any strings but cap length if provided
+  Location: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+  Location_Custom_1: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+  Location_Custom_2: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+
+
+
+  Works: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+  Works_Custom_1: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+  Works_Custom_2: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+
+
+
+
+  // units: no validation
+  Units: z.any().optional(),
+
+  // Date is fixed in UI but still part of payload/state
+  Date: z.any().optional(),
+  Date_Custom_1 : z.any().optional(),
+  Date_Custom_2 : z.any().optional(),
 });
 
 const DiaryRowsSchema = z.array(DiaryRowSchema);
 
 
-export function useSiteSchema(siteId: string | null) {
-  const [schema, setSchema] = useState<any[] | null>(null);
-  useEffect(() => {
-    if (!siteId) {
-      setSchema(null);
-      return;
+const validateRows = (rowsToValidate: any[]) => {
+  const parsed = DiaryRowsSchema.safeParse(rowsToValidate);
+  if (!parsed.success) {
+    showZodErrorToast(parsed.error);
+    return { ok: false as const, rows: null as any };
+  }
+
+  // extra numeric checks using your coercers, now with correct keys
+  for (const r of rowsToValidate) {
+    const key = r.id ?? r._tempId;
+
+    const a = coerceOptionalFloat(r.Amounts);
+    if (a !== undefined && Math.abs(a) > MAX_NUM) {
+      toast.error(`Row ${key}: Amounts must be <= ${MAX_NUM}`);
+      return { ok: false as const, rows: null as any };
     }
-    getSiteDiarySchema({ siteId }).then((s) => {
-      console.log("[Diary][Schema] fetched:", s);
-      setSchema(s);
-    });
-  }, [siteId]);
-  return schema;
-}
+
+    const h = coerceOptionalFloat(r.TimeInvolved);
+    if (h !== undefined && Math.abs(h) > MAX_NUM) {
+      toast.error(`Row ${key}: Hours must be <= ${MAX_NUM}`);
+      return { ok: false as const, rows: null as any };
+    }
+
+    const w = coerceOptionalInt(r.WorkersInvolved);
+    if (w !== undefined && Math.abs(w) > MAX_NUM) {
+      toast.error(`Row ${key}: Workers must be an integer <= ${MAX_NUM}`);
+      return { ok: false as const, rows: null as any };
+    }
+  }
+
+  return { ok: true as const, rows: parsed.data };
+};
+
+
+
 
 /* ---------- component ---------- */
 export function DialogTable({
@@ -174,8 +225,7 @@ export function DialogTable({
 
 
   //---------------------------------------State---------------------------------------
-  const isMobile = useMediaQuery("(max-width: 640px)");
-  const schema = useSiteSchema(siteId);
+  const isMobile = useMediaQuery("(max-width: 640px)");  
   const [loading, setLoading] = useState(true);
   const [tableHeads, setTableHeads] = useState<string[]>([]);
 
@@ -189,35 +239,35 @@ export function DialogTable({
     Works_code: "",
     Units: "",
     Amounts: "",
-    Workers: "",
-    Hours: "",
+    WorkersInvolved: "",
+    TimeInvolved: "",
     Comments: "",
     CreatedBy: "",
 
     // Manual entry support
-    location_mode: "select" as "select" | "manual",
-    location_custom_1_mode: "select" as "select" | "manual",
-    location_custom_2_mode: "select" as "select" | "manual",
-    works_mode: "select" as "select" | "manual",
-    works_custom_1_mode: "select" as "select" | "manual",
-    works_custom_2_mode: "select" as "select" | "manual",
-    location_manual: "",
-    works_manual: "",
+    Location_mode: "select" as "select" | "manual",
+    Location_custom_1_mode: "select" as "select" | "manual",
+    Location_custom_2_mode: "select" as "select" | "manual",
+    Works_mode: "select" as "select" | "manual",
+    Works_custom_1_mode: "select" as "select" | "manual",
+    Works_custom_2_mode: "select" as "select" | "manual",
+    Location_manual: "",
+    Works_manual: "",
   });
 
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
 
   const handleAddRow = () => {
-    console.log("[Diary][AddRow]");
+    
     setRows((prev) => [...prev, newEmptyRow()]);
   };
 
   const handleDeleteRow = async (idOrTemp: string | undefined, tempId?: string) => {
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
-    console.log("[Diary][DeleteRow] target:", { idOrTemp, tempId, row });
+   
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
-      console.log("[Diary][DeleteRow] deleted from DB:", row.id);
+    
       toast.success("Record deleted!");
       onSaved?.();
     } else {
@@ -226,7 +276,7 @@ export function DialogTable({
   };
 
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
-    console.log("[Diary][Change]", { rowIdOrTemp, field, value });
+  
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
@@ -234,80 +284,53 @@ export function DialogTable({
     );
   };
 
-  const validateRows = (rowsToValidate: any[]) => {
-    const parsed = DiaryRowsSchema.safeParse(rowsToValidate);
-    if (!parsed.success) {
-      showZodErrorToast(parsed.error);
-      return { ok: false as const, rows: null as any };
-    }
-
-    // Extra clear numeric reason toasts (in case zod msg is too generic)
-    for (const r of rowsToValidate) {
-      const key = r.id ?? r._tempId;
-
-      const a = coerceOptionalFloat(r.amounts);
-      if (a !== undefined && Math.abs(a) > MAX_NUM) {
-        toast.error(`Row ${key}: Amounts must be <= ${MAX_NUM}`);
-        return { ok: false as const, rows: null as any };
-      }
-
-      const h = coerceOptionalFloat(r.hours);
-      if (h !== undefined && Math.abs(h) > MAX_NUM) {
-        toast.error(`Row ${key}: Hours must be <= ${MAX_NUM}`);
-        return { ok: false as const, rows: null as any };
-      }
-
-      const w = coerceOptionalInt(r.workers);
-      if (w !== undefined && Math.abs(w) > MAX_NUM) {
-        toast.error(`Row ${key}: Workers must be <= ${MAX_NUM}`);
-        return { ok: false as const, rows: null as any };
-      }
-    }
-
-    return { ok: true as const, rows: parsed.data };
-  };
+  //-------------------------------------------------------------Hanlde Submit----------------------------------------------
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    console.log("[Diary][Submit] raw rows:", rows); //Here it comes from state. 
+
 
     const validated = validateRows(rows);
     if (!validated.ok) return;
 
+    const cleanRows = validated.rows; // <-- use this
+
+    console.dir(cleanRows);
+
 
    
 
-    const existingRows = rows.filter((r) => isUUID(r.id));
+    const existingRows = cleanRows.filter((r) => isUUID(r.id));
 
     console.log(`existing rows ${existingRows}`)
 
-    const newRows = rows.filter((r) => !isUUID(r.id));
+    const newRows = cleanRows.filter((r) => !isUUID(r.id));
 
 
 
     //This we need to strip any UI only fields 
    const stripUiFields = (r: any) => {
-            const {
-              _tempId,
+  const {
+    _tempId,
 
-              Location_code,
-              Works_code,
+    Location_code,
+    Works_code,
 
-              location_mode,
-              works_mode,
-              location_manual,
-              works_manual,
+    Location_mode,
+    Works_mode,
+    Location_manual,
+    Works_manual,
 
-              location_custom_1_mode,
-              location_custom_2_mode,
-              works_custom_1_mode,
-              works_custom_2_mode,
+    Location_custom_1_mode,
+    Location_custom_2_mode,
+    Works_custom_1_mode,
+    Works_custom_2_mode,
 
-              ...db
-            } = r;
+    ...db
+  } = r;
 
-            return db;
-          };
+  return db;
+};
 
 
     // Here we actually update existing rows 
@@ -323,6 +346,7 @@ export function DialogTable({
       };
 
       try {
+        
         await updateSiteDiaryRecord(payload);
       } catch (err: any) {
         toast.error(`Failed to update row ${r.id}: ${err?.message ?? "Unknown error"}`);
@@ -343,6 +367,7 @@ export function DialogTable({
        const rowsToCreate = newRows.map(stripUiFieldsForCreate);
 
        try {
+           console.dir(rowsToCreate)
             await saveSiteDiaryRecordFromWeb({
               rows: rowsToCreate,
               siteId,
@@ -374,6 +399,17 @@ export function DialogTable({
     return defaultMap[key]?.DisplayName ?? key;
   }
 
+  function getCellWidthByKey(
+  key: string,
+  map: Record<string, any>,
+  fallback = 200 // default if not defined
+): number {
+  return (
+    map?.[key]?.customSettings?.cellWidth ??
+    fallback
+  );
+}
+
 
   //----------------------cell renders-----------------------------------------------------
 
@@ -387,7 +423,7 @@ function cellRender(args: {
 
   // fixed / default
  if (type === "fixed") {
-  const value = row[field];
+  const value = row[field]; 
   const renderAs = defaultMap?.[field]?.customSettings?.renderAs ?? "String";
 
   let display = "";
@@ -420,10 +456,98 @@ function cellRender(args: {
 }
 
 
+
+
+if (type === "timePicker") {
+  const raw = row[field];
+
+  // Extract HH:mm for display
+  let hhmm = "";
+
+  if (raw instanceof Date) {
+    hhmm = raw.toISOString().slice(11, 16);
+  } else if (typeof raw === "string") {
+    if (raw.includes("T")) {
+      hhmm = raw.slice(11, 16); // ISO
+    } else if (/^\d{2}:\d{2}$/.test(raw)) {
+      hhmm = raw; // already HH:mm
+    }
+  }
+
+  return (
+    <Input
+      type="time"
+      style={{ width: getCellWidthByKey(field, defaultMap) }}
+      value={hhmm}
+      onChange={(e) => {
+        const time = e.target.value; // "HH:mm"
+
+        if (!time) {
+          handleChange(rowKey, field, null);
+          return;
+        }
+
+        const [h, m] = time.split(":").map(Number);
+
+        // Use row.Date as base day (your diary date)
+        const base = row.Date
+          ? new Date(row.Date)
+          : new Date();
+
+        base.setHours(h, m, 0, 0);
+
+        handleChange(rowKey, field, base.toISOString());
+      }}
+    />
+  );
+}
+
+  // calendarPicker (YYYY-MM-DD)
+  if (type === "calendarPicker") {
+    const v = String(row[field] ?? "");
+    const ymd = v ? v.slice(0, 10) : ""; // supports ISO strings too
+
+    return (
+      <Input
+        type="date"
+        style={{ width: getCellWidthByKey(field, defaultMap) }}
+        value={v.length >= 10 ? ymd : v}
+        onChange={(e) => handleChange(rowKey, field, e.target.value)}
+      />
+    );
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   // textInput
   if (type === "textInput") {
     return (
       <Textarea
+        style={{ width: getCellWidthByKey(field, defaultMap) }}
         rows={1}
         value={String(row[field] ?? "")}
         onChange={(e) => handleChange(rowKey, field, e.target.value)}
@@ -436,6 +560,7 @@ function cellRender(args: {
     return (
       <Input
         inputMode="decimal"
+        style={{ width: getCellWidthByKey(field, defaultMap) }}
         value={String(row[field] ?? "")}
         onChange={(e) => handleChange(rowKey, field, e.target.value)}
       />
@@ -466,19 +591,23 @@ if (
     label: currentValue,
   });
 }
-    console.dir(options)
+    
 
     return (
       <Select
         value={currentValue}
         onValueChange={(val) => handleChange(rowKey, field, val)}
       >
-        <SelectTrigger className="w-[180px]">
+        <SelectTrigger
+        
+        style={{ width: getCellWidthByKey(field, defaultMap) }}
+        
+        >
           <SelectValue placeholder={String(row[field] ?? "Select…")} />
         </SelectTrigger>
         <SelectContent>
           {options.map((opt) => (
-            <SelectItem key={opt.key} value={opt.label}>
+            <SelectItem key={opt.value} value={opt.value}>
               {opt.label}
             </SelectItem>
           ))}
@@ -541,21 +670,40 @@ if (
     .map(([key]) => key.trim());
 }
 
-      const renderableFields = getRenderableFieldsOrdered(defaultMap)
+
+//Here we load config from database, and if no config we use default. 
+
+     const config = await getConfig(siteId)
+
+     const map = config ?? defaultMap
+
+     const renderableFields =  getRenderableFieldsOrdered(defaultMap)
+   
+
+   
+
+
+   
+
+
+     console.log(config)
+
+      
 
       setTableHeads(renderableFields)
 
 
 
 
-      console.log(`renderable fields ${renderableFields}`)
+      
 
 
 
 
       //Load rows 
       const loadedRows = await getSiteDiaryRecord({ siteId, date: isoDate });
-
+      console.log("Loaded rows:");
+      console.dir(loadedRows);
 
       //Filter out rows we don't need according to map. But let's keep id Row also. 
 
@@ -565,6 +713,8 @@ if (
         ) {
           return rows.map((row) => ({
             id: row.id ?? undefined, // keep DB id even if not renderable
+            createdBy: row.createdBy ?? undefined,
+           
             ...Object.fromEntries(
               renderableFields.map((field) => [field, row[field] ?? ""])
             ),
@@ -580,6 +730,9 @@ if (
         loadedRows,
         renderableFields
       );
+
+       console.log("Formatted rows ");
+      console.dir(formattedRows);
 
       //This function returns corrected table name :
 
@@ -599,20 +752,20 @@ if (
         ? formattedRows.map((row: any) => ({
           ...row,
           _tempId: crypto.randomUUID(),
-          location_code: "",
-          works_code: "",
-          location_mode: "select",
-          works_mode: "select",
-          location_manual: "",
-          works_manual: "",
+          Location_code: "",
+          Works_code: "",
+          Location_mode: "select",
+          Works_mode: "select",
+          Location_manual: "",
+          Works_manual: "",
+          
           //Database rows
 
 
         }))
         : [newEmptyRow()];
-      console.dir(loadedRows)
-      console.dir(nextRows)
-
+  
+      console.dir(formattedRows)
       setRows(nextRows);
 
       setLoading(false);

@@ -12,6 +12,23 @@ import { Turret_Road } from "next/font/google";
 
 //nothing
 
+
+//-------Loading config------------------------------
+
+export async function getConfig(siteId: string) {
+
+  const clientConfig = await prisma.site.findUnique({
+    where: {
+      id: siteId,
+    },
+    select: {
+      siteDiaryRecordsMap: true,
+    },
+  });
+
+  return clientConfig?.siteDiaryRecordsMap ?? null;
+}
+
 // Site diary records actions 
 
 export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
@@ -46,33 +63,36 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
   // Make sure requireUser() is not triggering a redirect!
   // Defensive: Only save if at least one row with location or works
   const toInsert = rows
-    .filter((r) => r.location || r.works)
+    .filter((r) => r.Location || r.Works)
     .map((row, idx) => {
       const out = {
         // UPDATE: Conditionally set userId or workerId
         userId: userId ?? undefined,
-        workerId: workerId ?? undefined, // NEW
+        workerId: workerId ?? undefined,
         siteId: siteId ?? undefined,
         organizationId: org ?? undefined,
 
-        //This comes from the parameter
+        Date: row.Date ? new Date(row.Date) : undefined,
+        Date_Custom_1: row.Date_Custom_1 ? new Date(row.Date_Custom_1) : undefined,
+        Date_Custom_2: row.Date_Custom_2 ? new Date(row.Date_Custom_2) : undefined,
 
-        Date: row.Date ? new Date(row.date) : undefined,
-        Date_Custom_1 : row.Date_Custom_1 ? new Date(row.date) : undefined,
-        Date_Custom_2 : row.Date_Custom_1 ? new Date(row.date) : undefined,
         Location: row.Location || undefined,
-        Location_Custom_1: row.Date_Custom_1|| undefined,
-        Location_Custom_2: row.Date_Custom_2|| undefined,
-        Works: row.works || undefined,
-        Works_Custom_1 : row.Works_Custom_1 || undefined,
-        Works_Custom_2 : row.Works_Custom_2 || undefined,
+        Location_Custom_1: row.Location_Custom_1 || undefined,
+        Location_Custom_2: row.Location_Custom_2 || undefined,
+
+        Works: row.Works || undefined,
+        Works_Custom_1: row.Works_Custom_1 || undefined,
+        Works_Custom_2: row.Works_Custom_2 || undefined,
+
         Comments: row.Comments || undefined,
-        Comments_Custom_1 : row.Comments_Custom_1 || undefined,
-        Comments_Custom_2 : row.Comments_Custom_2 || undefined,
+        Comments_Custom_1: row.Comments_Custom_1 || undefined,
+        Comments_Custom_2: row.Comments_Custom_2 || undefined,
+
         Units: row.Units || undefined,
-        Amounts: row.Amounts ? Number(row.amounts) : undefined,
-        WorkersInvolved: row.Workers ? Number(row.workers) : undefined,
-        TimeInvolved: row.Hours ? Number(row.hours) : undefined,
+        Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
+        WorkersInvolved: row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
+        TimeInvolved: row.Hours !== "" ? Number(row.Hours) : undefined,
+
         Photos: [],
       };
 
@@ -90,27 +110,14 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
     return { ok: false, message: "No records to insert" };
   }
 
-  // 🪵 LOG: Final data to be inserted
-  console.log("Final Data for prisma.sitediaryrecords.createMany:");
-  console.log(toInsert);
-  console.log("---------------------------------");
 
-  // Bulk insert
   try {
     await prisma.sitediaryrecords.createMany({ data: toInsert });
-    
-    // 🪵 LOG: Successful insertion
-    console.log(`Bulk insert successful. Count: ${toInsert.length}`);
-    console.log("--- saveSiteDiaryRecord END: Success ---");
 
-    // Optionally, revalidate data on page
-    // revalidatePath("/site-diary");
+ 
     return { ok: true, count: toInsert.length }; //Multitenant
 
   } catch (err) {
-    // 🪵 LOG: Error during insertion
-    console.error("Database Insert Error:", err.message);
-    console.log("--- saveSiteDiaryRecord END: Error ---");
 
     return { ok: false, message: err.message };
   }
@@ -134,27 +141,21 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
         siteId: siteId ?? undefined,
         organizationId: org ?? undefined,
 
-
-
-
-
-
-
-        Date: row.Date ? new Date(row.date) : undefined,
-        Date_Custom_1 : row.Date_Custom_1 ? new Date(row.date) : undefined,
-        Date_Custom_2 : row.Date_Custom_1 ? new Date(row.date) : undefined,
+        Date: row.Date ? new Date(row.Date) : undefined,
+        Date_Custom_1: row.Date_Custom_1 ? new Date(row.Date_Custom_1) : undefined,
+        Date_Custom_2: row.Date_Custom_2 ? new Date(row.Date_Custom_2) : undefined,
         Location: row.Location || undefined,
-        Location_Custom_1: row.Date_Custom_1|| undefined,
-        Location_Custom_2: row.Date_Custom_2|| undefined,
+        Location_Custom_1: row.Date_Custom_1 || undefined,
+        Location_Custom_2: row.Date_Custom_2 || undefined,
         Works: row.Works || undefined,
-        Works_Custom_1 : row.Works_Custom_1 || undefined,
-        Works_Custom_2 : row.Works_Custom_2 || undefined,
+        Works_Custom_1: row.Works_Custom_1 || undefined,
+        Works_Custom_2: row.Works_Custom_2 || undefined,
         Comments: row.Comments || undefined,
-        Comments_Custom_1 : row.Comments_Custom_1 || undefined,
-        Comments_Custom_2 : row.Comments_Custom_2 || undefined,
+        Comments_Custom_1: row.Comments_Custom_1 || undefined,
+        Comments_Custom_2: row.Comments_Custom_2 || undefined,
         Units: row.units || undefined,
-        Amounts: row.Amounts ? Number(row.amounts) : undefined,
-        WorkersInvolved: row.Workers ? Number(row.workers) : undefined,
+        Amounts: row.Amounts ? Number(row.aAmounts) : undefined,
+        WorkersInvolved: row.Workers ? Number(row.WorkersInvolved) : undefined,
         TimeInvolved: row.Hours ? Number(row.hours) : undefined,
         Photos: [],
 
@@ -235,22 +236,22 @@ export async function getSiteDiaryRecord({ siteId, date }) {
     select: {
       id: true,
       Date: true,
-      Date_Custom_1 :true,
-      Date_Custom_2 : true,
+      Date_Custom_1: true,
+      Date_Custom_2: true,
       Location: true,
       Location_Custom_1: true,
       Location_Custom_2: true,
       Works: true,
-      Works_Custom_1 : true,
-      Works_Custom_2 :true,
+      Works_Custom_1: true,
+      Works_Custom_2: true,
 
       Units: true,
       Amounts: true,
       WorkersInvolved: true,
       TimeInvolved: true,
       Comments: true,
-      Comments_Custom_1 : true,
-      Comments_Custom_2 : true, 
+      Comments_Custom_1: true,
+      Comments_Custom_2: true,
       // >>> START: NEW FIELDS for 'Created by' logic
       userId: true, // Keep userId for update payload
       workerId: true, // Keep workerId for update payload
@@ -295,26 +296,26 @@ export async function getSiteDiaryRecord({ siteId, date }) {
     return {
       id: rec.id,
       Date: rec.Date,
-      Date_Custom_1 : rec.Date_Custom_1,
-      Date_Custom_2 : rec.Date_Custom_2,
+      Date_Custom_1: rec.Date_Custom_1,
+      Date_Custom_2: rec.Date_Custom_2,
 
 
       Location: rec.Location || "",
 
       Works: rec.Works || "",
-      Works_Custom_1: rec.Works_Custom_1 || "", 
-      Works_Custom_2: rec.Works_Custom_2 || "", 
+      Works_Custom_1: rec.Works_Custom_1 || "",
+      Works_Custom_2: rec.Works_Custom_2 || "",
 
 
       Units: rec.Units || "",
       Amounts: rec.Amounts?.toString() || "",
-      Workers: rec.WorkersInvolved?.toString() || "",
-      Hours: rec.TimeInvolved?.toString() || "",
+      WorkersInvolved: rec.WorkersInvolved?.toString() || "",
+      TimeInvolved: rec.TimeInvolved?.toString() || "",
 
 
       Comments: rec.Comments || "",
-      Comments_Custom_1: rec.Comments_Custom_1 || "", 
-      Comments_Custom_2: rec.Comments_Custom_2 || "", 
+      Comments_Custom_1: rec.Comments_Custom_1 || "",
+      Comments_Custom_2: rec.Comments_Custom_2 || "",
 
 
 
@@ -342,16 +343,16 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       Date_Custom_2: true,
 
       Location: true,
-      Location_Custom_1:true,
-      Location_Custom_2:true,
+      Location_Custom_1: true,
+      Location_Custom_2: true,
 
       Works: true,
-      Works_Custom_1 : true,
-      Works_Custom_2 : true,
+      Works_Custom_1: true,
+      Works_Custom_2: true,
 
       Comments: true,
       Comments_Custom_1: true,
-      Comments_Custom_2 :true,
+      Comments_Custom_2: true,
 
       Units: true,
       Amounts: true,
@@ -641,29 +642,29 @@ const PHOTOS_PER_PAGE = 30;
  * @returns A promise that resolves to an object containing photos and the total count.
  */
 export async function getAllPhotos(
-    siteId: string, 
-    page: number,
-    startDate?: Date, // New optional parameter
-    endDate?: Date    // New optional parameter
+  siteId: string,
+  page: number,
+  startDate?: Date, // New optional parameter
+  endDate?: Date    // New optional parameter
 ) {
   try {
     const skip = (page - 1) * PHOTOS_PER_PAGE;
-    
+
     // Build the WHERE clause
     let dateFilter = {};
     if (startDate && endDate) {
-        // Ensure both ends of the range are used for filtering
-        dateFilter = {
-            Date: {
-                gte: startDate,
-                lte: endDate,
-            },
-        };
+      // Ensure both ends of the range are used for filtering
+      dateFilter = {
+        Date: {
+          gte: startDate,
+          lte: endDate,
+        },
+      };
     }
-    
+
     const whereClause = {
-        siteId: siteId,
-        ...dateFilter, // Include date filter if present
+      siteId: siteId,
+      ...dateFilter, // Include date filter if present
     };
 
     // 1. Fetch the photos for the current page
@@ -673,7 +674,7 @@ export async function getAllPhotos(
         Date: 'desc',
       },
       skip: skip,
-      take: PHOTOS_PER_PAGE, 
+      take: PHOTOS_PER_PAGE,
       select: {
         id: true,
         fileUrl: true,
@@ -690,9 +691,9 @@ export async function getAllPhotos(
 
     const filteredPhotos = photos.filter(photo => photo.fileUrl !== null);
 
-    return { 
-        photos: filteredPhotos, 
-        totalCount: totalCount 
+    return {
+      photos: filteredPhotos,
+      totalCount: totalCount
     };
 
   } catch (error) {

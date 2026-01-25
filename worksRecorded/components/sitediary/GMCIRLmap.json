@@ -1,0 +1,184 @@
+{
+  "Date": {
+    "Type": "fixed",
+    "DisplayName": "Date",
+    "customSettings": {
+      "renderAs" : "Day",
+      "order" : 1,
+      "cellWidth" : 250
+    }
+  },
+  "Date_Custom_1": {
+    "Type": "timePicker",
+    "DisplayName": "Start",
+    "customSettings": {
+      "renderAs" : "Time",
+      "order" : 10,
+      "cellWidth" : 120
+    }
+    
+  },
+  "Date_Custom_2": {
+    "Type": "timePicker",
+    "DisplayName": "Finish",
+    "customSettings": {
+      "order" : 11,
+      "cellWidth" : 120
+    }
+  },
+  "Location": {
+    "Type": "dropdown",
+    "DisplayName": "Section",
+    "DropDownOptions": {
+      "Location_1": "1A-1",
+      "Location_2": "1A-2"
+    },
+    "customSettings": {
+      "order" : 2,
+      "cellWidth" : 100
+    }
+  },
+  "Location_Custom_1": {
+    "Type": "dropdown",
+    "DisplayName": "Chainage",
+    "DropDownOptions": {
+      "Option_1": "50-60",
+      "Option_2": "60-70",
+     "Option_3": "70-80"
+    },
+    "customSettings": {
+      "order" : 3,
+      "cellWidth" : 100
+    }
+  },
+  "Location_Custom_2": {
+    "Type": "dropdown",
+    "DisplayName": "In/Out/Central",
+    "DropDownOptions": {
+      "Location_Custom_2_1": "Inbound",
+      "Location_Custom_2_2": "Outbound",
+      "Location_Custom_2_3": "Central res"
+    },
+    "customSettings": {
+      "order" : 4,
+      "cellWidth" : 150
+    }
+  },
+  "Works": {
+    "Type": "dropdown",
+    "DisplayName": "Works Category",
+    "DropDownOptions": {
+       "Option_1": "Scope",
+      "Option_2": "CE"
+    
+    },
+    "customSettings": {
+      "order" : 5,
+      "cellWidth" : 150
+    }
+  },
+  "Works_Custom_1": {
+    "Type": "textInput",
+    "DisplayName": "Works",
+    "DropDownOptions": {
+      "Option_1": "Scope",
+      "Option_2": "CE"
+    },
+    "customSettings": {
+      "order" : 6,
+      "cellWidth" : 250
+    }
+  },
+  "Works_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_2",
+    "DropDownOptions": {
+      "Works_Custom_2_1": "Works_Custom_2_1",
+      "Works_Custom_2_2": "Works_Custom_2_2"
+    },
+    "customSettings": {
+      "order" : 9,
+      "cellWidth" : 250
+    }
+  },
+  "Comments": {
+    "Type": "textInput",
+    "DisplayName": "Comments",
+    "customSettings": {
+      "order" : 17,
+      "cellWidth" : 350
+    }
+  },
+  "Comments_Custom_1": {
+    "Type": "textInput",
+    "DisplayName": "Resources",
+    "customSettings": {
+      "order" : 15,
+      "cellWidth" : 150
+    }
+  },
+  "Comments_Custom_2": {
+    "Type": "textInput",
+    "DisplayName": "Crew",
+    "customSettings": {
+      "order" :16,
+      "cellWidth" : 100
+    }
+  },
+  "Units": {
+    "Type": "dropdown",
+    "DisplayName": "Units",
+    "DropDownOptions": {
+      "m": "m",
+      "m2": "m2",
+      "m3": "m3",
+      "tn": "tn",
+      "kg": "kg",
+      "pcs": "pcs",
+      "package": "package",
+      "project": "project",
+      "hour": "hour",
+      "set": "set",
+      "minute": "minute",
+      "lifts": "lifts"
+    },
+    "customSettings": {
+      "order" : 9,
+      "cellWidth" : 75
+    }
+  },
+  "Amounts": {
+    "Type": "float",
+    "DisplayName": "Qty",
+    "customSettings": {
+      "order" : 8,
+      "cellWidth" : 75
+    }
+  },
+  "WorkersInvolved": {
+    "Type": "noRender",
+    "DisplayName": "Workers",
+    "customSettings": {
+      "integer": true,
+       "order" : 20,
+       "cellWidth" : 250
+
+    }
+  },
+   "TimeInvolved": {
+    "Type": "noRender",
+    "DisplayName": "Hours",
+    "customSettings": {
+      "integer": true,
+       "order" : 20,
+       "cellWidth" : 250
+
+    }
+  },
+ "FronteEndConfig" : {
+   "Type": "noRender"
+
+
+
+ }
+}

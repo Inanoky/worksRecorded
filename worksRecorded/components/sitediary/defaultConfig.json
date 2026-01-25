@@ -1,10 +1,11 @@
 {
   "Date": {
     "Type": "fixed",
-    "DisplayName": "SlavaTest",
+    "DisplayName": "Nothing",
     "customSettings": {
       "renderAs" : "Day",
-      "order" : 1
+      "order" : 1,
+      "cellWidth" : ""
     }
   },
   "Date_Custom_1": {
@@ -30,7 +31,7 @@
       "Location_2": "Location_2"
     },
     "customSettings": {
-      "order" : 4
+      "order" : 2
     }
   },
   "Location_Custom_1": {
@@ -64,7 +65,7 @@
       "Additional_works": "Additional_works"
     },
     "customSettings": {
-      "order" : 7
+      "order" : 3
     }
   },
   "Works_Custom_1": {
@@ -141,6 +142,15 @@
   "WorkersInvolved": {
     "Type": "float",
     "DisplayName": "Workers",
+    "customSettings": {
+      "integer": true,
+       "order" : 6
+
+    }
+  },
+   "TimeInvolved": {
+    "Type": "float",
+    "DisplayName": "Hours",
     "customSettings": {
       "integer": true,
        "order" : 6
