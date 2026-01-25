@@ -1,7 +1,7 @@
 {
   "Date": {
     "Type": "fixed",
-    "DisplayName": "Date",
+    "DisplayName": "DateGMCIRLconfig",
     "customSettings": {
       "renderAs" : "Day",
       "order" : 1,

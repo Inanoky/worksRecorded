@@ -37,9 +37,8 @@ import defaultConfig from "./defaultConfig.json"
 import GMCIRLmap from "./GMCIRLmap.json"
 
 
+//--------Loading config------------
 
-
-const defaultMap = defaultConfig
 
 /* ---------- helpers ---------- */
 const ADDITIONAL_WORKS_OPTION = {
@@ -228,6 +227,7 @@ export function DialogTable({
   const isMobile = useMediaQuery("(max-width: 640px)");
   const [loading, setLoading] = useState(true);
   const [tableHeads, setTableHeads] = useState<string[]>([]);
+  const [defaultMap, setMap] = useState<Record<string, any>>(defaultConfig);
 
   const newEmptyRow = () => ({
     id: undefined as string | undefined,
@@ -645,11 +645,10 @@ export function DialogTable({
   useEffect(() => {
     console.log("rows state changed:", rows);
     console.log("tableheades ", tableHeads)
+    
   }, [rows]);
 
-
-
-
+  //Downloadinf map 
 
 
   useEffect(() => {
@@ -664,6 +663,8 @@ export function DialogTable({
 
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
+      const config = await getConfig(siteId);
+      setMap(config ?? defaultConfig);
 
 
 
@@ -692,11 +693,16 @@ export function DialogTable({
 
       //Here we load config from database, and if no config we use default. 
 
-      const config = await getConfig(siteId)
+   
+      const cfg = (await getConfig(siteId)) ?? defaultConfig;
+          if (cancelled) return;
 
-      const map = config ?? defaultMap
+          setMap(cfg);
 
-      const renderableFields = getRenderableFieldsOrdered(defaultMap)
+          const renderableFields = getRenderableFieldsOrdered(cfg);
+
+      console.log(`renderable fields`)
+      console.dir(renderableFields)
 
 
 
