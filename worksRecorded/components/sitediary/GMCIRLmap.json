@@ -14,7 +14,7 @@
     "customSettings": {
       "renderAs" : "Time",
       "order" : 10,
-      "cellWidth" : 120
+      "cellWidth" : 80
     }
     
   },
@@ -23,7 +23,7 @@
     "DisplayName": "Finish",
     "customSettings": {
       "order" : 11,
-      "cellWidth" : 120
+      "cellWidth" : 80
     }
   },
   "Location": {

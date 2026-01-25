@@ -39,7 +39,7 @@ import GMCIRLmap from "./GMCIRLmap.json"
 
 
 
-const defaultMap = GMCIRLmap
+const defaultMap = defaultConfig
 
 /* ---------- helpers ---------- */
 const ADDITIONAL_WORKS_OPTION = {
@@ -114,7 +114,7 @@ const showZodErrorToast = (err: z.ZodError) => {
 const DiaryRowSchema = z.object({
 
 
-    id: z.string().uuid().optional(),          // DB id (only if real UUID)
+  id: z.string().uuid().optional(),          // DB id (only if real UUID)
   _tempId: z.string().optional(),            // UI id (always present for new rows)
   // numbers in your table are strings while editing, so allow "" and coerce
   Amounts: z
@@ -167,8 +167,8 @@ const DiaryRowSchema = z.object({
 
   // Date is fixed in UI but still part of payload/state
   Date: z.any().optional(),
-  Date_Custom_1 : z.any().optional(),
-  Date_Custom_2 : z.any().optional(),
+  Date_Custom_1: z.any().optional(),
+  Date_Custom_2: z.any().optional(),
 });
 
 const DiaryRowsSchema = z.array(DiaryRowSchema);
@@ -225,7 +225,7 @@ export function DialogTable({
 
 
   //---------------------------------------State---------------------------------------
-  const isMobile = useMediaQuery("(max-width: 640px)");  
+  const isMobile = useMediaQuery("(max-width: 640px)");
   const [loading, setLoading] = useState(true);
   const [tableHeads, setTableHeads] = useState<string[]>([]);
 
@@ -258,16 +258,16 @@ export function DialogTable({
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
 
   const handleAddRow = () => {
-    
+
     setRows((prev) => [...prev, newEmptyRow()]);
   };
 
   const handleDeleteRow = async (idOrTemp: string | undefined, tempId?: string) => {
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
-   
+
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
-    
+
       toast.success("Record deleted!");
       onSaved?.();
     } else {
@@ -276,7 +276,7 @@ export function DialogTable({
   };
 
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
-  
+
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
@@ -298,7 +298,7 @@ export function DialogTable({
     console.dir(cleanRows);
 
 
-   
+
 
     const existingRows = cleanRows.filter((r) => isUUID(r.id));
 
@@ -309,28 +309,28 @@ export function DialogTable({
 
 
     //This we need to strip any UI only fields 
-   const stripUiFields = (r: any) => {
-  const {
-    _tempId,
+    const stripUiFields = (r: any) => {
+      const {
+        _tempId,
 
-    Location_code,
-    Works_code,
+        Location_code,
+        Works_code,
 
-    Location_mode,
-    Works_mode,
-    Location_manual,
-    Works_manual,
+        Location_mode,
+        Works_mode,
+        Location_manual,
+        Works_manual,
 
-    Location_custom_1_mode,
-    Location_custom_2_mode,
-    Works_custom_1_mode,
-    Works_custom_2_mode,
+        Location_custom_1_mode,
+        Location_custom_2_mode,
+        Works_custom_1_mode,
+        Works_custom_2_mode,
 
-    ...db
-  } = r;
+        ...db
+      } = r;
 
-  return db;
-};
+      return db;
+    };
 
 
     // Here we actually update existing rows 
@@ -339,44 +339,56 @@ export function DialogTable({
 
       const dbRow = stripUiFields(r);
 
+      //Converting "" into datetime
+
+      dbRow.Date_Custom_1 = normalizeDate(dbRow.Date_Custom_1);
+      dbRow.Date_Custom_2 = normalizeDate(dbRow.Date_Custom_2);
+
       const payload = {
         //So here we will only save original dbRows + siteId
-        ...dbRow,   
+
+        ...dbRow,
+        
         siteId,
       };
 
       try {
-        
+
         await updateSiteDiaryRecord(payload);
       } catch (err: any) {
         toast.error(`Failed to update row ${r.id}: ${err?.message ?? "Unknown error"}`);
         return;
       }
     }
-      //for create we also need to strip of id
+    //for create we also need to strip of id
     const stripUiFieldsForCreate = (r: any) => {
-        const { id, ...rest } = stripUiFields(r);
-        return rest;
-      };
+      const { id, ...rest } = stripUiFields(r);
+      return rest;
+    };
     // Here we create new rows
     if (newRows.length) {
 
       //same, strip UI only fields 
 
-      
-       const rowsToCreate = newRows.map(stripUiFieldsForCreate);
 
-       try {
-           console.dir(rowsToCreate)
-            await saveSiteDiaryRecordFromWeb({
-              rows: rowsToCreate,
-              siteId,
-            });
-          } catch (err: any) {
-            toast.error(`Failed to create rows: ${err?.message ?? "Unknown error"}`);
-            return;
-          }
-        }
+      const rowsToCreate = newRows.map(stripUiFieldsForCreate).map((r) => ({
+            ...r,
+            Date_Custom_1: normalizeDate(r.Date_Custom_1),
+            Date_Custom_2: normalizeDate(r.Date_Custom_2),
+          }));
+
+
+      try {
+        console.dir(rowsToCreate)
+        await saveSiteDiaryRecordFromWeb({
+          rows: rowsToCreate,
+          siteId,
+        });
+      } catch (err: any) {
+        toast.error(`Failed to create rows: ${err?.message ?? "Unknown error"}`);
+        return;
+      }
+    }
 
 
     toast.success("Records saved!");
@@ -384,15 +396,18 @@ export function DialogTable({
   };
 
 
-
+  const normalizeDate = (v: any) => {
+  if (!v) return null;
+  return v instanceof Date ? v : new Date(v);
+};
 
 
 
   //------------------------map helpers----------------------------------------------
 
   function getTypeByKey(key: string) {
-  return defaultMap[key]?.Type ?? null;
-}
+    return defaultMap[key]?.Type ?? null;
+  }
 
 
   function getDisplayNameByKey(key) {
@@ -400,138 +415,126 @@ export function DialogTable({
   }
 
   function getCellWidthByKey(
-  key: string,
-  map: Record<string, any>,
-  fallback = 200 // default if not defined
-): number {
-  return (
-    map?.[key]?.customSettings?.cellWidth ??
-    fallback
-  );
-}
+    key: string,
+    map: Record<string, any>,
+    fallback = 200 // default if not defined
+  ): number {
+    return (
+      map?.[key]?.customSettings?.cellWidth ??
+      fallback
+    );
+  }
 
 
   //----------------------cell renders-----------------------------------------------------
 
-function cellRender(args: {
-  field: string;
-  row: any;
-  rowKey: string;
-}) {
-  const { field, row, rowKey } = args;
-  const type = getTypeByKey(field);
+  function cellRender(args: {
+    field: string;
+    row: any;
+    rowKey: string;
+  }) {
+    const { field, row, rowKey } = args;
+    const type = getTypeByKey(field);
 
-  // fixed / default
- if (type === "fixed") {
-  const value = row[field]; 
-  const renderAs = defaultMap?.[field]?.customSettings?.renderAs ?? "String";
+    // fixed / default
+    if (type === "fixed") {
+      const value = row[field];
+      const renderAs = defaultMap?.[field]?.customSettings?.renderAs ?? "String";
 
-  let display = "";
+      let display = "";
 
-  if (value !== null && value !== undefined && value !== "") {
-    if (renderAs === "Day" || renderAs === "Time") {
-      const d = new Date(value);
+      if (value !== null && value !== undefined && value !== "") {
+        if (renderAs === "Day" || renderAs === "Time") {
+          const d = new Date(value);
 
-      if (!isNaN(d.getTime())) {
-        if (renderAs === "Day") {
-          const day = String(d.getDate()).padStart(2, "0");
-          const month = String(d.getMonth() + 1).padStart(2, "0");
-          const year = d.getFullYear();
-          display = `${day}.${month}.${year}`;
+          if (!isNaN(d.getTime())) {
+            if (renderAs === "Day") {
+              const day = String(d.getDate()).padStart(2, "0");
+              const month = String(d.getMonth() + 1).padStart(2, "0");
+              const year = d.getFullYear();
+              display = `${day}.${month}.${year}`;
+            } else {
+              const h = String(d.getHours()).padStart(2, "0");
+              const m = String(d.getMinutes()).padStart(2, "0");
+              display = `${h}:${m}`;
+            }
+          } else {
+            // if it's not a valid date, just show as string
+            display = String(value);
+          }
         } else {
-          const h = String(d.getHours()).padStart(2, "0");
-          const m = String(d.getMinutes()).padStart(2, "0");
-          display = `${h}:${m}`;
+          display = String(value);
         }
-      } else {
-        // if it's not a valid date, just show as string
-        display = String(value);
       }
-    } else {
-      display = String(value);
+
+      return <span className="text-sm text-muted-foreground select-none">{display}</span>;
     }
-  }
-
-  return <span className="text-sm text-muted-foreground select-none">{display}</span>;
-}
 
 
 
 
-if (type === "timePicker") {
-  const raw = row[field];
+    if (type === "timePicker") {
 
-  // Extract HH:mm for display
-  let hhmm = "";
 
-  if (raw instanceof Date) {
-    hhmm = raw.toISOString().slice(11, 16);
-  } else if (typeof raw === "string") {
-    if (raw.includes("T")) {
-      hhmm = raw.slice(11, 16); // ISO
-    } else if (/^\d{2}:\d{2}$/.test(raw)) {
-      hhmm = raw; // already HH:mm
-    }
-  }
+      function dateTimeToHHmm(value: any): string {
+        if (!value) return "";
+        const d = value instanceof Date ? value : new Date(value);
+        if (isNaN(d.getTime())) return "";
+        const hh = String(d.getHours()).padStart(2, "0");
+        const mm = String(d.getMinutes()).padStart(2, "0");
+        return `${hh}:${mm}`;
+      }
 
-  return (
-    <Input
-      type="time"
-      style={{ width: getCellWidthByKey(field, defaultMap) }}
-      value={hhmm}
-      onChange={(e) => {
-        const time = e.target.value; // "HH:mm"
+      function hhmmToDateTime(
+        hhmm: string,
+        baseDate?: string | Date
+      ): Date | null {
+        if (!hhmm) return null;
 
-        if (!time) {
-          handleChange(rowKey, field, null);
-          return;
-        }
+        const [h, m] = hhmm.split(":").map(Number);
 
-        const [h, m] = time.split(":").map(Number);
-
-        // Use row.Date as base day (your diary date)
-        const base = row.Date
-          ? new Date(row.Date)
+        const base = baseDate
+          ? new Date(baseDate)
           : new Date();
+
+        if (isNaN(base.getTime())) return null;
 
         base.setHours(h, m, 0, 0);
 
-        handleChange(rowKey, field, base.toISOString());
-      }}
-    />
-  );
-}
-
-  // calendarPicker (YYYY-MM-DD)
-  if (type === "calendarPicker") {
-    const v = String(row[field] ?? "");
-    const ymd = v ? v.slice(0, 10) : ""; // supports ISO strings too
-
-    return (
-      <Input
-        type="date"
-        style={{ width: getCellWidthByKey(field, defaultMap) }}
-        value={v.length >= 10 ? ymd : v}
-        onChange={(e) => handleChange(rowKey, field, e.target.value)}
-      />
-    );
-  }
+        return base; // ✅ Date object
+      }
 
 
 
 
 
+      return (
+        <Input
+          type="time"
+          style={{ width: getCellWidthByKey(field, defaultMap) }}
+          value={dateTimeToHHmm(row[field])}
+          onChange={(e) => {
+            const dt = hhmmToDateTime(e.target.value, row.Date);
+            handleChange(rowKey, field, dt); // ✅ Date in state
+          }}
+        />
+      );
+    }
 
+    // calendarPicker (YYYY-MM-DD)
+    if (type === "calendarPicker") {
+      const v = String(row[field] ?? "");
+      const ymd = v ? v.slice(0, 10) : ""; // supports ISO strings too
 
-
-
-
-
-
-
-
-
-
+      return (
+        <Input
+          type="date"
+          style={{ width: getCellWidthByKey(field, defaultMap) }}
+          value={v.length >= 10 ? ymd : v}
+          onChange={(e) => handleChange(rowKey, field, e.target.value)}
+        />
+      );
+    }
 
 
 
@@ -543,82 +546,98 @@ if (type === "timePicker") {
 
 
 
-  // textInput
-  if (type === "textInput") {
-    return (
-      <Textarea
-        style={{ width: getCellWidthByKey(field, defaultMap) }}
-        rows={1}
-        value={String(row[field] ?? "")}
-        onChange={(e) => handleChange(rowKey, field, e.target.value)}
-      />
-    );
-  }
-
-  // float (you can also add integer logic via customSettings)
-  if (type === "float") {
-    return (
-      <Input
-        inputMode="decimal"
-        style={{ width: getCellWidthByKey(field, defaultMap) }}
-        value={String(row[field] ?? "")}
-        onChange={(e) => handleChange(rowKey, field, e.target.value)}
-      />
-    );
-  }
-
-  // dropdown
-  if (type === "dropdown") {
 
 
-    
 
-   const optionsObj = defaultMap[field]?.DropDownOptions ?? {};
 
-let options = Object.entries(optionsObj).map(([value, label]) => ({
-  value,
-  label: String(label),
-}));
 
-const currentValue = String(row[field] ?? "");
 
-if (
-  currentValue &&
-  !options.some((opt) => opt.value === currentValue)
-) {
-  options.unshift({
-    value: currentValue,
-    label: currentValue,
-  });
-}
-    
 
-    return (
-      <Select
-        value={currentValue}
-        onValueChange={(val) => handleChange(rowKey, field, val)}
-      >
-        <SelectTrigger
-        
-        style={{ width: getCellWidthByKey(field, defaultMap) }}
-        
+
+
+
+
+
+
+
+
+
+    // textInput
+    if (type === "textInput") {
+      return (
+        <Textarea
+          style={{ width: getCellWidthByKey(field, defaultMap) }}
+          rows={1}
+          value={String(row[field] ?? "")}
+          onChange={(e) => handleChange(rowKey, field, e.target.value)}
+        />
+      );
+    }
+
+    // float (you can also add integer logic via customSettings)
+    if (type === "float") {
+      return (
+        <Input
+          inputMode="decimal"
+          style={{ width: getCellWidthByKey(field, defaultMap) }}
+          value={String(row[field] ?? "")}
+          onChange={(e) => handleChange(rowKey, field, e.target.value)}
+        />
+      );
+    }
+
+    // dropdown
+    if (type === "dropdown") {
+
+
+
+
+      const optionsObj = defaultMap[field]?.DropDownOptions ?? {};
+
+      let options = Object.entries(optionsObj).map(([value, label]) => ({
+        value,
+        label: String(label),
+      }));
+
+      const currentValue = String(row[field] ?? "");
+
+      if (
+        currentValue &&
+        !options.some((opt) => opt.value === currentValue)
+      ) {
+        options.unshift({
+          value: currentValue,
+          label: currentValue,
+        });
+      }
+
+
+      return (
+        <Select
+          value={currentValue}
+          onValueChange={(val) => handleChange(rowKey, field, val)}
         >
-          <SelectValue placeholder={String(row[field] ?? "Select…")} />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
-  }
+          <SelectTrigger
 
-  // fallback
-  return <span>{String(row[field] ?? "")}</span>;
-}
+            style={{ width: getCellWidthByKey(field, defaultMap) }}
+
+          >
+            <SelectValue placeholder={String(row[field] ?? "Select…")} />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // fallback
+    return <span>{String(row[field] ?? "")}</span>;
+  }
 
 
 
@@ -651,51 +670,51 @@ if (
 
       //Rhis is funciton will map out noRender fields. 
 
-     function getRenderableFieldsOrdered(map: Record<string, any>): string[] {
-  return Object.entries(map)
-    .filter(([_, cfg]) => cfg?.Type !== "noRender")
-    .sort((a, b) => {
-      const ao = a[1]?.customSettings?.order;
-      const bo = b[1]?.customSettings?.order;
+      function getRenderableFieldsOrdered(map: Record<string, any>): string[] {
+        return Object.entries(map)
+          .filter(([_, cfg]) => cfg?.Type !== "noRender")
+          .sort((a, b) => {
+            const ao = a[1]?.customSettings?.order;
+            const bo = b[1]?.customSettings?.order;
 
-      const aOrder = typeof ao === "number" ? ao : Number.POSITIVE_INFINITY;
-      const bOrder = typeof bo === "number" ? bo : Number.POSITIVE_INFINITY;
+            const aOrder = typeof ao === "number" ? ao : Number.POSITIVE_INFINITY;
+            const bOrder = typeof bo === "number" ? bo : Number.POSITIVE_INFINITY;
 
-      // primary sort: order asc
-      if (aOrder !== bOrder) return aOrder - bOrder;
+            // primary sort: order asc
+            if (aOrder !== bOrder) return aOrder - bOrder;
 
-      // tie-breaker: stable deterministic (key name)
-      return a[0].localeCompare(b[0]);
-    })
-    .map(([key]) => key.trim());
-}
-
-
-//Here we load config from database, and if no config we use default. 
-
-     const config = await getConfig(siteId)
-
-     const map = config ?? defaultMap
-
-     const renderableFields =  getRenderableFieldsOrdered(defaultMap)
-   
-
-   
+            // tie-breaker: stable deterministic (key name)
+            return a[0].localeCompare(b[0]);
+          })
+          .map(([key]) => key.trim());
+      }
 
 
-   
+      //Here we load config from database, and if no config we use default. 
+
+      const config = await getConfig(siteId)
+
+      const map = config ?? defaultMap
+
+      const renderableFields = getRenderableFieldsOrdered(defaultMap)
 
 
-     console.log(config)
 
-      
+
+
+
+
+
+      console.log(config)
+
+
 
       setTableHeads(renderableFields)
 
 
 
 
-      
+
 
 
 
@@ -708,18 +727,18 @@ if (
       //Filter out rows we don't need according to map. But let's keep id Row also. 
 
       function pickRenderableRows(
-          rows: Record<string, any>[],
-          renderableFields: string[]
-        ) {
-          return rows.map((row) => ({
-            id: row.id ?? undefined, // keep DB id even if not renderable
-            createdBy: row.createdBy ?? undefined,
-           
-            ...Object.fromEntries(
-              renderableFields.map((field) => [field, row[field] ?? ""])
-            ),
-          }));
-        }
+        rows: Record<string, any>[],
+        renderableFields: string[]
+      ) {
+        return rows.map((row) => ({
+          id: row.id ?? undefined, // keep DB id even if not renderable
+          createdBy: row.createdBy ?? undefined,
+
+          ...Object.fromEntries(
+            renderableFields.map((field) => [field, row[field] ?? ""])
+          ),
+        }));
+      }
 
 
       //So this will only leave rows which are not marked as noRender. 
@@ -731,7 +750,7 @@ if (
         renderableFields
       );
 
-       console.log("Formatted rows ");
+      console.log("Formatted rows ");
       console.dir(formattedRows);
 
       //This function returns corrected table name :
@@ -745,8 +764,8 @@ if (
       if (cancelled) return;
 
       //This mess I just hate. It just needs to be same as fucking data.
-      
-    
+
+
 
       const nextRows = formattedRows.length
         ? formattedRows.map((row: any) => ({
@@ -758,13 +777,13 @@ if (
           Works_mode: "select",
           Location_manual: "",
           Works_manual: "",
-          
+
           //Database rows
 
 
         }))
         : [newEmptyRow()];
-  
+
       console.dir(formattedRows)
       setRows(nextRows);
 

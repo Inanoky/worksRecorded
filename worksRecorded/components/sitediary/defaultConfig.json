@@ -5,14 +5,15 @@
     "customSettings": {
       "renderAs" : "Day",
       "order" : 1,
-      "cellWidth" : ""
+      "cellWidth" : 150
     }
   },
   "Date_Custom_1": {
     "Type": "noRender",
     "DisplayName": "Date_Custom_1",
     "customSettings": {
-      "order" : 2
+      "order" : 2,
+       "cellWidth" : 250
     }
     
   },
@@ -20,7 +21,8 @@
     "Type": "noRender",
     "DisplayName": "Date_Custom_2",
     "customSettings": {
-      "order" : 3
+      "order" : 3,
+       "cellWidth" : 250
     }
   },
   "Location": {
@@ -31,7 +33,8 @@
       "Location_2": "Location_2"
     },
     "customSettings": {
-      "order" : 2
+      "order" : 2,
+       "cellWidth" : 150
     }
   },
   "Location_Custom_1": {
@@ -42,7 +45,8 @@
       "Location_Custom_1_2": "Location_Custom_1_2"
     },
     "customSettings": {
-      "order" : 5
+      "order" : 5,
+       "cellWidth" : 250
     }
   },
   "Location_Custom_2": {
@@ -53,7 +57,8 @@
       "Location_Custom_2_2": "Location_Custom_2_2"
     },
     "customSettings": {
-      "order" : 6
+      "order" : 6,
+       "cellWidth" : 250
     }
   },
   "Works": {
@@ -65,7 +70,8 @@
       "Additional_works": "Additional_works"
     },
     "customSettings": {
-      "order" : 3
+      "order" : 3,
+       "cellWidth" : 150
     }
   },
   "Works_Custom_1": {
@@ -76,7 +82,8 @@
       "Works_Custom_1_2": "Works_Custom_1_2"
     },
     "customSettings": {
-      "order" : 8
+      "order" : 8,
+       "cellWidth" : 250
     }
   },
   "Works_Custom_2": {
@@ -87,28 +94,32 @@
       "Works_Custom_2_2": "Works_Custom_2_2"
     },
     "customSettings": {
-      "order" : 9
+      "order" : 9,
+       "cellWidth" : 250
     }
   },
   "Comments": {
     "Type": "textInput",
     "DisplayName": "Comments",
     "customSettings": {
-      "order" : 10
+      "order" : 10,
+       "cellWidth" : 450
     }
   },
   "Comments_Custom_1": {
     "Type": "noRender",
     "DisplayName": "textInput",
     "customSettings": {
-      "order" : 11
+      "order" : 11,
+       "cellWidth" : 250
     }
   },
   "Comments_Custom_2": {
     "Type": "noRender",
     "DisplayName": "textInput",
     "customSettings": {
-      "order" : 12
+      "order" : 12,
+       "cellWidth" : 250
     }
   },
   "Units": {
@@ -129,14 +140,16 @@
       "lifts": "lifts"
     },
     "customSettings": {
-      "order" : 4
+      "order" : 4,
+       "cellWidth" : 80
     }
   },
   "Amounts": {
     "Type": "float",
     "DisplayName": "Amounts",
     "customSettings": {
-      "order" : 5
+      "order" : 5,
+       "cellWidth" : 65
     }
   },
   "WorkersInvolved": {
@@ -144,7 +157,8 @@
     "DisplayName": "Workers",
     "customSettings": {
       "integer": true,
-       "order" : 6
+       "order" : 6,
+        "cellWidth" : 65
 
     }
   },
@@ -153,7 +167,8 @@
     "DisplayName": "Hours",
     "customSettings": {
       "integer": true,
-       "order" : 6
+       "order" : 6,
+        "cellWidth" : 65
 
     }
   }
