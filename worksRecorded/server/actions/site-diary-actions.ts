@@ -359,6 +359,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       WorkersInvolved: true,
       TimeInvolved: true,
       Photos: true,
+      
       // add/remove fields as needed
       // id: true,
       // siteId: true,

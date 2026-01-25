@@ -5,7 +5,9 @@
     "customSettings": {
       "renderAs" : "Day",
       "order" : 1,
-      "cellWidth" : 250
+      "cellWidth" : 250,
+      "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
     }
   },
   "Date_Custom_1": {
@@ -14,7 +16,10 @@
     "customSettings": {
       "renderAs" : "Time",
       "order" : 10,
-      "cellWidth" : 80
+      "cellWidth" : 80,
+       "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
+      
     }
     
   },
@@ -23,7 +28,9 @@
     "DisplayName": "Finish",
     "customSettings": {
       "order" : 11,
-      "cellWidth" : 80
+      "cellWidth" : 80,
+       "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
     }
   },
   "Location": {
@@ -35,7 +42,9 @@
     },
     "customSettings": {
       "order" : 2,
-      "cellWidth" : 100
+      "cellWidth" : 100,
+       "displayinSiteList" : "yes",
+      "displayinSiteListOrder" : 1
     }
   },
   "Location_Custom_1": {
@@ -48,7 +57,9 @@
     },
     "customSettings": {
       "order" : 3,
-      "cellWidth" : 100
+      "cellWidth" : 100,
+     "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
     }
   },
   "Location_Custom_2": {
@@ -61,7 +72,9 @@
     },
     "customSettings": {
       "order" : 4,
-      "cellWidth" : 150
+      "cellWidth" : 150,
+      "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
     }
   },
   "Works": {
@@ -74,7 +87,9 @@
     },
     "customSettings": {
       "order" : 5,
-      "cellWidth" : 150
+      "cellWidth" : 150,
+      "displayinSiteList" : "yes",
+      "displayinSiteListOrder" : 1
     }
   },
   "Works_Custom_1": {
@@ -86,7 +101,9 @@
     },
     "customSettings": {
       "order" : 6,
-      "cellWidth" : 250
+      "cellWidth" : 250,
+     "displayinSiteList" : "yes",
+      "displayinSiteListOrder" : 1
     }
   },
   "Works_Custom_2": {
@@ -98,7 +115,9 @@
     },
     "customSettings": {
       "order" : 9,
-      "cellWidth" : 250
+      "cellWidth" : 250,
+       "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
     }
   },
   "Comments": {
@@ -106,7 +125,9 @@
     "DisplayName": "Comments",
     "customSettings": {
       "order" : 17,
-      "cellWidth" : 350
+      "cellWidth" : 350,
+      "displayinSiteList" : "yes",
+      "displayinSiteListOrder" : 1
     }
   },
   "Comments_Custom_1": {
@@ -114,7 +135,9 @@
     "DisplayName": "Resources",
     "customSettings": {
       "order" : 15,
-      "cellWidth" : 150
+      "cellWidth" : 150,
+       "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
     }
   },
   "Comments_Custom_2": {
@@ -122,7 +145,9 @@
     "DisplayName": "Crew",
     "customSettings": {
       "order" :16,
-      "cellWidth" : 100
+      "cellWidth" : 100,
+       "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
     }
   },
   "Units": {
@@ -144,7 +169,9 @@
     },
     "customSettings": {
       "order" : 9,
-      "cellWidth" : 75
+      "cellWidth" : 75,
+      "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
     }
   },
   "Amounts": {
@@ -152,7 +179,9 @@
     "DisplayName": "Qty",
     "customSettings": {
       "order" : 8,
-      "cellWidth" : 75
+      "cellWidth" : 75,
+       "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
     }
   },
   "WorkersInvolved": {
@@ -161,7 +190,9 @@
     "customSettings": {
       "integer": true,
        "order" : 20,
-       "cellWidth" : 250
+       "cellWidth" : 250,
+        "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
 
     }
   },
@@ -171,7 +202,9 @@
     "customSettings": {
       "integer": true,
        "order" : 20,
-       "cellWidth" : 250
+       "cellWidth" : 250,
+        "displayinSiteList" : "no",
+      "displayinSiteListOrder" : 1
 
     }
   },

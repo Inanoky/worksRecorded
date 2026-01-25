@@ -69,6 +69,9 @@ import {
 
 // 👇 NEW: full gallery view
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
+import { getConfig } from "@/server/actions/site-diary-actions";
+import defaultConfig from "./defaultConfig.json"
+import { ContentAndApprovalsInstance } from "twilio/lib/rest/content/v1/contentAndApprovals";
 
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -183,6 +186,49 @@ export default function SiteDiaryCalendar({
   const [workFilter, setWorkFilter] = React.useState<string>("__ALL__");
   const [floorFilter, setFloorFilter] = React.useState<string>("__ALL__"); // 👈 NEW
 
+
+  //----------------------Table---------------------------------------------------
+
+
+
+  const [defaultMap, setMap] = React.useState<Record<string, any>>(defaultConfig);
+  const [tableHeads, setTableHeads] = React.useState<string[]>([]);
+  const [tableRows, setTableRows] = React.useState<any[]>([]);
+
+  //------------------------map helpers----------------------------------------------
+
+  function getTypeByKey(key: string) {
+    return defaultMap[key]?.Type ?? null;
+  }
+
+
+  function getDisplayNameByKey(key) {
+    return defaultMap[key]?.DisplayName ?? key;
+  }
+  function getCellWidthByKey(
+    key: string,
+    map: Record<string, any>,
+    fallback = 200
+  ): number {
+    return (
+      map?.[key]?.customSettings?.displayinSiteListWidth ??
+      fallback
+    );
+  }
+
+
+  type TextAlign = "left" | "center" | "right";
+
+  function getSiteListTextAlignmentByKey(
+    key: string,
+    map: Record<string, any>,
+    fallback: TextAlign = "left"
+  ): TextAlign {
+    const v = map?.[key]?.customSettings?.displayinSiteListTextAlignment;
+    return v === "left" || v === "center" || v === "right" ? v : fallback;
+  }
+
+
   // PDF loading per day (key = yyyy-mm-dd)
   const [pdfLoadingKey, setPdfLoadingKey] =
     React.useState<string | null>(null);
@@ -229,8 +275,94 @@ export default function SiteDiaryCalendar({
       setLoading(true);
       setError(null);
       try {
-        const data: DiaryRow[] =
-          await getSitediaryRecordsBySiteIdForExcel(siteId);
+        //------------------------------------------------------------------------Getting dynamic table---------------------------------------------
+
+        //We write code to extract dfields to be dispalyed displayinSiteList = "yes", from config.
+        //Then we filter out fields which are marked "no"
+        //then we collect tableHeaders (from config DisplayNames)
+        //then we generate rows from filteredData
+        //Then we sort according to displayinSiteListOrder (tie braker solved randomly)
+
+
+        function getRenderableFieldsOrdered(map: Record<string, any>): string[] {
+          return Object.entries(map)
+            // keep only fields marked for site list
+            .filter(([_, cfg]) => {
+              return cfg?.customSettings?.displayinSiteList === "yes";
+            })
+            // sort by displayinSiteListOrder (asc), then stable by key
+            .sort((a, b) => {
+              const ao = a[1]?.customSettings?.displayinSiteListOrder;
+              const bo = b[1]?.customSettings?.displayinSiteListOrder;
+
+              const aOrder = typeof ao === "number" ? ao : Number.POSITIVE_INFINITY;
+              const bOrder = typeof bo === "number" ? bo : Number.POSITIVE_INFINITY;
+
+              if (aOrder !== bOrder) return aOrder - bOrder;
+
+              // fallback: deterministic order
+              return a[0].localeCompare(b[0]);
+            })
+            .map(([key]) => key.trim());
+        }
+
+
+        //Here we load config from database, and if no config we use default. 
+
+
+        const cfg = (await getConfig(siteId)) ?? defaultConfig;
+        if (cancelled) return;
+
+
+        console.log('config')
+        console.dir(cfg)
+
+        setMap(cfg);
+
+        const renderableFields = getRenderableFieldsOrdered(cfg);
+        console.log(`renderableFields ${renderableFields}`)
+
+        setTableHeads(renderableFields)
+
+
+
+
+        //Fetching data 
+        const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+
+        function pickRenderableRows(
+          rows: Record<string, any>[],
+          renderableFields: string[]
+        ) {
+          return rows.map((row) => ({
+
+            createdBy: row.createdBy ?? undefined,
+
+            ...Object.fromEntries(
+              renderableFields.map((field) => [field, row[field] ?? ""])
+            ),
+          }));
+        }
+
+        //formatting data according to the config 
+        const formattedRows = pickRenderableRows(
+          data,
+          renderableFields
+        );
+
+        setTableRows(formattedRows);
+
+
+
+        console.log(`formatted rows`)
+        console.dir(formattedRows)
+
+
+
+
+
+
+
         if (!cancelled) {
           setRows(data || []);
         }
@@ -392,7 +524,7 @@ export default function SiteDiaryCalendar({
   return (
     <TooltipProvider>
       <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4">
-       
+
 
         <Tabs
           value={viewMode}
@@ -413,18 +545,18 @@ export default function SiteDiaryCalendar({
 
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
               <TabsList className="self-start sm:self-end">
-                 <TabsTrigger value="list">List</TabsTrigger>
+                <TabsTrigger value="list">List</TabsTrigger>
                 <TabsTrigger value="calendar">Calendar</TabsTrigger>
-             
+
                 {/* 👇 NEW toggle */}
                 <TabsTrigger value="gallery">Gallery</TabsTrigger>
               </TabsList>
 
-              <div 
-              className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"
-           
-              
-              
+              <div
+                className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"
+
+
+
               >
                 <button
                   type="button"
@@ -432,7 +564,7 @@ export default function SiteDiaryCalendar({
                     window.open("https://wa.me/13135131153", "_blank")
                   }
                   className="inline-flex items-center justify-center gap-2 rounded-md border border-green-100 bg-white px-3 py-1.5 text-sm font-medium text-green-600 shadow-sm transition hover:bg-green-50 hover:text-green-700"
-                     data-tour="calendar"
+                  data-tour="calendar"
                 >
 
                   <WhatsAppIcon />
@@ -571,10 +703,10 @@ export default function SiteDiaryCalendar({
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFrom
                             ? dateFrom.toLocaleDateString("en-GB", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })
                             : "From date"}
                         </Button>
                       </PopoverTrigger>
@@ -602,10 +734,10 @@ export default function SiteDiaryCalendar({
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateTo
                             ? dateTo.toLocaleDateString("en-GB", {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })
                             : "To date"}
                         </Button>
                       </PopoverTrigger>
@@ -701,10 +833,10 @@ export default function SiteDiaryCalendar({
                 {dayGroups.map((group) => {
                   const totalTasks = group.rows.length;
                   const totalHours = group.rows.reduce((sum, r) => {
-  const workers = Number(r.WorkersInvolved ?? 0);
-  const hours = Number(r.TimeInvolved ?? 0);
-  return sum + workers * hours;
-}, 0);
+                    const workers = Number(r.WorkersInvolved ?? 0);
+                    const hours = Number(r.TimeInvolved ?? 0);
+                    return sum + workers * hours;
+                  }, 0);
                   const totalWorkers = group.rows.reduce(
                     (sum, r) => sum + (r.WorkersInvolved ?? 0),
                     0,
@@ -734,7 +866,7 @@ export default function SiteDiaryCalendar({
                               {totalTasks} task
                               {totalTasks === 1 ? "" : "s"}
                             </span>
-                           
+
                             <span>• {totalHours} h recorded</span>
                           </div>
                         </div>
@@ -834,64 +966,65 @@ export default function SiteDiaryCalendar({
                         </div>
 
                         {/* DESKTOP: existing table */}
+                        {/* DESKTOP: table view */}
                         <div className="hidden sm:block overflow-x-auto">
-                          <Table className="table-fixed min-w-[700px] text-xs sm:text-sm">
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead className="w-[140px]">
-                                  Location
-                                </TableHead>
-                                <TableHead className="w-[180px]">
-                                  Works
-                                </TableHead>
-                                <TableHead className="w-[50px] text-center">
-                                  Units
-                                </TableHead>
-                                <TableHead className="w-[70px] text-center">
-                                  Amount
-                                </TableHead>
-                                <TableHead className="w-[70px] text-center">
-                                  Workers
-                                </TableHead>
-                                <TableHead className="w-[70px] text-center">
-                                  Hours
-                                </TableHead>
-                                <TableHead className="w-[400px]">
-                                  Comments
-                                </TableHead>
-                              </TableRow>
-                            </TableHeader>
+                          {(() => {
+                            // Format only THIS day's rows
+                            const formattedGroupRows = group.rows.map((r, idx) => ({
+                              id: r.id ?? undefined,
+                              ...Object.fromEntries(
+                                tableHeads.map((f) => [f, r[f as keyof DiaryRow] ?? ""])
+                              ),
+                            }));
 
-                            <TableBody>
-                              {group.rows.map((r, idx) => (
-                                <TableRow key={r.id ?? `${group.key}-${idx}`}>
-                                  <TableCell className="max-w-[140px] truncate">
-                                    {r.Location || "—"}
-                                  </TableCell>
-                                  <TableCell className="max-w-[180px] truncate">
-                                    {r.Works || "—"}
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    {r.Units || "—"}
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    {r.Amounts ?? "—"}
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    {r.WorkersInvolved ?? "—"}
-                                  </TableCell>
-                                  <TableCell className="text-center">
-                                    {r.TimeInvolved ?? "—"}
-                                  </TableCell>
-                                  <TableCell className="max-w-[400px] align-top">
-                                    <span className="text-xs sm:text-sm break-words whitespace-normal line-clamp-4">
-                                      {r.Comments || "—"}
-                                    </span>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
+                            return (
+                              <Table className="table-fixed min-w-[700px] text-xs sm:text-sm">
+                                {/* HEADER */}
+                                <TableHeader>
+                                  <TableRow>
+                                    {tableHeads.map((head) => {
+                                      const align = getSiteListTextAlignmentByKey(head, defaultMap);
+
+                                      return (
+                                        <TableHead
+                                          key={head}
+                                          className={` text-${align}`}
+                                          style={{ width: getCellWidthByKey(head, defaultMap) }}
+                                        >
+                                          {getDisplayNameByKey(head)}
+                                        </TableHead>
+                                      );
+                                    })}
+                                  </TableRow>
+                                </TableHeader>
+
+                                {/* BODY */}
+                                <TableBody>
+                                  {formattedGroupRows.map((row, i) => (
+                                    <TableRow key={row.id ?? `${group.key}-${i}`}>
+                                      {tableHeads.map((field) => {
+                                        const align = getSiteListTextAlignmentByKey(field, defaultMap);
+
+                                        return (
+                                          <TableCell
+                                            key={field}
+                                            className={`align-top px-3 py-2 whitespace-normal break-words truncate text-${align}`}
+                                            style={{ width: getCellWidthByKey(field, defaultMap) }}
+                                          >
+                                            {row[field] === null ||
+                                              row[field] === undefined ||
+                                              row[field] === ""
+                                              ? "—"
+                                              : String(row[field])}
+                                          </TableCell>
+                                        );
+                                      })}
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            );
+                          })()}
                         </div>
                       </CardContent>
                     </Card>
@@ -937,10 +1070,10 @@ export default function SiteDiaryCalendar({
                 Photos –{" "}
                 {photosDate
                   ? photosDate.toLocaleDateString("en-GB", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
                   : "No date selected"}
               </DialogTitle>
             </DialogHeader>
