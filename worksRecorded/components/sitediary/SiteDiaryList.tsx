@@ -71,6 +71,7 @@ import {
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "./defaultConfig.json"
+import GMCIRLmap from "./GMCIRLmap.json"
 import { ContentAndApprovalsInstance } from "twilio/lib/rest/content/v1/contentAndApprovals";
 
 
@@ -196,6 +197,52 @@ export default function SiteDiaryCalendar({
   const [tableRows, setTableRows] = React.useState<any[]>([]);
 
   //------------------------map helpers----------------------------------------------
+
+
+
+  type ConfigMap = Record<string, any>;
+
+  //This we use for the date
+
+  function formatValueByConfig(
+    key: string,
+    value: any,
+    config: ConfigMap
+  ): string {
+    if (value === null || value === undefined || value === "") {
+      return "";
+    }
+
+    const renderAs = config?.[key]?.customSettings?.renderAs;
+
+    // Try to convert to Date
+    const d = value instanceof Date ? value : new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+      // Not a valid date → return as string
+      return String(value);
+    }
+
+    // Day → dd.mm.yyyy
+    if (renderAs === "Day") {
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = d.getFullYear();
+
+      return `${dd}.${mm}.${yyyy}`;
+    }
+
+    // Time → HH:mm
+    if (renderAs === "Time") {
+      const hh = String(d.getHours()).padStart(2, "0");
+      const min = String(d.getMinutes()).padStart(2, "0");
+
+      return `${hh}:${min}`;
+    }
+
+    // Default → just string
+    return String(value);
+  }
 
   function getTypeByKey(key: string) {
     return defaultMap[key]?.Type ?? null;
@@ -323,6 +370,8 @@ export default function SiteDiaryCalendar({
         console.log(`renderableFields ${renderableFields}`)
 
         setTableHeads(renderableFields)
+
+
 
 
 
@@ -523,7 +572,7 @@ export default function SiteDiaryCalendar({
 
   return (
     <TooltipProvider>
-      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-4">
+      <div className="w-full max-w-9xl mx-auto px-2 sm:px-4 py-4">
 
 
         <Tabs
@@ -867,7 +916,7 @@ export default function SiteDiaryCalendar({
                               {totalTasks === 1 ? "" : "s"}
                             </span>
 
-                            <span>• {totalHours} h recorded</span>
+                            {/* <span>• {totalHours} h recorded</span> */}
                           </div>
                         </div>
 
@@ -1013,9 +1062,11 @@ export default function SiteDiaryCalendar({
                                           >
                                             {row[field] === null ||
                                               row[field] === undefined ||
-                                              row[field] === ""
-                                              ? "—"
-                                              : String(row[field])}
+                                              row[field] === "" ? (
+                                              "—"
+                                            ) : (
+                                              formatValueByConfig(field, row[field], defaultMap)
+                                            )}
                                           </TableCell>
                                         );
                                       })}

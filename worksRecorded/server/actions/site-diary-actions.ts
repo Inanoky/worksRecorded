@@ -91,7 +91,7 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
         Units: row.Units || undefined,
         Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
         WorkersInvolved: row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
-        TimeInvolved: row.Hours !== "" ? Number(row.Hours) : undefined,
+        TimeInvolved: row.Hours !== "" ? Number(row.TimeInvolved) : undefined,
 
         Photos: [],
       };
@@ -114,7 +114,7 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
   try {
     await prisma.sitediaryrecords.createMany({ data: toInsert });
 
- 
+
     return { ok: true, count: toInsert.length }; //Multitenant
 
   } catch (err) {
@@ -145,18 +145,18 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
         Date_Custom_1: row.Date_Custom_1 ? new Date(row.Date_Custom_1) : undefined,
         Date_Custom_2: row.Date_Custom_2 ? new Date(row.Date_Custom_2) : undefined,
         Location: row.Location || undefined,
-        Location_Custom_1: row.Date_Custom_1 || undefined,
-        Location_Custom_2: row.Date_Custom_2 || undefined,
+        Location_Custom_1: row.Location_Custom_1 || undefined,
+        Location_Custom_2: row.Location_Custom_2 || undefined,
         Works: row.Works || undefined,
         Works_Custom_1: row.Works_Custom_1 || undefined,
         Works_Custom_2: row.Works_Custom_2 || undefined,
         Comments: row.Comments || undefined,
         Comments_Custom_1: row.Comments_Custom_1 || undefined,
         Comments_Custom_2: row.Comments_Custom_2 || undefined,
-        Units: row.units || undefined,
-        Amounts: row.Amounts ? Number(row.aAmounts) : undefined,
-        WorkersInvolved: row.Workers ? Number(row.WorkersInvolved) : undefined,
-        TimeInvolved: row.Hours ? Number(row.hours) : undefined,
+        Units: row.Units || undefined,
+        Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
+        WorkersInvolved: row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
+        TimeInvolved: row.TimeInvolved !== "" ? Number(row.TimeInvolved) : undefined,
         Photos: [],
 
 
@@ -301,6 +301,8 @@ export async function getSiteDiaryRecord({ siteId, date }) {
 
 
       Location: rec.Location || "",
+      Location_Custom_1 : rec.Location_Custom_1 || "",
+      Location_Custom_2 : rec.Location_Custom_2 || "",
 
       Works: rec.Works || "",
       Works_Custom_1: rec.Works_Custom_1 || "",
@@ -333,11 +335,10 @@ export async function getSiteDiaryRecord({ siteId, date }) {
 export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
   if (!siteId) throw new Error("Missing siteId");
 
-  return prisma.sitediaryrecords.findMany({
+  const records = await prisma.sitediaryrecords.findMany({
     where: { siteId },
     orderBy: [{ Date: "asc" }],
     select: {
-
       Date: true,
       Date_Custom_1: true,
       Date_Custom_2: true,
@@ -359,13 +360,71 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       WorkersInvolved: true,
       TimeInvolved: true,
       Photos: true,
-      
-      // add/remove fields as needed
-      // id: true,
-      // siteId: true,
+
+      // createdBy support
+      User: {
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      },
+      Worker: {
+        select: {
+          name: true,
+          surname: true,
+        },
+      },
     },
-  })
+  });
+
+  const formatCreatorName = (
+    firstName: string | null | undefined,
+    lastName: string | null | undefined
+  ): string => {
+    const parts: string[] = [];
+    if (firstName) parts.push(firstName);
+    if (lastName) parts.push(lastName);
+    return parts.join(" ");
+  };
+
+  return records.map((rec) => {
+    let createdBy = "";
+
+    if (rec.User) {
+      createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
+    } else if (rec.Worker) {
+      createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
+    }
+
+    return {
+      Date: rec.Date,
+      Date_Custom_1: rec.Date_Custom_1,
+      Date_Custom_2: rec.Date_Custom_2,
+
+      Location: rec.Location || "",
+      Location_Custom_1: rec.Location_Custom_1 || "",
+      Location_Custom_2: rec.Location_Custom_2 || "",
+
+      Works: rec.Works || "",
+      Works_Custom_1: rec.Works_Custom_1 || "",
+      Works_Custom_2: rec.Works_Custom_2 || "",
+
+      Comments: rec.Comments || "",
+      Comments_Custom_1: rec.Comments_Custom_1 || "",
+      Comments_Custom_2: rec.Comments_Custom_2 || "",
+
+      Units: rec.Units || "",
+      Amounts: rec.Amounts?.toString() || "",
+      WorkersInvolved: rec.WorkersInvolved?.toString() || "",
+      TimeInvolved: rec.TimeInvolved?.toString() || "",
+
+      Photos: rec.Photos ?? [],
+
+      createdBy: createdBy || "N/A",
+    };
+  });
 }
+
 
 
 export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {

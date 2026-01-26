@@ -603,7 +603,7 @@ export function DialogTable({
 
       if (
         currentValue &&
-        !options.some((opt) => opt.value === currentValue)
+        !options.some((opt) => opt.label  === currentValue)
       ) {
         options.unshift({
           value: currentValue,
@@ -626,7 +626,7 @@ export function DialogTable({
           </SelectTrigger>
           <SelectContent>
             {options.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
+              <SelectItem key={opt.value} value={opt.label}>
                 {opt.label}
               </SelectItem>
             ))}
