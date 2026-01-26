@@ -8,6 +8,9 @@ import {getSiteDiarySchema} from "@/server/actions/site-diary-actions";
 import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 import {HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
 import { systemPromptSaveToDatabaseFunction } from "./prompts";
+import defaultConfig from "@/components/sitediary/defaultConfig.json"
+import { getConfig } from "@/server/actions/site-diary-actions";
+import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
 
 
 
@@ -32,60 +35,15 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
   async func({ question, userId, siteId , date }: {question: string; userId: string, siteId:string, date: DateTime }) {
 
 
-                    // Extracting schema
+                 
 
-               const schema = await getSiteDiarySchema({ siteId });
+                const map = await getConfig(siteId)
+              
+                const mapToUse = map ? map : defaultConfig
 
-                function extractLocationNames(schema) {
-                  return schema.filter(node => node.type === "Location").map(node => node.name);
-                }
-                function extractWorkNames(schema) {
-                  const worksSet = new Set();
-                  function walk(node) {
-                    if (node.type === "Work") worksSet.add(node.name);
-                    node.children?.forEach(walk);
-                  }
-                  schema.forEach(walk);
-                  return Array.from(worksSet);
-                }
-
-                const locationNames = extractLocationNames(schema);
-                const workNames = extractWorkNames(schema);
-
-                //same used by frontend in DialogueTable 
-                
-                const UnitEnum = z.enum(allowedUnits);
+                   const { schema: SiteDiaryRecordSchema, fieldMap } = buildZodSchemaFromConfig(mapToUse);
 
 
-
-                     const LocationEnum = z.enum(locationNames);
-                const WorksEnum = z.union([
-                    z.enum(workNames as [string, ...string[]]),
-                    z.literal("Additional works"),
-                    z.literal("Delay due to the Client"),
-                    z.literal("Delay due to internal mistakes"),
-                    z.literal("Notes"),
-                    z.literal("Other works"),
-                  ]);
-
-
-                // This schema is for validation of
-                function makeSiteDiaryRecordSchema({ locationNames, workNames }) {
-                  return z.object({
-                    siteId: z.string().nullable().optional(),
-                    Date: z.coerce.date().nullable().optional(),
-                    Location: LocationEnum.nullable().optional(),
-                    Works:  WorksEnum.nullable().optional(),
-                    Comments: z.string().nullable().optional().describe("Extracted task + original user's message"),
-                    Units: UnitEnum.nullable().optional(),
-                    Amounts: z.number().nullable().optional(),
-                    WorkersInvolved: z.number().int().nullable().optional(),
-                    TimeInvolved: z.number().nullable().optional(),
-                    Reason: z.string().describe("Specifiy your reason for your choices")
-                  });
-                }
-
-                const SiteDiaryRecordSchema = z.array(makeSiteDiaryRecordSchema({ locationNames, workNames }));
 
                 
                    
@@ -97,9 +55,9 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
                 // Setup Structured LLM
                 const structuredLlm = llm.withStructuredOutput(
-                  z.object({
-                    answer: SiteDiaryRecordSchema
-                  })
+               
+                  SiteDiaryRecordSchema
+               
                 );
          
 
@@ -109,24 +67,18 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                 ]);
 
          
-                   const rows = (response.answer || []).map((r) => ({
-                      Date: r.Date ? new Date(r.Date).toISOString() : null,
-                      Location: r.Location ?? "",
-                      Works: r.Works ?? "",
-                      Comments: r.Comments ?? "",
-                      Units: r.Units ?? "",
-                      Amounts: r.Amounts ?? "",
-                      Workers: r.WorkersInvolved ?? "",
-                      Hours: r.TimeInvolved ?? "",
-                    }));
+              
 
 
-                const result = await saveSiteDiaryRecord({
-                          rows,
-                          userId,
-                          siteId,
+                const row = mapToDbFields(response as Record<string, any>, fieldMap);
 
-                        });
+
+                 await saveSiteDiaryRecord({
+                        rows: [row],
+                        userId,
+                        siteId,
+                      });
+
 
                 return `Saved succesfully `
 

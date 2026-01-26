@@ -24,7 +24,7 @@
       "displayinSiteListOrder": 9,
       "displayinSiteListWidth": 70,
       "displayinSiteListTextAlignment": "center",
-       "aiDescription" : ""
+       "aiDescription" : "Time when activitiy started, return in ISO format"
       
     }
     
@@ -40,7 +40,7 @@
       "displayinSiteListOrder": 10,
       "displayinSiteListWidth": 70,
       "displayinSiteListTextAlignment": "center",
-       "aiDescription" : ""
+       "aiDescription" : "Time when activitiy finished, return in ISO format"
     }
   },
   "Location": {

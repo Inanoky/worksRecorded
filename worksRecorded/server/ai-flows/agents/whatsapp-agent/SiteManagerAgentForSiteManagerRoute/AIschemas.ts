@@ -11,6 +11,7 @@ type FieldType =
 
 type MapField = {
   Type: FieldType;
+  DisplayName?: string;
   DropDownOptions?: Record<string, string>;
   customSettings?: {
     integer?: boolean;
@@ -31,10 +32,14 @@ function withAiDescription(schema: z.ZodTypeAny, field: MapField) {
   return d ? schema.describe(d) : schema;
 }
 
+function safeKey(name: string) {
+  return name.trim().replace(/\s+/g, "_").replace(/[^\w]/g, "");
+}
+
 function buildFieldSchema(field: MapField): z.ZodTypeAny | null {
   switch (field.Type) {
     case "noRender":
-      return null; // ✅ ignore
+      return null;
 
     case "fixed":
       return z.union([z.coerce.date(), z.string()]).nullable().optional();
@@ -62,13 +67,36 @@ function buildFieldSchema(field: MapField): z.ZodTypeAny | null {
 
 export function buildZodSchemaFromConfig(config: ConfigMap) {
   const shape: Record<string, z.ZodTypeAny> = {};
+  const fieldMap: Record<string, string> = {}; // displayKey -> dbKey
 
-  for (const [key, field] of Object.entries(config)) {
+  for (const [dbKey, field] of Object.entries(config)) {
     const schema = buildFieldSchema(field);
-    if (!schema) continue; // ✅ skip noRender
+    if (!schema) continue;
 
-    shape[key] = withAiDescription(schema, field);
+    const displayRaw = field.DisplayName?.trim() || dbKey;
+    const displayKey = safeKey(displayRaw);
+
+    shape[displayKey] = withAiDescription(schema, field);
+    fieldMap[displayKey] = dbKey;
   }
 
-  return z.object(shape);
+  return {
+    schema: z.object(shape),
+    fieldMap,
+  };
+}
+
+export function mapToDbFields(
+  data: Record<string, any>,
+  fieldMap: Record<string, string>
+) {
+  const out: Record<string, any> = {};
+
+  for (const [displayKey, value] of Object.entries(data)) {
+    const dbKey = fieldMap[displayKey];
+    if (!dbKey) continue;
+    out[dbKey] = value;
+  }
+
+  return out;
 }
