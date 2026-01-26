@@ -232,5 +232,16 @@
       "displayinSiteListWidth": 250,
       "displayinSiteListTextAlignment": "center"
     }
-  }
+  },
+
+    "AIpromptToUse" : {
+    "Type": "noRender",
+   "Client": "GMCIRL"
+
+
+
+ }
+
+  
+
 }

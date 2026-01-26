@@ -19,7 +19,7 @@
     "customSettings": {
       "renderAs" : "Time",
       "order" : 10,
-      "cellWidth" : 80,
+      "cellWidth" : 120,
          "displayinSiteList": "yes",
       "displayinSiteListOrder": 9,
       "displayinSiteListWidth": 70,
@@ -35,7 +35,7 @@
     "customSettings": {
       "renderAs" : "Time",
       "order" : 11,
-      "cellWidth" : 80,
+      "cellWidth" : 120,
         "displayinSiteList": "yes",
       "displayinSiteListOrder": 10,
       "displayinSiteListWidth": 70,
@@ -126,7 +126,7 @@
       "cellWidth" : 250,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 6,
-      "displayinSiteListWidth": 250,
+      "displayinSiteListWidth": 150,
       "displayinSiteListTextAlignment": "left",
        "aiDescription" : ""
     }
@@ -156,7 +156,7 @@
       "cellWidth" : 350,
         "displayinSiteList": "yes",
       "displayinSiteListOrder": 14,
-      "displayinSiteListWidth": 250,
+      "displayinSiteListWidth": 150,
       "displayinSiteListTextAlignment": "left",
        "aiDescription" : ""
     }
@@ -167,7 +167,7 @@
     "customSettings": {
       "order" : 15,
       "cellWidth" : 150,
-       "displayinSiteList": "no",
+       "displayinSiteList": "yes",
       "displayinSiteListOrder": 11,
       "displayinSiteListWidth": 70,
       "displayinSiteListTextAlignment": "center",
@@ -273,6 +273,13 @@
   },
  "FronteEndConfig" : {
    "Type": "noRender"
+
+
+
+ },
+  "AIpromptToUse" : {
+    "Type": "noRender",
+   "Client": "GMCIRL"
 
 
 

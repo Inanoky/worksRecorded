@@ -38,27 +38,19 @@ export async  function systemPromptFunction(siteId, userId){
 }
 
 
-  export async function systemPromptSaveToDatabaseFunction( userId){ 
+  export async function systemPromptSaveToDatabaseFunction( userId, client){ 
 
 
  const language = await getOrganizationLanguageByUserId(userId)
 
-      const systemPromptSaveToDatabase_02_09_2025 = "You will receive a log of construction activites on site. Analyze and map Location and Works" +
-  "     according to the zod schema you are given \n" +
-    "Any additional works mark as additional works. " +
-  " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)." +
-  "For comments describe what was completed, where and with what labor"
 
 
-        const systemPromptSaveToDatabase_29_10_2025 = "You will receive a log of construction activites on site. Analyze and map Location and Works" +
-  "     according to the zod schema you are given \n" +
-    "Any additional works mark as additional works. " +
-  " Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part)." +
-  "For comments describe what was completed, where and with what labor in english, and then include original log in brackets (without change)"
+
+ 
 
   
-        const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map Location and Works
-    according to the zod schema you are given
+  const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map Location and Works
+  according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
   For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)` 
@@ -103,10 +95,72 @@ When mapping, try to select the most suitable work category from the provided Zo
 - **Example 3:**
   - Text: "Welding and painting rebars for balconies, darbinieki: 1, laiks: 08:00–15:00 (7 h)"
   - Mapping: Mark as 'Balcony'.
+
+
+
 `;
 
- const systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${glossary}`
+
+
+
+const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map according to the zod schema you are given
+
+  Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
+  For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)` 
+
+
+  
+
+const GMCIRL_glossary =
+
+
+`
+# Glossary and Mapping Instructions
+
+This document provides instructions to improve mapping accuracy. Begin with a concise checklist (3–7 bullets) of the steps you will take before mapping, to ensure clarity and completeness.
+
+Please follow the guidelines below:
+
+
+
+- If there is relevant information present, include it.
+- When multiple works are mentioned in the same text, create separate diary entries for each.
+- Works Ctegory - if work is about some changes or something unexpected - mark it CE
+- Amounts - means amount of work completed. If not clear - leave blank
+- Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear. 
+
+
+When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.
+
+
+
+
+ 
+
+
+
+
+  }
+
+
+`
+
+
+
+let systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${glossary}`
+
+
+
+if (client === "GMCIRL"){
+
+  
+  systemPromptSaveToDatabase = `${GMCIRL_systemPromptSaveToDatabase_02_01_2026}\n ${GMCIRL_glossary}`
+
+}
+
+
+
 
  return systemPromptSaveToDatabase
 
-  }
+}

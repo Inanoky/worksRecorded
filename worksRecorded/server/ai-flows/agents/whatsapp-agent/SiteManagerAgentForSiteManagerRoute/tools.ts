@@ -43,6 +43,9 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
                    const { schema: SiteDiaryRecordSchema, fieldMap } = buildZodSchemaFromConfig(mapToUse);
 
+                   const client =  map?.AIpromptToUse?.Client;
+
+
 
 
                 
@@ -63,7 +66,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
                 const response = await structuredLlm.invoke([
                   new HumanMessage(`${question} Date is : ${date}`),
-                  new SystemMessage(`${await systemPromptSaveToDatabaseFunction(userId)} \n today is : ${date} \n ${siteId} `)
+                  new SystemMessage(`${await systemPromptSaveToDatabaseFunction(userId,client)} \n today is : ${date} \n ${siteId} `)
                 ]);
 
          
