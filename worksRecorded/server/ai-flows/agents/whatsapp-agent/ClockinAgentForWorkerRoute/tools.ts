@@ -3,40 +3,16 @@ import { z } from "zod";
 import { clockInWorker, clockOutWorker } from "@/server/actions/timesheets-actions";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
-import { getSiteDiarySchema } from "@/server/actions/site-diary-actions";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
-
+import defaultConfig from "@/components/sitediary/defaultConfig.json"
+import { getConfig } from "@/server/actions/site-diary-actions";
+import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
 
 const systemPromptSaveToDatabase = ` Save users's message. Your output MUST be a JSON array that strictly adheres to the provided Zod schema.  Date must be in ISO format. Today's date is for context only.`;
 // === HELPER FUNCTIONS (re-copied from SiteManager's tools.ts for context) ===
-function extractLocationNames(schema) {
-  return schema.filter(node => node.type === "Location").map(node => node.name);
-}
-function extractWorkNames(schema) {
-  const worksSet = new Set();
-  function walk(node) {
-    if (node.type === "Work") worksSet.add(node.name);
-    node.children?.forEach(walk);
-  }
-  schema.forEach(walk);
-  return Array.from(worksSet);
-}
-function makeSiteDiaryRecordSchema({ LocationEnum, WorksEnum }) {
-  return z.object({
-    siteId: z.string().nullable().optional(),
-    Date: z.coerce.date().nullable().optional(),
-    Location: LocationEnum.nullable().optional(),
-    Works: WorksEnum.nullable().optional(),
-    Comments: z.string().nullable().optional(),
-    Units: z.string().nullable().optional(),
-    Amounts: z.number().nullable().optional(),
-    WorkersInvolved: z.number().int().nullable().optional(),
-    TimeInvolved: z.number().nullable().optional(),
-  });
-}
-// === END OF HELPER FUNCTIONS ===
+
 
 
 
@@ -113,58 +89,64 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
   async func({ question, workerId, siteId, date }: { question: string; workerId: string, siteId: string, date: string }) {
 
     // Extracting schema from site settings
-    const schema = await getSiteDiarySchema({ siteId });
+   
 
-    const locationNames = extractLocationNames(schema);
-    const workNames = extractWorkNames(schema);
+    
 
-    const LocationEnum = z.enum(locationNames as [string, ...string[]]);
-    const WorksEnum = z.union([
-      z.enum(workNames as [string, ...string[]]),
-      z.literal("Additional works"),
-      z.literal("Delay due to the Client"),
-      z.literal("Delay due to internal mistakes"),
-      z.literal("Notes"),
-    ]);
+     const map = await getConfig(siteId);
+    const mapToUse = map ? map : defaultConfig;
 
-    const SiteDiaryRecordSchema = z.array(makeSiteDiaryRecordSchema({ LocationEnum, WorksEnum }));
+
+
+     const { schema: SiteDiaryRecordSchema, fieldMap } =
+          buildZodSchemaFromConfig(mapToUse);
+
+
+       const SiteDiaryRecordsSchema = z.object({
+      records: z.array(SiteDiaryRecordSchema),
+    });
 
     const llm = new ChatOpenAI({
       temperature: 0.1,
       model: "gpt-4.1", // Using a capable model for structured output
     });
 
-    // Setup Structured LLM
-    const structuredLlm = llm.withStructuredOutput(
-      z.object({
-        answer: SiteDiaryRecordSchema
-      })
-    );
 
+    // Setup Structured LLM
+      const structuredLlm = llm.withStructuredOutput(
+      SiteDiaryRecordsSchema
+
+
+    );
     const response = await structuredLlm.invoke([
       new HumanMessage(`${question}`),
       new SystemMessage(`${systemPromptSaveToDatabase} \n today is : ${date} \n ${siteId} `)
+
+
+
     ]);
 
-    const rows = (response.answer || []).map((r) => ({
-      date: r.Date ? new Date(r.Date).toISOString() : null,
-      location: r.Location ?? "",
-      works: r.Works ?? "",
-      comments: r.Comments ?? "",
-      units: r.Units ?? "",
-      amounts: r.Amounts ?? "",
-      workers: r.WorkersInvolved ?? "",
-      hours: r.TimeInvolved ?? "",
-    }));
+// 5️⃣ Map to DB rows
+    const rows = response.records.map((r, i) => {
+      const mapped = mapToDbFields(r, fieldMap);
+
+      console.log(`🧩 Mapped row ${i + 1}:`, mapped);
+
+      return mapped;
+    });
+
+
+     const result = await saveSiteDiaryRecord({
+          rows,
+          workerId,
+          siteId,
+        });
+
+
+
 
     // UPDATE: saveSiteDiaryRecord must be updated to accept workerId
     // Assuming saveSiteDiaryRecord is updated to check for workerId/userId:
-    const result = await saveSiteDiaryRecord({
-      rows,
-      userId: null, // NEW: Set userId to null for worker
-      workerId: workerId, // NEW: Pass workerId
-      siteId,
-    });
 
    if (result.ok) { // <-- Change to check for 'ok'
   return `Site diary entry saved successfully.`;
