@@ -1,7 +1,7 @@
 {
   "Date": {
     "Type": "fixed",
-    "DisplayName": "Nothing",
+    "DisplayName": "Date",
     "customSettings": {
       "renderAs": "Day",
       "order": 1,
