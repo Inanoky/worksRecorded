@@ -43,6 +43,10 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
                    const { schema: SiteDiaryRecordSchema, fieldMap } = buildZodSchemaFromConfig(mapToUse);
 
+                  const SiteDiaryRecordsSchema = z.object({
+                    records: z.array(SiteDiaryRecordSchema),
+                  });
+
                    const client =  map?.AIpromptToUse?.Client;
 
 
@@ -59,7 +63,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
                 // Setup Structured LLM
                 const structuredLlm = llm.withStructuredOutput(
                
-                  SiteDiaryRecordSchema
+                  SiteDiaryRecordsSchema 
                
                 );
          

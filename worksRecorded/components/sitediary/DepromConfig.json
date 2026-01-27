@@ -1,0 +1,264 @@
+{
+  "Date": {
+    "Type": "fixed",
+    "DisplayName": "Date",
+    "customSettings": {
+      "renderAs": "Day",
+      "order": 1,
+      "cellWidth": 150,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Date_Custom_1",
+    "customSettings": {
+      "order": 2,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Date_Custom_2",
+    "customSettings": {
+      "order": 3,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+"Location": {
+  "Type": "dropdown",
+  "DisplayName": "Location",
+  "DropDownOptions": {
+    "Location_1": "Pagrabstāvs",
+    "Location_2": "1.stāvs",
+    "Location_3": "2.stāvs",
+    "Location_4": "3.stāvs",
+    "Location_5": "4.stāvs",
+    "Location_6": "5.stāvs",
+    "Location_7": "6.stāvs",
+    "Location_8": "7.stāvs",
+    "Location_9": "8.stāvs",
+    "Location_10": "9.stāvs",
+    "Location_11": "10.stāvs",
+    "Location_12": "11.stāvs",
+    "Location_13": "12.stāvs",
+    "Location_14": "13.stāvs"
+  },
+  "customSettings": {
+    "order": 2,
+    "cellWidth": 150,
+    "displayinSiteList": "yes",
+    "displayinSiteListOrder": 1,
+    "displayinSiteListWidth": 150,
+    "displayinSiteListTextAlignment": "left"
+  }
+},
+
+  "Location_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_1",
+    "DropDownOptions": {
+      "Location_Custom_1_1": "Location_Custom_1_1",
+      "Location_Custom_1_2": "Location_Custom_1_2"
+    },
+    "customSettings": {
+      "order": 5,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Location_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_2",
+    "DropDownOptions": {
+      "Location_Custom_2_1": "Location_Custom_2_1",
+      "Location_Custom_2_2": "Location_Custom_2_2"
+    },
+    "customSettings": {
+      "order": 6,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works": {
+    "Type": "dropdown",
+    "DisplayName": "Works",
+    "DropDownOptions": {
+      "Works_1": "Pārseguma paneļu montāža - HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums)",
+      "Works_2": "Pārseguma paneļu stiegrošāna - HCS 220",
+      "Works_3": "Montāža - sienas",
+      "Works_4": "Seinas stiegrošāna",
+      "Works_5": "Balkona paneļu montāža",
+      "Works_6": "Balkona paneļu metināšana",
+      "Works_7": "Kāpņu laidu un laukumu montāža",
+      "Works_8": "Dzelzsbetona kolonnu montāža",
+      "Works_9": "Dzelzsbetona siju montāža",
+      "Works_10": "Saliekamo dzelzbetona masīvplātņu montāža",
+      "Works_11": "Paplidus darbi",
+      "Works_12": "Notes",
+      "Works_13": "Delay"
+      
+    },
+    "customSettings": {
+      "order": 3,
+      "cellWidth": 150,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 2,
+      "displayinSiteListWidth": 180,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_1",
+    "DropDownOptions": {
+      "Works_Custom_1_1": "Works_Custom_1_1",
+      "Works_Custom_1_2": "Works_Custom_1_2"
+    },
+    "customSettings": {
+      "order": 8,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_2",
+    "DropDownOptions": {
+      "Works_Custom_2_1": "Works_Custom_2_1",
+      "Works_Custom_2_2": "Works_Custom_2_2"
+    },
+    "customSettings": {
+      "order": 9,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments": {
+    "Type": "textInput",
+    "DisplayName": "Comments",
+    "customSettings": {
+      "order": 10,
+      "cellWidth": 450,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 7,
+      "displayinSiteListWidth": 400,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "textInput",
+    "customSettings": {
+      "order": 11,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "textInput",
+    "customSettings": {
+      "order": 12,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Units": {
+    "Type": "dropdown",
+    "DisplayName": "Units",
+    "DropDownOptions": {
+      "m": "m",
+      "m2": "m2",
+      "m3": "m3",
+      "tn": "tn",
+      "kg": "kg",
+      "pcs": "pcs",
+      "package": "package",
+      "project": "project",
+      "hour": "hour",
+      "set": "set",
+      "minute": "minute",
+      "lifts": "lifts"
+    },
+    "customSettings": {
+      "order": 4,
+      "cellWidth": 80,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 3,
+      "displayinSiteListWidth": 50,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "Amounts": {
+    "Type": "float",
+    "DisplayName": "Amounts",
+    "customSettings": {
+      "order": 5,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 4,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "WorkersInvolved": {
+    "Type": "float",
+    "DisplayName": "Workers",
+    "customSettings": {
+      "integer": true,
+      "order": 6,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 5,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "TimeInvolved": {
+    "Type": "float",
+    "DisplayName": "Hours",
+    "customSettings": {
+      "integer": true,
+      "order": 6,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 6,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "AIpromptToUse": {
+    "Type": "noRender",
+    "Client": "DEPROM"
+  }
+}
