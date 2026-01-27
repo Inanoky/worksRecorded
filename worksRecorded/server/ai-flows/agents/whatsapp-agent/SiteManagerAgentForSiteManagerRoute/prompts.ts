@@ -64,14 +64,15 @@ const glossary =
 `
 # Glossary and Mapping Instructions
 
-This document provides instructions to improve mapping accuracy. Begin with a concise checklist (3–7 bullets) of the steps you will take before mapping, to ensure clarity and completeness.
+This document provides instructions to improve mapping accuracy.
 
 Please follow the guidelines below:
 
 
 
-- If there is relevant information present, include it.
+
 - When multiple works are mentioned in the same text, create separate diary entries for each.
+- If there is relevant information present, include it.
 - Any actions with floor slabs including formworks and rebars good match will be Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
 - HCS stands for 'hollow core slabs' or 'floor slabs' or "Pārseguma paneļis" .
 - CSW means 'concrete sandwich walls'.
