@@ -26,73 +26,92 @@ export const allowedUnits = [
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
   name: "save_to_database",
   description: "Save construction site log to the database",
+
   schema: z.object({
-    question: z.string().describe("Original user's question in original language"),
+    question: z.string(),
     siteId: z.string(),
     userId: z.string(),
     date: z.string(),
   }),
-  async func({ question, userId, siteId , date }: {question: string; userId: string, siteId:string, date: DateTime }) {
 
+  async func({ question, userId, siteId, date }) {
 
-                 
+    console.log("▶️ TOOL START");
+    console.log("Input:", { question, userId, siteId, date });
 
-                const map = await getConfig(siteId)
-              
-                const mapToUse = map ? map : defaultConfig
+    // 1️⃣ Load config
+    const map = await getConfig(siteId);
+    const mapToUse = map ? map : defaultConfig;
 
-                   const { schema: SiteDiaryRecordSchema, fieldMap } = buildZodSchemaFromConfig(mapToUse);
+    console.log("✅ Config loaded:", map ? "DB config" : "Default config");
 
-                  const SiteDiaryRecordsSchema = z.object({
-                    records: z.array(SiteDiaryRecordSchema),
-                  });
+    // 2️⃣ Build schemas
+    const { schema: SiteDiaryRecordSchema, fieldMap } =
+      buildZodSchemaFromConfig(mapToUse);
 
-                   const client =  map?.AIpromptToUse?.Client;
+    const SiteDiaryRecordsSchema = z.object({
+      records: z.array(SiteDiaryRecordSchema),
+    });
 
+    console.log("✅ Zod schemas built");
 
+    const client = map?.AIpromptToUse?.Client;
 
+    // 3️⃣ Init LLM
+    const llm = new ChatOpenAI({
+      model: "gpt-5.2",
+      reasoning: { effort: "high" },
+    });
 
-                
-                   
-                const llm = new ChatOpenAI({
-                 
-                  model: "gpt-5.2",
-                  reasoning: {effort: "high"}
-                });
+    const structuredLlm = llm.withStructuredOutput(
+      SiteDiaryRecordsSchema
+    );
 
-                // Setup Structured LLM
-                const structuredLlm = llm.withStructuredOutput(
-               
-                  SiteDiaryRecordsSchema 
-               
-                );
-         
+    console.log("✅ LLM initialized");
 
-                const response = await structuredLlm.invoke([
-                  new HumanMessage(`${question} Date is : ${date}`),
-                  new SystemMessage(`${await systemPromptSaveToDatabaseFunction(userId,client)} \n today is : ${date} \n ${siteId} `)
-                ]);
+    // 4️⃣ Call LLM
+    console.log("🤖 Calling LLM...");
 
-         
-              
+    const response = await structuredLlm.invoke([
+      new HumanMessage(`${question} Date is : ${date}`),
+      new SystemMessage(
+        `${await systemPromptSaveToDatabaseFunction(userId, client)}\n` +
+        `today is : ${date}\n` +
+        `${siteId}`
+      ),
+    ]);
 
+    console.log("📥 LLM response:");
+    console.log(JSON.stringify(response, null, 2));
 
-                const row = mapToDbFields(response as Record<string, any>, fieldMap);
+    // 5️⃣ Map to DB rows
+    const rows = response.records.map((r, i) => {
+      const mapped = mapToDbFields(r, fieldMap);
 
+      console.log(`🧩 Mapped row ${i + 1}:`, mapped);
 
-                 await saveSiteDiaryRecord({
-                        rows: [row],
-                        userId,
-                        siteId,
-                      });
+      return mapped;
+    });
 
+    console.log(`✅ Total rows prepared: ${rows.length}`);
 
-                return `Saved succesfully `
+    // 6️⃣ Save to DB
+    console.log("💾 Saving to database...");
 
+    const result = await saveSiteDiaryRecord({
+      rows,
+      userId,
+      siteId,
+    });
 
+    console.log("✅ Save result:", result);
 
+    console.log("🏁 TOOL END");
+
+    return `Saved successfully`;
   },
 });
+
 
 export const tools = [siteDiaryToDatabaseTool]
 
