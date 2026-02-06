@@ -7,8 +7,7 @@ import Image from "next/image";
 import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
-
-import Dashboard2 from "@/public/frontend/pages/Home/Dashboard2.png";
+import { WhatsAppIcon } from "@/components/ui/whatsappIcon";
 import LandingHero from "@/public/frontend/pages/Home/LandingHero.png";
 import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
 
@@ -40,11 +39,16 @@ export default function LandingPage() {
               <Button size="lg">{t("startFreeTrial")}</Button>
             </RegisterLink>
 
-            <LoginLink>
-              <Button size="lg" variant="outline">
-                {t("signIn")}
-              </Button>
-            </LoginLink>
+            <Link
+  href="https://wa.me/37124885690"
+  target="_blank"
+  rel="noopener noreferrer"
+>
+<Button size="lg" variant="outline">
+  <WhatsAppIcon className="w-7 h-7 mr-2" />
+  {t("signIn")}
+</Button>
+</Link>
 
             <span className="text-xs text-muted-foreground">{t("noCardNote")}</span>
           </div>
