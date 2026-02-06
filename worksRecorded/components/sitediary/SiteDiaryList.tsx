@@ -71,8 +71,7 @@ import {
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "./defaultConfig.json"
-import GMCIRLmap from "./GMCIRLmap.json"
-import { ContentAndApprovalsInstance } from "twilio/lib/rest/content/v1/contentAndApprovals";
+
 
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -195,6 +194,9 @@ export default function SiteDiaryCalendar({
   const [defaultMap, setMap] = React.useState<Record<string, any>>(defaultConfig);
   const [tableHeads, setTableHeads] = React.useState<string[]>([]);
   const [tableRows, setTableRows] = React.useState<any[]>([]);
+  const [screenWidth, setScreenWidth] = React.useState<number>(150);
+
+
 
   //------------------------map helpers----------------------------------------------
 
@@ -359,6 +361,9 @@ export default function SiteDiaryCalendar({
 
         const cfg = (await getConfig(siteId)) ?? defaultConfig;
         if (cancelled) return;
+
+       const screenWidth = cfg?.otherSettings?.displaySiteListWidth ?? 140;
+        setScreenWidth(screenWidth);
 
 
         console.log('config')
@@ -572,7 +577,12 @@ export default function SiteDiaryCalendar({
 
   return (
     <TooltipProvider>
-      <div className="w-full max-w-9xl mx-auto px-2 sm:px-4 py-4">
+      <div 
+      className="w-full mx-auto px-2 sm:px-4 py-4"
+        style={{ maxWidth: `${screenWidth}rem` }} 
+      
+      
+      >
 
 
         <Tabs
@@ -1055,19 +1065,19 @@ export default function SiteDiaryCalendar({
                                         const align = getSiteListTextAlignmentByKey(field, defaultMap);
 
                                         return (
-                                          <TableCell
-                                            key={field}
-                                            className={`align-top px-3 py-2 whitespace-normal break-words truncate text-${align}`}
-                                            style={{ width: getCellWidthByKey(field, defaultMap) }}
-                                          >
-                                            {row[field] === null ||
-                                              row[field] === undefined ||
-                                              row[field] === "" ? (
-                                              "—"
-                                            ) : (
-                                              formatValueByConfig(field, row[field], defaultMap)
-                                            )}
-                                          </TableCell>
+                                         <TableCell
+  key={field}
+  className={`align-top px-3 py-2 whitespace-normal break-words text-${align}`}
+  style={{ width: getCellWidthByKey(field, defaultMap) }}
+>
+  {row[field] === null || row[field] === undefined || row[field] === "" ? (
+    "—"
+  ) : (
+    <div className="line-clamp-4">
+      {formatValueByConfig(field, row[field], defaultMap)}
+    </div>
+  )}
+</TableCell>
                                         );
                                       })}
                                     </TableRow>

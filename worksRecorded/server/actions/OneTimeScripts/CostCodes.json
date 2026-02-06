@@ -1,0 +1,46 @@
+{
+
+"M335 - Repairs works for concrete elemets" : "Assing if specifically mentions word `repair` ",
+"M659 - Screws for assembly" : "Assign bolts, anchors, screws",
+"M999 - Other not related to work" : "Assign if clearly not something related to construction or mistake ",
+"M700 - Safety and edge protection (not wood)" : "Anything related to safety on consturciton site, barreirs rent, education, inspecitons in terms of safety ",
+"M440 - Inspections, Lawyers and other services" : "Any inspections, lawyers or other service related positiosn ",
+"M430 - Surveys" : "Settings out works, geodesy works",
+"M540 - Subcontractors" : "Construction works done with people provided as a service from company. Don't include salaries",
+"M330 - Living and travel cost" : "Accomodation, petrol, food, car rentals",
+"M250 - Steel elements" : "Any srcutural elements/pieces made of steel. Only purhcases, don't include rentals",
+"M685 - Windowsills" : "Assign only if specifically metnions windowsills",
+"M657 - Brickslips" : "Only if specifically mentioned brickslips",
+"M656 - Shopdrawings" : "Construction drawings produciton or related activities",
+"M655 - Unexpcted" : "If specifically metnioned unexpected",
+"M654 - Immigraiton services" : "Only if specifically menttioned immigration services",
+"M400 - Insurances and other services" : "Any cost associated with insurance",
+"M650 - Leveling plates plastics" : "Plastic leveling plates",
+"M190 - Delivery cost of Assembly Materials" : "Any delivery cost or transportation cost of materials. Don't include factory concrete tranposrtation here.",
+"M180 - Working clothes" : "Any cost related to clothing and work wear",
+"M160 - Ready mix concrete and pump" : "Factory made concrete, material, delivery, tools or and related to factory concrete cost. Include delivery of concrete and waiting times for concrete here",
+"M150 - Plywood and wood" : "Timber, plywood, wood",
+"M140 - Insulation" : "Rockwool, Minerawl wool, nails for insulation attachment, PIR, polysterol ",
+"M130 - Dry mix concrete" : "Grouts and mortars",
+"M120 - Plastic leveling plates" : "Leveling plates for assembly made of plastic",
+"M100 - Reinforcement" : "Steel rebars, bent rebars, steel mesh, straight rebars, tying wire ",
+"M240 - Concrete elements" : "Concrete elements",
+"M230 - Crane" : "Crane rent or crane operator cost or crane related cost",
+"M220 - Equipment and tools purchase" : "Samml tools or/and equioment which is purchases, excluding temporary supports and safety barriers",
+"M210 - Equipment and tools rent" : "Small tools or/and equioment which is rented, ",
+"M200 - Temporary support rent" : "Rental cost of temporary supports (DOKA, RAMIRENT, PERI), include temporary supports and safety barriers, supports for shoring/formwork, adjustable steel supports",
+"M530 - Finish team salary" : "Assign only if cost is clearly salary and cleary mentions finishing works team",
+"M520 - Concrete team salary" : "Assign only if cost is clearly salary and cleary mentions concreting works team",
+"M510 - Team salary" : "Any salary that can't categorize finish, concrete or managment - assign this",
+"M500 - Management salary" : "If clear that managmenet salary",
+"M648 - Lifting accessories" : "Any equipment/tools used for lifting",
+"M646 - Welding"  : "Any cost, works or material, related to welding",
+"M649 - Level plates steel" : "Leveling plates for assembly made of steel",
+"M641 - Project manager salary" : "Assign only if cost is clearly salary and cleary mentions management works team",
+"M600 - Other assembly cost" : "If no other category match, assign this. Only assing for purchases, don't include rentals"
+
+
+
+
+
+}

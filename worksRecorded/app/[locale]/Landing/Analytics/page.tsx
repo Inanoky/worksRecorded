@@ -9,7 +9,7 @@ export default function Page() {
   const t = useTranslations("Analytics");
 
   return (
-    <section className="relative flex items-center justify-center">
+    <section className="p-5 relative flex items-center justify-center">
       <div className="w-full mx-auto px-4 sm:px-6 py-10 lg:py-20">
         <div className="text-center">
           <h1 className="mt-4 sm:mt-8 text-3xl sm:text-5xl md:text-6xl lg:text-8xl font-medium leading-tight sm:leading-none">
@@ -19,13 +19,14 @@ export default function Page() {
 
         {/* Block 1 */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-10 items-center w-full py-10 mx-auto mt-6 md:mt-12">
-          <Image
-            src={Analytics1}
-            alt={t("images.overviewAlt")}
-            priority
-            className="md:col-span-2 w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 900px"
-          />
+          <div className="relative md:col-span-2">
+            <Image
+              src={Analytics1}
+              alt={t("images.overviewAlt")}
+              priority
+              className="w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/40"
+            />
+          </div>
 
           <div className="text-base sm:text-lg md:text-xl leading-relaxed text-center md:text-left">
             <span className="block text-xl sm:text-2xl font-semibold">
@@ -55,8 +56,7 @@ export default function Page() {
             src={Analytics2}
             alt={t("images.detailsAlt")}
             priority
-            className="md:col-span-2 w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 900px"
+            className="md:col-span-2 w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/40"
           />
         </div>
       </div>

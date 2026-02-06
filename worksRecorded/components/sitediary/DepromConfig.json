@@ -253,12 +253,17 @@
       "cellWidth": 65,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 6,
-      "displayinSiteListWidth": 250,
+      "displayinSiteListWidth": 70,
       "displayinSiteListTextAlignment": "center"
     }
   },
   "AIpromptToUse": {
     "Type": "noRender",
     "Client": "DEPROM"
+   
+  },
+  "otherSettings" : {
+    "Type": "noRender",
+    "displaySiteListWidth" : 80
   }
 }

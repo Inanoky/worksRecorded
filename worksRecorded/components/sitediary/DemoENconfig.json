@@ -36,22 +36,35 @@
       "displayinSiteListTextAlignment": "left"
     }
   },
-  "Location": {
-    "Type": "dropdown",
-    "DisplayName": "Location",
-    "DropDownOptions": {
-      "Location_1": "Location_1",
-      "Location_2": "Location_2"
-    },
-    "customSettings": {
-      "order": 2,
-      "cellWidth": 150,
-      "displayinSiteList": "yes",
-      "displayinSiteListOrder": 1,
-      "displayinSiteListWidth": 150,
-      "displayinSiteListTextAlignment": "left"
-    }
+"Location": {
+  "Type": "dropdown",
+  "DisplayName": "Location",
+  "DropDownOptions": {
+    "Location_1": "Ground floor",
+    "Location_2": "1.floor",
+    "Location_3": "2.floor",
+    "Location_4": "3.floor",
+    "Location_5": "4.floor",
+    "Location_6": "5.floor",
+    "Location_7": "6.floor",
+    "Location_8": "7.floor",
+    "Location_9": "8.floor",
+    "Location_10": "9.floor",
+    "Location_11": "10.floor",
+    "Location_12": "11.floor",
+    "Location_13": "12.floor",
+    "Location_14": "13.floor"
   },
+  "customSettings": {
+    "order": 2,
+    "cellWidth": 150,
+    "displayinSiteList": "yes",
+    "displayinSiteListOrder": 1,
+    "displayinSiteListWidth": 150,
+    "displayinSiteListTextAlignment": "left"
+  }
+},
+
   "Location_Custom_1": {
     "Type": "noRender",
     "DisplayName": "Location_Custom_1",
@@ -88,9 +101,21 @@
     "Type": "dropdown",
     "DisplayName": "Works",
     "DropDownOptions": {
-      "Works_1": "Works_1",
-      "Works_2": "Works_2",
-      "Additional_works": "Additional_works"
+      "Works_1": "Concreting",
+      "Works_2": "Hollow core slabs reinfrocement" ,
+      "Works_3": "Assembly walls",
+      "Works_4": "Reinforcemenet walls ",
+      "Works_5": "Balcony assembly",
+      "Works_6": "Balcony welding",
+      "Works_7": "Stairs assembly",
+      "Works_8": "Concrete columns assembly",
+      "Works_9": "Beams assembly",
+      "Works_10": "Massive plates assembly" ,
+      "Works_11": "Additional works ",
+      "Works_12": "Notes",
+      "Works_13": "Delay",
+      "Works_14": "Delivery"
+      
     },
     "customSettings": {
       "order": 3,
@@ -229,22 +254,17 @@
       "cellWidth": 65,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 6,
-      "displayinSiteListWidth": 250,
+      "displayinSiteListWidth": 70,
       "displayinSiteListTextAlignment": "center"
     }
   },
-
-    "AIpromptToUse" : {
+  "AIpromptToUse": {
     "Type": "noRender",
-   "Client": "GMCIRL"
-
-
-
- },
-   "otherSettings" : {
+    "Client": "DEPROM"
+   
+  },
+  "otherSettings" : {
+    "Type": "noRender",
     "displaySiteListWidth" : 80
   }
-
-  
-
 }

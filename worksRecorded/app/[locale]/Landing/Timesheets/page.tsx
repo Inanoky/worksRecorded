@@ -25,14 +25,16 @@ export default function Page() {
               src={Timesheets1}
               alt={t("images.dashboardAlt")}
               priority
+              quality={100}
               className="w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/40"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 900px"
             />
 
             <Image
               src={TimesheetsWhatsapp}
               alt={t("images.whatsappAlt")}
               priority
+              width={280}
+              height={560}
               className="
                 absolute bottom-3 right-3
                 rounded-xl shadow-xl border z-10
@@ -70,8 +72,8 @@ export default function Page() {
             src={InvoicesPage}
             alt={t("images.analyticsAlt")}
             priority
+            quality={100}
             className="md:col-span-2 w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/20"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 66vw, 900px"
           />
         </div>
       </div>
