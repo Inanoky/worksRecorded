@@ -30,7 +30,7 @@ export default function LandingPage() {
             {t("heroTitle")}
           </h1>
 
-          <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto">
+          <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-3xl mx-auto">
             {t("smallDescription")}
           </p>
 
@@ -77,24 +77,12 @@ export default function LandingPage() {
           </div>
 
           <p className="mt-3 text-xs text-muted-foreground text-center">
-            2-minute walkthrough — how WhatsApp updates become a structured site diary.
+            1-minute walkthrough — how WhatsApp updates become a structured site diary.
           </p>
         </div>
       </section>
 
-      {/* LARGE WIDE IMAGE */}
-      <section className="bg-slate-50/60 dark:bg-slate-950 ">
-        <div className="w-full max-w-7xl mx-auto px-0 lg:px-4 pb-12 lg:pb-16">
-          <div className="rounded-2xl border bg-background shadow-2xl overflow-hidden">
-            <Image
-              src={LandingHero}
-              alt={t("heroImageAlt")}
-              priority
-              className="w-full h-auto object-cover"
-            />
-          </div>
-        </div>
-      </section>
+ 
 
       {/* SECTION 2 – What you capture every day */}
       <section className="bg-background">
@@ -145,11 +133,12 @@ export default function LandingPage() {
       {/* SECTION 3 – How we help + why different */}
       <section className="bg-slate-50/60 dark:bg-slate-950 ">
         <div className="w-full max-w-6xl mx-auto px-4 lg:px-6 py-12 lg:py-16 grid gap-12 lg:grid-cols-2">
-          <div>
-            <HowDoWeDoThat />
-          </div>
+        
           <div>
             <Why />
+          </div>
+            <div>
+            <HowDoWeDoThat />
           </div>
         </div>
       </section>

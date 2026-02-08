@@ -52,18 +52,18 @@ export function HowDoWeDoThat() {
       title: t("howDoWeDoThat.items.2.title"),
       desc: t("howDoWeDoThat.items.2.desc"),
     },
-    {
-      title: t("howDoWeDoThat.items.3.title"),
-      desc: t("howDoWeDoThat.items.3.desc"),
-    },
-    {
-      title: t("howDoWeDoThat.items.4.title"),
-      desc: t("howDoWeDoThat.items.4.desc"),
-    },
-    {
-      title: t("howDoWeDoThat.items.5.title"),
-      desc: t("howDoWeDoThat.items.5.desc"),
-    },
+    // {
+    //   title: t("howDoWeDoThat.items.3.title"),
+    //   desc: t("howDoWeDoThat.items.3.desc"),
+    // },
+    // {
+    //   title: t("howDoWeDoThat.items.4.title"),
+    //   desc: t("howDoWeDoThat.items.4.desc"),
+    // },
+    // {
+    //   title: t("howDoWeDoThat.items.5.title"),
+    //   desc: t("howDoWeDoThat.items.5.desc"),
+    // },
   ];
 
   return (
