@@ -133,10 +133,7 @@
     "Works_27": "Utility pipe laying",
     "Works_28": "Cable duct installation",
 
-    "Works_29": "Solar panel installation",
-    "Works_30": "Generator installation",
-    "Works_31": "Substation works",
-    "Works_32": "Battery / storage installation",
+    "Works_29": "Equipment installation",    
 
     "Works_33": "Testing & commissioning",
     "Works_34": "Inspection",
@@ -147,7 +144,12 @@
     "Works_38": "Equipment delivery",
     "Works_39": "Delay",
     "Works_40": "Additional works",
-    "Works_41": "Notes"
+    "Works_41": "Notes",
+    "Works_42": "Painting",
+     "Works_43": "Cleaning",
+      "Works_44": "Finishing"
+
+    
   },
     "customSettings": {
       "order": 3,
