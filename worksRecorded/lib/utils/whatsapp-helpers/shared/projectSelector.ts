@@ -93,7 +93,7 @@ export async function buildProjectListPrompt(
     .map((s: any, i: number) => `${i + 1} - ${s.name}`)
     .join("\n");
 
-  const result = `${prefix}\nReply with the number:\n${siteList}`;
+  const result = `${prefix}\nBelow is list of your projects. Please, reply with the project number you want to report to. For example "1" :\n${siteList}`;
   console.log("📝 [buildProjectListPrompt] Generated prompt:", result);
   return result;
 }
