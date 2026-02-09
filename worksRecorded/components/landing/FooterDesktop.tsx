@@ -8,8 +8,12 @@ import {
   CardAction,
   CardContent,
 } from "@/components/ui/card";
+import { useLocale } from "next-intl";
 
 export default function FooterDesktop() {
+
+    const locale = useLocale(); // ✅ en / lv / etc
+
   return (
     <>
       <div className="grid grid-cols-4 p-15 gap-5">
@@ -32,18 +36,18 @@ export default function FooterDesktop() {
           <h1>Data</h1>
 
           <p>
-            <Link href="/Landing/SiteDiary" className="underline text-muted-foreground">
+            <Link   href={`/${locale}/Landing/SiteDiary`} className="underline text-muted-foreground">
               Site diary
             </Link>
           </p>
    
           <p>
-            <Link href="/Landing/Timesheets" className="underline text-muted-foreground">
+            <Link href={`/${locale}/Landing/Timesheets`} className="underline text-muted-foreground">
               Timesheets
             </Link>
           </p>
           <p>
-            <Link href="/Landing/Analytics"className="underline text-muted-foreground">
+            <Link href={`/${locale}/Landing/Analytics`}className="underline text-muted-foreground">
               Analytics
             </Link>
           </p>
@@ -53,17 +57,17 @@ export default function FooterDesktop() {
           <p>Features</p>
           <div className="space-y-4 text-muted-foreground">
             <p>
-              <Link href="/Landing/Custom"className="underline">
+              <Link href={`/${locale}/Landing/Custom`} className="underline">
                 Custom Digital Solutions
               </Link>
             </p>
             <p>
-              <Link href="/Landing/Pricing" className="underline">
+              <Link href={`/${locale}/Landing/Pricing`} className="underline">
                 Pricing
               </Link>
             </p>
             <p>
-              <Link href="/Landing/About" className="underline">
+              <Link href={`/${locale}/Landing/About`}className="underline">
                 About
               </Link>
             </p>
@@ -88,7 +92,7 @@ export default function FooterDesktop() {
             </CardContent>
             <CardFooter>
               <p>
-                <a href="mailto:hello@buvconsult.com">hello@buvconsult.com</a>
+                <a href="mailto:vjaceslavs@worksrecorded.com">vjaceslavs@worksrecorded.com</a>
               </p>
             </CardFooter>
           </Card>

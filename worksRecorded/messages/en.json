@@ -2,7 +2,7 @@
   "LandingPageDesktop": {
     "topPill": "Built for trade contractors & site managers",
     "heroTitle": "Construction site records with WhatsApp",
-    "smallDescription": "Site managers record updates by voice and photos, automatically sorted and stored online.",
+    "smallDescription": "Site managers record updates by voice and photos, automatically sorted and stored online.            Any language format",
     "startFreeTrial": "Try now",
     "signIn": "Talk to a live person",
     "noCardNote": "No credit card",
@@ -19,11 +19,12 @@
     "whatDoWeDo": {
       "heading": "Features",
       "items": [
+        { "title": "Fully customizible to fit your operations" },
         { "title": "Fields from your existing forms" },
-        { "title": "Photos with comments" },
+        { "title": "Upload photos with comments" },
         { "title": "Sorted by cost codes and locations" },
         { "title": "24/7 live technical support" },
-        { "title": "Custom WhatsApp timesheets, punch lists, snag lists" },
+   
         { "title": "Intelligent sorting set up according to your trade specifics" }
       ]
     },

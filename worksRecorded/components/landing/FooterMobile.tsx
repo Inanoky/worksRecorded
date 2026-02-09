@@ -45,9 +45,8 @@ export default function FooterMobile() {
               </CardContent>
               <CardFooter className="text-sm sm:text-base">
                 <p>
-                  <a href="mailto:hello@buvconsult.com" className="underline underline-offset-4">
-                    hello@buvconsult.com
-                  </a>
+                          <a href="mailto:vjaceslavs@worksrecorded.com">vjaceslavs@worksrecorded.com</a>
+
                 </p>
               </CardFooter>
             </Card>
