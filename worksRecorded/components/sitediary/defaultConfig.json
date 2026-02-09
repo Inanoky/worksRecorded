@@ -100,23 +100,55 @@
   "Works": {
     "Type": "dropdown",
     "DisplayName": "Works",
-    "DropDownOptions": {
-      "Works_1": "Concreting",
-      "Works_2": "Hollow core slabs reinfrocement" ,
-      "Works_3": "Assembly walls",
-      "Works_4": "Reinforcemenet walls ",
-      "Works_5": "Balcony assembly",
-      "Works_6": "Balcony welding",
-      "Works_7": "Stairs assembly",
-      "Works_8": "Concrete columns assembly",
-      "Works_9": "Beams assembly",
-      "Works_10": "Massive plates assembly" ,
-      "Works_11": "Additional works ",
-      "Works_12": "Notes",
-      "Works_13": "Delay",
-      "Works_14": "Delivery"
-      
-    },
+     "DropDownOptions": {
+    "Works_1": "Concrete works",
+    "Works_2": "Reinforcement works",
+    "Works_3": "Formwork installation",
+    "Works_4": "Precast elements installation",
+    "Works_5": "Masonry / Blockwork",
+    "Works_6": "Steel structure assembly",
+    "Works_7": "Balcony installation",
+    "Works_8": "Stairs installation",
+    "Works_9": "Wall construction",
+    "Works_10": "Slab installation",
+
+    "Works_11": "Plumbing installation",
+    "Works_12": "Drainage installation",
+    "Works_13": "Heating system installation",
+    "Works_14": "Ventilation installation",
+    "Works_15": "Air conditioning installation",
+    "Works_16": "Electrical cabling",
+    "Works_17": "Lighting installation",
+    "Works_18": "Panel / switchboard installation",
+
+    "Works_19": "Fire pipe installation",
+    "Works_20": "Sprinkler installation",
+    "Works_21": "Fire alarm installation",
+    "Works_22": "Smoke detection installation",
+    "Works_23": "Fire stopping / sealing",
+
+    "Works_24": "Excavation",
+    "Works_25": "Trenching",
+    "Works_26": "Backfilling",
+    "Works_27": "Utility pipe laying",
+    "Works_28": "Cable duct installation",
+
+    "Works_29": "Solar panel installation",
+    "Works_30": "Generator installation",
+    "Works_31": "Substation works",
+    "Works_32": "Battery / storage installation",
+
+    "Works_33": "Testing & commissioning",
+    "Works_34": "Inspection",
+    "Works_35": "Maintenance works",
+    "Works_36": "Repair works",
+
+    "Works_37": "Material delivery",
+    "Works_38": "Equipment delivery",
+    "Works_39": "Delay",
+    "Works_40": "Additional works",
+    "Works_41": "Notes"
+  },
     "customSettings": {
       "order": 3,
       "cellWidth": 150,
