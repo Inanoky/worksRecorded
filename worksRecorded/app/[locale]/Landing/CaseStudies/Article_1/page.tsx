@@ -1,12 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
+import { useLocale } from "next-intl";
 
 export default function ContractorSoftwareArticle() {
+
+      const locale = useLocale(); // ✅ en / lv / etc
+
   return (
     <main className="mx-auto max-w-3xl px-6 py-12">
       {/* Back link */}
       <Link
-        href="/Landing/CaseStudies"
+        href={`/${locale}/Landing/CaseStudies`} 
         className="text-sm text-muted-foreground hover:underline"
       >
         ← Back to case studies
