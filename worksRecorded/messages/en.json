@@ -246,6 +246,10 @@
       "analytics": {
         "title": "Analytics",
         "description": "Get live custom analytics"
+      },
+            "projects": {
+        "title": "Projects",
+        "description": "Case studies"
       }
     },
 

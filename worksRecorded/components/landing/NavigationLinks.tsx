@@ -30,6 +30,14 @@ export const MAIN_LINKS = [
 ] as const;
 
 export const COMBINED_LINKS = [
+
+
+    {
+    id: "Projects",
+    href: "/Landing/CaseStudies",
+    titleKey: "data.projects.title",
+    descriptionKey: "data.projects.description",
+  },
   {
     id: "Whatsapp",
     href: "/Landing/SiteDiary",
