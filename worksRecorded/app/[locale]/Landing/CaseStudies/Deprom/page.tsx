@@ -62,7 +62,7 @@ export default function DepromCaseStudy() {
         <ul>
           <li>4 months of work and 600 records stored</li>
           <li>900 pictures stored</li>
-          <li>20 hours per week of admin saved</li>
+          <li>20 hours per momth of admin saved</li>
           <li>
             Monthly progress reports against estimates delivered together with
             project financial forecasts
