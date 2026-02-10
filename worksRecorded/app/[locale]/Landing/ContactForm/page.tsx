@@ -125,10 +125,10 @@ export default function ContactForm() {
                 <Mail className="h-5 w-5 text-primary flex-shrink-0" />
                 <span className="font-medium">{t("emailLabel")}</span>{" "}
                 <a
-                  href="mailto:hello@buvconsult.com"
+                  href="mailto:vjaceslavs@worksrecorded.com"
                   className="underline hover:text-primary transition-colors"
                 >
-                  hello@buvconsult.com
+                  vjaceslavs@worksrecorded.com
                 </a>
               </li>
 
@@ -136,12 +136,12 @@ export default function ContactForm() {
                 <Globe className="h-5 w-5 text-primary flex-shrink-0" />
                 <span className="font-medium">{t("webLabel")}</span>{" "}
                 <a
-                  href="https://www.buvconsult.com"
+                  href="https://www.worksrecorded.com"
                   target="_blank"
                   rel="noreferrer"
                   className="underline hover:text-primary transition-colors"
                 >
-                  buvconsult.com
+                  worksrecorded.com
                 </a>
               </li>
             </ul>

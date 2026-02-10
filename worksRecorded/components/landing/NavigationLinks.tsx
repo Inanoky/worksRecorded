@@ -22,6 +22,7 @@ export const DATA_LINKS = [
 ] as const;
 
 export const MAIN_LINKS = [
+     { href:"/Landing/CaseStudies", labelKey: "main.caseStudies" },
   { href: "/Landing/Custom", labelKey: "main.custom" },
   { href: "/Landing/Pricing", labelKey: "main.pricing" },
   { href: "/Landing/About", labelKey: "main.about" },
