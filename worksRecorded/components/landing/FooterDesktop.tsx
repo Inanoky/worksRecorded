@@ -28,7 +28,7 @@ export default function FooterDesktop() {
                 worksrecorded.com
               </a>
             </p>
-            <p>All rights reserved</p>
+            <p>All rights reserved. WorksRecorded is a product of Buvconsult SIA, Latvia</p>
           </div>
         </div>
 

@@ -11,6 +11,12 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard_siteid_dashboard } from "@/components/joyride/JoyRideSteps";
 import SiteDiaryList from "@/components/sitediary/SiteDiaryList";
+import MewpChecklistF72Dummy from "@/components/mockups/loxtonMockupv1";
+import MewpChecklistF72ExcelLikeDummy2 from "@/components/mockups/loxtonMockupv2";
+import TimesheetMockupF17 from "@/components/mockups/TimesheetMockupF17";
+import WeeklyVehicleReportsMockupF25 from "@/components/mockups/vehicleReportMockup";
+import ElectricalInstallationsInspectionReportMockup from "@/components/mockups/inspectiosnReportMockup";
+import InspectionReportsSummaryMockup from "@/components/mockups/inspectonReportsdashboard";
 
 export const maxDuration = 800;
 
@@ -78,7 +84,7 @@ export default async function InvoiceRoute({
         />
       </div>
 
-      <SiteDiaryList siteId={siteId} />
+      <InspectionReportsSummaryMockup/>
       <AiWidgetRag siteId={siteId} />
     </>
   );
