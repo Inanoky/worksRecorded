@@ -84,7 +84,7 @@ export default async function InvoiceRoute({
         />
       </div>
 
-      <InspectionReportsSummaryMockup/>
+      <SiteDiaryList siteId={siteId} />
       <AiWidgetRag siteId={siteId} />
     </>
   );

@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     // Prepare email
     const { firstName, lastName, email, subject, message } = parsed;
     console.log(`[${t()}] [/api/contact] Sending email via Resend...`, {
-      to: "hello@buvconsult.com",
+      to: "vjaceslavs@worksrecorded.com",
       from: "Acme <onboarding@resend.dev>", // NOTE: replace with your verified domain in prod
       replyTo: email,
       subject: `[Contact] ${subject}`,
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
 
     const { data, error } = await resend.emails.send({
       from: "Acme <onboarding@resend.dev>", // replace with "BUVCONSULT <noreply@buvconsult.com>" in prod
-      to: ["hello@buvconsult.com"],
+      to: ["vjaceslavs@worksrecorded.com"],
       replyTo: email,
       subject: `[Contact] ${subject}`,
       react: EmailTemplate({ firstName, lastName, email, subject, message }),
