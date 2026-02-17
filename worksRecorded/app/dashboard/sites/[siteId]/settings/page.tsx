@@ -153,40 +153,17 @@ export default async function SettingsSiteRoute({
       {/* Upload Sections */}
  
 
-      <Card
-      data-tour="programm">
-        <CardHeader>
-          <CardTitle>Please, upload programm</CardTitle>
-        </CardHeader>
-        <XslxUpload params={Promise.resolve({ siteId })} />
-      </Card>
-      <div
-      data-tour="template"
-      >
-
-
-      
-      <TemplateCard />
-      </div>
-
-      <SchemaCard
-        siteId={siteId}
-        fileUrl={settings?.fileUrl ?? null}
-        schemaExists={!!settings?.schema}
-      />
-
+     
+  
    
-      <div
-      data-tour="members">
-      <MembersTable pageSize={5} data={userData} exportFileName="Members" userid={user.id} orgId={orgId}  />
-      </div>
+      
       
          {/* Danger Card */}
       <Card className="border-red-500 bg-red-500/10">
         <CardHeader>
           <CardTitle className="text-red-500">Danger</CardTitle>
           <CardDescription>
-            This will delete your site and all articles associated with it.
+            This will delete your site and all data associated with it.
             Click the button below to delete everything.
           </CardDescription>
         </CardHeader>

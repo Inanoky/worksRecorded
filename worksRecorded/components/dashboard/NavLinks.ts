@@ -10,6 +10,11 @@ export const navLinks = [
         href: '/dashboard/sites',
         icon: HardHat,
     },
+        {
+        name: 'Invite Colleagues',
+        href: '/dashboard/settings',
+        icon: HardHat,
+    },
     // {
     //     name: 'Pricing',
     //     href: '/dashboard/pricing',

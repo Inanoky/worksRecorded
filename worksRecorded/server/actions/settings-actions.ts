@@ -34,7 +34,7 @@ export async function inviteUserByEmail(formData: FormData) {
       return { ok: false, message: "Email is required" };
     }
 
-    const link = `https://buvconsult.com/api/auth/register?org_code=${ORG_CODE}&login_hint=${encodeURIComponent(
+    const link = `https://worksrecorded.com/api/auth/register?org_code=${ORG_CODE}&login_hint=${encodeURIComponent(
       email
     )}`;
 
@@ -48,9 +48,9 @@ export async function inviteUserByEmail(formData: FormData) {
     const result = await resend.emails.send({
       from: 'BUVCONSULT <invite@no-reply.buvconsult.com>',
       to: email,
-      subject: "BUVCONSULT – Invitation to join",
+      subject: "WorksRecorded – Invitation to join",
       html: `
-        <p>You have been invited to join <b>BUVCONSULT</b>.</p>
+        <p>You have been invited to join <b>WorksRecorded</b>.</p>
         <p><a href="${link}">Click here to create your account</a></p>
         <p>If the button does not work, copy and paste this link:</p>
         <p>${link}</p>
