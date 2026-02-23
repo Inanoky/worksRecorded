@@ -69,8 +69,8 @@ function getColumns(): ColumnDef<Member, any>[] {
     { accessorKey: "phone", header: "Phone" },
     { accessorKey: "role", header: "Role" },
     { accessorKey: "status", header: "Status" },
-    { accessorKey: "reminderTime", header: "Whatsapp reminder" },
-    { accessorKey: "remindersEnabled", header: "Allow reminders" },
+    // { accessorKey: "reminderTime", header: "Whatsapp reminder" },
+    // { accessorKey: "remindersEnabled", header: "Allow reminders" },
   ];
 }
 

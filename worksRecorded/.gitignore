@@ -54,3 +54,7 @@ node_modules/
 # tests
 
 /app/api/tests/
+
+
+# WhatsApp encryption keys
+whatsapp-keys/

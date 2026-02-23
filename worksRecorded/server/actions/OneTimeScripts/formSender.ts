@@ -15,7 +15,9 @@ async function sendFlowMessage() {
 
   const exampleChecklist = "HXaa9f8ced7112d19b3d3dbdaf586b79ce"
 
-  const contentSid = actionSelect 
+  const withLink = "HXf54105be0d5fe58c11441d0c7be41fc2"
+
+  const contentSid = withLink
 
 
 
@@ -54,6 +56,12 @@ async function sendFlowMessage() {
     { id: "no", title: "Fail" }
   ];
 
+
+    const wihtLink = [
+    { id: "yes", title: "Pass" },
+    { id: "no", title: "Fail" }
+  ];
+
   try {
     const message = await client.messages.create({
       to,
@@ -61,7 +69,8 @@ async function sendFlowMessage() {
       contentSid,
       // 2. Map the 'options' to the variable '1' seen in your screenshot
       contentVariables: JSON.stringify({
-        "1": JSON.stringify(outreach) 
+        "1": "https://www.worksrecorded.com/en/Landing",
+        "2": JSON.stringify(binary),
       }),
     });
 
