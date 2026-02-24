@@ -1,6 +1,8 @@
 import crypto from "crypto";
 
-const PRIVATE_KEY = (process.env.PRIVATE_KEY || "").replace(/\\n/g, "\n");
+export const runtime = "nodejs"; // IMPORTANT on Vercel (needs Node crypto)
+
+const PRIVATE_KEY_PEM = Buffer.from(process.env.PRIVATE_KEY || "", "base64").toString("utf8");
 const PASSPHRASE = process.env.PASSPHRASE || "";
 
 const TAG_LENGTH = 16;
@@ -10,7 +12,8 @@ export async function POST(req: Request): Promise<Response> {
 
   const { decryptedBody, aesKeyBuffer, initialVectorBuffer } = decryptRequest(
     body,
-    PRIVATE_KEY
+    PRIVATE_KEY_PEM,
+    PASSPHRASE
   );
 
   const { screen, version, action } = decryptedBody;
@@ -32,15 +35,18 @@ export async function POST(req: Request): Promise<Response> {
   });
 }
 
-function decryptRequest(body: any, privatePem: string) {
+function decryptRequest(body: any, privatePem: string, passphrase: string) {
   const { encrypted_aes_key, encrypted_flow_data, initial_vector } = body;
+
+  const privateKeyObj = crypto.createPrivateKey({
+    key: privatePem,
+    format: "pem",
+    passphrase,
+  });
 
   const decryptedAesKey = crypto.privateDecrypt(
     {
-      key: crypto.createPrivateKey({
-        key: privatePem,
-        passphrase: PASSPHRASE,
-      }),
+      key: privateKeyObj,
       padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
       oaepHash: "sha256",
     },
@@ -50,17 +56,10 @@ function decryptRequest(body: any, privatePem: string) {
   const flowDataBuffer = Buffer.from(encrypted_flow_data, "base64");
   const initialVectorBuffer = Buffer.from(initial_vector, "base64");
 
-  const encryptedBody = flowDataBuffer.subarray(
-    0,
-    flowDataBuffer.length - TAG_LENGTH
-  );
+  const encryptedBody = flowDataBuffer.subarray(0, flowDataBuffer.length - TAG_LENGTH);
   const tag = flowDataBuffer.subarray(flowDataBuffer.length - TAG_LENGTH);
 
-  const decipher = crypto.createDecipheriv(
-    "aes-128-gcm",
-    decryptedAesKey,
-    initialVectorBuffer
-  );
+  const decipher = crypto.createDecipheriv("aes-128-gcm", decryptedAesKey, initialVectorBuffer);
   decipher.setAuthTag(tag);
 
   const decryptedJSONString = Buffer.concat([
@@ -75,11 +74,7 @@ function decryptRequest(body: any, privatePem: string) {
   };
 }
 
-function encryptResponse(
-  response: any,
-  aesKeyBuffer: Buffer,
-  initialVectorBuffer: Buffer
-) {
+function encryptResponse(response: any, aesKeyBuffer: Buffer, initialVectorBuffer: Buffer) {
   const flippedIv = Buffer.alloc(initialVectorBuffer.length);
   for (let i = 0; i < initialVectorBuffer.length; i++) {
     flippedIv[i] = (~initialVectorBuffer[i]) & 0xff;
