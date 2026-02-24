@@ -1,6 +1,7 @@
 import crypto from "crypto";
 
 const PRIVATE_KEY = (process.env.PRIVATE_KEY || "").replace(/\\n/g, "\n");
+const PASSPHRASE = process.env.PASSPHRASE || "";
 
 const TAG_LENGTH = 16;
 
@@ -12,17 +13,12 @@ export async function POST(req: Request): Promise<Response> {
     PRIVATE_KEY
   );
 
-  const { screen, data, version, action } = decryptedBody;
+  const { screen, version, action } = decryptedBody;
 
-  // Minimal response that keeps health check happy + lets you iterate
-  // You can change "screen" + "data" later based on your Flow routing.
   const responsePayload =
     action === "ping"
       ? { version: version || "3.0", data: { status: "active" } }
-      : {
-          screen: screen || "SUCCESS",
-          data: { status: "ok" },
-        };
+      : { screen: screen || "SUCCESS", data: { status: "ok" } };
 
   const encrypted = encryptResponse(
     responsePayload,
@@ -41,7 +37,10 @@ function decryptRequest(body: any, privatePem: string) {
 
   const decryptedAesKey = crypto.privateDecrypt(
     {
-      key: crypto.createPrivateKey(privatePem),
+      key: crypto.createPrivateKey({
+        key: privatePem,
+        passphrase: PASSPHRASE,
+      }),
       padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
       oaepHash: "sha256",
     },
@@ -51,7 +50,10 @@ function decryptRequest(body: any, privatePem: string) {
   const flowDataBuffer = Buffer.from(encrypted_flow_data, "base64");
   const initialVectorBuffer = Buffer.from(initial_vector, "base64");
 
-  const encryptedBody = flowDataBuffer.subarray(0, flowDataBuffer.length - TAG_LENGTH);
+  const encryptedBody = flowDataBuffer.subarray(
+    0,
+    flowDataBuffer.length - TAG_LENGTH
+  );
   const tag = flowDataBuffer.subarray(flowDataBuffer.length - TAG_LENGTH);
 
   const decipher = crypto.createDecipheriv(
@@ -73,7 +75,11 @@ function decryptRequest(body: any, privatePem: string) {
   };
 }
 
-function encryptResponse(response: any, aesKeyBuffer: Buffer, initialVectorBuffer: Buffer) {
+function encryptResponse(
+  response: any,
+  aesKeyBuffer: Buffer,
+  initialVectorBuffer: Buffer
+) {
   const flippedIv = Buffer.alloc(initialVectorBuffer.length);
   for (let i = 0; i < initialVectorBuffer.length; i++) {
     flippedIv[i] = (~initialVectorBuffer[i]) & 0xff;
@@ -87,6 +93,5 @@ function encryptResponse(response: any, aesKeyBuffer: Buffer, initialVectorBuffe
   ]);
 
   const tag = cipher.getAuthTag();
-
   return Buffer.concat([ciphertext, tag]).toString("base64");
 }
