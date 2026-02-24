@@ -12,7 +12,7 @@ const CLIENT_SECRET =
   "145a3725c6467e2e5c6676029d7e3dd700cd84a3cb3e8b3bb69ae8de5cb65d1e";
 
 const AUTH_CODE =
-  "45aa6c8196c30479afabcf3b381c85dcc43b1f1a1ee4826f2b1c2389f9430fc7";
+  "75d906da1850d4938ac1b085ff4f1421d57e835e2b45af99a57ec2bcd78b4d07";
 
 const REDIRECT_URI = "https://localhost:3000/";
 

@@ -6,7 +6,7 @@ const CLIENT_SECRET =
   "145a3725c6467e2e5c6676029d7e3dd700cd84a3cb3e8b3bb69ae8de5cb65d1e";
 
 const REFRESH_TOKEN =
-  "482bf2b6d8903a872ea8429343b23b650c70bbea7b77d39c922bc2e1c2c3fdd2";
+  "d045411c17167303565cd3b5cdf15dcbd9325cc10e887dbfa598d31de40d867c";
 
 function base64(s: string) {
   return Buffer.from(s).toString("base64");

@@ -1,6 +1,6 @@
 const BASE_URL = "https://test.bis.gov.lv";
 const ACCESS_TOKEN =
-  "3bebeb0339a816b77f8e7bfdfef16d8f91a1158f1ce53f9d1402fdd067e0ff98";
+  "e6b8ad27aa9d93913e224ab1495dbe1623004fc1327f9ee3aceeb63311448865";
 
 async function main() {
   let page = 1;
