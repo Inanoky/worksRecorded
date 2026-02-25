@@ -13,7 +13,7 @@ const ContactSchema = z.object({
   hp: z.string().optional(), // honeypot
 });
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.WORKSRECORDED_RESEND_API_KEY);
 
 export async function POST(req: Request) {
   const t = () => new Date().toISOString();
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     // Basic env sanity check (don’t log actual key)
     console.log(
       `[${t()}] [/api/contact] RESEND_API_KEY present:`,
-      Boolean(process.env.RESEND_API_KEY)
+      Boolean(process.env.WORKSRECORDED_RESEND_API_KEY)
     );
 
     // Read JSON
@@ -53,13 +53,13 @@ export async function POST(req: Request) {
     const { firstName, lastName, email, subject, message } = parsed;
     console.log(`[${t()}] [/api/contact] Sending email via Resend...`, {
       to: "vjaceslavs@worksrecorded.com",
-      from: "Acme <onboarding@resend.dev>", // NOTE: replace with your verified domain in prod
+      from: "WorksRecorded <noreply@updates.worksrecorded.com>", // NOTE: replace with your verified domain in prod
       replyTo: email,
       subject: `[Contact] ${subject}`,
     });
 
     const { data, error } = await resend.emails.send({
-      from: "Acme <onboarding@resend.dev>", // replace with "BUVCONSULT <noreply@buvconsult.com>" in prod
+      from: "WorksRecorded <noreply@updates.worksrecorded.com>", // replace with "BUVCONSULT <noreply@buvconsult.com>" in prod
       to: ["vjaceslavs@worksrecorded.com"],
       replyTo: email,
       subject: `[Contact] ${subject}`,
