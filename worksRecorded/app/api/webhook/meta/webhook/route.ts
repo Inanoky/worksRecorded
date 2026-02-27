@@ -11,7 +11,7 @@
 
 import { randomUUID } from "crypto";
 
-const { WEBHOOK_VERIFY_TOKEN, GRAPH_API_TOKEN, FLOW_ID } = process.env;
+const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN, FLOW_ID } = process.env;
 
 function mustGetEnv(name: string, value: string | undefined): string {
   if (!value) throw new Error(`Missing env var: ${name}`);
@@ -22,7 +22,7 @@ async function graphSendMessage(
   businessPhoneNumberId: string,
   body: unknown
 ): Promise<void> {
-  const token = mustGetEnv("GRAPH_API_TOKEN", GRAPH_API_TOKEN);
+  const token = mustGetEnv("GRAPH_API_TOKEN", META_ACCESS_TOKEN);
 
   const res = await fetch(
     `https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`,
