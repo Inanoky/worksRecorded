@@ -1,120 +1,87 @@
-export default function Page() {
+// worksRecorded/app/privacy/page.tsx
+// Simple Privacy Policy page ready to paste into Next.js App Router
+
+export default function PrivacyPage() {
   return (
-    <div className="prose max-w-3xl mx-auto py-10">
-      <h1>Privacy Policy</h1>
-      <p><strong>Last Updated:</strong> [07.11.2025]</p>
+    <main className="max-w-3xl mx-auto px-6 py-12 text-gray-800">
+      <h1 className="text-3xl font-bold mb-6">Privacy Policy – WorksRecorded</h1>
+      <p className="mb-6">Last updated: 27 February 2026</p>
 
-      <p>
-        This Privacy Policy explains how <strong>BUVCONSULT</strong> (“we”, “our”, or “us”) collects,
-        uses, and protects personal data when you use the BUVCONSULT platform, website,
-        mobile interface, and related services (“Services”). We are committed to respecting
-        your privacy and complying with the General Data Protection Regulation (GDPR)
-        and applicable data protection laws.
-      </p>
+      <Section title="1. Information We Collect">
+        <p>
+          We may collect account information (name, company, phone number, email), WhatsApp data
+          such as voice notes, photos, inspection reports, site diary entries, and technical
+          information like IP address and usage logs.
+        </p>
+      </Section>
 
-      <h2>1. Data Controller</h2>
-      <p>
-        <strong>BUVCONSULT</strong><br />
-        Rīga, Latvia<br />
-        Email: [hello@buvconsult.com]
-      </p>
+      <Section title="2. How We Use Your Information">
+        <p>
+          We use data to provide WorksRecorded services, convert WhatsApp messages into structured
+          construction records, generate site diaries and inspection reports, integrate with
+          external systems (like national construction logbooks), improve the software, and
+          provide support.
+        </p>
+      </Section>
 
-      <h2>2. Data We Collect</h2>
-      <h3>Information You Provide:</h3>
-      <ul>
-        <li>Account information: name, email address, phone number, job role.</li>
-        <li>Organization and project details you enter.</li>
-        <li>Documents you upload (invoices, site diaries, images, files).</li>
-        <li>Communication history (support messages, feedback).</li>
-      </ul>
+      <Section title="3. WhatsApp and Meta Platforms">
+        <p>
+          WorksRecorded uses WhatsApp Business API provided by Meta Platforms, Inc. Messages sent
+          to our business number may be processed to create structured construction reports.
+          Meta Privacy Policy: https://www.meta.com/privacy
+        </p>
+      </Section>
 
-      <h3>Automatically Collected Data:</h3>
-      <ul>
-        <li>IP address and device information</li>
-        <li>Browser version and operating system</li>
-        <li>Usage logs (pages visited, buttons clicked)</li>
-      </ul>
+      <Section title="4. Data Sharing">
+        <p>
+          We may share data with your company administrators, authorized project stakeholders,
+          secure service providers, or when required by law. We never sell personal data.
+        </p>
+      </Section>
 
-      <h3>Optional Integrations (if enabled):</h3>
-      <ul>
-        <li>Google / Microsoft authentication</li>
-        <li>Cloud storage access (e.g., Google Drive)</li>
-        <li>Email inbox scanning (with explicit permission)</li>
-      </ul>
+      <Section title="5. Data Storage and Security">
+        <p>
+          Data is stored on secure EU-based cloud servers with encryption, access control, and
+          logging. Only authorised users can access project information.
+        </p>
+      </Section>
 
-      <p>We only access integrated services with your authorization.</p>
+      <Section title="6. Data Retention">
+        <p>
+          Data is retained only as long as necessary to provide services or meet legal
+          requirements. Companies may request deletion at any time.
+        </p>
+      </Section>
 
-      <h2>3. Why We Use Your Data</h2>
-      <ul>
-        <li>To provide and improve our Services</li>
-        <li>To store and organize construction project information</li>
-        <li>To generate analytics, reports, and summaries</li>
-        <li>To ensure system security and user authentication</li>
-        <li>To respond to customer support requests</li>
-        <li>To comply with legal and financial regulations</li>
-      </ul>
+      <Section title="7. Your Rights (GDPR)">
+        <p>
+          EU users have the right to access, correct, delete, restrict, or transfer their data.
+          Contact us to exercise these rights.
+        </p>
+      </Section>
 
-      <p><strong>We do not sell your personal data.</strong></p>
+      <Section title="8. Children’s Privacy">
+        <p>
+          WorksRecorded is designed for professional construction companies and is not intended
+          for children under 16.
+        </p>
+      </Section>
 
-      <h2>4. Legal Basis for Processing (GDPR)</h2>
-      <ul>
-        <li>Contract necessity</li>
-        <li>Legitimate interest</li>
-        <li>Consent (for optional features)</li>
-        <li>Legal obligation</li>
-      </ul>
+      <Section title="9. Contact Us">
+        <p>
+          Email: support@worksrecorded.com <br />
+          Website: https://www.worksrecorded.com
+        </p>
+      </Section>
+    </main>
+  );
+}
 
-      <h2>5. Data Sharing</h2>
-      <p>We may share data with:</p>
-      <ul>
-        <li>Service providers (hosting, analytics, payment)</li>
-        <li>Your organization (if used in a team environment)</li>
-        <li>Legal authorities when required</li>
-      </ul>
-      <p>We do not sell or rent your data.</p>
-
-      <h2>6. Data Storage & Security</h2>
-      <p>
-        Data is stored in secure cloud environments within the EU or trusted GDPR-compliant regions.
-      </p>
-      <ul>
-        <li>Encrypted data transfer (HTTPS/TLS)</li>
-        <li>Role-based access control</li>
-        <li>Audit logging and monitoring</li>
-      </ul>
-
-      <h2>7. Data Retention</h2>
-      <p>
-        We retain data as long as your account is active or as required by law.
-        You may request deletion at any time (see Section 9).
-      </p>
-
-      <h2>8. Cookies</h2>
-      <p>We use cookies to maintain sessions, improve performance, and measure usage.</p>
-
-      <h2>9. Your Rights (GDPR)</h2>
-      <ul>
-        <li>Access your data</li>
-        <li>Correct inaccurate information</li>
-        <li>Request deletion (“Right to be Forgotten”)</li>
-        <li>Restrict or object to processing</li>
-        <li>Data portability</li>
-        <li>Withdraw consent at any time</li>
-      </ul>
-      <p>To exercise rights: <strong>Email: [insert email]</strong></p>
-
-      <h2>10. Children’s Privacy</h2>
-      <p>Our Services are not intended for individuals under 16.</p>
-
-      <h2>11. Changes to This Policy</h2>
-      <p>We will update this page if the policy changes.</p>
-
-      <h2>12. Contact Us</h2>
-      <p>
-        For privacy-related inquiries:<br />
-        Email: <strong>[hello@buvconsult.com]</strong><br />
-        BUVCONSULT, Rīga, Latvia
-      </p>
-    </div>
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mb-8">
+      <h2 className="text-xl font-semibold mb-2">{title}</h2>
+      <div className="text-sm leading-6">{children}</div>
+    </section>
   );
 }
