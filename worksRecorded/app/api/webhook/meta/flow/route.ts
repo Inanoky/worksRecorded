@@ -1,3 +1,5 @@
+// worksRecorded\app\api\webhook\meta\flow\route.ts
+
 import crypto from "crypto";
 
 export const runtime = "nodejs"; // IMPORTANT on Vercel (needs Node crypto)
@@ -28,7 +30,7 @@ export async function POST(req: Request): Promise<Response> {
   const responsePayload =
     action === "ping"
       ? { version: version || "3.0", data: { status: "active" } }
-      : { screen: screen || "SUCCESS", data: { status: "ok" } };
+      : { screen: "SUCCESS", data: { status: "ok" } };
 
   const encrypted = encryptResponse(
     responsePayload,
