@@ -10,6 +10,10 @@ const TAG_LENGTH = 16;
 export async function POST(req: Request): Promise<Response> {
   const body = await req.json();
 
+  console.log("========== META RAW BODY ==========");
+  console.log(body);
+  console.log("===================================");
+
   const { decryptedBody, aesKeyBuffer, initialVectorBuffer } = decryptRequest(
     body,
     PRIVATE_KEY_PEM,
