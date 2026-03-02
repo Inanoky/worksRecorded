@@ -117,6 +117,8 @@ export async function POST(req: Request): Promise<Response> {
       // 2) Handle Flow response message
       if (message.type === "interactive" && message.interactive?.type === "nfm_reply") {
 
+        const material_form = message.interactive?.nfm_reply?.respons_json?.formName
+
         //Here we can start routing.
         //We search for formName "Always will be in payload!"
         //If fo
@@ -124,16 +126,13 @@ export async function POST(req: Request): Promise<Response> {
 
           console.log(`This is a material form`)
 
-        }
-
-
-        
+        }        
 
 
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           to: message.from,
-          text: { body: "Your form is received" },
+          text: { body: `${material_form} is Submitted` },
         });
       }
 
