@@ -96,7 +96,7 @@ export async function POST(req: Request): Promise<Response> {
             type: "flow",
             header: { type: "text", text: "WorksRecorded form" },
             body: {
-              text: "",
+              text: "Construction",
             },
             footer: { text: "Click the button below to proceed" },
             action: {
@@ -118,6 +118,8 @@ export async function POST(req: Request): Promise<Response> {
       if (message.type === "interactive" && message.interactive?.type === "nfm_reply") {
 
         //Here we can start routing.
+        //We search for formName "Always will be in payload!"
+        //If formName = 
         
 
 
