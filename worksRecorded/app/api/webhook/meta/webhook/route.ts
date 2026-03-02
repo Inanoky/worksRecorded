@@ -94,9 +94,9 @@ export async function POST(req: Request): Promise<Response> {
           type: "interactive",
           interactive: {
             type: "flow",
-            header: { type: "text", text: "Hello there 👋" },
+            header: { type: "text", text: "WorksRecorded form" },
             body: {
-              text: "Ready to transform your space? Schedule a personalized consultation with our expert team!",
+              text: "",
             },
             footer: { text: "Click the button below to proceed" },
             action: {
@@ -105,7 +105,7 @@ export async function POST(req: Request): Promise<Response> {
                 flow_id: flowId,
                 flow_message_version: "3",
                 flow_token: flowToken,
-                flow_cta: "Sign",
+                flow_cta: "Complete form",
                 flow_action: "navigate",
                 // mode: "draft", // uncomment to send a draft flow
               },
