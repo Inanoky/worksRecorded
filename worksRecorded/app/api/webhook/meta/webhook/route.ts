@@ -2,7 +2,7 @@
 // Next.js App Router webhook endpoint (GET verify + POST events)
 //
 // Set env vars:
-// - WEBHOOK_VERIFY_TOKEN
+// - META_ACCESS_TOKEN
 // - GRAPH_API_TOKEN
 // - FLOW_ID
 //
@@ -86,7 +86,7 @@ export async function POST(req: Request): Promise<Response> {
         typeof message.text?.body === "string" &&
         message.text.body.toLowerCase().includes("appointment")
       ) {
-        const flowId = mustGetEnv("FLOW_ID", FLOW_ID);
+        const flowId = mustGetEnv("FLOW_ID", "1267728872124719");
 
         // You MUST replace this with your own identifier if you want to track
         const flowToken = randomUUID();
@@ -122,7 +122,7 @@ export async function POST(req: Request): Promise<Response> {
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           to: message.from,
-          text: { body: "You've successfully booked an appointment" },
+          text: { body: "Your form is received" },
         });
       }
 

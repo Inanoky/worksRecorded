@@ -14,7 +14,7 @@ const PHONE_NUMBER_ID = "1043684732153236";
 // Your Flow ID
 const FLOW_ID = "1267728872124719";
 
-const to = process.argv[2] || "+37124885690";
+const to = process.argv[2] || "+37120579225";
 
 async function main() {
   const res = await fetch(
