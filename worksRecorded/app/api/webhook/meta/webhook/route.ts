@@ -117,22 +117,34 @@ export async function POST(req: Request): Promise<Response> {
       // 2) Handle Flow response message
       if (message.type === "interactive" && message.interactive?.type === "nfm_reply") {
 
-        const material_form = message.interactive?.nfm_reply?.respons_json?.formName
+  
+
+          const responseJsonStr = message.interactive.nfm_reply.response_json;
+
+          //Tihis is just JSON parser, because payload is string
+
+          let payload: any;
+            try {
+              payload = JSON.parse(responseJsonStr);
+            } catch (e) {
+              console.error("Invalid response_json:", responseJsonStr);
+              return;
+            }
+
+
+          const formName = payload.formName;
+
 
         //Here we can start routing.
         //We search for formName "Always will be in payload!"
-        //If fo
-        if (message.interactive?.nfm_reply?.respons_json?.formName === "material_form"){
-
-          console.log(`This is a material form`)
-
-        }        
+        
+     
 
 
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           to: message.from,
-          text: { body: `${material_form} is Submitted` },
+          text: { body: `${formName} is Submitted` },
         });
       }
 
