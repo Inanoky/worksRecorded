@@ -65,10 +65,7 @@ export async function GET(req: Request): Promise<Response> {
   return new Response("Forbidden", { status: 403 });
 }
 
-/**
- * POST /api/webhook/Meta
- * Receives WhatsApp webhook events (messages, flow replies, etc).
- */
+
 export async function POST(req: Request): Promise<Response> {
   try {
     const body = await req.json();
@@ -84,9 +81,9 @@ export async function POST(req: Request): Promise<Response> {
       if (
         message.type === "text" &&
         typeof message.text?.body === "string" &&
-        message.text.body.toLowerCase().includes("appointment")
+        message.text.body.toLowerCase().includes("action")
       ) {
-        const flowId = mustGetEnv("FLOW_ID", "1267728872124719");
+        const flowId = "1267728872124719"
 
         // You MUST replace this with your own identifier if you want to track
         const flowToken = randomUUID();
@@ -108,8 +105,8 @@ export async function POST(req: Request): Promise<Response> {
                 flow_id: flowId,
                 flow_message_version: "3",
                 flow_token: flowToken,
-                flow_cta: "Book an appointment",
-                flow_action: "data_exchange",
+                flow_cta: "Sign",
+                flow_action: "navigate",
                 // mode: "draft", // uncomment to send a draft flow
               },
             },
@@ -119,6 +116,11 @@ export async function POST(req: Request): Promise<Response> {
 
       // 2) Handle Flow response message
       if (message.type === "interactive" && message.interactive?.type === "nfm_reply") {
+
+        //Here we can start routing.
+        
+
+
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           to: message.from,
