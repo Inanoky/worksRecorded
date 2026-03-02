@@ -7,7 +7,7 @@
 // - FLOW_ID
 //
 // URL in Meta webhook config should point to:
-//   https://<your-domain>/api/webhook/Meta
+//   worksRecorded\app\api\webhook\meta\webhook\route.ts
 
 import { randomUUID } from "crypto";
 
@@ -22,7 +22,7 @@ async function graphSendMessage(
   businessPhoneNumberId: string,
   body: unknown
 ): Promise<void> {
-  const token = mustGetEnv("GRAPH_API_TOKEN", META_ACCESS_TOKEN);
+  const token = mustGetEnv("META_ACCESS_TOKEN", META_ACCESS_TOKEN);
 
   const res = await fetch(
     `https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`,
