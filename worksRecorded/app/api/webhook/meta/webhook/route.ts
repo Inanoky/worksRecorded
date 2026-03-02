@@ -119,7 +119,14 @@ export async function POST(req: Request): Promise<Response> {
 
         //Here we can start routing.
         //We search for formName "Always will be in payload!"
-        //If formName = 
+        //If fo
+        if (message.interactive?.nfm_reply?.respons_json?.formName === "material_form"){
+
+          console.log(`This is a material form`)
+
+        }
+
+
         
 
 
