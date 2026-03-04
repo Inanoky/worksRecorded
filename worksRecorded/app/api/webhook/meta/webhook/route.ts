@@ -1,13 +1,5 @@
 // worksRecorded/app/api/webhook/Meta/route.ts
 // Next.js App Router webhook endpoint (GET verify + POST events)
-//
-// Set env vars:
-// - META_ACCESS_TOKEN
-// - GRAPH_API_TOKEN
-// - FLOW_ID
-//
-// URL in Meta webhook config should point to:
-//   worksRecorded\app\api\webhook\meta\webhook\route.ts
 
 import { randomUUID } from "crypto";
 
@@ -44,6 +36,27 @@ async function graphSendMessage(
   }
 }
 
+
+
+
+
+
+//----------------BOOKING SESSION STORAGE (MOCK)----------------
+
+type BookingSession = {
+  step: "service" | "date" | "time";
+  service?: string;
+  date?: string;
+  time?: string;
+};
+
+const bookingSessions = new Map<string, BookingSession>();
+
+
+
+
+
+
 /**
  * GET /api/webhook/Meta
  * Meta webhook verification handshake.
@@ -58,12 +71,15 @@ export async function GET(req: Request): Promise<Response> {
 
   if (mode === "subscribe" && token === verifyToken && challenge) {
     console.log("Webhook verified successfully!");
-    // Must return the raw challenge string
     return new Response(challenge, { status: 200 });
   }
 
   return new Response("Forbidden", { status: 403 });
 }
+
+
+
+
 
 
 export async function POST(req: Request): Promise<Response> {
@@ -77,15 +93,15 @@ export async function POST(req: Request): Promise<Response> {
       body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
 
     if (message && business_phone_number_id) {
-      // 1) If user sends "appointment" -> send a Flow message
+
+      // 1) If user sends "action" -> send a Flow message
       if (
         message.type === "text" &&
         typeof message.text?.body === "string" &&
         message.text.body.toLowerCase().includes("action")
       ) {
-        const flowId = "1267728872124719"
+        const flowId = "1267728872124719";
 
-        // You MUST replace this with your own identifier if you want to track
         const flowToken = randomUUID();
 
         await graphSendMessage(business_phone_number_id, {
@@ -107,76 +123,172 @@ export async function POST(req: Request): Promise<Response> {
                 flow_token: flowToken,
                 flow_cta: "Complete form",
                 flow_action: "navigate",
-                // mode: "draft", // uncomment to send a draft flow
               },
             },
           },
         });
       }
 
-      // 2) Handle Flow response message
+
+
+
+
+
+
+      //-----------------BOOKING APPOINTMENT BOT MOCKUP-----------------------
+
+      if (message.type === "text" && typeof message.text?.body === "string") {
+
+        const text = message.text.body.trim().toLowerCase();
+        const user = message.from;
+
+        // START BOOKING
+        if (text === "book") {
+
+          bookingSessions.set(user, { step: "service" });
+
+          await graphSendMessage(business_phone_number_id, {
+            messaging_product: "whatsapp",
+            to: user,
+            text: {
+              body: "📅 Booking started.\n\nWhat service do you want?"
+            },
+          });
+
+          return new Response("OK", { status: 200 });
+        }
+
+        const session = bookingSessions.get(user);
+
+        if (session) {
+
+          // STEP 1
+          if (session.step === "service") {
+
+            session.service = text;
+            session.step = "date";
+
+            await graphSendMessage(business_phone_number_id, {
+              messaging_product: "whatsapp",
+              to: user,
+              text: {
+                body: "Great 👍\n\nChoose a date (YYYY-MM-DD)"
+              },
+            });
+
+            return new Response("OK", { status: 200 });
+          }
+
+          // STEP 2
+          if (session.step === "date") {
+
+            session.date = text;
+            session.step = "time";
+
+            await graphSendMessage(business_phone_number_id, {
+              messaging_product: "whatsapp",
+              to: user,
+              text: {
+                body: "Perfect.\n\nChoose a time (HH:MM)"
+              },
+            });
+
+            return new Response("OK", { status: 200 });
+          }
+
+          // STEP 3
+          if (session.step === "time") {
+
+            session.time = text;
+
+            bookingSessions.delete(user);
+
+            await graphSendMessage(business_phone_number_id, {
+              messaging_product: "whatsapp",
+              to: user,
+              text: {
+                body: `✅ Booking confirmed!
+
+Service: ${session.service}
+Date: ${session.date}
+Time: ${session.time}
+
+We will see you soon!`,
+              },
+            });
+
+            return new Response("OK", { status: 200 });
+          }
+
+        }
+      }
+
+
+
+
+
+
+
+
+      // 2) Handle Flow response
       if (message.type === "interactive" && message.interactive?.type === "nfm_reply") {
 
-  
+        const responseJsonStr = message.interactive.nfm_reply.response_json;
 
-          const responseJsonStr = message.interactive.nfm_reply.response_json;
+        let payload: any;
 
-          //Tihis is just JSON parser, because payload is string
+        try {
+          payload = JSON.parse(responseJsonStr);
+        } catch (e) {
+          console.error("Invalid response_json:", responseJsonStr);
+          return new Response("OK", { status: 200 });
+        }
 
-          let payload: any;
-            try {
-              payload = JSON.parse(responseJsonStr);
-            } catch (e) {
-              console.error("Invalid response_json:", responseJsonStr);
-              return;
-            }
+        const formName = payload.formName;
 
-
-          const formName = payload.formName;
-
-
-        //Here we can start routing.
-        //We search for formName "Always will be in payload!"
-        
-            //Sending response straight away, I think good to avoid timeout.
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           to: message.from,
           text: { body: `${formName} is Submitted` },
         });
 
-          if (formName === "material_form") {
+        if (formName === "material_form") {
 
-            //Here we need: 
-            // 1) first of all handle image. - metaImageHandler.ts, input - MEDIA_ID, output - UploadThings URL. 
-            // 2) send image to open AI for extraction  - Input - UploadThings URL, output [{} {} {} ] - where each invoice line is a separate object
-            // 3) storeMaterialAction.ts - input - structure JSON from above, stores in the Incoming material database. 
-            // 4) displayOnline.tsx - component to display database
+          // future pipeline
+          // 1 download image
+          // 2 AI extraction
+          // 3 store database
+          // 4 show dashboard
 
-
-
-          }
-
-
+        }
 
       }
 
-      // 3) Mark incoming message as read
+
+
+
+
+
+
+      // 3) Mark message as read
       if (message.id) {
+
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           status: "read",
           message_id: message.id,
         });
+
       }
+
     }
 
-    // Always return 200 quickly so Meta doesn't retry
     return new Response("OK", { status: 200 });
+
   } catch (err) {
-    // Still return 200 in most webhook setups to avoid retries from transient parsing issues.
-    // If you prefer retries, change this to 500.
+
     console.error("Webhook handler error:", err);
     return new Response("OK", { status: 200 });
+
   }
 }
