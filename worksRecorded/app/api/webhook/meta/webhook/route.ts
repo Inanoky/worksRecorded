@@ -3,6 +3,13 @@
 
 import { randomUUID } from "crypto";
 
+import {
+  getSession,
+  startSession,
+  updateSession,
+  deleteSession,
+} from "@/server/actions/booking/bookingSession";
+
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN, FLOW_ID } = process.env;
 
 function mustGetEnv(name: string, value: string | undefined): string {
@@ -36,27 +43,6 @@ async function graphSendMessage(
   }
 }
 
-
-
-
-
-
-//----------------BOOKING SESSION STORAGE (MOCK)----------------
-
-type BookingSession = {
-  step: "service" | "date" | "time";
-  service?: string;
-  date?: string;
-  time?: string;
-};
-
-const bookingSessions = new Map<string, BookingSession>();
-
-
-
-
-
-
 /**
  * GET /api/webhook/Meta
  * Meta webhook verification handshake.
@@ -76,11 +62,6 @@ export async function GET(req: Request): Promise<Response> {
 
   return new Response("Forbidden", { status: 403 });
 }
-
-
-
-
-
 
 export async function POST(req: Request): Promise<Response> {
   try {
@@ -129,13 +110,7 @@ export async function POST(req: Request): Promise<Response> {
         });
       }
 
-
-
-
-
-
-
-      //-----------------BOOKING APPOINTMENT BOT MOCKUP-----------------------
+      //-----------------BOOKING APPOINTMENT BOT (PRISMA)-----------------------
 
       if (message.type === "text" && typeof message.text?.body === "string") {
 
@@ -145,7 +120,7 @@ export async function POST(req: Request): Promise<Response> {
         // START BOOKING
         if (text === "book") {
 
-          bookingSessions.set(user, { step: "service" });
+          await startSession(user);
 
           await graphSendMessage(business_phone_number_id, {
             messaging_product: "whatsapp",
@@ -158,15 +133,17 @@ export async function POST(req: Request): Promise<Response> {
           return new Response("OK", { status: 200 });
         }
 
-        const session = bookingSessions.get(user);
+        const session = await getSession(user);
 
         if (session) {
 
-          // STEP 1
+          // STEP 1 — SERVICE
           if (session.step === "service") {
 
-            session.service = text;
-            session.step = "date";
+            await updateSession(user, {
+              service: text,
+              step: "date",
+            });
 
             await graphSendMessage(business_phone_number_id, {
               messaging_product: "whatsapp",
@@ -179,11 +156,13 @@ export async function POST(req: Request): Promise<Response> {
             return new Response("OK", { status: 200 });
           }
 
-          // STEP 2
+          // STEP 2 — DATE
           if (session.step === "date") {
 
-            session.date = text;
-            session.step = "time";
+            await updateSession(user, {
+              date: text,
+              step: "time",
+            });
 
             await graphSendMessage(business_phone_number_id, {
               messaging_product: "whatsapp",
@@ -196,12 +175,12 @@ export async function POST(req: Request): Promise<Response> {
             return new Response("OK", { status: 200 });
           }
 
-          // STEP 3
+          // STEP 3 — TIME
           if (session.step === "time") {
 
-            session.time = text;
-
-            bookingSessions.delete(user);
+            await updateSession(user, {
+              time: text,
+            });
 
             await graphSendMessage(business_phone_number_id, {
               messaging_product: "whatsapp",
@@ -211,24 +190,19 @@ export async function POST(req: Request): Promise<Response> {
 
 Service: ${session.service}
 Date: ${session.date}
-Time: ${session.time}
+Time: ${text}
 
 We will see you soon!`,
               },
             });
+
+            await deleteSession(user);
 
             return new Response("OK", { status: 200 });
           }
 
         }
       }
-
-
-
-
-
-
-
 
       // 2) Handle Flow response
       if (message.type === "interactive" && message.interactive?.type === "nfm_reply") {
@@ -263,12 +237,6 @@ We will see you soon!`,
         }
 
       }
-
-
-
-
-
-
 
       // 3) Mark message as read
       if (message.id) {
