@@ -138,14 +138,27 @@ export async function POST(req: Request): Promise<Response> {
         //Here we can start routing.
         //We search for formName "Always will be in payload!"
         
-     
-
-
+            //Sending response straight away, I think good to avoid timeout.
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           to: message.from,
           text: { body: `${formName} is Submitted` },
         });
+
+          if (formName === "material_form") {
+
+            //Here we need: 
+            // 1) first of all handle image. - metaImageHandler.ts, input - MEDIA_ID, output - UploadThings URL. 
+            // 2) send image to open AI for extraction  - Input - UploadThings URL, output [{} {} {} ] - where each invoice line is a separate object
+            // 3) storeMaterialAction.ts - input - structure JSON from above, stores in the Incoming material database. 
+            // 4) displayOnline.tsx - component to display database
+
+
+
+          }
+
+
+
       }
 
       // 3) Mark incoming message as read

@@ -32,6 +32,8 @@ model Organization {
       workers workers[]
       timelog timelog[]
       projectdiaryrecord projectdiaryrecord[]
+      BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
+
       
 
 }
@@ -66,6 +68,7 @@ model User {
   Subscription      Subscription?
   sitediarysettings sitediarysettings[]
   photos            photos[]
+  BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -94,6 +97,7 @@ model Site {
   photos            photos[] // on site can have many photos
   timelog           timelog[] // on site can have timelogs
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
+  BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
   
   sitediarysettings sitediarysettings? //One site can have one site diary setting
   analytics analytics?
@@ -263,6 +267,7 @@ model photos {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt       DateTime  @default(now())
+  
 
 }
 
@@ -344,4 +349,42 @@ model WhatsappTextLock {
   phone      String   @id
   lockedAt   DateTime @default(now())
   messageSid String?
+}
+
+
+model BISmaterialRecords {
+
+  id String @id @default(uuid())
+  name String?
+  quantity Float?
+  categoryId String?
+  categoruName String?
+  measurementUnitId String?
+  measurementUnit String?
+ 
+
+  sourcePhoto String?
+
+
+  site Site? @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId String? //Here 1 siteId can have many BISmaterialRecords, but 1 BISmaterialRecords can have only 1 siteId. 
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String?
+
+  organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId String?
+
+  BISId String?
+
+
+
+}
+
+
+model BisToken {
+  id           String   @id @default(cuid())
+  accessToken  String
+  refreshToken String
+  updatedAt    DateTime @updatedAt
 }

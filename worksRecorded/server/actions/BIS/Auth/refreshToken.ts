@@ -1,3 +1,5 @@
+import {prisma} from "@/lib/utils/db";
+
 const TOKEN_URL = "https://test.bis.gov.lv/services/auth/oauth2.0/token";
 
 const CLIENT_ID =
@@ -5,17 +7,19 @@ const CLIENT_ID =
 const CLIENT_SECRET =
   "145a3725c6467e2e5c6676029d7e3dd700cd84a3cb3e8b3bb69ae8de5cb65d1e";
 
-const REFRESH_TOKEN =
-  "86895408bc02fbf2fc8f1214366ce770ee403313636a0d7e114d085b5e75adb5";
-
 function base64(s: string) {
   return Buffer.from(s).toString("base64");
 }
 
-async function main() {
+export async function refreshToken() {
+  const latest = await prisma.bisToken.findFirst({
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, refreshToken: true },
+  });
+
   const body = new URLSearchParams({
     grant_type: "refresh_token",
-    refresh_token: REFRESH_TOKEN,
+    refresh_token: latest.refreshToken,
   });
 
   const res = await fetch(TOKEN_URL, {
@@ -27,7 +31,25 @@ async function main() {
     body,
   });
 
-  console.log(await res.json());
+  const json = await res.json();
+
+  await prisma.bisToken.update({
+    where: { id: latest.id },
+    data: {
+      accessToken: json.access_token,
+      refreshToken: json.refresh_token,
+    },
+  });
+
+  return json;
 }
 
-main();
+
+// await prisma.bisToken.create({
+//   data: {
+//     accessToken: "",
+//     refreshToken: "eee64921cf8043b86eb67507d840992537630e0d1be052be2e4ee9f0f64e80f4",
+//   },
+// });
+
+refreshToken()
