@@ -358,7 +358,7 @@ model BISmaterialRecords {
   name String?
   quantity Float?
   categoryId String?
-  categoruName String?
+  categoryName String?
   measurementUnitId String?
   measurementUnit String?
  

@@ -190,7 +190,7 @@ export async function getBisCategories_12I7_075() {
 
     }))
 
-
+    console.log(`-------------------------------------------------------------`)
     console.dir(data, { depth: null });
 
 
@@ -205,7 +205,14 @@ export async function sendToGpt(mediaId) {
 
     const { publicUrl, file } = await downloadMetaMedia(mediaId)
 
+    
+
     const categories = await getBisCategories_12I7_075()
+
+    // Create map of categories by id
+        const categoryMap = new Map(
+        categories.map(c => [c.id, c])
+        )
 
     const ids = [...categories.map(m => m.id), "no_match"];
 
@@ -292,7 +299,33 @@ Always output the converted quantity.
 
     const payload = JSON.parse(gptDocumentResponse.output_text)
 
-    console.log(gptDocumentResponse.output_text)
+        payload.items = payload.items.map(item => {
+        if (item.construction_material_id === "no_match") {
+            return {
+            ...item,
+            measurementId: null,
+            measurementUnit: null,
+            categoryName: null
+            }
+        }
+
+        const category = categoryMap.get(item.construction_material_id)
+
+        return {
+            ...item,
+            measurementId: category?.measurement ?? null,
+            measurementUnit: category?.measurement_unit ?? null,
+            categoryName: category?.material_kind ?? null
+        }
+        })
+
+    
+
+    //Here we need to enrich this payload with 
+
+    console.log(`THis is GPT output : ${gptDocumentResponse.output_text}`)
+    console.log(`And this are categories : ${categories}`)
+
 
     await saveBISMaterialPayloadToDatabase(payload,publicUrl)
 
@@ -317,22 +350,21 @@ export async function saveBISMaterialPayloadToDatabase(payload, publicURL) {
 
 
     await prisma.BISmaterialRecords.createMany({
+  data: payload.items.map(item => ({
+    name: item.name,
+    quantity: item.quantity,
 
-        data: payload.items.map(item => ({
+    categoryId: item.construction_material_id,
+    measurementUnitId: item.measurementId,
+    measurementUnit: item.measurementUnit,
+    categoryName: item.categoryName,
 
-            name: item.name,
-            quantity: item.quantity,
-            category: item.construction_material_id,
-            sourcePhoto: publicURL,
-            siteId,
-            orgId,
-            userId
-
-
-
-        }))
-    })
-
+    sourcePhoto: publicURL,
+    siteId,
+    orgId,
+    userId
+  }))
+})
 
 
 }
