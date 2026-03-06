@@ -9,6 +9,7 @@ import {
   updateSession,
   deleteSession,
 } from "@/app/api/webhook/meta/webhook/helperes" 
+import { sendToGpt } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN, FLOW_ID } = process.env;
 
@@ -227,6 +228,22 @@ We will see you soon!`,
         });
 
         if (formName === "material_form") {
+
+
+          const responseJsonStr = message.interactive.nfm_reply.response_json;
+
+              let payload: any;
+
+              try {
+                payload = JSON.parse(responseJsonStr);
+              } catch (e) {
+                console.error("Invalid response_json:", responseJsonStr);
+                return new Response("OK", { status: 200 });
+              }
+
+          const mediaId = payload?.photo?.id;
+
+          await sendToGpt(mediaId)
 
           // future pipeline
           // 1 download image
