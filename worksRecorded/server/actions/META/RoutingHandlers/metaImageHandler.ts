@@ -380,3 +380,4 @@ export async function saveBISMaterialPayloadToDatabase(payload, publicURL) {
 // getBisCategories_12I7_075()
 // getBISMeasurments_12I7_061()
 
+sendToGpt(MEDIA_ID)

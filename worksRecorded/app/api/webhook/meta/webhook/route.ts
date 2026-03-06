@@ -241,7 +241,10 @@ We will see you soon!`,
                 return new Response("OK", { status: 200 });
               }
 
+
           const mediaId = payload?.photo?.[0]?.id?.toString();
+
+          console.log(`material_form_triggered ${mediaId}`)
 
           await sendToGpt(mediaId)
 
