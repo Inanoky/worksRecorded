@@ -226,6 +226,10 @@ export async function sendToGpt(mediaId) {
         items: z.array(z.object({
 
             name: z.string(),
+            cost: z.number(),
+            invoiceNr : z.string(),
+            invoiceDate : z.coerce.date().nullable().optional(),
+            costCode: z.string(),
             quantity: z.number().describe(`Each item convert to the measurement from corresponding measurement_unit`),
             construction_material_id: z.enum(ids)
         }))

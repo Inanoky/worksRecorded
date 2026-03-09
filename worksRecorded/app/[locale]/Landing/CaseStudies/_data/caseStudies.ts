@@ -50,4 +50,16 @@ export const caseStudies: CaseStudyMeta[] = [
     tags: ["Site diary", "Article", "ConTech"],
     date: "2026-02-09",
   },
+    {
+  slug: "Article_2_AI_construction",
+  title: "AI in Construction: Last Week’s Highlights",
+  company: "Knowledge",
+  location: "Construction AI News",
+  industry: "Construction / AI / ConTech",
+  excerpt:
+    "A weekly roundup of the biggest AI developments in construction, from autonomous equipment at CONEXPO to predictive safety platforms and major investment in physical-world AI.",
+  coverImage: "/pictures/Article_2.jpg",
+  tags: ["AI", "Construction", "Article", "ConTech"],
+  date: "2026-03-09",
+},
 ];
