@@ -12,7 +12,7 @@ const GRAPH_API_TOKEN = process.env.META_ACCESS_TOKEN
 const PHONE_NUMBER_ID = "1043684732153236";
 
 // Your Flow ID
-const FLOW_ID = "1267728872124719";
+const FLOW_ID = "1577807420095967";
 
 const to = process.argv[2] || "+37124885690";
 

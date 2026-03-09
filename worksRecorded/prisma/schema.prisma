@@ -361,6 +361,11 @@ model BISmaterialRecords {
   categoryName String?
   measurementUnitId String?
   measurementUnit String?
+
+  invoiceNr String?
+  invoiceDate String?
+  costCode String?
+  
  
 
   sourcePhoto String?

@@ -1,5 +1,6 @@
 // worksRecorded/app/api/webhook/Meta/route.ts
 // Next.js App Router webhook endpoint (GET verify + POST events)
+export const maxDuration = 60;
 
 import { randomUUID } from "crypto";
 
