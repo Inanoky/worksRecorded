@@ -102,6 +102,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
       rows,
       userId,
       siteId,
+      originalUserComment: question
     });
 
     console.log("✅ Save result:", result);

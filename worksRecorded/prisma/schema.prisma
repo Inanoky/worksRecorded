@@ -222,6 +222,7 @@ model sitediaryrecords {
   Comments        String?
   Comments_Custom_1 String?
   Comments_Custom_2 String?
+  originalUserComment  String?
   Units           String?
   Amounts         Float?
   WorkersInvolved Int?

@@ -9,6 +9,7 @@ import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types
 import { getOrganizationIdByUserId } from "./shared-actions";
 import { getOrganizationIdByWorkerId } from "./shared-actions";
 import { Turret_Road } from "next/font/google";
+import { isQuestionDotToken } from "typescript";
 
 //nothing
 
@@ -87,6 +88,8 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
         Comments: row.Comments || undefined,
         Comments_Custom_1: row.Comments_Custom_1 || undefined,
         Comments_Custom_2: row.Comments_Custom_2 || undefined,
+
+        originalUserComment : row.originalUserComment || undefined,
 
         Units: row.Units || undefined,
         Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
