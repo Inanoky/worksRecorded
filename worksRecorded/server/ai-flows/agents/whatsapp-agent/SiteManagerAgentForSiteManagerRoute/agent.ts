@@ -80,7 +80,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
             new SystemMessage(await systemPrompt),
             new HumanMessage(question),
         ],
-          originalQuestion: question,
+         
     };
 
 
