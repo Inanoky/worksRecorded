@@ -24,6 +24,41 @@ const client = new OpenAI({
 
 const utapi = new UTApi();
 
+//This we use for just when we have no acess to IP. 
+const mockupCategories = [
+  {
+    id: '2195',
+    material_kind: 'Flīzes',
+    measurement: '12',
+    measurement_unit: 'gab.'
+  },
+  {
+    id: '2204',
+    material_kind: 'Mūras bloki',
+    measurement: '12',
+    measurement_unit: 'gab.'
+  },
+  {
+    id: '2230',
+    material_kind: 'stiegrojums',
+    measurement: '42',
+    measurement_unit: 't'
+  },
+  {
+    id: '2231',
+    material_kind: 'Transportbetons',
+    measurement: '25',
+    measurement_unit: 'm3'
+  },
+  {
+    id: '2232',
+    material_kind: 'Concrete grout',
+    measurement: '62',
+    measurement_unit: 'kg'
+  }
+]
+
+
 
 //And this we use to download and store photo from Meta message
 
@@ -207,7 +242,41 @@ export async function sendToGpt(mediaId) {
 
     
 
-    const categories = await getBisCategories_12I7_075()
+    // const categories = await getBisCategories_12I7_075() <---- uncomment when have access to IP
+
+
+    const categories = [
+  {
+    id: '2195',
+    material_kind: 'Flīzes',
+    measurement: '12',
+    measurement_unit: 'gab.'
+  },
+  {
+    id: '2204',
+    material_kind: 'Mūras bloki',
+    measurement: '12',
+    measurement_unit: 'gab.'
+  },
+  {
+    id: '2230',
+    material_kind: 'stiegrojums',
+    measurement: '42',
+    measurement_unit: 't'
+  },
+  {
+    id: '2231',
+    material_kind: 'Transportbetons',
+    measurement: '25',
+    measurement_unit: 'm3'
+  },
+  {
+    id: '2232',
+    material_kind: 'Concrete grout',
+    measurement: '62',
+    measurement_unit: 'kg'
+  }
+]
 
     // Create map of categories by id
         const categoryMap = new Map(
@@ -264,6 +333,10 @@ Extract construction invoice line items from the image.
 Return:
 - name (English)
 - quantity
+- invoice Nr
+- invoice Nr
+- cost code (just make it up)
+- cost 
 - construction_material_id
 
 Available categories:
@@ -357,7 +430,10 @@ export async function saveBISMaterialPayloadToDatabase(payload, publicURL) {
   data: payload.items.map(item => ({
     name: item.name,
     quantity: item.quantity,
-
+    invoiceDate :  item.invoiceDate,
+    invoiceNr : item.invoiceNr,
+    cost : item.cost,
+    costCode : item.costCode,
     categoryId: item.construction_material_id,
     measurementUnitId: item.measurementId,
     measurementUnit: item.measurementUnit,
