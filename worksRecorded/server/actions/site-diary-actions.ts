@@ -32,7 +32,7 @@ export async function getConfig(siteId: string) {
 
 // Site diary records actions 
 
-export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
+export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId,  originalUserComment }) {
   // 🪵 LOG: Initial inputs for context
 
 
@@ -89,13 +89,12 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId }) {
         Comments_Custom_1: row.Comments_Custom_1 || undefined,
         Comments_Custom_2: row.Comments_Custom_2 || undefined,
 
-        originalUserComment : row.originalUserComment || undefined,
+        originalUserComment: originalUserComment || undefined,
 
         Units: row.Units || undefined,
         Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
         WorkersInvolved: row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
-        TimeInvolved: row.Hours !== "" ? Number(row.TimeInvolved) : undefined,
-
+        TimeInvolved: row.TimeInvolved !== "" ? Number(row.TimeInvolved) : undefined,
         Photos: [],
       };
 
