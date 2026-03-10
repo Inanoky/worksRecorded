@@ -1,6 +1,10 @@
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions"
 import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents/getTodayDDMMYYY"
+
+
+
 
 
 
@@ -8,6 +12,30 @@ import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents
 export async  function systemPromptFunction(siteId, userId){
 
   const userName = await getUserFirstNameById(userId);
+
+
+
+  //---------------This we need so when we want simpliest option without any sorting----------------- 
+  
+  const config = await getConfig(siteId)
+
+  if (config?.AIpromptToUse?.Client === "NoSorting"){
+
+      const NoSorting = `Store users comments without changes
+  
+   siteId : ${siteId}
+    userId : ${userId}    
+    Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
+  
+  `
+
+
+    return NoSorting
+
+
+  }
+
+
 
    
 
@@ -104,6 +132,35 @@ When mapping, try to select the most suitable work category from the provided Zo
 
 
 
+
+ 
+  const NoSortingPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Save the message in comments.
+
+  Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
+  ` 
+
+
+const NoSorting =
+
+
+`
+# Glossary and Mapping Instructions
+
+This document provides instructions to improve mapping accuracy.
+
+Please follow the guidelines below:
+
+
+
+
+
+Store message as it is without changes. Do not extract locations, mark records as note. Do not split the message. 
+
+
+`;
+
+
+
 const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
@@ -156,6 +213,13 @@ if (client === "GMCIRL"){
 
   
   systemPromptSaveToDatabase = `${GMCIRL_systemPromptSaveToDatabase_02_01_2026}\n ${GMCIRL_glossary}`
+
+}
+
+if (client === "NoSorting"){
+
+  
+  systemPromptSaveToDatabase = `${NoSortingPromptSaveToDatabase_02_01_2026}\n ${NoSorting}`
 
 }
 

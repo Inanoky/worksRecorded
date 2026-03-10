@@ -2,7 +2,9 @@
 
 import { prisma } from "@/lib/utils/db";
 import { Resend } from "resend";
-
+import defaultConfig from "@/components/sitediary/defaultConfig.json";
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "@/server/actions/shared-actions";
 
 
 
@@ -162,4 +164,67 @@ export async function saveTemporaryUser(email: string, organizationId: string) {
     console.log("[saveTemporaryUser] error:", e?.message);
     return { ok: false, message: e?.message ?? "Failed to save temporary user" };
   }
+}
+
+
+//--------------Settings mode----------------
+
+export type SiteDiaryMode = "sorting" | "nosorting";
+
+function buildConfig(mode: SiteDiaryMode) {
+  const config = structuredClone(defaultConfig);
+
+  if (!config.AIpromptToUse) {
+    config.AIpromptToUse = {
+      Type: "noRender",
+      Client: "DEPROM",
+    };
+  }
+
+  config.AIpromptToUse.Client =
+    mode === "sorting" ? "DEPROM" : "NoSorting";
+
+  return config;
+}
+
+export async function getSiteDiaryMode(siteId: string) {
+  const user = await requireUser();
+  await orgCheck(user.id, siteId);
+
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: {
+      siteDiaryMode: true,
+      siteDiaryRecordsMap: true,
+    },
+  });
+
+  if (!site) {
+    throw new Error("Site not found");
+  }
+
+  return {
+    mode: (site.siteDiaryMode as SiteDiaryMode | null) ?? "sorting",
+    config: site.siteDiaryRecordsMap,
+  };
+}
+
+export async function saveSiteDiaryMode(
+  siteId: string,
+  mode: SiteDiaryMode
+) {
+  const user = await requireUser();
+  await orgCheck(user.id, siteId);
+
+  const config = buildConfig(mode);
+
+  await prisma.site.update({
+    where: { id: siteId },
+    data: {
+      siteDiaryMode: mode,
+      siteDiaryRecordsMap: config,
+    },
+  });
+
+  return { success: true };
 }

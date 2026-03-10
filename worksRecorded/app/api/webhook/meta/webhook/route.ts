@@ -225,7 +225,7 @@ We will see you soon!`,
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           to: message.from,
-          text: { body: `${formName} is Submitted` },
+          text: { body: `Form is Submitted` },
         });
 
         if (formName === "material_form") {

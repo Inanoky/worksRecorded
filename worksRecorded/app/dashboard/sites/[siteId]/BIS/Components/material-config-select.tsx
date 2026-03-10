@@ -39,7 +39,7 @@ export const categories = [
   },
   {
     id: "2232",
-    material_kind: "Concrete grout",
+    material_kind: "Bezrukuma java",
     measurement: "62",
     measurement_unit: "kg",
   },
