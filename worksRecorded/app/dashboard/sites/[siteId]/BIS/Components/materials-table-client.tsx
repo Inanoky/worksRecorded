@@ -29,7 +29,11 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import SendToBisButton from "./send-to-bis-button"
-import MaterialConfigSelect, { categories } from "./material-config-select"
+import MaterialConfigSelect, {
+  categories,
+  NO_MATCH_VALUE,
+} from "./material-config-select"
+import CostCodeSelect from "./cost-code-select"
 
 type MaterialRow = {
   id: string
@@ -64,6 +68,10 @@ type Props = {
       measurementUnit: string
     }
   ) => Promise<{ success: true }>
+  updateCostCode: (
+    recordId: string,
+    costCode: string | null
+  ) => Promise<{ success: true }>
 }
 
 function formatDate(value: Date | null) {
@@ -91,7 +99,9 @@ export default function MaterialsTableClient({
   materials,
   sendToBis,
   updateMaterialConfiguration,
-}: Props) {
+  updateCostCode,
+}: Props)  {
+  const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
@@ -99,10 +109,103 @@ export default function MaterialsTableClient({
     "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
   >("invoiceDate_desc")
 
+  React.useEffect(() => {
+    setRows(materials)
+  }, [materials])
+
+
+  const handleCostCodeChange = async (
+  recordId: string,
+  costCode: string | null
+) => {
+  const previousRows = rows
+
+  setRows((current) =>
+    current.map((row) =>
+      row.id === recordId
+        ? {
+            ...row,
+            costCode,
+          }
+        : row
+    )
+  )
+
+  try {
+    await updateCostCode(recordId, costCode)
+    return { success: true as const }
+  } catch (error) {
+    console.error(error)
+    setRows(previousRows)
+    throw error
+  }
+}
+
+  const handleConfigChange = async (
+    recordId: string,
+    config: {
+      categoryId: string
+      categoryName: string
+      measurementUnitId: string
+      measurementUnit: string
+    }
+  ) => {
+    const previousRows = rows
+
+    setRows((current) =>
+      current.map((row) =>
+        row.id === recordId
+          ? {
+              ...row,
+              categoryId: config.categoryId,
+              categoryName: config.categoryName || null,
+              measurementUnitId: config.measurementUnitId || null,
+              measurementUnit: config.measurementUnit || null,
+            }
+          : row
+      )
+    )
+
+    try {
+      await updateMaterialConfiguration(recordId, config)
+      return { success: true as const }
+    } catch (error) {
+      console.error(error)
+      setRows(previousRows)
+      throw error
+    }
+  }
+
+  const handleSendToBis = async (
+    recordId: string,
+    quantity: number,
+    categoryId: string,
+    sourcePhoto?: string
+  ) => {
+    const result = await sendToBis(recordId, quantity, categoryId, sourcePhoto)
+
+    const bisId = result?.data?.id
+
+    if (bisId) {
+      setRows((current) =>
+        current.map((row) =>
+          row.id === recordId
+            ? {
+                ...row,
+                BISId: bisId,
+              }
+            : row
+        )
+      )
+    }
+
+    return result
+  }
+
   const filteredMaterials = React.useMemo(() => {
     const q = search.trim().toLowerCase()
 
-    let rows = materials.filter((m) => {
+    let filtered = rows.filter((m) => {
       const matchesSearch =
         !q ||
         [
@@ -127,7 +230,7 @@ export default function MaterialsTableClient({
       return matchesSearch && matchesStatus && matchesConfig
     })
 
-    rows = [...rows].sort((a, b) => {
+    filtered = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case "invoiceDate_asc":
           return (
@@ -147,17 +250,17 @@ export default function MaterialsTableClient({
       }
     })
 
-    return rows
-  }, [materials, search, status, configFilter, sortBy])
+    return filtered
+  }, [rows, search, status, configFilter, sortBy])
 
   const stats = React.useMemo(() => {
-    const total = materials.length
-    const sent = materials.filter((m) => !!m.BISId).length
+    const total = rows.length
+    const sent = rows.filter((m) => !!m.BISId).length
     const unsent = total - sent
-    const totalCost = materials.reduce((sum, m) => sum + (m.cost ?? 0), 0)
+    const totalCost = rows.reduce((sum, m) => sum + (m.cost ?? 0), 0)
 
     return { total, sent, unsent, totalCost }
-  }, [materials])
+  }, [rows])
 
   return (
     <div className="space-y-4">
@@ -248,15 +351,19 @@ export default function MaterialsTableClient({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="invoiceDate_desc">Newest invoice date</SelectItem>
-              <SelectItem value="invoiceDate_asc">Oldest invoice date</SelectItem>
+              <SelectItem value="invoiceDate_desc">
+                Newest invoice date
+              </SelectItem>
+              <SelectItem value="invoiceDate_asc">
+                Oldest invoice date
+              </SelectItem>
               <SelectItem value="name_asc">Name A–Z</SelectItem>
               <SelectItem value="quantity_desc">Highest quantity</SelectItem>
             </SelectContent>
           </Select>
 
           <div className="ml-auto text-sm text-muted-foreground">
-            Showing {filteredMaterials.length} of {materials.length}
+            Showing {filteredMaterials.length} of {rows.length}
           </div>
         </div>
       </div>
@@ -296,6 +403,8 @@ export default function MaterialsTableClient({
               ) : (
                 filteredMaterials.map((r) => {
                   const isSent = !!r.BISId
+                  const hasValidConfiguration =
+                    !!r.categoryId && r.categoryId !== NO_MATCH_VALUE
 
                   return (
                     <TableRow key={r.id} className="align-middle">
@@ -350,13 +459,20 @@ export default function MaterialsTableClient({
                       <TableCell>
                         <MaterialConfigSelect
                           recordId={r.id}
-                          value={r.categoryId}
+                          value={hasValidConfiguration ? r.categoryId : null}
                           disabled={isSent}
-                          onSave={updateMaterialConfiguration}
+                          onSave={handleConfigChange}
                         />
                       </TableCell>
 
-                      <TableCell>{r.costCode || "—"}</TableCell>
+                      <TableCell>
+  <CostCodeSelect
+    recordId={r.id}
+    value={r.costCode}
+    disabled={isSent}
+    onSave={handleCostCodeChange}
+  />
+</TableCell>
                       <TableCell>{formatQty(r.quantity)}</TableCell>
                       <TableCell>{r.measurementUnit || "—"}</TableCell>
                       <TableCell>{formatMoney(r.cost)}</TableCell>
@@ -366,13 +482,15 @@ export default function MaterialsTableClient({
 
                       <TableCell className="text-right">
                         {!isSent ? (
-                          <SendToBisButton
-                            recordId={r.id}
-                            quantity={r.quantity ?? 0}
-                            categoryId={r.categoryId ?? ""}
-                            sourcePhoto={r.sourcePhoto ?? ""}
-                            action={sendToBis}
-                          />
+                          <div className="flex flex-col items-end gap-1">
+                            <SendToBisButton
+                              recordId={r.id}
+                              quantity={r.quantity ?? 0}
+                              categoryId={hasValidConfiguration ? r.categoryId ?? "" : ""}
+                              sourcePhoto={r.sourcePhoto ?? ""}
+                              action={handleSendToBis}
+                            />
+                          </div>
                         ) : (
                           <Button size="sm" variant="outline" disabled>
                             Already sent

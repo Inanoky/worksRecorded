@@ -61,6 +61,22 @@ export async function updateMaterialConfiguration(
   return { success: true }
 }
 
+export async function updateCostCode(
+  recordId: string,
+  costCode: string | null
+) {
+  "use server"
+
+  await prisma.bISmaterialRecords.update({
+    where: { id: recordId },
+    data: {
+      costCode,
+    },
+  })
+
+  return { success: true }
+}
+
 export async function sendToBis(
   recordId: string,
   quantity: number,
@@ -185,6 +201,7 @@ export default async function MaterialsPage({
         materials={materials}
         sendToBis={sendToBis}
         updateMaterialConfiguration={updateMaterialConfiguration}
+        updateCostCode={updateCostCode}
       />
     </div>
   )

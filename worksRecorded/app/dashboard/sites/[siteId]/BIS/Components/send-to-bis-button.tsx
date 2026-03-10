@@ -3,6 +3,7 @@
 import { useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { NO_MATCH_VALUE } from "./material-config-select"
 
 export default function SendToBisButton({
   recordId,
@@ -24,7 +25,14 @@ export default function SendToBisButton({
 }) {
   const [pending, startTransition] = useTransition()
 
+  const hasConfiguration =
+    !!categoryId?.trim() && categoryId !== NO_MATCH_VALUE
+
+  const isDisabled = pending || !hasConfiguration
+
   const handleClick = () => {
+    if (isDisabled) return
+
     startTransition(async () => {
       try {
         const result = await action(recordId, quantity, categoryId, sourcePhoto)
@@ -42,14 +50,25 @@ export default function SendToBisButton({
     })
   }
 
+  const label = pending
+    ? "Sending..."
+    : hasConfiguration
+      ? "Send to BIS"
+      : "Select configuration"
+
   return (
     <Button
       size="sm"
       onClick={handleClick}
-      disabled={pending || !categoryId}
-      className="transition active:scale-95"
+      disabled={isDisabled}
+      title={!hasConfiguration ? "Select BIS material configuration first" : ""}
+      className={
+        !hasConfiguration
+          ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+          : "transition active:scale-95"
+      }
     >
-      {pending ? "Sending..." : "Send to BIS"}
+      {label}
     </Button>
   )
 }

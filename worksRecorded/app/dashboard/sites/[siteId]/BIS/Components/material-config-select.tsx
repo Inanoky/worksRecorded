@@ -10,6 +10,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+export const NO_MATCH_VALUE = "no_match"
+
 export const categories = [
   {
     id: "2195",
@@ -66,21 +68,36 @@ export default function MaterialConfigSelect({
 }) {
   const [pending, startTransition] = useTransition()
 
+  const selectedValue =
+    value && value !== NO_MATCH_VALUE ? value : NO_MATCH_VALUE
+
   return (
     <Select
-      value={value ?? ""}
+      value={selectedValue}
       onValueChange={(selectedId) => {
-        const selected = categories.find((c) => c.id === selectedId)
-        if (!selected) return
-
         startTransition(async () => {
           try {
+            if (selectedId === NO_MATCH_VALUE) {
+              await onSave(recordId, {
+                categoryId: NO_MATCH_VALUE,
+                categoryName: "",
+                measurementUnitId: "",
+                measurementUnit: "",
+              })
+              toast.success("BIS material configuration cleared")
+              return
+            }
+
+            const selected = categories.find((c) => c.id === selectedId)
+            if (!selected) return
+
             await onSave(recordId, {
               categoryId: selected.id,
               categoryName: selected.material_kind,
               measurementUnitId: selected.measurement,
               measurementUnit: selected.measurement_unit,
             })
+
             toast.success("BIS material configuration updated")
           } catch (error) {
             console.error(error)
@@ -95,6 +112,8 @@ export default function MaterialConfigSelect({
       </SelectTrigger>
 
       <SelectContent>
+        <SelectItem value={NO_MATCH_VALUE}>— No configuration —</SelectItem>
+
         {categories.map((config) => (
           <SelectItem key={config.id} value={config.id}>
             {config.material_kind}
