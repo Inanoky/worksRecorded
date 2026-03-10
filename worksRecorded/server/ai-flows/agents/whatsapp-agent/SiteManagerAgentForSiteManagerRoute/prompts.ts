@@ -50,10 +50,11 @@ export async  function systemPromptFunction(siteId, userId){
     `siteId : ${siteId}
     userId : ${userId}    
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
+    also pass original user comment to originalUserComment
     
     If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes 
 
-    Store also original comment in original language (wihtout changes)
+   
     `
 
     const prompt = prompt_10_11_2025
@@ -81,7 +82,7 @@ export async  function systemPromptFunction(siteId, userId){
   according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)` 
+  For comments describe what was completed, where and with what labor in ${language} ` 
 
 
   

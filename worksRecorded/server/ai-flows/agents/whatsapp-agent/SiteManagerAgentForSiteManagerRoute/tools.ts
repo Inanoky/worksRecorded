@@ -32,6 +32,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     siteId: z.string(),
     userId: z.string(),
     date: z.string(),
+   originalUserComment: z.string()
   }),
 
   async func({ question, userId, siteId, date }) {
@@ -102,7 +103,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
       rows,
       userId,
       siteId,
-      originalUserComment: question
+      originalUserComment
     });
 
     console.log("✅ Save result:", result);

@@ -16,13 +16,14 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
    
 
    
-
-    const state = Annotation.Root({
-        messages: Annotation<BaseMessage[]>({
-            reducer: (x, y) => x.concat(y),
-            default: () => [],
-        }),
-    });
+//introdued originalQuestion in graph state. 
+  const state = Annotation.Root({
+  messages: Annotation<BaseMessage[]>({
+    reducer: (x, y) => x.concat(y),
+    default: () => [],
+  }),
+ 
+});
 
     const shouldContinue = (state) => {
         const { messages } = state;
@@ -79,6 +80,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
             new SystemMessage(await systemPrompt),
             new HumanMessage(question),
         ],
+          originalQuestion: question,
     };
 
 
