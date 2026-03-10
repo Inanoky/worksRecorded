@@ -2,7 +2,13 @@
 
 import * as React from "react"
 import Image from "next/image"
-import { Search, ExternalLink, CheckCircle2, Clock3, Filter } from "lucide-react"
+import {
+  Search,
+  ExternalLink,
+  CheckCircle2,
+  Clock3,
+  Filter,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,6 +29,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import SendToBisButton from "./send-to-bis-button"
+import MaterialConfigSelect, { categories } from "./material-config-select"
 
 type MaterialRow = {
   id: string
@@ -48,6 +55,15 @@ type Props = {
     construction_material_id: string,
     sourcePhoto?: string
   ) => Promise<any>
+  updateMaterialConfiguration: (
+    recordId: string,
+    config: {
+      categoryId: string
+      categoryName: string
+      measurementUnitId: string
+      measurementUnit: string
+    }
+  ) => Promise<{ success: true }>
 }
 
 function formatDate(value: Date | null) {
@@ -71,19 +87,17 @@ function formatQty(value: number | null) {
   }).format(value)
 }
 
-export default function MaterialsTableClient({ materials, sendToBis }: Props) {
+export default function MaterialsTableClient({
+  materials,
+  sendToBis,
+  updateMaterialConfiguration,
+}: Props) {
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
-  const [category, setCategory] = React.useState("all")
+  const [configFilter, setConfigFilter] = React.useState("all")
   const [sortBy, setSortBy] = React.useState<
     "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
   >("invoiceDate_desc")
-
-  const categories = React.useMemo(() => {
-    return Array.from(
-      new Set(materials.map((m) => m.categoryName).filter(Boolean) as string[])
-    ).sort((a, b) => a.localeCompare(b))
-  }, [materials])
 
   const filteredMaterials = React.useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -107,10 +121,10 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
         (status === "sent" && !!m.BISId) ||
         (status === "unsent" && !m.BISId)
 
-      const matchesCategory =
-        category === "all" || (m.categoryName ?? "") === category
+      const matchesConfig =
+        configFilter === "all" || (m.categoryId ?? "") === configFilter
 
-      return matchesSearch && matchesStatus && matchesCategory
+      return matchesSearch && matchesStatus && matchesConfig
     })
 
     rows = [...rows].sort((a, b) => {
@@ -134,7 +148,7 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
     })
 
     return rows
-  }, [materials, search, status, category, sortBy])
+  }, [materials, search, status, configFilter, sortBy])
 
   const stats = React.useMemo(() => {
     const total = materials.length
@@ -147,7 +161,6 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Summary */}
       <div className="grid gap-3 md:grid-cols-4">
         <div className="rounded-2xl border bg-background p-4 shadow-sm">
           <div className="text-sm text-muted-foreground">Total records</div>
@@ -172,7 +185,6 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
         </div>
       </div>
 
-      {/* Toolbar */}
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-4">
           <div className="relative md:col-span-2">
@@ -180,7 +192,7 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, invoice, category, cost code, BIS ID..."
+              placeholder="Search material, invoice, BIS configuration..."
               className="pl-9"
             />
           </div>
@@ -199,15 +211,15 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
             </SelectContent>
           </Select>
 
-          <Select value={category} onValueChange={setCategory}>
+          <Select value={configFilter} onValueChange={setConfigFilter}>
             <SelectTrigger>
-              <SelectValue placeholder="Category" />
+              <SelectValue placeholder="BIS material configuration" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
+              <SelectItem value="all">All configurations</SelectItem>
+              {categories.map((config) => (
+                <SelectItem key={config.id} value={config.id}>
+                  {config.material_kind}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -249,24 +261,23 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
         </div>
       </div>
 
-      {/* Table */}
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
-                <TableHead className="min-w-[90px]">Photo</TableHead>
-                <TableHead className="min-w-[180px]">Material</TableHead>
+                <TableHead>Photo</TableHead>
+                <TableHead>Material</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead>BIS material configuration</TableHead>
+                <TableHead>Cost code</TableHead>
                 <TableHead>Qty</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead>Cost</TableHead>
                 <TableHead>Invoice</TableHead>
                 <TableHead>Invoice date</TableHead>
-                <TableHead>Cost code</TableHead>
                 <TableHead>BIS ID</TableHead>
-                <TableHead className="text-right min-w-[140px]">Action</TableHead>
+                <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -277,7 +288,7 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
                     <div className="space-y-1">
                       <p className="font-medium">No materials found</p>
                       <p className="text-sm text-muted-foreground">
-                        Try changing your filters or search query.
+                        Try changing filters or search query.
                       </p>
                     </div>
                   </TableCell>
@@ -290,12 +301,7 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
                     <TableRow key={r.id} className="align-middle">
                       <TableCell>
                         {r.sourcePhoto ? (
-                          <a
-                            href={r.sourcePhoto}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="group inline-flex items-center gap-2"
-                          >
+                          <a href={r.sourcePhoto} target="_blank" rel="noreferrer">
                             <div className="relative h-14 w-14 overflow-hidden rounded-lg border bg-muted">
                               <Image
                                 src={r.sourcePhoto}
@@ -341,16 +347,22 @@ export default function MaterialsTableClient({ materials, sendToBis }: Props) {
                         )}
                       </TableCell>
 
-                      <TableCell>{r.categoryName || "—"}</TableCell>
+                      <TableCell>
+                        <MaterialConfigSelect
+                          recordId={r.id}
+                          value={r.categoryId}
+                          disabled={isSent}
+                          onSave={updateMaterialConfiguration}
+                        />
+                      </TableCell>
+
+                      <TableCell>{r.costCode || "—"}</TableCell>
                       <TableCell>{formatQty(r.quantity)}</TableCell>
                       <TableCell>{r.measurementUnit || "—"}</TableCell>
                       <TableCell>{formatMoney(r.cost)}</TableCell>
                       <TableCell>{r.invoiceNr || "—"}</TableCell>
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
-                      <TableCell>{r.costCode || "—"}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {r.BISId || "—"}
-                      </TableCell>
+                      <TableCell className="font-mono text-xs">{r.BISId || "—"}</TableCell>
 
                       <TableCell className="text-right">
                         {!isSent ? (

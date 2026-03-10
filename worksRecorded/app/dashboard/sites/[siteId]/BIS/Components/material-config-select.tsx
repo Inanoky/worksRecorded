@@ -1,0 +1,106 @@
+"use client"
+
+import { useTransition } from "react"
+import { toast } from "sonner"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+export const categories = [
+  {
+    id: "2195",
+    material_kind: "Flīzes",
+    measurement: "12",
+    measurement_unit: "gab.",
+  },
+  {
+    id: "2204",
+    material_kind: "Mūras bloki",
+    measurement: "12",
+    measurement_unit: "gab.",
+  },
+  {
+    id: "2230",
+    material_kind: "stiegrojums",
+    measurement: "42",
+    measurement_unit: "t",
+  },
+  {
+    id: "2231",
+    material_kind: "Transportbetons",
+    measurement: "25",
+    measurement_unit: "m3",
+  },
+  {
+    id: "2232",
+    material_kind: "Concrete grout",
+    measurement: "62",
+    measurement_unit: "kg",
+  },
+]
+
+export type HardcodedMaterialCategory = (typeof categories)[number]
+
+export default function MaterialConfigSelect({
+  recordId,
+  value,
+  disabled,
+  onSave,
+}: {
+  recordId: string
+  value?: string | null
+  disabled?: boolean
+  onSave: (
+    recordId: string,
+    config: {
+      categoryId: string
+      categoryName: string
+      measurementUnitId: string
+      measurementUnit: string
+    }
+  ) => Promise<{ success: true }>
+}) {
+  const [pending, startTransition] = useTransition()
+
+  return (
+    <Select
+      value={value ?? ""}
+      onValueChange={(selectedId) => {
+        const selected = categories.find((c) => c.id === selectedId)
+        if (!selected) return
+
+        startTransition(async () => {
+          try {
+            await onSave(recordId, {
+              categoryId: selected.id,
+              categoryName: selected.material_kind,
+              measurementUnitId: selected.measurement,
+              measurementUnit: selected.measurement_unit,
+            })
+            toast.success("BIS material configuration updated")
+          } catch (error) {
+            console.error(error)
+            toast.error("Failed to update BIS material configuration")
+          }
+        })
+      }}
+      disabled={disabled || pending}
+    >
+      <SelectTrigger className="w-[240px]">
+        <SelectValue placeholder="Select configuration" />
+      </SelectTrigger>
+
+      <SelectContent>
+        {categories.map((config) => (
+          <SelectItem key={config.id} value={config.id}>
+            {config.material_kind}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}

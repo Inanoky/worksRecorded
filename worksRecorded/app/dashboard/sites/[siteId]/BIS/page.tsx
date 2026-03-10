@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/utils/db"
 import MaterialsTableClient from "./Components/materials-table-client"
 
-// Upload image to BIS
 async function uploadPhotoToBis(photoUrl: string, accessToken: string) {
   const baseUrl = "https://test.bis.gov.lv"
   const BISCase = "384792"
@@ -38,7 +37,30 @@ async function uploadPhotoToBis(photoUrl: string, accessToken: string) {
   return json?.data?.attributes?.temp_uuid as string | undefined
 }
 
-// SERVER ACTION
+export async function updateMaterialConfiguration(
+  recordId: string,
+  config: {
+    categoryId: string
+    categoryName: string
+    measurementUnitId: string
+    measurementUnit: string
+  }
+) {
+  "use server"
+
+  await prisma.bISmaterialRecords.update({
+    where: { id: recordId },
+    data: {
+      categoryId: config.categoryId,
+      categoryName: config.categoryName,
+      measurementUnitId: config.measurementUnitId,
+      measurementUnit: config.measurementUnit,
+    },
+  })
+
+  return { success: true }
+}
+
 export async function sendToBis(
   recordId: string,
   quantity: number,
@@ -53,9 +75,7 @@ export async function sendToBis(
   })
 
   const accessToken = row?.accessToken
-  if (!accessToken) {
-    throw new Error("No BIS access token found")
-  }
+  if (!accessToken) throw new Error("No BIS access token found")
 
   const baseUrl = "https://test.bis.gov.lv"
   const BISCase = "384792"
@@ -67,7 +87,6 @@ export async function sendToBis(
 
     if (temp_uuid) {
       await new Promise((r) => setTimeout(r, 1000))
-
       attachments.push({
         type: "shared_attachments",
         uuid: temp_uuid,
@@ -158,11 +177,15 @@ export default async function MaterialsPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">BIS Materials</h1>
         <p className="text-sm text-muted-foreground">
-          Review material records, filter them, and send missing entries to BIS.
+          Review records, assign BIS material configuration, and send entries to BIS.
         </p>
       </div>
 
-      <MaterialsTableClient materials={materials} sendToBis={sendToBis} />
+      <MaterialsTableClient
+        materials={materials}
+        sendToBis={sendToBis}
+        updateMaterialConfiguration={updateMaterialConfiguration}
+      />
     </div>
   )
 }
