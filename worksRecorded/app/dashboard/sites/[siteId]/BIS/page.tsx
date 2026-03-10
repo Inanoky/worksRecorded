@@ -1,42 +1,19 @@
-// worksRecorded\app\dashboard\sites\[siteId]\BIS\page.tsx
-
 import { prisma } from "@/lib/utils/db"
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-
-import { Button } from "@/components/ui/button"
-
-import SendToBisButton from "./Components/send-to-bis-button"
-
-const siteId = "5364389a-3d0b-4a0d-ab75-11f9118daa63"
-
+import MaterialsTableClient from "./Components/materials-table-client"
 
 // Upload image to BIS
-async function uploadPhotoToBis(
-  photoUrl: string,
-  accessToken: string
-) {
-
+async function uploadPhotoToBis(photoUrl: string, accessToken: string) {
   const baseUrl = "https://test.bis.gov.lv"
   const BISCase = "384792"
 
-  const imgResp = await fetch(photoUrl)
+  const imgResp = await fetch(photoUrl, { cache: "no-store" })
   const buffer = await imgResp.arrayBuffer()
 
-  const blob = new Blob(
-    [buffer],
-    { type: imgResp.headers.get("content-type") || "image/jpeg" }
-  )
+  const blob = new Blob([buffer], {
+    type: imgResp.headers.get("content-type") || "image/jpeg",
+  })
 
   const form = new FormData()
-
   form.append("upload[file]", blob, "photo.jpg")
   form.append("upload[obj_id]", crypto.randomUUID())
 
@@ -49,15 +26,17 @@ async function uploadPhotoToBis(
         Authorization: `Bearer ${accessToken}`,
       },
       body: form,
+      cache: "no-store",
     }
   )
 
+  if (!res.ok) {
+    throw new Error("Failed to upload photo to BIS")
+  }
+
   const json = await res.json()
-
-  return json?.data?.attributes?.temp_uuid
+  return json?.data?.attributes?.temp_uuid as string | undefined
 }
-
-
 
 // SERVER ACTION
 export async function sendToBis(
@@ -66,7 +45,6 @@ export async function sendToBis(
   construction_material_id: string,
   sourcePhoto?: string
 ) {
-
   "use server"
 
   const row = await prisma.bisToken.findFirst({
@@ -75,32 +53,27 @@ export async function sendToBis(
   })
 
   const accessToken = row?.accessToken
+  if (!accessToken) {
+    throw new Error("No BIS access token found")
+  }
 
   const baseUrl = "https://test.bis.gov.lv"
   const BISCase = "384792"
 
-  let attachments: any[] = []
+  const attachments: Array<{ type: string; uuid: string }> = []
 
   if (sourcePhoto) {
-
-    const temp_uuid = await uploadPhotoToBis(
-      sourcePhoto,
-      accessToken!
-    )
+    const temp_uuid = await uploadPhotoToBis(sourcePhoto, accessToken)
 
     if (temp_uuid) {
-
-      await new Promise(r => setTimeout(r, 1000))
+      await new Promise((r) => setTimeout(r, 1000))
 
       attachments.push({
         type: "shared_attachments",
-        uuid: temp_uuid
+        uuid: temp_uuid,
       })
-
     }
-
   }
-
 
   const body = {
     data: {
@@ -110,7 +83,6 @@ export async function sendToBis(
         event_time_from: "09:30",
       },
       relationships: {
-
         detail: {
           data: {
             type: "received_construction_product",
@@ -120,15 +92,12 @@ export async function sendToBis(
             },
           },
         },
-
         attachments: {
-          data: attachments
-        }
-
+          data: attachments,
+        },
       },
     },
   }
-
 
   const res = await fetch(
     `${baseUrl}/bisp/api/portal/bis_cases/${BISCase}/logbook/received_construction_products`,
@@ -140,115 +109,60 @@ export async function sendToBis(
         Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(body),
+      cache: "no-store",
     }
   )
 
   const json = await res.json()
-
   const bisId = json?.data?.id
 
   if (bisId) {
-
     await prisma.bISmaterialRecords.update({
       where: { id: recordId },
-      data: { BISId: bisId }
+      data: { BISId: bisId },
     })
-
   }
 
   return json
 }
 
-
-
-export default async function MaterialsTable() {
+export default async function MaterialsPage({
+  params,
+}: {
+  params: Promise<{ siteId: string }>
+}) {
+  const { siteId } = await params
 
   const materials = await prisma.bISmaterialRecords.findMany({
     where: { siteId },
+    orderBy: [{ invoiceDate: "desc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      categoryId: true,
+      categoryName: true,
+      measurementUnitId: true,
+      measurementUnit: true,
+      cost: true,
+      invoiceNr: true,
+      invoiceDate: true,
+      costCode: true,
+      sourcePhoto: true,
+      BISId: true,
+    },
   })
 
   return (
-    <div className="rounded-xl border bg-white shadow-sm">
+    <div className="space-y-6 p-4 md:p-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">BIS Materials</h1>
+        <p className="text-sm text-muted-foreground">
+          Review material records, filter them, and send missing entries to BIS.
+        </p>
+      </div>
 
-      <Table>
-
-        <TableHeader>
-          <TableRow>
-            <TableHead>Photo</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Quantity</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Unit</TableHead>
-            <TableHead className="text-right">Action</TableHead>
-          </TableRow>
-        </TableHeader>
-
-        <TableBody>
-
-          {materials.map((r) => (
-
-            <TableRow key={r.id}>
-
-              <TableCell>
-
-                {r.sourcePhoto && (
-                  <img
-                    src={r.sourcePhoto}
-                    className="h-12 w-12 rounded object-cover border"
-                  />
-                )}
-
-              </TableCell>
-
-              <TableCell className="font-medium">
-                {r.name}
-              </TableCell>
-
-              <TableCell>
-                {r.quantity}
-              </TableCell>
-
-              <TableCell>
-                {r.categoryName}
-              </TableCell>
-
-              <TableCell>
-                {r.measurementUnit}
-              </TableCell>
-
-              <TableCell className="text-right">
-
-                {!r.BISId ? (
-
-                  <SendToBisButton
-                    recordId={r.id}
-                    quantity={r.quantity ?? 0}
-                    categoryId={r.categoryId ?? ""}
-                    sourcePhoto={r.sourcePhoto ?? ""}
-                    action={sendToBis}
-                  />
-
-                ) : (
-
-                  <Button
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    Approve
-                  </Button>
-
-                )}
-
-              </TableCell>
-
-            </TableRow>
-
-          ))}
-
-        </TableBody>
-
-      </Table>
-
+      <MaterialsTableClient materials={materials} sendToBis={sendToBis} />
     </div>
   )
 }
