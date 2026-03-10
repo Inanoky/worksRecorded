@@ -35,7 +35,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
    originalUserComment: z.string()
   }),
 
-  async func({ question, userId, siteId, date }) {
+  async func({ question, userId, siteId, date, originalUserComment}) {
 
     console.log("▶️ TOOL START");
     console.log("Input:", { question, userId, siteId, date });
