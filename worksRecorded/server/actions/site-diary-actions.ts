@@ -1,4 +1,3 @@
-// app/actions/saveSiteDiaryRecords.ts
 "use server";
 
 import { prisma } from "@/lib/utils/db";
@@ -13,11 +12,9 @@ import { isQuestionDotToken } from "typescript";
 
 //nothing
 
-
 //-------Loading config------------------------------
 
 export async function getConfig(siteId: string) {
-
   const clientConfig = await prisma.site.findUnique({
     where: {
       id: siteId,
@@ -30,18 +27,22 @@ export async function getConfig(siteId: string) {
   return clientConfig?.siteDiaryRecordsMap ?? null;
 }
 
-// Site diary records actions 
+// Site diary records actions
 
-export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId,  originalUserComment }) {
+export async function saveSiteDiaryRecord({
+  rows,
+  userId,
+  workerId,
+  siteId,
+  originalUserComment,
+}) {
   // 🪵 LOG: Initial inputs for context
-
 
   // NEW: Determine the entity and fetch the organization ID
   const entityId = workerId ?? userId;
   const isWorker = !!workerId;
 
   // 🪵 LOG: Derived entity info
-
 
   let org = null;
   if (entityId) {
@@ -93,95 +94,80 @@ export async function saveSiteDiaryRecord({ rows, userId, workerId, siteId,  ori
 
         Units: row.Units || undefined,
         Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
-        WorkersInvolved: row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
+        WorkersInvolved:
+          row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
         TimeInvolved: row.TimeInvolved !== "" ? Number(row.TimeInvolved) : undefined,
         Photos: [],
       };
 
       // 🪵 LOG: Transformed row object
-      console.log(`Transformed Row #${idx + 1} (Original Data: ${JSON.stringify({ location: row.location, works: row.works })}):`);
+      console.log(
+        `Transformed Row #${idx + 1} (Original Data: ${JSON.stringify({
+          location: row.location,
+          works: row.works,
+        })}):`,
+      );
       console.log(out);
 
       return out;
     });
-
-
 
   if (!toInsert.length) {
     console.log("--- saveSiteDiaryRecord END: No records to insert ---");
     return { ok: false, message: "No records to insert" };
   }
 
-
   try {
     await prisma.sitediaryrecords.createMany({ data: toInsert });
 
-
     return { ok: true, count: toInsert.length }; //Multitenant
-
-  } catch (err) {
-
+  } catch (err: any) {
     return { ok: false, message: err.message };
   }
 }
 
 export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
-
-
-
-
-
   const user = await requireUser();
-  const org = await getOrganizationIdByUserId(user.id)
+  const org = await getOrganizationIdByUserId(user.id);
 
   // Defensive: Only save if at least one row with location or works
-  const toInsert = rows
+  const toInsert = rows.map((row, idx) => {
+    const out = {
+      userId: user.id ?? undefined,
+      siteId: siteId ?? undefined,
+      organizationId: org ?? undefined,
 
-    .map((row, idx) => {
-      const out = {
-        userId: user.id ?? undefined,
-        siteId: siteId ?? undefined,
-        organizationId: org ?? undefined,
-
-        Date: row.Date ? new Date(row.Date) : undefined,
-        Date_Custom_1: row.Date_Custom_1 ? new Date(row.Date_Custom_1) : undefined,
-        Date_Custom_2: row.Date_Custom_2 ? new Date(row.Date_Custom_2) : undefined,
-        Location: row.Location || undefined,
-        Location_Custom_1: row.Location_Custom_1 || undefined,
-        Location_Custom_2: row.Location_Custom_2 || undefined,
-        Works: row.Works || undefined,
-        Works_Custom_1: row.Works_Custom_1 || undefined,
-        Works_Custom_2: row.Works_Custom_2 || undefined,
-        Comments: row.Comments || undefined,
-        Comments_Custom_1: row.Comments_Custom_1 || undefined,
-        Comments_Custom_2: row.Comments_Custom_2 || undefined,
-        Units: row.Units || undefined,
-        Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
-        WorkersInvolved: row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
-        TimeInvolved: row.TimeInvolved !== "" ? Number(row.TimeInvolved) : undefined,
-        Photos: [],
-
-
-
-
-
-      };
-      console.log(`Prepared insert row ${idx}:`, out);
-      return out;
-    });
-
+      Date: row.Date ? new Date(row.Date) : undefined,
+      Date_Custom_1: row.Date_Custom_1 ? new Date(row.Date_Custom_1) : undefined,
+      Date_Custom_2: row.Date_Custom_2 ? new Date(row.Date_Custom_2) : undefined,
+      Location: row.Location || undefined,
+      Location_Custom_1: row.Location_Custom_1 || undefined,
+      Location_Custom_2: row.Location_Custom_2 || undefined,
+      Works: row.Works || undefined,
+      Works_Custom_1: row.Works_Custom_1 || undefined,
+      Works_Custom_2: row.Works_Custom_2 || undefined,
+      Comments: row.Comments || undefined,
+      Comments_Custom_1: row.Comments_Custom_1 || undefined,
+      Comments_Custom_2: row.Comments_Custom_2 || undefined,
+      Units: row.Units || undefined,
+      Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
+      WorkersInvolved:
+        row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
+      TimeInvolved: row.TimeInvolved !== "" ? Number(row.TimeInvolved) : undefined,
+      Photos: [],
+    };
+    console.log(`Prepared insert row ${idx}:`, out);
+    return out;
+  });
 
   if (!toInsert.length) {
-
     return { ok: false, message: "No records to insert" };
   }
 
   // Bulk insert
   try {
     const dbResult = await prisma.sitediaryrecords.createMany({ data: toInsert });
-
-  } catch (err) {
-
+  } catch (err: any) {
     return { ok: false, message: err.message };
   }
 
@@ -191,7 +177,6 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
   console.log("Insert successful. Inserted:", toInsert.length, "records.");
   return { ok: true, count: toInsert.length };
 }
-
 
 export async function updateSiteDiaryRecord({ id, ...fields }) {
   console.log("=== updateSiteDiaryRecord called ===");
@@ -204,7 +189,7 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
     });
     console.log("Update result:", updated);
     return { ok: true, record: updated };
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error updating record:", err);
     return { ok: false, message: err.message };
   }
@@ -217,7 +202,6 @@ export async function deleteSiteDiaryRecord({ id }: { id: string }) {
   });
   return { success: true };
 }
-
 
 export async function getSiteDiaryRecord({ siteId, date }) {
   // Get records for the *same day* (ignoring time)
@@ -254,6 +238,8 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       Comments: true,
       Comments_Custom_1: true,
       Comments_Custom_2: true,
+      originalUserComment: true,
+
       // >>> START: NEW FIELDS for 'Created by' logic
       userId: true, // Keep userId for update payload
       workerId: true, // Keep workerId for update payload
@@ -274,7 +260,10 @@ export async function getSiteDiaryRecord({ siteId, date }) {
   });
 
   // Helper function to build the full name from parts
-  const formatCreatorName = (firstName: string | null | undefined, lastName: string | null | undefined): string => {
+  const formatCreatorName = (
+    firstName: string | null | undefined,
+    lastName: string | null | undefined,
+  ): string => {
     const parts = [];
     if (firstName) parts.push(firstName);
     if (lastName) parts.push(lastName);
@@ -290,8 +279,6 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
     } else if (rec.Worker) {
       // Created by Worker
-      // Worker name/surname are not explicitly marked as nullable in your model,
-      // but we use formatCreatorName just in case to handle potential nulls/undefineds cleanly.
       createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
     }
 
@@ -301,35 +288,27 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       Date_Custom_1: rec.Date_Custom_1,
       Date_Custom_2: rec.Date_Custom_2,
 
-
       Location: rec.Location || "",
-      Location_Custom_1 : rec.Location_Custom_1 || "",
-      Location_Custom_2 : rec.Location_Custom_2 || "",
+      Location_Custom_1: rec.Location_Custom_1 || "",
+      Location_Custom_2: rec.Location_Custom_2 || "",
 
       Works: rec.Works || "",
       Works_Custom_1: rec.Works_Custom_1 || "",
       Works_Custom_2: rec.Works_Custom_2 || "",
-
 
       Units: rec.Units || "",
       Amounts: rec.Amounts?.toString() || "",
       WorkersInvolved: rec.WorkersInvolved?.toString() || "",
       TimeInvolved: rec.TimeInvolved?.toString() || "",
 
-
       Comments: rec.Comments || "",
       Comments_Custom_1: rec.Comments_Custom_1 || "",
       Comments_Custom_2: rec.Comments_Custom_2 || "",
-
-
-
-
+      originalUserComment: rec.originalUserComment || "",
 
       // >>> NEW FIELD
-      createdBy: createdBy || "N/A", // Use the resolved name, default to N/A if empty
+      createdBy: createdBy || "N/A",
       // <<< NEW FIELD
-      // The userId and workerId are implicitly included in `rec` from the `select` above,
-      // but they are only needed for saving/updating, not the display logic here.
     };
   });
 }
@@ -362,6 +341,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       WorkersInvolved: true,
       TimeInvolved: true,
       Photos: true,
+      originalUserComment: true,
 
       // createdBy support
       User: {
@@ -381,7 +361,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
 
   const formatCreatorName = (
     firstName: string | null | undefined,
-    lastName: string | null | undefined
+    lastName: string | null | undefined,
   ): string => {
     const parts: string[] = [];
     if (firstName) parts.push(firstName);
@@ -421,13 +401,12 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       TimeInvolved: rec.TimeInvolved?.toString() || "",
 
       Photos: rec.Photos ?? [],
+      originalUserComment: rec.originalUserComment || "",
 
       createdBy: createdBy || "N/A",
     };
   });
 }
-
-
 
 export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {
   const from = new Date(year, month, 1);
@@ -447,10 +426,7 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
     where: {
       siteId,
       Date: { gte: from, lt: to },
-      OR: [
-        { URL: { not: null } },
-        { fileUrl: { not: null } },
-      ],
+      OR: [{ URL: { not: null } }, { fileUrl: { not: null } }],
     },
     select: { Date: true },
   });
@@ -469,12 +445,11 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
   return Array.from(daysSet).sort((a, b) => a - b);
 }
 
-
-
-export async function saveSettingsToDB(formData: FormData) { //Multitenant
+export async function saveSettingsToDB(formData: FormData) {
+  //Multitenant
 
   const user = await requireUser();
-  const org = await getOrganizationIdByUserId(user.id)
+  const org = await getOrganizationIdByUserId(user.id);
 
   const siteId = formData.get("siteId") as string;
   let urls = formData.get("fileUrls");
@@ -494,7 +469,6 @@ export async function saveSettingsToDB(formData: FormData) { //Multitenant
   if (!siteId || !fileUrl) {
     throw new Error("Missing siteId or fileUrl");
   }
-
 
   // ✅ Download file buffer and validate
   const res = await fetch(fileUrl);
@@ -529,7 +503,6 @@ export async function saveSettingsToDB(formData: FormData) { //Multitenant
   return { success: true, siteId, fileUrl, schemaSaved: Boolean(schemaStr) };
 }
 
-
 export async function getSiteDiarySchema({ siteId }) {
   if (!siteId) return null;
   const settings = await prisma.sitediarysettings.findUnique({
@@ -538,7 +511,6 @@ export async function getSiteDiarySchema({ siteId }) {
   });
   return settings?.schema ? JSON.parse(settings.schema) : null;
 }
-
 
 export async function deleteSchemaBySiteId(formData: FormData) {
   const siteId = formData.get("siteId") as string;
@@ -551,15 +523,14 @@ export async function deleteSchemaBySiteId(formData: FormData) {
   return { success: true, siteId };
 }
 
-
-export async function getLocationsWorksFromSiteSchema(siteId: string, type: 'Location' | 'Work') {
-
-
+export async function getLocationsWorksFromSiteSchema(
+  siteId: string,
+  type: "Location" | "Work",
+) {
   const schema = await getSiteDiarySchema({ siteId });
 
   function extractLocationNames(schema) {
-    return schema.filter(node => node.type === "Location").map(node => node.name);
-
+    return schema.filter((node) => node.type === "Location").map((node) => node.name);
   }
   function extractWorkNames(schema) {
     const worksSet = new Set();
@@ -571,18 +542,12 @@ export async function getLocationsWorksFromSiteSchema(siteId: string, type: 'Loc
     return Array.from(worksSet);
   }
 
-  if (type === 'Location') {
+  if (type === "Location") {
     return extractLocationNames(schema);
   } else {
     return extractWorkNames(schema);
-
-
-
-
-
   }
 }
-
 
 export async function savePhoto({
   userId,
@@ -657,7 +622,11 @@ export async function savePhoto({
   }
 }
 
-export async function getPhotosByDate({ siteId, startISO, endISO }: GetPhotosByDateArgs) {
+export async function getPhotosByDate({
+  siteId,
+  startISO,
+  endISO,
+}: GetPhotosByDateArgs) {
   const start = new Date(startISO);
   const end = new Date(endISO);
 
@@ -683,7 +652,6 @@ export async function getPhotosByDate({ siteId, startISO, endISO }: GetPhotosByD
   });
 }
 
-
 export async function deletePhotoById(id: string) {
   // Optionally: add auth/ownership checks here
   await prisma.photos.delete({
@@ -691,8 +659,6 @@ export async function deletePhotoById(id: string) {
   });
   return { ok: true };
 }
-
-
 
 const PHOTOS_PER_PAGE = 30;
 /**
@@ -706,8 +672,8 @@ const PHOTOS_PER_PAGE = 30;
 export async function getAllPhotos(
   siteId: string,
   page: number,
-  startDate?: Date, // New optional parameter
-  endDate?: Date    // New optional parameter
+  startDate?: Date,
+  endDate?: Date,
 ) {
   try {
     const skip = (page - 1) * PHOTOS_PER_PAGE;
@@ -726,14 +692,14 @@ export async function getAllPhotos(
 
     const whereClause = {
       siteId: siteId,
-      ...dateFilter, // Include date filter if present
+      ...dateFilter,
     };
 
     // 1. Fetch the photos for the current page
     const photos = await prisma.photos.findMany({
       where: whereClause,
       orderBy: {
-        Date: 'desc',
+        Date: "desc",
       },
       skip: skip,
       take: PHOTOS_PER_PAGE,
@@ -748,18 +714,17 @@ export async function getAllPhotos(
 
     // 2. Get the total count of all photos for pagination logic
     const totalCount = await prisma.photos.count({
-      where: whereClause, // Use the same where clause for counting
+      where: whereClause,
     });
 
-    const filteredPhotos = photos.filter(photo => photo.fileUrl !== null);
+    const filteredPhotos = photos.filter((photo) => photo.fileUrl !== null);
 
     return {
       photos: filteredPhotos,
-      totalCount: totalCount
+      totalCount: totalCount,
     };
-
   } catch (error) {
     console.error(`Failed to fetch photos for siteId ${siteId}:`, error);
-    throw new Error('Could not retrieve paginated project photos.');
+    throw new Error("Could not retrieve paginated project photos.");
   }
 }
