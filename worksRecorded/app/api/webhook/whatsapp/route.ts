@@ -24,7 +24,7 @@ async function cleanupStaleLock(phone: string) {
   });
 }
 
-//2
+//22
 async function tryAcquireTextLock(phone: string, messageSid?: string | null) {
   await cleanupStaleLock(phone);
 
