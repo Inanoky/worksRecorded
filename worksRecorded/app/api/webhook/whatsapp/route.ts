@@ -2,7 +2,10 @@
 
 import { after } from "next/server";
 import { prisma } from "@/lib/utils/db";
-import { getString, normalizePhone } from "../../../../lib/utils/whatsapp-helpers/shared/helpers";
+import {
+  getString,
+  normalizePhone,
+} from "../../../../lib/utils/whatsapp-helpers/shared/helpers";
 import { sendMessage } from "../../../../lib/utils/whatsapp-helpers/shared/twillio";
 import { handleWorkerRoute } from "../../../../lib/utils/whatsapp-helpers/handling-roles-routes/worker";
 import { handleProjectManagerRoute } from "../../../../lib/utils/whatsapp-helpers/handling-roles-routes/project-manager-route";
@@ -19,19 +22,26 @@ function isUniqueViolation(e: any) {
 
 async function cleanupStaleLock(phone: string) {
   const cutoff = new Date(Date.now() - LOCK_TTL_MS);
+
   await prisma.whatsappTextLock.deleteMany({
-    where: { phone, lockedAt: { lt: cutoff } },
+    where: {
+      phone,
+      lockedAt: { lt: cutoff },
+    },
   });
 }
 
-//22
 async function tryAcquireTextLock(phone: string, messageSid?: string | null) {
   await cleanupStaleLock(phone);
 
   try {
     await prisma.whatsappTextLock.create({
-      data: { phone, messageSid: messageSid || undefined },
+      data: {
+        phone,
+        messageSid: messageSid || undefined,
+      },
     });
+
     return true;
   } catch (e: any) {
     if (isUniqueViolation(e)) return false;
@@ -40,12 +50,15 @@ async function tryAcquireTextLock(phone: string, messageSid?: string | null) {
 }
 
 async function releaseTextLock(phone: string) {
-  await prisma.whatsappTextLock.deleteMany({ where: { phone } });
+  await prisma.whatsappTextLock.deleteMany({
+    where: { phone },
+  });
 }
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
+
     console.log("📥 [/api/webhook/whatsapp] webhook hit");
 
     if (DEBUG_SYNC) {
@@ -58,13 +71,18 @@ export async function POST(req: Request) {
 
     return new Response("<Response></Response>", {
       status: 200,
-      headers: { "Content-Type": "text/xml" },
+      headers: {
+        "Content-Type": "text/xml",
+      },
     });
   } catch (err) {
     console.error("❌ POST error:", err);
+
     return new Response("<Response></Response>", {
       status: 500,
-      headers: { "Content-Type": "text/xml" },
+      headers: {
+        "Content-Type": "text/xml",
+      },
     });
   }
 }
@@ -80,12 +98,13 @@ async function dispatch(formData: FormData) {
     const from = getString(formData, "From");
     const waId = getString(formData, "WaId");
     const body = (getString(formData, "Body") || "").trim();
-
     const numMediaRaw = getString(formData, "NumMedia");
     const numMedia = Number(numMediaRaw || "0");
     const isText = !Number.isNaN(numMedia) ? numMedia === 0 : true;
-
-    const messageSid = getString(formData, "MessageSid") || getString(formData, "SmsMessageSid") || null;
+    const messageSid =
+      getString(formData, "MessageSid") ||
+      getString(formData, "SmsMessageSid") ||
+      null;
 
     console.log("🔎 Parsed formData:", {
       smsStatus,
@@ -109,21 +128,32 @@ async function dispatch(formData: FormData) {
     // TEXT ONLY: enforce per-phone lock (DB row)
     if (isText) {
       const acquired = await tryAcquireTextLock(phone, messageSid);
+
       if (!acquired) {
-        console.log("🔒 Text lock busy → replying 'Please wait…' and skipping", { phone, messageSid });
+        console.log("🔒 Text lock busy → replying 'Please wait…' and skipping", {
+          phone,
+          messageSid,
+        });
+
         await sendMessage(from, "Please wait…");
         return;
       }
+
       lockHeld = true;
       lockPhone = phone;
+
       console.log("🔓 Text lock acquired", { phone, messageSid });
     } else {
       console.log("🖼️ Media message → no lock (allowed to spam)");
     }
 
     // Worker route
-    const worker = await prisma.workers.findFirst({ where: { phone } });
+    const worker = await prisma.workers.findFirst({
+      where: { phone },
+    });
+
     console.log("👷 Worker found?", !!worker);
+
     if (worker) {
       console.log("➡️ Orchestrating → WORKER route");
       await handleWorkerRoute({ phone, formData });
@@ -147,7 +177,10 @@ async function dispatch(formData: FormData) {
 
     if (!user) {
       console.log("🚫 No user for this phone. Sending rejection.");
-      await sendMessage(from, "Sorry, this phone number is not registered. Please contact admin.");
+      await sendMessage(
+        from,
+        "Sorry, this phone number is not registered. Please contact admin."
+      );
       return;
     }
 
@@ -166,7 +199,9 @@ async function dispatch(formData: FormData) {
     console.log("✅ SITE MANAGER route handled");
   } catch (err) {
     console.error("❌ dispatch error:", err);
+
     const from = getString(formData, "From");
+
     if (from) {
       try {
         await sendMessage(from, "Sorry, an error occurred processing your message.");
