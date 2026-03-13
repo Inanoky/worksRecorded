@@ -427,12 +427,14 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
     where: { id: recordId },
     select: {
       id: true,
+      siteId: true,
       Date: true,
       Works: true,
       Location: true,
       Comments: true,
       WorkersInvolved: true,
       Amounts: true,
+      Photos: true,
     },
   });
 
@@ -451,6 +453,46 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
     quantity: Number(diaryRecord.Amounts ?? 1),
     measurement: Number(process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
   };
+
+  const attachments: Array<{ type: "shared_attachments"; uuid: string }> = [];
+
+  for (const photoUrl of diaryRecord.Photos ?? []) {
+    const tempUuid = await uploadLogbookAttachmentToBis({
+      photoUrl,
+      accessToken,
+      baseUrl,
+      bisCase,
+      attachmentPath: "performed_work_attachments",
+    });
+
+    if (tempUuid) {
+      attachments.push({ type: "shared_attachments", uuid: tempUuid });
+    }
+  }
+
+  const usedMaterials = diaryRecord.siteId
+    ? await prisma.bISmaterialRecords.findMany({
+        where: {
+          siteId: diaryRecord.siteId,
+          sourcePhoto: { in: diaryRecord.Photos ?? [] },
+          categoryId: { not: null },
+        },
+        select: {
+          categoryId: true,
+          quantity: true,
+        },
+      })
+    : [];
+
+  const logbookUsedConstructionMaterials = usedMaterials
+    .filter((item) => item.categoryId)
+    .map((item) => ({
+      type: "construction_materials_join",
+      attributes: {
+        construction_material_id: item.categoryId,
+        quantity: String(Number(item.quantity ?? 0)),
+      },
+    }));
 
   const descriptionParts = [
     diaryRecord.Works ? `Works: ${diaryRecord.Works}` : null,
@@ -476,6 +518,12 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
             type: "performed_work",
             attributes: detailAttributes,
           },
+        },
+        attachments: {
+          data: attachments,
+        },
+        logbook_used_construction_materials: {
+          data: logbookUsedConstructionMaterials,
         },
       },
     },
@@ -523,6 +571,59 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
     bisId,
     response: json,
   };
+}
+
+async function uploadLogbookAttachmentToBis({
+  photoUrl,
+  accessToken,
+  baseUrl,
+  bisCase,
+  attachmentPath,
+}: {
+  photoUrl: string;
+  accessToken: string;
+  baseUrl: string;
+  bisCase: string;
+  attachmentPath: string;
+}): Promise<string | null> {
+  if (!photoUrl) return null;
+
+  const fileResponse = await fetch(photoUrl, { cache: "no-store" });
+  if (!fileResponse.ok) {
+    console.warn(`Skipping BIS upload. Unable to download attachment: ${photoUrl}`);
+    return null;
+  }
+
+  const arrayBuffer = await fileResponse.arrayBuffer();
+  const blob = new Blob([arrayBuffer], {
+    type: fileResponse.headers.get("content-type") || "image/jpeg",
+  });
+
+  const form = new FormData();
+  form.append("upload[file]", blob, "attachment.jpg");
+  form.append("upload[obj_id]", crypto.randomUUID());
+
+  const uploadResponse = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/${attachmentPath}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: form,
+      cache: "no-store",
+    },
+  );
+
+  if (!uploadResponse.ok) {
+    const errText = await uploadResponse.text();
+    console.warn(`Skipping BIS attachment. Upload failed: ${errText}`);
+    return null;
+  }
+
+  const json = await uploadResponse.json();
+  return json?.data?.attributes?.temp_uuid ?? null;
 }
 
 export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {
