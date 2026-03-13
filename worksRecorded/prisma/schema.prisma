@@ -414,3 +414,12 @@ model BookingSession {
   updatedAt DateTime @updatedAt
 
 }
+
+model NewsArticle {
+  id          String   @id @default(cuid())
+  title       String
+  summary     String
+  keyPoints   String[]
+  sourceItems Json
+  createdAt   DateTime @default(now())
+}

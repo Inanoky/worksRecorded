@@ -34,3 +34,30 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Automated AI + Construction news feed
+
+A new dashboard page is available at `/dashboard/news`. It displays short articles generated automatically.
+
+### How it works
+
+- Vercel cron calls `/api/cron/news?secret=<CRON_SECRET>` every hour.
+- The route fetches latest RSS headlines for AI and construction topics.
+- It asks the LLM to produce a short summary article + key points.
+- Results are saved into the `NewsArticle` table and shown on the news page.
+
+### Required env vars
+
+- `CRON_SECRET`
+- `OPENAI_API_KEY`
+- `DATABASE_URL`
+- `DIRECT_URL`
+
+### Database update
+
+After pulling these changes run:
+
+```bash
+npx prisma db push
+npx prisma generate
+```
