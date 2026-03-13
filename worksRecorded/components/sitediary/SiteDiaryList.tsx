@@ -131,6 +131,7 @@ type BisMaterialOption = {
   id: string;
   label: string;
   measurementUnit?: string | null;
+  availableQuantity: number;
 };
 
 type GalleryAttachmentOption = {
@@ -290,6 +291,7 @@ export default function SiteDiaryCalendar({
   const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<string[]>([]);
   const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, number>>({});
   const [bisPickerLoading, setBisPickerLoading] = React.useState(false);
+  const [attachmentGalleryOpen, setAttachmentGalleryOpen] = React.useState(false);
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -554,7 +556,9 @@ export default function SiteDiaryCalendar({
     );
 
     if (checked) {
-      setMaterialQuantities((prev) => ({ ...prev, [materialId]: prev[materialId] ?? 1 }));
+      const material = bisMaterialOptions.find((m) => m.id === materialId);
+      const defaultQty = Math.min(1, Number(material?.availableQuantity ?? 1));
+      setMaterialQuantities((prev) => ({ ...prev, [materialId]: prev[materialId] ?? defaultQty }));
     }
   };
 
@@ -586,10 +590,17 @@ export default function SiteDiaryCalendar({
       setBisSendingRowId(selectedRowForBis.id);
 
       await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
-        materials: selectedMaterialIds.map((materialId) => ({
-          constructionMaterialId: materialId,
-          quantity: Number(materialQuantities[materialId] ?? 1),
-        })),
+        materials: selectedMaterialIds.map((materialId) => {
+          const available = Number(
+            bisMaterialOptions.find((material) => material.id === materialId)?.availableQuantity ?? 0,
+          );
+          const requested = Number(materialQuantities[materialId] ?? 0);
+
+          return {
+            constructionMaterialId: materialId,
+            quantity: Math.max(0, Math.min(requested, available)),
+          };
+        }),
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
       });
 
@@ -1339,19 +1350,24 @@ export default function SiteDiaryCalendar({
                               <span>
                                 {material.label}
                                 {material.measurementUnit ? ` (${material.measurementUnit})` : ""}
+                                {` • Available: ${material.availableQuantity}`}
                               </span>
                             </label>
                             <Input
                               type="number"
                               min={0}
+                              max={material.availableQuantity}
                               step="0.01"
                               className="w-24"
-                              value={materialQuantities[material.id] ?? 1}
+                              value={materialQuantities[material.id] ?? 0}
                               disabled={!checked}
                               onChange={(e) =>
                                 setMaterialQuantities((prev) => ({
                                   ...prev,
-                                  [material.id]: Number(e.target.value || 0),
+                                  [material.id]: Math.max(
+                                    0,
+                                    Math.min(Number(e.target.value || 0), Number(material.availableQuantity)),
+                                  ),
                                 }))
                               }
                             />
@@ -1363,28 +1379,36 @@ export default function SiteDiaryCalendar({
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">Attachments from this site gallery</h3>
-                  <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border p-3">
-                    {galleryAttachmentOptions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No gallery attachments available for this site.</p>
-                    ) : (
-                      galleryAttachmentOptions.map((attachment) => (
-                        <label key={attachment.id} className="flex items-start gap-2 rounded border p-2 text-sm">
-                          <Checkbox
-                            checked={selectedAttachmentUrls.includes(attachment.url)}
-                            onCheckedChange={(value) => toggleAttachment(attachment.url, Boolean(value))}
-                          />
-                          <div className="min-w-0">
-                            <p className="break-all text-xs text-muted-foreground">{attachment.url}</p>
-                            <p className="text-xs">
-                              {attachment.date ? new Date(attachment.date).toLocaleDateString("en-GB") : ""}
-                              {attachment.comment ? ` • ${attachment.comment}` : ""}
-                            </p>
-                          </div>
-                        </label>
-                      ))
-                    )}
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Attachments from this site gallery</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAttachmentGalleryOpen(true)}
+                    >
+                      Add attachment
+                    </Button>
                   </div>
+
+                  {selectedAttachmentUrls.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No attachments selected yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-3">
+                      {selectedAttachmentUrls.map((url) => (
+                        <div key={url} className="relative overflow-hidden rounded border">
+                          <img src={url} alt="Selected attachment" className="h-24 w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => toggleAttachment(url, false)}
+                            className="absolute right-1 top-1 rounded bg-black/70 px-1 text-[10px] text-white"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-2">
@@ -1411,6 +1435,60 @@ export default function SiteDiaryCalendar({
                 </div>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={attachmentGalleryOpen} onOpenChange={setAttachmentGalleryOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Select attachments from gallery</DialogTitle>
+            </DialogHeader>
+
+            {galleryAttachmentOptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No gallery photos available for this site.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {galleryAttachmentOptions.map((attachment) => {
+                  const checked = selectedAttachmentUrls.includes(attachment.url);
+                  return (
+                    <label
+                      key={attachment.id}
+                      className={cn(
+                        "cursor-pointer overflow-hidden rounded-md border",
+                        checked ? "ring-2 ring-green-600" : "",
+                      )}
+                    >
+                      <div className="relative">
+                        <img
+                          src={attachment.url}
+                          alt={attachment.comment || "Gallery photo"}
+                          className="h-28 w-full object-cover"
+                        />
+                        <div className="absolute left-2 top-2 rounded bg-black/70 p-1">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(value) =>
+                              toggleAttachment(attachment.url, Boolean(value))
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="p-2 text-[11px] text-muted-foreground">
+                        {attachment.date
+                          ? new Date(attachment.date).toLocaleDateString("en-GB")
+                          : ""}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => setAttachmentGalleryOpen(false)}>
+                Done
+              </Button>
+            </div>
           </DialogContent>
         </Dialog>
 

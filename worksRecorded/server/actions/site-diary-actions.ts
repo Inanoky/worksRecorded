@@ -452,14 +452,50 @@ export async function getBisCaseAvailableMaterials() {
   const json = await response.json();
   const data = Array.isArray(json?.data) ? json.data : [];
 
-  return data.map((item: any) => ({
-    id: String(item?.id ?? ""),
-    label:
-      item?.attributes?.name ||
-      item?.attributes?.material_kind ||
-      `Material #${String(item?.id ?? "")}`,
-    measurementUnit: item?.attributes?.measurement_unit || null,
-  }));
+  const availableResponse = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials?page[number]=1&page[size]=200`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!availableResponse.ok) {
+    const text = await availableResponse.text();
+    throw new Error(text || "Failed to fetch BIS available used materials");
+  }
+
+  const availableJson = await availableResponse.json();
+  const availableData = Array.isArray(availableJson?.data) ? availableJson.data : [];
+
+  const availableByMaterialId = new Map<string, number>();
+  for (const item of availableData) {
+    const materialId = String(item?.attributes?.construction_material_id ?? "");
+    const quantity = Number(item?.attributes?.quantity ?? 0);
+    if (!materialId) continue;
+    availableByMaterialId.set(materialId, quantity);
+  }
+
+  const catalogById = new Map(
+    data.map((item: any) => [String(item?.id ?? ""), item]),
+  );
+
+  return Array.from(availableByMaterialId.entries()).map(([id, availableQuantity]) => {
+    const item: any = catalogById.get(id);
+
+    return {
+      id,
+      label:
+        item?.attributes?.name ||
+        item?.attributes?.material_kind ||
+        `Material #${id}`,
+      measurementUnit: item?.attributes?.measurement_unit || null,
+      availableQuantity,
+    };
+  });
 }
 
 export async function getSiteGalleryAttachments(siteId: string) {
