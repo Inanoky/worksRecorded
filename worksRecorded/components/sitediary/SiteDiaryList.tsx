@@ -976,7 +976,12 @@ export default function SiteDiaryCalendar({
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-7 bg-green-600 text-[10px] text-white hover:bg-green-700"
+                                  className={cn(
+                                    "h-7 text-[10px]",
+                                    (Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false))
+                                      ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                      : "bg-green-600 text-white hover:bg-green-700",
+                                  )}
                                   disabled={!r.id || bisSendingRowId === r.id || Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)}
                                   onClick={() => handleSendRowToBis(r)}
                                 >
@@ -1114,7 +1119,13 @@ export default function SiteDiaryCalendar({
                                         <Button
                                           size="sm"
                                           variant="outline"
-                                          className="h-8 bg-green-600 text-white hover:bg-green-700"
+                                          className={cn(
+                                            "h-8",
+                                            (Boolean(group.rows[i]?.BISId) ||
+                                              (row.id ? bisSentRowIds.has(row.id) : false))
+                                              ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                              : "bg-green-600 text-white hover:bg-green-700",
+                                          )}
                                           disabled={!row.id || bisSendingRowId === row.id || Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)}
                                           onClick={() =>
                                             handleSendRowToBis(group.rows[i] ?? row)
