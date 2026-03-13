@@ -37,7 +37,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 ## Automated AI + Construction news feed
 
-A new dashboard page is available at `/dashboard/news`. It displays short articles generated automatically.
+A new landing page is available at `/[locale]/Landing/News` (for example `/en/Landing/News`). It displays short articles generated automatically.
 
 ### How it works
 

@@ -252,11 +252,13 @@
       "custom": "Pielāgoti risinājumi",
       "pricing": "Cenas",
       "about": "Par mums",
+      "news": "Jaunumi",
       "contacts": "Kontakti"
     },
 
     "combined": {
-      "generic": "Tiešsaistes pielāgota analītika"
+      "generic": "Tiešsaistes pielāgota analītika",
+      "news": "Jaunākie AI un būvniecības atjauninājumi"
     }
   }
 

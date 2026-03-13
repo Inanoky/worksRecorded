@@ -1,4 +1,4 @@
-import { HardHat, Newspaper } from "lucide-react";
+import { HardHat } from "lucide-react";
 
 export const navLinks = [
   {
@@ -10,10 +10,5 @@ export const navLinks = [
     name: "Invite Colleagues",
     href: "/dashboard/settings",
     icon: HardHat,
-  },
-  {
-    name: "News",
-    href: "/dashboard/news",
-    icon: Newspaper,
   },
 ];
