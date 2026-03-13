@@ -456,9 +456,9 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
     diaryRecord.Comments ? `Comments: ${diaryRecord.Comments}` : null,
   ].filter(Boolean);
 
-  const responsiblePersonId = process.env.BIS_RESPONSIBLE_PERSON_ID
+ const responsiblePersonId = process.env.BIS_RESPONSIBLE_PERSON_ID
     ? Number(process.env.BIS_RESPONSIBLE_PERSON_ID)
-    : undefined;
+    : 2759822;
 
   const payload = {
     data: {
@@ -468,7 +468,7 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
         event_time_from: eventTimeFrom,
         case_construction_round_id: null,
         responsible_person_id: responsiblePersonId,
-        responsible_person_type: process.env.BIS_RESPONSIBLE_PERSON_TYPE,
+        responsible_person_type: "construction_member",
         description:
           descriptionParts.join("; ") || "Site diary entry sent from worksRecorded",
       },
