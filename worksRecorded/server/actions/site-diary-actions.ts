@@ -433,7 +433,8 @@ export async function getBisCaseAvailableMaterials() {
   const baseUrl = "https://test.bis.gov.lv";
   const bisCase = process.env.BIS_CASE_ID ?? "384792";
 
-  const response = await fetch(
+  // 12I7-092: received construction products list
+  const receivedResponse = await fetch(
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/received_construction_products?page[number]=1&page[size]=200`,
     {
       headers: {
@@ -444,23 +445,26 @@ export async function getBisCaseAvailableMaterials() {
     },
   );
 
-  if (!response.ok) {
-    const text = await response.text();
+  if (!receivedResponse.ok) {
+    const text = await receivedResponse.text();
     throw new Error(text || "Failed to fetch BIS received construction products");
   }
 
-  const json = await response.json();
-  const data = (Array.isArray(json?.data) ? json.data : []).filter(
+  const receivedJson = await receivedResponse.json();
+  const approvedReceivedItems = (Array.isArray(receivedJson?.data) ? receivedJson.data : []).filter(
     (item: any) => item?.attributes?.status === "approved",
   );
 
-  const details = await Promise.all(
-    data.map(async (item: any) => {
-      const recordId = String(item?.id ?? "");
-      if (!recordId) return null;
+  // Build metadata (label/unit) by construction_material_id from approved 12I7-092 details.
+  const approvedMaterialMeta = new Map<string, { label: string; measurementUnit: string | null }>();
+
+  const approvedDetails = await Promise.all(
+    approvedReceivedItems.map(async (item: any) => {
+      const logbookId = String(item?.id ?? "");
+      if (!logbookId) return null;
 
       const detailResponse = await fetch(
-        `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/received_construction_products/${recordId}/detail`,
+        `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/received_construction_products/${logbookId}/detail`,
         {
           headers: {
             Accept: "application/vnd.api+json",
@@ -475,49 +479,65 @@ export async function getBisCaseAvailableMaterials() {
       const detailJson = await detailResponse.json();
       const detail = detailJson?.data?.attributes;
       const constructionMaterialId = String(detail?.construction_material_id ?? "");
-
       if (!constructionMaterialId) return null;
 
       return {
         constructionMaterialId,
-        quantity: Number(detail?.quantity ?? 0),
-        materialName:
+        label:
           item?.attributes?.material_name ||
           detail?.material_kind ||
           `Material #${constructionMaterialId}`,
-        measurementUnit: detail?.measurement || null,
+        measurementUnit: detail?.measurement ? String(detail.measurement) : null,
       };
     }),
   );
 
-  const aggregated = new Map<
-    string,
-    { label: string; measurementUnit: string | null; availableQuantity: number }
-  >();
-
-  for (const detail of details) {
+  for (const detail of approvedDetails) {
     if (!detail) continue;
-    const existing = aggregated.get(detail.constructionMaterialId);
-
-    if (!existing) {
-      aggregated.set(detail.constructionMaterialId, {
-        label: detail.materialName,
+    if (!approvedMaterialMeta.has(detail.constructionMaterialId)) {
+      approvedMaterialMeta.set(detail.constructionMaterialId, {
+        label: detail.label,
         measurementUnit: detail.measurementUnit,
-        availableQuantity: detail.quantity,
       });
-      continue;
     }
-
-    existing.availableQuantity += detail.quantity;
-    aggregated.set(detail.constructionMaterialId, existing);
   }
 
-  return Array.from(aggregated.entries()).map(([id, value]) => ({
-    id,
-    label: value.label,
-    measurementUnit: value.measurementUnit,
-    availableQuantity: Number(value.availableQuantity.toFixed(3)),
-  }));
+  // 12I7-184: available used materials list = remaining available quantity
+  const availableResponse = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials?page[number]=1&page[size]=200`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!availableResponse.ok) {
+    const text = await availableResponse.text();
+    throw new Error(text || "Failed to fetch BIS available used materials");
+  }
+
+  const availableJson = await availableResponse.json();
+  const availableItems = Array.isArray(availableJson?.data) ? availableJson.data : [];
+
+  // Keep only materials that are approved (12I7-092) and present in remaining list (12I7-184).
+  return availableItems
+    .map((item: any) => {
+      const materialId = String(item?.attributes?.construction_material_id ?? "");
+      if (!materialId || !approvedMaterialMeta.has(materialId)) return null;
+
+      const meta = approvedMaterialMeta.get(materialId)!;
+      return {
+        id: materialId,
+        label: meta.label,
+        measurementUnit: meta.measurementUnit,
+        availableQuantity: Number(Number(item?.attributes?.quantity ?? 0).toFixed(3)),
+      };
+    })
+    .filter(Boolean)
+    .sort((a: any, b: any) => String(a.label).localeCompare(String(b.label)));
 }
 
 export async function getSiteGalleryAttachments(siteId: string) {

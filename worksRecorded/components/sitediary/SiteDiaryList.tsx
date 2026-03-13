@@ -1320,9 +1320,12 @@ export default function SiteDiaryCalendar({
         </DialogWindow>
 
         <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[96vw] max-w-5xl max-h-[92vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Select BIS materials and attachments</DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                Select approved materials with remaining quantity and attach images from the site gallery.
+              </p>
             </DialogHeader>
 
             {bisPickerLoading ? (
@@ -1332,25 +1335,31 @@ export default function SiteDiaryCalendar({
               </div>
             ) : (
               <div className="space-y-6">
+                <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+                  Selected materials: {selectedMaterialIds.length} • Selected attachments: {selectedAttachmentUrls.length}
+                </div>
+
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">Materials from current BIS case</h3>
-                  <div className="max-h-60 space-y-2 overflow-y-auto rounded-md border p-3">
+                  <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border p-3">
                     {bisMaterialOptions.length === 0 ? (
                       <p className="text-xs text-muted-foreground">No BIS materials available in this case.</p>
                     ) : (
                       bisMaterialOptions.map((material) => {
                         const checked = selectedMaterialIds.includes(material.id);
                         return (
-                          <div key={material.id} className="flex items-center justify-between gap-2 rounded border p-2">
-                            <label className="flex items-center gap-2 text-sm">
+                          <div key={material.id} className="flex items-start justify-between gap-3 rounded border bg-background p-2">
+                            <label className="flex items-start gap-2 text-sm">
                               <Checkbox
                                 checked={checked}
                                 onCheckedChange={(value) => toggleMaterial(material.id, Boolean(value))}
                               />
-                              <span>
+                              <span className="leading-tight">
                                 {material.label}
                                 {material.measurementUnit ? ` (${material.measurementUnit})` : ""}
-                                {` • Available: ${material.availableQuantity}`}
+                                <span className="block text-xs text-muted-foreground">
+                                  Remaining available: {material.availableQuantity}
+                                </span>
                               </span>
                             </label>
                             <Input
@@ -1358,7 +1367,7 @@ export default function SiteDiaryCalendar({
                               min={0}
                               max={material.availableQuantity}
                               step="0.01"
-                              className="w-24"
+                              className="w-28"
                               value={materialQuantities[material.id] ?? 0}
                               disabled={!checked}
                               onChange={(e) =>
@@ -1392,9 +1401,9 @@ export default function SiteDiaryCalendar({
                   </div>
 
                   {selectedAttachmentUrls.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No attachments selected yet.</p>
+                    <p className="text-xs text-muted-foreground">No attachments selected yet. Click “Add attachment” to open gallery.</p>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-4">
                       {selectedAttachmentUrls.map((url) => (
                         <div key={url} className="relative overflow-hidden rounded border">
                           <img src={url} alt="Selected attachment" className="h-24 w-full object-cover" />
@@ -1439,7 +1448,7 @@ export default function SiteDiaryCalendar({
         </Dialog>
 
         <Dialog open={attachmentGalleryOpen} onOpenChange={setAttachmentGalleryOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[98vw] max-w-[98vw] lg:max-w-7xl max-h-[94vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Select attachments from gallery</DialogTitle>
             </DialogHeader>
@@ -1447,7 +1456,7 @@ export default function SiteDiaryCalendar({
             {galleryAttachmentOptions.length === 0 ? (
               <p className="text-sm text-muted-foreground">No gallery photos available for this site.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
                 {galleryAttachmentOptions.map((attachment) => {
                   const checked = selectedAttachmentUrls.includes(attachment.url);
                   return (
@@ -1462,7 +1471,7 @@ export default function SiteDiaryCalendar({
                         <img
                           src={attachment.url}
                           alt={attachment.comment || "Gallery photo"}
-                          className="h-28 w-full object-cover"
+                          className="h-40 w-full object-cover"
                         />
                         <div className="absolute left-2 top-2 rounded bg-black/70 p-1">
                           <Checkbox
