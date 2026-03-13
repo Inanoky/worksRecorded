@@ -434,7 +434,7 @@ export async function getBisCaseAvailableMaterials() {
   const bisCase = process.env.BIS_CASE_ID ?? "384792";
 
   const response = await fetch(
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/construction_materials?page[number]=1&page[size]=200`,
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/received_construction_products?page[number]=1&page[size]=200`,
     {
       headers: {
         Accept: "application/vnd.api+json",
@@ -446,56 +446,78 @@ export async function getBisCaseAvailableMaterials() {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || "Failed to fetch BIS case materials");
+    throw new Error(text || "Failed to fetch BIS received construction products");
   }
 
   const json = await response.json();
-  const data = Array.isArray(json?.data) ? json.data : [];
-
-  const availableResponse = await fetch(
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials?page[number]=1&page[size]=200`,
-    {
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-    },
+  const data = (Array.isArray(json?.data) ? json.data : []).filter(
+    (item: any) => item?.attributes?.status === "approved",
   );
 
-  if (!availableResponse.ok) {
-    const text = await availableResponse.text();
-    throw new Error(text || "Failed to fetch BIS available used materials");
-  }
+  const details = await Promise.all(
+    data.map(async (item: any) => {
+      const recordId = String(item?.id ?? "");
+      if (!recordId) return null;
 
-  const availableJson = await availableResponse.json();
-  const availableData = Array.isArray(availableJson?.data) ? availableJson.data : [];
+      const detailResponse = await fetch(
+        `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/received_construction_products/${recordId}/detail`,
+        {
+          headers: {
+            Accept: "application/vnd.api+json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        },
+      );
 
-  const availableByMaterialId = new Map<string, number>();
-  for (const item of availableData) {
-    const materialId = String(item?.attributes?.construction_material_id ?? "");
-    const quantity = Number(item?.attributes?.quantity ?? 0);
-    if (!materialId) continue;
-    availableByMaterialId.set(materialId, quantity);
-  }
+      if (!detailResponse.ok) return null;
 
-  const catalogById = new Map(
-    data.map((item: any) => [String(item?.id ?? ""), item]),
+      const detailJson = await detailResponse.json();
+      const detail = detailJson?.data?.attributes;
+      const constructionMaterialId = String(detail?.construction_material_id ?? "");
+
+      if (!constructionMaterialId) return null;
+
+      return {
+        constructionMaterialId,
+        quantity: Number(detail?.quantity ?? 0),
+        materialName:
+          item?.attributes?.material_name ||
+          detail?.material_kind ||
+          `Material #${constructionMaterialId}`,
+        measurementUnit: detail?.measurement || null,
+      };
+    }),
   );
 
-  return Array.from(availableByMaterialId.entries()).map(([id, availableQuantity]) => {
-    const item: any = catalogById.get(id);
+  const aggregated = new Map<
+    string,
+    { label: string; measurementUnit: string | null; availableQuantity: number }
+  >();
 
-    return {
-      id,
-      label:
-        item?.attributes?.name ||
-        item?.attributes?.material_kind ||
-        `Material #${id}`,
-      measurementUnit: item?.attributes?.measurement_unit || null,
-      availableQuantity,
-    };
-  });
+  for (const detail of details) {
+    if (!detail) continue;
+    const existing = aggregated.get(detail.constructionMaterialId);
+
+    if (!existing) {
+      aggregated.set(detail.constructionMaterialId, {
+        label: detail.materialName,
+        measurementUnit: detail.measurementUnit,
+        availableQuantity: detail.quantity,
+      });
+      continue;
+    }
+
+    existing.availableQuantity += detail.quantity;
+    aggregated.set(detail.constructionMaterialId, existing);
+  }
+
+  return Array.from(aggregated.entries()).map(([id, value]) => ({
+    id,
+    label: value.label,
+    measurementUnit: value.measurementUnit,
+    availableQuantity: Number(value.availableQuantity.toFixed(3)),
+  }));
 }
 
 export async function getSiteGalleryAttachments(siteId: string) {
