@@ -229,6 +229,7 @@ model sitediaryrecords {
   TimeInvolved    Float?
   BISId String?
   Photos          String[]
+  BISId           String?
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   

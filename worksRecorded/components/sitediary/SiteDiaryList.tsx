@@ -112,6 +112,7 @@ type DiaryRow = {
   TimeInvolved?: number | string | null;
   Comments?: string | null;
   originalUserComment?: string | null;
+  BISId?: string | null;
   [key: string]: any;
 };
 
@@ -975,12 +976,12 @@ export default function SiteDiaryCalendar({
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-7 text-[10px]"
-                                  disabled={!r.id || bisSendingRowId === r.id || (r.id ? bisSentRowIds.has(r.id) : false)}
+                                  className="h-7 bg-green-600 text-[10px] text-white hover:bg-green-700"
+                                  disabled={!r.id || bisSendingRowId === r.id || Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)}
                                   onClick={() => handleSendRowToBis(r)}
                                 >
-                                  {r.id && (r.id ? bisSentRowIds.has(r.id) : false) ? (
-                                    "Record added to BIS"
+                                  {(Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)) ? (
+                                    "Already sent"
                                   ) : bisSendingRowId === r.id ? (
                                     <>
                                       <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -1113,14 +1114,14 @@ export default function SiteDiaryCalendar({
                                         <Button
                                           size="sm"
                                           variant="outline"
-                                          className="h-8"
-                                          disabled={!row.id || bisSendingRowId === row.id || (row.id ? bisSentRowIds.has(row.id) : false)}
+                                          className="h-8 bg-green-600 text-white hover:bg-green-700"
+                                          disabled={!row.id || bisSendingRowId === row.id || Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)}
                                           onClick={() =>
                                             handleSendRowToBis(group.rows[i] ?? row)
                                           }
                                         >
-                                          {row.id && (row.id ? bisSentRowIds.has(row.id) : false) ? (
-                                            "Record added to BIS"
+                                          {(Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)) ? (
+                                            "Already sent"
                                           ) : bisSendingRowId === row.id ? (
                                             <>
                                               <Loader2 className="mr-1 h-3 w-3 animate-spin" />
