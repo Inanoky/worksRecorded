@@ -6,7 +6,7 @@ import Selfie from "@/public/frontend/pages/About/Selfie.jpg";
 
 export default function Page() {
   const t = useTranslations("About");
-
+//nothing
   return (
     <section className="relative flex items-center justify-center">
       <div className="w-full mx-auto px-4 sm:px-6 py-12 lg:py-20">
