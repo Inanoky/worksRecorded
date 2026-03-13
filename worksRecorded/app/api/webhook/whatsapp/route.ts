@@ -55,6 +55,45 @@ async function releaseTextLock(phone: string) {
   });
 }
 
+
+
+
+
+
+
+
+
+// ------------------------sending typing indicator---------------------------------
+
+
+
+
+export async function sendTypingIndicator(messageId) {
+  const body = new URLSearchParams({
+    messageId,
+    channel: "whatsapp",
+  });
+
+  await fetch("https://messaging.twilio.com/v2/Indicators/Typing.json", {
+    method: "POST",
+    headers: {
+      Authorization:
+        "Basic " +
+        Buffer.from(
+          `${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`
+        ).toString("base64"),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+}
+
+
+
+
+
+
+
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -63,6 +102,9 @@ export async function POST(req: Request) {
 
     if (DEBUG_SYNC) {
       console.log("🐞 DEBUG_SYNC = true → running dispatch inline");
+
+
+
       await dispatch(formData);
     } else {
       console.log("⏭️ Using after() to defer work");
@@ -106,6 +148,12 @@ async function dispatch(formData: FormData) {
       getString(formData, "SmsMessageSid") ||
       null;
 
+
+
+      
+      //I think here I canse typing indicator 
+      await sendTypingIndicator(messageSid)
+
     console.log("🔎 Parsed formData:", {
       smsStatus,
       from,
@@ -122,6 +170,11 @@ async function dispatch(formData: FormData) {
       return;
     }
 
+
+      if (messageSid) {
+  await sendTypingIndicator(messageSid);
+}
+
     const phone = await normalizePhone(waId, from);
     console.log("📞 Normalized phone:", phone);
 
@@ -135,7 +188,7 @@ async function dispatch(formData: FormData) {
           messageSid,
         });
 
-        await sendMessage(from, "Please wait…");
+    
         return;
       }
 
