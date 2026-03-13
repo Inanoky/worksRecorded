@@ -320,6 +320,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     where: { siteId },
     orderBy: [{ Date: "asc" }],
     select: {
+      id: true,
       Date: true,
       Date_Custom_1: true,
       Date_Custom_2: true,
@@ -379,6 +380,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     }
 
     return {
+      id: rec.id,
       Date: rec.Date,
       Date_Custom_1: rec.Date_Custom_1,
       Date_Custom_2: rec.Date_Custom_2,
@@ -406,6 +408,114 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       createdBy: createdBy || "N/A",
     };
   });
+}
+
+export async function sendSiteDiaryRecordToBis(recordId: string) {
+  if (!recordId) throw new Error("Missing site diary record id");
+
+  const row = await prisma.bisToken.findFirst({
+    orderBy: { updatedAt: "desc" },
+    select: { accessToken: true },
+  });
+
+  const accessToken = row?.accessToken;
+  if (!accessToken) throw new Error("No BIS access token found");
+
+  const diaryRecord = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: {
+      id: true,
+      Date: true,
+      Works: true,
+      Location: true,
+      Comments: true,
+      WorkersInvolved: true,
+      Amounts: true,
+    },
+  });
+
+  if (!diaryRecord) {
+    throw new Error("Site diary record not found");
+  }
+
+  const baseUrl = "https://test.bis.gov.lv";
+  const bisCase = process.env.BIS_CASE_ID ?? "384792";
+
+  const eventDate = (diaryRecord.Date ?? new Date()).toISOString().slice(0, 10);
+  const eventTimeFrom = new Date().toTimeString().slice(0, 5);
+
+  const detailAttributes = {
+    employees: Number(diaryRecord.WorkersInvolved ?? 1),
+    quantity: Number(diaryRecord.Amounts ?? 1),
+    measurement: Number(process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
+  };
+
+  const descriptionParts = [
+    diaryRecord.Works ? `Works: ${diaryRecord.Works}` : null,
+    diaryRecord.Location ? `Location: ${diaryRecord.Location}` : null,
+    diaryRecord.Comments ? `Comments: ${diaryRecord.Comments}` : null,
+  ].filter(Boolean);
+
+  const responsiblePersonId = process.env.BIS_RESPONSIBLE_PERSON_ID
+    ? Number(process.env.BIS_RESPONSIBLE_PERSON_ID)
+    : undefined;
+
+  const payload = {
+    data: {
+      type: "performed_work",
+      attributes: {
+        event_date: eventDate,
+        event_time_from: eventTimeFrom,
+        case_construction_round_id: null,
+        responsible_person_id: responsiblePersonId,
+        responsible_person_type: process.env.BIS_RESPONSIBLE_PERSON_TYPE,
+        description:
+          descriptionParts.join("; ") || "Site diary entry sent from worksRecorded",
+      },
+      relationships: {
+        detail: {
+          data: {
+            type: "performed_work",
+            attributes: detailAttributes,
+          },
+        },
+      },
+    },
+  };
+
+  const res = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/performed_works`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.api+json",
+        "Content-Type": "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      json?.errors?.[0]?.detail || json?.error || "Failed to send site diary to BIS",
+    );
+  }
+
+  return {
+    success: true,
+    bisId: json?.data?.id ?? null,
+    response: json,
+  };
 }
 
 export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {
