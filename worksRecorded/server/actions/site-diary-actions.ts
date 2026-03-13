@@ -342,6 +342,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       WorkersInvolved: true,
       TimeInvolved: true,
       Photos: true,
+      BISId: true,
       originalUserComment: true,
 
       // createdBy support
@@ -403,6 +404,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       TimeInvolved: rec.TimeInvolved?.toString() || "",
 
       Photos: rec.Photos ?? [],
+      BISId: rec.BISId || null,
       originalUserComment: rec.originalUserComment || "",
 
       createdBy: createdBy || "N/A",
@@ -456,10 +458,6 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
     diaryRecord.Comments ? `Comments: ${diaryRecord.Comments}` : null,
   ].filter(Boolean);
 
-  const responsiblePersonId = process.env.BIS_RESPONSIBLE_PERSON_ID
-    ? Number(process.env.BIS_RESPONSIBLE_PERSON_ID)
-    : 2759822;
-
   const payload = {
     data: {
       type: "performed_work",
@@ -467,7 +465,7 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
         event_date: eventDate,
         event_time_from: eventTimeFrom,
         case_construction_round_id: null,
-        responsible_person_id: responsiblePersonId,
+        responsible_person_id: 2759822,
         responsible_person_type: "construction_member",
         description:
           descriptionParts.join("; ") || "Site diary entry sent from worksRecorded",
@@ -511,9 +509,18 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
     );
   }
 
+  const bisId = json?.data?.id ? String(json.data.id) : null;
+
+  if (bisId) {
+    await prisma.sitediaryrecords.update({
+      where: { id: recordId },
+      data: { BISId: bisId },
+    });
+  }
+
   return {
     success: true,
-    bisId: json?.data?.id ?? null,
+    bisId,
     response: json,
   };
 }
