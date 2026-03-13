@@ -11,11 +11,13 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import {
+  getBisCaseAvailableMaterials,
   getFilledDays,
+  getSiteGalleryAttachments,
   getSitediaryRecordsBySiteIdForExcel,
+  sendSiteDiaryRecordToBis,
 } from "@/server/actions/site-diary-actions";
 import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
-import { sendSiteDiaryRecordToBis } from "@/server/actions/site-diary-actions";
 import * as XLSX from "xlsx";
 import {
   CalendarIcon,
@@ -59,6 +61,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import {
   Tabs,
@@ -112,6 +116,7 @@ type DiaryRow = {
   TimeInvolved?: number | string | null;
   Comments?: string | null;
   originalUserComment?: string | null;
+
   BISId?: string | null;
   [key: string]: any;
 };
@@ -120,6 +125,19 @@ type DayGroup = {
   key: string; // yyyy-mm-dd
   date: Date;
   rows: DiaryRow[];
+};
+
+type BisMaterialOption = {
+  id: string;
+  label: string;
+  measurementUnit?: string | null;
+};
+
+type GalleryAttachmentOption = {
+  id: string;
+  url: string;
+  date?: Date | null;
+  comment?: string | null;
 };
 
 function getCalendarGrid(year: number, month: number) {
@@ -262,7 +280,16 @@ export default function SiteDiaryCalendar({
   // PDF loading per day (key = yyyy-mm-dd)
   const [pdfLoadingKey, setPdfLoadingKey] = React.useState<string | null>(null);
   const [bisSendingRowId, setBisSendingRowId] = React.useState<string | null>(null);
+
   const [bisSentRowIds, setBisSentRowIds] = React.useState<Set<string>>(new Set());
+  const [bisPickerOpen, setBisPickerOpen] = React.useState(false);
+  const [selectedRowForBis, setSelectedRowForBis] = React.useState<DiaryRow | null>(null);
+  const [bisMaterialOptions, setBisMaterialOptions] = React.useState<BisMaterialOption[]>([]);
+  const [galleryAttachmentOptions, setGalleryAttachmentOptions] = React.useState<GalleryAttachmentOption[]>([]);
+  const [selectedMaterialIds, setSelectedMaterialIds] = React.useState<string[]>([]);
+  const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<string[]>([]);
+  const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, number>>({});
+  const [bisPickerLoading, setBisPickerLoading] = React.useState(false);
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -487,16 +514,87 @@ export default function SiteDiaryCalendar({
   // Call server action and download PDF
 
 
-  const handleSendRowToBis = async (row: DiaryRow) => {
+  const openBisPicker = async (row: DiaryRow) => {
     if (!row.id) {
       toast.error("This record cannot be sent because it has no id.");
       return;
     }
 
+    if (!siteId) {
+      toast.error("Missing site id.");
+      return;
+    }
+
+    setSelectedRowForBis(row);
+    setBisPickerOpen(true);
+    setBisPickerLoading(true);
+
     try {
-      setBisSendingRowId(row.id);
-      await sendSiteDiaryRecordToBis(row.id);
-      setBisSentRowIds((prev) => new Set(prev).add(row.id as string));
+      const [materials, attachments] = await Promise.all([
+        getBisCaseAvailableMaterials(),
+        getSiteGalleryAttachments(siteId),
+      ]);
+
+      setBisMaterialOptions(materials);
+      setGalleryAttachmentOptions(attachments);
+      setSelectedMaterialIds([]);
+      setSelectedAttachmentUrls([]);
+      setMaterialQuantities({});
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to load BIS material or attachment options.");
+      setBisPickerOpen(false);
+    } finally {
+      setBisPickerLoading(false);
+    }
+  };
+
+  const toggleMaterial = (materialId: string, checked: boolean) => {
+    setSelectedMaterialIds((prev) =>
+      checked ? Array.from(new Set([...prev, materialId])) : prev.filter((id) => id !== materialId),
+    );
+
+    if (checked) {
+      setMaterialQuantities((prev) => ({ ...prev, [materialId]: prev[materialId] ?? 1 }));
+    }
+  };
+
+  const toggleAttachment = (attachmentUrl: string, checked: boolean) => {
+    setSelectedAttachmentUrls((prev) =>
+      checked
+        ? Array.from(new Set([...prev, attachmentUrl]))
+        : prev.filter((url) => url !== attachmentUrl),
+    );
+  };
+
+  const handleSendRowToBis = async () => {
+    if (!selectedRowForBis?.id) {
+      toast.error("Missing selected record id.");
+      return;
+    }
+
+    if (selectedMaterialIds.length === 0) {
+      toast.error("Please select at least one material.");
+      return;
+    }
+
+    if (selectedAttachmentUrls.length === 0) {
+      toast.error("Please select at least one attachment from gallery.");
+      return;
+    }
+
+    try {
+      setBisSendingRowId(selectedRowForBis.id);
+
+      await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
+        materials: selectedMaterialIds.map((materialId) => ({
+          constructionMaterialId: materialId,
+          quantity: Number(materialQuantities[materialId] ?? 1),
+        })),
+        attachments: selectedAttachmentUrls.map((url) => ({ url })),
+      });
+
+      setBisSentRowIds((prev) => new Set(prev).add(selectedRowForBis.id as string));
+      setBisPickerOpen(false);
       toast.success("Site diary record sent to BIS.");
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to send site diary record to BIS.");
@@ -976,6 +1074,7 @@ export default function SiteDiaryCalendar({
                                 <Button
                                   size="sm"
                                   variant="outline"
+
                                   className={cn(
                                     "h-7 text-[10px]",
                                     (Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false))
@@ -983,7 +1082,7 @@ export default function SiteDiaryCalendar({
                                       : "bg-green-600 text-white hover:bg-green-700",
                                   )}
                                   disabled={!r.id || bisSendingRowId === r.id || Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)}
-                                  onClick={() => handleSendRowToBis(r)}
+                                  onClick={() => openBisPicker(r)}
                                 >
                                   {(Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)) ? (
                                     "Already sent"
@@ -1119,6 +1218,7 @@ export default function SiteDiaryCalendar({
                                         <Button
                                           size="sm"
                                           variant="outline"
+
                                           className={cn(
                                             "h-8",
                                             (Boolean(group.rows[i]?.BISId) ||
@@ -1128,9 +1228,10 @@ export default function SiteDiaryCalendar({
                                           )}
                                           disabled={!row.id || bisSendingRowId === row.id || Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)}
                                           onClick={() =>
-                                            handleSendRowToBis(group.rows[i] ?? row)
+                                            openBisPicker(group.rows[i] ?? row)
                                           }
                                         >
+
                                           {(Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)) ? (
                                             "Already sent"
                                           ) : bisSendingRowId === row.id ? (
@@ -1206,6 +1307,112 @@ export default function SiteDiaryCalendar({
         >
           <div className="grid gap-3" />
         </DialogWindow>
+
+        <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Select BIS materials and attachments</DialogTitle>
+            </DialogHeader>
+
+            {bisPickerLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading options...
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">Materials from current BIS case</h3>
+                  <div className="max-h-60 space-y-2 overflow-y-auto rounded-md border p-3">
+                    {bisMaterialOptions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No BIS materials available in this case.</p>
+                    ) : (
+                      bisMaterialOptions.map((material) => {
+                        const checked = selectedMaterialIds.includes(material.id);
+                        return (
+                          <div key={material.id} className="flex items-center justify-between gap-2 rounded border p-2">
+                            <label className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) => toggleMaterial(material.id, Boolean(value))}
+                              />
+                              <span>
+                                {material.label}
+                                {material.measurementUnit ? ` (${material.measurementUnit})` : ""}
+                              </span>
+                            </label>
+                            <Input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              className="w-24"
+                              value={materialQuantities[material.id] ?? 1}
+                              disabled={!checked}
+                              onChange={(e) =>
+                                setMaterialQuantities((prev) => ({
+                                  ...prev,
+                                  [material.id]: Number(e.target.value || 0),
+                                }))
+                              }
+                            />
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">Attachments from this site gallery</h3>
+                  <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border p-3">
+                    {galleryAttachmentOptions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No gallery attachments available for this site.</p>
+                    ) : (
+                      galleryAttachmentOptions.map((attachment) => (
+                        <label key={attachment.id} className="flex items-start gap-2 rounded border p-2 text-sm">
+                          <Checkbox
+                            checked={selectedAttachmentUrls.includes(attachment.url)}
+                            onCheckedChange={(value) => toggleAttachment(attachment.url, Boolean(value))}
+                          />
+                          <div className="min-w-0">
+                            <p className="break-all text-xs text-muted-foreground">{attachment.url}</p>
+                            <p className="text-xs">
+                              {attachment.date ? new Date(attachment.date).toLocaleDateString("en-GB") : ""}
+                              {attachment.comment ? ` • ${attachment.comment}` : ""}
+                            </p>
+                          </div>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setBisPickerOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSendRowToBis}
+                    disabled={
+                      Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
+                      selectedMaterialIds.length === 0 ||
+                      selectedAttachmentUrls.length === 0
+                    }
+                  >
+                    {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      "Send to BIS"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Photos dialog with ImageGallery */}
         <Dialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen}>

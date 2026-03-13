@@ -412,7 +412,92 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
   });
 }
 
-export async function sendSiteDiaryRecordToBis(recordId: string) {
+export type BisPerformedWorkMaterialSelection = {
+  constructionMaterialId: string;
+  quantity: number;
+};
+
+export type BisPerformedWorkAttachmentSelection = {
+  url: string;
+};
+
+export async function getBisCaseAvailableMaterials() {
+  const row = await prisma.bisToken.findFirst({
+    orderBy: { updatedAt: "desc" },
+    select: { accessToken: true },
+  });
+
+  const accessToken = row?.accessToken;
+  if (!accessToken) throw new Error("No BIS access token found");
+
+  const baseUrl = "https://test.bis.gov.lv";
+  const bisCase = process.env.BIS_CASE_ID ?? "384792";
+
+  const response = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/construction_materials?page[number]=1&page[size]=200`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || "Failed to fetch BIS case materials");
+  }
+
+  const json = await response.json();
+  const data = Array.isArray(json?.data) ? json.data : [];
+
+  return data.map((item: any) => ({
+    id: String(item?.id ?? ""),
+    label:
+      item?.attributes?.name ||
+      item?.attributes?.material_kind ||
+      `Material #${String(item?.id ?? "")}`,
+    measurementUnit: item?.attributes?.measurement_unit || null,
+  }));
+}
+
+export async function getSiteGalleryAttachments(siteId: string) {
+  if (!siteId) return [];
+
+  const photos = await prisma.photos.findMany({
+    where: {
+      siteId,
+      OR: [{ fileUrl: { not: null } }, { URL: { not: null } }],
+    },
+    orderBy: { Date: "desc" },
+    take: 200,
+    select: {
+      id: true,
+      fileUrl: true,
+      URL: true,
+      Date: true,
+      Comment: true,
+    },
+  });
+
+  return photos
+    .map((photo) => ({
+      id: photo.id,
+      url: photo.fileUrl || photo.URL || "",
+      date: photo.Date,
+      comment: photo.Comment,
+    }))
+    .filter((photo) => Boolean(photo.url));
+}
+
+export async function sendSiteDiaryRecordToBis(
+  recordId: string,
+  options?: {
+    materials?: BisPerformedWorkMaterialSelection[];
+    attachments?: BisPerformedWorkAttachmentSelection[];
+  },
+) {
   if (!recordId) throw new Error("Missing site diary record id");
 
   const row = await prisma.bisToken.findFirst({
@@ -427,14 +512,12 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
     where: { id: recordId },
     select: {
       id: true,
-      siteId: true,
       Date: true,
       Works: true,
       Location: true,
       Comments: true,
       WorkersInvolved: true,
       Amounts: true,
-      Photos: true,
     },
   });
 
@@ -456,9 +539,9 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
 
   const attachments: Array<{ type: "shared_attachments"; uuid: string }> = [];
 
-  for (const photoUrl of diaryRecord.Photos ?? []) {
+  for (const selectedAttachment of options?.attachments ?? []) {
     const tempUuid = await uploadLogbookAttachmentToBis({
-      photoUrl,
+      photoUrl: selectedAttachment.url,
       accessToken,
       baseUrl,
       bisCase,
@@ -470,26 +553,12 @@ export async function sendSiteDiaryRecordToBis(recordId: string) {
     }
   }
 
-  const usedMaterials = diaryRecord.siteId
-    ? await prisma.bISmaterialRecords.findMany({
-        where: {
-          siteId: diaryRecord.siteId,
-          sourcePhoto: { in: diaryRecord.Photos ?? [] },
-          categoryId: { not: null },
-        },
-        select: {
-          categoryId: true,
-          quantity: true,
-        },
-      })
-    : [];
-
-  const logbookUsedConstructionMaterials = usedMaterials
-    .filter((item) => item.categoryId)
+  const logbookUsedConstructionMaterials = (options?.materials ?? [])
+    .filter((item) => item.constructionMaterialId)
     .map((item) => ({
       type: "construction_materials_join",
       attributes: {
-        construction_material_id: item.categoryId,
+        construction_material_id: item.constructionMaterialId,
         quantity: String(Number(item.quantity ?? 0)),
       },
     }));
