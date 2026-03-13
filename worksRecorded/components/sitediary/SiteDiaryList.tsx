@@ -112,10 +112,7 @@ type DiaryRow = {
   TimeInvolved?: number | string | null;
   Comments?: string | null;
   originalUserComment?: string | null;
-<<<<<<< HEAD
-=======
   BISId?: string | null;
->>>>>>> codex/add-site-diary-submission-to-bis-suc9gk
   [key: string]: any;
 };
 
@@ -265,10 +262,7 @@ export default function SiteDiaryCalendar({
   // PDF loading per day (key = yyyy-mm-dd)
   const [pdfLoadingKey, setPdfLoadingKey] = React.useState<string | null>(null);
   const [bisSendingRowId, setBisSendingRowId] = React.useState<string | null>(null);
-<<<<<<< HEAD
-=======
   const [bisSentRowIds, setBisSentRowIds] = React.useState<Set<string>>(new Set());
->>>>>>> codex/add-site-diary-submission-to-bis-suc9gk
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -502,10 +496,7 @@ export default function SiteDiaryCalendar({
     try {
       setBisSendingRowId(row.id);
       await sendSiteDiaryRecordToBis(row.id);
-<<<<<<< HEAD
-=======
       setBisSentRowIds((prev) => new Set(prev).add(row.id as string));
->>>>>>> codex/add-site-diary-submission-to-bis-suc9gk
       toast.success("Site diary record sent to BIS.");
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to send site diary record to BIS.");
@@ -985,13 +976,6 @@ export default function SiteDiaryCalendar({
                                 <Button
                                   size="sm"
                                   variant="outline"
-<<<<<<< HEAD
-                                  className="h-7 text-[10px]"
-                                  disabled={!r.id || bisSendingRowId === r.id}
-                                  onClick={() => handleSendRowToBis(r)}
-                                >
-                                  {bisSendingRowId === r.id ? (
-=======
                                   className={cn(
                                     "h-7 text-[10px]",
                                     (Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false))
@@ -1004,7 +988,6 @@ export default function SiteDiaryCalendar({
                                   {(Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)) ? (
                                     "Already sent"
                                   ) : bisSendingRowId === r.id ? (
->>>>>>> codex/add-site-diary-submission-to-bis-suc9gk
                                     <>
                                       <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                                       Sending...
@@ -1136,10 +1119,6 @@ export default function SiteDiaryCalendar({
                                         <Button
                                           size="sm"
                                           variant="outline"
-<<<<<<< HEAD
-                                          className="h-8"
-                                          disabled={!row.id || bisSendingRowId === row.id}
-=======
                                           className={cn(
                                             "h-8",
                                             (Boolean(group.rows[i]?.BISId) ||
@@ -1148,18 +1127,13 @@ export default function SiteDiaryCalendar({
                                               : "bg-green-600 text-white hover:bg-green-700",
                                           )}
                                           disabled={!row.id || bisSendingRowId === row.id || Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)}
->>>>>>> codex/add-site-diary-submission-to-bis-suc9gk
                                           onClick={() =>
                                             handleSendRowToBis(group.rows[i] ?? row)
                                           }
                                         >
-<<<<<<< HEAD
-                                          {bisSendingRowId === row.id ? (
-=======
                                           {(Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)) ? (
                                             "Already sent"
                                           ) : bisSendingRowId === row.id ? (
->>>>>>> codex/add-site-diary-submission-to-bis-suc9gk
                                             <>
                                               <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                                               Sending...
