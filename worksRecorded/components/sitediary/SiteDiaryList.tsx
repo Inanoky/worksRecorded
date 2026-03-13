@@ -15,6 +15,7 @@ import {
   getSitediaryRecordsBySiteIdForExcel,
 } from "@/server/actions/site-diary-actions";
 import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
+import { sendSiteDiaryRecordToBis } from "@/server/actions/site-diary-actions";
 import * as XLSX from "xlsx";
 import {
   CalendarIcon,
@@ -70,6 +71,7 @@ import {
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "./defaultConfig.json";
+import { toast } from "sonner";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -258,6 +260,7 @@ export default function SiteDiaryCalendar({
 
   // PDF loading per day (key = yyyy-mm-dd)
   const [pdfLoadingKey, setPdfLoadingKey] = React.useState<string | null>(null);
+  const [bisSendingRowId, setBisSendingRowId] = React.useState<string | null>(null);
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -480,6 +483,24 @@ export default function SiteDiaryCalendar({
     });
 
   // Call server action and download PDF
+
+
+  const handleSendRowToBis = async (row: DiaryRow) => {
+    if (!row.id) {
+      toast.error("This record cannot be sent because it has no id.");
+      return;
+    }
+
+    try {
+      setBisSendingRowId(row.id);
+      await sendSiteDiaryRecordToBis(row.id);
+      toast.success("Site diary record sent to BIS.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to send site diary record to BIS.");
+    } finally {
+      setBisSendingRowId(null);
+    }
+  };
   const handleDownloadPdf = async (groupKey: string, date: Date) => {
     if (!siteId) return;
 
@@ -948,6 +969,25 @@ export default function SiteDiaryCalendar({
                                 </p>
                               </div>
 
+                              <div className="mt-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 text-[10px]"
+                                  disabled={!r.id || bisSendingRowId === r.id}
+                                  onClick={() => handleSendRowToBis(r)}
+                                >
+                                  {bisSendingRowId === r.id ? (
+                                    <>
+                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      Sending...
+                                    </>
+                                  ) : (
+                                    "Send to BIS"
+                                  )}
+                                </Button>
+                              </div>
+
                               {r.originalUserComment ? (
                                 <div className="mt-2">
                                   <Popover>
@@ -1009,6 +1049,13 @@ export default function SiteDiaryCalendar({
 
                                     <TableHead
                                       className="text-center"
+                                      style={{ width: 140 }}
+                                    >
+                                      BIS
+                                    </TableHead>
+
+                                    <TableHead
+                                      className="text-center"
                                       style={{ width: 60 }}
                                     >
                                       Source
@@ -1054,6 +1101,30 @@ export default function SiteDiaryCalendar({
                                           </TableCell>
                                         );
                                       })}
+
+                                      <TableCell
+                                        className="align-top px-3 py-2 text-center"
+                                        style={{ width: 140 }}
+                                      >
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="h-8"
+                                          disabled={!row.id || bisSendingRowId === row.id}
+                                          onClick={() =>
+                                            handleSendRowToBis(group.rows[i] ?? row)
+                                          }
+                                        >
+                                          {bisSendingRowId === row.id ? (
+                                            <>
+                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                              Sending...
+                                            </>
+                                          ) : (
+                                            "Send to BIS"
+                                          )}
+                                        </Button>
+                                      </TableCell>
 
                                       <TableCell
                                         className="align-top px-3 py-2 text-center"
