@@ -16,25 +16,6 @@ function topicToKeywords(title: string) {
   return ["ai", "tools", "construction", "technology"];
 }
 
-function numericLockFromTopicKey(topicKey: string) {
-  let hash = 0;
-  for (const char of topicKey) {
-    hash = (hash * 31 + char.charCodeAt(0)) % 1000000;
-  }
-
-  return Math.max(1, hash);
-}
-
-function buildLoremFlickrFallback(title: string, topicKey: string) {
-  const keywordPath = topicToKeywords(title)
-    .map((word) => word.replace(/[^a-z0-9-]/gi, ""))
-    .filter(Boolean)
-    .join(",");
-
-  const lock = numericLockFromTopicKey(topicKey);
-  return `https://loremflickr.com/1200/700/${keywordPath}?lock=${lock}`;
-}
-
 async function fetchPexelsPlaceholder(title: string, usedImages: Set<string>) {
   const apiKey = process.env.PEXELS_API_KEY;
   if (!apiKey) return null;
@@ -72,7 +53,6 @@ async function fetchPexelsPlaceholder(title: string, usedImages: Set<string>) {
 async function buildTopicRelevantImageUrl(
   sourceImageUrl: string | undefined,
   title: string,
-  topicKey: string,
   usedImages: Set<string>
 ) {
   if (sourceImageUrl && !usedImages.has(sourceImageUrl)) return sourceImageUrl;
@@ -80,7 +60,7 @@ async function buildTopicRelevantImageUrl(
   const pexelsImage = await fetchPexelsPlaceholder(title, usedImages);
   if (pexelsImage) return pexelsImage;
 
-  return buildLoremFlickrFallback(title, topicKey);
+  return "/default.png";
 }
 
 export async function GET(request: Request) {
@@ -104,12 +84,7 @@ export async function GET(request: Request) {
   }
 
   const topicKey = createTopicKey(selected.title);
-  const imageUrl = await buildTopicRelevantImageUrl(
-    selected.imageUrl,
-    selected.title,
-    topicKey,
-    existing.imageUrls
-  );
+  const imageUrl = await buildTopicRelevantImageUrl(selected.imageUrl, selected.title, existing.imageUrls);
   const article = await generateNewsArticleFromTopic(selected, imageUrl);
 
   await saveNewsArticle(article, topicKey);
