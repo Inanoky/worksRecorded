@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { getLatestNewsArticles } from "@/lib/news/store";
 
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
 export const dynamic = "force-dynamic";
 
-export default async function NewsPage() {
+export default async function NewsPage({ params }: PageProps) {
+  const { locale } = await params;
   const articles = await getLatestNewsArticles(30);
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 md:px-6">
       <div className="mb-8 space-y-3">
-        <h1 className="text-4xl font-semibold md:text-5xl">AI & Construction News</h1>
+        <h1 className="text-4xl font-semibold md:text-5xl">AI Tools & AI in Construction News</h1>
         <p className="max-w-2xl text-muted-foreground">
           One focused topic per post, generated hourly. Open any card to read the full article.
         </p>
@@ -19,7 +24,7 @@ export default async function NewsPage() {
         {articles.map((article) => (
           <Link
             key={article.id}
-            href={`${article.id}`}
+            href={`/${locale}/Landing/News/${article.id}`}
             target="_blank"
             rel="noreferrer"
             className="overflow-hidden rounded-2xl border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"

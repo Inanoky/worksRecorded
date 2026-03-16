@@ -24,6 +24,23 @@ export function createTopicKey(sourceTitle: string) {
   return cleanTopicKey(sourceTitle) || `topic-${Date.now()}`;
 }
 
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+  }
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parseStringArray(parsed);
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+}
+
 function parseSourceLinks(value: unknown): SourceLink[] {
   if (Array.isArray(value)) {
     return value.filter(
@@ -53,6 +70,10 @@ function normalizeArticleRow(row: {
   headline: string;
   summary: string;
   full_article?: string;
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: unknown;
+  tags?: unknown;
   image_url: string;
   source_title?: string;
   source_url?: string;
@@ -63,6 +84,7 @@ function normalizeArticleRow(row: {
   const sourceLinks = parseSourceLinks(row.source_links);
   const sourceTitle = row.source_title || sourceLinks[0]?.title || row.headline;
   const sourceUrl = row.source_url || sourceLinks[0]?.url || "";
+  const defaultKeywords = ["AI tools", "AI in construction", "construction technology"];
 
   return {
     id: Number(row.id),
@@ -70,6 +92,12 @@ function normalizeArticleRow(row: {
     headline: row.headline,
     summary: row.summary,
     fullArticle: row.full_article || row.summary,
+    seoTitle: row.seo_title || row.headline,
+    seoDescription: row.seo_description || row.summary,
+    seoKeywords: parseStringArray(row.seo_keywords).length
+      ? parseStringArray(row.seo_keywords)
+      : defaultKeywords,
+    tags: parseStringArray(row.tags),
     imageUrl: row.image_url,
     sourceTitle,
     sourceUrl,
@@ -86,6 +114,10 @@ async function ensureNewsTableWithPrisma() {
       headline TEXT NOT NULL,
       summary TEXT NOT NULL,
       full_article TEXT,
+      seo_title TEXT,
+      seo_description TEXT,
+      seo_keywords JSONB NOT NULL DEFAULT '[]'::jsonb,
+      tags JSONB NOT NULL DEFAULT '[]'::jsonb,
       image_url TEXT NOT NULL,
       source_title TEXT,
       source_url TEXT,
@@ -97,6 +129,10 @@ async function ensureNewsTableWithPrisma() {
 
   await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS topic_key TEXT`);
   await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS full_article TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_title TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_description TEXT`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_keywords JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb`);
   await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_title TEXT`);
   await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_url TEXT`);
   await prisma.$executeRawUnsafe(`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_publisher TEXT`);
@@ -118,6 +154,10 @@ async function ensureNewsTableWithVercelPg() {
       headline TEXT NOT NULL,
       summary TEXT NOT NULL,
       full_article TEXT,
+      seo_title TEXT,
+      seo_description TEXT,
+      seo_keywords JSONB NOT NULL DEFAULT '[]'::jsonb,
+      tags JSONB NOT NULL DEFAULT '[]'::jsonb,
       image_url TEXT NOT NULL,
       source_title TEXT,
       source_url TEXT,
@@ -129,6 +169,10 @@ async function ensureNewsTableWithVercelPg() {
 
   await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS topic_key TEXT`;
   await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS full_article TEXT`;
+  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_title TEXT`;
+  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_description TEXT`;
+  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS seo_keywords JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb`;
   await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_title TEXT`;
   await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_url TEXT`;
   await sql`ALTER TABLE ai_news_feed ADD COLUMN IF NOT EXISTS source_publisher TEXT`;
@@ -195,11 +239,13 @@ export async function saveNewsArticle(article: GeneratedNewsArticle, topicKey: s
     const { sql } = await import("@vercel/postgres");
     await sql`
       INSERT INTO ai_news_feed (
-        topic_key, headline, summary, full_article, image_url, source_title, source_url, source_publisher, source_links
+        topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags, image_url,
+        source_title, source_url, source_publisher, source_links
       )
       VALUES (
-        ${topicKey}, ${article.headline}, ${article.summary}, ${article.fullArticle}, ${article.imageUrl},
-        ${article.sourceTitle}, ${article.sourceUrl}, ${article.sourcePublisher}, ${JSON.stringify(links)}::jsonb
+        ${topicKey}, ${article.headline}, ${article.summary}, ${article.fullArticle}, ${article.seoTitle},
+        ${article.seoDescription}, ${JSON.stringify(article.seoKeywords)}::jsonb, ${JSON.stringify(article.tags)}::jsonb,
+        ${article.imageUrl}, ${article.sourceTitle}, ${article.sourceUrl}, ${article.sourcePublisher}, ${JSON.stringify(links)}::jsonb
       )
       ON CONFLICT (topic_key) DO NOTHING
     `;
@@ -209,14 +255,19 @@ export async function saveNewsArticle(article: GeneratedNewsArticle, topicKey: s
   if (hasDatabaseUrl) {
     await prisma.$executeRawUnsafe(
       `INSERT INTO ai_news_feed (
-        topic_key, headline, summary, full_article, image_url, source_title, source_url, source_publisher, source_links
+        topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags, image_url,
+        source_title, source_url, source_publisher, source_links
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11, $12, $13::jsonb)
       ON CONFLICT (topic_key) DO NOTHING`,
       topicKey,
       article.headline,
       article.summary,
       article.fullArticle,
+      article.seoTitle,
+      article.seoDescription,
+      JSON.stringify(article.seoKeywords),
+      JSON.stringify(article.tags),
       article.imageUrl,
       article.sourceTitle,
       article.sourceUrl,
@@ -232,7 +283,8 @@ export async function getLatestNewsArticles(limit = 24): Promise<StoredNewsArtic
   if (hasVercelPostgres) {
     const { sql } = await import("@vercel/postgres");
     const result = await sql`
-      SELECT id, topic_key, headline, summary, full_article, image_url, source_title, source_url, source_publisher, source_links, created_at
+      SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
+             image_url, source_title, source_url, source_publisher, source_links, created_at
       FROM ai_news_feed
       ORDER BY created_at DESC
       LIMIT ${limit}
@@ -245,6 +297,10 @@ export async function getLatestNewsArticles(limit = 24): Promise<StoredNewsArtic
         headline: String(row.headline),
         summary: String(row.summary),
         full_article: row.full_article as string | undefined,
+        seo_title: row.seo_title as string | undefined,
+        seo_description: row.seo_description as string | undefined,
+        seo_keywords: row.seo_keywords,
+        tags: row.tags,
         image_url: String(row.image_url),
         source_title: row.source_title as string | undefined,
         source_url: row.source_url as string | undefined,
@@ -263,6 +319,10 @@ export async function getLatestNewsArticles(limit = 24): Promise<StoredNewsArtic
         headline: string;
         summary: string;
         full_article: string | null;
+        seo_title: string | null;
+        seo_description: string | null;
+        seo_keywords: unknown;
+        tags: unknown;
         image_url: string;
         source_title: string | null;
         source_url: string | null;
@@ -271,7 +331,8 @@ export async function getLatestNewsArticles(limit = 24): Promise<StoredNewsArtic
         created_at: Date | string;
       }>
     >(
-      `SELECT id, topic_key, headline, summary, full_article, image_url, source_title, source_url, source_publisher, source_links, created_at
+      `SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
+              image_url, source_title, source_url, source_publisher, source_links, created_at
        FROM ai_news_feed
        ORDER BY created_at DESC
        LIMIT $1`,
@@ -290,7 +351,8 @@ export async function getNewsArticleById(id: number): Promise<StoredNewsArticle 
   if (hasVercelPostgres) {
     const { sql } = await import("@vercel/postgres");
     const result = await sql`
-      SELECT id, topic_key, headline, summary, full_article, image_url, source_title, source_url, source_publisher, source_links, created_at
+      SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
+             image_url, source_title, source_url, source_publisher, source_links, created_at
       FROM ai_news_feed
       WHERE id = ${id}
       LIMIT 1
@@ -305,6 +367,10 @@ export async function getNewsArticleById(id: number): Promise<StoredNewsArticle 
       headline: String(row.headline),
       summary: String(row.summary),
       full_article: row.full_article as string | undefined,
+      seo_title: row.seo_title as string | undefined,
+      seo_description: row.seo_description as string | undefined,
+      seo_keywords: row.seo_keywords,
+      tags: row.tags,
       image_url: String(row.image_url),
       source_title: row.source_title as string | undefined,
       source_url: row.source_url as string | undefined,
@@ -322,6 +388,10 @@ export async function getNewsArticleById(id: number): Promise<StoredNewsArticle 
         headline: string;
         summary: string;
         full_article: string | null;
+        seo_title: string | null;
+        seo_description: string | null;
+        seo_keywords: unknown;
+        tags: unknown;
         image_url: string;
         source_title: string | null;
         source_url: string | null;
@@ -330,7 +400,8 @@ export async function getNewsArticleById(id: number): Promise<StoredNewsArticle 
         created_at: Date | string;
       }>
     >(
-      `SELECT id, topic_key, headline, summary, full_article, image_url, source_title, source_url, source_publisher, source_links, created_at
+      `SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
+              image_url, source_title, source_url, source_publisher, source_links, created_at
        FROM ai_news_feed
        WHERE id = $1
        LIMIT 1`,

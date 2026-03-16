@@ -8,8 +8,9 @@ export type NewsSourceItem = {
 };
 
 const FEED_URLS = [
-  "https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en",
-  "https://news.google.com/rss/search?q=construction+technology&hl=en-US&gl=US&ceid=US:en",
+  "https://news.google.com/rss/search?q=AI+tools+for+business&hl=en-US&gl=US&ceid=US:en",
+  "https://news.google.com/rss/search?q=AI+in+construction&hl=en-US&gl=US&ceid=US:en",
+  "https://news.google.com/rss/search?q=construction+technology+artificial+intelligence&hl=en-US&gl=US&ceid=US:en",
 ];
 
 function decodeHtmlEntities(value: string) {
@@ -44,16 +45,21 @@ function parseRssFeed(xml: string): NewsSourceItem[] {
   const items = xml.match(/<item>([\s\S]*?)<\/item>/gi) ?? [];
 
   return items.map((itemXml) => ({
-    title: firstMatch(itemXml, /<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) || firstMatch(itemXml, /<title>([\s\S]*?)<\/title>/i),
+    title:
+      firstMatch(itemXml, /<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) ||
+      firstMatch(itemXml, /<title>([\s\S]*?)<\/title>/i),
     link: firstMatch(itemXml, /<link>([\s\S]*?)<\/link>/i),
-    source: firstMatch(itemXml, /<source[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/source>/i) || firstMatch(itemXml, /<source[^>]*>([\s\S]*?)<\/source>/i) || "Unknown source",
+    source:
+      firstMatch(itemXml, /<source[^>]*><!\[CDATA\[([\s\S]*?)\]\]><\/source>/i) ||
+      firstMatch(itemXml, /<source[^>]*>([\s\S]*?)<\/source>/i) ||
+      "Unknown source",
     publishedAt: firstMatch(itemXml, /<pubDate>([\s\S]*?)<\/pubDate>/i),
     snippet: firstMatch(itemXml, /<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/i),
     imageUrl: extractImage(itemXml),
   }));
 }
 
-export async function fetchNewsSourceItems(limit = 12) {
+export async function fetchNewsSourceItems(limit = 20) {
   const responses = await Promise.all(
     FEED_URLS.map(async (url) => {
       const response = await fetch(url, {

@@ -1,10 +1,37 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { getNewsArticleById } from "@/lib/news/store";
 
 type PageProps = {
   params: Promise<{ locale: string; id: string }>;
 };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { id } = await params;
+  const numericId = Number(id);
+
+  if (!Number.isFinite(numericId)) {
+    return { title: "News Article" };
+  }
+
+  const article = await getNewsArticleById(numericId);
+  if (!article) {
+    return { title: "News Article" };
+  }
+
+  return {
+    title: article.seoTitle,
+    description: article.seoDescription,
+    keywords: article.seoKeywords,
+    openGraph: {
+      title: article.seoTitle,
+      description: article.seoDescription,
+      type: "article",
+      images: [{ url: article.imageUrl }],
+    },
+  };
+}
 
 export default async function NewsPostPage({ params }: PageProps) {
   const { locale, id } = await params;
@@ -34,6 +61,16 @@ export default async function NewsPostPage({ params }: PageProps) {
       <p className="mt-2 text-sm text-muted-foreground">
         {article.sourcePublisher} • {new Date(article.createdAt).toLocaleString()}
       </p>
+
+      {article.tags.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {article.tags.map((tag) => (
+            <span key={tag} className="rounded-full border px-3 py-1 text-xs text-muted-foreground">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
 
       <img
         src={article.imageUrl}
