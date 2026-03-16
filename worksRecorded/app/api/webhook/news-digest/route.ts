@@ -25,14 +25,7 @@ function numericLockFromTopicKey(topicKey: string) {
   return Math.max(1, hash);
 }
 
-function buildTopicRelevantImageUrl(
-  sourceImageUrl: string | undefined,
-  title: string,
-  topicKey: string,
-  usedImages: Set<string>
-) {
-  if (sourceImageUrl && !usedImages.has(sourceImageUrl)) return sourceImageUrl;
-
+function buildLoremFlickrFallback(title: string, topicKey: string) {
   const keywordPath = topicToKeywords(title)
     .map((word) => word.replace(/[^a-z0-9-]/gi, ""))
     .filter(Boolean)
@@ -40,6 +33,54 @@ function buildTopicRelevantImageUrl(
 
   const lock = numericLockFromTopicKey(topicKey);
   return `https://loremflickr.com/1200/700/${keywordPath}?lock=${lock}`;
+}
+
+async function fetchPexelsPlaceholder(title: string, usedImages: Set<string>) {
+  const apiKey = process.env.PEXELS_API_KEY;
+  if (!apiKey) return null;
+
+  const query = topicToKeywords(title).join(" ");
+  const endpoint = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&orientation=landscape&size=large&per_page=15&page=1`;
+
+  try {
+    const response = await fetch(endpoint, {
+      headers: {
+        Authorization: apiKey,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as {
+      photos?: Array<{ src?: { landscape?: string; large2x?: string; large?: string } }>;
+    };
+
+    for (const photo of data.photos || []) {
+      const candidate = photo.src?.landscape || photo.src?.large2x || photo.src?.large;
+      if (candidate && !usedImages.has(candidate)) {
+        return candidate;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+async function buildTopicRelevantImageUrl(
+  sourceImageUrl: string | undefined,
+  title: string,
+  topicKey: string,
+  usedImages: Set<string>
+) {
+  if (sourceImageUrl && !usedImages.has(sourceImageUrl)) return sourceImageUrl;
+
+  const pexelsImage = await fetchPexelsPlaceholder(title, usedImages);
+  if (pexelsImage) return pexelsImage;
+
+  return buildLoremFlickrFallback(title, topicKey);
 }
 
 export async function GET(request: Request) {
@@ -63,7 +104,12 @@ export async function GET(request: Request) {
   }
 
   const topicKey = createTopicKey(selected.title);
-  const imageUrl = buildTopicRelevantImageUrl(selected.imageUrl, selected.title, topicKey, existing.imageUrls);
+  const imageUrl = await buildTopicRelevantImageUrl(
+    selected.imageUrl,
+    selected.title,
+    topicKey,
+    existing.imageUrls
+  );
   const article = await generateNewsArticleFromTopic(selected, imageUrl);
 
   await saveNewsArticle(article, topicKey);
@@ -73,5 +119,6 @@ export async function GET(request: Request) {
     headline: article.headline,
     topicKey,
     sourceUrl: article.sourceUrl,
+    usedPexels: imageUrl.includes("pexels.com"),
   });
 }
