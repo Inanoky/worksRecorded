@@ -9,15 +9,21 @@ export default async function NewsPage() {
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 md:px-6">
       <div className="mb-8 space-y-3">
-        <h1 className="text-4xl font-semibold md:text-5xl">AI & Construction News Feed</h1>
+        <h1 className="text-4xl font-semibold md:text-5xl">AI & Construction News</h1>
         <p className="max-w-2xl text-muted-foreground">
-          This feed auto-publishes an LLM-generated briefing every hour from the latest AI and construction headlines.
+          One focused topic per post, generated hourly. Open any card to read the full article.
         </p>
       </div>
 
-      <div className="grid gap-6">
+      <div className="grid gap-6 md:grid-cols-2">
         {articles.map((article) => (
-          <article key={article.id} className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+          <Link
+            key={article.id}
+            href={`${article.id}`}
+            target="_blank"
+            rel="noreferrer"
+            className="overflow-hidden rounded-2xl border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
             <img
               src={article.imageUrl}
               alt={article.headline}
@@ -25,35 +31,20 @@ export default async function NewsPage() {
               loading="lazy"
               referrerPolicy="no-referrer"
             />
-            <div className="space-y-4 p-5">
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">{article.headline}</h2>
-                <p className="text-sm text-muted-foreground">
-                  Published {new Date(article.createdAt).toLocaleString()}
-                </p>
-              </div>
 
-              <p className="leading-relaxed">{article.summary}</p>
-
-              <div>
-                <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Sources</h3>
-                <ul className="list-inside list-disc space-y-1">
-                  {article.sourceLinks.map((source) => (
-                    <li key={source.url}>
-                      <Link href={source.url} className="text-primary hover:underline" target="_blank" rel="noreferrer">
-                        {source.title}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <div className="space-y-3 p-5">
+              <h2 className="line-clamp-2 text-2xl font-semibold">{article.headline}</h2>
+              <p className="text-sm text-muted-foreground">
+                Published {new Date(article.createdAt).toLocaleString()}
+              </p>
+              <p className="line-clamp-4 leading-relaxed text-muted-foreground">{article.summary}</p>
             </div>
-          </article>
+          </Link>
         ))}
 
         {!articles.length && (
-          <div className="rounded-xl border p-8 text-center text-muted-foreground">
-            No article yet. The hourly cron job will populate this feed after the first run.
+          <div className="rounded-xl border p-8 text-center text-muted-foreground md:col-span-2">
+            No article yet. The hourly cron job will publish once it finds a new topic.
           </div>
         )}
       </div>
