@@ -64,6 +64,27 @@ function parseSourceLinks(value: unknown): SourceLink[] {
   return [];
 }
 
+
+function buildSafeFallbackImageUrl(headline: string) {
+  const topicText = headline
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 6)
+    .join(" ");
+
+  const text = topicText || "ai tools construction technology";
+  return `https://placehold.co/1200x700/png?text=${encodeURIComponent(text)}&font=inter`;
+}
+
+function sanitizeImageUrl(imageUrl: string, headline: string) {
+  if (!imageUrl || imageUrl.includes("loremflickr.com")) {
+    return buildSafeFallbackImageUrl(headline);
+  }
+
+  return imageUrl;
+}
 function normalizeArticleRow(row: {
   id: number | string;
   topic_key?: string;
@@ -98,7 +119,7 @@ function normalizeArticleRow(row: {
       ? parseStringArray(row.seo_keywords)
       : defaultKeywords,
     tags: parseStringArray(row.tags),
-    imageUrl: row.image_url,
+    imageUrl: sanitizeImageUrl(row.image_url, row.headline),
     sourceTitle,
     sourceUrl,
     sourcePublisher: row.source_publisher || "Unknown source",

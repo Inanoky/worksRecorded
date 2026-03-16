@@ -16,11 +16,14 @@ function topicToImageQuery(title: string) {
   return "ai tools construction technology";
 }
 
-function buildTopicRelevantImageUrl(topicKey: string, sourceImageUrl: string | undefined, title: string, usedImages: Set<string>) {
+function buildTopicRelevantImageUrl(sourceImageUrl: string | undefined, title: string, usedImages: Set<string>) {
   if (sourceImageUrl && !usedImages.has(sourceImageUrl)) return sourceImageUrl;
 
-  const query = encodeURIComponent(topicToImageQuery(title));
-  return `https://loremflickr.com/1200/700/${query}?lock=${encodeURIComponent(topicKey)}`;
+  const query = topicToImageQuery(title)
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return `https://placehold.co/1200x700/png?text=${encodeURIComponent(query)}&font=inter`;
 }
 
 export async function GET(request: Request) {
@@ -44,7 +47,7 @@ export async function GET(request: Request) {
   }
 
   const topicKey = createTopicKey(selected.title);
-  const imageUrl = buildTopicRelevantImageUrl(topicKey, selected.imageUrl, selected.title, existing.imageUrls);
+  const imageUrl = buildTopicRelevantImageUrl(selected.imageUrl, selected.title, existing.imageUrls);
   const article = await generateNewsArticleFromTopic(selected, imageUrl);
 
   await saveNewsArticle(article, topicKey);
