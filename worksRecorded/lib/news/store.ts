@@ -74,12 +74,17 @@ function buildSafeFallbackImageUrl(headline: string) {
     .slice(0, 6)
     .join(" ");
 
-  const text = topicText || "ai tools construction technology";
-  return `https://placehold.co/1200x700/png?text=${encodeURIComponent(text)}&font=inter`;
+  const keywords = (topicText || "ai tools construction technology")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(",");
+
+  return `https://loremflickr.com/1200/700/${keywords}?lock=1`;
 }
 
 function sanitizeImageUrl(imageUrl: string, headline: string) {
-  if (!imageUrl || imageUrl.includes("loremflickr.com")) {
+  if (!imageUrl) {
     return buildSafeFallbackImageUrl(headline);
   }
 

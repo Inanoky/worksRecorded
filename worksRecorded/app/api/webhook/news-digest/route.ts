@@ -3,27 +3,43 @@ import { fetchNewsSourceItems } from "@/lib/news/rss";
 import { generateNewsArticleFromTopic } from "@/lib/news/generate";
 import { createTopicKey, getExistingNewsKeys, saveNewsArticle } from "@/lib/news/store";
 
-function topicToImageQuery(title: string) {
+function topicToKeywords(title: string) {
   const normalized = title.toLowerCase();
 
-  if (normalized.includes("drone")) return "construction drone ai site";
-  if (normalized.includes("robot")) return "construction robotics ai";
-  if (normalized.includes("safety")) return "construction worker safety technology";
+  if (normalized.includes("drone")) return ["construction", "drone", "ai"];
+  if (normalized.includes("robot")) return ["construction", "robotics", "ai"];
+  if (normalized.includes("safety")) return ["construction", "safety", "technology"];
   if (normalized.includes("planning") || normalized.includes("schedule")) {
-    return "construction planning software";
+    return ["construction", "planning", "software"];
   }
 
-  return "ai tools construction technology";
+  return ["ai", "tools", "construction", "technology"];
 }
 
-function buildTopicRelevantImageUrl(sourceImageUrl: string | undefined, title: string, usedImages: Set<string>) {
+function numericLockFromTopicKey(topicKey: string) {
+  let hash = 0;
+  for (const char of topicKey) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 1000000;
+  }
+
+  return Math.max(1, hash);
+}
+
+function buildTopicRelevantImageUrl(
+  sourceImageUrl: string | undefined,
+  title: string,
+  topicKey: string,
+  usedImages: Set<string>
+) {
   if (sourceImageUrl && !usedImages.has(sourceImageUrl)) return sourceImageUrl;
 
-  const query = topicToImageQuery(title)
-    .replace(/\s+/g, " ")
-    .trim();
+  const keywordPath = topicToKeywords(title)
+    .map((word) => word.replace(/[^a-z0-9-]/gi, ""))
+    .filter(Boolean)
+    .join(",");
 
-  return `https://placehold.co/1200x700/png?text=${encodeURIComponent(query)}&font=inter`;
+  const lock = numericLockFromTopicKey(topicKey);
+  return `https://loremflickr.com/1200/700/${keywordPath}?lock=${lock}`;
 }
 
 export async function GET(request: Request) {
@@ -47,7 +63,7 @@ export async function GET(request: Request) {
   }
 
   const topicKey = createTopicKey(selected.title);
-  const imageUrl = buildTopicRelevantImageUrl(selected.imageUrl, selected.title, existing.imageUrls);
+  const imageUrl = buildTopicRelevantImageUrl(selected.imageUrl, selected.title, topicKey, existing.imageUrls);
   const article = await generateNewsArticleFromTopic(selected, imageUrl);
 
   await saveNewsArticle(article, topicKey);
