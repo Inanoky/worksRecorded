@@ -65,75 +65,18 @@ function parseSourceLinks(value: unknown): SourceLink[] {
 }
 
 
-function buildSafeFallbackImageUrl(headline: string) {
-  const topicText = headline
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]+/g, " ")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 6)
-    .join(" ");
-
-  const keywords = (topicText || "ai tools construction technology")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 4)
-    .join(",");
-
-  return `https://loremflickr.com/1200/700/${keywords}?lock=1`;
+function buildSafeFallbackImageUrl() {
+  return "/default.png";
 }
 
-function numericLockFromSeed(seed: string) {
-  let hash = 0;
-  for (const char of seed) {
-    hash = (hash * 31 + char.charCodeAt(0)) % 1000000;
-  }
-
-  return Math.max(1, hash);
-}
-
-function buildNormalizedLoremFlickrUrl(headline: string, seed: string) {
-  const keywords = headline
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]+/g, " ")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 4)
-    .join(",");
-
-  const safeKeywords = keywords || "ai,tools,construction,technology";
-  const lock = numericLockFromSeed(seed || headline);
-  return `https://loremflickr.com/1200/700/${safeKeywords}?lock=${lock}`;
-}
-
-function isMalformedLoremFlickrUrl(imageUrl: string) {
-  try {
-    const parsed = new URL(imageUrl);
-    if (!parsed.hostname.includes("loremflickr.com")) return false;
-
-    const keywordPath = parsed.pathname.split("/").filter(Boolean).slice(2).join("/");
-    const hasEncodedSpaces = keywordPath.includes("%20");
-    const hasRawSpaces = /\s/.test(keywordPath);
-    const lock = parsed.searchParams.get("lock") || "";
-    const lockIsNumeric = /^\d+$/.test(lock);
-
-    return hasEncodedSpaces || hasRawSpaces || (lock.length > 0 && !lockIsNumeric);
-  } catch {
-    return true;
-  }
-}
-
-function sanitizeImageUrl(imageUrl: string, headline: string, topicKey?: string) {
+function sanitizeImageUrl(imageUrl: string) {
   if (!imageUrl) {
-    return buildNormalizedLoremFlickrUrl(headline, topicKey || headline);
-  }
-
-  if (imageUrl.includes("loremflickr.com") && isMalformedLoremFlickrUrl(imageUrl)) {
-    return buildNormalizedLoremFlickrUrl(headline, topicKey || headline);
+    return buildSafeFallbackImageUrl();
   }
 
   return imageUrl;
 }
+
 function normalizeArticleRow(row: {
   id: number | string;
   topic_key?: string;
@@ -168,7 +111,7 @@ function normalizeArticleRow(row: {
       ? parseStringArray(row.seo_keywords)
       : defaultKeywords,
     tags: parseStringArray(row.tags),
-    imageUrl: sanitizeImageUrl(row.image_url, row.headline, row.topic_key || sourceTitle),
+    imageUrl: sanitizeImageUrl(row.image_url),
     sourceTitle,
     sourceUrl,
     sourcePublisher: row.source_publisher || "Unknown source",
