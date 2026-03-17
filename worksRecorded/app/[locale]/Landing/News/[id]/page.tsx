@@ -7,6 +7,8 @@ type PageProps = {
   params: Promise<{ locale: string; id: string }>;
 };
 
+export const revalidate = 300;
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const numericId = Number(id);

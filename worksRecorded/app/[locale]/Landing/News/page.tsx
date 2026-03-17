@@ -3,12 +3,13 @@ import { getLatestNewsArticles } from "@/lib/news/store";
 
 import type { Metadata } from "next";
 import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+import NewsPrefetcher from "@/components/landing/news/NewsPrefetcher";
+
 type PageProps = {
   params: Promise<{ locale: string }>;
 };
 
-export const dynamic = "force-dynamic";
-
+export const revalidate = 300;
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { locale } = await params;
@@ -35,10 +36,12 @@ export default async function NewsPage({ params }: PageProps) {
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 md:px-6">
+      <NewsPrefetcher locale={locale} ids={articles.map((article) => article.id)} />
+
       <div className="mb-8 space-y-3">
         <h1 className="text-4xl font-semibold md:text-5xl">AI Tools & AI in Construction News</h1>
         <p className="max-w-2xl text-muted-foreground">
-          AI in construciton, digest
+          One focused topic per post, generated hourly. Open any card to read the full article.
         </p>
       </div>
 
@@ -47,8 +50,7 @@ export default async function NewsPage({ params }: PageProps) {
           <Link
             key={article.id}
             href={`/${locale}/Landing/News/${article.id}`}
-            target="_blank"
-            rel="noreferrer"
+            prefetch
             className="overflow-hidden rounded-2xl border bg-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
           >
             <img

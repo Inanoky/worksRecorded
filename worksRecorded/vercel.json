@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/webhook/news-digest?secret=sgef313534552afawd1524435tsfefwer13t3",
-     "schedule": "0 */12 * * *"
+      "schedule": "0 * * * *"
     }
   ]
 }
