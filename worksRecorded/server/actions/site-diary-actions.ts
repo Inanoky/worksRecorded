@@ -455,8 +455,10 @@ export async function getBisCaseAvailableMaterials() {
     (item: any) => item?.attributes?.status === "approved",
   );
 
-  // Build metadata (label/unit) by construction_material_id from approved 12I7-092 details.
+  // Build metadata (label/unit) and total delivered quantity by construction_material_id
+  // from approved 12I7-092 details.
   const approvedMaterialMeta = new Map<string, { label: string; measurementUnit: string | null }>();
+  const deliveredByMaterial = new Map<string, number>();
 
   const approvedDetails = await Promise.all(
     approvedReceivedItems.map(async (item: any) => {
@@ -483,6 +485,7 @@ export async function getBisCaseAvailableMaterials() {
 
       return {
         constructionMaterialId,
+        deliveredQuantity: Number(detail?.quantity ?? 0),
         label:
           item?.attributes?.material_name ||
           detail?.material_kind ||
@@ -494,15 +497,21 @@ export async function getBisCaseAvailableMaterials() {
 
   for (const detail of approvedDetails) {
     if (!detail) continue;
+
     if (!approvedMaterialMeta.has(detail.constructionMaterialId)) {
       approvedMaterialMeta.set(detail.constructionMaterialId, {
         label: detail.label,
         measurementUnit: detail.measurementUnit,
       });
     }
+
+    deliveredByMaterial.set(
+      detail.constructionMaterialId,
+      (deliveredByMaterial.get(detail.constructionMaterialId) ?? 0) + detail.deliveredQuantity,
+    );
   }
 
-  // 12I7-184: available used materials list = remaining available quantity
+  // 12I7-184: used materials list (quantity already used in logbook records)
   const availableResponse = await fetch(
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials?page[number]=1&page[size]=200`,
     {
@@ -522,21 +531,36 @@ export async function getBisCaseAvailableMaterials() {
   const availableJson = await availableResponse.json();
   const availableItems = Array.isArray(availableJson?.data) ? availableJson.data : [];
 
-  // Keep only materials that are approved (12I7-092) and present in remaining list (12I7-184).
-  return availableItems
-    .map((item: any) => {
-      const materialId = String(item?.attributes?.construction_material_id ?? "");
-      if (!materialId || !approvedMaterialMeta.has(materialId)) return null;
+  const usedByMaterial = new Map<string, number>();
+  for (const item of availableItems) {
+    const materialId = String(item?.attributes?.construction_material_id ?? "");
+    if (!materialId) continue;
+
+    usedByMaterial.set(
+      materialId,
+      (usedByMaterial.get(materialId) ?? 0) + Number(item?.attributes?.quantity ?? 0),
+    );
+  }
+
+  // Remaining = approved delivered (12I7-092 detail.quantity) - used (12I7-184 quantity)
+  return Array.from(deliveredByMaterial.entries())
+    .map(([materialId, deliveredQuantity]) => {
+      if (!approvedMaterialMeta.has(materialId)) return null;
 
       const meta = approvedMaterialMeta.get(materialId)!;
+      const usedQuantity = usedByMaterial.get(materialId) ?? 0;
+      const remaining = Math.max(0, deliveredQuantity - usedQuantity);
+
       return {
         id: materialId,
         label: meta.label,
         measurementUnit: meta.measurementUnit,
-        availableQuantity: Number(Number(item?.attributes?.quantity ?? 0).toFixed(3)),
+        deliveredQuantity: Number(deliveredQuantity.toFixed(3)),
+        usedQuantity: Number(usedQuantity.toFixed(3)),
+        availableQuantity: Number(remaining.toFixed(3)),
       };
     })
-    .filter(Boolean)
+    .filter((item: any) => item && item.availableQuantity > 0)
     .sort((a: any, b: any) => String(a.label).localeCompare(String(b.label)));
 }
 

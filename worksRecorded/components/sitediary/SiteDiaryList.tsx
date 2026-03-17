@@ -131,6 +131,8 @@ type BisMaterialOption = {
   id: string;
   label: string;
   measurementUnit?: string | null;
+  deliveredQuantity?: number;
+  usedQuantity?: number;
   availableQuantity: number;
 };
 
@@ -1359,6 +1361,9 @@ export default function SiteDiaryCalendar({
                                 {material.measurementUnit ? ` (${material.measurementUnit})` : ""}
                                 <span className="block text-xs text-muted-foreground">
                                   Remaining available: {material.availableQuantity}
+                                </span>
+                                <span className="block text-[11px] text-muted-foreground/80">
+                                  Delivered: {material.deliveredQuantity ?? "—"} • Used: {material.usedQuantity ?? "—"}
                                 </span>
                               </span>
                             </label>
