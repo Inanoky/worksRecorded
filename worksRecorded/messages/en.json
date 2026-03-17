@@ -24,7 +24,7 @@
         { "title": "Upload photos with comments" },
         { "title": "Sorted by cost codes and locations" },
         { "title": "24/7 live technical support" },
-   
+
         { "title": "Intelligent sorting set up according to your trade specifics" }
       ]
     },
@@ -257,13 +257,15 @@
       "custom": "Custom solutions",
       "pricing": "Pricing",
       "about": "About",
+      "news": "News",
       "contacts": "Contacts",
       "caseStudies": "Projects"
 
     },
 
     "combined": {
-      "generic": "Get live custom analytics"
+      "generic": "Get live custom analytics",
+      "news": "Latest AI + construction updates"
     }
   }
 }

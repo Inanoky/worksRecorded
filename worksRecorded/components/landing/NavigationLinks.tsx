@@ -26,6 +26,7 @@ export const MAIN_LINKS = [
   { href: "/Landing/Custom", labelKey: "main.custom" },
   { href: "/Landing/Pricing", labelKey: "main.pricing" },
   { href: "/Landing/About", labelKey: "main.about" },
+  { href: "/Landing/News", labelKey: "main.news" },
   { href: "/Landing/ContactForm", labelKey: "main.contacts" },
 ] as const;
 
@@ -73,5 +74,11 @@ export const COMBINED_LINKS = [
     href: "/Landing/About",
     titleKey: "main.about",
     descriptionKey: "combined.generic",
+  },
+  {
+    id: "News",
+    href: "/Landing/News",
+    titleKey: "main.news",
+    descriptionKey: "combined.news",
   },
 ] as const;
