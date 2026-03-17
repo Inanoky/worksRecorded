@@ -1,6 +1,32 @@
 // worksRecorded/app/privacy/page.tsx
 // Simple Privacy Policy page ready to paste into Next.js App Router
 
+import type { Metadata } from "next";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing/Privacy",
+    title: "Privacy Policy | WorksRecorded",
+    description:
+      "Read the WorksRecorded privacy policy for data handling, GDPR rights, and platform security details.",
+    keywords: [
+      "construction software",
+      "AI tools",
+      "AI in construction",
+      "construction technology",
+      "WorksRecorded",
+    ],
+  });
+}
+
 export default function PrivacyPage() {
   return (
     <main className="max-w-3xl mx-auto px-6 py-12 text-gray-800">

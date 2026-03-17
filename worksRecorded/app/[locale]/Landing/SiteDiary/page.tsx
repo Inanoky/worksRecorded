@@ -6,6 +6,32 @@ import SiteDiary1 from "@/public/frontend/pages/SiteDiary/SiteDiary1.png";
 import SiteDiary2 from "@/public/frontend/pages/SiteDiary/SiteDiary2.png";
 import WhatsappScreen from "@/public/frontend/pages/SiteDiary/WhatsappScreen.png";
 
+import type { Metadata } from "next";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing/SiteDiary",
+    title: "AI Site Diary for Construction Teams | WorksRecorded",
+    description:
+      "Capture site diary updates via WhatsApp and AI to keep daily construction records accurate and searchable.",
+    keywords: [
+      "construction software",
+      "AI tools",
+      "AI in construction",
+      "construction technology",
+      "WorksRecorded",
+    ],
+  });
+}
+
 export default function Page() {
   const t = useTranslations("SiteDiary");
 

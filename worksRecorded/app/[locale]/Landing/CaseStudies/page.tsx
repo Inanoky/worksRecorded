@@ -2,11 +2,35 @@ import Link from "next/link";
 import Image from "next/image";
 import { caseStudies } from "./_data/caseStudies";
 
+import type { Metadata } from "next";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing/CaseStudies",
+    title: "Construction AI Case Studies | WorksRecorded",
+    description:
+      "Explore case studies showing how teams use WorksRecorded to streamline site records and reporting.",
+    keywords: [
+      "construction software",
+      "AI tools",
+      "AI in construction",
+      "construction technology",
+      "WorksRecorded",
+    ],
+  });
+}
+
 export default async function CaseStudiesPage({
   params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+}: PageProps) {
   const { locale } = await params; // ✅ en / lv / etc
 
   return (

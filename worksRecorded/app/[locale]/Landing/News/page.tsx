@@ -1,11 +1,33 @@
 import Link from "next/link";
 import { getLatestNewsArticles } from "@/lib/news/store";
 
+import type { Metadata } from "next";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
 type PageProps = {
   params: Promise<{ locale: string }>;
 };
 
 export const dynamic = "force-dynamic";
+
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing/News",
+    title: "AI Tools & AI in Construction News | WorksRecorded",
+    description:
+      "Read hourly AI news posts focused on AI tools and AI in construction with summaries and source links.",
+    keywords: [
+      "construction software",
+      "AI tools",
+      "AI in construction",
+      "construction technology",
+      "WorksRecorded",
+    ],
+  });
+}
 
 export default async function NewsPage({ params }: PageProps) {
   const { locale } = await params;

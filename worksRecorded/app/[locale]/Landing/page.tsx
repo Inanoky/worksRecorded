@@ -1,26 +1,30 @@
-//10:11 - Landing page
-"use client"
-
-import { useIsMobile } from "@/lib/utils/hooks/use-mobile"
+import type { Metadata } from "next";
 import LandingPageDesktop from "@/components/landing/Landing/LandingPageDesktop";
-import LandingPageMobile from "@/components/landing/Landing/LandingPageMobile";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
 
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
 
-export default function LandingPage(){
-  
-  const isMobile = useIsMobile()
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
 
-    return (
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing",
+    title: "WorksRecorded | AI Tools for Construction Teams",
+    description:
+      "WorksRecorded helps construction teams capture site records, timesheets, and analytics with AI-powered workflows.",
+    keywords: [
+      "construction software",
+      "AI tools for construction",
+      "site diary",
+      "timesheets",
+      "construction analytics",
+    ],
+  });
+}
 
-        <>
-
-              
-           <LandingPageDesktop/>  
-          
-
-      
-        </>
-    )
-
-
+export default function LandingPage() {
+  return <LandingPageDesktop />;
 }

@@ -4,9 +4,35 @@ import Image from "next/image";
 import { useTranslations } from "next-intl";
 import Selfie from "@/public/frontend/pages/About/Selfie.jpg";
 
+import type { Metadata } from "next";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing/About",
+    title: "About WorksRecorded | AI Construction Platform",
+    description:
+      "Learn how WorksRecorded helps contractors digitize site communication, reporting, and workflows with AI tools for construction.",
+    keywords: [
+      "construction software",
+      "AI tools",
+      "AI in construction",
+      "construction technology",
+      "WorksRecorded",
+    ],
+  });
+}
+
 export default function Page() {
   const t = useTranslations("About");
-//nothing
+
   return (
     <section className="relative flex items-center justify-center">
       <div className="w-full mx-auto px-4 sm:px-6 py-12 lg:py-20">

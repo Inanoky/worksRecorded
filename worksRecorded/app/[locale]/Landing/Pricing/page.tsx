@@ -2,6 +2,32 @@
 
 import { useTranslations } from "next-intl";
 
+import type { Metadata } from "next";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing/Pricing",
+    title: "WorksRecorded Pricing | Construction AI Software",
+    description:
+      "View WorksRecorded pricing for AI-powered site records, timesheets, and construction analytics.",
+    keywords: [
+      "construction software",
+      "AI tools",
+      "AI in construction",
+      "construction technology",
+      "WorksRecorded",
+    ],
+  });
+}
+
 export default function Page() {
   const t = useTranslations("Pricing");
 
