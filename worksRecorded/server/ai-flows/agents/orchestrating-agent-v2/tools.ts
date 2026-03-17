@@ -92,7 +92,7 @@ export const webSearchTool = new DynamicStructuredTool({
   }),
   async func({ userQuestion }) {
     const response = await client.responses.create({
-      model: "gpt-4.1", // or "o4-mini", "gpt-4.1", etc.
+      model: "gpt-5.1", // or "o4-mini", "gpt-4.1", etc.
       tools: [
         {
           type: "web_search",

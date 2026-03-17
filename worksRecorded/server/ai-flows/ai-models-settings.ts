@@ -9,7 +9,7 @@ export const siteIdCheckForGmailWOrkFlowAgentModel = "gpt-4.1" //done
 export const invoiceAgentModel = "gpt-5-mini" //done
 
 
-export const orchestratingAgentV2ModelModel = "gpt-5" //done
+export const orchestratingAgentV2ModelModel = "gpt-5.4" //done
 
 export const projectDiaryAgentModel = "gpt-4.1"
 export const projectDiaryAgentModelTemperature = 0.1
@@ -24,5 +24,5 @@ export const timeSheetsAgentModel = "gpt-5-mini" //done
 export const clickInAgentForWorkersModel = "gpt-4.1"
 export const clockInAgentForWorkersModelTemperature = 0.5
 
-export const siteManagerAgentForSiteManagerRouteModelModel = "gpt-5.1"
+export const siteManagerAgentForSiteManagerRouteModelModel = "gpt-5.4"
 export const siteManagerAgentForSiteManagerRouteModelModelTemperature = 0
