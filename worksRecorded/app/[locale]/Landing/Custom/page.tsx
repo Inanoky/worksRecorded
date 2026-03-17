@@ -5,6 +5,32 @@ import { useTranslations } from "next-intl";
 import Development from "@/public/frontend/pages/CustomSolutions/Development.png";
 import Site from "@/public/frontend/pages/CustomSolutions/Site.jpeg";
 
+import type { Metadata } from "next";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing/Custom",
+    title: "Custom Construction AI Solutions | WorksRecorded",
+    description:
+      "Build custom AI workflows for your construction business, from reporting automation to project-specific tools.",
+    keywords: [
+      "construction software",
+      "AI tools",
+      "AI in construction",
+      "construction technology",
+      "WorksRecorded",
+    ],
+  });
+}
+
 export default function Page() {
   const t = useTranslations("CustomSolutions");
 
