@@ -61,7 +61,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     // 3️⃣ Init LLM
     const llm = new ChatOpenAI({
       model: "gpt-5.4",
-      reasoning: { effort: "high" },
+      reasoning: { effort: "minimal" },
     });
 
     const structuredLlm = llm.withStructuredOutput(
