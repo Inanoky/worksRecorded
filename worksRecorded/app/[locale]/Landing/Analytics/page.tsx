@@ -5,6 +5,32 @@ import { useTranslations } from "next-intl";
 import Analytics1 from "@/public/frontend/pages/Analytics/Analytics1.png";
 import Analytics2 from "@/public/frontend/pages/Analytics/Analytics2.png";
 
+import type { Metadata } from "next";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing/Analytics",
+    title: "Construction Analytics Software | WorksRecorded",
+    description:
+      "Track project progress, productivity, and KPIs with AI-powered construction analytics dashboards.",
+    keywords: [
+      "construction software",
+      "AI tools",
+      "AI in construction",
+      "construction technology",
+      "WorksRecorded",
+    ],
+  });
+}
+
 export default function Page() {
   const t = useTranslations("Analytics");
 

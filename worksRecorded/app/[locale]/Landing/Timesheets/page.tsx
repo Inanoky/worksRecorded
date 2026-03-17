@@ -6,6 +6,32 @@ import InvoicesPage from "@/public/frontend/pages/Invoices/InvoicesPage.png";
 import Timesheets1 from "@/public/frontend/pages/Timesheets/Timesheets1.png";
 import TimesheetsWhatsapp from "@/public/frontend/pages/Timesheets/TimesheetsWhatsapp.png";
 
+import type { Metadata } from "next";
+import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+
+type PageProps = {
+  params: Promise<{ locale: string }>;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { locale } = await params;
+
+  return buildLandingMetadata({
+    locale,
+    path: "/Landing/Timesheets",
+    title: "Construction Timesheets via WhatsApp | WorksRecorded",
+    description:
+      "Automate construction timesheets with WhatsApp clock-ins and AI-powered processing.",
+    keywords: [
+      "construction software",
+      "AI tools",
+      "AI in construction",
+      "construction technology",
+      "WorksRecorded",
+    ],
+  });
+}
+
 export default function Page() {
   const t = useTranslations("Timesheets");
 
