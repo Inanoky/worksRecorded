@@ -38,7 +38,7 @@ export default async function NewsPage({ params }: PageProps) {
       <div className="mb-8 space-y-3">
         <h1 className="text-4xl font-semibold md:text-5xl">AI Tools & AI in Construction News</h1>
         <p className="max-w-2xl text-muted-foreground">
-          One focused topic per post, generated hourly. Open any card to read the full article.
+          AI in construciton, digest
         </p>
       </div>
 
