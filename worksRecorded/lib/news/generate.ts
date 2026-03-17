@@ -33,8 +33,8 @@ function fallbackArticle(item: NewsSourceItem, imageUrl: string): GeneratedNewsA
     .trim();
 
   const summary = cleanedSnippet
-    ? cleanedSnippet.slice(0, 220)
-    : `${item.source} published an update on AI tools and AI in construction.`;
+    ? cleanedSnippet.slice(0, 260)
+    : `${item.source} published a new update on AI tools and AI in construction workflows.`;
 
   const tags = ["AI Tools", "AI in Construction", "Construction Tech", "Automation"];
   const seoKeywords = fallbackKeywords(item);
@@ -43,12 +43,18 @@ function fallbackArticle(item: NewsSourceItem, imageUrl: string): GeneratedNewsA
     headline: item.title,
     summary,
     fullArticle: [
-      `${item.source} has published a new development: ${item.title}.`,
+      `## The short version`,
+      `${item.source} just moved the conversation forward with: **${item.title}**.`,
+      `> If this trend continues, AI tools will become part of the daily operating system for site teams, not just a pilot project in head office.`,
+      `## Why this matters on real projects`,
       cleanedSnippet ||
-        "The source article highlights practical implications for teams adopting AI tools in construction workflows.",
-      "From a market perspective, this update signals continued momentum for AI-driven scheduling, reporting, quality control, and site coordination.",
-      "Firms evaluating digital transformation should compare tool maturity, integration requirements, and measurable productivity outcomes before deployment.",
-      "For readers tracking AI in construction, this topic is relevant because it connects software capabilities to real project delivery constraints.",
+        "This story highlights how AI in construction is shifting from demo-stage features toward measurable outcomes in coordination, cost control, and reporting.",
+      `## What to watch next`,
+      `- Adoption speed among subcontractors and site managers`,
+      `- Integration depth with existing scheduling and document systems`,
+      `- Whether teams can quantify fewer delays, less rework, and faster decisions`,
+      `## Field note from the editor`,
+      `If you run projects every day, this is worth tracking now. The winners in construction technology are usually the teams that adopt practical tools early, then iterate faster than everyone else.`,
     ].join("\n\n"),
     seoTitle: `${item.title} | AI Tools & AI in Construction`,
     seoDescription: summary,
@@ -70,25 +76,41 @@ export async function generateNewsArticleFromTopic(item: NewsSourceItem, imageUr
 
   const completion = await client.chat.completions.create({
     model: "gpt-5.1",
-    temperature: 0.6,
+    temperature: 0.75,
     response_format: { type: "json_object" },
     messages: [
       {
         role: "system",
         content:
-          "You are an expert B2B tech journalist. Write engaging, factual, SEO-aware articles focused on AI tools and AI in construction. Return strict JSON only.",
+          "You are a sharp construction-tech columnist with a practical, human voice. Blend business journalism with narrative writing craft while staying factual.",
       },
       {
         role: "user",
-        content: `Using this single source item, produce JSON with keys: headline, summary, fullArticle, seoTitle, seoDescription, seoKeywords, tags. Rules: headline max 90 chars, summary 180-260 chars, fullArticle 5 short paragraphs (around 400-650 words total), include practical implications for contractors and project managers, and naturally include SEO phrases like 'AI tools', 'AI in construction', 'construction technology', 'automation'. seoKeywords must be 8-14 strings. tags must be 4-8 short strings. Input: ${JSON.stringify(
-          {
-            title: item.title,
-            source: item.source,
-            publishedAt: item.publishedAt,
-            link: item.link,
-            snippet: item.snippet,
-          }
-        )}`,
+        content: `Using this single source item, produce JSON with keys: headline, summary, fullArticle, seoTitle, seoDescription, seoKeywords, tags.
+
+Hard requirements:
+- Focus specifically on AI tools and AI in construction.
+- Keep claims factual and clearly grounded in the source.
+- headline max 95 chars.
+- summary 190-300 chars, compelling and clear.
+- fullArticle must be markdown-styled and engaging, 500-800 words, with this structure:
+  1) '## The short version' (strong hook)
+  2) one quote line using markdown blockquote syntax (> ...)
+  3) '## Why this matters on real projects'
+  4) '## What to watch next' with 3-5 bullet points using '- '
+  5) '## Field note from the editor' with a brief personal first-person perspective.
+- Use journalism/literary techniques: contrast, concrete examples, and forward-looking tension.
+- Naturally include SEO terms: 'AI tools', 'AI in construction', 'construction technology', 'automation'.
+- seoKeywords must be 8-14 strings.
+- tags must be 4-8 concise strings.
+
+Input: ${JSON.stringify({
+          title: item.title,
+          source: item.source,
+          publishedAt: item.publishedAt,
+          link: item.link,
+          snippet: item.snippet,
+        })}`,
       },
     ],
   });
