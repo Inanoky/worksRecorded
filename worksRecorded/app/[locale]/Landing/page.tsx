@@ -12,7 +12,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return buildLandingMetadata({
     locale,
     path: "/Landing",
-    title: "WorksRecorded | AI Tools for Construction Teams",
+    title: "WorksRecorded | WhatsApp site diary",
     description:
       "WorksRecorded helps construction teams capture site records, timesheets, and analytics with AI-powered workflows.",
     keywords: [
