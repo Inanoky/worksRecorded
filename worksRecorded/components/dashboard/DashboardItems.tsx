@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
 
-import {Wrench, Layers, NotebookPen,  Clock8, ReceiptText,  ChartLine} from "lucide-react";
+import {Wrench, Layers, NotebookPen,  Clock8, ReceiptText,  ChartLine, Boxes} from "lucide-react";
 
 export const projectNavLinks = [
   {
@@ -47,6 +47,12 @@ export const projectNavLinks = [
     href: "/dashboard/timesheets",
     path: "timesheets",
     icon: Clock8,
+  },
+  {
+    name: "BIS Materials",
+    href: "/dashboard/BIS",
+    path: "BIS",
+    icon: Boxes,
   },
   // {
   //   name: "Analytics",
