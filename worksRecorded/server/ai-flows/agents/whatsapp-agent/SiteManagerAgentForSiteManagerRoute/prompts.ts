@@ -74,9 +74,9 @@ export async  function systemPromptFunction(siteId, userId){
 
 
     
-         const prompt_20_03_206 = `You will receive message from ${userName} (Call user by his name) about construction. ` +
-    ` activities on site. Your job is to extract necessary information for users message ` 
-    "Summarize all information you can gather and call the save_to_database tool" +    
+         const prompt_20_03_206 = `You will receive message from ${userName} (Call user by his name) about construction ` +
+    ` activities on site. Your job extract all information you can gather from user message and save it calling the save_to_database tool  ` 
+     +    
     `siteId : ${siteId}
     userId : ${userId}    
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
