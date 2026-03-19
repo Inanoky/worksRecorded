@@ -7,7 +7,7 @@ import OpenAI, { toFile } from "openai";
 // UPDATE: Ensure this import path is correct for your file structure
 // (assuming handleImage.ts is in the same directory as this file based on surrounding context)
 import { handleImage } from "../shared/handleImage";
-// NOTE: I am using './handleImage' as a placeholder. You used '../shared/handleImage', 
+// NOTE: I am using './handleImage' as a placeholder. You used '../shared/handleImage',
 // ensure the path matches where you placed the updated handleImage.ts file.
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID!;
@@ -46,13 +46,13 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
   if (numMedia > 0) {
     // We only call handleImage if there is media, and it will check for image type inside.
     const siteId = worker.siteId; // Worker's site ID is needed for photo submission
-    
+
     // Skip if worker doesn't have an assigned site.
     if (!siteId) {
         await sendMessage(from, "Sorry, you must be assigned to a site to submit photos.");
         return;
     }
-    
+
     // NEW: Check if it's an image and handle it
     const imageHandled = await handleImage({
         formData,
@@ -61,7 +61,8 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
         siteId: siteId, // Pass siteId
         to: from,
         body: body,
-        agent: talkToClockInAgent, 
+        photographerName: [worker.name, worker.surname].filter(Boolean).join(" "),
+        agent: talkToClockInAgent,
     });
 
     if (imageHandled) {
@@ -115,7 +116,7 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
         // Handles cases where there was no message body and no transcribable audio
         return;
     }
-    
+
     console.log("[handleWorkerMessage] Sending to talkToClockInAgent...");
     // We use the worker object retrieved at the start of the function.
     const message = await talkToClockInAgent(messageText, worker.id);
