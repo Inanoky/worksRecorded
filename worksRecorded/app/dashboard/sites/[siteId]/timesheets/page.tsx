@@ -75,7 +75,12 @@ export default async function AddWorkerPage({
               </p>
             </CardHeader>
             <CardContent className="pt-2">
-              <FrontendTable workers={workers} data={timelogs} pageSize={20} />
+              <FrontendTable
+                workers={workers}
+                data={timelogs}
+                siteId={siteId}
+                pageSize={20}
+              />
             </CardContent>
           </Card>
         </section>

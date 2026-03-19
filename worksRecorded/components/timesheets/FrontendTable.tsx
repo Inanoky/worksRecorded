@@ -10,6 +10,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon, Clock3, MapPin, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -28,13 +30,16 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useSiteSchema } from "../providers/SiteSchemaProvider";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Calendar as CalendarIcon, ChevronDownIcon, MoreHorizontal } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import { editTimeRecord } from "@/server/actions/timesheets-actions";
+import { deleteTimeRecord, updateTimeRecord } from "@/server/actions/timesheets-actions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,113 +48,190 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SubmitButton } from "@/components/dashboard/SubmitButtons";
-import { useProject } from "../providers/ProjectProvider";
 import { useRouter } from "next/navigation";
-import { useActionState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 
-function getColumnsFromData(data: any[]) {
+type TableRecord = {
+  id: string;
+  date?: string;
+  clockIn?: string;
+  clockOut?: string;
+  timeWorked?: number | string;
+  location?: string;
+  works?: string;
+  workerName?: string;
+  workerRole?: string;
+};
+
+type Worker = {
+  id: string;
+  name?: string;
+  surname?: string;
+};
+
+function getColumnsFromData(data: TableRecord[]) {
   if (!data || data.length === 0) return [];
-  return Object.keys(data[0])
-    .filter((k) => k !== "id")
+
+  const preferredOrder = [
+    "date",
+    "workerName",
+    "workerRole",
+    "clockIn",
+    "clockOut",
+    "timeWorked",
+    "location",
+    "works",
+  ];
+
+  return preferredOrder
+    .filter((key) => key in (data[0] ?? {}))
     .map((key) => ({
       accessorKey: key,
-      header: key.charAt(0).toUpperCase() + key.slice(1),
+      header:
+        key === "clockIn"
+          ? "Clock in"
+          : key === "clockOut"
+            ? "Clock out"
+            : key === "timeWorked"
+              ? "Hours"
+              : key === "workerName"
+                ? "Worker"
+                : key === "workerRole"
+                  ? "Role"
+                  : key.charAt(0).toUpperCase() + key.slice(1),
     }));
 }
 
-const defaultGlobalFilterFn = (row: any, _columnId: string, filterValue: string) => {
+const defaultGlobalFilterFn = (row: { original: Record<string, unknown> }, _columnId: string, filterValue: string) => {
   if (!filterValue) return true;
   const flatString = Object.values(row.original)
-    .filter(
-      (v) =>
-        typeof v === "string" || typeof v === "number" || typeof v === "boolean",
-    )
+    .filter((v) => typeof v === "string" || typeof v === "number" || typeof v === "boolean")
     .join(" ")
     .toLowerCase();
   return flatString.includes(filterValue.toLowerCase());
 };
 
+const RowSchema = z.object({
+  workerId: z.string().min(1, "Please select a worker."),
+  date: z.date({ message: "Please select a valid date." }),
+  clockIn: z.string().min(1, "Clock-in time is required."),
+  clockOut: z.string().optional(),
+  location: z.string().optional(),
+  works: z.string().max(200, "Comments must be 200 characters or fewer.").optional(),
+});
+
 type FrontendTableProps = {
-  data?: any[];
-  workers?: any[];
+  data?: TableRecord[];
+  workers?: Worker[];
+  siteId: string;
   pageSize: number;
   exportFileName?: string;
 };
 
+type EditDraft = {
+  id: string;
+  workerId: string;
+  date: Date | undefined;
+  clockIn: string;
+  clockOut: string;
+  location: string;
+  works: string;
+};
+
+function parseDisplayDate(value?: string) {
+  if (!value) return undefined;
+  const parts = value.split(".").map((part) => part.trim()).filter(Boolean);
+  if (parts.length !== 3) return undefined;
+  const [day, month, year] = parts.map((part) => Number(part));
+  const parsed = new Date(year, month - 1, day);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
+
+function toDateTimeString(date: Date | undefined, time: string) {
+  if (!date || !time) return undefined;
+  const [hours = "0", minutes = "0", seconds = "0"] = time.split(":");
+  const parsed = new Date(date);
+  parsed.setHours(Number(hours), Number(minutes), Number(seconds), 0);
+  return parsed.toISOString();
+}
+
+function getInitialDraft(record: TableRecord, workers: Worker[]): EditDraft {
+  const matchingWorker = workers.find(
+    (worker) => `${worker.name ?? ""} ${worker.surname ?? ""}`.trim() === (record.workerName ?? "").trim(),
+  );
+
+  return {
+    id: record.id,
+    workerId: matchingWorker?.id ?? workers[0]?.id ?? "",
+    date: parseDisplayDate(record.date),
+    clockIn: record.clockIn ?? "",
+    clockOut: record.clockOut ?? "",
+    location: record.location ?? "",
+    works: record.works ?? "",
+  };
+}
+
 export function FrontendTable({
   data = [],
   workers = [],
+  siteId,
   pageSize,
   exportFileName = "table_data.xlsx",
 }: FrontendTableProps) {
   const columns = React.useMemo(() => getColumnsFromData(data), [data]);
-
   const [globalFilter, setGlobalFilter] = React.useState("");
-  const [rowSelection, setRowSelection] = React.useState({});
-  const [anyChanges, setAnyChanges] = React.useState(false);
-  const [editRowId, setEditRowId] = React.useState<string | null>(null);
-  const [rowsToSave, setRowsToSave] = React.useState<any[]>([]);
-  const { projectId: siteId } = useProject();
-  const [result, action] = useActionState(editTimeRecord, undefined);
-  const [open, setOpen] = React.useState(false);
-  const [date, setDate] = React.useState<Date | undefined>(undefined);
-
+  const [localData, setLocalData] = React.useState<TableRecord[]>(data);
+  const [editDraft, setEditDraft] = React.useState<EditDraft | null>(null);
+  const [recordToDelete, setRecordToDelete] = React.useState<TableRecord | null>(null);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
   const router = useRouter();
-  const patch = editRowId ? rowsToSave[Object.keys(rowsToSave)[0]] : undefined;
+  const { locations } = useSiteSchema();
 
-  const wrapperRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    setLocalData(data);
+  }, [data]);
 
-  const ZodRowSchema = z.object({
-    works: z.string().max(200, "Comments must be 200 characters or fewer").optional(),
+  const table = useReactTable({
+    data: localData,
+    columns,
+    state: { globalFilter },
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: defaultGlobalFilterFn,
+    initialState: { pagination: { pageSize } },
   });
 
-  React.useEffect(() => {
-    if (result?.success) {
-      setAnyChanges(false);
-      setRowsToSave({});
-      setEditRowId(null);
-    }
-  }, [result]);
-
-  React.useEffect(() => {
-    function onDocPointerDown(e: MouseEvent | PointerEvent | TouchEvent) {
-      const root = wrapperRef.current;
-      if (!root) return;
-
-      const target = e.target as Element | null;
-      if (!target) return;
-
-      const clickedInside = root.contains(target);
-      const inRadixPortal =
-        target.closest("[data-radix-portal]") ||
-        target.closest("[data-radix-popper-content]") ||
-        target.closest("[data-radix-popper-content-wrapper]");
-
-      if (!clickedInside && !inRadixPortal) {
-        const dirty = anyChanges;
-        if (dirty && !window.confirm("You have unsaved changes. Discard them?")) {
-          return;
-        }
-
-        setRowsToSave({});
-        setEditRowId(null);
-        setAnyChanges(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", onDocPointerDown);
-    return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [anyChanges, editRowId, rowsToSave]);
-
-  function handleChange(rowId: string, field: string, value: any) {
-    setRowsToSave((prev: any) => {
-      const row = prev[rowId] ?? {};
-      return { ...prev, [rowId]: { ...row, [field]: value } };
-    });
-  }
+  const totalHours = React.useMemo(
+    () => localData.reduce((sum, row) => sum + (typeof row.timeWorked === "number" ? row.timeWorked : Number(row.timeWorked) || 0), 0),
+    [localData],
+  );
 
   function exportToExcel() {
     const rows = table.getFilteredRowModel().rows.map((row) => row.original);
@@ -159,21 +241,93 @@ export function FrontendTable({
     XLSX.writeFile(workbook, exportFileName);
   }
 
-  const table = useReactTable({
-    data,
-    columns,
-    state: { globalFilter, rowSelection },
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    onGlobalFilterChange: setGlobalFilter,
-    onRowSelectionChange: setRowSelection,
-    globalFilterFn: defaultGlobalFilterFn,
-    initialState: { pagination: { pageSize } },
-  });
+  async function handleSave() {
+    if (!editDraft) return;
 
-  const { locations, works } = useSiteSchema();
+    const parsed = RowSchema.safeParse(editDraft);
+    if (!parsed.success) {
+      toast.error(parsed.error.errors[0]?.message ?? "Please correct the form.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const selectedWorker = workers.find((worker) => worker.id === editDraft.workerId);
+      const clockIn = toDateTimeString(editDraft.date, editDraft.clockIn);
+      const clockOut = editDraft.clockOut ? toDateTimeString(editDraft.date, editDraft.clockOut) : undefined;
+
+      const result = await updateTimeRecord({
+        id: editDraft.id,
+        siteId,
+        workerId: editDraft.workerId,
+        date: editDraft.date?.toISOString(),
+        clockIn,
+        clockOut,
+        location: editDraft.location,
+        works: editDraft.works,
+      });
+
+      if (!result.success) {
+        toast.error(result.error ?? "Failed to update time record.");
+        return;
+      }
+
+      setLocalData((prev) =>
+        prev.map((row) =>
+          row.id === editDraft.id
+            ? {
+                ...row,
+                date: editDraft.date ? format(editDraft.date, "dd.MM.yyyy") : row.date,
+                clockIn: editDraft.clockIn,
+                clockOut: editDraft.clockOut,
+                location: editDraft.location,
+                works: editDraft.works,
+                workerName: `${selectedWorker?.name ?? ""} ${selectedWorker?.surname ?? ""}`.trim(),
+                timeWorked:
+                  editDraft.clockIn && editDraft.clockOut
+                    ? Math.round(
+                        ((new Date(`1970-01-01T${editDraft.clockOut}`).getTime() -
+                          new Date(`1970-01-01T${editDraft.clockIn}`).getTime()) /
+                          3_600_000) *
+                          100,
+                      ) / 100
+                    : "",
+              }
+            : row,
+        ),
+      );
+
+      toast.success("Time record updated.");
+      setEditDraft(null);
+      router.refresh();
+    } catch {
+      toast.error("Failed to update time record.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!recordToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteTimeRecord(recordToDelete.id, siteId);
+      if (!result.success) {
+        toast.error(result.error ?? "Failed to delete time record.");
+        return;
+      }
+
+      setLocalData((prev) => prev.filter((row) => row.id !== recordToDelete.id));
+      toast.success("Time record deleted.");
+      setRecordToDelete(null);
+      router.refresh();
+    } catch {
+      toast.error("Failed to delete time record.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   function renderPagination() {
     const pageCount = table.getPageCount();
@@ -182,15 +336,11 @@ export function FrontendTable({
     let start = 0;
     let end = Math.min(pageCount, maxPages);
 
-    if (pageCount > maxPages) {
-      if (current > Math.floor(maxPages / 2)) {
-        start = Math.max(
-          0,
-          Math.min(current - Math.floor(maxPages / 2), pageCount - maxPages),
-        );
-        end = start + maxPages;
-      }
+    if (pageCount > maxPages && current > Math.floor(maxPages / 2)) {
+      start = Math.max(0, Math.min(current - Math.floor(maxPages / 2), pageCount - maxPages));
+      end = start + maxPages;
     }
+
     const items = Array.from({ length: end - start }, (_, i) => {
       const pageIdx = start + i;
       return (
@@ -212,288 +362,298 @@ export function FrontendTable({
         </PaginationItem>,
       );
     }
+
     return items;
   }
 
   function renderCell(cell: any) {
-    if (editRowId === cell.row.id) {
-      if (cell.column.id === "works")
-        return (
-          <Textarea
-            placeholder={cell.getValue()}
-            className="resize-none text-sm"
-            onChange={(e) => {
-              setAnyChanges(true);
-              handleChange(cell.row.original.id, "works", e.currentTarget.value);
-            }}
-          />
-        );
+    if (cell.column.id === "workerRole" && cell.getValue()) {
+      return <Badge variant="outline">{cell.getValue()}</Badge>;
+    }
 
-      if (cell.column.id === "clockIn" || cell.column.id === "clockOut")
-        return (
-          <Input
-            type="time"
-            step="1"
-            defaultValue={cell.getValue()}
-            onChange={(e) => {
-              setAnyChanges(true);
-              handleChange(cell.row.original.id, cell.column.id, e.currentTarget.value);
-            }}
-            className="bg-background"
-          />
-        );
+    if (cell.column.id === "timeWorked" && cell.getValue()) {
+      return <span className="font-medium">{cell.getValue()} h</span>;
+    }
 
-      if (cell.column.id === "location") {
-        const rowId = cell.row.original.id;
-        const current = String(
-          rowsToSave[rowId]?.location ?? cell.getValue() ?? "",
-        );
-
-        return (
-          <Select
-            defaultValue={current}
-            onValueChange={(v) => {
-              setAnyChanges(true);
-              handleChange(cell.row.original.id, "location", v);
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder={cell.getValue()} />
-            </SelectTrigger>
-            <SelectContent>
-              {locations.map((loc: string) => (
-                <SelectItem key={loc} value={loc}>
-                  {loc}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        );
-      }
-
-      if (cell.column.id === "date")
-        return (
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                id="date"
-                className="w-48 justify-between font-normal"
-              >
-                <span>
-                  {date
-                    ? date
-                        .toLocaleDateString("lv-LV", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        })
-                        .replace(/\.$/, "")
-                    : cell.getValue()}
-                </span>
-                <CalendarIcon className="h-4 w-4 opacity-70" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={date}
-                captionLayout="dropdown"
-                onSelect={(d) => {
-                  setDate(d);
-                  setOpen(false);
-                  setAnyChanges(true);
-                  handleChange(cell.row.original.id, "date", d);
-                }}
-              />
-            </PopoverContent>
-          </Popover>
-        );
-
-      if (cell.column.id === "workerName") {
-        return (
-          <Select
-            onValueChange={(v) => {
-              setAnyChanges(true);
-              handleChange(cell.row.original.id, "workerId", v);
-            }}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder={cell.getValue()} />
-            </SelectTrigger>
-            <SelectContent>
-              {workers.map((worker: any) => (
-                <SelectItem key={worker.id} value={worker.id}>
-                  {worker.name} {worker.surname}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        );
-      }
+    if (cell.column.id === "location" && cell.getValue()) {
+      return (
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <MapPin className="h-3.5 w-3.5" />
+          <span>{cell.getValue()}</span>
+        </div>
+      );
     }
 
     return flexRender(cell.column.columnDef.cell, cell.getContext());
   }
 
   return (
-    <form
-      action={async (fd) => {
-        fd.set("id", Object.keys(rowsToSave)[0] ?? "");
-        fd.set("siteId", siteId);
+    <>
+      <div className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Visible records</p>
+            <p className="mt-2 text-2xl font-semibold">{table.getFilteredRowModel().rows.length}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Workers listed</p>
+            <p className="mt-2 text-2xl font-semibold">{workers.length}</p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Tracked hours</p>
+            <p className="mt-2 text-2xl font-semibold">{totalHours.toFixed(2)}</p>
+          </div>
+        </div>
 
-        if (patch?.works) {
-          const parsed = ZodRowSchema.safeParse({ works: patch?.works });
-          if (!parsed.success) {
-            toast.error(parsed.error.errors[0].message);
-            return;
-          }
-        }
-
-        if (patch?.works != null) fd.set("works", String(patch.works));
-        if (patch?.location != null) fd.set("location", String(patch.location));
-        if (patch?.clockIn != null) fd.set("clockIn", String(patch.clockIn));
-        if (patch?.clockOut != null) fd.set("clockOut", String(patch.clockOut));
-        if (patch?.date != null) fd.set("date", String(patch.date));
-        if (patch?.workerId != null) fd.set("workerId", String(patch.workerId));
-
-        action(fd);
-      }}
-    >
-      <div
-        ref={wrapperRef}
-        className="w-full overflow-hidden rounded-md border border-muted/60 bg-background"
-      >
-        {/* Toolbar */}
-        <div className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex w-full flex-1 items-center gap-2">
-            <Input
-              placeholder="Search records..."
-              value={globalFilter ?? ""}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              className="h-8 max-w-sm text-sm"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={exportToExcel}
-            >
-              Export to Excel
-            </Button>
+        <div className="w-full overflow-hidden rounded-md border border-muted/60 bg-background">
+          <div className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex w-full flex-1 flex-col gap-2 md:flex-row md:items-center">
+              <Input
+                placeholder="Search by worker, location, work done..."
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="h-9 max-w-md text-sm"
+              />
+              <Button type="button" variant="outline" size="sm" className="h-9" onClick={exportToExcel}>
+                Export to Excel
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Use row actions to edit or delete a time record.</p>
           </div>
 
-          {anyChanges && (
-            <div className="flex justify-end">
-              <SubmitButton text="Save changes" className="h-8 px-3 text-xs" />
-            </div>
-          )}
-        </div>
+          <div className="border-b px-3 py-2 text-xs text-muted-foreground">
+            {table.getFilteredRowModel().rows.length} of {localData.length} results
+          </div>
 
-        {/* Info row */}
-        <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} of {data.length} results
-        </div>
-
-        {/* Table */}
-        <div className="w-full overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-muted/60">
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      onClick={header.column.getToggleSortingHandler?.()}
-                      className="cursor-pointer select-none whitespace-nowrap text-xs font-medium"
-                    >
-                      {flexRender(
-                        header.column.columnDef.header,
-                        header.getContext(),
-                      )}
-                      {header.column.getIsSorted() === "asc" && " 🔼"}
-                      {header.column.getIsSorted() === "desc" && " 🔽"}
-                    </TableHead>
-                  ))}
-                  <TableHead className="whitespace-nowrap text-xs font-medium">
-                    Edit
-                  </TableHead>
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className="hover:bg-muted/40"
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className="whitespace-normal break-words text-xs align-top"
+          <div className="w-full overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-muted/60">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        onClick={header.column.getToggleSortingHandler?.()}
+                        className="cursor-pointer select-none whitespace-nowrap text-xs font-medium"
                       >
-                        {renderCell(cell)}
-                      </TableCell>
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.column.getIsSorted() === "asc" && " 🔼"}
+                        {header.column.getIsSorted() === "desc" && " 🔽"}
+                      </TableHead>
                     ))}
-                    <TableCell className="w-12 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="ghost" className="h-7 w-7">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setEditRowId(row.id)}>
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer text-destructive">
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <TableHead className="whitespace-nowrap text-xs font-medium">Actions</TableHead>
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow key={row.original.id} className="hover:bg-muted/40">
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell
+                          key={cell.id}
+                          className="max-w-[280px] whitespace-normal break-words text-xs align-top"
+                        >
+                          {renderCell(cell)}
+                        </TableCell>
+                      ))}
+                      <TableCell className="w-12 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setEditDraft(getInitialDraft(row.original, workers))}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Edit record
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setRecordToDelete(row.original)}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete record
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length + 1}
+                      className="py-10 text-center text-sm text-muted-foreground"
+                    >
+                      No data found.
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={columns.length + 1}
-                    className="py-10 text-center text-sm text-muted-foreground"
-                  >
-                    No data found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-        {/* Pagination */}
-        <div className="flex justify-end border-t bg-background px-3 py-2">
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                />
-              </PaginationItem>
-              {renderPagination()}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+          <div className="flex justify-end border-t bg-background px-3 py-2">
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                  />
+                </PaginationItem>
+                {renderPagination()}
+                <PaginationItem>
+                  <PaginationNext onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
         </div>
       </div>
-    </form>
+
+      <Dialog open={!!editDraft} onOpenChange={(open) => !open && setEditDraft(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit time record</DialogTitle>
+            <DialogDescription>
+              Update the worker, schedule, and notes in one place before saving.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editDraft && (
+            <div className="grid gap-4 py-2 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-sm font-medium">Worker</label>
+                <Select
+                  value={editDraft.workerId}
+                  onValueChange={(value) => setEditDraft((prev) => (prev ? { ...prev, workerId: value } : prev))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select worker" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workers.map((worker) => (
+                      <SelectItem key={worker.id} value={worker.id}>
+                        {worker.name} {worker.surname}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Date</label>
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between font-normal">
+                      <span>{editDraft.date ? format(editDraft.date, "dd.MM.yyyy") : "Select date"}</span>
+                      <CalendarIcon className="h-4 w-4 opacity-70" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={editDraft.date}
+                      captionLayout="dropdown"
+                      onSelect={(value) => {
+                        setEditDraft((prev) => (prev ? { ...prev, date: value } : prev));
+                        setCalendarOpen(false);
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Location</label>
+                <Select
+                  value={editDraft.location || "__none__"}
+                  onValueChange={(value) =>
+                    setEditDraft((prev) => (prev ? { ...prev, location: value === "__none__" ? "" : value } : prev))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No location</SelectItem>
+                    {locations.map((location: string) => (
+                      <SelectItem key={location} value={location}>
+                        {location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Clock3 className="h-4 w-4" /> Clock in
+                </label>
+                <Input
+                  type="time"
+                  step="1"
+                  value={editDraft.clockIn}
+                  onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, clockIn: e.target.value } : prev))}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Clock3 className="h-4 w-4" /> Clock out
+                </label>
+                <Input
+                  type="time"
+                  step="1"
+                  value={editDraft.clockOut}
+                  onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, clockOut: e.target.value } : prev))}
+                />
+              </div>
+
+              <div className="space-y-2 sm:col-span-2">
+                <label className="text-sm font-medium">Work notes</label>
+                <Textarea
+                  rows={5}
+                  placeholder="Describe what was completed during this shift."
+                  value={editDraft.works}
+                  onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, works: e.target.value } : prev))}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDraft(null)} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!recordToDelete} onOpenChange={(open) => !open && setRecordToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this time record?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove the selected entry for {recordToDelete?.workerName || "this worker"}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "Deleting..." : "Delete record"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

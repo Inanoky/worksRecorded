@@ -218,12 +218,21 @@ export async function editTimeRecord(_prev: unknown, formData: FormData) {
     const workerId = formData.get("workerId")?.toString() || undefined;
     const wocation = formData.get("location")?.toString() || undefined;
     const works    = formData.get("works")?.toString()    || undefined;
-    const date     = formData.get("date")?.toString()     || undefined;
-    const clockIn  = formData.get("clockIn")?.toString()  || undefined;
-    const clockOut = formData.get("clockOut")?.toString() || undefined;
+    const dateValue = formData.get("date")?.toString() || undefined;
+    const clockInValue = formData.get("clockIn")?.toString() || undefined;
+    const clockOutValue = formData.get("clockOut")?.toString() || undefined;
 
-    // base update payload with only provided fields
-    const data: any = { workerId, wocation, works, date, clockIn, clockOut };
+    const parsedDate = dateValue ? new Date(dateValue) : undefined;
+    const parsedClockIn = clockInValue ? new Date(clockInValue) : undefined;
+    const parsedClockOut = clockOutValue ? new Date(clockOutValue) : undefined;
+
+    const data: any = {};
+    if (workerId !== undefined) data.workerId = workerId;
+    if (wocation !== undefined) data.wocation = wocation;
+    if (works !== undefined) data.works = works;
+    if (parsedDate && !Number.isNaN(parsedDate.getTime())) data.date = parsedDate;
+    if (parsedClockIn && !Number.isNaN(parsedClockIn.getTime())) data.clockIn = parsedClockIn;
+    if (parsedClockOut && !Number.isNaN(parsedClockOut.getTime())) data.clockOut = parsedClockOut;
 
     // Only look up names if workerId was provided (i.e., changed)
     if (workerId) {
@@ -240,7 +249,7 @@ export async function editTimeRecord(_prev: unknown, formData: FormData) {
       data,
     });
 
-    if (siteId) revalidatePath(`/sites/${siteId}/timesheets`);
+    if (siteId) revalidatePath(`/dashboard/sites/${siteId}/timesheets`);
 
     return { success: true, id: updated.id };
   } catch (error: any) {
@@ -256,36 +265,67 @@ export async function editTimeRecord(_prev: unknown, formData: FormData) {
 export async function updateTimeRecord(formData: {
   id: string;
   workerId?: string;
-  date?: Date;
-  clockIn?: Date;
-  clockOut?: Date;
+  siteId?: string;
+  date?: Date | string;
+  clockIn?: Date | string;
+  clockOut?: Date | string;
   location?: string;
   works?: string;
 }) {
   try {
+    const parsedDate =
+      typeof formData.date === "string" ? new Date(formData.date) : formData.date;
+    const parsedClockIn =
+      typeof formData.clockIn === "string" ? new Date(formData.clockIn) : formData.clockIn;
+    const parsedClockOut =
+      typeof formData.clockOut === "string" ? new Date(formData.clockOut) : formData.clockOut;
+
     const record = await prisma.timelog.update({
       where: { id: formData.id },
       data: {
         workerId: formData.workerId,
-        date: formData.date,
-        clockIn: formData.clockIn,
-        clockOut: formData.clockOut,
+        date: parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : undefined,
+        clockIn:
+          parsedClockIn && !Number.isNaN(parsedClockIn.getTime()) ? parsedClockIn : undefined,
+        clockOut:
+          parsedClockOut && !Number.isNaN(parsedClockOut.getTime()) ? parsedClockOut : undefined,
         wocation: formData.location,
         works: formData.works,
       },
     });
 
     // Update worker's clocked in status if clockOut is provided
-    if (formData.clockOut && formData.workerId) {
+    if (parsedClockOut && formData.workerId) {
       await prisma.workers.update({
         where: { id: formData.workerId },
         data: { isClockedIn: false },
       });
     }
 
+    if (formData.siteId) {
+      revalidatePath(`/dashboard/sites/${formData.siteId}/timesheets`);
+    }
+
     return { success: true, record };
   } catch (error) {
     return { success: false, error: "Failed to update time record" };
+  }
+}
+
+export async function deleteTimeRecord(id: string, siteId?: string) {
+  try {
+    await prisma.timelog.delete({
+      where: { id },
+    });
+
+    if (siteId) {
+      revalidatePath(`/dashboard/sites/${siteId}/timesheets`);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("[deleteTimeRecord] ERROR:", error);
+    return { success: false, error: "Failed to delete time record" };
   }
 }
 
