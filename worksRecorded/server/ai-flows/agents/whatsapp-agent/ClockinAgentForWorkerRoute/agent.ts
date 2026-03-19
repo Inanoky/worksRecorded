@@ -17,8 +17,9 @@ export default async function talkToClockInAgent(question, workerId) {
     console.log(siteId)
 
     const status = (await isWorkerClockedIn(workerId)).isClockedIn ? "clocked In" : "clocked Out";
-    const workerFullName = await getWorkerFullNameById(workerId);
-    const sourceComment = workerFullName ? `${workerFullName} : ${question}` : question;
+    const workerFullName = (await getWorkerFullNameById(workerId))?.trim();
+    const normalizedQuestion = question.trim();
+    const sourceComment = workerFullName ? `${workerFullName} : ${normalizedQuestion}` : normalizedQuestion;
 
     console.log(`Worker is currently ${status}`)
 
