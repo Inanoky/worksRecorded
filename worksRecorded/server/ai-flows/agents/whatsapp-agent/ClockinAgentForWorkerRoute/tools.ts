@@ -9,8 +9,13 @@ import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/defaultConfig.json"
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
+import { getOrganizationLanguageByWorkerId } from "@/server/actions/shared-actions";
 
-const systemPromptSaveToDatabase = ` Save users's message. Your output MUST be a JSON array that strictly adheres to the provided Zod schema.  Date must be in ISO format.`;
+async function buildSystemPromptSaveToDatabase(workerId: string) {
+  const organizationLanguage = await getOrganizationLanguageByWorkerId(workerId);
+
+  return `Save the worker's message. Your output MUST strictly adhere to the provided Zod schema. Date must be in ISO format. Write all generated comments and summaries in ${organizationLanguage}, which is the organization language for this worker. Keep the worker's original language only in originalUserComment and do not copy it into Comments fields unless the organization language is the same.`;
+}
 // === HELPER FUNCTIONS (re-copied from SiteManager's tools.ts for context) ===
 
 
@@ -121,7 +126,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
     );
     const response = await structuredLlm.invoke([
       new HumanMessage(`${question}`),
-      new SystemMessage(`${systemPromptSaveToDatabase} \n today is : ${date} \n ${siteId} `)
+      new SystemMessage(`${await buildSystemPromptSaveToDatabase(workerId)} \n today is : ${date} \n ${siteId} `)
 
 
 
