@@ -7,6 +7,7 @@ import { systemPromptFunction } from "@/server/ai-flows/agents/whatsapp-agent/Cl
 import {toolNode, tools } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools"
 import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/server/actions/timesheets-actions";
 import { clickInAgentForWorkersModel, clockInAgentForWorkersModelTemperature } from "@/server/ai-flows/ai-models-settings";
+import { getWorkerFullNameById } from "@/server/actions/whatsapp-actions";
 
 
 export default async function talkToClockInAgent(question, workerId) {
@@ -16,11 +17,13 @@ export default async function talkToClockInAgent(question, workerId) {
     console.log(siteId)
 
     const status = (await isWorkerClockedIn(workerId)).isClockedIn ? "clocked In" : "clocked Out";
+    const workerFullName = await getWorkerFullNameById(workerId);
+    const sourceComment = workerFullName ? `${workerFullName} : ${question}` : question;
 
     console.log(`Worker is currently ${status}`)
 
     // NEW: Get current date/time once for the diary tool
-    const nowISO = new Date().toISOString(); 
+    const nowISO = new Date().toISOString();
 
     console.log("Question:", question, "WorkerId", workerId, "SiteId" , siteId);
 
@@ -40,30 +43,28 @@ export default async function talkToClockInAgent(question, workerId) {
         const toolCalls = (lastMessage as any)?.tool_calls;
 
         if (lastMessage && toolCalls && Array.isArray(toolCalls) && toolCalls.length) {
-            
+
             // CRITICAL FIX: Inject context data into tool call arguments
             for (const toolCall of toolCalls) {
                 // Ensure toolCall.function and toolCall.function.arguments exist
-                if (toolCall.function && toolCall.function.arguments) { 
+                if (toolCall.function && toolCall.function.arguments) {
                     const toolName = toolCall.function.name;
-                    
+
                     if (toolName === "ClockInWorker" || toolName === "ClockOutWorker" || toolName === "WorkerDiaryToDatabase") {
                         try {
                             // Arguments are a JSON string, so we must parse them
-                            let args = JSON.parse(toolCall.function.arguments); 
+                            let args = JSON.parse(toolCall.function.arguments);
 
                             // Inject context data
                             if (!args.workerId) args.workerId = workerId;
                             if (!args.siteId) args.siteId = siteId;
-                            
+
                             // Inject current date/time and original user message for diary tool
                             if (toolName === "WorkerDiaryToDatabase") {
                                 if (!args.date) {
                                     args.date = nowISO;
                                 }
-                                if (!args.originalUserComment) {
-                                    args.originalUserComment = question;
-                                }
+                                args.originalUserComment = sourceComment;
                             }
 
                             // Re-stringify the arguments and update the tool call object in place
@@ -106,7 +107,7 @@ export default async function talkToClockInAgent(question, workerId) {
         .addNode("agent", agent)
         .addNode("tools", toolNode)
         .addEdge(START, "agent")
-        .addConditionalEdges("agent", shouldContinue, ["tools", END])       
+        .addConditionalEdges("agent", shouldContinue, ["tools", END])
         .addEdge("tools", "agent") // <--- loop back to agent!
 
     const checkpointer = PostgresSaver.fromConnString(
@@ -148,7 +149,7 @@ export default async function talkToClockInAgent(question, workerId) {
         const lastContentMsg = finalState.messages.findLast(
             (msg: BaseMessage) => typeof msg.content === 'string' && msg.content.length > 0
         );
-        
+
         const content = lastContentMsg ? lastContentMsg.content : "Completed action with no response.";
         console.log("AI content:", content);
         return content;
