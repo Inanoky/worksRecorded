@@ -41,7 +41,6 @@
     "DisplayName": "Location",
     "DropDownOptions": {
       "Location_1": "Objekts"
-    
     },
     "customSettings": {
       "order": 2,
@@ -119,10 +118,10 @@
       "Works_29": "Sonstige Montagen - Montage beigestellter Türkontakt (Induktiv)",
       "Works_30": "Sonstige Montagen - Montage beigestellte Trafowannenüberwachung BEFEGA",
       "Works_31": "Stundenlohn - Monteur",
-      "Works_32": "Notes",
-      "Works_33": "Additional works",
-      "Works_34": "Delay",
-      "Works_35":"Other works"
+      "Works_32": "Piezīmes",
+      "Works_33": "Papildu darbi",
+      "Works_34": "Kavējums",
+      "Works_35": "Citi darbi"
     },
     "customSettings": {
       "order": 3,
