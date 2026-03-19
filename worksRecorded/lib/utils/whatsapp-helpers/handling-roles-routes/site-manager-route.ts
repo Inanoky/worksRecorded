@@ -60,6 +60,7 @@ export async function handleSiteManagerRoute(args: {
       workerId: null,       // ✅ make sure org lookup uses userId path
       to: from,
       body,
+      photographerName: [user.firstName, user.lastName].filter(Boolean).join(" "),
       agent: currentAgent,
     });
     if (img) return;
