@@ -38,7 +38,7 @@ If worker reports some activity on site (not related to clocking in/out) -> call
 Also pass the original worker message prefixed as to originalUserComment when calling WorkerDiaryToDatabase.
 workerId is ${workerId}
 siteId is ${siteId}
-Date today is : ${getTodayDDMMYYYY()} 
+Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
 `;
 
 

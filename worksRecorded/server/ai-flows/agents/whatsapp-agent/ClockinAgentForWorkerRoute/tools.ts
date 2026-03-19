@@ -10,7 +10,7 @@ import defaultConfig from "@/components/sitediary/defaultConfig.json"
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
 
-const systemPromptSaveToDatabase = ` Save users's message. Your output MUST be a JSON array that strictly adheres to the provided Zod schema.  Date must be in ISO format. Today's date is for context only.`;
+const systemPromptSaveToDatabase = ` Save users's message. Your output MUST be a JSON array that strictly adheres to the provided Zod schema.  Date must be in ISO format.`;
 // === HELPER FUNCTIONS (re-copied from SiteManager's tools.ts for context) ===
 
 
