@@ -1,0 +1,276 @@
+{
+  "Date": {
+    "Type": "fixed",
+    "DisplayName": "Date",
+    "customSettings": {
+      "renderAs": "Day",
+      "order": 1,
+      "cellWidth": 150,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Date_Custom_1",
+    "customSettings": {
+      "order": 2,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Date_Custom_2",
+    "customSettings": {
+      "order": 3,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Location": {
+    "Type": "dropdown",
+    "DisplayName": "Location",
+    "DropDownOptions": {
+      "Location_1": "Objekts"
+    
+    },
+    "customSettings": {
+      "order": 2,
+      "cellWidth": 150,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 150,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Location_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_1",
+    "DropDownOptions": {
+      "Location_Custom_1_1": "Location_Custom_1_1",
+      "Location_Custom_1_2": "Location_Custom_1_2"
+    },
+    "customSettings": {
+      "order": 5,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Location_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_2",
+    "DropDownOptions": {
+      "Location_Custom_2_1": "Location_Custom_2_1",
+      "Location_Custom_2_2": "Location_Custom_2_2"
+    },
+    "customSettings": {
+      "order": 6,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works": {
+    "Type": "dropdown",
+    "DisplayName": "Works",
+    "DropDownOptions": {
+      "Works_1": "Elektromontage - Baustelleneinrichtung",
+      "Works_2": "Elektromontage - Materialcontainer",
+      "Works_3": "Aggregatbereitstellung - Anschluss der Unterverteilung des Betriebsgebäudes",
+      "Works_4": "Aggregatbereitstellung - Erdungsnetz im Außenbereich verlegen",
+      "Works_5": "Aggregatbereitstellung - Erdungsnetz im Betriebsgebäude verlegen",
+      "Works_6": "Aggregatbereitstellung - Tiefenerder setzen",
+      "Works_7": "Aggregatbereitstellung - Betriebsmittel in Erdungsnetz einbinden",
+      "Works_8": "Aggregatbereitstellung - Stahlkonstruktionen in Erdungsnetz einbinden",
+      "Works_9": "Aggregatbereitstellung - Gebäude, Trafowanne und Kompaktstation in Erdungsnetz einbinden",
+      "Works_10": "Aggregatbereitstellung - Montage beigestelle Blitzschutzmasten",
+      "Works_11": "Kabeļu pieslēgšanas darbi - Widerstandsmessung / Isolations- und Durchgangsprüfung",
+      "Works_12": "Kabeļu pieslēgšanas darbi - Kabelbeschriftung",
+      "Works_13": "MS-Kabelgarnituren montieren - Kabelblindstecker montieren",
+      "Works_14": "MS-Kabelgarnituren montieren - Außenkonus Kabelendverschlüsse montieren",
+      "Works_15": "MS-Kabelgarnituren montieren - Innenkonus Kabelendverschlüsse montieren",
+      "Works_16": "MS-Kabelgarnituren montieren - Mehrbereichsendverschluss montieren",
+      "Works_17": "MS-Kabelgarnituren montieren - Kabelbrücke Trafofeld-Wandler beidseitig montieren",
+      "Works_18": "MS-Kabelprüfung - Montage 3pol Drehtrennschalter mit Erder",
+      "Works_19": "MS-Kabelprüfung - Montage Kombiwandler",
+      "Works_20": "MS-Kabelprüfung - Montage Überspannungsableiter",
+      "Works_21": "MS-Kabelprüfung - Montage Stützisolatoren",
+      "Works_22": "MS-Kabelprüfung - Montage Wandlerzwischenklemmkasten",
+      "Works_23": "HS-Verseilung - Feldverseilung 500-AL1/34 inkl. HS Klemmen",
+      "Works_24": "HS-Verseilung - Gummipress-Dichtung BKD - Montage",
+      "Works_25": "Sonstige Montagen - Montage beigestellte Anlagenbeschilderung",
+      "Works_26": "Sonstige Montagen - Montage beigestelltes Gebäudezubehör",
+      "Works_27": "Sonstige Montagen - Montage beigestellte Außenbeleuchtung im Umspannwerk",
+      "Works_28": "Sonstige Montagen - Montage beigestellte AC Außenverteilung & Wetterschild",
+      "Works_29": "Sonstige Montagen - Montage beigestellter Türkontakt (Induktiv)",
+      "Works_30": "Sonstige Montagen - Montage beigestellte Trafowannenüberwachung BEFEGA",
+      "Works_31": "Stundenlohn - Monteur",
+      "Works_32": "Notes",
+      "Works_33": "Additional works",
+      "Works_34": "Delay",
+      "Works_35":"Other works"
+    },
+    "customSettings": {
+      "order": 3,
+      "cellWidth": 150,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 2,
+      "displayinSiteListWidth": 180,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_1",
+    "DropDownOptions": {
+      "Works_Custom_1_1": "Works_Custom_1_1",
+      "Works_Custom_1_2": "Works_Custom_1_2"
+    },
+    "customSettings": {
+      "order": 8,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_2",
+    "DropDownOptions": {
+      "Works_Custom_2_1": "Works_Custom_2_1",
+      "Works_Custom_2_2": "Works_Custom_2_2"
+    },
+    "customSettings": {
+      "order": 9,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments": {
+    "Type": "textInput",
+    "DisplayName": "Comments",
+    "customSettings": {
+      "order": 10,
+      "cellWidth": 450,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 7,
+      "displayinSiteListWidth": 400,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "textInput",
+    "customSettings": {
+      "order": 11,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "textInput",
+    "customSettings": {
+      "order": 12,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Units": {
+    "Type": "dropdown",
+    "DisplayName": "Units",
+    "DropDownOptions": {
+      "m": "m",
+      "m2": "m2",
+      "m3": "m3",
+      "tn": "tn",
+      "kg": "kg",
+      "pcs": "pcs",
+      "package": "package",
+      "project": "project",
+      "hour": "hour",
+      "set": "set",
+      "minute": "minute",
+      "lifts": "lifts"
+    },
+    "customSettings": {
+      "order": 4,
+      "cellWidth": 80,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 3,
+      "displayinSiteListWidth": 50,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "Amounts": {
+    "Type": "float",
+    "DisplayName": "Amounts",
+    "customSettings": {
+      "order": 5,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 4,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "WorkersInvolved": {
+    "Type": "float",
+    "DisplayName": "Workers",
+    "customSettings": {
+      "integer": true,
+      "order": 6,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 5,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "TimeInvolved": {
+    "Type": "float",
+    "DisplayName": "Hours",
+    "customSettings": {
+      "integer": true,
+      "order": 6,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 6,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "AIpromptToUse": {
+    "Type": "noRender",
+    "Client": "DEPROM"
+  },
+  "otherSettings": {
+    "Type": "noRender",
+    "displaySiteListWidth": 80
+  }
+}

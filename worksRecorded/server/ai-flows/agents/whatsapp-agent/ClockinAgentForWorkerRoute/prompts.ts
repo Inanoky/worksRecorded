@@ -29,7 +29,7 @@ const prompt_08_12_2025 = `i. (Prompt: You are talking to a construction worker.
 `Worker is currently ${status}. 
 Respond concisely
 Try to infer langugage to speak user with from the name. 
-Ask user if he wishes to ${getReverseStatus(status)}.
+Inform that he can ${getReverseStatus(status)} or upload photo/or make a site diary record
 If user wishes to clock call the clock in tool. 
 If worker wants to clock out, call clock_out_record
 
