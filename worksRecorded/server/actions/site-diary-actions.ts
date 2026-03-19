@@ -7,10 +7,25 @@ import { validateExcel } from "@/lib/utils/SiteDiary/Settings/validateSchema";
 import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
 import { getOrganizationIdByWorkerId } from "./shared-actions";
+import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
 import { Turret_Road } from "next/font/google";
 import { isQuestionDotToken } from "typescript";
 
 //nothing
+
+function formatOriginalUserComment(originalUserComment?: string, fullName?: string | null) {
+  const normalizedComment = originalUserComment?.trim();
+  const normalizedFullName = fullName?.trim();
+
+  if (!normalizedComment) return undefined;
+  if (!normalizedFullName) return normalizedComment;
+
+  if (normalizedComment.startsWith(`${normalizedFullName} :`)) {
+    return normalizedComment;
+  }
+
+  return `${normalizedFullName} : ${normalizedComment}`;
+}
 
 //-------Loading config------------------------------
 
@@ -49,6 +64,17 @@ export async function saveSiteDiaryRecord({
   const isWorker = !!workerId;
 
   // 🪵 LOG: Derived entity info
+
+  const fullName = entityId
+    ? isWorker
+      ? await getWorkerFullNameById(entityId)
+      : await getUserFullNameById(entityId)
+    : null;
+
+  const formattedOriginalUserComment = formatOriginalUserComment(
+    originalUserComment,
+    fullName,
+  );
 
   let org = null;
   if (entityId) {
@@ -96,7 +122,7 @@ export async function saveSiteDiaryRecord({
         Comments_Custom_1: row.Comments_Custom_1 || undefined,
         Comments_Custom_2: row.Comments_Custom_2 || undefined,
 
-        originalUserComment: originalUserComment || undefined,
+        originalUserComment: formattedOriginalUserComment,
 
         Units: row.Units || undefined,
         Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
