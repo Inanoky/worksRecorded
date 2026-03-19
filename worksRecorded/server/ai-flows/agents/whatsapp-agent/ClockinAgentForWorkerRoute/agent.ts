@@ -56,9 +56,14 @@ export default async function talkToClockInAgent(question, workerId) {
                             if (!args.workerId) args.workerId = workerId;
                             if (!args.siteId) args.siteId = siteId;
                             
-                            // Inject current date/time for diary tool
-                            if (toolName === "WorkerDiaryToDatabase" && !args.date) {
-                                args.date = nowISO; 
+                            // Inject current date/time and original user message for diary tool
+                            if (toolName === "WorkerDiaryToDatabase") {
+                                if (!args.date) {
+                                    args.date = nowISO;
+                                }
+                                if (!args.originalUserComment) {
+                                    args.originalUserComment = question;
+                                }
                             }
 
                             // Re-stringify the arguments and update the tool call object in place

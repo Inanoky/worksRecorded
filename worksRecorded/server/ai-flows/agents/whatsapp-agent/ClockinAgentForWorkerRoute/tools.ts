@@ -84,9 +84,10 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
     workerId: z.string().describe("The unique ID of the worker submitting the entry."),
     siteId: z.string().describe("The Site Id for the diary entry."),
     // NEW: The date needs to be a string to pass it as context to the structured LLM
-    date: z.string().describe("The current date and time as a string (including time, e.g., '2025-11-21T17:45:00Z')."), 
+    date: z.string().describe("The current date and time as a string (including time, e.g., '2025-11-21T17:45:00Z')."),
+    originalUserComment: z.string().describe("The worker's original message saved without modification."),
   }),
-  async func({ question, workerId, siteId, date }: { question: string; workerId: string, siteId: string, date: string }) {
+  async func({ question, workerId, siteId, date, originalUserComment }: { question: string; workerId: string, siteId: string, date: string, originalUserComment: string }) {
 
     // Extracting schema from site settings
    
@@ -140,6 +141,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
           rows,
           workerId,
           siteId,
+          originalUserComment,
         });
 
 

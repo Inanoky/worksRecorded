@@ -35,6 +35,12 @@ export async function saveSiteDiaryRecord({
   workerId,
   siteId,
   originalUserComment,
+}: {
+  rows: any[];
+  userId?: string;
+  workerId?: string;
+  siteId?: string;
+  originalUserComment?: string;
 }) {
   // 🪵 LOG: Initial inputs for context
 
