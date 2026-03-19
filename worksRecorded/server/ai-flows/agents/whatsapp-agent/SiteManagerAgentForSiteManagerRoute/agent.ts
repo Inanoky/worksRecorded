@@ -6,6 +6,7 @@ import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/prompts"
 import {toolNode, tools} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
 import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSiteManagerRouteModelModelTemperature } from "@/server/ai-flows/ai-models-settings";
+import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
 
 
 
@@ -13,16 +14,18 @@ import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSite
 
 export default async function talkToWhatsappAgent(question, siteId, userId) {
     console.log("=== talkToWhatsappAgent called ===");
-   
+    const userFullName = await getUserFullNameById(userId);
+    const sourceComment = userFullName ? `${userFullName} : ${question}` : question;
 
-   
-//introdued originalQuestion in graph state. 
+
+
+//introdued originalQuestion in graph state.
   const state = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
     reducer: (x, y) => x.concat(y),
     default: () => [],
   }),
- 
+
 });
 
     const shouldContinue = (state) => {
@@ -31,6 +34,18 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         console.log("shouldContinue - lastMessage:", lastMessage);
 
         if (lastMessage && "tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls.length) {
+            for (const toolCall of lastMessage.tool_calls) {
+                if (toolCall.function?.name === "save_to_database" && toolCall.function.arguments) {
+                    try {
+                        const args = JSON.parse(toolCall.function.arguments);
+                        args.originalUserComment = sourceComment;
+                        toolCall.function.arguments = JSON.stringify(args);
+                    } catch (e) {
+                        console.error("Error modifying arguments for save_to_database:", e);
+                    }
+                }
+            }
+
             console.log("shouldContinue: Detected tool_calls, going to 'tools'");
             return "tools";
         }
@@ -40,7 +55,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
     const agent = async (state) => {
         const { messages } = state;
-       
+
         const llm = new ChatOpenAI({
             temperature: siteManagerAgentForSiteManagerRouteModelModelTemperature,
             model: siteManagerAgentForSiteManagerRouteModelModel,
@@ -49,7 +64,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
         const response = await llm.invoke(messages);
 
-       
+
 
         return {
             messages: [response]
@@ -60,7 +75,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         .addNode("agent", agent)
         .addNode("tools", toolNode)
         .addEdge(START, "agent")
-        .addConditionalEdges("agent", shouldContinue, ["tools", END])       
+        .addConditionalEdges("agent", shouldContinue, ["tools", END])
         .addEdge("tools", "agent") // <--- loop back to agent!
 
     const checkpointer = PostgresSaver.fromConnString(
@@ -81,7 +96,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
             new SystemMessage(await systemPrompt),
             new HumanMessage(question),
         ],
-         
+
     };
 
 
@@ -90,19 +105,19 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
     let lastMsg;
 
     for await (const output of await graph.stream(inputs, config)) {
-        
+
         for (const [key, value] of Object.entries(output)) {
             lastMsg = value.messages[value.messages.length - 1];
             finalState = value;
-            
+
         }
     }
 
     if (finalState && finalState.messages && finalState.messages.length > 0) {
-        
+
         return finalState.messages[0].content;
     } else {
-       
+
         return null;
     }
 }

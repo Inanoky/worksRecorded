@@ -15,14 +15,15 @@ const utapi = new UTApi();
 export async function handleImage(args: {
   formData: FormData;
   numMedia: number;
-  userId: string | null;      // ✅ allow userId for site manager route
+  userId?: string | null;     // ✅ allow userId for site manager route
   workerId?: string | null;   // ✅ optional workerId for worker route
   siteId: string;
   to: string | null;
   body: string;
+  photographerName?: string | null;
   agent: AgentFn;
 }): Promise<boolean> {
-  const { formData, numMedia, workerId, siteId, to, body, userId } = args;
+  const { formData, numMedia, workerId, siteId, to, body, userId, photographerName } = args;
 
   const idx = findFirstImageIndex(formData, numMedia);
   if (idx < 0) return false;
@@ -47,13 +48,21 @@ export async function handleImage(args: {
 
     const publicUrl = first.data.ufsUrl ?? first.data.url;
 
+    const trimmedBody = body.trim();
+    const trimmedPhotographerName = photographerName?.trim() ?? "";
+    const prefixedComment = trimmedPhotographerName
+      ? trimmedBody
+        ? `${trimmedPhotographerName} : ${trimmedBody}`
+        : trimmedPhotographerName
+      : trimmedBody || null;
+
     await savePhoto({
       workerId: workerId ?? null, // ✅ worker images
       userId: userId ?? null,     // ✅ site-manager images
       siteId,
       url: publicUrl,
       fileUrl: publicUrl,
-      comment: body || null,
+      comment: prefixedComment,
       location: null,
       date: new Date(),
     });
