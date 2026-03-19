@@ -72,7 +72,7 @@ export async  function systemPromptFunction(siteId, userId){
    
     `
 
-    const prompt = prompt_10_11_2025
+    const prompt =  prompt_19_03_206
 
  
 
