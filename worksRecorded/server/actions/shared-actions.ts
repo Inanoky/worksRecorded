@@ -456,7 +456,7 @@ export async function saveUserPhone(formData: FormData) {
 
 
 export async function getOrganizationLanguageByUserId(userId) {
- 
+
 
   const u = await prisma.user.findUnique({
     where: { id: userId },
@@ -470,4 +470,23 @@ export async function getOrganizationLanguageByUserId(userId) {
   });
 
   return u?.organization?.orgLanguage ?? "en";
+}
+
+export async function getOrganizationLanguageByWorkerId(workerId) {
+  const worker = await prisma.workers.findUnique({
+    where: { id: workerId },
+    select: {
+      Site: {
+        select: {
+          organization: {
+            select: {
+              orgLanguage: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return worker?.Site?.organization?.orgLanguage ?? "en";
 }

@@ -9,8 +9,10 @@ import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/defaultConfig.json"
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
+import { getOrganizationLanguageByWorkerId } from "@/server/actions/shared-actions";
 
-const systemPromptSaveToDatabase = ` Save users's message. Your output MUST be a JSON array that strictly adheres to the provided Zod schema.  Date must be in ISO format. Today's date is for context only.`;
+const systemPromptSaveToDatabase = (organizationLanguage: string) =>
+  `Save the user's message. Your output MUST strictly follow the provided Zod schema. Date must be in ISO format. Today's date is for context only. Keep originalUserComment in the worker's original language outside the structured output, but write generated Comments fields in ${organizationLanguage}.`;
 // === HELPER FUNCTIONS (re-copied from SiteManager's tools.ts for context) ===
 
 
@@ -84,9 +86,10 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
     workerId: z.string().describe("The unique ID of the worker submitting the entry."),
     siteId: z.string().describe("The Site Id for the diary entry."),
     // NEW: The date needs to be a string to pass it as context to the structured LLM
-    date: z.string().describe("The current date and time as a string (including time, e.g., '2025-11-21T17:45:00Z')."), 
+    date: z.string().describe("The current date and time as a string (including time, e.g., '2025-11-21T17:45:00Z')."),
+    originalUserComment: z.string().describe("The worker's original message saved without modification."),
   }),
-  async func({ question, workerId, siteId, date }: { question: string; workerId: string, siteId: string, date: string }) {
+  async func({ question, workerId, siteId, date, originalUserComment }: { question: string; workerId: string, siteId: string, date: string, originalUserComment: string }) {
 
     // Extracting schema from site settings
    
@@ -95,6 +98,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
 
      const map = await getConfig(siteId);
     const mapToUse = map ? map : defaultConfig;
+    const organizationLanguage = await getOrganizationLanguageByWorkerId(workerId);
 
 
 
@@ -120,7 +124,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
     );
     const response = await structuredLlm.invoke([
       new HumanMessage(`${question}`),
-      new SystemMessage(`${systemPromptSaveToDatabase} \n today is : ${date} \n ${siteId} `)
+      new SystemMessage(`${systemPromptSaveToDatabase(organizationLanguage)} \n today is : ${date} \n ${siteId} `)
 
 
 
@@ -140,6 +144,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
           rows,
           workerId,
           siteId,
+          originalUserComment,
         });
 
 
