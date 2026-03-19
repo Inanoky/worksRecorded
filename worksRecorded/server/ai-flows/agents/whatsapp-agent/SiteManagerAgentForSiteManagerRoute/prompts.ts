@@ -15,18 +15,18 @@ export async  function systemPromptFunction(siteId, userId){
 
 
 
-  //---------------This we need so when we want simpliest option without any sorting----------------- 
-  
+  //---------------This we need so when we want simpliest option without any sorting-----------------
+
   const config = await getConfig(siteId)
 
   if (config?.AIpromptToUse?.Client === "NoSorting"){
 
       const NoSorting = `Store users comments without changes
-  
+
    siteId : ${siteId}
-    userId : ${userId}    
+    userId : ${userId}
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
-  
+
   `
 
 
@@ -37,7 +37,7 @@ export async  function systemPromptFunction(siteId, userId){
 
 
 
-   
+
 
          const prompt_10_11_2025 = `You will have a conversation with the user called ${userName} (Call user by his name) about construction. ` +
     ` activities on site. Your job is to extract necessary information ` +
@@ -46,50 +46,50 @@ export async  function systemPromptFunction(siteId, userId){
     "2) Where each task was competed?" +
     "3) How many workers were involved for each task?" +
     "4) For how long they were working on each task?" +
-    "Summarize all information gathered and call the save_to_database tool" +    
+    "Summarize all information gathered and call the save_to_database tool" +
     `siteId : ${siteId}
-    userId : ${userId}    
+    userId : ${userId}
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
-    also pass original user comment to originalUserComment
-    
-    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes 
+    also pass original user comment to originalUserComment in the format "Name Surname : original comment"
 
-   
+    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
+
+
     `
 
 
-    
+
          const prompt_19_03_206 = `You will have a conversation with the user called ${userName} (Call user by his name) about construction. ` +
-    ` activities on site. Your job is to extract necessary information for users message ` 
-    "Summarize all information you can gather and call the save_to_database tool" +    
+    ` activities on site. Your job is to extract necessary information for users message `
+    "Summarize all information you can gather and call the save_to_database tool" +
     `siteId : ${siteId}
-    userId : ${userId}    
+    userId : ${userId}
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
-    also pass original user comment to originalUserComment
-    
-    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes 
+    also pass original user comment to originalUserComment in the format "Name Surname : original comment"
 
-   
+    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
+
+
     `
 
 
-    
+
          const prompt_20_03_206 = `You will receive message from ${userName} (Call user by his name) about construction ` +
-    ` activities on site. Your job extract all information you can gather from user message and save it calling the save_to_database tool  ` 
-     +    
+    ` activities on site. Your job extract all information you can gather from user message and save it calling the save_to_database tool  `
+     +
     `siteId : ${siteId}
-    userId : ${userId}    
+    userId : ${userId}
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
-    also pass original user comment to originalUserComment
-    
-    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes 
+    also pass original user comment to originalUserComment in the format "Name Surname : original comment"
 
-   
+    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
+
+
     `
 
-    const prompt =  prompt_20_03_206 
+    const prompt =  prompt_20_03_206
 
- 
+
 
 
 
@@ -97,7 +97,7 @@ export async  function systemPromptFunction(siteId, userId){
 }
 
 
-  export async function systemPromptSaveToDatabaseFunction( userId, client){ 
+  export async function systemPromptSaveToDatabaseFunction( userId, client){
 
 
  const language = await getOrganizationLanguageByUserId(userId)
@@ -105,17 +105,17 @@ export async  function systemPromptFunction(siteId, userId){
 
 
 
- 
 
-  
+
+
   const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map Location and Works
   according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  For comments describe what was completed, where and with what labor in ${language} ` 
+  For comments describe what was completed, where and with what labor in ${language} `
 
 
-  
+
 
 const glossary =
 
@@ -137,7 +137,7 @@ Please follow the guidelines below:
 - CSW means 'concrete sandwich walls'.
 - Choose the best fitting works enum
 - Amounts - means amount of work completed. If not clear - leave blank
-- Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear. 
+- Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear.
 
 
 When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.
@@ -164,11 +164,11 @@ When mapping, try to select the most suitable work category from the provided Zo
 
 
 
- 
+
   const NoSortingPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Save the message in comments.
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  ` 
+  `
 
 
 const NoSorting =
@@ -185,7 +185,7 @@ Please follow the guidelines below:
 
 
 
-Store message as it is without changes. Do not extract locations, mark records as note. Do not split the message. 
+Store message as it is without changes. Do not extract locations, mark records as note. Do not split the message.
 
 
 `;
@@ -195,10 +195,10 @@ Store message as it is without changes. Do not extract locations, mark records a
 const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)` 
+  For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)`
 
 
-  
+
 
 const GMCIRL_glossary =
 
@@ -216,7 +216,7 @@ Please follow the guidelines below:
 - When multiple works are mentioned in the same text, create separate diary entries for each.
 - Works Ctegory - if work is about some changes or something unexpected - mark it CE
 - Amounts - means amount of work completed. If not clear - leave blank
-- Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear. 
+- Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear.
 
 
 When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.
@@ -224,7 +224,7 @@ When mapping, try to select the most suitable work category from the provided Zo
 
 
 
- 
+
 
 
 
@@ -242,14 +242,14 @@ let systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${g
 
 if (client === "GMCIRL"){
 
-  
+
   systemPromptSaveToDatabase = `${GMCIRL_systemPromptSaveToDatabase_02_01_2026}\n ${GMCIRL_glossary}`
 
 }
 
 if (client === "NoSorting"){
 
-  
+
   systemPromptSaveToDatabase = `${NoSortingPromptSaveToDatabase_02_01_2026}\n ${NoSorting}`
 
 }

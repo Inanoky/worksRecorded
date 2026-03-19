@@ -14,8 +14,9 @@ import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
 
 export default async function talkToWhatsappAgent(question, siteId, userId) {
     console.log("=== talkToWhatsappAgent called ===");
-    const userFullName = await getUserFullNameById(userId);
-    const sourceComment = userFullName ? `${userFullName} : ${question}` : question;
+    const userFullName = (await getUserFullNameById(userId))?.trim();
+    const normalizedQuestion = question.trim();
+    const sourceComment = userFullName ? `${userFullName} : ${normalizedQuestion}` : normalizedQuestion;
 
 
 
