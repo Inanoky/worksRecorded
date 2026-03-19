@@ -109,7 +109,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
 
     const llm = new ChatOpenAI({
       temperature: 0.1,
-      model: "gpt-4.1", // Using a capable model for structured output
+      model: "gpt-5.1", // Using a capable model for structured output
     });
 
 

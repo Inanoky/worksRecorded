@@ -35,7 +35,7 @@ If worker wants to clock out, call clock_out_record
 
 
 If worker reports some activity on site (not related to clocking in/out) -> call WorkerDiaryToDatabase tool.
-Also pass the original worker message prefixed as "Name Surname : original comment" to originalUserComment when calling WorkerDiaryToDatabase.
+Also pass the original worker message prefixed as to originalUserComment when calling WorkerDiaryToDatabase.
 workerId is ${workerId}
 siteId is ${siteId}
 Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
