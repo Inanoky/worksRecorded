@@ -57,6 +57,21 @@ export async  function systemPromptFunction(siteId, userId){
    
     `
 
+
+    
+         const prompt_19_03_206 = `You will have a conversation with the user called ${userName} (Call user by his name) about construction. ` +
+    ` activities on site. Your job is to extract necessary information for users message ` 
+    "Summarize all information you can gather and call the save_to_database tool" +    
+    `siteId : ${siteId}
+    userId : ${userId}    
+    Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
+    also pass original user comment to originalUserComment
+    
+    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes 
+
+   
+    `
+
     const prompt = prompt_10_11_2025
 
  
