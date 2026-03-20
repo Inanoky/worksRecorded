@@ -57,10 +57,13 @@ function getBasicAuthHeader() {
 }
 
 export async function getUserBisTokenByUserId(userId: string) {
-  const rows = await prisma.$queryRawUnsafe<UserBisTokenRow[]>(
-    'SELECT id, "accessToken", "refreshToken", "updatedAt", "userId" FROM "BisToken" WHERE "userId" = $1 ORDER BY "updatedAt" DESC LIMIT 1',
-    userId,
-  );
+  const rows = await prisma.$queryRaw<UserBisTokenRow[]>`
+    SELECT id, "accessToken", "refreshToken", "updatedAt", "userId"
+    FROM "BisToken"
+    WHERE "userId" = ${userId}
+    ORDER BY "updatedAt" DESC
+    LIMIT 1
+  `;
 
   return rows[0] ?? null;
 }
@@ -71,38 +74,38 @@ export async function getCurrentUserBisToken() {
 }
 
 export async function upsertUserBisToken(userId: string, accessToken: string, refreshToken: string) {
-  await prisma.$executeRawUnsafe('DELETE FROM "BisToken" WHERE "userId" = $1', userId);
-  await prisma.$executeRawUnsafe(
-    'INSERT INTO "BisToken" (id, "accessToken", "refreshToken", "updatedAt", "userId") VALUES ($1, $2, $3, NOW(), $4)',
-    crypto.randomUUID(),
-    accessToken,
-    refreshToken,
-    userId,
-  );
+  await prisma.$executeRaw`DELETE FROM "BisToken" WHERE "userId" = ${userId}`;
+  await prisma.$executeRaw`
+    INSERT INTO "BisToken" (id, "accessToken", "refreshToken", "updatedAt", "userId")
+    VALUES (${crypto.randomUUID()}, ${accessToken}, ${refreshToken}, NOW(), ${userId})
+  `;
 }
 
 export async function deleteUserBisTokens(userId: string) {
-  await prisma.$executeRawUnsafe('DELETE FROM "BisToken" WHERE "userId" = $1', userId);
+  await prisma.$executeRaw`DELETE FROM "BisToken" WHERE "userId" = ${userId}`;
 }
 
 export async function getSiteBisConfig(siteId: string) {
-  const rows = await prisma.$queryRawUnsafe<SiteBisConfigRow[]>(
-    'SELECT id, "bisCaseId", "bisCaseNumber", "bisCaseName", "bisCaseStage" FROM "Site" WHERE id = $1 LIMIT 1',
-    siteId,
-  );
+  const rows = await prisma.$queryRaw<SiteBisConfigRow[]>`
+    SELECT id, "bisCaseId", "bisCaseNumber", "bisCaseName", "bisCaseStage"
+    FROM "Site"
+    WHERE id = ${siteId}
+    LIMIT 1
+  `;
 
   return rows[0] ?? null;
 }
 
 export async function setSiteBisConfig(siteId: string, config: Omit<SiteBisConfigRow, "id">) {
-  await prisma.$executeRawUnsafe(
-    'UPDATE "Site" SET "bisCaseId" = $2, "bisCaseNumber" = $3, "bisCaseName" = $4, "bisCaseStage" = $5 WHERE id = $1',
-    siteId,
-    config.bisCaseId,
-    config.bisCaseNumber,
-    config.bisCaseName,
-    config.bisCaseStage,
-  );
+  await prisma.$executeRaw`
+    UPDATE "Site"
+    SET
+      "bisCaseId" = ${config.bisCaseId},
+      "bisCaseNumber" = ${config.bisCaseNumber},
+      "bisCaseName" = ${config.bisCaseName},
+      "bisCaseStage" = ${config.bisCaseStage}
+    WHERE id = ${siteId}
+  `;
 }
 
 export async function requireBisAccessTokenForSite(siteId: string) {
