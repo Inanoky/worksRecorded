@@ -147,7 +147,7 @@ export async function requireBisAccessTokenForSite(siteId: string) {
 
 export async function fetchBisAvailableCases(accessToken: string) {
   const response = await fetch(
-    `${getBisBaseUrl()}/bisp/api/portal/authorizations/bis_cases`,
+    `${getBisBaseUrl()}/bisp/api/portal/bis_cases?page[number]=1&page[size]=200`,
     {
       headers: {
         Accept: "application/vnd.api+json",
@@ -168,8 +168,13 @@ export async function fetchBisAvailableCases(accessToken: string) {
 
   return (Array.isArray(json?.data) ? json.data : []).map((item: any) => ({
     id: String(item?.id ?? ""),
-    caseNumber: item?.attributes?.case_number ?? null,
-    constructionName: item?.attributes?.construction_name ?? null,
+    caseNumber:
+      item?.attributes?.bis_case_number ?? item?.attributes?.case_number ?? null,
+    constructionName:
+      item?.attributes?.bis_case_name ??
+      item?.attributes?.construction_name ??
+      item?.attributes?.construction_board_name ??
+      null,
     stageName: item?.attributes?.stage_name ?? null,
   }));
 }
