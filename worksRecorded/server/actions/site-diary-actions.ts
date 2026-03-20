@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/utils/db";
+import { requireBisAccessTokenForSite, getBisBaseUrl } from "@/server/actions/BIS/service";
 import { requireUser } from "@/lib/utils/requireUser";
 import { parseExcelToTree } from "@/server/ai-flows/agents/settings/schema-upload/agent"; // Optional: if you want to refresh data on page
 import { validateExcel } from "@/lib/utils/SiteDiary/Settings/validateSchema";
@@ -421,17 +422,10 @@ export type BisPerformedWorkAttachmentSelection = {
   url: string;
 };
 
-export async function getBisCaseAvailableMaterials() {
-  const row = await prisma.bisToken.findFirst({
-    orderBy: { updatedAt: "desc" },
-    select: { accessToken: true },
-  });
+export async function getBisCaseAvailableMaterials(siteId: string) {
+  const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(siteId);
 
-  const accessToken = row?.accessToken;
-  if (!accessToken) throw new Error("No BIS access token found");
-
-  const baseUrl = "https://test.bis.gov.lv";
-  const bisCase = process.env.BIS_CASE_ID ?? "384792";
+  const baseUrl = getBisBaseUrl();
 
   // 12I7-092: received construction products list
   const receivedResponse = await fetch(
@@ -602,13 +596,16 @@ export async function sendSiteDiaryRecordToBis(
 ) {
   if (!recordId) throw new Error("Missing site diary record id");
 
-  const row = await prisma.bisToken.findFirst({
-    orderBy: { updatedAt: "desc" },
-    select: { accessToken: true },
+  const recordSite = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true },
   });
 
-  const accessToken = row?.accessToken;
-  if (!accessToken) throw new Error("No BIS access token found");
+  if (!recordSite?.siteId) {
+    throw new Error("Site diary record is not assigned to a site");
+  }
+
+  const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(recordSite.siteId);
 
   const diaryRecord = await prisma.sitediaryrecords.findUnique({
     where: { id: recordId },
@@ -627,8 +624,7 @@ export async function sendSiteDiaryRecordToBis(
     throw new Error("Site diary record not found");
   }
 
-  const baseUrl = "https://test.bis.gov.lv";
-  const bisCase = process.env.BIS_CASE_ID ?? "384792";
+  const baseUrl = getBisBaseUrl();
 
   const eventDate = (diaryRecord.Date ?? new Date()).toISOString().slice(0, 10);
   const eventTimeFrom = new Date().toTimeString().slice(0, 5);

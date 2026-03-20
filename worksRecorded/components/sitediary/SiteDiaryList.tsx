@@ -170,8 +170,10 @@ function toLocalDateKey(d: Date) {
 
 export default function SiteDiaryCalendar({
   siteId,
+  bisEnabled = true,
 }: {
   siteId: string | null;
+  bisEnabled?: boolean;
 }) {
   const today = new Date();
 
@@ -519,6 +521,10 @@ export default function SiteDiaryCalendar({
 
 
   const openBisPicker = async (row: DiaryRow) => {
+    if (!bisEnabled) {
+      return;
+    }
+
     if (!row.id) {
       toast.error("This record cannot be sent because it has no id.");
       return;
@@ -535,7 +541,7 @@ export default function SiteDiaryCalendar({
 
     try {
       const [materials, attachments] = await Promise.all([
-        getBisCaseAvailableMaterials(),
+        getBisCaseAvailableMaterials(siteId),
         getSiteGalleryAttachments(siteId),
       ]);
 
@@ -1083,6 +1089,7 @@ export default function SiteDiaryCalendar({
                                 </p>
                               </div>
 
+                              {bisEnabled ? (
                               <div className="mt-2">
                                 <Button
                                   size="sm"
@@ -1109,6 +1116,7 @@ export default function SiteDiaryCalendar({
                                   )}
                                 </Button>
                               </div>
+                              ) : null}
 
                               {r.originalUserComment ? (
                                 <div className="mt-2">
@@ -1169,12 +1177,14 @@ export default function SiteDiaryCalendar({
                                       );
                                     })}
 
+{bisEnabled ? (
                                     <TableHead
                                       className="text-center"
                                       style={{ width: 140 }}
                                     >
                                       BIS
                                     </TableHead>
+                                  ) : null}
 
                                     <TableHead
                                       className="text-center"
@@ -1224,6 +1234,7 @@ export default function SiteDiaryCalendar({
                                         );
                                       })}
 
+{bisEnabled ? (
                                       <TableCell
                                         className="align-top px-3 py-2 text-center"
                                         style={{ width: 140 }}
@@ -1257,6 +1268,7 @@ export default function SiteDiaryCalendar({
                                           )}
                                         </Button>
                                       </TableCell>
+                                      ) : null}
 
                                       <TableCell
                                         className="align-top px-3 py-2 text-center"
@@ -1321,6 +1333,7 @@ export default function SiteDiaryCalendar({
           <div className="grid gap-3" />
         </DialogWindow>
 
+        {bisEnabled ? (
         <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
           <DialogContent className="w-[96vw] max-w-5xl max-h-[92vh] overflow-y-auto">
             <DialogHeader>
@@ -1451,6 +1464,7 @@ export default function SiteDiaryCalendar({
             )}
           </DialogContent>
         </Dialog>
+        ) : null}
 
         <Dialog open={attachmentGalleryOpen} onOpenChange={setAttachmentGalleryOpen}>
           <DialogContent className="w-[98vw] max-w-[98vw] lg:max-w-7xl max-h-[94vh] overflow-y-auto">
