@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
-import { deleteUserBisTokens, getSiteBisConfig, getUserBisTokenByUserId, setSiteBisConfig } from "@/server/actions/BIS/service";
+import { deleteUserBisTokens, exchangeBisAuthorizationCode, getSiteBisConfig, getUserBisTokenByUserId, setSiteBisConfig, upsertUserBisToken } from "@/server/actions/BIS/service";
 
 export async function disconnectBisAction(formData: FormData) {
   const siteId = String(formData.get("siteId") ?? "");
@@ -60,4 +60,29 @@ export async function assignBisCaseToSiteAction(formData: FormData) {
   revalidatePath(`/dashboard/sites/${siteId}/dashboard`);
   revalidatePath(`/dashboard/sites/${siteId}/BIS`);
   redirect(`/dashboard/sites/${siteId}/settings?bis=case-selected`);
+}
+
+export async function completeBisManualAuthorizationAction(formData: FormData) {
+  const siteId = String(formData.get("siteId") ?? "");
+  const user = await requireUser();
+
+  if (!siteId) {
+    throw new Error("Missing site id");
+  }
+
+  await orgCheck(user.id, siteId);
+
+  const authorizationCode = process.env.BIS_AUTHORIZATION_CODE;
+
+  if (!authorizationCode) {
+    throw new Error("Missing BIS_AUTHORIZATION_CODE in environment");
+  }
+
+  const tokens = await exchangeBisAuthorizationCode(authorizationCode);
+  await upsertUserBisToken(user.id, tokens.access_token, tokens.refresh_token);
+
+  revalidatePath(`/dashboard/sites/${siteId}/settings`);
+  revalidatePath(`/dashboard/sites/${siteId}/dashboard`);
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+  redirect(`/dashboard/sites/${siteId}/settings?bis=connected`);
 }

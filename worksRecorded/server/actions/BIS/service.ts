@@ -49,6 +49,18 @@ export function getBisRedirectUri() {
   return process.env.BIS_REDIRECT_URI ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://localhost:3000/";
 }
 
+export function getBisAuthorizeUrl(state?: string) {
+  const authorizeUrl = new URL(`${getBisBaseUrl()}/bisp/api/auth/oauth2.0/authorize`);
+  authorizeUrl.searchParams.set("response_type", "code");
+  authorizeUrl.searchParams.set("client_id", getBisClientId());
+  authorizeUrl.searchParams.set("redirect_uri", getBisRedirectUri());
+  authorizeUrl.searchParams.set("scope", getBisScopes());
+  if (state) {
+    authorizeUrl.searchParams.set("state", state);
+  }
+  return authorizeUrl.toString();
+}
+
 function getBasicAuthHeader() {
   return `Basic ${Buffer.from(`${getBisClientId()}:${getBisClientSecret()}`).toString("base64")}`;
 }

@@ -133,6 +133,7 @@ export default async function SettingsSiteRoute({
         }}
         availableCases={availableBisCases}
         statusMessage={statusMessage}
+        hasManualAuthorizationCode={Boolean(process.env.BIS_AUTHORIZATION_CODE)}
       />
 
       {/* Edit Site Info Card */}

@@ -2,10 +2,7 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import {
-  getBisBaseUrl,
-  getBisClientId,
-  getBisRedirectUri,
-  getBisScopes,
+  getBisAuthorizeUrl,
 } from "@/server/actions/BIS/service";
 
 export async function GET(request: NextRequest) {
@@ -38,12 +35,5 @@ export async function GET(request: NextRequest) {
     maxAge: 60 * 10,
   });
 
-  const authorizeUrl = new URL(`${getBisBaseUrl()}/bisp/api/auth/oauth2.0/authorize`);
-  authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("client_id", getBisClientId());
-  authorizeUrl.searchParams.set("redirect_uri", getBisRedirectUri());
-  authorizeUrl.searchParams.set("scope", getBisScopes());
-  authorizeUrl.searchParams.set("state", state);
-
-  return NextResponse.redirect(authorizeUrl);
+  return NextResponse.redirect(getBisAuthorizeUrl(state));
 }

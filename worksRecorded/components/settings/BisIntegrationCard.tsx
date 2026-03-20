@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { assignBisCaseToSiteAction, disconnectBisAction } from "@/server/actions/bis-settings-actions";
+import { getBisAuthorizeUrl } from "@/server/actions/BIS/service";
+import { assignBisCaseToSiteAction, completeBisManualAuthorizationAction, disconnectBisAction } from "@/server/actions/bis-settings-actions";
 
 type BisCaseOption = {
   id: string;
@@ -16,6 +17,7 @@ export function BisIntegrationCard({
   selectedCase,
   availableCases,
   statusMessage,
+  hasManualAuthorizationCode,
 }: {
   siteId: string;
   isConnected: boolean;
@@ -27,10 +29,9 @@ export function BisIntegrationCard({
   };
   availableCases: BisCaseOption[];
   statusMessage?: string | null;
+  hasManualAuthorizationCode: boolean;
 }) {
-  const connectHref = `/api/bis/connect?siteId=${encodeURIComponent(siteId)}&returnTo=${encodeURIComponent(
-    `/dashboard/sites/${siteId}/settings`,
-  )}`;
+  const manualAuthorizeHref = getBisAuthorizeUrl("manual-bis-connect");
 
   return (
     <Card className="mb-6">
@@ -58,9 +59,32 @@ export function BisIntegrationCard({
 
           <div className="mt-4 flex flex-wrap gap-3">
             {!isConnected ? (
-              <Button asChild>
-                <Link href={connectHref}>Connect BIS</Link>
-              </Button>
+              <div className="space-y-3">
+                <Button asChild>
+                  <Link href={manualAuthorizeHref} target="_blank" rel="noreferrer">Open BIS authorization</Link>
+                </Button>
+
+                <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">Manual BIS connection</p>
+                  <ol className="mt-2 list-decimal space-y-1 pl-4">
+                    <li>Open BIS authorization in a new tab and complete the consent flow.</li>
+                    <li>Copy the <code>code</code> value from the final redirected URL.</li>
+                    <li>Set <code>BIS_AUTHORIZATION_CODE</code> in your environment to that copied value and restart the app.</li>
+                    <li>Click the button below to exchange that code for BIS tokens for your current user.</li>
+                  </ol>
+                </div>
+
+                <form action={completeBisManualAuthorizationAction}>
+                  <input type="hidden" name="siteId" value={siteId} />
+                  <Button type="submit" variant="secondary" disabled={!hasManualAuthorizationCode}>
+                    Complete BIS connection
+                  </Button>
+                </form>
+
+                {!hasManualAuthorizationCode ? (
+                  <p className="text-xs text-muted-foreground">Set <code>BIS_AUTHORIZATION_CODE</code> in the environment before completing the connection.</p>
+                ) : null}
+              </div>
             ) : (
               <form action={disconnectBisAction}>
                 <input type="hidden" name="siteId" value={siteId} />
