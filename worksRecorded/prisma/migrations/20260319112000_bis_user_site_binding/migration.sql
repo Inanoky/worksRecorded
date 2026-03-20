@@ -1,0 +1,21 @@
+ALTER TABLE "BisToken"
+ADD COLUMN IF NOT EXISTS "userId" TEXT;
+
+ALTER TABLE "Site"
+ADD COLUMN IF NOT EXISTS "bisCaseId" TEXT,
+ADD COLUMN IF NOT EXISTS "bisCaseNumber" TEXT,
+ADD COLUMN IF NOT EXISTS "bisCaseName" TEXT,
+ADD COLUMN IF NOT EXISTS "bisCaseStage" TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'BisToken_userId_fkey'
+  ) THEN
+    ALTER TABLE "BisToken"
+    ADD CONSTRAINT "BisToken_userId_fkey"
+    FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "BisToken_userId_key" ON "BisToken"("userId");
