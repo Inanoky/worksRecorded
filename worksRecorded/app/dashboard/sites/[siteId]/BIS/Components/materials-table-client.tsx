@@ -52,8 +52,11 @@ type MaterialRow = {
 }
 
 type Props = {
+  siteId: string
+  bisEnabled: boolean
   materials: MaterialRow[]
   sendToBis: (
+    siteId: string,
     recordId: string,
     quantity: number,
     construction_material_id: string,
@@ -96,6 +99,8 @@ function formatQty(value: number | null) {
 }
 
 export default function MaterialsTableClient({
+  siteId,
+  bisEnabled,
   materials,
   sendToBis,
   updateMaterialConfiguration,
@@ -182,7 +187,7 @@ export default function MaterialsTableClient({
     categoryId: string,
     sourcePhoto?: string
   ) => {
-    const result = await sendToBis(recordId, quantity, categoryId, sourcePhoto)
+    const result = await sendToBis(siteId, recordId, quantity, categoryId, sourcePhoto)
 
     const bisId = result?.data?.id
 
@@ -261,6 +266,8 @@ export default function MaterialsTableClient({
 
     return { total, sent, unsent, totalCost }
   }, [rows])
+
+  const showBisControls = bisEnabled
 
   return (
     <div className="space-y-4">
@@ -376,7 +383,7 @@ export default function MaterialsTableClient({
                 <TableHead>Photo</TableHead>
                 <TableHead>Material</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>BIS material configuration</TableHead>
+                {showBisControls ? <TableHead>BIS material configuration</TableHead> : null}
                 <TableHead>Cost code</TableHead>
                 <TableHead>Qty</TableHead>
                 <TableHead>Unit</TableHead>
@@ -384,14 +391,14 @@ export default function MaterialsTableClient({
                 <TableHead>Invoice</TableHead>
                 <TableHead>Invoice date</TableHead>
                 <TableHead>BIS ID</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                {showBisControls ? <TableHead className="text-right">Action</TableHead> : null}
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="py-12 text-center">
+                  <TableCell colSpan={showBisControls ? 12 : 10} className="py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-medium">No materials found</p>
                       <p className="text-sm text-muted-foreground">
@@ -456,6 +463,7 @@ export default function MaterialsTableClient({
                         )}
                       </TableCell>
 
+                      {showBisControls ? (
                       <TableCell>
                         <MaterialConfigSelect
                           recordId={r.id}
@@ -464,6 +472,7 @@ export default function MaterialsTableClient({
                           onSave={handleConfigChange}
                         />
                       </TableCell>
+                      ) : null}
 
                       <TableCell>
   <CostCodeSelect
@@ -480,6 +489,7 @@ export default function MaterialsTableClient({
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
                       <TableCell className="font-mono text-xs">{r.BISId || "—"}</TableCell>
 
+                      {showBisControls ? (
                       <TableCell className="text-right">
                         {!isSent ? (
                           <div className="flex flex-col items-end gap-1">
@@ -497,6 +507,7 @@ export default function MaterialsTableClient({
                           </Button>
                         )}
                       </TableCell>
+                      ) : null}
                     </TableRow>
                   )
                 })
