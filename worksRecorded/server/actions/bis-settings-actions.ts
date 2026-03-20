@@ -13,6 +13,12 @@ export async function disconnectBisAction(formData: FormData) {
 
   if (siteId) {
     await orgCheck(user.id, siteId);
+    await setSiteBisConfig(siteId, {
+      bisCaseId: null,
+      bisCaseNumber: null,
+      bisCaseName: null,
+      bisCaseStage: null,
+    });
     revalidatePath(`/dashboard/sites/${siteId}/settings`);
     revalidatePath(`/dashboard/sites/${siteId}/dashboard`);
     revalidatePath(`/dashboard/sites/${siteId}/BIS`);

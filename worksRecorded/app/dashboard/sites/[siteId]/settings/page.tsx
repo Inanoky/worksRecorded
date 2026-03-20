@@ -100,7 +100,7 @@ export default async function SettingsSiteRoute({
 
   const statusMessageMap: Record<string, string> = {
     connected: "BIS authorization completed successfully.",
-    disconnected: "BIS access tokens were removed. Existing BIS-linked records were kept.",
+    disconnected: "BIS access tokens were removed and this site's BIS case selection was cleared. Existing BIS-linked records were kept.",
     "case-selected": "BIS case was saved for this site.",
     error: bisMessage ? `BIS connection failed: ${bisMessage}` : "BIS connection failed.",
   };

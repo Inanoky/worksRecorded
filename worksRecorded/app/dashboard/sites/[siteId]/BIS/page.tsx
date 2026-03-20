@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/utils/db";
+import { requireUser } from "@/lib/utils/requireUser";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MaterialsTableClient from "./Components/materials-table-client";
-import { getBisBaseUrl, getSiteBisConfig, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
+import { getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
 
 async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId: string) {
   const baseUrl = getBisBaseUrl();
@@ -157,8 +158,12 @@ export default async function MaterialsPage({
   params: Promise<{ siteId: string }>;
 }) {
   const { siteId } = await params;
+  const user = await requireUser();
 
-  const site = await getSiteBisConfig(siteId);
+  const [site, userBisToken] = await Promise.all([
+    getSiteBisConfig(siteId),
+    getUserBisTokenByUserId(user.id),
+  ]);
 
   const materials = await prisma.bISmaterialRecords.findMany({
     where: { siteId },
@@ -180,7 +185,7 @@ export default async function MaterialsPage({
     },
   });
 
-  const bisEnabled = Boolean(site?.bisCaseId);
+  const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
 
   if (!bisEnabled) {
     return (
