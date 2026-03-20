@@ -37,8 +37,21 @@ export default function middleware(req: NextRequest) {
     return dashboardMiddleware(req);
   }
 
-  // FORCE default language to EN on root
+  // Let BIS OAuth callbacks on the root path reach the callback handler before locale redirects.
   if (pathname === "/") {
+    const hasBisAuthParams =
+      req.nextUrl.searchParams.has("code") ||
+      req.nextUrl.searchParams.has("state") ||
+      req.nextUrl.searchParams.has("error");
+
+    if (hasBisAuthParams) {
+      const callbackUrl = new URL("/api/bis/callback", req.url);
+      req.nextUrl.searchParams.forEach((value, key) => {
+        callbackUrl.searchParams.set(key, value);
+      });
+      return NextResponse.redirect(callbackUrl);
+    }
+
     return NextResponse.redirect(new URL("/en/Landing", req.url));
   }
 
