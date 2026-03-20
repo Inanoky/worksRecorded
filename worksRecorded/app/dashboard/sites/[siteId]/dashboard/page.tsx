@@ -17,7 +17,7 @@ import TimesheetMockupF17 from "@/components/mockups/TimesheetMockupF17";
 import WeeklyVehicleReportsMockupF25 from "@/components/mockups/vehicleReportMockup";
 import ElectricalInstallationsInspectionReportMockup from "@/components/mockups/inspectiosnReportMockup";
 import InspectionReportsSummaryMockup from "@/components/mockups/inspectonReportsdashboard";
-import { getSiteBisConfig } from "@/server/actions/BIS/service";
+import { getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
 
 export const maxDuration = 800;
 
@@ -56,6 +56,7 @@ export default async function InvoiceRoute({
     currentWeekData,
     workersOnSite,
     siteBisStatus,
+    userBisToken,
   ] = await Promise.all([
     getInvoicesFromDB(siteId),
     getInvoiceItemsFromDB(siteId),
@@ -65,6 +66,7 @@ export default async function InvoiceRoute({
     getCurrentWeekMetrics(siteId),
     getCurrentWorkersOnSite(siteId),
     getSiteBisConfig(siteId),
+    getUserBisTokenByUserId(user.id),
   ]);
 
   const filteredInvoiceItems = invoiceItems.filter(
@@ -87,7 +89,7 @@ export default async function InvoiceRoute({
         />
       </div>
 
-      <SiteDiaryList siteId={siteId} bisEnabled={Boolean(siteBisStatus?.bisCaseId)} />
+      <SiteDiaryList siteId={siteId} bisEnabled={Boolean(siteBisStatus?.bisCaseId && userBisToken?.accessToken)} />
       <AiWidgetRag siteId={siteId} />
     </>
   );
