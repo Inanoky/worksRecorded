@@ -147,7 +147,7 @@ export async function requireBisAccessTokenForSite(siteId: string) {
 
 export async function fetchBisAvailableCases(accessToken: string) {
   const response = await fetch(
-    `${getBisBaseUrl()}/bisp/api/portal/authorizations/available_bis_cases?page[number]=1&page[size]=200`,
+    `${getBisBaseUrl()}/bisp/api/portal/authorizations/bis_cases`,
     {
       headers: {
         Accept: "application/vnd.api+json",

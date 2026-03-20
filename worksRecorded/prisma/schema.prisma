@@ -90,6 +90,7 @@ model Site {
   User              User?              @relation(fields: [userId], references: [id])
   userId            String?
   reminders       String?
+
   bisCaseId        String?
   bisCaseNumber    String?
   bisCaseName      String?
@@ -230,11 +231,10 @@ model sitediaryrecords {
   originalUserComment  String?
   Units           String?
   Amounts         Float?
+  BISId String?
   WorkersInvolved Int?
   TimeInvolved    Float?
-  BISId String?
   Photos          String[]
-  BISId           String?
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   
