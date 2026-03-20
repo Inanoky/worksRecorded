@@ -8,10 +8,12 @@ import {
   CheckCircle2,
   Clock3,
   Filter,
+  ShieldCheck,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -28,12 +30,28 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import SendToBisButton from "./send-to-bis-button"
 import MaterialConfigSelect, {
   categories,
   NO_MATCH_VALUE,
 } from "./material-config-select"
 import CostCodeSelect from "./cost-code-select"
+
+type BisApprover = {
+  memberId: string
+  memberType: string | null
+  level: number | null
+  name: string | null
+  status: string | null
+}
 
 type MaterialRow = {
   id: string
@@ -49,6 +67,8 @@ type MaterialRow = {
   costCode: string | null
   sourcePhoto: string | null
   BISId: string | null
+  bisStatus: string | null
+  bisApprovers: BisApprover[]
 }
 
 type Props = {
@@ -62,6 +82,16 @@ type Props = {
     construction_material_id: string,
     sourcePhoto?: string
   ) => Promise<any>
+  getPossibleApprovers: (siteId: string, bisId: string) => Promise<BisApprover[]>
+  submitToApproval: (
+    siteId: string,
+    bisId: string,
+    approvers: Array<{
+      memberId: string
+      memberType: string | null
+      level: number | null
+    }>
+  ) => Promise<{ status: string }>
   updateMaterialConfiguration: (
     recordId: string,
     config: {
@@ -103,9 +133,11 @@ export default function MaterialsTableClient({
   bisEnabled,
   materials,
   sendToBis,
+  getPossibleApprovers,
+  submitToApproval,
   updateMaterialConfiguration,
   updateCostCode,
-}: Props)  {
+}: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
@@ -113,38 +145,64 @@ export default function MaterialsTableClient({
   const [sortBy, setSortBy] = React.useState<
     "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
   >("invoiceDate_desc")
+  const [approverDialogOpen, setApproverDialogOpen] = React.useState(false)
+  const [approverDialogRow, setApproverDialogRow] = React.useState<MaterialRow | null>(null)
+  const [possibleApprovers, setPossibleApprovers] = React.useState<BisApprover[]>([])
+  const [selectedApproverKeys, setSelectedApproverKeys] = React.useState<string[]>([])
+  const [approvalLoading, setApprovalLoading] = React.useState(false)
 
   React.useEffect(() => {
     setRows(materials)
   }, [materials])
 
-
-  const handleCostCodeChange = async (
-  recordId: string,
-  costCode: string | null
-) => {
-  const previousRows = rows
-
-  setRows((current) =>
-    current.map((row) =>
-      row.id === recordId
-        ? {
-            ...row,
-            costCode,
-          }
-        : row
-    )
+  const approverKey = React.useCallback(
+    (approver: BisApprover) =>
+      `${approver.memberId}:${approver.memberType ?? ""}:${approver.level ?? ""}`,
+    [],
   )
 
-  try {
-    await updateCostCode(recordId, costCode)
-    return { success: true as const }
-  } catch (error) {
-    console.error(error)
-    setRows(previousRows)
-    throw error
+  const defaultApproverKeys = React.useCallback(
+    (approvers: BisApprover[]) => {
+      const firstPerLevel = new Map<string, string>()
+
+      for (const approver of approvers) {
+        const levelKey = String(approver.level ?? "")
+        if (!firstPerLevel.has(levelKey)) {
+          firstPerLevel.set(levelKey, approverKey(approver))
+        }
+      }
+
+      return Array.from(firstPerLevel.values())
+    },
+    [approverKey],
+  )
+
+  const handleCostCodeChange = async (
+    recordId: string,
+    costCode: string | null,
+  ) => {
+    const previousRows = rows
+
+    setRows((current) =>
+      current.map((row) =>
+        row.id === recordId
+          ? {
+              ...row,
+              costCode,
+            }
+          : row,
+      ),
+    )
+
+    try {
+      await updateCostCode(recordId, costCode)
+      return { success: true as const }
+    } catch (error) {
+      console.error(error)
+      setRows(previousRows)
+      throw error
+    }
   }
-}
 
   const handleConfigChange = async (
     recordId: string,
@@ -153,7 +211,7 @@ export default function MaterialsTableClient({
       categoryName: string
       measurementUnitId: string
       measurementUnit: string
-    }
+    },
   ) => {
     const previousRows = rows
 
@@ -167,8 +225,8 @@ export default function MaterialsTableClient({
               measurementUnitId: config.measurementUnitId || null,
               measurementUnit: config.measurementUnit || null,
             }
-          : row
-      )
+          : row,
+      ),
     )
 
     try {
@@ -185,11 +243,11 @@ export default function MaterialsTableClient({
     recordId: string,
     quantity: number,
     categoryId: string,
-    sourcePhoto?: string
+    sourcePhoto?: string,
   ) => {
     const result = await sendToBis(siteId, recordId, quantity, categoryId, sourcePhoto)
-
     const bisId = result?.data?.id
+    const bisStatus = result?.data?.attributes?.status ?? "draft"
 
     if (bisId) {
       setRows((current) =>
@@ -197,14 +255,69 @@ export default function MaterialsTableClient({
           row.id === recordId
             ? {
                 ...row,
-                BISId: bisId,
+                BISId: String(bisId),
+                bisStatus: String(bisStatus),
+                bisApprovers: [],
               }
-            : row
-        )
+            : row,
+        ),
       )
     }
 
     return result
+  }
+
+  const openApproverDialog = async (row: MaterialRow) => {
+    if (!row.BISId) return
+
+    const approvers = await getPossibleApprovers(siteId, row.BISId)
+    setPossibleApprovers(approvers)
+    setSelectedApproverKeys(defaultApproverKeys(approvers))
+    setApproverDialogRow(row)
+    setApproverDialogOpen(true)
+  }
+
+  const submitApproval = async () => {
+    if (!approverDialogRow?.BISId) return
+
+    const approvers = possibleApprovers.filter((approver) =>
+      selectedApproverKeys.includes(approverKey(approver)),
+    )
+
+    setApprovalLoading(true)
+    try {
+      const result = await submitToApproval(
+        siteId,
+        approverDialogRow.BISId,
+        approvers.map((approver) => ({
+          memberId: approver.memberId,
+          memberType: approver.memberType,
+          level: approver.level,
+        })),
+      )
+
+      setRows((current) =>
+        current.map((row) =>
+          row.id === approverDialogRow.id
+            ? {
+                ...row,
+                bisStatus: result.status,
+                bisApprovers: approvers.map((approver) => ({
+                  ...approver,
+                  status: "pending",
+                })),
+              }
+            : row,
+        ),
+      )
+
+      setApproverDialogOpen(false)
+      setApproverDialogRow(null)
+      setPossibleApprovers([])
+      setSelectedApproverKeys([])
+    } finally {
+      setApprovalLoading(false)
+    }
   }
 
   const filteredMaterials = React.useMemo(() => {
@@ -220,6 +333,7 @@ export default function MaterialsTableClient({
           m.invoiceNr,
           m.costCode,
           m.BISId,
+          m.bisStatus,
         ]
           .filter(Boolean)
           .some((v) => String(v).toLowerCase().includes(q))
@@ -302,7 +416,7 @@ export default function MaterialsTableClient({
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search material, invoice, BIS configuration..."
+              placeholder="Search material, invoice, warehouse or BIS data..."
               className="pl-9"
             />
           </div>
@@ -323,7 +437,7 @@ export default function MaterialsTableClient({
 
           <Select value={configFilter} onValueChange={setConfigFilter}>
             <SelectTrigger>
-              <SelectValue placeholder="BIS material configuration" />
+              <SelectValue placeholder="Warehouse material configuration" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All configurations</SelectItem>
@@ -350,7 +464,7 @@ export default function MaterialsTableClient({
                   | "invoiceDate_desc"
                   | "invoiceDate_asc"
                   | "name_asc"
-                  | "quantity_desc"
+                  | "quantity_desc",
               )
             }
           >
@@ -412,6 +526,16 @@ export default function MaterialsTableClient({
                   const isSent = !!r.BISId
                   const hasValidConfiguration =
                     !!r.categoryId && r.categoryId !== NO_MATCH_VALUE
+                  const normalizedStatus = (r.bisStatus ?? "").toLowerCase()
+                  const isApproved = normalizedStatus === "approved"
+                  const isAwaitingApproval = [
+                    "submitted_to_approve",
+                    "submitted",
+                    "pending",
+                    "pending_approval",
+                    "on_approval",
+                    "approval_in_progress",
+                  ].includes(normalizedStatus)
 
                   return (
                     <TableRow key={r.id} className="align-middle">
@@ -450,10 +574,20 @@ export default function MaterialsTableClient({
                       </TableCell>
 
                       <TableCell>
-                        {isSent ? (
+                        {isApproved ? (
                           <Badge className="gap-1 bg-green-600 text-white hover:bg-green-600">
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            Approved
+                          </Badge>
+                        ) : isAwaitingApproval ? (
+                          <Badge className="gap-1 bg-blue-600 text-white hover:bg-blue-600">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            Approval pending
+                          </Badge>
+                        ) : isSent ? (
+                          <Badge className="gap-1 bg-amber-600 text-white hover:bg-amber-600">
                             <CheckCircle2 className="h-3.5 w-3.5" />
-                            Sent
+                            Sent to BIS
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="gap-1">
@@ -464,24 +598,24 @@ export default function MaterialsTableClient({
                       </TableCell>
 
                       {showBisControls ? (
-                      <TableCell>
-                        <MaterialConfigSelect
-                          recordId={r.id}
-                          value={hasValidConfiguration ? r.categoryId : null}
-                          disabled={isSent}
-                          onSave={handleConfigChange}
-                        />
-                      </TableCell>
+                        <TableCell>
+                          <MaterialConfigSelect
+                            recordId={r.id}
+                            value={hasValidConfiguration ? r.categoryId : null}
+                            disabled={isSent}
+                            onSave={handleConfigChange}
+                          />
+                        </TableCell>
                       ) : null}
 
                       <TableCell>
-  <CostCodeSelect
-    recordId={r.id}
-    value={r.costCode}
-    disabled={isSent}
-    onSave={handleCostCodeChange}
-  />
-</TableCell>
+                        <CostCodeSelect
+                          recordId={r.id}
+                          value={r.costCode}
+                          disabled={isSent}
+                          onSave={handleCostCodeChange}
+                        />
+                      </TableCell>
                       <TableCell>{formatQty(r.quantity)}</TableCell>
                       <TableCell>{r.measurementUnit || "—"}</TableCell>
                       <TableCell>{formatMoney(r.cost)}</TableCell>
@@ -490,23 +624,31 @@ export default function MaterialsTableClient({
                       <TableCell className="font-mono text-xs">{r.BISId || "—"}</TableCell>
 
                       {showBisControls ? (
-                      <TableCell className="text-right">
-                        {!isSent ? (
-                          <div className="flex flex-col items-end gap-1">
-                            <SendToBisButton
-                              recordId={r.id}
-                              quantity={r.quantity ?? 0}
-                              categoryId={hasValidConfiguration ? r.categoryId ?? "" : ""}
-                              sourcePhoto={r.sourcePhoto ?? ""}
-                              action={handleSendToBis}
-                            />
-                          </div>
-                        ) : (
-                          <Button size="sm" variant="outline" disabled>
-                            Already sent
-                          </Button>
-                        )}
-                      </TableCell>
+                        <TableCell className="text-right">
+                          {!isSent ? (
+                            <div className="flex flex-col items-end gap-1">
+                              <SendToBisButton
+                                recordId={r.id}
+                                quantity={r.quantity ?? 0}
+                                categoryId={hasValidConfiguration ? r.categoryId ?? "" : ""}
+                                sourcePhoto={r.sourcePhoto ?? ""}
+                                action={handleSendToBis}
+                              />
+                            </div>
+                          ) : !isApproved && !isAwaitingApproval ? (
+                            <Button
+                              size="sm"
+                              onClick={() => openApproverDialog(r)}
+                              className="bg-blue-600 text-white hover:bg-blue-700"
+                            >
+                              Approve
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="outline" disabled>
+                              {isApproved ? "Approved" : "Approval pending"}
+                            </Button>
+                          )}
+                        </TableCell>
                       ) : null}
                     </TableRow>
                   )
@@ -516,6 +658,77 @@ export default function MaterialsTableClient({
           </Table>
         </div>
       </div>
+
+      <Dialog
+        open={approverDialogOpen}
+        onOpenChange={(open) => {
+          setApproverDialogOpen(open)
+          if (!open) {
+            setApproverDialogRow(null)
+            setPossibleApprovers([])
+            setSelectedApproverKeys([])
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Choose BIS approvers</DialogTitle>
+            <DialogDescription>
+              Select the approvers for this warehouse record before sending it into the BIS approval flow.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
+            {possibleApprovers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No BIS approvers were returned for this record.
+              </p>
+            ) : (
+              possibleApprovers.map((approver) => {
+                const key = approverKey(approver)
+                const checked = selectedApproverKeys.includes(key)
+
+                return (
+                  <label key={key} className="flex items-start gap-3 rounded-lg border p-3">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(value) => {
+                        setSelectedApproverKeys((current) =>
+                          value
+                            ? [...current, key]
+                            : current.filter((item) => item !== key),
+                        )
+                      }}
+                    />
+                    <div className="space-y-1">
+                      <div className="font-medium">
+                        {approver.name || `Member ${approver.memberId}`}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {approver.memberType || "Unknown type"}
+                        {approver.level != null ? ` • Level ${approver.level}` : ""}
+                      </div>
+                    </div>
+                  </label>
+                )
+              })
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApproverDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={submitApproval}
+              disabled={approvalLoading || selectedApproverKeys.length === 0}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              {approvalLoading ? "Submitting..." : "Approve"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

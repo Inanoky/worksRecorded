@@ -4,6 +4,61 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MaterialsTableClient from "./Components/materials-table-client";
 import { getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
 
+type BisApprover = {
+  memberId: string;
+  memberType: string | null;
+  level: number | null;
+  name: string | null;
+  status: string | null;
+};
+
+async function fetchBisJson(path: string, accessToken: string, init?: RequestInit) {
+  const response = await fetch(`${getBisBaseUrl()}${path}`, {
+    ...init,
+    headers: {
+      Accept: "application/vnd.api+json",
+      ...(init?.body ? { "Content-Type": "application/vnd.api+json" } : {}),
+      Authorization: `Bearer ${accessToken}`,
+      ...(init?.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  const json = text ? JSON.parse(text) : {};
+
+  if (!response.ok) {
+    throw new Error(json?.errors?.[0]?.detail || json?.error || "BIS request failed");
+  }
+
+  return json;
+}
+
+async function fetchReceivedConstructionProductDetails(accessToken: string, bisCaseId: string, bisId: string) {
+  const [recordJson, approversJson] = await Promise.all([
+    fetchBisJson(`/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${bisId}`, accessToken),
+    fetchBisJson(`/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${bisId}/approvers`, accessToken),
+  ]);
+
+  const approvers = (Array.isArray(approversJson?.data) ? approversJson.data : []).map((item: any) => ({
+    memberId: String(item?.attributes?.member_id ?? item?.id ?? ""),
+    memberType: item?.attributes?.member_type ?? null,
+    level: item?.attributes?.level == null ? null : Number(item.attributes.level),
+    name:
+      item?.attributes?.member_name ??
+      item?.attributes?.name ??
+      item?.attributes?.full_name ??
+      item?.attributes?.approver_name ??
+      null,
+    status: item?.attributes?.status ?? null,
+  }));
+
+  return {
+    status: recordJson?.data?.attributes?.status ? String(recordJson.data.attributes.status) : null,
+    approvers,
+  };
+}
+
 async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId: string) {
   const baseUrl = getBisBaseUrl();
 
@@ -74,6 +129,73 @@ export async function updateCostCode(recordId: string, costCode: string | null) 
   });
 
   return { success: true };
+}
+
+export async function getPossibleWarehouseBisApprovers(siteId: string, bisId: string) {
+  "use server";
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+
+  const json = await fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${bisId}/possible_approvers`,
+    accessToken,
+  );
+
+  return (Array.isArray(json?.data) ? json.data : []).map((item: any) => ({
+    memberId: String(item?.attributes?.member_id ?? item?.id ?? ""),
+    memberType: item?.attributes?.member_type ?? null,
+    level: item?.attributes?.level == null ? null : Number(item.attributes.level),
+    name:
+      item?.attributes?.member_name ??
+      item?.attributes?.name ??
+      item?.attributes?.full_name ??
+      item?.attributes?.approver_name ??
+      null,
+    status: item?.attributes?.status ?? null,
+  }));
+}
+
+export async function submitWarehouseRecordToBisApproval(
+  siteId: string,
+  bisId: string,
+  approvers: Array<{ memberId: string; memberType: string | null; level: number | null }>,
+) {
+  "use server";
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+
+  if (!approvers.length) {
+    throw new Error("Select at least one approver");
+  }
+
+  const json = await fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${bisId}/submit_to_approve`,
+    accessToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        data: {
+          type: "received_construction_product",
+          relationships: {
+            approvers: {
+              data: approvers.map((approver) => ({
+                type: "approver",
+                attributes: {
+                  member_id: Number(approver.memberId),
+                  member_type: approver.memberType,
+                  level: approver.level,
+                },
+              })),
+            },
+          },
+        },
+      }),
+    },
+  );
+
+  return {
+    status: json?.data?.attributes?.status ? String(json.data.attributes.status) : "submitted_to_approve",
+  };
 }
 
 export async function sendToBis(
@@ -186,43 +308,72 @@ export default async function MaterialsPage({
   });
 
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
+  const materialsWithBisState = bisEnabled
+    ? await Promise.all(
+        materials.map(async (material) => {
+          if (!material.BISId) {
+            return {
+              ...material,
+              bisStatus: null,
+              bisApprovers: [],
+            };
+          }
 
-  if (!bisEnabled) {
-    return (
-      <div className="space-y-6 p-4 md:p-6">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">BIS Materials</h1>
-          <p className="text-sm text-muted-foreground">
-            Connect BIS and lock this site to a BIS case in Settings before BIS material tools become visible.
-          </p>
-        </div>
+          try {
+            const details = await fetchReceivedConstructionProductDetails(
+              userBisToken!.accessToken,
+              site!.bisCaseId!,
+              material.BISId,
+            );
 
-        <Card>
-          <CardHeader>
-            <CardTitle>BIS is not enabled for this site</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            BIS materials remain stored in the database, but BIS configuration and send actions are hidden until the site has an authorized BIS connection and selected BIS case.
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+            return {
+              ...material,
+              bisStatus: details.status,
+              bisApprovers: details.approvers,
+            };
+          } catch (error) {
+            console.error("Failed to load BIS warehouse record state", error);
+            return {
+              ...material,
+              bisStatus: null,
+              bisApprovers: [],
+            };
+          }
+        }),
+      )
+    : materials.map((material) => ({
+        ...material,
+        bisStatus: null,
+        bisApprovers: [],
+      }));
 
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">BIS Materials</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Warehouse</h1>
         <p className="text-sm text-muted-foreground">
-          Review records for {site?.bisCaseNumber || site?.bisCaseId}, assign BIS material configuration, and send entries to BIS.
+          Review all warehouse material records here. BIS sending and approval actions appear when BIS is connected and this site is linked to a BIS case.
         </p>
       </div>
+
+      {!bisEnabled ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Warehouse is available without BIS</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            You can review warehouse records even when BIS is disconnected. Connect BIS and select a site case in Settings to enable BIS material mapping, send-to-BIS, and approval actions.
+          </CardContent>
+        </Card>
+      ) : null}
 
       <MaterialsTableClient
         siteId={siteId}
         bisEnabled={bisEnabled}
-        materials={materials}
+        materials={materialsWithBisState}
         sendToBis={sendToBis}
+        getPossibleApprovers={getPossibleWarehouseBisApprovers}
+        submitToApproval={submitWarehouseRecordToBisApproval}
         updateMaterialConfiguration={updateMaterialConfiguration}
         updateCostCode={updateCostCode}
       />
