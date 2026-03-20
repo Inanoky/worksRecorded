@@ -46,10 +46,7 @@ export function getBisScopes() {
 }
 
 export function getBisRedirectUri() {
-  return (
-    process.env.BIS_REDIRECT_URI ??
-    `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/bis/callback`
-  );
+  return process.env.BIS_REDIRECT_URI ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://localhost:3000/";
 }
 
 function getBasicAuthHeader() {
