@@ -792,8 +792,16 @@ export default function MaterialsTableClient({
                               Send for approval
                             </Button>
                           ) : (
-                            <Button size="sm" variant="outline" disabled>
-                              {isApproved ? "Approved" : "Waiting for approval"}
+                            <Button
+                              size="sm"
+                              disabled
+                              className={
+                                isApproved
+                                  ? "bg-green-600 text-white hover:bg-green-600"
+                                  : "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                              }
+                            >
+                              {isApproved ? "Approved" : "Sent for approval"}
                             </Button>
                           )}
                         </TableCell>
