@@ -62,6 +62,18 @@ async function fetchReceivedConstructionProductDetails(accessToken: string, bisC
   };
 }
 
+type MaterialCategory = {
+  id: string;
+  material_kind: string;
+  measurement: string | null;
+  measurement_unit: string | null;
+};
+
+type WarehouseBisSyncResult = {
+  rows: Array<WarehouseMaterialRecord & { bisStatus: string | null; bisApprovers: BisApprover[] }>;
+  materialConfigurations: MaterialCategory[];
+};
+
 type WarehouseMaterialRecord = {
   id: string;
   name: string | null;
@@ -201,6 +213,68 @@ async function loadWarehouseBisState(
   }
 }
 
+async function fetchBisPagedData(pathname: string, accessToken: string) {
+  const results: any[] = [];
+  let page = 1;
+
+  while (true) {
+    const separator = pathname.includes("?") ? "&" : "?";
+    const json = await fetchBisJson(`${pathname}${separator}page[number]=${page}&page[size]=200`, accessToken);
+    const rows = Array.isArray(json?.data) ? json.data : [];
+
+    if (!rows.length) {
+      break;
+    }
+
+    results.push(...rows);
+
+    if (rows.length < 200) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return results;
+}
+
+async function fetchWarehouseMaterialConfigurations(siteId: string): Promise<MaterialCategory[]> {
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+
+  const [materialsData, measuresData] = await Promise.all([
+    fetchBisPagedData(
+      `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
+      accessToken,
+    ),
+    fetchBisPagedData(
+      `/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+      accessToken,
+    ),
+  ]);
+
+  const measurementMap = new Map<string, string>();
+  for (const item of measuresData) {
+    const code = item?.attributes?.code == null ? null : String(item.attributes.code);
+    const name = item?.attributes?.name == null ? null : String(item.attributes.name);
+    if (code && name) {
+      measurementMap.set(code, name);
+    }
+  }
+
+  return materialsData
+    .map((item: any) => ({
+      id: String(item?.id ?? ""),
+      material_kind: String(item?.attributes?.material_kind ?? item?.attributes?.name ?? ""),
+      measurement: item?.attributes?.measurement == null ? null : String(item.attributes.measurement),
+      measurement_unit:
+        item?.attributes?.measurement_unit == null
+          ? measurementMap.get(String(item?.attributes?.measurement ?? "")) ?? null
+          : String(item.attributes.measurement_unit),
+    }))
+    .filter((item: MaterialCategory) => item.id && item.material_kind)
+    .sort((a, b) => a.material_kind.localeCompare(b.material_kind));
+}
+
 async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId: string) {
   const baseUrl = getBisBaseUrl();
 
@@ -297,7 +371,7 @@ export async function getPossibleWarehouseBisApprovers(siteId: string, bisId: st
   }));
 }
 
-export async function syncWarehouseBisRecords(siteId: string) {
+export async function syncWarehouseBisRecords(siteId: string): Promise<WarehouseBisSyncResult> {
   "use server";
 
   console.log("[Warehouse BIS] syncWarehouseBisRecords started", { siteId });
@@ -336,9 +410,13 @@ export async function syncWarehouseBisRecords(siteId: string) {
     })),
   });
 
-  const syncedMaterials = await Promise.all(
-    materials.map((material) => resolveWarehouseBisState(material, accessToken, bisCaseId)),
-  );
+  const [syncedMaterials, materialConfigurations] = await Promise.all([
+    Promise.all(materials.map((material) => resolveWarehouseBisState(material, accessToken, bisCaseId))),
+    fetchWarehouseMaterialConfigurations(siteId).catch((error) => {
+      console.error("Failed to refresh BIS material configurations", error);
+      return [] as MaterialCategory[];
+    }),
+  ]);
 
   console.log("[Warehouse BIS] syncWarehouseBisRecords completed", {
     siteId,
@@ -351,7 +429,7 @@ export async function syncWarehouseBisRecords(siteId: string) {
   });
 
   revalidatePath(`/dashboard/sites/${siteId}/BIS`);
-  return syncedMaterials;
+  return { rows: syncedMaterials, materialConfigurations };
 }
 
 export async function submitWarehouseRecordToBisApproval(
@@ -486,27 +564,34 @@ export default async function MaterialsPage({
     getUserBisTokenByUserId(user.id),
   ]);
 
-  const materials = await prisma.bISmaterialRecords.findMany({
-    where: { siteId },
-    orderBy: [{ invoiceDate: "desc" }, { name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      quantity: true,
-      categoryId: true,
-      categoryName: true,
-      measurementUnitId: true,
-      measurementUnit: true,
-      cost: true,
-      invoiceNr: true,
-      invoiceDate: true,
-      costCode: true,
-      sourcePhoto: true,
-      BISId: true,
-    },
-  });
-
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
+
+  const [materials, materialConfigurations] = await Promise.all([
+    prisma.bISmaterialRecords.findMany({
+      where: { siteId },
+      orderBy: [{ invoiceDate: "desc" }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        quantity: true,
+        categoryId: true,
+        categoryName: true,
+        measurementUnitId: true,
+        measurementUnit: true,
+        cost: true,
+        invoiceNr: true,
+        invoiceDate: true,
+        costCode: true,
+        sourcePhoto: true,
+        BISId: true,
+      },
+    }),
+    bisEnabled ? fetchWarehouseMaterialConfigurations(siteId).catch((error) => {
+      console.error("Failed to load BIS material configurations", error);
+      return [];
+    }) : Promise.resolve([] as MaterialCategory[]),
+  ]);
+
   const materialsWithBisState = bisEnabled
     ? await loadWarehouseBisState(
         materials,
@@ -542,6 +627,7 @@ export default async function MaterialsPage({
         siteId={siteId}
         bisEnabled={bisEnabled}
         materials={materialsWithBisState}
+        materialConfigurations={materialConfigurations}
         sendToBis={sendToBis}
         getPossibleApprovers={getPossibleWarehouseBisApprovers}
         submitToApproval={submitWarehouseRecordToBisApproval}

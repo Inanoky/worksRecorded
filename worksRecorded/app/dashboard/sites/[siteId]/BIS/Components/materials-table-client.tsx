@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/dialog"
 import SendToBisButton from "./send-to-bis-button"
 import MaterialConfigSelect, {
-  categories,
+  type MaterialCategory,
   NO_MATCH_VALUE,
 } from "./material-config-select"
 import CostCodeSelect from "./cost-code-select"
@@ -77,6 +77,7 @@ type Props = {
   siteId: string
   bisEnabled: boolean
   materials: MaterialRow[]
+  materialConfigurations: MaterialCategory[]
   sendToBis: (
     siteId: string,
     recordId: string,
@@ -94,7 +95,7 @@ type Props = {
       level: number | null
     }>
   ) => Promise<{ status: string }>
-  syncBisRecords: (siteId: string) => Promise<MaterialRow[]>
+  syncBisRecords: (siteId: string) => Promise<{ rows: MaterialRow[]; materialConfigurations: MaterialCategory[] }>
   updateMaterialConfiguration: (
     recordId: string,
     config: {
@@ -135,6 +136,7 @@ export default function MaterialsTableClient({
   siteId,
   bisEnabled,
   materials,
+  materialConfigurations,
   sendToBis,
   getPossibleApprovers,
   submitToApproval,
@@ -143,6 +145,7 @@ export default function MaterialsTableClient({
   updateCostCode,
 }: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
+  const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
@@ -159,6 +162,10 @@ export default function MaterialsTableClient({
   React.useEffect(() => {
     setRows(materials)
   }, [materials])
+
+  React.useEffect(() => {
+    setConfigurations(materialConfigurations)
+  }, [materialConfigurations])
 
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
@@ -286,7 +293,7 @@ export default function MaterialsTableClient({
     console.log("[Warehouse BIS] Refresh from BIS started", { siteId })
     setSyncLoading(true)
     try {
-      const syncedRows = await syncBisRecords(siteId)
+      const { rows: syncedRows, materialConfigurations: syncedConfigurations } = await syncBisRecords(siteId)
       console.log("[Warehouse BIS] Refresh from BIS returned rows", {
         siteId,
         syncedRowCount: syncedRows.length,
@@ -296,6 +303,7 @@ export default function MaterialsTableClient({
           bisStatus: row.bisStatus,
         })),
       })
+      setConfigurations(syncedConfigurations)
       const syncedMap = new Map(syncedRows.map((row) => [row.id, row]))
 
       setRows((current) => {
@@ -496,7 +504,7 @@ export default function MaterialsTableClient({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All configurations</SelectItem>
-              {categories.map((config) => (
+              {configurations.map((config) => (
                 <SelectItem key={config.id} value={config.id}>
                   {config.material_kind}
                 </SelectItem>
@@ -673,6 +681,7 @@ export default function MaterialsTableClient({
                             value={hasValidConfiguration ? r.categoryId : null}
                             disabled={isSent}
                             onSave={handleConfigChange}
+                            categories={configurations}
                           />
                         </TableCell>
                       ) : null}
