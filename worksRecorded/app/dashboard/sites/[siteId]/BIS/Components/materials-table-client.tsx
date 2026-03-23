@@ -793,7 +793,7 @@ export default function MaterialsTableClient({
                             </Button>
                           ) : (
                             <Button size="sm" variant="outline" disabled>
-                              {isApproved ? "Approved" : "Approval pending"}
+                              {isApproved ? "Approved" : "Waiting for approval"}
                             </Button>
                           )}
                         </TableCell>

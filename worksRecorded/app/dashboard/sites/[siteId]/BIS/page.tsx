@@ -387,11 +387,13 @@ export async function deleteWarehouseRecords(siteId: string, recordIds: string[]
             ? Number((error as { status?: number }).status)
             : null;
 
-          if (status === 404) {
-            console.warn("[Warehouse BIS] BIS record already missing during delete", {
+          if (status === 404 || status === 403 || status === 422) {
+            console.warn("[Warehouse BIS] Skipping BIS delete and continuing with local delete", {
               siteId,
               recordId: material.id,
               bisId: material.BISId,
+              status,
+              error,
             });
             return;
           }
