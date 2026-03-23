@@ -282,14 +282,43 @@ export default function MaterialsTableClient({
   }
 
   const syncRowsFromBis = async () => {
+    console.log("[Warehouse BIS] Refresh from BIS started", { siteId })
     setSyncLoading(true)
     try {
       const syncedRows = await syncBisRecords(siteId)
+      console.log("[Warehouse BIS] Refresh from BIS returned rows", {
+        siteId,
+        syncedRowCount: syncedRows.length,
+        syncedRows: syncedRows.map((row) => ({
+          id: row.id,
+          BISId: row.BISId,
+          bisStatus: row.bisStatus,
+        })),
+      })
       const syncedMap = new Map(syncedRows.map((row) => [row.id, row]))
 
-      setRows((current) => current.map((row) => syncedMap.get(row.id) ?? row))
+      setRows((current) => {
+        const nextRows = current.map((row) => syncedMap.get(row.id) ?? row)
+        console.log("[Warehouse BIS] Refresh from BIS merged rows", {
+          siteId,
+          currentRowCount: current.length,
+          nextRows: nextRows.map((row) => ({
+            id: row.id,
+            BISId: row.BISId,
+            bisStatus: row.bisStatus,
+          })),
+        })
+        return nextRows
+      })
+    } catch (error) {
+      console.error("[Warehouse BIS] Refresh from BIS failed", {
+        siteId,
+        error,
+      })
+      throw error
     } finally {
       setSyncLoading(false)
+      console.log("[Warehouse BIS] Refresh from BIS finished", { siteId })
     }
   }
 
