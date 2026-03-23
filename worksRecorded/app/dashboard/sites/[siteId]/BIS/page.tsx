@@ -84,6 +84,9 @@ async function resolveWarehouseBisState(
   bisCaseId: string,
 ) {
   if (!material.BISId) {
+    console.log("[Warehouse BIS] Skipping BIS refresh for local-only record", {
+      recordId: material.id,
+    });
     return {
       ...material,
       bisStatus: null,
@@ -91,8 +94,21 @@ async function resolveWarehouseBisState(
     };
   }
 
+  console.log("[Warehouse BIS] Refreshing BIS record", {
+    recordId: material.id,
+    bisId: material.BISId,
+    bisCaseId,
+  });
+
   try {
     const details = await fetchReceivedConstructionProductDetails(accessToken, bisCaseId, material.BISId);
+
+    console.log("[Warehouse BIS] BIS record refresh succeeded", {
+      recordId: material.id,
+      bisId: material.BISId,
+      bisStatus: details.status,
+      approverCount: details.approvers.length,
+    });
 
     return {
       ...material,
@@ -104,10 +120,23 @@ async function resolveWarehouseBisState(
       ? Number((error as { status?: number }).status)
       : null;
 
+    console.error("[Warehouse BIS] BIS record refresh failed", {
+      recordId: material.id,
+      bisId: material.BISId,
+      bisCaseId,
+      status,
+      error,
+    });
+
     if (status === 404) {
       await prisma.bISmaterialRecords.update({
         where: { id: material.id },
         data: { BISId: null },
+      });
+
+      console.log("[Warehouse BIS] Cleared stale BISId after 404", {
+        recordId: material.id,
+        previousBisId: material.BISId,
       });
 
       return {
@@ -251,6 +280,7 @@ export async function getPossibleWarehouseBisApprovers(siteId: string, bisId: st
 export async function syncWarehouseBisRecords(siteId: string) {
   "use server";
 
+  console.log("[Warehouse BIS] syncWarehouseBisRecords started", { siteId });
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
 
   const materials = await prisma.bISmaterialRecords.findMany({
@@ -276,9 +306,29 @@ export async function syncWarehouseBisRecords(siteId: string) {
     },
   });
 
+  console.log("[Warehouse BIS] syncWarehouseBisRecords fetched candidate rows", {
+    siteId,
+    bisCaseId,
+    materialCount: materials.length,
+    materials: materials.map((material) => ({
+      id: material.id,
+      BISId: material.BISId,
+    })),
+  });
+
   const syncedMaterials = await Promise.all(
     materials.map((material) => resolveWarehouseBisState(material, accessToken, bisCaseId)),
   );
+
+  console.log("[Warehouse BIS] syncWarehouseBisRecords completed", {
+    siteId,
+    syncedMaterialCount: syncedMaterials.length,
+    syncedMaterials: syncedMaterials.map((material) => ({
+      id: material.id,
+      BISId: material.BISId,
+      bisStatus: material.bisStatus,
+    })),
+  });
 
   revalidatePath(`/dashboard/sites/${siteId}/BIS`);
   return syncedMaterials;
