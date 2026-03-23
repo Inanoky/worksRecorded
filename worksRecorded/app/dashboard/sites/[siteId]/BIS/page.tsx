@@ -122,6 +122,36 @@ async function resolveWarehouseBisState(
   }
 }
 
+function withoutWarehouseBisState(material: WarehouseMaterialRecord) {
+  return {
+    ...material,
+    bisStatus: null,
+    bisApprovers: [],
+  };
+}
+
+async function loadWarehouseBisState(
+  materials: WarehouseMaterialRecord[],
+  accessToken: string,
+  bisCaseId: string,
+) {
+  try {
+    return await Promise.all(
+      materials.map((material) => resolveWarehouseBisState(material, accessToken, bisCaseId)),
+    );
+  } catch (error) {
+    const status = typeof error === "object" && error && "status" in error
+      ? Number((error as { status?: number }).status)
+      : null;
+
+    if (status === 403) {
+      return materials.map(withoutWarehouseBisState);
+    }
+
+    throw error;
+  }
+}
+
 async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId: string) {
   const baseUrl = getBisBaseUrl();
 
@@ -408,29 +438,15 @@ export default async function MaterialsPage({
 
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
   const materialsWithBisState = bisEnabled
-    ? await Promise.all(
-        materials.map(async (material) => {
-          try {
-            return await resolveWarehouseBisState(
-              material,
-              userBisToken!.accessToken,
-              site!.bisCaseId!,
-            );
-          } catch (error) {
-            console.error("Failed to load BIS warehouse record state", error);
-            return {
-              ...material,
-              bisStatus: null,
-              bisApprovers: [],
-            };
-          }
-        }),
-      )
-    : materials.map((material) => ({
-        ...material,
-        bisStatus: null,
-        bisApprovers: [],
-      }));
+    ? await loadWarehouseBisState(
+        materials,
+        userBisToken!.accessToken,
+        site!.bisCaseId!,
+      ).catch((error) => {
+        console.error("Failed to load BIS warehouse record state", error);
+        return materials.map(withoutWarehouseBisState);
+      })
+    : materials.map(withoutWarehouseBisState);
 
   return (
     <div className="space-y-6 p-4 md:p-6">
