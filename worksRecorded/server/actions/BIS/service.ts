@@ -21,6 +21,7 @@ type SiteBisConfigRow = {
 const BIS_BASE_URL = (process.env.BIS_BASE_URL ?? "https://test.bis.gov.lv/").replace(/\/+$/, "");
 const BIS_SCOPES = process.env.BIS_SCOPES ?? "bis_case_documents:manage logbooks:manage";
 const BIS_ACCESS_TOKEN_MAX_AGE_MS = 50 * 60 * 1000;
+const WORKS_RECORDED_PRODUCTION_URL = "https://www.worksrecorded.com";
 
 function getRequiredEnv(name: string) {
   const value = process.env[name];
@@ -46,8 +47,24 @@ export function getBisScopes() {
   return BIS_SCOPES;
 }
 
+export function isBisHostedAuthorizationEnabled() {
+  if (process.env.BIS_REDIRECT_URI) {
+    return true;
+  }
+
+  return process.env.VERCEL_ENV === "production" || process.env.NEXT_PUBLIC_APP_URL === WORKS_RECORDED_PRODUCTION_URL;
+}
+
 export function getBisRedirectUri() {
-  return process.env.BIS_REDIRECT_URI ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://localhost:3000/";
+  if (process.env.BIS_REDIRECT_URI) {
+    return process.env.BIS_REDIRECT_URI;
+  }
+
+  if (isBisHostedAuthorizationEnabled()) {
+    return `${WORKS_RECORDED_PRODUCTION_URL}/api/bis/callback`;
+  }
+
+  return process.env.NEXT_PUBLIC_APP_URL ?? "https://localhost:3000/";
 }
 
 export function getBisAuthorizeUrl(state?: string) {
