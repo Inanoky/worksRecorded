@@ -62,6 +62,66 @@ async function fetchReceivedConstructionProductDetails(accessToken: string, bisC
   };
 }
 
+type WarehouseMaterialRecord = {
+  id: string;
+  name: string | null;
+  quantity: number | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  measurementUnitId: string | null;
+  measurementUnit: string | null;
+  cost: number | null;
+  invoiceNr: string | null;
+  invoiceDate: Date | null;
+  costCode: string | null;
+  sourcePhoto: string | null;
+  BISId: string | null;
+};
+
+async function resolveWarehouseBisState(
+  material: WarehouseMaterialRecord,
+  accessToken: string,
+  bisCaseId: string,
+) {
+  if (!material.BISId) {
+    return {
+      ...material,
+      bisStatus: null,
+      bisApprovers: [],
+    };
+  }
+
+  try {
+    const details = await fetchReceivedConstructionProductDetails(accessToken, bisCaseId, material.BISId);
+
+    return {
+      ...material,
+      bisStatus: details.status,
+      bisApprovers: details.approvers,
+    };
+  } catch (error) {
+    const status = typeof error === "object" && error && "status" in error
+      ? Number((error as { status?: number }).status)
+      : null;
+
+    if (status === 404) {
+      await prisma.bISmaterialRecords.update({
+        where: { id: material.id },
+        data: { BISId: null },
+      });
+
+      return {
+        ...material,
+        BISId: null,
+        bisStatus: null,
+        bisApprovers: [],
+      };
+    }
+
+    throw error;
+  }
+}
+
 async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId: string) {
   const baseUrl = getBisBaseUrl();
 
@@ -187,45 +247,7 @@ export async function syncWarehouseBisRecords(siteId: string) {
   });
 
   const syncedMaterials = await Promise.all(
-    materials.map(async (material) => {
-      if (!material.BISId) {
-        return {
-          ...material,
-          bisStatus: null,
-          bisApprovers: [],
-        };
-      }
-
-      try {
-        const details = await fetchReceivedConstructionProductDetails(accessToken, bisCaseId, material.BISId);
-
-        return {
-          ...material,
-          bisStatus: details.status,
-          bisApprovers: details.approvers,
-        };
-      } catch (error) {
-        const status = typeof error === "object" && error && "status" in error
-          ? Number((error as { status?: number }).status)
-          : null;
-
-        if (status === 404) {
-          await prisma.bISmaterialRecords.update({
-            where: { id: material.id },
-            data: { BISId: null },
-          });
-
-          return {
-            ...material,
-            BISId: null,
-            bisStatus: null,
-            bisApprovers: [],
-          };
-        }
-
-        throw error;
-      }
-    }),
+    materials.map((material) => resolveWarehouseBisState(material, accessToken, bisCaseId)),
   );
 
   revalidatePath(`/dashboard/sites/${siteId}/BIS`);
@@ -388,26 +410,12 @@ export default async function MaterialsPage({
   const materialsWithBisState = bisEnabled
     ? await Promise.all(
         materials.map(async (material) => {
-          if (!material.BISId) {
-            return {
-              ...material,
-              bisStatus: null,
-              bisApprovers: [],
-            };
-          }
-
           try {
-            const details = await fetchReceivedConstructionProductDetails(
+            return await resolveWarehouseBisState(
+              material,
               userBisToken!.accessToken,
               site!.bisCaseId!,
-              material.BISId,
             );
-
-            return {
-              ...material,
-              bisStatus: details.status,
-              bisApprovers: details.approvers,
-            };
           } catch (error) {
             console.error("Failed to load BIS warehouse record state", error);
             return {
