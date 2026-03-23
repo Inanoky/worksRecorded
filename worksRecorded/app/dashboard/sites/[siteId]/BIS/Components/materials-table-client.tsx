@@ -134,6 +134,14 @@ function formatQty(value: number | null) {
   }).format(value)
 }
 
+function getApprovalStateStatus(status: string | null | undefined) {
+  const normalizedStatus = (status ?? "").toLowerCase()
+
+  return normalizedStatus === "approved"
+    ? "approved"
+    : "submitted_to_approve"
+}
+
 export default function MaterialsTableClient({
   siteId,
   bisEnabled,
@@ -387,13 +395,14 @@ export default function MaterialsTableClient({
           level: approver.level,
         })),
       )
+      const nextBisStatus = getApprovalStateStatus(result?.status)
 
       setRows((current) =>
         current.map((row) =>
           row.id === approverDialogRow.id
             ? {
                 ...row,
-                bisStatus: result.status,
+                bisStatus: nextBisStatus,
                 bisApprovers: approvers.map((approver) => ({
                   ...approver,
                   status: "pending",
