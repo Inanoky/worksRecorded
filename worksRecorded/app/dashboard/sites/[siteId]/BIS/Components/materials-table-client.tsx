@@ -45,6 +45,7 @@ import MaterialConfigSelect, {
   NO_MATCH_VALUE,
 } from "./material-config-select"
 import CostCodeSelect from "./cost-code-select"
+import { toast } from "sonner"
 
 type BisApprover = {
   memberId: string
@@ -356,10 +357,19 @@ export default function MaterialsTableClient({
         ),
       )
 
+      toast.success("Record sent for approval")
       setApproverDialogOpen(false)
       setApproverDialogRow(null)
       setPossibleApprovers([])
       setSelectedApproverKeys([])
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to send record for approval"
+      console.error("[Warehouse BIS] Send for approval failed", {
+        siteId,
+        bisId: approverDialogRow.BISId,
+        error,
+      })
+      toast.error(message)
     } finally {
       setApprovalLoading(false)
     }
