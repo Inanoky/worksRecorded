@@ -18,7 +18,7 @@ type SiteBisConfigRow = {
   bisCaseStage: string | null;
 };
 
-const BIS_BASE_URL = process.env.BIS_BASE_URL ?? "https://test.bis.gov.lv";
+const BIS_BASE_URL = (process.env.BIS_BASE_URL ?? "https://test.bis.gov.lv/").replace(/\/+$/, "");
 const BIS_SCOPES = process.env.BIS_SCOPES ?? "bis_case_documents:manage logbooks:manage";
 const BIS_ACCESS_TOKEN_MAX_AGE_MS = 50 * 60 * 1000;
 

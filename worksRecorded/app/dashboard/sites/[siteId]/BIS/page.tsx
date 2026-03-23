@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
+import { revalidatePath } from "next/cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MaterialsTableClient from "./Components/materials-table-client";
 import { getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
@@ -28,7 +29,9 @@ async function fetchBisJson(path: string, accessToken: string, init?: RequestIni
   const json = text ? JSON.parse(text) : {};
 
   if (!response.ok) {
-    throw new Error(json?.errors?.[0]?.detail || json?.error || "BIS request failed");
+    const error = new Error(json?.errors?.[0]?.detail || json?.error || "BIS request failed") as Error & { status?: number };
+    error.status = response.status;
+    throw error;
   }
 
   return json;
@@ -153,6 +156,80 @@ export async function getPossibleWarehouseBisApprovers(siteId: string, bisId: st
       null,
     status: item?.attributes?.status ?? null,
   }));
+}
+
+export async function syncWarehouseBisRecords(siteId: string) {
+  "use server";
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+
+  const materials = await prisma.bISmaterialRecords.findMany({
+    where: {
+      siteId,
+      BISId: { not: null },
+    },
+    orderBy: [{ invoiceDate: "desc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      categoryId: true,
+      categoryName: true,
+      measurementUnitId: true,
+      measurementUnit: true,
+      cost: true,
+      invoiceNr: true,
+      invoiceDate: true,
+      costCode: true,
+      sourcePhoto: true,
+      BISId: true,
+    },
+  });
+
+  const syncedMaterials = await Promise.all(
+    materials.map(async (material) => {
+      if (!material.BISId) {
+        return {
+          ...material,
+          bisStatus: null,
+          bisApprovers: [],
+        };
+      }
+
+      try {
+        const details = await fetchReceivedConstructionProductDetails(accessToken, bisCaseId, material.BISId);
+
+        return {
+          ...material,
+          bisStatus: details.status,
+          bisApprovers: details.approvers,
+        };
+      } catch (error) {
+        const status = typeof error === "object" && error && "status" in error
+          ? Number((error as { status?: number }).status)
+          : null;
+
+        if (status === 404) {
+          await prisma.bISmaterialRecords.update({
+            where: { id: material.id },
+            data: { BISId: null },
+          });
+
+          return {
+            ...material,
+            BISId: null,
+            bisStatus: null,
+            bisApprovers: [],
+          };
+        }
+
+        throw error;
+      }
+    }),
+  );
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+  return syncedMaterials;
 }
 
 export async function submitWarehouseRecordToBisApproval(
@@ -352,7 +429,7 @@ export default async function MaterialsPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Warehouse</h1>
         <p className="text-sm text-muted-foreground">
-          Review all warehouse material records here. BIS sending and approval actions appear when BIS is connected and this site is linked to a BIS case.
+          Review all warehouse material records here. BIS sending, approval, and sync actions appear when BIS is connected and this site is linked to a BIS case.
         </p>
       </div>
 
@@ -374,6 +451,7 @@ export default async function MaterialsPage({
         sendToBis={sendToBis}
         getPossibleApprovers={getPossibleWarehouseBisApprovers}
         submitToApproval={submitWarehouseRecordToBisApproval}
+        syncBisRecords={syncWarehouseBisRecords}
         updateMaterialConfiguration={updateMaterialConfiguration}
         updateCostCode={updateCostCode}
       />

@@ -9,6 +9,7 @@ import {
   Clock3,
   Filter,
   ShieldCheck,
+  RefreshCw,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -92,6 +93,7 @@ type Props = {
       level: number | null
     }>
   ) => Promise<{ status: string }>
+  syncBisRecords: (siteId: string) => Promise<MaterialRow[]>
   updateMaterialConfiguration: (
     recordId: string,
     config: {
@@ -135,6 +137,7 @@ export default function MaterialsTableClient({
   sendToBis,
   getPossibleApprovers,
   submitToApproval,
+  syncBisRecords,
   updateMaterialConfiguration,
   updateCostCode,
 }: Props) {
@@ -150,6 +153,7 @@ export default function MaterialsTableClient({
   const [possibleApprovers, setPossibleApprovers] = React.useState<BisApprover[]>([])
   const [selectedApproverKeys, setSelectedApproverKeys] = React.useState<string[]>([])
   const [approvalLoading, setApprovalLoading] = React.useState(false)
+  const [syncLoading, setSyncLoading] = React.useState(false)
 
   React.useEffect(() => {
     setRows(materials)
@@ -275,6 +279,18 @@ export default function MaterialsTableClient({
     setSelectedApproverKeys(defaultApproverKeys(approvers))
     setApproverDialogRow(row)
     setApproverDialogOpen(true)
+  }
+
+  const syncRowsFromBis = async () => {
+    setSyncLoading(true)
+    try {
+      const syncedRows = await syncBisRecords(siteId)
+      const syncedMap = new Map(syncedRows.map((row) => [row.id, row]))
+
+      setRows((current) => current.map((row) => syncedMap.get(row.id) ?? row))
+    } finally {
+      setSyncLoading(false)
+    }
   }
 
   const submitApproval = async () => {
@@ -483,7 +499,21 @@ export default function MaterialsTableClient({
             </SelectContent>
           </Select>
 
-          <div className="ml-auto text-sm text-muted-foreground">
+          {showBisControls ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={syncRowsFromBis}
+              disabled={syncLoading}
+              className="ml-auto"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${syncLoading ? "animate-spin" : ""}`} />
+              {syncLoading ? "Refreshing..." : "Refresh from BIS"}
+            </Button>
+          ) : null}
+
+          <div className="text-sm text-muted-foreground">
             Showing {filteredMaterials.length} of {rows.length}
           </div>
         </div>
@@ -641,7 +671,7 @@ export default function MaterialsTableClient({
                               onClick={() => openApproverDialog(r)}
                               className="bg-blue-600 text-white hover:bg-blue-700"
                             >
-                              Approve
+                              Send for approval
                             </Button>
                           ) : (
                             <Button size="sm" variant="outline" disabled>
@@ -672,9 +702,9 @@ export default function MaterialsTableClient({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Choose BIS approvers</DialogTitle>
+            <DialogTitle>Send record for approval</DialogTitle>
             <DialogDescription>
-              Select the approvers for this warehouse record before sending it into the BIS approval flow.
+              Select one or more approvers for this warehouse record before sending it into the BIS approval flow.
             </DialogDescription>
           </DialogHeader>
 
@@ -724,7 +754,7 @@ export default function MaterialsTableClient({
               disabled={approvalLoading || selectedApproverKeys.length === 0}
               className="bg-blue-600 text-white hover:bg-blue-700"
             >
-              {approvalLoading ? "Submitting..." : "Approve"}
+              {approvalLoading ? "Submitting..." : "Send for approval"}
             </Button>
           </DialogFooter>
         </DialogContent>
