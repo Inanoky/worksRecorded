@@ -432,6 +432,87 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
   return { rows: syncedMaterials, materialConfigurations };
 }
 
+async function ensureWarehouseBisIdentificationNumber(
+  siteId: string,
+  bisId: string,
+  accessToken: string,
+  bisCaseId: string,
+) {
+  const material = await prisma.bISmaterialRecords.findFirst({
+    where: {
+      siteId,
+      BISId: bisId,
+    },
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      categoryId: true,
+    },
+  });
+
+  if (!material) {
+    console.warn("[Warehouse BIS] No local material found for BIS approval sync", { siteId, bisId });
+    return;
+  }
+
+  console.log("[Warehouse BIS] Ensuring BIS identification number before approval", {
+    siteId,
+    bisId,
+    recordId: material.id,
+    materialName: material.name,
+    quantity: material.quantity,
+    categoryId: material.categoryId,
+  });
+
+  const identificationNumber = material.name?.trim() ?? "";
+  if (!identificationNumber || !material.categoryId || material.categoryId === "no_match") {
+    console.warn("[Warehouse BIS] Skipping identification number sync due to missing local data", {
+      siteId,
+      bisId,
+      recordId: material.id,
+      identificationNumber,
+      categoryId: material.categoryId,
+    });
+    return;
+  }
+
+  const payload = {
+    data: {
+      id: bisId,
+      type: "received_construction_product",
+      relationships: {
+        detail: {
+          data: {
+            type: "received_construction_product",
+            attributes: {
+              construction_material_id: material.categoryId,
+              quantity: material.quantity ?? 0,
+              identification_number: identificationNumber,
+              unknown_identification_number: false,
+            },
+          },
+        },
+      },
+    },
+  };
+
+  console.log("[Warehouse BIS] Patching BIS record before approval", {
+    siteId,
+    bisId,
+    payload,
+  });
+
+  await fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${bisId}`,
+    accessToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
 export async function submitWarehouseRecordToBisApproval(
   siteId: string,
   bisId: string,
@@ -444,6 +525,14 @@ export async function submitWarehouseRecordToBisApproval(
   if (!approvers.length) {
     throw new Error("Select at least one approver");
   }
+
+  await ensureWarehouseBisIdentificationNumber(siteId, bisId, accessToken, bisCaseId);
+
+  console.log("[Warehouse BIS] Submitting BIS record for approval", {
+    siteId,
+    bisId,
+    approvers,
+  });
 
   const json = await fetchBisJson(
     `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${bisId}/submit_to_approve`,
@@ -526,6 +615,15 @@ export async function sendToBis(
       },
     },
   };
+
+  console.log("[Warehouse BIS] Sending material to BIS", {
+    siteId,
+    recordId,
+    materialName,
+    construction_material_id,
+    quantity,
+    body,
+  });
 
   const res = await fetch(
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products`,
