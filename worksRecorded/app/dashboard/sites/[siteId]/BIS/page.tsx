@@ -90,6 +90,7 @@ type WarehouseMaterialRecord = {
   costCode: string | null;
   sourcePhoto: string | null;
   BISId: string | null;
+  bisStatus: string | null;
 };
 
 async function resolveWarehouseBisState(
@@ -128,7 +129,7 @@ async function resolveWarehouseBisState(
     if (normalizedStatus === "deleted") {
       await prisma.bISmaterialRecords.update({
         where: { id: material.id },
-        data: { BISId: null },
+        data: { BISId: null, bisStatus: null },
       });
 
       console.log("[Warehouse BIS] Cleared stale BISId after deleted status", {
@@ -143,6 +144,11 @@ async function resolveWarehouseBisState(
         bisApprovers: [],
       };
     }
+
+    await prisma.bISmaterialRecords.update({
+      where: { id: material.id },
+      data: { bisStatus: details.status },
+    });
 
     return {
       ...material,
@@ -165,7 +171,7 @@ async function resolveWarehouseBisState(
     if (status === 404) {
       await prisma.bISmaterialRecords.update({
         where: { id: material.id },
-        data: { BISId: null },
+        data: { BISId: null, bisStatus: null },
       });
 
       console.log("[Warehouse BIS] Cleared stale BISId after 404", {
@@ -188,7 +194,7 @@ async function resolveWarehouseBisState(
 function withoutWarehouseBisState(material: WarehouseMaterialRecord) {
   return {
     ...material,
-    bisStatus: null,
+    bisStatus: material.bisStatus,
     bisApprovers: [],
   };
 }
@@ -352,6 +358,7 @@ export async function deleteWarehouseRecords(siteId: string, recordIds: string[]
     select: {
       id: true,
       BISId: true,
+      bisStatus: true,
     },
   });
 
@@ -490,6 +497,7 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
       costCode: true,
       sourcePhoto: true,
       BISId: true,
+      bisStatus: true,
     },
   });
 
@@ -652,8 +660,25 @@ export async function submitWarehouseRecordToBisApproval(
     },
   );
 
+  const nextStatus = json?.data?.attributes?.status ? String(json.data.attributes.status) : "submitted_to_approve";
+
+  const materialRecord = await prisma.bISmaterialRecords.findFirst({
+    where: {
+      siteId,
+      BISId: bisId,
+    },
+    select: { id: true },
+  });
+
+  if (materialRecord) {
+    await prisma.bISmaterialRecords.update({
+      where: { id: materialRecord.id },
+      data: { bisStatus: nextStatus },
+    });
+  }
+
   return {
-    status: json?.data?.attributes?.status ? String(json.data.attributes.status) : "submitted_to_approve",
+    status: nextStatus,
   };
 }
 
@@ -738,7 +763,12 @@ export async function sendToBis(
   if (bisId) {
     await prisma.bISmaterialRecords.update({
       where: { id: recordId },
-      data: { BISId: bisId },
+      data: {
+        BISId: bisId,
+        bisStatus: json?.data?.attributes?.status
+          ? String(json.data.attributes.status)
+          : "draft",
+      },
     });
   }
 
@@ -778,6 +808,7 @@ export default async function MaterialsPage({
         costCode: true,
         sourcePhoto: true,
         BISId: true,
+        bisStatus: true,
       },
     }),
     bisEnabled ? fetchWarehouseMaterialConfigurations(siteId).catch((error) => {

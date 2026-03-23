@@ -389,7 +389,7 @@ model BISmaterialRecords {
   orgId String?
 
   BISId String?
-
+  bisStatus String?
 
 
 }
