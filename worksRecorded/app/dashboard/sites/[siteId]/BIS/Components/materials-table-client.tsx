@@ -83,7 +83,8 @@ type Props = {
     recordId: string,
     quantity: number,
     construction_material_id: string,
-    sourcePhoto?: string
+    sourcePhoto?: string,
+    materialName?: string
   ) => Promise<any>
   getPossibleApprovers: (siteId: string, bisId: string) => Promise<BisApprover[]>
   submitToApproval: (
@@ -710,6 +711,7 @@ export default function MaterialsTableClient({
                                 quantity={r.quantity ?? 0}
                                 categoryId={hasValidConfiguration ? r.categoryId ?? "" : ""}
                                 sourcePhoto={r.sourcePhoto ?? ""}
+                                materialName={r.name ?? ""}
                                 action={handleSendToBis}
                               />
                             </div>
