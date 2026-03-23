@@ -13,6 +13,8 @@ type BisApprover = {
   status: string | null;
 };
 
+const BIS_RECEIVED_MATERIAL_DELETE_JUSTIFICATION = "Deleted from WorksRecorded warehouse bulk deletion.";
+
 async function fetchBisJson(path: string, accessToken: string, init?: RequestInit) {
   const response = await fetch(`${getBisBaseUrl()}${path}`, {
     ...init,
@@ -380,7 +382,17 @@ export async function deleteWarehouseRecords(siteId: string, recordIds: string[]
           await fetchBisJson(
             `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${material.BISId}`,
             accessToken,
-            { method: "DELETE" },
+            {
+              method: "DELETE",
+              body: JSON.stringify({
+                data: {
+                  type: "received_construction_product",
+                  attributes: {
+                    justification: BIS_RECEIVED_MATERIAL_DELETE_JUSTIFICATION,
+                  },
+                },
+              }),
+            },
           );
         } catch (error) {
           const status = typeof error === "object" && error && "status" in error
