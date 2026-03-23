@@ -481,6 +481,7 @@ export async function sendToBis(
   quantity: number,
   construction_material_id: string,
   sourcePhoto?: string,
+  materialName?: string,
 ) {
   "use server";
 
@@ -514,6 +515,8 @@ export async function sendToBis(
             attributes: {
               quantity,
               construction_material_id,
+              identification_number: materialName?.trim() || null,
+              unknown_identification_number: false,
             },
           },
         },
