@@ -20,6 +20,7 @@ type SiteBisConfigRow = {
 
 const BIS_BASE_URL = process.env.BIS_BASE_URL ?? "https://test.bis.gov.lv";
 const BIS_SCOPES = process.env.BIS_SCOPES ?? "bis_case_documents:manage logbooks:manage";
+const BIS_ACCESS_TOKEN_MAX_AGE_MS = 50 * 60 * 1000;
 
 function getRequiredEnv(name: string) {
   const value = process.env[name];
@@ -82,6 +83,62 @@ export async function getCurrentUserBisToken() {
   return getUserBisTokenByUserId(user.id);
 }
 
+function isBisAccessTokenStale(token: UserBisTokenRow) {
+  return Date.now() - new Date(token.updatedAt).getTime() >= BIS_ACCESS_TOKEN_MAX_AGE_MS;
+}
+
+export async function refreshBisAccessToken(userId: string, refreshToken: string) {
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+  });
+
+  const response = await fetch(`${getBisBaseUrl()}/bisp/api/auth/oauth2.0/token`, {
+    method: "POST",
+    headers: {
+      Authorization: getBasicAuthHeader(),
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body,
+    cache: "no-store",
+  });
+
+  const json = await response.json();
+
+  if (!response.ok || !json?.access_token) {
+    throw new Error(json?.error_description || json?.error || "Failed to refresh BIS access token");
+  }
+
+  const nextRefreshToken = json?.refresh_token || refreshToken;
+  await upsertUserBisToken(userId, json.access_token, nextRefreshToken);
+
+  return {
+    accessToken: String(json.access_token),
+    refreshToken: String(nextRefreshToken),
+  };
+}
+
+export async function ensureUserBisAccessToken(userId: string) {
+  const token = await getUserBisTokenByUserId(userId);
+
+  if (!token?.refreshToken) {
+    return token;
+  }
+
+  if (!token.accessToken || isBisAccessTokenStale(token)) {
+    const refreshed = await refreshBisAccessToken(userId, token.refreshToken);
+    return {
+      ...token,
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+      updatedAt: new Date(),
+    };
+  }
+
+  return token;
+}
+
 export async function upsertUserBisToken(userId: string, accessToken: string, refreshToken: string) {
   await prisma.$executeRaw`DELETE FROM "BisToken" WHERE "userId" = ${userId}`;
   await prisma.$executeRaw`
@@ -125,7 +182,7 @@ export async function requireBisAccessTokenForSite(siteId: string) {
     throw new Error("Site not found");
   }
 
-  const token = await getUserBisTokenByUserId(user.id);
+  const token = await ensureUserBisAccessToken(user.id);
 
   if (!token?.accessToken) {
     throw new Error("BIS is not connected");
