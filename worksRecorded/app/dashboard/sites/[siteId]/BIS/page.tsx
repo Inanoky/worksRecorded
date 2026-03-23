@@ -102,6 +102,7 @@ async function resolveWarehouseBisState(
 
   try {
     const details = await fetchReceivedConstructionProductDetails(accessToken, bisCaseId, material.BISId);
+    const normalizedStatus = details.status?.toLowerCase() ?? null;
 
     console.log("[Warehouse BIS] BIS record refresh succeeded", {
       recordId: material.id,
@@ -109,6 +110,25 @@ async function resolveWarehouseBisState(
       bisStatus: details.status,
       approverCount: details.approvers.length,
     });
+
+    if (normalizedStatus === "deleted") {
+      await prisma.bISmaterialRecords.update({
+        where: { id: material.id },
+        data: { BISId: null },
+      });
+
+      console.log("[Warehouse BIS] Cleared stale BISId after deleted status", {
+        recordId: material.id,
+        previousBisId: material.BISId,
+      });
+
+      return {
+        ...material,
+        BISId: null,
+        bisStatus: null,
+        bisApprovers: [],
+      };
+    }
 
     return {
       ...material,
