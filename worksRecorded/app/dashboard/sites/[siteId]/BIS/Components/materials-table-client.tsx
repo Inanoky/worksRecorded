@@ -110,6 +110,7 @@ type Props = {
     recordId: string,
     costCode: string | null
   ) => Promise<{ success: true }>
+  deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
 
 function formatDate(value: Date | null) {
@@ -144,6 +145,7 @@ export default function MaterialsTableClient({
   syncBisRecords,
   updateMaterialConfiguration,
   updateCostCode,
+  deleteRecords,
 }: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
@@ -159,6 +161,8 @@ export default function MaterialsTableClient({
   const [selectedApproverKeys, setSelectedApproverKeys] = React.useState<string[]>([])
   const [approvalLoading, setApprovalLoading] = React.useState(false)
   const [syncLoading, setSyncLoading] = React.useState(false)
+  const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
+  const [deleteLoading, setDeleteLoading] = React.useState(false)
 
   React.useEffect(() => {
     setRows(materials)
@@ -257,8 +261,9 @@ export default function MaterialsTableClient({
     quantity: number,
     categoryId: string,
     sourcePhoto?: string,
+    materialName?: string,
   ) => {
-    const result = await sendToBis(siteId, recordId, quantity, categoryId, sourcePhoto)
+    const result = await sendToBis(siteId, recordId, quantity, categoryId, sourcePhoto, materialName)
     const bisId = result?.data?.id
     const bisStatus = result?.data?.attributes?.status ?? "draft"
 
@@ -329,6 +334,38 @@ export default function MaterialsTableClient({
     } finally {
       setSyncLoading(false)
       console.log("[Warehouse BIS] Refresh from BIS finished", { siteId })
+    }
+  }
+
+  const toggleRowSelection = (recordId: string, checked: boolean) => {
+    setSelectedRowIds((current) =>
+      checked ? Array.from(new Set([...current, recordId])) : current.filter((id) => id !== recordId),
+    )
+  }
+
+  const toggleAllVisibleRows = (checked: boolean) => {
+    const visibleIds = filteredMaterials.map((row) => row.id)
+    setSelectedRowIds((current) =>
+      checked
+        ? Array.from(new Set([...current, ...visibleIds]))
+        : current.filter((id) => !visibleIds.includes(id)),
+    )
+  }
+
+  const deleteSelectedRows = async () => {
+    if (!selectedRowIds.length) return
+
+    setDeleteLoading(true)
+    try {
+      const { deletedIds } = await deleteRecords(siteId, selectedRowIds)
+      setRows((current) => current.filter((row) => !deletedIds.includes(row.id)))
+      setSelectedRowIds((current) => current.filter((id) => !deletedIds.includes(id)))
+      toast.success(deletedIds.length === 1 ? "Record deleted" : `${deletedIds.length} records deleted`)
+    } catch (error) {
+      console.error("[Warehouse BIS] Delete records failed", { siteId, selectedRowIds, error })
+      toast.error(error instanceof Error ? error.message : "Failed to delete records")
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -435,6 +472,9 @@ export default function MaterialsTableClient({
 
     return filtered
   }, [rows, search, status, configFilter, sortBy])
+
+  const allVisibleSelected = filteredMaterials.length > 0 && filteredMaterials.every((row) => selectedRowIds.includes(row.id))
+  const someVisibleSelected = filteredMaterials.some((row) => selectedRowIds.includes(row.id))
 
   const stats = React.useMemo(() => {
     const total = rows.length
@@ -547,6 +587,19 @@ export default function MaterialsTableClient({
             </SelectContent>
           </Select>
 
+          {selectedRowIds.length > 0 ? (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={deleteSelectedRows}
+              disabled={deleteLoading}
+              className={showBisControls ? "" : "ml-auto"}
+            >
+              {deleteLoading ? "Deleting..." : `Delete selected (${selectedRowIds.length})`}
+            </Button>
+          ) : null}
+
           {showBisControls ? (
             <Button
               type="button"
@@ -572,6 +625,13 @@ export default function MaterialsTableClient({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
+                    onCheckedChange={(value) => toggleAllVisibleRows(Boolean(value))}
+                    aria-label="Select all visible warehouse records"
+                  />
+                </TableHead>
                 <TableHead>Photo</TableHead>
                 <TableHead>Material</TableHead>
                 <TableHead>Status</TableHead>
@@ -590,7 +650,7 @@ export default function MaterialsTableClient({
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showBisControls ? 12 : 10} className="py-12 text-center">
+                  <TableCell colSpan={showBisControls ? 13 : 11} className="py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-medium">No materials found</p>
                       <p className="text-sm text-muted-foreground">
@@ -617,6 +677,14 @@ export default function MaterialsTableClient({
 
                   return (
                     <TableRow key={r.id} className="align-middle">
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedRowIds.includes(r.id)}
+                          onCheckedChange={(value) => toggleRowSelection(r.id, Boolean(value))}
+                          aria-label={`Select warehouse record ${r.name || r.id}`}
+                        />
+                      </TableCell>
+
                       <TableCell>
                         {r.sourcePhoto ? (
                           <a href={r.sourcePhoto} target="_blank" rel="noreferrer">

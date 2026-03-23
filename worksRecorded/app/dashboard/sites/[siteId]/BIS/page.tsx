@@ -334,6 +334,85 @@ export async function updateMaterialConfiguration(
   return { success: true };
 }
 
+export async function deleteWarehouseRecords(siteId: string, recordIds: string[]) {
+  "use server";
+
+  const ids = Array.from(new Set(recordIds.filter(Boolean)));
+  if (!ids.length) {
+    return { deletedIds: [] as string[] };
+  }
+
+  const materials = await prisma.bISmaterialRecords.findMany({
+    where: {
+      siteId,
+      id: { in: ids },
+    },
+    select: {
+      id: true,
+      BISId: true,
+    },
+  });
+
+  const rowsById = new Map(materials.map((material) => [material.id, material]));
+  const bisBackedRows = materials.filter((material) => !!material.BISId);
+
+  const user = await requireUser();
+  const [site, userBisToken] = await Promise.all([
+    getSiteBisConfig(siteId),
+    getUserBisTokenByUserId(user.id),
+  ]);
+  const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
+
+  if (bisEnabled && bisBackedRows.length) {
+    const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+
+    await Promise.all(
+      bisBackedRows.map(async (material) => {
+        if (!material.BISId) return;
+
+        try {
+          console.log("[Warehouse BIS] Deleting BIS-backed warehouse record", {
+            siteId,
+            recordId: material.id,
+            bisId: material.BISId,
+          });
+
+          await fetchBisJson(
+            `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${material.BISId}`,
+            accessToken,
+            { method: "DELETE" },
+          );
+        } catch (error) {
+          const status = typeof error === "object" && error && "status" in error
+            ? Number((error as { status?: number }).status)
+            : null;
+
+          if (status === 404) {
+            console.warn("[Warehouse BIS] BIS record already missing during delete", {
+              siteId,
+              recordId: material.id,
+              bisId: material.BISId,
+            });
+            return;
+          }
+
+          throw error;
+        }
+      }),
+    );
+  }
+
+  await prisma.bISmaterialRecords.deleteMany({
+    where: {
+      siteId,
+      id: { in: Array.from(rowsById.keys()) },
+    },
+  });
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+  return { deletedIds: Array.from(rowsById.keys()) };
+}
+
 export async function updateCostCode(recordId: string, costCode: string | null) {
   "use server";
 
@@ -735,6 +814,7 @@ export default async function MaterialsPage({
         syncBisRecords={syncWarehouseBisRecords}
         updateMaterialConfiguration={updateMaterialConfiguration}
         updateCostCode={updateCostCode}
+        deleteRecords={deleteWarehouseRecords}
       />
     </div>
   );
