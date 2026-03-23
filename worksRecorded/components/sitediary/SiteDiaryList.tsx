@@ -11,8 +11,11 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import {
+  getBisCaseAvailableMaterials,
   getFilledDays,
+  getSiteGalleryAttachments,
   getSitediaryRecordsBySiteIdForExcel,
+  sendSiteDiaryRecordToBis,
 } from "@/server/actions/site-diary-actions";
 import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import * as XLSX from "xlsx";
@@ -58,6 +61,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import {
   Tabs,
@@ -70,6 +75,7 @@ import {
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "./defaultConfig.json";
+import { toast } from "sonner";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -110,6 +116,8 @@ type DiaryRow = {
   TimeInvolved?: number | string | null;
   Comments?: string | null;
   originalUserComment?: string | null;
+
+  BISId?: string | null;
   [key: string]: any;
 };
 
@@ -117,6 +125,22 @@ type DayGroup = {
   key: string; // yyyy-mm-dd
   date: Date;
   rows: DiaryRow[];
+};
+
+type BisMaterialOption = {
+  id: string;
+  label: string;
+  measurementUnit?: string | null;
+  deliveredQuantity?: number;
+  usedQuantity?: number;
+  availableQuantity: number;
+};
+
+type GalleryAttachmentOption = {
+  id: string;
+  url: string;
+  date?: Date | null;
+  comment?: string | null;
 };
 
 function getCalendarGrid(year: number, month: number) {
@@ -146,8 +170,10 @@ function toLocalDateKey(d: Date) {
 
 export default function SiteDiaryCalendar({
   siteId,
+  bisEnabled = true,
 }: {
   siteId: string | null;
+  bisEnabled?: boolean;
 }) {
   const today = new Date();
 
@@ -258,6 +284,18 @@ export default function SiteDiaryCalendar({
 
   // PDF loading per day (key = yyyy-mm-dd)
   const [pdfLoadingKey, setPdfLoadingKey] = React.useState<string | null>(null);
+  const [bisSendingRowId, setBisSendingRowId] = React.useState<string | null>(null);
+
+  const [bisSentRowIds, setBisSentRowIds] = React.useState<Set<string>>(new Set());
+  const [bisPickerOpen, setBisPickerOpen] = React.useState(false);
+  const [selectedRowForBis, setSelectedRowForBis] = React.useState<DiaryRow | null>(null);
+  const [bisMaterialOptions, setBisMaterialOptions] = React.useState<BisMaterialOption[]>([]);
+  const [galleryAttachmentOptions, setGalleryAttachmentOptions] = React.useState<GalleryAttachmentOption[]>([]);
+  const [selectedMaterialIds, setSelectedMaterialIds] = React.useState<string[]>([]);
+  const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<string[]>([]);
+  const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, number>>({});
+  const [bisPickerLoading, setBisPickerLoading] = React.useState(false);
+  const [attachmentGalleryOpen, setAttachmentGalleryOpen] = React.useState(false);
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -480,6 +518,109 @@ export default function SiteDiaryCalendar({
     });
 
   // Call server action and download PDF
+
+
+  const openBisPicker = async (row: DiaryRow) => {
+    if (!bisEnabled) {
+      return;
+    }
+
+    if (!row.id) {
+      toast.error("This record cannot be sent because it has no id.");
+      return;
+    }
+
+    if (!siteId) {
+      toast.error("Missing site id.");
+      return;
+    }
+
+    setSelectedRowForBis(row);
+    setBisPickerOpen(true);
+    setBisPickerLoading(true);
+
+    try {
+      const [materials, attachments] = await Promise.all([
+        getBisCaseAvailableMaterials(siteId),
+        getSiteGalleryAttachments(siteId),
+      ]);
+
+      setBisMaterialOptions(materials);
+      setGalleryAttachmentOptions(attachments);
+      setSelectedMaterialIds([]);
+      setSelectedAttachmentUrls([]);
+      setMaterialQuantities({});
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to load BIS material or attachment options.");
+      setBisPickerOpen(false);
+    } finally {
+      setBisPickerLoading(false);
+    }
+  };
+
+  const toggleMaterial = (materialId: string, checked: boolean) => {
+    setSelectedMaterialIds((prev) =>
+      checked ? Array.from(new Set([...prev, materialId])) : prev.filter((id) => id !== materialId),
+    );
+
+    if (checked) {
+      const material = bisMaterialOptions.find((m) => m.id === materialId);
+      const defaultQty = Math.min(1, Number(material?.availableQuantity ?? 1));
+      setMaterialQuantities((prev) => ({ ...prev, [materialId]: prev[materialId] ?? defaultQty }));
+    }
+  };
+
+  const toggleAttachment = (attachmentUrl: string, checked: boolean) => {
+    setSelectedAttachmentUrls((prev) =>
+      checked
+        ? Array.from(new Set([...prev, attachmentUrl]))
+        : prev.filter((url) => url !== attachmentUrl),
+    );
+  };
+
+  const handleSendRowToBis = async () => {
+    if (!selectedRowForBis?.id) {
+      toast.error("Missing selected record id.");
+      return;
+    }
+
+    if (selectedMaterialIds.length === 0) {
+      toast.error("Please select at least one material.");
+      return;
+    }
+
+    if (selectedAttachmentUrls.length === 0) {
+      toast.error("Please select at least one attachment from gallery.");
+      return;
+    }
+
+    try {
+      setBisSendingRowId(selectedRowForBis.id);
+
+      await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
+        materials: selectedMaterialIds.map((materialId) => {
+          const available = Number(
+            bisMaterialOptions.find((material) => material.id === materialId)?.availableQuantity ?? 0,
+          );
+          const requested = Number(materialQuantities[materialId] ?? 0);
+
+          return {
+            constructionMaterialId: materialId,
+            quantity: Math.max(0, Math.min(requested, available)),
+          };
+        }),
+        attachments: selectedAttachmentUrls.map((url) => ({ url })),
+      });
+
+      setBisSentRowIds((prev) => new Set(prev).add(selectedRowForBis.id as string));
+      setBisPickerOpen(false);
+      toast.success("Site diary record sent to BIS.");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to send site diary record to BIS.");
+    } finally {
+      setBisSendingRowId(null);
+    }
+  };
   const handleDownloadPdf = async (groupKey: string, date: Date) => {
     if (!siteId) return;
 
@@ -948,6 +1089,35 @@ export default function SiteDiaryCalendar({
                                 </p>
                               </div>
 
+                              {bisEnabled ? (
+                              <div className="mt-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+
+                                  className={cn(
+                                    "h-7 text-[10px]",
+                                    (Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false))
+                                      ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                      : "bg-green-600 text-white hover:bg-green-700",
+                                  )}
+                                  disabled={!r.id || bisSendingRowId === r.id || Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)}
+                                  onClick={() => openBisPicker(r)}
+                                >
+                                  {(Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)) ? (
+                                    "Already sent"
+                                  ) : bisSendingRowId === r.id ? (
+                                    <>
+                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      Sending...
+                                    </>
+                                  ) : (
+                                    "Send to BIS"
+                                  )}
+                                </Button>
+                              </div>
+                              ) : null}
+
                               {r.originalUserComment ? (
                                 <div className="mt-2">
                                   <Popover>
@@ -1007,6 +1177,15 @@ export default function SiteDiaryCalendar({
                                       );
                                     })}
 
+{bisEnabled ? (
+                                    <TableHead
+                                      className="text-center"
+                                      style={{ width: 140 }}
+                                    >
+                                      BIS
+                                    </TableHead>
+                                  ) : null}
+
                                     <TableHead
                                       className="text-center"
                                       style={{ width: 60 }}
@@ -1054,6 +1233,42 @@ export default function SiteDiaryCalendar({
                                           </TableCell>
                                         );
                                       })}
+
+{bisEnabled ? (
+                                      <TableCell
+                                        className="align-top px-3 py-2 text-center"
+                                        style={{ width: 140 }}
+                                      >
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+
+                                          className={cn(
+                                            "h-8",
+                                            (Boolean(group.rows[i]?.BISId) ||
+                                              (row.id ? bisSentRowIds.has(row.id) : false))
+                                              ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                              : "bg-green-600 text-white hover:bg-green-700",
+                                          )}
+                                          disabled={!row.id || bisSendingRowId === row.id || Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)}
+                                          onClick={() =>
+                                            openBisPicker(group.rows[i] ?? row)
+                                          }
+                                        >
+
+                                          {(Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)) ? (
+                                            "Already sent"
+                                          ) : bisSendingRowId === row.id ? (
+                                            <>
+                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                              Sending...
+                                            </>
+                                          ) : (
+                                            "Send to BIS"
+                                          )}
+                                        </Button>
+                                      </TableCell>
+                                      ) : null}
 
                                       <TableCell
                                         className="align-top px-3 py-2 text-center"
@@ -1117,6 +1332,193 @@ export default function SiteDiaryCalendar({
         >
           <div className="grid gap-3" />
         </DialogWindow>
+
+        {bisEnabled ? (
+        <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
+          <DialogContent className="w-[96vw] max-w-5xl max-h-[92vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Select BIS materials and attachments</DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                Select approved materials with remaining quantity and attach images from the site gallery.
+              </p>
+            </DialogHeader>
+
+            {bisPickerLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading options...
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+                  Selected materials: {selectedMaterialIds.length} • Selected attachments: {selectedAttachmentUrls.length}
+                </div>
+
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold">Materials from current BIS case</h3>
+                  <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border p-3">
+                    {bisMaterialOptions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No BIS materials available in this case.</p>
+                    ) : (
+                      bisMaterialOptions.map((material) => {
+                        const checked = selectedMaterialIds.includes(material.id);
+                        return (
+                          <div key={material.id} className="flex items-start justify-between gap-3 rounded border bg-background p-2">
+                            <label className="flex items-start gap-2 text-sm">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) => toggleMaterial(material.id, Boolean(value))}
+                              />
+                              <span className="leading-tight">
+                                {material.label}
+                                {material.measurementUnit ? ` (${material.measurementUnit})` : ""}
+                                <span className="block text-xs text-muted-foreground">
+                                  Remaining available: {material.availableQuantity}
+                                </span>
+                                <span className="block text-[11px] text-muted-foreground/80">
+                                  Delivered: {material.deliveredQuantity ?? "—"} • Used: {material.usedQuantity ?? "—"}
+                                </span>
+                              </span>
+                            </label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={material.availableQuantity}
+                              step="0.01"
+                              className="w-28"
+                              value={materialQuantities[material.id] ?? 0}
+                              disabled={!checked}
+                              onChange={(e) =>
+                                setMaterialQuantities((prev) => ({
+                                  ...prev,
+                                  [material.id]: Math.max(
+                                    0,
+                                    Math.min(Number(e.target.value || 0), Number(material.availableQuantity)),
+                                  ),
+                                }))
+                              }
+                            />
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold">Attachments from this site gallery</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAttachmentGalleryOpen(true)}
+                    >
+                      Add attachment
+                    </Button>
+                  </div>
+
+                  {selectedAttachmentUrls.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No attachments selected yet. Click “Add attachment” to open gallery.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-4">
+                      {selectedAttachmentUrls.map((url) => (
+                        <div key={url} className="relative overflow-hidden rounded border">
+                          <img src={url} alt="Selected attachment" className="h-24 w-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => toggleAttachment(url, false)}
+                            className="absolute right-1 top-1 rounded bg-black/70 px-1 text-[10px] text-white"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setBisPickerOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSendRowToBis}
+                    disabled={
+                      Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
+                      selectedMaterialIds.length === 0 ||
+                      selectedAttachmentUrls.length === 0
+                    }
+                  >
+                    {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      "Send to BIS"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+        ) : null}
+
+        <Dialog open={attachmentGalleryOpen} onOpenChange={setAttachmentGalleryOpen}>
+          <DialogContent className="w-[98vw] max-w-[98vw] lg:max-w-7xl max-h-[94vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Select attachments from gallery</DialogTitle>
+            </DialogHeader>
+
+            {galleryAttachmentOptions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No gallery photos available for this site.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+                {galleryAttachmentOptions.map((attachment) => {
+                  const checked = selectedAttachmentUrls.includes(attachment.url);
+                  return (
+                    <label
+                      key={attachment.id}
+                      className={cn(
+                        "cursor-pointer overflow-hidden rounded-md border",
+                        checked ? "ring-2 ring-green-600" : "",
+                      )}
+                    >
+                      <div className="relative">
+                        <img
+                          src={attachment.url}
+                          alt={attachment.comment || "Gallery photo"}
+                          className="h-40 w-full object-cover"
+                        />
+                        <div className="absolute left-2 top-2 rounded bg-black/70 p-1">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(value) =>
+                              toggleAttachment(attachment.url, Boolean(value))
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="p-2 text-[11px] text-muted-foreground">
+                        {attachment.date
+                          ? new Date(attachment.date).toLocaleDateString("en-GB")
+                          : ""}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button type="button" onClick={() => setAttachmentGalleryOpen(false)}>
+                Done
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Photos dialog with ImageGallery */}
         <Dialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen}>

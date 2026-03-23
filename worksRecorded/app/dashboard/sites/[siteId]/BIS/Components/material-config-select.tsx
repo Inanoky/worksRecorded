@@ -12,46 +12,19 @@ import {
 
 export const NO_MATCH_VALUE = "no_match"
 
-export const categories = [
-  {
-    id: "2195",
-    material_kind: "Flīzes",
-    measurement: "12",
-    measurement_unit: "gab.",
-  },
-  {
-    id: "2204",
-    material_kind: "Mūras bloki",
-    measurement: "12",
-    measurement_unit: "gab.",
-  },
-  {
-    id: "2230",
-    material_kind: "stiegrojums",
-    measurement: "42",
-    measurement_unit: "t",
-  },
-  {
-    id: "2231",
-    material_kind: "Transportbetons",
-    measurement: "25",
-    measurement_unit: "m3",
-  },
-  {
-    id: "2232",
-    material_kind: "Bezrukuma java",
-    measurement: "62",
-    measurement_unit: "kg",
-  },
-]
-
-export type HardcodedMaterialCategory = (typeof categories)[number]
+export type MaterialCategory = {
+  id: string
+  material_kind: string
+  measurement: string | null
+  measurement_unit: string | null
+}
 
 export default function MaterialConfigSelect({
   recordId,
   value,
   disabled,
   onSave,
+  categories,
 }: {
   recordId: string
   value?: string | null
@@ -65,6 +38,7 @@ export default function MaterialConfigSelect({
       measurementUnit: string
     }
   ) => Promise<{ success: true }>
+  categories: MaterialCategory[]
 }) {
   const [pending, startTransition] = useTransition()
 
@@ -94,8 +68,8 @@ export default function MaterialConfigSelect({
             await onSave(recordId, {
               categoryId: selected.id,
               categoryName: selected.material_kind,
-              measurementUnitId: selected.measurement,
-              measurementUnit: selected.measurement_unit,
+              measurementUnitId: selected.measurement ?? "",
+              measurementUnit: selected.measurement_unit ?? "",
             })
 
             toast.success("BIS material configuration updated")

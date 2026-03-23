@@ -30,17 +30,22 @@ import TourRunner from "@/components/joyride/TourRunner";
 
 import Reminder from "@/components/settings/ReminderUI";
 import { getRemindersData, getReminderTimes, getDataForReminderTable} from "@/server/actions/reminder-actions";
+import { BisIntegrationCard } from "@/components/settings/BisIntegrationCard";
+import { fetchBisAvailableCases, getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
 
 
 
 export default async function SettingsSiteRoute({
   params,
+  searchParams,
 }: {
   params: Promise<{ siteId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
 
 
   const { siteId } = await params
+  const resolvedSearchParams = (await searchParams) ?? {}
   const user = await requireUser();
   const siteCheck = await orgCheck(user.id, siteId);
   if (!siteCheck) {
@@ -55,6 +60,7 @@ export default async function SettingsSiteRoute({
   const site = await prisma.site.findUnique({
     where: { id: siteId },
   });
+  const siteBisConfig = await getSiteBisConfig(siteId);
 
   const settings = await prisma.sitediarysettings.findUnique({
     where: { siteId },
@@ -66,8 +72,40 @@ export default async function SettingsSiteRoute({
   const reminderTimes = await getReminderTimes(orgId)
   console.log(remindersData)
 
+  const bisToken = await getUserBisTokenByUserId(user.id);
 
+  const isBisConnected = Boolean(bisToken?.accessToken);
 
+  let availableBisCases: Array<{
+    id: string;
+    caseNumber: string | null;
+    constructionName: string | null;
+    stageName: string | null;
+  }> = [];
+
+  if (isBisConnected) {
+    try {
+      availableBisCases = await fetchBisAvailableCases(bisToken.accessToken);
+    } catch (error) {
+      console.error("Failed to load BIS cases", error);
+    }
+  }
+
+  const bisStatus = Array.isArray(resolvedSearchParams.bis)
+    ? resolvedSearchParams.bis[0]
+    : resolvedSearchParams.bis;
+  const bisMessage = Array.isArray(resolvedSearchParams.message)
+    ? resolvedSearchParams.message[0]
+    : resolvedSearchParams.message;
+
+  const statusMessageMap: Record<string, string> = {
+    connected: "BIS authorization completed successfully.",
+    disconnected: "BIS access tokens were removed and this site's BIS case selection was cleared. Existing BIS-linked records were kept.",
+    "case-selected": "BIS case was saved for this site.",
+    error: bisMessage ? `BIS connection failed: ${bisMessage}` : "BIS connection failed.",
+  };
+
+  const statusMessage = bisStatus ? statusMessageMap[bisStatus] ?? null : null;
 
   return (
     <>
@@ -83,6 +121,20 @@ export default async function SettingsSiteRoute({
       </div>
 
       <UploadImageForm siteId={siteId} />
+
+      <BisIntegrationCard
+        siteId={siteId}
+        isConnected={isBisConnected}
+        selectedCase={{
+          id: siteBisConfig?.bisCaseId ?? null,
+          caseNumber: siteBisConfig?.bisCaseNumber ?? null,
+          name: siteBisConfig?.bisCaseName ?? null,
+          stage: siteBisConfig?.bisCaseStage ?? null,
+        }}
+        availableCases={availableBisCases}
+        statusMessage={statusMessage}
+        hasManualAuthorizationCode={Boolean(process.env.BIS_AUTHORIZATION_CODE)}
+      />
 
       {/* Edit Site Info Card */}
       <Card className="mb-6">

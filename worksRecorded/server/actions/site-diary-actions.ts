@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/utils/db";
+import { requireBisAccessTokenForSite, getBisBaseUrl } from "@/server/actions/BIS/service";
 import { requireUser } from "@/lib/utils/requireUser";
 import { parseExcelToTree } from "@/server/ai-flows/agents/settings/schema-upload/agent"; // Optional: if you want to refresh data on page
 import { validateExcel } from "@/lib/utils/SiteDiary/Settings/validateSchema";
@@ -352,6 +353,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     where: { siteId },
     orderBy: [{ Date: "asc" }],
     select: {
+      id: true,
       Date: true,
       Date_Custom_1: true,
       Date_Custom_2: true,
@@ -373,6 +375,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       WorkersInvolved: true,
       TimeInvolved: true,
       Photos: true,
+      BISId: true,
       originalUserComment: true,
 
       // createdBy support
@@ -411,6 +414,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     }
 
     return {
+      id: rec.id,
       Date: rec.Date,
       Date_Custom_1: rec.Date_Custom_1,
       Date_Custom_2: rec.Date_Custom_2,
@@ -433,11 +437,392 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       TimeInvolved: rec.TimeInvolved?.toString() || "",
 
       Photos: rec.Photos ?? [],
+      BISId: rec.BISId || null,
       originalUserComment: rec.originalUserComment || "",
 
       createdBy: createdBy || "N/A",
     };
   });
+}
+
+export type BisPerformedWorkMaterialSelection = {
+  constructionMaterialId: string;
+  quantity: number;
+};
+
+export type BisPerformedWorkAttachmentSelection = {
+  url: string;
+};
+
+export async function getBisCaseAvailableMaterials(siteId: string) {
+  const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(siteId);
+
+  const baseUrl = getBisBaseUrl();
+
+  // 12I7-092: received construction products list
+  const receivedResponse = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/received_construction_products?page[number]=1&page[size]=200`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!receivedResponse.ok) {
+    const text = await receivedResponse.text();
+    throw new Error(text || "Failed to fetch BIS received construction products");
+  }
+
+  const receivedJson = await receivedResponse.json();
+  const approvedReceivedItems = (Array.isArray(receivedJson?.data) ? receivedJson.data : []).filter(
+    (item: any) => item?.attributes?.status === "approved",
+  );
+
+  // Build metadata (label/unit) and total delivered quantity by construction_material_id
+  // from approved 12I7-092 details.
+  const approvedMaterialMeta = new Map<string, { label: string; measurementUnit: string | null }>();
+  const deliveredByMaterial = new Map<string, number>();
+
+  const approvedDetails = await Promise.all(
+    approvedReceivedItems.map(async (item: any) => {
+      const logbookId = String(item?.id ?? "");
+      if (!logbookId) return null;
+
+      const detailResponse = await fetch(
+        `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/received_construction_products/${logbookId}/detail`,
+        {
+          headers: {
+            Accept: "application/vnd.api+json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        },
+      );
+
+      if (!detailResponse.ok) return null;
+
+      const detailJson = await detailResponse.json();
+      const detail = detailJson?.data?.attributes;
+      const constructionMaterialId = String(detail?.construction_material_id ?? "");
+      if (!constructionMaterialId) return null;
+
+      return {
+        constructionMaterialId,
+        deliveredQuantity: Number(detail?.quantity ?? 0),
+        label:
+          item?.attributes?.material_name ||
+          detail?.material_kind ||
+          `Material #${constructionMaterialId}`,
+        measurementUnit: detail?.measurement ? String(detail.measurement) : null,
+      };
+    }),
+  );
+
+  for (const detail of approvedDetails) {
+    if (!detail) continue;
+
+    if (!approvedMaterialMeta.has(detail.constructionMaterialId)) {
+      approvedMaterialMeta.set(detail.constructionMaterialId, {
+        label: detail.label,
+        measurementUnit: detail.measurementUnit,
+      });
+    }
+
+    deliveredByMaterial.set(
+      detail.constructionMaterialId,
+      (deliveredByMaterial.get(detail.constructionMaterialId) ?? 0) + detail.deliveredQuantity,
+    );
+  }
+
+  // 12I7-184: used materials list (quantity already used in logbook records)
+  const availableResponse = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials?page[number]=1&page[size]=200`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  if (!availableResponse.ok) {
+    const text = await availableResponse.text();
+    throw new Error(text || "Failed to fetch BIS available used materials");
+  }
+
+  const availableJson = await availableResponse.json();
+  const availableItems = Array.isArray(availableJson?.data) ? availableJson.data : [];
+
+  const usedByMaterial = new Map<string, number>();
+  for (const item of availableItems) {
+    const materialId = String(item?.attributes?.construction_material_id ?? "");
+    if (!materialId) continue;
+
+    usedByMaterial.set(
+      materialId,
+      (usedByMaterial.get(materialId) ?? 0) + Number(item?.attributes?.quantity ?? 0),
+    );
+  }
+
+  // Remaining = approved delivered (12I7-092 detail.quantity) - used (12I7-184 quantity)
+  return Array.from(deliveredByMaterial.entries())
+    .map(([materialId, deliveredQuantity]) => {
+      if (!approvedMaterialMeta.has(materialId)) return null;
+
+      const meta = approvedMaterialMeta.get(materialId)!;
+      const usedQuantity = usedByMaterial.get(materialId) ?? 0;
+      const remaining = Math.max(0, deliveredQuantity - usedQuantity);
+
+      return {
+        id: materialId,
+        label: meta.label,
+        measurementUnit: meta.measurementUnit,
+        deliveredQuantity: Number(deliveredQuantity.toFixed(3)),
+        usedQuantity: Number(usedQuantity.toFixed(3)),
+        availableQuantity: Number(remaining.toFixed(3)),
+      };
+    })
+    .filter((item: any) => item && item.availableQuantity > 0)
+    .sort((a: any, b: any) => String(a.label).localeCompare(String(b.label)));
+}
+
+export async function getSiteGalleryAttachments(siteId: string) {
+  if (!siteId) return [];
+
+  const photos = await prisma.photos.findMany({
+    where: {
+      siteId,
+      OR: [{ fileUrl: { not: null } }, { URL: { not: null } }],
+    },
+    orderBy: { Date: "desc" },
+    take: 200,
+    select: {
+      id: true,
+      fileUrl: true,
+      URL: true,
+      Date: true,
+      Comment: true,
+    },
+  });
+
+  return photos
+    .map((photo) => ({
+      id: photo.id,
+      url: photo.fileUrl || photo.URL || "",
+      date: photo.Date,
+      comment: photo.Comment,
+    }))
+    .filter((photo) => Boolean(photo.url));
+}
+
+export async function sendSiteDiaryRecordToBis(
+  recordId: string,
+  options?: {
+    materials?: BisPerformedWorkMaterialSelection[];
+    attachments?: BisPerformedWorkAttachmentSelection[];
+  },
+) {
+  if (!recordId) throw new Error("Missing site diary record id");
+
+  const recordSite = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true },
+  });
+
+  if (!recordSite?.siteId) {
+    throw new Error("Site diary record is not assigned to a site");
+  }
+
+  const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(recordSite.siteId);
+
+  const diaryRecord = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: {
+      id: true,
+      Date: true,
+      Works: true,
+      Location: true,
+      Comments: true,
+      WorkersInvolved: true,
+      Amounts: true,
+    },
+  });
+
+  if (!diaryRecord) {
+    throw new Error("Site diary record not found");
+  }
+
+  const baseUrl = getBisBaseUrl();
+
+  const eventDate = (diaryRecord.Date ?? new Date()).toISOString().slice(0, 10);
+  const eventTimeFrom = new Date().toTimeString().slice(0, 5);
+
+  const detailAttributes = {
+    employees: Number(diaryRecord.WorkersInvolved ?? 1),
+    quantity: Number(diaryRecord.Amounts ?? 1),
+    measurement: Number(process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
+  };
+
+  const attachments: Array<{ type: "shared_attachments"; uuid: string }> = [];
+
+  for (const selectedAttachment of options?.attachments ?? []) {
+    const tempUuid = await uploadLogbookAttachmentToBis({
+      photoUrl: selectedAttachment.url,
+      accessToken,
+      baseUrl,
+      bisCase,
+      attachmentPath: "performed_work_attachments",
+    });
+
+    if (tempUuid) {
+      attachments.push({ type: "shared_attachments", uuid: tempUuid });
+    }
+  }
+
+  const logbookUsedConstructionMaterials = (options?.materials ?? [])
+    .filter((item) => item.constructionMaterialId)
+    .map((item) => ({
+      type: "construction_materials_join",
+      attributes: {
+        construction_material_id: item.constructionMaterialId,
+        quantity: String(Number(item.quantity ?? 0)),
+      },
+    }));
+
+  const descriptionParts = [
+    diaryRecord.Works ? `Works: ${diaryRecord.Works}` : null,
+    diaryRecord.Location ? `Location: ${diaryRecord.Location}` : null,
+    diaryRecord.Comments ? `Comments: ${diaryRecord.Comments}` : null,
+  ].filter(Boolean);
+
+  const payload = {
+    data: {
+      type: "performed_work",
+      attributes: {
+        event_date: eventDate,
+        event_time_from: eventTimeFrom,
+        case_construction_round_id: null,
+        responsible_person_id: 2759822,
+        responsible_person_type: "construction_member",
+        description:
+          descriptionParts.join("; ") || "Site diary entry sent from worksRecorded",
+      },
+      relationships: {
+        detail: {
+          data: {
+            type: "performed_work",
+            attributes: detailAttributes,
+          },
+        },
+        attachments: {
+          data: attachments,
+        },
+        logbook_used_construction_materials: {
+          data: logbookUsedConstructionMaterials,
+        },
+      },
+    },
+  };
+
+  const res = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/performed_works`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.api+json",
+        "Content-Type": "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      json?.errors?.[0]?.detail || json?.error || "Failed to send site diary to BIS",
+    );
+  }
+
+  const bisId = json?.data?.id ? String(json.data.id) : null;
+
+  if (bisId) {
+    await prisma.sitediaryrecords.update({
+      where: { id: recordId },
+      data: { BISId: bisId },
+    });
+  }
+
+  return {
+    success: true,
+    bisId,
+    response: json,
+  };
+}
+
+async function uploadLogbookAttachmentToBis({
+  photoUrl,
+  accessToken,
+  baseUrl,
+  bisCase,
+  attachmentPath,
+}: {
+  photoUrl: string;
+  accessToken: string;
+  baseUrl: string;
+  bisCase: string;
+  attachmentPath: string;
+}): Promise<string | null> {
+  if (!photoUrl) return null;
+
+  const fileResponse = await fetch(photoUrl, { cache: "no-store" });
+  if (!fileResponse.ok) {
+    console.warn(`Skipping BIS upload. Unable to download attachment: ${photoUrl}`);
+    return null;
+  }
+
+  const arrayBuffer = await fileResponse.arrayBuffer();
+  const blob = new Blob([arrayBuffer], {
+    type: fileResponse.headers.get("content-type") || "image/jpeg",
+  });
+
+  const form = new FormData();
+  form.append("upload[file]", blob, "attachment.jpg");
+  form.append("upload[obj_id]", crypto.randomUUID());
+
+  const uploadResponse = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/${attachmentPath}`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: form,
+      cache: "no-store",
+    },
+  );
+
+  if (!uploadResponse.ok) {
+    const errText = await uploadResponse.text();
+    console.warn(`Skipping BIS attachment. Upload failed: ${errText}`);
+    return null;
+  }
+
+  const json = await uploadResponse.json();
+  return json?.data?.attributes?.temp_uuid ?? null;
 }
 
 export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {

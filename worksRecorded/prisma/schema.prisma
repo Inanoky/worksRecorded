@@ -69,6 +69,7 @@ model User {
   sitediarysettings sitediarysettings[]
   photos            photos[]
   BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
+  bisToken          BisToken?
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -89,6 +90,11 @@ model Site {
   User              User?              @relation(fields: [userId], references: [id])
   userId            String?
   reminders       String?
+
+  bisCaseId        String?
+  bisCaseNumber    String?
+  bisCaseName      String?
+  bisCaseStage     String?
   
   invoices          Invoices[]
   InvoiceItems      InvoiceItems[]
@@ -225,6 +231,7 @@ model sitediaryrecords {
   originalUserComment  String?
   Units           String?
   Amounts         Float?
+  BISId String?
   WorkersInvolved Int?
   TimeInvolved    Float?
   Photos          String[]
@@ -382,7 +389,7 @@ model BISmaterialRecords {
   orgId String?
 
   BISId String?
-
+  bisStatus String?
 
 
 }
@@ -393,6 +400,8 @@ model BisToken {
   accessToken  String
   refreshToken String
   updatedAt    DateTime @updatedAt
+  userId       String?  @unique
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 

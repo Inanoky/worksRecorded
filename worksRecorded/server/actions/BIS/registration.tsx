@@ -1,13 +1,13 @@
 
 import fetch from "node-fetch"; 
 
-const url = "https://bis.gov.lv/services/auth/oauth2.0/registration";
+const url = "https://test.bis.gov.lv/services/auth/oauth2.0/registration";
 
 const body = {
   client_name: "Buvconsult",
   client_description: "Buvconsult BIS Integration",
-  person_code: "251291-12961",
-  redirect_uri: "http://buvconsult.com/api/webhook/bis/callback",
+  person_code: "25129112961",
+  redirect_uri: "https://localhost:3000/",
   scopes: "bis_case_documents:manage projects:manage logbooks:manage",
 };
 
