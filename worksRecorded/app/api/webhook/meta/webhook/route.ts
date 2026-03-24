@@ -95,6 +95,20 @@ async function graphSendMessage(
   }
 }
 
+async function sendMetaTypingIndicator(
+  businessPhoneNumberId: string,
+  messageId: string
+): Promise<void> {
+  await graphSendMessage(businessPhoneNumberId, {
+    messaging_product: "whatsapp",
+    status: "read",
+    message_id: messageId,
+    typing_indicator: {
+      type: "text",
+    },
+  });
+}
+
 /**
  * GET /api/webhook/Meta
  * Meta webhook verification handshake.
@@ -234,6 +248,10 @@ export async function POST(req: Request): Promise<Response> {
       body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
 
     if (message && business_phone_number_id) {
+      if (message.id && (message.type === "text" || message.type === "image" || message.type === "audio")) {
+        await sendMetaTypingIndicator(business_phone_number_id, message.id);
+      }
+
       // 1) If user sends "action" -> send a Flow message
       if (
         message.type === "text" &&
