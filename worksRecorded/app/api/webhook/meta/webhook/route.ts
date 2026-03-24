@@ -12,6 +12,7 @@ import {
 import { handleWorkerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/worker";
 import { handleProjectManagerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/project-manager-route";
 import { handleSiteManagerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/site-manager-route";
+import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 import {
   getSession,
   startSession,
@@ -390,10 +391,14 @@ export async function POST(req: Request): Promise<Response> {
 
       // 2.5) Run the same role-based WhatsApp routing used by Twilio webhook.
       if (message.type === "text" || message.type === "image" || message.type === "audio") {
-        await runWhatsappRoutingForMeta({
-          message,
-          businessPhoneNumberId: business_phone_number_id,
-        });
+        await runWithMetaReplyContext(
+          { businessPhoneNumberId: business_phone_number_id },
+          async () =>
+            runWhatsappRoutingForMeta({
+              message,
+              businessPhoneNumberId: business_phone_number_id,
+            })
+        );
       }
 
       // 3) Mark message as read
