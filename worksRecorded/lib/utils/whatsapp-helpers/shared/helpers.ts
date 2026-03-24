@@ -18,9 +18,15 @@ export async function normalizePhone(waId: string | null, from: string | null) {
 
 export async function fetchTwilioMediaAsBuffer(url: string) {
   console.log("🌐 [fetchTwilioMediaAsBuffer] fetching media from:", url);
-  const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+  const isMetaMedia = /graph\.facebook\.com/i.test(url);
   try {
-    const res = await fetch(url, { headers: { Authorization: `Basic ${basicAuth}` } });
+    const token = process.env.META_ACCESS_TOKEN;
+    const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+    const headers = isMetaMedia
+      ? { Authorization: `Bearer ${token}` }
+      : { Authorization: `Basic ${basicAuth}` };
+
+    const res = await fetch(url, { headers, redirect: "follow" });
     console.log("✅ [fetchTwilioMediaAsBuffer] response status:", res.status, res.statusText);
     const buf = Buffer.from(await res.arrayBuffer());
     console.log("📦 [fetchTwilioMediaAsBuffer] buffer size:", buf.length);

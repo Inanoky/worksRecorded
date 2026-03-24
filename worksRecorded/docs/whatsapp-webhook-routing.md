@@ -95,6 +95,13 @@ Meta route builds that shape with `toTwilioLikeFormData(...)`:
 
 This lets existing role handlers run without duplicating business logic.
 
+For image messages, Meta route first resolves media metadata (`/{media-id}`) to obtain a temporary media URL and MIME type, then maps those into:
+
+- `MediaUrl0`
+- `MediaContentType0`
+
+This allows shared image handlers to store the photo and send the usual ✅ confirmation reply.
+
 ### 3.4 DB lock behavior in Meta route
 
 Meta text messages use the same `whatsappTextLock` pattern:
@@ -162,4 +169,3 @@ Shared processing helpers:
 1. File name `twillio.ts` is intentionally kept as-is to match current imports.
 2. Meta media payloads differ from Twilio media payloads; the adapter allows shared routing, but media handling details still depend on the helper implementations and message type data available in each provider payload.
 3. If adding new provider-specific behavior, keep the role handlers provider-agnostic and contain protocol specifics in webhook routes + shared send context.
-

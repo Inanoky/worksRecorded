@@ -129,7 +129,31 @@ export async function GET(req: Request): Promise<Response> {
   return new Response("Forbidden", { status: 403 });
 }
 
-function toTwilioLikeFormData(message: any): FormData {
+async function getMetaMediaInfo(mediaId: string): Promise<{ url: string; mimeType: string } | null> {
+  const token = mustGetEnv("META_ACCESS_TOKEN", META_ACCESS_TOKEN);
+
+  const res = await fetch(`https://graph.facebook.com/v18.0/${mediaId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    console.error("Failed to resolve Meta media info", res.status, text);
+    return null;
+  }
+
+  const data = await res.json().catch(() => null);
+  const url = data?.url;
+  const mimeType = data?.mime_type;
+
+  if (!url) return null;
+  return { url, mimeType: mimeType || "image/jpeg" };
+}
+
+async function toTwilioLikeFormData(message: any): Promise<FormData> {
   const formData = new FormData();
   const body = typeof message?.text?.body === "string" ? message.text.body : "";
   const from = message?.from ? `whatsapp:+${message.from}` : "";
@@ -141,6 +165,14 @@ function toTwilioLikeFormData(message: any): FormData {
   formData.set("MessageSid", message?.id ?? "");
   formData.set("NumMedia", message?.type === "text" ? "0" : "1");
 
+  if (message?.type === "image" && message?.image?.id) {
+    const mediaInfo = await getMetaMediaInfo(message.image.id);
+    if (mediaInfo) {
+      formData.set("MediaUrl0", mediaInfo.url);
+      formData.set("MediaContentType0", mediaInfo.mimeType);
+    }
+  }
+
   return formData;
 }
 
@@ -149,7 +181,7 @@ async function runWhatsappRoutingForMeta(args: {
   businessPhoneNumberId: string;
 }) {
   const { message, businessPhoneNumberId } = args;
-  const formData = toTwilioLikeFormData(message);
+  const formData = await toTwilioLikeFormData(message);
 
   let lockHeld = false;
   let lockPhone: string | null = null;
