@@ -2,8 +2,8 @@
 
 import { prisma } from "@/lib/utils/db";
 import talkToClockInAgent from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/agent";
-import twilio from "twilio";
 import OpenAI, { toFile } from "openai";
+import { sendMessage } from "../shared/twillio";
 // UPDATE: Ensure this import path is correct for your file structure
 // (assuming handleImage.ts is in the same directory as this file based on surrounding context)
 import { handleImage } from "../shared/handleImage";
@@ -12,8 +12,6 @@ import { handleImage } from "../shared/handleImage";
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID!;
 const authToken = process.env.TWILIO_AUTH_TOKEN!;
-const client = twilio(accountSid, authToken);
-const SENDER_NUMBER = "whatsapp:+13135131153";
 
 /**
  * Handles incoming worker WhatsApp messages,
@@ -125,22 +123,5 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
   } catch (error) {
     console.error("Worker workflow error:", error);
     await sendMessage(from, "Error processing message.");
-  }
-}
-
-/**
- * Helper to send WhatsApp messages via Twilio.
- */
-async function sendMessage(to: string, message: string) {
-  try {
-    console.log("[sendMessage] Sending message:", { to, message });
-    await client.messages.create({
-      from: SENDER_NUMBER,
-      to,
-      body: message,
-    });
-    console.log("[sendMessage] Message sent successfully.");
-  } catch (error) {
-    console.error("Failed to send message:", error);
   }
 }
