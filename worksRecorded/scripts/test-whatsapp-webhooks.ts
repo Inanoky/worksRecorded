@@ -11,7 +11,7 @@
  */
 
 type Provider = "twilio" | "meta";
-type Scenario = "receive" | "action" | "change" | "ai_reply";
+type Scenario = "receive" | "action" | "change" | "ai_reply" | "image_upload";
 
 type TestCase = {
   name: string;
@@ -25,18 +25,48 @@ const TEST_PHONE_E164 = process.env.TEST_PHONE_E164 || "+37120000000";
 const META_WA_ID = process.env.META_WA_ID || TEST_PHONE_E164.replace("+", "");
 const META_PHONE_NUMBER_ID = process.env.META_PHONE_NUMBER_ID || "123456789012345";
 
-function makeTwilioForm(body: string, from = `whatsapp:${TEST_PHONE_E164}`): URLSearchParams {
+function makeTwilioForm(
+  body: string,
+  from = `whatsapp:${TEST_PHONE_E164}`,
+  options?: { imageUpload?: boolean }
+): URLSearchParams {
   const form = new URLSearchParams();
   form.set("SmsStatus", "received");
   form.set("From", from);
   form.set("WaId", from.replace("whatsapp:+", ""));
   form.set("Body", body);
-  form.set("NumMedia", "0");
+  if (options?.imageUpload) {
+    form.set("NumMedia", "1");
+    form.set("MediaUrl0", "https://example.com/test-image.jpg");
+    form.set("MediaContentType0", "image/jpeg");
+  } else {
+    form.set("NumMedia", "0");
+  }
   form.set("MessageSid", `SM_${Date.now()}_${Math.random().toString(16).slice(2)}`);
   return form;
 }
 
-function makeMetaPayload(text: string) {
+function makeMetaPayload(text: string, options?: { imageUpload?: boolean }) {
+  const message = options?.imageUpload
+    ? {
+        from: META_WA_ID,
+        id: `wamid.TEST_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        timestamp: `${Math.floor(Date.now() / 1000)}`,
+        type: "image",
+        image: {
+          id: `MEDIA_${Date.now()}`,
+          mime_type: "image/jpeg",
+          caption: text,
+        },
+      }
+    : {
+        from: META_WA_ID,
+        id: `wamid.TEST_${Date.now()}_${Math.random().toString(16).slice(2)}`,
+        timestamp: `${Math.floor(Date.now() / 1000)}`,
+        type: "text",
+        text: { body: text },
+      };
+
   return {
     object: "whatsapp_business_account",
     entry: [
@@ -52,15 +82,7 @@ function makeMetaPayload(text: string) {
                 phone_number_id: META_PHONE_NUMBER_ID,
               },
               contacts: [{ wa_id: META_WA_ID, profile: { name: "Webhook Test User" } }],
-              messages: [
-                {
-                  from: META_WA_ID,
-                  id: `wamid.TEST_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-                  timestamp: `${Math.floor(Date.now() / 1000)}`,
-                  type: "text",
-                  text: { body: text },
-                },
-              ],
+              messages: [message],
             },
           },
         ],
@@ -69,21 +91,21 @@ function makeMetaPayload(text: string) {
   };
 }
 
-async function callTwilio(body: string) {
+async function callTwilio(body: string, options?: { imageUpload?: boolean }) {
   const res = await fetch(`${BASE_URL}/api/webhook/whatsapp`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: makeTwilioForm(body).toString(),
+    body: makeTwilioForm(body, `whatsapp:${TEST_PHONE_E164}`, options).toString(),
   });
   const text = await res.text();
   return { status: res.status, body: text };
 }
 
-async function callMeta(body: string) {
+async function callMeta(body: string, options?: { imageUpload?: boolean }) {
   const res = await fetch(`${BASE_URL}/api/webhook/meta/webhook`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(makeMetaPayload(body)),
+    body: JSON.stringify(makeMetaPayload(body, options)),
   });
   const text = await res.text();
   return { status: res.status, body: text };
@@ -92,9 +114,13 @@ async function callMeta(body: string) {
 async function runHttpCheck(
   provider: Provider,
   scenario: Scenario,
-  textBody: string
+  textBody: string,
+  options?: { imageUpload?: boolean }
 ): Promise<{ ok: boolean; details: string }> {
-  const out = provider === "twilio" ? await callTwilio(textBody) : await callMeta(textBody);
+  const out =
+    provider === "twilio"
+      ? await callTwilio(textBody, options)
+      : await callMeta(textBody, options);
   const ok = out.status === 200;
 
   const details = [
@@ -134,6 +160,15 @@ async function main() {
       run: () => runHttpCheck("twilio", "ai_reply", "Please summarize today's site progress"),
     },
     {
+      name: "Twilio image upload functionality",
+      provider: "twilio",
+      scenario: "image_upload",
+      run: () =>
+        runHttpCheck("twilio", "image_upload", "Image upload smoke test", {
+          imageUpload: true,
+        }),
+    },
+    {
       name: "Meta receive message",
       provider: "meta",
       scenario: "receive",
@@ -156,6 +191,15 @@ async function main() {
       provider: "meta",
       scenario: "ai_reply",
       run: () => runHttpCheck("meta", "ai_reply", "What tasks are pending for this week?"),
+    },
+    {
+      name: "Meta image upload functionality",
+      provider: "meta",
+      scenario: "image_upload",
+      run: () =>
+        runHttpCheck("meta", "image_upload", "Image upload smoke test", {
+          imageUpload: true,
+        }),
     },
   ];
 
@@ -190,4 +234,3 @@ main().catch((err) => {
   console.error("❌ Test runner failed:", err);
   process.exit(1);
 });
-
