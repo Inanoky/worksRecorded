@@ -6,7 +6,7 @@
 const BIS_BASE_URL = "https://test.bis.gov.lv";
 const CLIENT_ID = "PASTE_CLIENT_ID";
 const CLIENT_SECRET = "PASTE_CLIENT_SECRET";
-const REDIRECT_URI = "https://localhost:3000/";
+const REDIRECT_URI = "https://worksrecorded.com/api/bis/callback";
 const SCOPE = "bis_case_documents:manage logbooks:manage";
 
 const CODE = ""; // <-- paste the ?code=... value here
