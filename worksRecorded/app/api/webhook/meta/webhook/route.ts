@@ -1,4 +1,4 @@
-// worksRecorded\app\api\webhook\meta\webhook\route.ts
+// worksRecorded/app/api/webhook/Meta/route.ts
 // Next.js App Router webhook endpoint (GET verify + POST events)
 export const maxDuration = 60;
 
@@ -285,6 +285,16 @@ export async function POST(req: Request): Promise<Response> {
             },
           },
         });
+
+        if (message.id) {
+          await graphSendMessage(business_phone_number_id, {
+            messaging_product: "whatsapp",
+            status: "read",
+            message_id: message.id,
+          });
+        }
+
+        return new Response("OK", { status: 200 });
       }
 
       //-----------------BOOKING APPOINTMENT BOT (PRISMA)-----------------------
