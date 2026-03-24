@@ -170,6 +170,7 @@ async function toTwilioLikeFormData(message: any): Promise<FormData> {
     if (mediaInfo) {
       formData.set("MediaUrl0", mediaInfo.url);
       formData.set("MediaContentType0", mediaInfo.mimeType);
+      formData.set("MediaProvider0", "meta");
     }
   }
 

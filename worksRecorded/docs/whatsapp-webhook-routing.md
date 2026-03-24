@@ -99,6 +99,7 @@ For image messages, Meta route first resolves media metadata (`/{media-id}`) to 
 
 - `MediaUrl0`
 - `MediaContentType0`
+- `MediaProvider0 = "meta"` (so shared media downloader uses Meta bearer auth)
 
 This allows shared image handlers to store the photo and send the usual ✅ confirmation reply.
 
