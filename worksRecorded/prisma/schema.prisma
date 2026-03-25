@@ -422,3 +422,24 @@ model BookingSession {
   updatedAt DateTime @updatedAt
 
 }
+
+
+model AiNewsFeed {
+  id              Int      @id @default(autoincrement())
+  topicKey        String?  @unique @map("topic_key")
+  headline        String
+  summary         String
+  fullArticle     String?  @map("full_article")
+  seoTitle        String?  @map("seo_title")
+  seoDescription  String?  @map("seo_description")
+  seoKeywords     Json     @default("[]") @map("seo_keywords")
+  tags            Json     @default("[]")
+  imageUrl        String   @map("image_url")
+  sourceTitle     String?  @map("source_title")
+  sourceUrl       String?  @unique @map("source_url")
+  sourcePublisher String?  @map("source_publisher")
+  sourceLinks     Json     @default("[]") @map("source_links")
+  createdAt       DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+
+  @@map("ai_news_feed")
+}
