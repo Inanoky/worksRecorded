@@ -3,6 +3,7 @@ import { startOfWeek, endOfWeek, endOfDay , addWeeks } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 // Helper to get all months, to show 0 if no spendings that month
+//nothing
 
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
