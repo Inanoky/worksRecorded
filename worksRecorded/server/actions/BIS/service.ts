@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
+import { bisFetch } from "./TestBisEnv/relay";
 
 type UserBisTokenRow = {
   id: string;
@@ -20,7 +21,7 @@ type SiteBisConfigRow = {
 
 const BIS_BASE_URL = (process.env.BIS_BASE_URL ?? "https://test.bis.gov.lv/").replace(/\/+$/, "");
 const BIS_SCOPES = process.env.BIS_SCOPES ?? "bis_case_documents:manage logbooks:manage";
-const BIS_ACCESS_TOKEN_MAX_AGE_MS = 50 * 60 * 1000;
+const BIS_ACCESS_TOKEN_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 const WORKS_RECORDED_PRODUCTION_URL = "https://www.worksrecorded.com";
 
 function getRequiredEnv(name: string) {
@@ -83,7 +84,7 @@ function getBasicAuthHeader() {
   return `Basic ${Buffer.from(`${getBisClientId()}:${getBisClientSecret()}`).toString("base64")}`;
 }
 
-export async function getUserBisTokenByUserId(userId: string) {
+async function getUserBisTokenRecordByUserId(userId: string) {
   const rows = await prisma.$queryRaw<UserBisTokenRow[]>`
     SELECT id, "accessToken", "refreshToken", "updatedAt", "userId"
     FROM "BisToken"
@@ -93,6 +94,10 @@ export async function getUserBisTokenByUserId(userId: string) {
   `;
 
   return rows[0] ?? null;
+}
+
+export async function getUserBisTokenByUserId(userId: string) {
+  return ensureUserBisAccessToken(userId);
 }
 
 export async function getCurrentUserBisToken() {
@@ -110,7 +115,7 @@ export async function refreshBisAccessToken(userId: string, refreshToken: string
     refresh_token: refreshToken,
   });
 
-  const response = await fetch(`${getBisBaseUrl()}/bisp/api/auth/oauth2.0/token`, {
+  const response = await bisFetch(getBisBaseUrl(), `${getBisBaseUrl()}/bisp/api/auth/oauth2.0/token`, {
     method: "POST",
     headers: {
       Authorization: getBasicAuthHeader(),
@@ -137,9 +142,16 @@ export async function refreshBisAccessToken(userId: string, refreshToken: string
 }
 
 export async function ensureUserBisAccessToken(userId: string) {
-  const token = await getUserBisTokenByUserId(userId);
+  const token = await getUserBisTokenRecordByUserId(userId);
 
-  if (!token?.refreshToken) {
+  if (!token) {
+    return null;
+  }
+
+  if (!token.refreshToken) {
+    if (!token.accessToken || isBisAccessTokenStale(token)) {
+      return null;
+    }
     return token;
   }
 
@@ -220,7 +232,8 @@ export async function requireBisAccessTokenForSite(siteId: string) {
 }
 
 export async function fetchBisAvailableCases(accessToken: string) {
-  const response = await fetch(
+  const response = await bisFetch(
+    getBisBaseUrl(),
     `${getBisBaseUrl()}/bisp/api/portal/bis_cases?page[number]=1&page[size]=200`,
     {
       headers: {
@@ -260,7 +273,7 @@ export async function exchangeBisAuthorizationCode(code: string) {
     redirect_uri: getBisRedirectUri(),
   });
 
-  const response = await fetch(`${getBisBaseUrl()}/bisp/api/auth/oauth2.0/token`, {
+  const response = await bisFetch(getBisBaseUrl(), `${getBisBaseUrl()}/bisp/api/auth/oauth2.0/token`, {
     method: "POST",
     headers: {
       Authorization: getBasicAuthHeader(),
