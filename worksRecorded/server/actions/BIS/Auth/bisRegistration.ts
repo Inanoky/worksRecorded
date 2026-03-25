@@ -1,7 +1,7 @@
 // register-bis-app.ts
 // Send BIS OAuth app registration request
 
-const BIS_BASE_URL = "https://bis.gov.lv"; // change to test env if needed
+const BIS_BASE_URL = "https://test.bis.gov.lv"; // change to test env if needed
 
 async function main() {
   const url = `${BIS_BASE_URL}/services/auth/oauth2.0/registration`;

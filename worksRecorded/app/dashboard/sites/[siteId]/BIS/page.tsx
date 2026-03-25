@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MaterialsTableClient from "./Components/materials-table-client";
 import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
+import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 
 type BisApprover = {
   memberId: string;
@@ -16,12 +17,24 @@ type BisApprover = {
 const BIS_RECEIVED_MATERIAL_DELETE_JUSTIFICATION = "Deleted from WorksRecorded warehouse bulk deletion.";
 
 async function fetchBisJson(path: string, accessToken: string, init?: RequestInit, allowRefresh = true) {
-  const response = await fetch(`${getBisBaseUrl()}${path}`, {
+  let tokenToUse = accessToken;
+
+  try {
+    const user = await requireUser();
+    const ensuredToken = await ensureUserBisAccessToken(user.id);
+    if (ensuredToken?.accessToken) {
+      tokenToUse = ensuredToken.accessToken;
+    }
+  } catch {
+    // Fallback to provided accessToken for contexts where user isn't available.
+  }
+
+  const response = await bisFetch(getBisBaseUrl(), `${getBisBaseUrl()}${path}`, {
     ...init,
     headers: {
       Accept: "application/vnd.api+json",
       ...(init?.body ? { "Content-Type": "application/vnd.api+json" } : {}),
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: `Bearer ${tokenToUse}`,
       ...(init?.headers ?? {}),
     },
     cache: "no-store",
@@ -351,7 +364,8 @@ async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId
   form.append("upload[file]", blob, "photo.jpg");
   form.append("upload[obj_id]", crypto.randomUUID());
 
-  const res = await fetch(
+  const res = await bisFetch(
+    getBisBaseUrl(),
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_product_attachments`,
     {
       method: "POST",
@@ -443,7 +457,8 @@ export async function createMaterialConfiguration(
     form.append("upload[file]", blob, file.name || "attachment");
     form.append("upload[obj_id]", crypto.randomUUID());
 
-    const uploadResponse = await fetch(
+    const uploadResponse = await bisFetch(
+      getBisBaseUrl(),
       `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
       {
         method: "POST",
@@ -970,7 +985,8 @@ export async function sendToBis(
     body,
   });
 
-  const res = await fetch(
+  const res = await bisFetch(
+    getBisBaseUrl(),
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products`,
     {
       method: "POST",

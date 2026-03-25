@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
+import { bisFetch } from "./TestBisEnv/relay";
 
 type UserBisTokenRow = {
   id: string;
@@ -114,7 +115,7 @@ export async function refreshBisAccessToken(userId: string, refreshToken: string
     refresh_token: refreshToken,
   });
 
-  const response = await fetch(`${getBisBaseUrl()}/bisp/api/auth/oauth2.0/token`, {
+  const response = await bisFetch(getBisBaseUrl(), `${getBisBaseUrl()}/bisp/api/auth/oauth2.0/token`, {
     method: "POST",
     headers: {
       Authorization: getBasicAuthHeader(),
@@ -231,7 +232,8 @@ export async function requireBisAccessTokenForSite(siteId: string) {
 }
 
 export async function fetchBisAvailableCases(accessToken: string) {
-  const response = await fetch(
+  const response = await bisFetch(
+    getBisBaseUrl(),
     `${getBisBaseUrl()}/bisp/api/portal/bis_cases?page[number]=1&page[size]=200`,
     {
       headers: {
@@ -271,7 +273,7 @@ export async function exchangeBisAuthorizationCode(code: string) {
     redirect_uri: getBisRedirectUri(),
   });
 
-  const response = await fetch(`${getBisBaseUrl()}/bisp/api/auth/oauth2.0/token`, {
+  const response = await bisFetch(getBisBaseUrl(), `${getBisBaseUrl()}/bisp/api/auth/oauth2.0/token`, {
     method: "POST",
     headers: {
       Authorization: getBasicAuthHeader(),
