@@ -756,7 +756,7 @@ export default function MaterialsTableClient({
                 <TableHead>Material</TableHead>
                 <TableHead>Status</TableHead>
                 {showBisControls ? <TableHead>BIS material configuration</TableHead> : null}
-                <TableHead>Cost code</TableHead>
+                <TableHead className="w-[150px]">Cost code</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Qty</TableHead>
                 <TableHead>Unit</TableHead>
