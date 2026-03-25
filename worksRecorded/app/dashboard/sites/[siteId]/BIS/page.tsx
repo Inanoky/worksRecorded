@@ -76,10 +76,16 @@ type MaterialMeasure = {
   name: string;
 };
 
+type MaterialType = {
+  id: string;
+  name: string;
+};
+
 type WarehouseBisSyncResult = {
   rows: Array<WarehouseMaterialRecord & { bisStatus: string | null; bisApprovers: BisApprover[] }>;
   materialConfigurations: MaterialCategory[];
   materialMeasures: MaterialMeasure[];
+  materialTypes: MaterialType[];
 };
 
 type WarehouseMaterialRecord = {
@@ -255,16 +261,21 @@ async function fetchBisPagedData(pathname: string, accessToken: string) {
 async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<{
   materialConfigurations: MaterialCategory[];
   materialMeasures: MaterialMeasure[];
+  materialTypes: MaterialType[];
 }> {
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
 
-  const [materialsData, measuresData] = await Promise.all([
+  const [materialsData, measuresData, materialTypesData] = await Promise.all([
     fetchBisPagedData(
       `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
       accessToken,
     ),
     fetchBisPagedData(
       `/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+      accessToken,
+    ),
+    fetchBisPagedData(
+      `/bisp/api/portal/classifiers?filter[typ_eq]=logbook_construction_material`,
       accessToken,
     ),
   ]);
@@ -295,7 +306,15 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
     .map(([id, name]) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { materialConfigurations, materialMeasures };
+  const materialTypes = materialTypesData
+    .map((item: any) => ({
+      id: item?.attributes?.code == null ? "" : String(item.attributes.code),
+      name: item?.attributes?.name == null ? "" : String(item.attributes.name),
+    }))
+    .filter((item: MaterialType) => item.id && item.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { materialConfigurations, materialMeasures, materialTypes };
 }
 
 async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId: string) {
@@ -361,6 +380,7 @@ export async function createMaterialConfiguration(
   siteId: string,
   payload: {
     materialKind: string;
+    materialType: string;
     measurement: string;
     attachments: Array<{
       name: string;
@@ -372,6 +392,7 @@ export async function createMaterialConfiguration(
   "use server";
 
   const materialKind = payload.materialKind.trim();
+  const materialType = payload.materialType.trim();
   const measurement = payload.measurement.trim();
 
   if (!materialKind) {
@@ -380,6 +401,9 @@ export async function createMaterialConfiguration(
 
   if (!measurement) {
     throw new Error("Measurement is required");
+  }
+  if (!materialType) {
+    throw new Error("Material type is required");
   }
 
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
@@ -436,8 +460,12 @@ export async function createMaterialConfiguration(
         data: {
           type: "construction_material",
           attributes: {
+            type: "construction_material",
+            material_type: materialType,
             material_kind: materialKind,
             measurement,
+            reusable: false,
+            testing_obligatory: false,
           },
           relationships: attachedDocuments.length
             ? {
@@ -665,6 +693,7 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
       return {
         materialConfigurations: [] as MaterialCategory[],
         materialMeasures: [] as MaterialMeasure[],
+        materialTypes: [] as MaterialType[],
       };
     }),
   ]);
@@ -684,6 +713,7 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
     rows: syncedMaterials,
     materialConfigurations: materialConfigurationData.materialConfigurations,
     materialMeasures: materialConfigurationData.materialMeasures,
+    materialTypes: materialConfigurationData.materialTypes,
   };
 }
 
@@ -970,10 +1000,12 @@ export default async function MaterialsPage({
       return {
         materialConfigurations: [] as MaterialCategory[],
         materialMeasures: [] as MaterialMeasure[],
+        materialTypes: [] as MaterialType[],
       };
     }) : Promise.resolve({
       materialConfigurations: [] as MaterialCategory[],
       materialMeasures: [] as MaterialMeasure[],
+      materialTypes: [] as MaterialType[],
     }),
   ]);
 
@@ -1014,6 +1046,7 @@ export default async function MaterialsPage({
         materials={materialsWithBisState}
         materialConfigurations={materialConfigurationData.materialConfigurations}
         materialMeasures={materialConfigurationData.materialMeasures}
+        materialTypes={materialConfigurationData.materialTypes}
         sendToBis={sendToBis}
         getPossibleApprovers={getPossibleWarehouseBisApprovers}
         submitToApproval={submitWarehouseRecordToBisApproval}

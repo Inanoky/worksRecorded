@@ -79,6 +79,7 @@ type Props = {
   materials: MaterialRow[]
   materialConfigurations: MaterialCategory[]
   materialMeasures: Array<{ id: string; name: string }>
+  materialTypes: Array<{ id: string; name: string }>
   sendToBis: (
     siteId: string,
     recordId: string,
@@ -101,6 +102,7 @@ type Props = {
     rows: MaterialRow[]
     materialConfigurations: MaterialCategory[]
     materialMeasures: Array<{ id: string; name: string }>
+    materialTypes: Array<{ id: string; name: string }>
   }>
   updateMaterialConfiguration: (
     recordId: string,
@@ -115,6 +117,7 @@ type Props = {
     siteId: string,
     payload: {
       materialKind: string
+      materialType: string
       measurement: string
       attachments: Array<{
         name: string
@@ -168,6 +171,7 @@ export default function MaterialsTableClient({
   materials,
   materialConfigurations,
   materialMeasures,
+  materialTypes,
   sendToBis,
   getPossibleApprovers,
   submitToApproval,
@@ -180,6 +184,7 @@ export default function MaterialsTableClient({
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
+  const [types, setTypes] = React.useState<Array<{ id: string; name: string }>>(materialTypes)
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
@@ -206,6 +211,10 @@ export default function MaterialsTableClient({
   React.useEffect(() => {
     setMeasures(materialMeasures)
   }, [materialMeasures])
+
+  React.useEffect(() => {
+    setTypes(materialTypes)
+  }, [materialTypes])
 
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
@@ -295,6 +304,7 @@ export default function MaterialsTableClient({
     selectedSiteId: string,
     payload: {
       materialKind: string
+      materialType: string
       measurement: string
       attachments: Array<{
         name: string
@@ -365,6 +375,7 @@ export default function MaterialsTableClient({
         rows: syncedRows,
         materialConfigurations: syncedConfigurations,
         materialMeasures: syncedMeasures,
+        materialTypes: syncedTypes,
       } = await syncBisRecords(siteId)
       console.log("[Warehouse BIS] Refresh from BIS returned rows", {
         siteId,
@@ -377,6 +388,7 @@ export default function MaterialsTableClient({
       })
       setConfigurations(syncedConfigurations)
       setMeasures(syncedMeasures)
+      setTypes(syncedTypes)
       const syncedMap = new Map(syncedRows.map((row) => [row.id, row]))
 
       setRows((current) => {
@@ -822,6 +834,7 @@ export default function MaterialsTableClient({
                             onCreate={handleCreateMaterialConfiguration}
                             categories={configurations}
                             measurements={measures}
+                            materialTypes={types}
                           />
                         </TableCell>
                       ) : null}

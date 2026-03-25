@@ -40,6 +40,7 @@ export default function MaterialConfigSelect({
   onCreate,
   categories,
   measurements,
+  materialTypes,
 }: {
   siteId: string
   recordId: string
@@ -58,6 +59,7 @@ export default function MaterialConfigSelect({
     siteId: string,
     payload: {
       materialKind: string
+      materialType: string
       measurement: string
       attachments: Array<{
         name: string
@@ -71,10 +73,12 @@ export default function MaterialConfigSelect({
   }>
   categories: MaterialCategory[]
   measurements: Array<{ id: string; name: string }>
+  materialTypes: Array<{ id: string; name: string }>
 }) {
   const [pending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [materialKind, setMaterialKind] = React.useState("")
+  const [materialType, setMaterialType] = React.useState("")
   const [measurement, setMeasurement] = React.useState("")
   const [files, setFiles] = React.useState<File[]>([])
 
@@ -102,6 +106,10 @@ export default function MaterialConfigSelect({
           toast.error("Measurement is required")
           return
         }
+        if (!materialType) {
+          toast.error("Material type is required")
+          return
+        }
 
         const attachments = await Promise.all(
           files.map(async (file) => ({
@@ -113,6 +121,7 @@ export default function MaterialConfigSelect({
 
         const result = await onCreate(siteId, {
           materialKind: materialKind.trim(),
+          materialType,
           measurement,
           attachments,
         })
@@ -127,6 +136,7 @@ export default function MaterialConfigSelect({
         toast.success("Material configuration created and selected")
         setDialogOpen(false)
         setMaterialKind("")
+        setMaterialType("")
         setMeasurement("")
         setFiles([])
       } catch (error) {
@@ -221,6 +231,22 @@ export default function MaterialConfigSelect({
                 </SelectTrigger>
                 <SelectContent>
                   {measurements.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Material type</label>
+              <Select value={materialType} onValueChange={setMaterialType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select material type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {materialTypes.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
                       {item.name}
                     </SelectItem>
