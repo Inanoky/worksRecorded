@@ -118,6 +118,7 @@ type Props = {
     payload: {
       materialKind: string
       materialType: string
+      manufacturer: string
       measurement: string
       attachments: Array<{
         name: string
@@ -305,6 +306,7 @@ export default function MaterialsTableClient({
     payload: {
       materialKind: string
       materialType: string
+      manufacturer: string
       measurement: string
       attachments: Array<{
         name: string

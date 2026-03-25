@@ -381,6 +381,7 @@ export async function createMaterialConfiguration(
   payload: {
     materialKind: string;
     materialType: string;
+    manufacturer: string;
     measurement: string;
     attachments: Array<{
       name: string;
@@ -393,6 +394,7 @@ export async function createMaterialConfiguration(
 
   const materialKind = payload.materialKind.trim();
   const materialType = payload.materialType.trim();
+  const manufacturer = payload.manufacturer.trim();
   const measurement = payload.measurement.trim();
 
   if (!materialKind) {
@@ -404,6 +406,9 @@ export async function createMaterialConfiguration(
   }
   if (!materialType) {
     throw new Error("Material type is required");
+  }
+  if (!manufacturer) {
+    throw new Error("Manufacturer is required");
   }
 
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
@@ -462,6 +467,7 @@ export async function createMaterialConfiguration(
           attributes: {
             type: "construction_material",
             material_type: materialType,
+            manufacturer,
             material_kind: materialKind,
             measurement,
             reusable: false,

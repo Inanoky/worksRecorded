@@ -60,6 +60,7 @@ export default function MaterialConfigSelect({
     payload: {
       materialKind: string
       materialType: string
+      manufacturer: string
       measurement: string
       attachments: Array<{
         name: string
@@ -79,6 +80,7 @@ export default function MaterialConfigSelect({
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [materialKind, setMaterialKind] = React.useState("")
   const [materialType, setMaterialType] = React.useState("")
+  const [manufacturer, setManufacturer] = React.useState("")
   const [measurement, setMeasurement] = React.useState("")
   const [files, setFiles] = React.useState<File[]>([])
 
@@ -110,6 +112,10 @@ export default function MaterialConfigSelect({
           toast.error("Material type is required")
           return
         }
+        if (!manufacturer.trim()) {
+          toast.error("Manufacturer is required")
+          return
+        }
 
         const attachments = await Promise.all(
           files.map(async (file) => ({
@@ -122,6 +128,7 @@ export default function MaterialConfigSelect({
         const result = await onCreate(siteId, {
           materialKind: materialKind.trim(),
           materialType,
+          manufacturer: manufacturer.trim(),
           measurement,
           attachments,
         })
@@ -137,6 +144,7 @@ export default function MaterialConfigSelect({
         setDialogOpen(false)
         setMaterialKind("")
         setMaterialType("")
+        setManufacturer("")
         setMeasurement("")
         setFiles([])
       } catch (error) {
@@ -253,6 +261,15 @@ export default function MaterialConfigSelect({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Manufacturer (Ražotājs)</label>
+              <Input
+                value={manufacturer}
+                onChange={(event) => setManufacturer(event.target.value)}
+                placeholder="Enter manufacturer"
+              />
             </div>
 
             <div className="space-y-2">
