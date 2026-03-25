@@ -331,7 +331,7 @@ export async function sendToGpt(mediaId) {
 Extract construction invoice line items from the image.
 
 Return:
-- name (English)
+- name (original language from the document, do NOT translate)
 - quantity
 - invoice Nr
 - invoice Nr
@@ -351,6 +351,7 @@ Rules:
 2. If nothing matches, return "no_match".
 3. Quantity MUST be converted to the unit of the selected category.
 4. If the invoice unit is "gabals", "iepakojums", "pack", "bag", etc, extract the real weight or volume from the product name.
+5. Keep extracted textual values in the original document language. Never translate names.
 
 Important:
 Packaging size is often written in the product name.
