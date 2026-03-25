@@ -1069,16 +1069,9 @@ export default async function MaterialsPage({
     }),
   ]);
 
-  const materialsWithBisState = bisEnabled
-    ? await loadWarehouseBisState(
-        materials,
-        userBisToken!.accessToken,
-        site!.bisCaseId!,
-      ).catch((error) => {
-        console.error("Failed to load BIS warehouse record state", error);
-        return materials.map(withoutWarehouseBisState);
-      })
-    : materials.map(withoutWarehouseBisState);
+  // Keep initial page render fast by using stored DB state only.
+  // BIS live refresh stays available through explicit sync actions in the UI.
+  const materialsWithBisState = materials.map(withoutWarehouseBisState);
 
   return (
     <div className="space-y-6 p-4 md:p-6">

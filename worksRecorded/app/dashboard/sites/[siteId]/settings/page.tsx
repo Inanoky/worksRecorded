@@ -53,26 +53,22 @@ export default async function SettingsSiteRoute({
     }
 
   const orgId = await getOrganizationIdByUserId(user.id)
-  const userData = await getUserData(orgId)
-
-
-  // Fetch current site data
-  const site = await prisma.site.findUnique({
-    where: { id: siteId },
-  });
-  const siteBisConfig = await getSiteBisConfig(siteId);
-
-  const settings = await prisma.sitediarysettings.findUnique({
-    where: { siteId },
-    select: { fileUrl: true, schema: true },
-  });
-
-  const remindersData = await getDataForReminderTable(orgId)
+  const [userData, site, siteBisConfig, settings, remindersData, reminderTimes, bisToken] = await Promise.all([
+    getUserData(orgId),
+    prisma.site.findUnique({
+      where: { id: siteId },
+    }),
+    getSiteBisConfig(siteId),
+    prisma.sitediarysettings.findUnique({
+      where: { siteId },
+      select: { fileUrl: true, schema: true },
+    }),
+    getDataForReminderTable(orgId),
+    getReminderTimes(orgId),
+    getUserBisTokenByUserId(user.id),
+  ])
   console.log(`this is page.tsx ${remindersData}`)
-  const reminderTimes = await getReminderTimes(orgId)
   console.log(remindersData)
-
-  const bisToken = await getUserBisTokenByUserId(user.id);
 
   const isBisConnected = Boolean(bisToken?.accessToken);
 
