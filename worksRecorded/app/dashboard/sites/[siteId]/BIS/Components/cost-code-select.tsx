@@ -61,7 +61,7 @@ export default function CostCodeSelect({
       }}
       disabled={disabled || pending}
     >
-      <SelectTrigger className="w-[260px]">
+      <SelectTrigger className="w-[140px]">
         <SelectValue placeholder="Select cost code" />
       </SelectTrigger>
 
