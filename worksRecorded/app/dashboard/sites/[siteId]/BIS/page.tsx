@@ -99,6 +99,7 @@ type WarehouseMaterialRecord = {
   cost: number | null;
   invoiceNr: string | null;
   invoiceDate: Date | null;
+  materialDate: Date | null;
   costCode: string | null;
   sourcePhoto: string | null;
   BISId: string | null;
@@ -628,6 +629,17 @@ export async function updateCostCode(recordId: string, costCode: string | null) 
   return { success: true };
 }
 
+export async function updateMaterialDate(recordId: string, materialDate: Date | null) {
+  "use server";
+
+  await prisma.bISmaterialRecords.update({
+    where: { id: recordId },
+    data: { materialDate },
+  });
+
+  return { success: true };
+}
+
 export async function getPossibleWarehouseBisApprovers(siteId: string, bisId: string) {
   "use server";
 
@@ -675,6 +687,7 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
       cost: true,
       invoiceNr: true,
       invoiceDate: true,
+      materialDate: true,
       costCode: true,
       sourcePhoto: true,
       BISId: true,
@@ -879,6 +892,7 @@ export async function sendToBis(
   construction_material_id: string,
   sourcePhoto?: string,
   materialName?: string,
+  materialDate?: Date | null,
 ) {
   "use server";
 
@@ -898,11 +912,15 @@ export async function sendToBis(
     }
   }
 
+  const eventDate = materialDate
+    ? new Date(materialDate).toISOString().slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+
   const body = {
     data: {
       type: "received_construction_product",
       attributes: {
-        event_date: new Date().toISOString().slice(0, 10),
+        event_date: eventDate,
         event_time_from: new Date().toTimeString().slice(0, 5),
       },
       relationships: {
@@ -995,6 +1013,7 @@ export default async function MaterialsPage({
         cost: true,
         invoiceNr: true,
         invoiceDate: true,
+        materialDate: true,
         costCode: true,
         sourcePhoto: true,
         BISId: true,
@@ -1060,6 +1079,7 @@ export default async function MaterialsPage({
         updateMaterialConfiguration={updateMaterialConfiguration}
         createMaterialConfiguration={createMaterialConfiguration}
         updateCostCode={updateCostCode}
+        updateMaterialDate={updateMaterialDate}
         deleteRecords={deleteWarehouseRecords}
       />
     </div>

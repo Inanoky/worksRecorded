@@ -5,7 +5,6 @@ import Image from "next/image"
 import {
   Search,
   ExternalLink,
-  CheckCircle2,
   Clock3,
   Filter,
   ShieldCheck,
@@ -66,6 +65,7 @@ type MaterialRow = {
   cost: number | null
   invoiceNr: string | null
   invoiceDate: Date | null
+  materialDate: Date | null
   costCode: string | null
   sourcePhoto: string | null
   BISId: string | null
@@ -86,7 +86,8 @@ type Props = {
     quantity: number,
     construction_material_id: string,
     sourcePhoto?: string,
-    materialName?: string
+    materialName?: string,
+    materialDate?: Date | null
   ) => Promise<any>
   getPossibleApprovers: (siteId: string, bisId: string) => Promise<BisApprover[]>
   submitToApproval: (
@@ -134,6 +135,10 @@ type Props = {
     recordId: string,
     costCode: string | null
   ) => Promise<{ success: true }>
+  updateMaterialDate: (
+    recordId: string,
+    materialDate: Date | null
+  ) => Promise<{ success: true }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
 
@@ -180,6 +185,7 @@ export default function MaterialsTableClient({
   updateMaterialConfiguration,
   createMaterialConfiguration,
   updateCostCode,
+  updateMaterialDate,
   deleteRecords,
 }: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
@@ -336,8 +342,9 @@ export default function MaterialsTableClient({
     categoryId: string,
     sourcePhoto?: string,
     materialName?: string,
+    materialDate?: Date | null,
   ) => {
-    const result = await sendToBis(siteId, recordId, quantity, categoryId, sourcePhoto, materialName)
+    const result = await sendToBis(siteId, recordId, quantity, categoryId, sourcePhoto, materialName, materialDate)
     const bisId = result?.data?.id
     const bisStatus = result?.data?.attributes?.status ?? "draft"
 
@@ -500,6 +507,37 @@ export default function MaterialsTableClient({
       toast.error(message)
     } finally {
       setApprovalLoading(false)
+    }
+  }
+
+  const toDateInputValue = (value: Date | null) => {
+    if (!value) return ""
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ""
+    return date.toISOString().slice(0, 10)
+  }
+
+  const handleMaterialDateChange = async (recordId: string, nextValue: string) => {
+    const previousRows = rows
+    const materialDate = nextValue ? new Date(`${nextValue}T00:00:00`) : null
+
+    setRows((current) =>
+      current.map((row) =>
+        row.id === recordId
+          ? {
+              ...row,
+              materialDate,
+            }
+          : row,
+      ),
+    )
+
+    try {
+      await updateMaterialDate(recordId, materialDate)
+    } catch (error) {
+      console.error(error)
+      setRows(previousRows)
+      toast.error("Failed to update material date")
     }
   }
 
@@ -719,6 +757,7 @@ export default function MaterialsTableClient({
                 <TableHead>Status</TableHead>
                 {showBisControls ? <TableHead>BIS material configuration</TableHead> : null}
                 <TableHead>Cost code</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead>Qty</TableHead>
                 <TableHead>Unit</TableHead>
                 <TableHead>Cost</TableHead>
@@ -732,7 +771,7 @@ export default function MaterialsTableClient({
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showBisControls ? 13 : 11} className="py-12 text-center">
+                  <TableCell colSpan={showBisControls ? 14 : 12} className="py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-medium">No materials found</p>
                       <p className="text-sm text-muted-foreground">
@@ -747,8 +786,10 @@ export default function MaterialsTableClient({
                   const hasValidConfiguration =
                     !!r.categoryId && r.categoryId !== NO_MATCH_VALUE
                   const normalizedStatus = (r.bisStatus ?? "").toLowerCase()
+                  const isDraft = normalizedStatus === "draft"
                   const isApproved = normalizedStatus === "approved"
                   const isAwaitingApproval = [
+                    "approving",
                     "submitted_to_approve",
                     "submitted",
                     "pending",
@@ -802,7 +843,17 @@ export default function MaterialsTableClient({
                       </TableCell>
 
                       <TableCell>
-                        {isApproved ? (
+                        {!normalizedStatus ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            Pending
+                          </Badge>
+                        ) : isDraft ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <Clock3 className="h-3.5 w-3.5" />
+                            Draft
+                          </Badge>
+                        ) : isApproved ? (
                           <Badge className="gap-1 bg-green-600 text-white hover:bg-green-600">
                             <ShieldCheck className="h-3.5 w-3.5" />
                             Approved
@@ -810,17 +861,12 @@ export default function MaterialsTableClient({
                         ) : isAwaitingApproval ? (
                           <Badge className="gap-1 bg-blue-600 text-white hover:bg-blue-600">
                             <Clock3 className="h-3.5 w-3.5" />
-                            Approval pending
-                          </Badge>
-                        ) : isSent ? (
-                          <Badge className="gap-1 bg-amber-600 text-white hover:bg-amber-600">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Sent to BIS
+                            Waiting for approval
                           </Badge>
                         ) : (
                           <Badge variant="secondary" className="gap-1">
                             <Clock3 className="h-3.5 w-3.5" />
-                            Pending
+                            {normalizedStatus}
                           </Badge>
                         )}
                       </TableCell>
@@ -849,6 +895,15 @@ export default function MaterialsTableClient({
                           onSave={handleCostCodeChange}
                         />
                       </TableCell>
+                      <TableCell>
+                        <Input
+                          type="date"
+                          value={toDateInputValue(r.materialDate)}
+                          onChange={(event) => handleMaterialDateChange(r.id, event.target.value)}
+                          disabled={isSent}
+                          className="w-[160px]"
+                        />
+                      </TableCell>
                       <TableCell>{formatQty(r.quantity)}</TableCell>
                       <TableCell>{r.measurementUnit || "—"}</TableCell>
                       <TableCell>{formatMoney(r.cost)}</TableCell>
@@ -866,6 +921,7 @@ export default function MaterialsTableClient({
                                 categoryId={hasValidConfiguration ? r.categoryId ?? "" : ""}
                                 sourcePhoto={r.sourcePhoto ?? ""}
                                 materialName={r.name ?? ""}
+                                materialDate={r.materialDate}
                                 action={handleSendToBis}
                               />
                             </div>
