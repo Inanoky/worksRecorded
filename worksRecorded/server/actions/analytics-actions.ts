@@ -7,7 +7,7 @@ import { toZonedTime, fromZonedTime } from "date-fns-tz";
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-
+//nothing
 /** Month totals (all categories combined) */
 export async function getMonthlySpendings(siteId: string) {
   const rows = await prisma.$queryRaw<any[]>`
