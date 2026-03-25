@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { revalidatePath } from "next/cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MaterialsTableClient from "./Components/materials-table-client";
-import { getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
+import { getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
 
 type BisApprover = {
   memberId: string;
@@ -15,7 +15,7 @@ type BisApprover = {
 
 const BIS_RECEIVED_MATERIAL_DELETE_JUSTIFICATION = "Deleted from WorksRecorded warehouse bulk deletion.";
 
-async function fetchBisJson(path: string, accessToken: string, init?: RequestInit) {
+async function fetchBisJson(path: string, accessToken: string, init?: RequestInit, allowRefresh = true) {
   const response = await fetch(`${getBisBaseUrl()}${path}`, {
     ...init,
     headers: {
@@ -28,7 +28,26 @@ async function fetchBisJson(path: string, accessToken: string, init?: RequestIni
   });
 
   const text = await response.text();
-  const json = text ? JSON.parse(text) : {};
+  let json: any = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    json = {};
+  }
+
+  if (response.status === 401 && allowRefresh) {
+    try {
+      const user = await requireUser();
+      const latestToken = await getUserBisTokenByUserId(user.id);
+
+      if (latestToken?.refreshToken) {
+        const refreshed = await refreshBisAccessToken(user.id, latestToken.refreshToken);
+        return fetchBisJson(path, refreshed.accessToken, init, false);
+      }
+    } catch (refreshError) {
+      console.error("BIS access token refresh on 401 failed", refreshError);
+    }
+  }
 
   if (!response.ok) {
     const error = new Error(json?.errors?.[0]?.detail || json?.error || "BIS request failed") as Error & { status?: number };
