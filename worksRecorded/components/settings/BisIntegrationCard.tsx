@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { getBisAuthorizeUrl, isBisHostedAuthorizationEnabled } from "@/server/actions/BIS/service";
 import { assignBisCaseToSiteAction, completeBisManualAuthorizationAction, disconnectBisAction } from "@/server/actions/bis-settings-actions";
 
@@ -94,9 +95,11 @@ export function BisIntegrationCard({
 
                   <form action={completeBisManualAuthorizationAction}>
                     <input type="hidden" name="siteId" value={siteId} />
-                    <Button type="submit" variant="secondary" disabled={!hasManualAuthorizationCode}>
-                      Complete BIS connection
-                    </Button>
+                    <SubmitButton
+                      text="Complete BIS connection"
+                      variant="secondary"
+                      className="w-fit"
+                    />
                   </form>
 
                   {!hasManualAuthorizationCode ? (
@@ -107,9 +110,7 @@ export function BisIntegrationCard({
             ) : (
               <form action={disconnectBisAction}>
                 <input type="hidden" name="siteId" value={siteId} />
-                <Button type="submit" variant="destructive">
-                  Disconnect BIS
-                </Button>
+                <SubmitButton text="Disconnect BIS" variant="destructive" className="w-fit" />
               </form>
             )}
           </div>
@@ -137,7 +138,18 @@ export function BisIntegrationCard({
             </div>
           ) : isConnected ? (
             availableCases.length > 0 ? (
-              <form action={assignBisCaseToSiteAction} className="mt-3 space-y-3">
+              <form
+                action={async (formData) => {
+                  "use server";
+                  const selectedId = String(formData.get("bisCaseId") ?? "");
+                  const selected = availableCases.find((item) => item.id === selectedId);
+                  formData.set("bisCaseNumber", selected?.caseNumber ?? "");
+                  formData.set("bisCaseName", selected?.constructionName ?? "");
+                  formData.set("bisCaseStage", selected?.stageName ?? "");
+                  await assignBisCaseToSiteAction(formData);
+                }}
+                className="mt-3 space-y-3"
+              >
                 <input type="hidden" name="siteId" value={siteId} />
                 <select
                   name="bisCaseId"
@@ -160,20 +172,7 @@ export function BisIntegrationCard({
                 <input type="hidden" name="bisCaseName" value="" />
                 <input type="hidden" name="bisCaseStage" value="" />
 
-                <Button
-                  type="submit"
-                  formAction={async (formData) => {
-                    "use server";
-                    const selectedId = String(formData.get("bisCaseId") ?? "");
-                    const selected = availableCases.find((item) => item.id === selectedId);
-                    formData.set("bisCaseNumber", selected?.caseNumber ?? "");
-                    formData.set("bisCaseName", selected?.constructionName ?? "");
-                    formData.set("bisCaseStage", selected?.stageName ?? "");
-                    await assignBisCaseToSiteAction(formData);
-                  }}
-                >
-                  Save BIS case
-                </Button>
+                <SubmitButton text="Save BIS case" className="w-fit" />
               </form>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
