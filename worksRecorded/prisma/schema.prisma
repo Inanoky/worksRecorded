@@ -373,7 +373,7 @@ model BISmaterialRecords {
   invoiceNr String?
   invoiceDate  DateTime?
   materialDate DateTime?
-  materialDate DateTime?
+ 
   costCode String?
 
  
