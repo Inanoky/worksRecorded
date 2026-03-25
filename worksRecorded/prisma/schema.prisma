@@ -372,6 +372,7 @@ model BISmaterialRecords {
   cost Float?
   invoiceNr String?
   invoiceDate  DateTime?
+  materialDate DateTime?
   costCode String?
 
  

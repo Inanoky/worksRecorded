@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { exchangeBisAuthorizationCode, upsertUserBisToken } from "@/server/actions/BIS/service";
 
+function resolveBisCookieDomain(hostname: string) {
+  return hostname === "worksrecorded.com" || hostname.endsWith(".worksrecorded.com")
+    ? ".worksrecorded.com"
+    : undefined;
+}
+
 export async function GET(request: NextRequest) {
   const { getUser } = getKindeServerSession();
   const user = await getUser();
@@ -18,8 +24,18 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get("state");
   const error = request.nextUrl.searchParams.get("error");
 
-  cookieStore.delete("bis_oauth_state");
-  cookieStore.delete("bis_oauth_return_to");
+  const cookieDomain = resolveBisCookieDomain(request.nextUrl.hostname);
+
+  cookieStore.delete({
+    name: "bis_oauth_state",
+    path: "/",
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
+  });
+  cookieStore.delete({
+    name: "bis_oauth_return_to",
+    path: "/",
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
+  });
 
   const redirectUrl = new URL(returnTo, request.nextUrl.origin);
 
