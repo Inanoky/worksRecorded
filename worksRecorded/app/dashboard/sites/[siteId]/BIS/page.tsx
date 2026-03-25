@@ -3,7 +3,11 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { revalidatePath } from "next/cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MaterialsTableClient from "./Components/materials-table-client";
+<<<<<<< HEAD
 import { getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
+=======
+import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
+>>>>>>> codex/add-create-material-configuration-functionality-aq6f4t
 
 type BisApprover = {
   memberId: string;
@@ -569,7 +573,7 @@ export async function deleteWarehouseRecords(siteId: string, recordIds: string[]
   const user = await requireUser();
   const [site, userBisToken] = await Promise.all([
     getSiteBisConfig(siteId),
-    getUserBisTokenByUserId(user.id),
+    ensureUserBisAccessToken(user.id),
   ]);
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
 
@@ -1012,7 +1016,7 @@ export default async function MaterialsPage({
 
   const [site, userBisToken] = await Promise.all([
     getSiteBisConfig(siteId),
-    getUserBisTokenByUserId(user.id),
+    ensureUserBisAccessToken(user.id),
   ]);
 
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
