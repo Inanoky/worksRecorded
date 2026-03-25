@@ -71,9 +71,21 @@ type MaterialCategory = {
   measurement_unit: string | null;
 };
 
+type MaterialMeasure = {
+  id: string;
+  name: string;
+};
+
+type MaterialType = {
+  id: string;
+  name: string;
+};
+
 type WarehouseBisSyncResult = {
   rows: Array<WarehouseMaterialRecord & { bisStatus: string | null; bisApprovers: BisApprover[] }>;
   materialConfigurations: MaterialCategory[];
+  materialMeasures: MaterialMeasure[];
+  materialTypes: MaterialType[];
 };
 
 type WarehouseMaterialRecord = {
@@ -246,16 +258,24 @@ async function fetchBisPagedData(pathname: string, accessToken: string) {
   return results;
 }
 
-async function fetchWarehouseMaterialConfigurations(siteId: string): Promise<MaterialCategory[]> {
+async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<{
+  materialConfigurations: MaterialCategory[];
+  materialMeasures: MaterialMeasure[];
+  materialTypes: MaterialType[];
+}> {
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
 
-  const [materialsData, measuresData] = await Promise.all([
+  const [materialsData, measuresData, materialTypesData] = await Promise.all([
     fetchBisPagedData(
       `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
       accessToken,
     ),
     fetchBisPagedData(
       `/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+      accessToken,
+    ),
+    fetchBisPagedData(
+      `/bisp/api/portal/classifiers?filter[typ_eq]=logbook_construction_material`,
       accessToken,
     ),
   ]);
@@ -269,7 +289,7 @@ async function fetchWarehouseMaterialConfigurations(siteId: string): Promise<Mat
     }
   }
 
-  return materialsData
+  const materialConfigurations = materialsData
     .map((item: any) => ({
       id: String(item?.id ?? ""),
       material_kind: String(item?.attributes?.material_kind ?? item?.attributes?.name ?? ""),
@@ -281,6 +301,20 @@ async function fetchWarehouseMaterialConfigurations(siteId: string): Promise<Mat
     }))
     .filter((item: MaterialCategory) => item.id && item.material_kind)
     .sort((a, b) => a.material_kind.localeCompare(b.material_kind));
+
+  const materialMeasures = Array.from(measurementMap.entries())
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const materialTypes = materialTypesData
+    .map((item: any) => ({
+      id: item?.attributes?.code == null ? "" : String(item.attributes.code),
+      name: item?.attributes?.name == null ? "" : String(item.attributes.name),
+    }))
+    .filter((item: MaterialType) => item.id && item.name)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { materialConfigurations, materialMeasures, materialTypes };
 }
 
 async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId: string) {
@@ -340,6 +374,147 @@ export async function updateMaterialConfiguration(
   });
 
   return { success: true };
+}
+
+export async function createMaterialConfiguration(
+  siteId: string,
+  payload: {
+    materialKind: string;
+    materialType: string;
+    measurement: string;
+    attachments: Array<{
+      name: string;
+      mimeType: string;
+      base64Data: string;
+    }>;
+  },
+) {
+  "use server";
+
+  const materialKind = payload.materialKind.trim();
+  const materialType = payload.materialType.trim();
+  const measurement = payload.measurement.trim();
+
+  if (!materialKind) {
+    throw new Error("Material kind is required");
+  }
+
+  if (!measurement) {
+    throw new Error("Measurement is required");
+  }
+  if (!materialType) {
+    throw new Error("Material type is required");
+  }
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const attachedDocuments: Array<{ attributes: { uuid: string; code: string } }> = [];
+
+  for (const file of payload.attachments) {
+    const bytes = Buffer.from(file.base64Data, "base64");
+    const blob = new Blob([bytes], {
+      type: file.mimeType || "application/octet-stream",
+    });
+    const form = new FormData();
+    form.append("upload[file]", blob, file.name || "attachment");
+    form.append("upload[obj_id]", crypto.randomUUID());
+
+    const uploadResponse = await fetch(
+      `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.api+json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: form,
+        cache: "no-store",
+      },
+    );
+
+    if (!uploadResponse.ok) {
+      const text = await uploadResponse.text();
+      throw new Error(`Failed to upload attachment to BIS: ${text || uploadResponse.status}`);
+    }
+
+    const uploaded = await uploadResponse.json();
+    const tempUuid = uploaded?.data?.attributes?.temp_uuid
+      ? String(uploaded.data.attributes.temp_uuid)
+      : null;
+
+    if (tempUuid) {
+      attachedDocuments.push({
+        attributes: {
+          uuid: tempUuid,
+          code: "agreement",
+        },
+      });
+    }
+  }
+
+  const created = await fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
+    accessToken,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        data: {
+          type: "construction_material",
+          attributes: {
+            type: "construction_material",
+            material_type: materialType,
+            material_kind: materialKind,
+            measurement,
+            reusable: false,
+            testing_obligatory: false,
+          },
+          relationships: attachedDocuments.length
+            ? {
+                attached_documents: {
+                  data: attachedDocuments,
+                },
+              }
+            : undefined,
+        },
+      }),
+    },
+  );
+
+  const material = created?.data;
+  if (!material?.id) {
+    throw new Error("BIS did not return a created material configuration");
+  }
+
+  const measureData = await fetchBisJson(
+    `/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+    accessToken,
+  );
+  const measurementMap = new Map<string, string>();
+  for (const item of Array.isArray(measureData?.data) ? measureData.data : []) {
+    const code = item?.attributes?.code == null ? null : String(item.attributes.code);
+    const name = item?.attributes?.name == null ? null : String(item.attributes.name);
+    if (code && name) {
+      measurementMap.set(code, name);
+    }
+  }
+
+  const category = {
+    id: String(material.id),
+    material_kind: String(material?.attributes?.material_kind ?? materialKind),
+    measurement: material?.attributes?.measurement == null
+      ? measurement
+      : String(material.attributes.measurement),
+    measurement_unit:
+      material?.attributes?.measurement_unit == null
+        ? measurementMap.get(
+            material?.attributes?.measurement == null
+              ? measurement
+              : String(material.attributes.measurement),
+          ) ?? measurementMap.get(measurement) ?? null
+        : String(material.attributes.measurement_unit),
+  };
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+  return { success: true as const, category };
 }
 
 export async function deleteWarehouseRecords(siteId: string, recordIds: string[]) {
@@ -511,11 +686,15 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
     })),
   });
 
-  const [syncedMaterials, materialConfigurations] = await Promise.all([
+  const [syncedMaterials, materialConfigurationData] = await Promise.all([
     Promise.all(materials.map((material) => resolveWarehouseBisState(material, accessToken, bisCaseId))),
-    fetchWarehouseMaterialConfigurations(siteId).catch((error) => {
+    fetchWarehouseMaterialConfigurationData(siteId).catch((error) => {
       console.error("Failed to refresh BIS material configurations", error);
-      return [] as MaterialCategory[];
+      return {
+        materialConfigurations: [] as MaterialCategory[],
+        materialMeasures: [] as MaterialMeasure[],
+        materialTypes: [] as MaterialType[],
+      };
     }),
   ]);
 
@@ -530,7 +709,12 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
   });
 
   revalidatePath(`/dashboard/sites/${siteId}/BIS`);
-  return { rows: syncedMaterials, materialConfigurations };
+  return {
+    rows: syncedMaterials,
+    materialConfigurations: materialConfigurationData.materialConfigurations,
+    materialMeasures: materialConfigurationData.materialMeasures,
+    materialTypes: materialConfigurationData.materialTypes,
+  };
 }
 
 async function ensureWarehouseBisIdentificationNumber(
@@ -790,7 +974,7 @@ export default async function MaterialsPage({
 
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
 
-  const [materials, materialConfigurations] = await Promise.all([
+  const [materials, materialConfigurationData] = await Promise.all([
     prisma.bISmaterialRecords.findMany({
       where: { siteId },
       orderBy: [{ invoiceDate: "desc" }, { name: "asc" }],
@@ -811,10 +995,18 @@ export default async function MaterialsPage({
         bisStatus: true,
       },
     }),
-    bisEnabled ? fetchWarehouseMaterialConfigurations(siteId).catch((error) => {
+    bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch((error) => {
       console.error("Failed to load BIS material configurations", error);
-      return [];
-    }) : Promise.resolve([] as MaterialCategory[]),
+      return {
+        materialConfigurations: [] as MaterialCategory[],
+        materialMeasures: [] as MaterialMeasure[],
+        materialTypes: [] as MaterialType[],
+      };
+    }) : Promise.resolve({
+      materialConfigurations: [] as MaterialCategory[],
+      materialMeasures: [] as MaterialMeasure[],
+      materialTypes: [] as MaterialType[],
+    }),
   ]);
 
   const materialsWithBisState = bisEnabled
@@ -852,12 +1044,15 @@ export default async function MaterialsPage({
         siteId={siteId}
         bisEnabled={bisEnabled}
         materials={materialsWithBisState}
-        materialConfigurations={materialConfigurations}
+        materialConfigurations={materialConfigurationData.materialConfigurations}
+        materialMeasures={materialConfigurationData.materialMeasures}
+        materialTypes={materialConfigurationData.materialTypes}
         sendToBis={sendToBis}
         getPossibleApprovers={getPossibleWarehouseBisApprovers}
         submitToApproval={submitWarehouseRecordToBisApproval}
         syncBisRecords={syncWarehouseBisRecords}
         updateMaterialConfiguration={updateMaterialConfiguration}
+        createMaterialConfiguration={createMaterialConfiguration}
         updateCostCode={updateCostCode}
         deleteRecords={deleteWarehouseRecords}
       />
