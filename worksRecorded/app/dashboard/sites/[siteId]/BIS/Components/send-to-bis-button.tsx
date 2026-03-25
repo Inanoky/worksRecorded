@@ -11,6 +11,7 @@ export default function SendToBisButton({
   categoryId,
   sourcePhoto,
   materialName,
+  materialDate,
   action,
 }: {
   recordId: string
@@ -18,12 +19,14 @@ export default function SendToBisButton({
   categoryId: string
   sourcePhoto?: string
   materialName?: string
+  materialDate?: Date | null
   action: (
     recordId: string,
     quantity: number,
     categoryId: string,
     sourcePhoto?: string,
-    materialName?: string
+    materialName?: string,
+    materialDate?: Date | null
   ) => Promise<any>
 }) {
   const [pending, startTransition] = useTransition()
@@ -38,7 +41,7 @@ export default function SendToBisButton({
 
     startTransition(async () => {
       try {
-        const result = await action(recordId, quantity, categoryId, sourcePhoto, materialName)
+        const result = await action(recordId, quantity, categoryId, sourcePhoto, materialName, materialDate)
 
         if (result?.errors) {
           toast.error("Failed to send to BIS")
