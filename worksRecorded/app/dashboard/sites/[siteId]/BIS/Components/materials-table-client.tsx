@@ -78,6 +78,7 @@ type Props = {
   bisEnabled: boolean
   materials: MaterialRow[]
   materialConfigurations: MaterialCategory[]
+  materialMeasures: Array<{ id: string; name: string }>
   sendToBis: (
     siteId: string,
     recordId: string,
@@ -96,7 +97,11 @@ type Props = {
       level: number | null
     }>
   ) => Promise<{ status: string }>
-  syncBisRecords: (siteId: string) => Promise<{ rows: MaterialRow[]; materialConfigurations: MaterialCategory[] }>
+  syncBisRecords: (siteId: string) => Promise<{
+    rows: MaterialRow[]
+    materialConfigurations: MaterialCategory[]
+    materialMeasures: Array<{ id: string; name: string }>
+  }>
   updateMaterialConfiguration: (
     recordId: string,
     config: {
@@ -106,6 +111,21 @@ type Props = {
       measurementUnit: string
     }
   ) => Promise<{ success: true }>
+  createMaterialConfiguration: (
+    siteId: string,
+    payload: {
+      materialKind: string
+      measurement: string
+      attachments: Array<{
+        name: string
+        mimeType: string
+        base64Data: string
+      }>
+    },
+  ) => Promise<{
+    success: true
+    category: MaterialCategory
+  }>
   updateCostCode: (
     recordId: string,
     costCode: string | null
@@ -147,16 +167,19 @@ export default function MaterialsTableClient({
   bisEnabled,
   materials,
   materialConfigurations,
+  materialMeasures,
   sendToBis,
   getPossibleApprovers,
   submitToApproval,
   syncBisRecords,
   updateMaterialConfiguration,
+  createMaterialConfiguration,
   updateCostCode,
   deleteRecords,
 }: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
+  const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
@@ -179,6 +202,10 @@ export default function MaterialsTableClient({
   React.useEffect(() => {
     setConfigurations(materialConfigurations)
   }, [materialConfigurations])
+
+  React.useEffect(() => {
+    setMeasures(materialMeasures)
+  }, [materialMeasures])
 
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
@@ -264,6 +291,33 @@ export default function MaterialsTableClient({
     }
   }
 
+  const handleCreateMaterialConfiguration = async (
+    selectedSiteId: string,
+    payload: {
+      materialKind: string
+      measurement: string
+      attachments: Array<{
+        name: string
+        mimeType: string
+        base64Data: string
+      }>
+    },
+  ) => {
+    const result = await createMaterialConfiguration(selectedSiteId, payload)
+
+    setConfigurations((current) => {
+      if (current.some((item) => item.id === result.category.id)) {
+        return current
+      }
+
+      return [...current, result.category].sort((a, b) =>
+        a.material_kind.localeCompare(b.material_kind),
+      )
+    })
+
+    return result
+  }
+
   const handleSendToBis = async (
     recordId: string,
     quantity: number,
@@ -307,7 +361,11 @@ export default function MaterialsTableClient({
     console.log("[Warehouse BIS] Refresh from BIS started", { siteId })
     setSyncLoading(true)
     try {
-      const { rows: syncedRows, materialConfigurations: syncedConfigurations } = await syncBisRecords(siteId)
+      const {
+        rows: syncedRows,
+        materialConfigurations: syncedConfigurations,
+        materialMeasures: syncedMeasures,
+      } = await syncBisRecords(siteId)
       console.log("[Warehouse BIS] Refresh from BIS returned rows", {
         siteId,
         syncedRowCount: syncedRows.length,
@@ -318,6 +376,7 @@ export default function MaterialsTableClient({
         })),
       })
       setConfigurations(syncedConfigurations)
+      setMeasures(syncedMeasures)
       const syncedMap = new Map(syncedRows.map((row) => [row.id, row]))
 
       setRows((current) => {
@@ -755,11 +814,14 @@ export default function MaterialsTableClient({
                       {showBisControls ? (
                         <TableCell>
                           <MaterialConfigSelect
+                            siteId={siteId}
                             recordId={r.id}
                             value={hasValidConfiguration ? r.categoryId : null}
                             disabled={isSent}
                             onSave={handleConfigChange}
+                            onCreate={handleCreateMaterialConfiguration}
                             categories={configurations}
+                            measurements={measures}
                           />
                         </TableCell>
                       ) : null}
