@@ -383,7 +383,7 @@ export async function createMaterialConfiguration(
   }
 
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
-  const attachments: Array<{ type: string; uuid: string }> = [];
+  const attachedDocuments: Array<{ attributes: { uuid: string; code: string } }> = [];
 
   for (const file of payload.attachments) {
     const bytes = Buffer.from(file.base64Data, "base64");
@@ -395,7 +395,7 @@ export async function createMaterialConfiguration(
     form.append("upload[obj_id]", crypto.randomUUID());
 
     const uploadResponse = await fetch(
-      `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_material_attachments`,
+      `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
       {
         method: "POST",
         headers: {
@@ -418,9 +418,11 @@ export async function createMaterialConfiguration(
       : null;
 
     if (tempUuid) {
-      attachments.push({
-        type: "shared_attachments",
-        uuid: tempUuid,
+      attachedDocuments.push({
+        attributes: {
+          uuid: tempUuid,
+          code: "agreement",
+        },
       });
     }
   }
@@ -437,11 +439,13 @@ export async function createMaterialConfiguration(
             material_kind: materialKind,
             measurement,
           },
-          relationships: {
-            attachments: {
-              data: attachments,
-            },
-          },
+          relationships: attachedDocuments.length
+            ? {
+                attached_documents: {
+                  data: attachedDocuments,
+                },
+              }
+            : undefined,
         },
       }),
     },
