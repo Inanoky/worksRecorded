@@ -450,7 +450,7 @@ export async function createMaterialConfiguration(
       attachedDocuments.push({
         attributes: {
           uuid: tempUuid,
-          code: "agreement",
+          code: "compliance",
         },
       });
     }
