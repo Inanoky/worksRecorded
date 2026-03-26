@@ -197,7 +197,10 @@ async function callEndpoint(method: HttpMethod, routePath: string): Promise<Chec
 
 async function discoverPageRoutes(): Promise<string[]> {
   const all = await walk(APP_DIR);
-  const pageFiles = all.filter((f) => f.endsWith("/page.tsx") || f.endsWith("/page.ts"));
+  const pageFiles = all.filter((f) => {
+    const normalized = f.replace(/\\/g, "/");
+    return normalized.endsWith("/page.tsx") || normalized.endsWith("/page.ts");
+  });
 
   const routes = new Set<string>();
   for (const file of pageFiles) {
@@ -211,7 +214,10 @@ async function discoverPageRoutes(): Promise<string[]> {
 
 async function discoverApiChecks(): Promise<Array<{ routePath: string; method: HttpMethod }>> {
   const all = await walk(API_DIR);
-  const routeFiles = all.filter((f) => f.endsWith("/route.ts") || f.endsWith("/route.tsx"));
+  const routeFiles = all.filter((f) => {
+    const normalized = f.replace(/\\/g, "/");
+    return normalized.endsWith("/route.ts") || normalized.endsWith("/route.tsx");
+  });
   const checks: Array<{ routePath: string; method: HttpMethod }> = [];
 
   for (const file of routeFiles) {
