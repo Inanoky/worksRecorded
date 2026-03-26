@@ -80,7 +80,7 @@ export async  function systemPromptFunction(siteId, userId){
     `siteId : ${siteId}
     userId : ${userId}
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
-    Also pass the original worker message prefixed as to originalUserComment when calling WorkerDiaryToDatabase
+    Also pass the original worker message prefixed when calling WorkerDiaryToDatabase
 
     If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
 
