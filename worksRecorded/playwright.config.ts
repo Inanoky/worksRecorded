@@ -5,7 +5,7 @@ import path from 'path';
 const STORAGE_STATE = path.join(__dirname, 'playwright', '.auth', 'user.json');
 
 export default defineConfig({
-  testDir: './tests',
+  testDir: './test/e2e',
    testMatch: /.*\.spec\.ts/, 
   fullyParallel: false,
    workers: 1,

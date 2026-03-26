@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:webhooks": "npx tsx scripts/test-whatsapp-webhooks.ts",
+    "test:smoke": "bun run test/app-smoke-tests.ts",
+    "test:start": "bun run test/startTest.ts",
     "postinstall": "prisma generate",
     "test": "jest"
   },
