@@ -1,4 +1,6 @@
 #!/usr/bin/env bun
+import path from "node:path";
+import { existsSync } from "node:fs";
 
 type Step = {
   name: string;
@@ -13,14 +15,20 @@ type StepResult = {
   optional: boolean;
 };
 
+const projectRoot = path.resolve(import.meta.dir, "..");
+const localJestBin = path.join(projectRoot, "node_modules", "jest", "bin", "jest.js");
+const jestCommand = existsSync(localJestBin)
+  ? ["bun", "run", localJestBin]
+  : ["bun", "x", "jest"];
+
 const steps: Step[] = [
   {
     name: "Unit tests (Jest)",
-    command: ["bun", "x", "jest", "test/unit", "--runInBand"],
+    command: [...jestCommand, "--config", "jest.config.js", "test/unit", "--runInBand"],
   },
   {
     name: "Integration contract tests (Jest, requires BASE_URL)",
-    command: ["bun", "x", "jest", "test/integration", "--runInBand"],
+    command: [...jestCommand, "--config", "jest.config.js", "test/integration", "--runInBand"],
   },
   {
     name: "Smoke tests (non-invasive HTTP sweep)",
@@ -44,6 +52,7 @@ async function runStep(step: Step): Promise<StepResult> {
   console.log(`   $ ${step.command.join(" ")}`);
 
   const proc = Bun.spawn(step.command, {
+    cwd: projectRoot,
     stdout: "inherit",
     stderr: "inherit",
   });
