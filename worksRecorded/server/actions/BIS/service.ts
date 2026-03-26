@@ -245,7 +245,20 @@ export async function fetchBisAvailableCases(accessToken: string) {
   );
 
   const text = await response.text();
-  const json = text ? JSON.parse(text) : {};
+  let json: any = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    console.error("Failed to parse BIS cases response as JSON", {
+      status: response.status,
+      statusText: response.statusText,
+      preview: text.slice(0, 300),
+    });
+
+    throw new Error(
+      `BIS cases endpoint returned non-JSON response (status ${response.status}).`
+    );
+  }
 
   if (!response.ok) {
     throw new Error(
