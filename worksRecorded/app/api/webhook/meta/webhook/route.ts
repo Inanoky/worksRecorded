@@ -155,18 +155,34 @@ async function getMetaMediaInfo(mediaId: string): Promise<{ url: string; mimeTyp
 
 async function toTwilioLikeFormData(message: any): Promise<FormData> {
   const formData = new FormData();
-  const body = typeof message?.text?.body === "string" ? message.text.body : "";
+  const textBody = typeof message?.text?.body === "string" ? message.text.body : "";
+  const imageCaption =
+    typeof message?.image?.caption === "string" ? message.image.caption : "";
+  const body = textBody || imageCaption;
   const from = message?.from ? `whatsapp:+${message.from}` : "";
+  const hasImage = Boolean(message?.image?.id);
+  const hasAudio = Boolean(message?.audio?.id);
+  const numMedia = hasImage || hasAudio ? "1" : "0";
 
   formData.set("SmsStatus", "received");
   formData.set("From", from);
   formData.set("WaId", message?.from ?? "");
   formData.set("Body", body);
   formData.set("MessageSid", message?.id ?? "");
-  formData.set("NumMedia", message?.type === "text" ? "0" : "1");
+  formData.set("SmsMessageSid", message?.id ?? "");
+  formData.set("NumMedia", numMedia);
 
-  if (message?.type === "image" && message?.image?.id) {
+  if (hasImage) {
     const mediaInfo = await getMetaMediaInfo(message.image.id);
+    if (mediaInfo) {
+      formData.set("MediaUrl0", mediaInfo.url);
+      formData.set("MediaContentType0", mediaInfo.mimeType);
+      formData.set("MediaProvider0", "meta");
+    }
+  }
+
+  if (hasAudio) {
+    const mediaInfo = await getMetaMediaInfo(message.audio.id);
     if (mediaInfo) {
       formData.set("MediaUrl0", mediaInfo.url);
       formData.set("MediaContentType0", mediaInfo.mimeType);
