@@ -19,6 +19,16 @@ type SiteBisConfigRow = {
   bisCaseStage: string | null;
 };
 
+class BisTokenRefreshError extends Error {
+  code: string;
+
+  constructor(message: string, code = "BIS_REFRESH_FAILED") {
+    super(message);
+    this.name = "BisTokenRefreshError";
+    this.code = code;
+  }
+}
+
 const BIS_BASE_URL = (process.env.BIS_BASE_URL ?? "https://test.bis.gov.lv/").replace(/\/+$/, "");
 const BIS_SCOPES = process.env.BIS_SCOPES ?? "bis_case_documents:manage logbooks:manage";
 const BIS_ACCESS_TOKEN_MAX_AGE_MS = 2 * 60 * 60 * 1000;
@@ -126,10 +136,22 @@ export async function refreshBisAccessToken(userId: string, refreshToken: string
     cache: "no-store",
   });
 
-  const json = await response.json();
+  const text = await response.text();
+  let json: any = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    throw new BisTokenRefreshError(
+      `Failed to refresh BIS access token: token endpoint returned non-JSON response (status ${response.status}).`,
+      "BIS_REFRESH_NON_JSON",
+    );
+  }
 
   if (!response.ok || !json?.access_token) {
-    throw new Error(json?.error_description || json?.error || "Failed to refresh BIS access token");
+    throw new BisTokenRefreshError(
+      json?.error_description || json?.error || "Failed to refresh BIS access token",
+      "BIS_REFRESH_REJECTED",
+    );
   }
 
   const nextRefreshToken = json?.refresh_token || refreshToken;
@@ -156,13 +178,23 @@ export async function ensureUserBisAccessToken(userId: string) {
   }
 
   if (!token.accessToken || isBisAccessTokenStale(token)) {
-    const refreshed = await refreshBisAccessToken(userId, token.refreshToken);
-    return {
-      ...token,
-      accessToken: refreshed.accessToken,
-      refreshToken: refreshed.refreshToken,
-      updatedAt: new Date(),
-    };
+    try {
+      const refreshed = await refreshBisAccessToken(userId, token.refreshToken);
+      return {
+        ...token,
+        accessToken: refreshed.accessToken,
+        refreshToken: refreshed.refreshToken,
+        updatedAt: new Date(),
+      };
+    } catch (error) {
+      console.error("BIS token refresh failed, clearing stored BIS tokens", {
+        userId,
+        error,
+      });
+
+      await deleteUserBisTokens(userId);
+      return null;
+    }
   }
 
   return token;
