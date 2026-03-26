@@ -131,6 +131,7 @@ export async function GET(req: Request): Promise<Response> {
 
 async function getMetaMediaInfo(mediaId: string): Promise<{ url: string; mimeType: string } | null> {
   const token = mustGetEnv("META_ACCESS_TOKEN", META_ACCESS_TOKEN);
+  console.log("[meta][media] Resolving media info", { mediaId });
 
   const res = await fetch(`https://graph.facebook.com/v18.0/${mediaId}`, {
     method: "GET",
@@ -148,6 +149,11 @@ async function getMetaMediaInfo(mediaId: string): Promise<{ url: string; mimeTyp
   const data = await res.json().catch(() => null);
   const url = data?.url;
   const mimeType = data?.mime_type;
+  console.log("[meta][media] Resolve response", {
+    mediaId,
+    hasUrl: Boolean(url),
+    mimeType,
+  });
 
   if (!url) return null;
   return { url, mimeType: mimeType || "image/jpeg" };
@@ -164,6 +170,11 @@ async function toTwilioLikeFormData(message: any): Promise<FormData> {
   formData.set("Body", body);
   formData.set("MessageSid", message?.id ?? "");
   formData.set("NumMedia", message?.type === "text" ? "0" : "1");
+  console.log("[meta][adapter] Building Twilio-like formData", {
+    messageType: message?.type,
+    hasImageId: Boolean(message?.image?.id),
+    messageId: message?.id,
+  });
 
   if (message?.type === "image" && message?.image?.id) {
     const mediaInfo = await getMetaMediaInfo(message.image.id);
@@ -171,6 +182,15 @@ async function toTwilioLikeFormData(message: any): Promise<FormData> {
       formData.set("MediaUrl0", mediaInfo.url);
       formData.set("MediaContentType0", mediaInfo.mimeType);
       formData.set("MediaProvider0", "meta");
+      console.log("[meta][adapter] Media mapped", {
+        mediaId: message.image.id,
+        mimeType: mediaInfo.mimeType,
+        previewUrl: mediaInfo.url?.slice(0, 80),
+      });
+    } else {
+      console.error("[meta][adapter] Media mapping failed", {
+        mediaId: message.image.id,
+      });
     }
   }
 
@@ -195,6 +215,22 @@ async function runWhatsappRoutingForMeta(args: {
     const numMedia = Number(numMediaRaw || "0");
     const isText = !Number.isNaN(numMedia) ? numMedia === 0 : true;
     const messageSid = getString(formData, "MessageSid") || null;
+    const mediaUrl0 = getString(formData, "MediaUrl0");
+    const mediaContentType0 = getString(formData, "MediaContentType0");
+    const mediaProvider0 = getString(formData, "MediaProvider0");
+
+    console.log("[meta][routing] Parsed Twilio-like payload", {
+      smsStatus,
+      from,
+      waId,
+      numMediaRaw,
+      numMedia,
+      isText,
+      messageSid,
+      mediaUrl0Preview: mediaUrl0?.slice(0, 80),
+      mediaContentType0,
+      mediaProvider0,
+    });
 
     if (smsStatus && smsStatus.toLowerCase() !== "received") {
       return;

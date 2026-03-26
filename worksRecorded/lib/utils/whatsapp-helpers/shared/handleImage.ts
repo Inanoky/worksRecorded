@@ -31,9 +31,16 @@ export async function handleImage(args: {
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "image/jpeg").toLowerCase();
   const mediaProvider = (getString(formData, `MediaProvider${idx}`) || "").toLowerCase();
+  console.log("[handleImage] Image candidate", {
+    idx,
+    mediaProvider,
+    contentType,
+    mediaUrlPreview: mediaUrl?.slice(0, 80),
+  });
 
   try {
     const buf = await fetchTwilioMediaAsBuffer(mediaUrl!, mediaProvider === "meta" ? "meta" : "twilio");
+    console.log("[handleImage] Downloaded media buffer", { bytes: buf.length, contentType });
 
     const ext = contentType.split("/")[1] || "jpg";
     const fileName = `whatsapp_${Date.now()}.${ext}`;
