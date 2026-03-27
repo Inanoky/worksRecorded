@@ -107,6 +107,8 @@ const WhatsAppIcon = ({ size = 22 }) => (
 
 type DiaryRow = {
   id?: string;
+  createdAt?: string | Date;
+  createdBy?: string | null;
   Date: string | Date;
   Location?: string | null;
   Works?: string | null;
@@ -361,8 +363,10 @@ export default function SiteDiaryCalendar({
         }
 
         //Here we load config from database, and if no config we use default.
-        const cfg = (await getConfig(siteId)) ?? defaultConfig;
+        const siteDiaryRecordMap = await getConfig(siteId);
+        const cfg = siteDiaryRecordMap ?? defaultConfig;
         if (cancelled) return;
+        const shouldShowCreatedMetaColumns = !siteDiaryRecordMap;
 
         const screenWidth = cfg?.otherSettings?.displaySiteListWidth ?? 140;
         setScreenWidth(screenWidth);
@@ -373,9 +377,12 @@ export default function SiteDiaryCalendar({
         setMap(cfg);
 
         const renderableFields = getRenderableFieldsOrdered(cfg);
+        const tableFields = shouldShowCreatedMetaColumns
+          ? ["createdAt", "createdBy", ...renderableFields]
+          : renderableFields;
         console.log(`renderableFields ${renderableFields}`);
 
-        setTableHeads(renderableFields);
+        setTableHeads(tableFields);
 
         //Fetching data
         const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
@@ -385,6 +392,7 @@ export default function SiteDiaryCalendar({
           renderableFields: string[],
         ) {
           return rows.map((row) => ({
+            createdAt: row.createdAt ?? undefined,
             createdBy: row.createdBy ?? undefined,
             originalUserComment: row.originalUserComment ?? "",
             ...Object.fromEntries(
@@ -1159,6 +1167,21 @@ export default function SiteDiaryCalendar({
                                 <TableHeader>
                                   <TableRow>
                                     {tableHeads.map((head) => {
+                                      if (head === "createdAt" || head === "createdBy") {
+                                        const headLabel =
+                                          head === "createdAt" ? "Created Time" : "Created By";
+                                        const headWidth = head === "createdAt" ? 120 : 180;
+                                        return (
+                                          <TableHead
+                                            key={head}
+                                            className="text-left"
+                                            style={{ width: headWidth }}
+                                          >
+                                            {headLabel}
+                                          </TableHead>
+                                        );
+                                      }
+
                                       const align = getSiteListTextAlignmentByKey(
                                         head,
                                         defaultMap,
@@ -1200,6 +1223,44 @@ export default function SiteDiaryCalendar({
                                   {formattedGroupRows.map((row, i) => (
                                     <TableRow key={row.id ?? `${group.key}-${i}`}>
                                       {tableHeads.map((field) => {
+                                        if (field === "createdAt") {
+                                          return (
+                                            <TableCell
+                                              key={field}
+                                              className="align-top px-3 py-2 whitespace-normal break-words text-left"
+                                              style={{ width: 120 }}
+                                            >
+                                              {row[field] ? (
+                                                <div className="line-clamp-4">
+                                                  {new Date(row[field]).toLocaleTimeString("en-GB", {
+                                                    hour: "2-digit",
+                                                    minute: "2-digit",
+                                                    hour12: false,
+                                                  })}
+                                                </div>
+                                              ) : (
+                                                "—"
+                                              )}
+                                            </TableCell>
+                                          );
+                                        }
+
+                                        if (field === "createdBy") {
+                                          return (
+                                            <TableCell
+                                              key={field}
+                                              className="align-top px-3 py-2 whitespace-normal break-words text-left"
+                                              style={{ width: 180 }}
+                                            >
+                                              {row[field] ? (
+                                                <div className="line-clamp-4">{String(row[field])}</div>
+                                              ) : (
+                                                "—"
+                                              )}
+                                            </TableCell>
+                                          );
+                                        }
+
                                         const align =
                                           getSiteListTextAlignmentByKey(
                                             field,

@@ -354,6 +354,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     orderBy: [{ Date: "asc" }],
     select: {
       id: true,
+      createdAt: true,
       Date: true,
       Date_Custom_1: true,
       Date_Custom_2: true,
@@ -415,6 +416,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
 
     return {
       id: rec.id,
+      createdAt: rec.createdAt,
       Date: rec.Date,
       Date_Custom_1: rec.Date_Custom_1,
       Date_Custom_2: rec.Date_Custom_2,
