@@ -1163,7 +1163,7 @@ export default function SiteDiaryCalendar({
                             }));
 
                             return (
-                              <Table className="table-fixed min-w-[760px] text-xs sm:text-sm">
+                              <Table className="table-fixed w-full text-xs sm:text-sm">
                                 {/* HEADER */}
                                 <TableHeader>
                                   <TableRow>
@@ -1189,7 +1189,7 @@ export default function SiteDiaryCalendar({
 {bisEnabled ? (
                                     <TableHead
                                       className="text-center"
-                                      style={{ width: 140 }}
+                                      style={{ width: 120 }}
                                     >
                                       BIS
                                     </TableHead>
@@ -1231,7 +1231,7 @@ export default function SiteDiaryCalendar({
                                             row[field] === "" ? (
                                               "—"
                                             ) : (
-                                              <div className="line-clamp-4">
+                                              <div className="line-clamp-3">
                                                 {formatValueByConfig(
                                                   field,
                                                   row[field],
@@ -1246,7 +1246,7 @@ export default function SiteDiaryCalendar({
 {bisEnabled ? (
                                       <TableCell
                                         className="align-top px-3 py-2 text-center"
-                                        style={{ width: 140 }}
+                                        style={{ width: 120 }}
                                       >
                                         <Button
                                           size="sm"

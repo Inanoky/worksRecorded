@@ -42,10 +42,10 @@
     "customSettings": {
       "renderAs": "Time",
       "order": 4,
-      "cellWidth": 120,
+      "cellWidth": 90,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 0,
-      "displayinSiteListWidth": 120,
+      "displayinSiteListWidth": 90,
       "displayinSiteListTextAlignment": "center"
     }
   },
@@ -59,10 +59,10 @@
   },
   "customSettings": {
     "order": 2,
-    "cellWidth": 150,
+    "cellWidth": 120,
     "displayinSiteList": "yes",
     "displayinSiteListOrder": 1,
-    "displayinSiteListWidth": 150,
+    "displayinSiteListWidth": 120,
     "displayinSiteListTextAlignment": "left"
   }
 },
@@ -155,10 +155,10 @@
   },
     "customSettings": {
       "order": 3,
-      "cellWidth": 150,
+      "cellWidth": 160,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 2,
-      "displayinSiteListWidth": 180,
+      "displayinSiteListWidth": 160,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -199,10 +199,10 @@
     "DisplayName": "Comments",
     "customSettings": {
       "order": 10,
-      "cellWidth": 450,
+      "cellWidth": 260,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 7,
-      "displayinSiteListWidth": 400,
+      "displayinSiteListWidth": 260,
       "displayinSiteListTextAlignment": "left"
     }
   },

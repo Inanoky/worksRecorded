@@ -351,10 +351,11 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
 
   const records = await prisma.sitediaryrecords.findMany({
     where: { siteId },
-    orderBy: [{ Date: "asc" }],
+    orderBy: [{ createdAt: "desc" }],
     select: {
       id: true,
       Date: true,
+      createdAt: true,
       Date_Custom_1: true,
       Date_Custom_2: true,
 
@@ -416,6 +417,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     return {
       id: rec.id,
       Date: rec.Date,
+      createdAt: rec.createdAt,
       Date_Custom_1: rec.Date_Custom_1,
       Date_Custom_2: rec.Date_Custom_2,
 
