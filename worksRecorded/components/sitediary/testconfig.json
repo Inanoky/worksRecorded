@@ -1,0 +1,306 @@
+{
+  "Date": {
+    "Type": "fixed",
+    "DisplayName": "Date",
+    "customSettings": {
+      "renderAs": "Day",
+      "order": 1,
+      "cellWidth": 150,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Date_Custom_1",
+    "customSettings": {
+      "order": 2,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Date_Custom_2",
+    "customSettings": {
+      "order": 3,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "createdAt": {
+    "Type": "noRender",
+    "DisplayName": "Created time",
+    "customSettings": {
+      "renderAs": "Time",
+      "order": 4,
+      "cellWidth": 120,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 0,
+      "displayinSiteListWidth": 120,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+"Location": {
+  "Type": "dropdown",
+  "DisplayName": "Location",
+  "DropDownOptions": {
+    "Location_1": "Project",
+    "Location_2": "Others"
+
+  },
+  "customSettings": {
+    "order": 2,
+    "cellWidth": 150,
+    "displayinSiteList": "yes",
+    "displayinSiteListOrder": 1,
+    "displayinSiteListWidth": 150,
+    "displayinSiteListTextAlignment": "left"
+  }
+},
+
+  "Location_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_1",
+    "DropDownOptions": {
+      "Location_Custom_1_1": "Location_Custom_1_1",
+      "Location_Custom_1_2": "Location_Custom_1_2"
+    },
+    "customSettings": {
+      "order": 5,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Location_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_2",
+    "DropDownOptions": {
+      "Location_Custom_2_1": "Location_Custom_2_1",
+      "Location_Custom_2_2": "Location_Custom_2_2"
+    },
+    "customSettings": {
+      "order": 6,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works": {
+    "Type": "dropdown",
+    "DisplayName": "Works",
+     "DropDownOptions": {
+    "Works_1": "Concrete works",
+    "Works_2": "Reinforcement works",
+    "Works_3": "Formwork installation",
+    "Works_4": "Precast elements installation",
+    "Works_5": "Masonry / Blockwork",
+    "Works_6": "Steel structure assembly",
+    "Works_7": "Balcony installation",
+    "Works_8": "Stairs installation",
+    "Works_9": "Wall construction",
+    "Works_10": "Slab installation",
+
+    "Works_11": "Plumbing installation",
+    "Works_12": "Drainage installation",
+    "Works_13": "Heating system installation",
+    "Works_14": "Ventilation installation",
+    "Works_15": "Air conditioning installation",
+    "Works_16": "Electrical cabling",
+    "Works_17": "Lighting installation",
+    "Works_18": "Panel / switchboard installation",
+
+    "Works_19": "Fire pipe installation",
+    "Works_20": "Sprinkler installation",
+    "Works_21": "Fire alarm installation",
+    "Works_22": "Smoke detection installation",
+    "Works_23": "Fire stopping / sealing",
+
+    "Works_24": "Excavation",
+    "Works_25": "Trenching",
+    "Works_26": "Backfilling",
+    "Works_27": "Utility pipe laying",
+    "Works_28": "Cable duct installation",
+
+    "Works_29": "Equipment installation",    
+
+    "Works_33": "Testing & commissioning",
+    "Works_34": "Inspection",
+    "Works_35": "Maintenance works",
+    "Works_36": "Repair works",
+
+    "Works_37": "Material delivery",
+    "Works_38": "Equipment delivery",
+    "Works_39": "Delay",
+    "Works_40": "Additional works",
+    "Works_41": "Notes",
+    "Works_42": "Painting",
+     "Works_43": "Cleaning",
+      "Works_44": "Finishing"
+
+    
+  },
+    "customSettings": {
+      "order": 3,
+      "cellWidth": 150,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 2,
+      "displayinSiteListWidth": 180,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_1",
+    "DropDownOptions": {
+      "Works_Custom_1_1": "Works_Custom_1_1",
+      "Works_Custom_1_2": "Works_Custom_1_2"
+    },
+    "customSettings": {
+      "order": 8,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_2",
+    "DropDownOptions": {
+      "Works_Custom_2_1": "Works_Custom_2_1",
+      "Works_Custom_2_2": "Works_Custom_2_2"
+    },
+    "customSettings": {
+      "order": 9,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments": {
+    "Type": "textInput",
+    "DisplayName": "Comments",
+    "customSettings": {
+      "order": 10,
+      "cellWidth": 450,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 7,
+      "displayinSiteListWidth": 400,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "textInput",
+    "customSettings": {
+      "order": 11,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "textInput",
+    "customSettings": {
+      "order": 12,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Units": {
+    "Type": "dropdown",
+    "DisplayName": "Units",
+    "DropDownOptions": {
+      "m": "m",
+      "m2": "m2",
+      "m3": "m3",
+      "tn": "tn",
+      "kg": "kg",
+      "pcs": "pcs",
+      "package": "package",
+      "project": "project",
+      "hour": "hour",
+      "set": "set",
+      "minute": "minute",
+      "lifts": "lifts"
+    },
+    "customSettings": {
+      "order": 4,
+      "cellWidth": 80,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 3,
+      "displayinSiteListWidth": 50,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "Amounts": {
+    "Type": "float",
+    "DisplayName": "Amounts",
+    "customSettings": {
+      "order": 5,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 4,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "WorkersInvolved": {
+    "Type": "float",
+    "DisplayName": "Workers",
+    "customSettings": {
+      "integer": true,
+      "order": 6,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 5,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "TimeInvolved": {
+    "Type": "float",
+    "DisplayName": "Hours",
+    "customSettings": {
+      "integer": true,
+      "order": 6,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 6,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "AIpromptToUse": {
+    "Type": "noRender",
+    "Client": "DEPROM"
+   
+  },
+  "otherSettings" : {
+    "Type": "noRender",
+    "displaySiteListWidth" : 80
+  }
+}

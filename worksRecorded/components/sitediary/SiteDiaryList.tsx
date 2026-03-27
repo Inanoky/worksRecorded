@@ -1180,7 +1180,7 @@ export default function SiteDiaryCalendar({
                                             className="text-left"
                                             style={{ width: 120 }}
                                           >
-                                            Created Time
+                                            Time
                                           </TableHead>
                                         );
                                       }
