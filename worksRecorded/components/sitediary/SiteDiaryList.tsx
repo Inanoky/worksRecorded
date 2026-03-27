@@ -108,7 +108,6 @@ const WhatsAppIcon = ({ size = 22 }) => (
 type DiaryRow = {
   id?: string;
   createdAt?: string | Date;
-  createdBy?: string | null;
   Date: string | Date;
   Location?: string | null;
   Works?: string | null;
@@ -378,7 +377,7 @@ export default function SiteDiaryCalendar({
 
         const renderableFields = getRenderableFieldsOrdered(cfg);
         const tableFields = shouldShowCreatedMetaColumns
-          ? ["createdAt", "createdBy", ...renderableFields]
+          ? ["createdAt", ...renderableFields]
           : renderableFields;
         console.log(`renderableFields ${renderableFields}`);
 
@@ -393,7 +392,6 @@ export default function SiteDiaryCalendar({
         ) {
           return rows.map((row) => ({
             createdAt: row.createdAt ?? undefined,
-            createdBy: row.createdBy ?? undefined,
             originalUserComment: row.originalUserComment ?? "",
             ...Object.fromEntries(
               renderableFields.map((field) => [field, row[field] ?? ""]),
@@ -1179,17 +1177,14 @@ export default function SiteDiaryCalendar({
                                 <TableHeader>
                                   <TableRow>
                                     {tableHeads.map((head) => {
-                                      if (head === "createdAt" || head === "createdBy") {
-                                        const headLabel =
-                                          head === "createdAt" ? "Created Time" : "Created By";
-                                        const headWidth = head === "createdAt" ? 120 : 180;
+                                      if (head === "createdAt") {
                                         return (
                                           <TableHead
                                             key={head}
                                             className="text-left"
-                                            style={{ width: headWidth }}
+                                            style={{ width: 120 }}
                                           >
-                                            {headLabel}
+                                            Created Time
                                           </TableHead>
                                         );
                                       }
@@ -1250,22 +1245,6 @@ export default function SiteDiaryCalendar({
                                                     hour12: false,
                                                   })}
                                                 </div>
-                                              ) : (
-                                                "—"
-                                              )}
-                                            </TableCell>
-                                          );
-                                        }
-
-                                        if (field === "createdBy") {
-                                          return (
-                                            <TableCell
-                                              key={field}
-                                              className="align-top px-3 py-2 whitespace-normal break-words text-left"
-                                              style={{ width: 180 }}
-                                            >
-                                              {row[field] ? (
-                                                <div className="line-clamp-4">{String(row[field])}</div>
                                               ) : (
                                                 "—"
                                               )}
