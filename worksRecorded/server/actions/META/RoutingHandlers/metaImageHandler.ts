@@ -1,21 +1,15 @@
 // download_media.js
 
-import { Type } from "lucide-react";
 import { UTApi } from "uploadthing/server";
 import OpenAI from "openai";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
-import { gptExtractorForDocumentsModel, } from "@/server/ai-flows/ai-models-settings";
 import { prisma } from "@/lib/utils/db";
-import { refreshToken } from "../../BIS/Auth/refreshToken";
-import { savePhoto } from "../../site-diary-actions";
 
 
 //-------------------------------------Utilities--------------------------------
 
 const TOKEN = process.env.META_ACCESS_TOKEN
-
-const MEDIA_ID = "26074750412178653"
 
 const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -64,14 +58,7 @@ const mockupCategories = [
 
 
 // STEP 1 - download media from META
-export async function downloadMetaMedia(mediaId) {
-
-    
-    const userId = "kp_d9afeea81ab6410c83507bd957997476"
-    const orgId = "b43abb39-2ab6-4df4-8b1e-6a010b7dec70"
-    const siteId = "5364389a-3d0b-4a0d-ab75-11f9118daa63"
-
-
+export async function downloadMetaMedia(mediaId: string) {
     const GRAPH_VERSION = "v20.0";
 
     const metaResp = await fetch(
@@ -106,11 +93,7 @@ export async function downloadMetaMedia(mediaId) {
     const publicUrl = first.data.ufsUrl ?? first.data.url; //Get Upload URL
 
     
-    //Here I also need to save this to the correct siteId. 
-
     console.log(publicUrl)
-
-
 
     return { publicUrl, file }
 
@@ -236,9 +219,51 @@ export async function getBisCategories_12I7_075() {
 
 
 
-export async function sendToGpt(mediaId) {
+type MetaMaterialContext = {
+  userId: string
+  orgId: string | null
+  siteId: string | null
+}
+
+async function resolveMetaMaterialContext(senderPhone?: string | null): Promise<MetaMaterialContext | null> {
+  if (!senderPhone) return null
+
+  const candidates = Array.from(
+    new Set([
+      senderPhone,
+      `+${senderPhone}`,
+      `whatsapp:+${senderPhone}`,
+    ]),
+  )
+
+  const user = await prisma.user.findFirst({
+    where: {
+      phone: { in: candidates },
+    },
+    select: {
+      id: true,
+      organizationId: true,
+      lastSelectedSiteIdforWhatsapp: true,
+      siteManagerSelectIdforWhatsapp: true,
+    },
+  })
+
+  if (!user) return null
+
+  return {
+    userId: user.id,
+    orgId: user.organizationId ?? null,
+    siteId:
+      user.lastSelectedSiteIdforWhatsapp ??
+      user.siteManagerSelectIdforWhatsapp ??
+      null,
+  }
+}
+
+export async function sendToGpt(mediaId: string, senderPhone?: string) {
 
     const { publicUrl, file } = await downloadMetaMedia(mediaId)
+    void file
 
     
 
@@ -299,7 +324,7 @@ export async function sendToGpt(mediaId) {
             invoiceNr : z.string(),
             invoiceDate : z.coerce.date().nullable().optional(),
             costCode: z.string(),
-            quantity: z.number().describe(`Each item convert to the measurement from corresponding measurement_unit`),
+            quantity: z.number().describe(`Extract quantity for every invoice line. When category matched convert to measurement_unit; when no_match keep the original invoice quantity`),
             construction_material_id: z.enum(ids)
         }))
 
@@ -349,9 +374,11 @@ Rules:
 
 1. Match each invoice item to the best material_kind.
 2. If nothing matches, return "no_match".
-3. Quantity MUST be converted to the unit of the selected category.
-4. If the invoice unit is "gabals", "iepakojums", "pack", "bag", etc, extract the real weight or volume from the product name.
-5. Keep extracted textual values in the original document language. Never translate names.
+3. Quantity MUST always be extracted, even if no category match is found.
+4. If a category is selected, convert quantity to that category unit.
+5. If construction_material_id is "no_match", keep quantity in original invoice unit (do not skip quantity).
+6. If the invoice unit is "gabals", "iepakojums", "pack", "bag", etc, extract the real weight or volume from the product name.
+7. Keep extracted textual values in the original document language. Never translate names.
 
 Important:
 Packaging size is often written in the product name.
@@ -405,7 +432,8 @@ Always output the converted quantity.
     console.log(`And this are categories : ${categories}`)
 
 
-    await saveBISMaterialPayloadToDatabase(payload,publicUrl)
+    const context = await resolveMetaMaterialContext(senderPhone)
+    await saveBISMaterialPayloadToDatabase(payload, publicUrl, context)
 
     return gptDocumentResponse.output_text;
 
@@ -417,15 +445,15 @@ Always output the converted quantity.
 }
 
 //Ok now need to save the response
-export async function saveBISMaterialPayloadToDatabase(payload, publicURL) {
-
-
-    const userId = "kp_d9afeea81ab6410c83507bd957997476"
-    const orgId = "b43abb39-2ab6-4df4-8b1e-6a010b7dec70"
-    const siteId = "5364389a-3d0b-4a0d-ab75-11f9118daa63"
-
-
-
+export async function saveBISMaterialPayloadToDatabase(
+  payload: { items: Array<any> },
+  publicURL: string,
+  context: MetaMaterialContext | null,
+) {
+    if (!context?.siteId) {
+      console.warn("Skipping BIS material payload save because no selected site was found for sender")
+      return
+    }
 
     await prisma.BISmaterialRecords.createMany({
   data: payload.items.map(item => ({
@@ -441,9 +469,9 @@ export async function saveBISMaterialPayloadToDatabase(payload, publicURL) {
     categoryName: item.categoryName,
 
     sourcePhoto: publicURL,
-    siteId,
-    orgId,
-    userId
+    siteId: context.siteId,
+    orgId: context.orgId,
+    userId: context.userId,
   }))
 })
 

@@ -456,7 +456,7 @@ export async function POST(req: Request): Promise<Response> {
 
           console.log(`material_form_triggered ${mediaId}`);
 
-          await sendToGpt(mediaId);
+          await sendToGpt(mediaId, message.from);
 
           // future pipeline
           // 1 download image

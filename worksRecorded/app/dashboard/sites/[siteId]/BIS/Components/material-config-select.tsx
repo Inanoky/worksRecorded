@@ -83,9 +83,17 @@ export default function MaterialConfigSelect({
   const [manufacturer, setManufacturer] = React.useState("")
   const [measurement, setMeasurement] = React.useState("")
   const [files, setFiles] = React.useState<File[]>([])
+  const [categorySearch, setCategorySearch] = React.useState("")
 
   const selectedValue =
     value && value !== NO_MATCH_VALUE ? value : NO_MATCH_VALUE
+  const filteredCategories = React.useMemo(() => {
+    const query = categorySearch.trim().toLowerCase()
+    if (!query) return categories
+    return categories.filter((category) =>
+      category.material_kind.toLowerCase().includes(query),
+    )
+  }, [categories, categorySearch])
 
   const toBase64 = async (file: File) => {
     const buffer = await file.arrayBuffer()
@@ -201,10 +209,17 @@ export default function MaterialConfigSelect({
         </SelectTrigger>
 
         <SelectContent>
+          <div className="px-2 pb-2">
+            <Input
+              value={categorySearch}
+              onChange={(event) => setCategorySearch(event.target.value)}
+              placeholder="Search material..."
+            />
+          </div>
           <SelectItem value={NO_MATCH_VALUE}>— No configuration —</SelectItem>
           <SelectItem value={CREATE_VALUE}>+ Create material configuration</SelectItem>
 
-          {categories.map((config) => (
+          {filteredCategories.map((config) => (
             <SelectItem key={config.id} value={config.id}>
               {config.material_kind}
             </SelectItem>
