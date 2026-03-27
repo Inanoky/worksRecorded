@@ -674,6 +674,17 @@ export async function updateMaterialDate(recordId: string, materialDate: Date | 
   return { success: true };
 }
 
+export async function updateQuantity(recordId: string, quantity: number | null) {
+  "use server";
+
+  await prisma.bISmaterialRecords.update({
+    where: { id: recordId },
+    data: { quantity },
+  });
+
+  return { success: true };
+}
+
 export async function getPossibleWarehouseBisApprovers(siteId: string, bisId: string) {
   "use server";
 
@@ -1108,6 +1119,7 @@ export default async function MaterialsPage({
         createMaterialConfiguration={createMaterialConfiguration}
         updateCostCode={updateCostCode}
         updateMaterialDate={updateMaterialDate}
+        updateQuantity={updateQuantity}
         deleteRecords={deleteWarehouseRecords}
       />
     </div>

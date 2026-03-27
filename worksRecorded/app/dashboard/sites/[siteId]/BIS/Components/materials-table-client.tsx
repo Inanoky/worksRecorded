@@ -139,6 +139,10 @@ type Props = {
     recordId: string,
     materialDate: Date | null
   ) => Promise<{ success: true }>
+  updateQuantity: (
+    recordId: string,
+    quantity: number | null,
+  ) => Promise<{ success: true }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
 
@@ -152,13 +156,6 @@ function formatMoney(value: number | null) {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency: "EUR",
-    maximumFractionDigits: 2,
-  }).format(value)
-}
-
-function formatQty(value: number | null) {
-  if (value == null) return "—"
-  return new Intl.NumberFormat("en-GB", {
     maximumFractionDigits: 2,
   }).format(value)
 }
@@ -186,6 +183,7 @@ export default function MaterialsTableClient({
   createMaterialConfiguration,
   updateCostCode,
   updateMaterialDate,
+  updateQuantity,
   deleteRecords,
 }: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
@@ -538,6 +536,38 @@ export default function MaterialsTableClient({
       console.error(error)
       setRows(previousRows)
       toast.error("Failed to update material date")
+    }
+  }
+
+  const handleQuantityChange = (recordId: string, nextValue: string) => {
+    const parsedValue = nextValue === "" ? null : Number(nextValue)
+    setRows((current) =>
+      current.map((row) =>
+        row.id === recordId
+          ? {
+              ...row,
+              quantity:
+                parsedValue == null || Number.isNaN(parsedValue)
+                  ? null
+                  : parsedValue,
+            }
+          : row,
+      ),
+    )
+  }
+
+  const handleQuantityBlur = async (recordId: string, nextValue: string) => {
+    const previousRows = rows
+    const parsedValue = nextValue.trim() === "" ? null : Number(nextValue)
+    const normalizedQuantity =
+      parsedValue == null || Number.isNaN(parsedValue) ? null : parsedValue
+
+    try {
+      await updateQuantity(recordId, normalizedQuantity)
+    } catch (error) {
+      console.error(error)
+      setRows(previousRows)
+      toast.error("Failed to update quantity")
     }
   }
 
@@ -904,7 +934,18 @@ export default function MaterialsTableClient({
                           className="w-[160px]"
                         />
                       </TableCell>
-                      <TableCell>{formatQty(r.quantity)}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={r.quantity ?? ""}
+                          onChange={(event) => handleQuantityChange(r.id, event.target.value)}
+                          onBlur={(event) => handleQuantityBlur(r.id, event.target.value)}
+                          disabled={isSent}
+                          className="w-[120px]"
+                        />
+                      </TableCell>
                       <TableCell>{r.measurementUnit || "—"}</TableCell>
                       <TableCell>{formatMoney(r.cost)}</TableCell>
                       <TableCell>{r.invoiceNr || "—"}</TableCell>
