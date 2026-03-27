@@ -375,11 +375,20 @@ export default function SiteDiaryCalendar({
 
         const renderableFields = getRenderableFieldsOrdered(cfg);
         console.log(`renderableFields ${renderableFields}`);
+        console.log("[SiteDiaryList] has createdAt column:", renderableFields.includes("createdAt"));
 
         setTableHeads(renderableFields);
 
         //Fetching data
         const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+        console.log(
+          "[SiteDiaryList] fetched sample rows createdAt:",
+          data.slice(0, 10).map((row) => ({
+            id: row.id,
+            Date: row.Date,
+            createdAt: row.createdAt,
+          })),
+        );
 
         function pickRenderableRows(
           rows: Record<string, any>[],
@@ -396,6 +405,13 @@ export default function SiteDiaryCalendar({
 
         //formatting data according to the config
         const formattedRows = pickRenderableRows(data, renderableFields);
+        console.log(
+          "[SiteDiaryList] formatted sample createdAt:",
+          formattedRows.slice(0, 10).map((row) => ({
+            id: row.id,
+            createdAt: row.createdAt,
+          })),
+        );
 
         setTableRows(formattedRows);
 
@@ -1161,6 +1177,11 @@ export default function SiteDiaryCalendar({
                                 ]),
                               ),
                             }));
+                            console.log("[SiteDiaryList] render group sample:", {
+                              groupKey: group.key,
+                              firstRowId: formattedGroupRows[0]?.id,
+                              firstRowCreatedAt: formattedGroupRows[0]?.createdAt,
+                            });
 
                             return (
                               <Table className="table-fixed w-full text-xs sm:text-sm">

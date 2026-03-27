@@ -395,6 +395,16 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     },
   });
 
+  console.log("[getSitediaryRecordsBySiteIdForExcel] fetched records:", records.length);
+  console.log(
+    "[getSitediaryRecordsBySiteIdForExcel] sample createdAt values:",
+    records.slice(0, 10).map((r) => ({
+      id: r.id,
+      Date: r.Date,
+      createdAt: r.createdAt,
+    })),
+  );
+
   const formatCreatorName = (
     firstName: string | null | undefined,
     lastName: string | null | undefined,
