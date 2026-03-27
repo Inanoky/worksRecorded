@@ -36,6 +36,19 @@
       "displayinSiteListTextAlignment": "left"
     }
   },
+  "createdAt": {
+    "Type": "noRender",
+    "DisplayName": "Created time",
+    "customSettings": {
+      "renderAs": "Time",
+      "order": 4,
+      "cellWidth": 120,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 0,
+      "displayinSiteListWidth": 120,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
 "Location": {
   "Type": "dropdown",
   "DisplayName": "Location",

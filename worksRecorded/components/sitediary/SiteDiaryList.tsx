@@ -108,6 +108,7 @@ const WhatsAppIcon = ({ size = 22 }) => (
 type DiaryRow = {
   id?: string;
   Date: string | Date;
+  createdAt?: string | Date | null;
   Location?: string | null;
   Works?: string | null;
   Units?: string | null;
@@ -243,12 +244,12 @@ export default function SiteDiaryCalendar({
       return `${dd}.${mm}.${yyyy}`;
     }
 
-    // Time → HH:mm
+    // Time → mm:HH
     if (renderAs === "Time") {
       const hh = String(d.getHours()).padStart(2, "0");
       const min = String(d.getMinutes()).padStart(2, "0");
 
-      return `${hh}:${min}`;
+      return `${min}:${hh}`;
     }
 
     // Default → just string
@@ -451,23 +452,31 @@ export default function SiteDiaryCalendar({
       ? new Date(new Date(dateTo).setHours(23, 59, 59, 999)).getTime()
       : null;
 
-    return rows.filter((r) => {
-      const d = new Date(r.Date);
-      if (Number.isNaN(d.getTime())) return false;
-      const t = d.getTime();
-      if (startMs !== null && t < startMs) return false;
-      if (endMs !== null && t > endMs) return false;
+    const getRowTimestamp = (row: DiaryRow) => {
+      const createdTs = row.createdAt ? new Date(row.createdAt).getTime() : Number.NaN;
+      if (!Number.isNaN(createdTs)) return createdTs;
+      return new Date(row.Date).getTime();
+    };
 
-      if (workFilter !== "__ALL__") {
-        if (!r.Works || r.Works !== workFilter) return false;
-      }
+    return rows
+      .filter((r) => {
+        const d = new Date(r.Date);
+        if (Number.isNaN(d.getTime())) return false;
+        const t = d.getTime();
+        if (startMs !== null && t < startMs) return false;
+        if (endMs !== null && t > endMs) return false;
 
-      if (floorFilter !== "__ALL__") {
-        if (!r.Location || r.Location !== floorFilter) return false;
-      }
+        if (workFilter !== "__ALL__") {
+          if (!r.Works || r.Works !== workFilter) return false;
+        }
 
-      return true;
-    });
+        if (floorFilter !== "__ALL__") {
+          if (!r.Location || r.Location !== floorFilter) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => getRowTimestamp(b) - getRowTimestamp(a));
   }, [rows, dateFrom, dateTo, workFilter, floorFilter]);
 
   // Group filtered rows by day

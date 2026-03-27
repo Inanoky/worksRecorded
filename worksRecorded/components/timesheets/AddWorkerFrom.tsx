@@ -6,16 +6,23 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { createTeamMember } from "@/server/actions/timesheets-actions";
 import { checkPhoneUnique } from "@/lib/utils/Timesheets/phone-check";
+import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
 
 const nameRegex = /^[\p{L}][\p{L}\s'-]{1,49}$/u;
 
-const normalizePhone = (raw: string) => {
+const normalizePhonePart = (raw: string) => {
   const digits = (raw || "").replace(/\D/g, "");
-  const withCc = digits.startsWith("371") ? digits : `371${digits}`;
-  return withCc;
+  return digits;
 };
 
 const formSchema = z.object({
@@ -31,18 +38,17 @@ const formSchema = z.object({
     .min(2, "Surname must be at least 2 characters")
     .max(50, "Surname must be at most 50 characters")
     .regex(nameRegex, "Only letters, spaces, apostrophes and hyphens are allowed"),
-  personalId: z
-    .string()
-    .trim()
-    .regex(/^\d{6}-\d{5}$/, "Personal ID must be in the format xxxxxx-xxxxx"),
   phone: z
     .string()
-    .transform((s) => normalizePhone(s))
-    .refine((s) => /^371\d{8}$/.test(s), {
-      message: "Incorrect phone number",
-    }),
+    .transform((s) => normalizePhonePart(s))
+    .refine((value) => value.length >= 6, "Phone number is too short")
+    .refine((value) => value.length <= 14, "Phone number is too long"),
+  countryCode: z.string().regex(/^\d{1,4}$/, "Select country code"),
   siteId: z.string().min(1),
-});
+}).transform((data) => ({
+  ...data,
+  phone: `${data.countryCode}${data.phone}`,
+}));
 
 type FormState = z.input<typeof formSchema>;
 type NormalizedForm = z.output<typeof formSchema>;
@@ -59,9 +65,9 @@ export function AddWorkerForm({
   const [form, setForm] = useState<FormState>({
     name: "",
     surname: "",
-    personalId: "",
     siteId,
     phone: "",
+    countryCode: "371",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>(
     {},
@@ -106,14 +112,19 @@ export function AddWorkerForm({
       const res = await createTeamMember({
         name: data.name,
         surname: data.surname,
-        personalId: data.personalId,
         siteId: data.siteId,
         phone: data.phone,
       });
 
       if (res.success) {
         toast.success("Worker added!");
-        setForm({ name: "", surname: "", personalId: "", siteId, phone: "" });
+        setForm({
+          name: "",
+          surname: "",
+          siteId,
+          phone: "",
+          countryCode: data.countryCode,
+        });
         setErrors({});
         onSuccess?.(res.worker);
         router.refresh();
@@ -158,33 +169,45 @@ export function AddWorkerForm({
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="personalId">Personal ID</Label>
-        <Input
-          id="personalId"
-          name="personalId"
-          placeholder="010203-12345"
-          value={form.personalId}
-          onChange={handleChange}
-          aria-invalid={!!errors.personalId}
-          required
-        />
-        {errors.personalId && (
-          <p className="mt-1 text-xs text-destructive">{errors.personalId}</p>
-        )}
-      </div>
-
-      <div className="space-y-1">
         <Label htmlFor="phone">Phone</Label>
-        <Input
-          id="phone"
-          name="phone"
-          placeholder="+371 24885690"
-          inputMode="tel"
-          value={form.phone}
-          onChange={handleChange}
-          aria-invalid={!!errors.phone}
-          required
-        />
+        <div className="flex gap-2">
+          <Select
+            value={form.countryCode}
+            onValueChange={(value) => {
+              setForm((prev) => ({ ...prev, countryCode: value }));
+              if (errors.countryCode) {
+                setErrors((prev) => ({ ...prev, countryCode: undefined }));
+              }
+            }}
+          >
+            <SelectTrigger className="w-[220px]" aria-invalid={!!errors.countryCode}>
+              <SelectValue placeholder="Country code" />
+            </SelectTrigger>
+            <SelectContent>
+              {COUNTRY_CALLING_CODES.map((country) => (
+                <SelectItem
+                  key={`${country.iso2}-${country.dialCode}`}
+                  value={country.dialCode}
+                >
+                  {country.name} (+{country.dialCode})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            id="phone"
+            name="phone"
+            placeholder="24885690"
+            inputMode="tel"
+            value={form.phone}
+            onChange={handleChange}
+            aria-invalid={!!errors.phone}
+            required
+          />
+        </div>
+        {errors.countryCode && (
+          <p className="mt-1 text-xs text-destructive">{errors.countryCode}</p>
+        )}
         {errors.phone && (
           <p className="mt-1 text-xs text-destructive">{errors.phone}</p>
         )}
