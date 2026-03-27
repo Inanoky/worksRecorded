@@ -488,6 +488,18 @@ export default function SiteDiaryCalendar({
       if (!res[key]) res[key] = { key, date: d, rows: [] };
       res[key].rows.push(r);
     }
+    Object.values(res).forEach((group) => {
+      group.rows.sort((a, b) => {
+        const timeA = new Date(a.createdAt ?? a.Date).getTime();
+        const timeB = new Date(b.createdAt ?? b.Date).getTime();
+
+        if (Number.isNaN(timeA) && Number.isNaN(timeB)) return 0;
+        if (Number.isNaN(timeA)) return 1;
+        if (Number.isNaN(timeB)) return -1;
+
+        return timeB - timeA;
+      });
+    });
     return Object.values(res).sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [filteredRows]);
 
