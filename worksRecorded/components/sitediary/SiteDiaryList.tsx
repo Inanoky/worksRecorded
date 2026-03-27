@@ -107,6 +107,7 @@ const WhatsAppIcon = ({ size = 22 }) => (
 
 type DiaryRow = {
   id?: string;
+  createdAt?: string | Date;
   Date: string | Date;
   Location?: string | null;
   Works?: string | null;
@@ -277,6 +278,15 @@ export default function SiteDiaryCalendar({
     fallback = 200,
   ): number {
     return map?.[key]?.customSettings?.displayinSiteListWidth ?? fallback;
+  }
+
+  function getCompactCellWidthByKey(
+    key: string,
+    map: Record<string, any>,
+    fallback = 160,
+  ): number {
+    const configuredWidth = getCellWidthByKey(key, map, fallback);
+    return Math.min(configuredWidth, 180);
   }
 
   type TextAlign = "left" | "center" | "right";
@@ -1155,7 +1165,7 @@ export default function SiteDiaryCalendar({
                             const formattedGroupRows = group.rows.map((r) => ({
                               id: r.id ?? undefined,
                               originalUserComment: r.originalUserComment ?? "",
-                              Date: r.Date,
+                              createdAt: r.createdAt,
                               createdBy: r.createdBy ?? "N/A",
                               ...Object.fromEntries(
                                 tableHeads.map((f) => [
@@ -1166,7 +1176,7 @@ export default function SiteDiaryCalendar({
                             }));
 
                             return (
-                              <Table className="table-fixed min-w-[760px] text-xs sm:text-sm">
+                              <Table className="w-full table-auto text-xs sm:text-sm">
                                 {/* HEADER */}
                                 <TableHeader>
                                   <TableRow>
@@ -1174,13 +1184,13 @@ export default function SiteDiaryCalendar({
                                       <>
                                         <TableHead
                                           className="text-left"
-                                          style={{ width: 90 }}
+                                          style={{ width: 70 }}
                                         >
                                           Time
                                         </TableHead>
                                         <TableHead
                                           className="text-left"
-                                          style={{ width: 180 }}
+                                          style={{ width: 140 }}
                                         >
                                           Created by
                                         </TableHead>
@@ -1198,7 +1208,7 @@ export default function SiteDiaryCalendar({
                                           key={head}
                                           className={`text-${align}`}
                                           style={{
-                                            width: getCellWidthByKey(head, defaultMap),
+                                            width: getCompactCellWidthByKey(head, defaultMap),
                                           }}
                                         >
                                           {getDisplayNameByKey(head)}
@@ -1232,13 +1242,13 @@ export default function SiteDiaryCalendar({
                                         <>
                                           <TableCell
                                             className="align-top px-3 py-2 whitespace-normal break-words text-left"
-                                            style={{ width: 90 }}
+                                            style={{ width: 70 }}
                                           >
-                                            {formatTimeFromDateValue(row.Date)}
+                                            {formatTimeFromDateValue(row.createdAt)}
                                           </TableCell>
                                           <TableCell
                                             className="align-top px-3 py-2 whitespace-normal break-words text-left"
-                                            style={{ width: 180 }}
+                                            style={{ width: 140 }}
                                           >
                                             {row.createdBy || "—"}
                                           </TableCell>
@@ -1257,7 +1267,7 @@ export default function SiteDiaryCalendar({
                                             key={field}
                                             className={`align-top px-3 py-2 whitespace-normal break-words text-${align}`}
                                             style={{
-                                              width: getCellWidthByKey(
+                                              width: getCompactCellWidthByKey(
                                                 field,
                                                 defaultMap,
                                               ),
