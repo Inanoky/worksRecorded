@@ -214,6 +214,7 @@ export default function SiteDiaryCalendar({
   const [tableHeads, setTableHeads] = React.useState<string[]>([]);
   const [tableRows, setTableRows] = React.useState<any[]>([]);
   const [screenWidth, setScreenWidth] = React.useState<number>(150);
+  const [showFallbackColumns, setShowFallbackColumns] = React.useState(false);
 
   //------------------------map helpers----------------------------------------------
 
@@ -257,6 +258,13 @@ export default function SiteDiaryCalendar({
 
   function getTypeByKey(key: string) {
     return defaultMap[key]?.Type ?? null;
+  }
+
+  function formatTimeFromDateValue(value: string | Date | null | undefined) {
+    if (!value) return "—";
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
   }
 
   function getDisplayNameByKey(key) {
@@ -361,8 +369,10 @@ export default function SiteDiaryCalendar({
         }
 
         //Here we load config from database, and if no config we use default.
-        const cfg = (await getConfig(siteId)) ?? defaultConfig;
+        const siteDiaryRecordMapConfig = await getConfig(siteId);
+        const cfg = siteDiaryRecordMapConfig ?? defaultConfig;
         if (cancelled) return;
+        setShowFallbackColumns(!siteDiaryRecordMapConfig);
 
         const screenWidth = cfg?.otherSettings?.displaySiteListWidth ?? 140;
         setScreenWidth(screenWidth);
@@ -1145,6 +1155,8 @@ export default function SiteDiaryCalendar({
                             const formattedGroupRows = group.rows.map((r) => ({
                               id: r.id ?? undefined,
                               originalUserComment: r.originalUserComment ?? "",
+                              Date: r.Date,
+                              createdBy: r.createdBy ?? "N/A",
                               ...Object.fromEntries(
                                 tableHeads.map((f) => [
                                   f,
@@ -1158,6 +1170,23 @@ export default function SiteDiaryCalendar({
                                 {/* HEADER */}
                                 <TableHeader>
                                   <TableRow>
+                                    {showFallbackColumns ? (
+                                      <>
+                                        <TableHead
+                                          className="text-left"
+                                          style={{ width: 90 }}
+                                        >
+                                          Time
+                                        </TableHead>
+                                        <TableHead
+                                          className="text-left"
+                                          style={{ width: 180 }}
+                                        >
+                                          Created by
+                                        </TableHead>
+                                      </>
+                                    ) : null}
+
                                     {tableHeads.map((head) => {
                                       const align = getSiteListTextAlignmentByKey(
                                         head,
@@ -1199,6 +1228,23 @@ export default function SiteDiaryCalendar({
                                 <TableBody>
                                   {formattedGroupRows.map((row, i) => (
                                     <TableRow key={row.id ?? `${group.key}-${i}`}>
+                                      {showFallbackColumns ? (
+                                        <>
+                                          <TableCell
+                                            className="align-top px-3 py-2 whitespace-normal break-words text-left"
+                                            style={{ width: 90 }}
+                                          >
+                                            {formatTimeFromDateValue(row.Date)}
+                                          </TableCell>
+                                          <TableCell
+                                            className="align-top px-3 py-2 whitespace-normal break-words text-left"
+                                            style={{ width: 180 }}
+                                          >
+                                            {row.createdBy || "—"}
+                                          </TableCell>
+                                        </>
+                                      ) : null}
+
                                       {tableHeads.map((field) => {
                                         const align =
                                           getSiteListTextAlignmentByKey(
