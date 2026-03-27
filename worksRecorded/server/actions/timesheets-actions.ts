@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 export async function createTeamMember(formData: {
   name: string;
   surname: string;
-  personalId: string;
+  personalId?: string;
   siteId?: string;
   phone: string 
 }) {
@@ -15,7 +15,7 @@ export async function createTeamMember(formData: {
       data: {
         name: formData.name,
         surname: formData.surname,
-        personalId: formData.personalId,
+        personalId: formData.personalId ?? null,
         siteId: formData.siteId || null,
         phone: formData.phone,
         isClockedIn: false,
@@ -439,7 +439,6 @@ export async function getWorkersBySiteId(siteId) {
     id: row.id,
     name: row.name ?? "",
     surname: row.surname ?? "",
-    personalId: row.personalId ?? "",
     phone: row.phone ?? "",
     isClockedIn: row.isClockedIn ? "Yes" : "No",
     // If you want to show info from most recent timelog (optional)

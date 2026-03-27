@@ -79,16 +79,15 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
           <ScrollTable
             data={initialWorkers}
             pageSize={25}
-            visibleColumns={[2, 3, 4, 5, 6, 7, 8, 9, 10]}
+            visibleColumns={[2, 3, 4, 5, 6, 7]}
             columnLabels={[
               "ID",
               "First Name",
               "Last Name",
-              "ID",
               "Phone",
               "On site?",
-              "Clock In",
-              "Last Work",
+              "Last Work Date",
+              "Last Work Type",
             ]}
             toolbar={false}
             onDeleteRow={handleDeleteRow}
