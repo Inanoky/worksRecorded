@@ -16,18 +16,9 @@ import {
 import { toast } from "sonner";
 import { createTeamMember } from "@/server/actions/timesheets-actions";
 import { checkPhoneUnique } from "@/lib/utils/Timesheets/phone-check";
+import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
 
 const nameRegex = /^[\p{L}][\p{L}\s'-]{1,49}$/u;
-
-const COUNTRY_CODES = [
-  { label: "Latvia (+371)", value: "371" },
-  { label: "Lithuania (+370)", value: "370" },
-  { label: "Estonia (+372)", value: "372" },
-  { label: "Poland (+48)", value: "48" },
-  { label: "Germany (+49)", value: "49" },
-  { label: "United Kingdom (+44)", value: "44" },
-  { label: "United States (+1)", value: "1" },
-];
 
 const normalizePhonePart = (raw: string) => {
   const digits = (raw || "").replace(/\D/g, "");
@@ -50,8 +41,8 @@ const formSchema = z.object({
   phone: z
     .string()
     .transform((s) => normalizePhonePart(s))
-    .min(6, "Phone number is too short")
-    .max(14, "Phone number is too long"),
+    .refine((value) => value.length >= 6, "Phone number is too short")
+    .refine((value) => value.length <= 14, "Phone number is too long"),
   countryCode: z.string().regex(/^\d{1,4}$/, "Select country code"),
   siteId: z.string().min(1),
 }).transform((data) => ({
@@ -189,13 +180,16 @@ export function AddWorkerForm({
               }
             }}
           >
-            <SelectTrigger className="w-[180px]" aria-invalid={!!errors.countryCode}>
-              <SelectValue placeholder="Code" />
+            <SelectTrigger className="w-[220px]" aria-invalid={!!errors.countryCode}>
+              <SelectValue placeholder="Country code" />
             </SelectTrigger>
             <SelectContent>
-              {COUNTRY_CODES.map((country) => (
-                <SelectItem key={country.value} value={country.value}>
-                  {country.label}
+              {COUNTRY_CALLING_CODES.map((country) => (
+                <SelectItem
+                  key={`${country.iso2}-${country.dialCode}`}
+                  value={country.dialCode}
+                >
+                  {country.name} (+{country.dialCode})
                 </SelectItem>
               ))}
             </SelectContent>
