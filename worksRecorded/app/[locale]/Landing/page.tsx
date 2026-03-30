@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import LandingPageDesktop from "@/components/landing/Landing/LandingPageDesktop";
 import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+import PrefetchNewsRoute from "./News/PrefetchNewsRoute";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -25,6 +26,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
-export default function LandingPage() {
-  return <LandingPageDesktop />;
+export default async function LandingPage({ params }: PageProps) {
+  const { locale } = await params;
+
+  return (
+    <>
+      <PrefetchNewsRoute locale={locale} />
+      <LandingPageDesktop />
+    </>
+  );
 }
