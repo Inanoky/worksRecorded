@@ -351,11 +351,12 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
 
   const records = await prisma.sitediaryrecords.findMany({
     where: { siteId },
-    orderBy: [{ Date: "asc" }],
+    orderBy: [{ createdAt: "desc" }],
     select: {
       id: true,
       createdAt: true,
       Date: true,
+      createdAt: true,
       Date_Custom_1: true,
       Date_Custom_2: true,
 
@@ -395,6 +396,16 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     },
   });
 
+  console.log("[getSitediaryRecordsBySiteIdForExcel] fetched records:", records.length);
+  console.log(
+    "[getSitediaryRecordsBySiteIdForExcel] sample createdAt values:",
+    records.slice(0, 10).map((r) => ({
+      id: r.id,
+      Date: r.Date,
+      createdAt: r.createdAt,
+    })),
+  );
+
   const formatCreatorName = (
     firstName: string | null | undefined,
     lastName: string | null | undefined,
@@ -418,6 +429,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       id: rec.id,
       createdAt: rec.createdAt,
       Date: rec.Date,
+      createdAt: rec.createdAt,
       Date_Custom_1: rec.Date_Custom_1,
       Date_Custom_2: rec.Date_Custom_2,
 

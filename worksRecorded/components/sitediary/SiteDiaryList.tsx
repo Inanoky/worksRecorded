@@ -109,6 +109,7 @@ type DiaryRow = {
   id?: string;
   createdAt?: string | Date;
   Date: string | Date;
+  createdAt?: string | Date | null;
   Location?: string | null;
   Works?: string | null;
   Units?: string | null;
@@ -244,12 +245,12 @@ export default function SiteDiaryCalendar({
       return `${dd}.${mm}.${yyyy}`;
     }
 
-    // Time → HH:mm
+    // Time → mm:HH
     if (renderAs === "Time") {
       const hh = String(d.getHours()).padStart(2, "0");
       const min = String(d.getMinutes()).padStart(2, "0");
 
-      return `${hh}:${min}`;
+      return `${min}:${hh}`;
     }
 
     // Default → just string
@@ -376,11 +377,20 @@ export default function SiteDiaryCalendar({
         const renderableFields = getRenderableFieldsOrdered(cfg);
         const tableFields = ["createdAt", ...renderableFields];
         console.log(`renderableFields ${renderableFields}`);
+        console.log("[SiteDiaryList] has createdAt column:", renderableFields.includes("createdAt"));
 
         setTableHeads(tableFields);
 
         //Fetching data
         const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+        console.log(
+          "[SiteDiaryList] fetched sample rows createdAt:",
+          data.slice(0, 10).map((row) => ({
+            id: row.id,
+            Date: row.Date,
+            createdAt: row.createdAt,
+          })),
+        );
 
         function pickRenderableRows(
           rows: Record<string, any>[],
@@ -397,6 +407,13 @@ export default function SiteDiaryCalendar({
 
         //formatting data according to the config
         const formattedRows = pickRenderableRows(data, renderableFields);
+        console.log(
+          "[SiteDiaryList] formatted sample createdAt:",
+          formattedRows.slice(0, 10).map((row) => ({
+            id: row.id,
+            createdAt: row.createdAt,
+          })),
+        );
 
         setTableRows(formattedRows);
 
@@ -453,23 +470,31 @@ export default function SiteDiaryCalendar({
       ? new Date(new Date(dateTo).setHours(23, 59, 59, 999)).getTime()
       : null;
 
-    return rows.filter((r) => {
-      const d = new Date(r.Date);
-      if (Number.isNaN(d.getTime())) return false;
-      const t = d.getTime();
-      if (startMs !== null && t < startMs) return false;
-      if (endMs !== null && t > endMs) return false;
+    const getRowTimestamp = (row: DiaryRow) => {
+      const createdTs = row.createdAt ? new Date(row.createdAt).getTime() : Number.NaN;
+      if (!Number.isNaN(createdTs)) return createdTs;
+      return new Date(row.Date).getTime();
+    };
 
-      if (workFilter !== "__ALL__") {
-        if (!r.Works || r.Works !== workFilter) return false;
-      }
+    return rows
+      .filter((r) => {
+        const d = new Date(r.Date);
+        if (Number.isNaN(d.getTime())) return false;
+        const t = d.getTime();
+        if (startMs !== null && t < startMs) return false;
+        if (endMs !== null && t > endMs) return false;
 
-      if (floorFilter !== "__ALL__") {
-        if (!r.Location || r.Location !== floorFilter) return false;
-      }
+        if (workFilter !== "__ALL__") {
+          if (!r.Works || r.Works !== workFilter) return false;
+        }
 
-      return true;
-    });
+        if (floorFilter !== "__ALL__") {
+          if (!r.Location || r.Location !== floorFilter) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => getRowTimestamp(b) - getRowTimestamp(a));
   }, [rows, dateFrom, dateTo, workFilter, floorFilter]);
 
   // Group filtered rows by day
@@ -1166,9 +1191,14 @@ export default function SiteDiaryCalendar({
                                 ]),
                               ),
                             }));
+                            console.log("[SiteDiaryList] render group sample:", {
+                              groupKey: group.key,
+                              firstRowId: formattedGroupRows[0]?.id,
+                              firstRowCreatedAt: formattedGroupRows[0]?.createdAt,
+                            });
 
                             return (
-                              <Table className="table-fixed min-w-[760px] text-xs sm:text-sm">
+                              <Table className="table-fixed w-full text-xs sm:text-sm">
                                 {/* HEADER */}
                                 <TableHeader>
                                   <TableRow>
@@ -1206,7 +1236,7 @@ export default function SiteDiaryCalendar({
 {bisEnabled ? (
                                     <TableHead
                                       className="text-center"
-                                      style={{ width: 140 }}
+                                      style={{ width: 120 }}
                                     >
                                       BIS
                                     </TableHead>
@@ -1270,7 +1300,7 @@ export default function SiteDiaryCalendar({
                                             row[field] === "" ? (
                                               "—"
                                             ) : (
-                                              <div className="line-clamp-4">
+                                              <div className="line-clamp-3">
                                                 {formatValueByConfig(
                                                   field,
                                                   row[field],
@@ -1285,7 +1315,7 @@ export default function SiteDiaryCalendar({
 {bisEnabled ? (
                                       <TableCell
                                         className="align-top px-3 py-2 text-center"
-                                        style={{ width: 140 }}
+                                        style={{ width: 120 }}
                                       >
                                         <Button
                                           size="sm"
