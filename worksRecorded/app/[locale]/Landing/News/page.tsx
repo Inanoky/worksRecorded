@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getLatestNewsArticles } from "@/lib/news/store";
+import { getPaginatedNewsArticles } from "@/lib/news/store";
 
 import type { Metadata } from "next";
 import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
@@ -7,6 +7,7 @@ import NewsPrefetcher from "@/components/landing/news/NewsPrefetcher";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ page?: string }>;
 };
 
 export const revalidate = 300;
@@ -30,9 +31,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
-export default async function NewsPage({ params }: PageProps) {
+const ARTICLES_PER_PAGE = 6;
+
+function getPageNumber(value?: string) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    return 1;
+  }
+
+  return Math.floor(parsed);
+}
+
+export default async function NewsPage({ params, searchParams }: PageProps) {
   const { locale } = await params;
-  const articles = await getLatestNewsArticles(30);
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const currentPage = getPageNumber(resolvedSearchParams.page);
+  const { articles, totalArticles } = await getPaginatedNewsArticles(currentPage, ARTICLES_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(totalArticles / ARTICLES_PER_PAGE));
+  const previousPage = currentPage > 1 ? currentPage - 1 : null;
+  const nextPage = currentPage < totalPages ? currentPage + 1 : null;
 
   return (
     <section className="mx-auto w-full max-w-6xl px-4 py-10 md:px-6">
@@ -77,6 +95,42 @@ export default async function NewsPage({ params }: PageProps) {
           </div>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <nav className="mt-8 flex items-center justify-between gap-4 border-t pt-6">
+          <Link
+            href={
+              previousPage
+                ? `/${locale}/Landing/News?page=${previousPage}`
+                : `/${locale}/Landing/News?page=1`
+            }
+            prefetch
+            aria-disabled={!previousPage}
+            className={`rounded-lg border px-4 py-2 text-sm transition ${
+              previousPage
+                ? "hover:border-primary hover:text-primary"
+                : "pointer-events-none cursor-not-allowed opacity-40"
+            }`}
+          >
+            ← Previous
+          </Link>
+
+          <p className="text-sm text-muted-foreground">
+            Page {Math.min(currentPage, totalPages)} of {totalPages}
+          </p>
+
+          <Link
+            href={nextPage ? `/${locale}/Landing/News?page=${nextPage}` : `/${locale}/Landing/News?page=${totalPages}`}
+            prefetch
+            aria-disabled={!nextPage}
+            className={`rounded-lg border px-4 py-2 text-sm transition ${
+              nextPage ? "hover:border-primary hover:text-primary" : "pointer-events-none cursor-not-allowed opacity-40"
+            }`}
+          >
+            Next →
+          </Link>
+        </nav>
+      )}
     </section>
   );
 }
