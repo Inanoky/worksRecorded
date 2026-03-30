@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import LandingPageDesktop from "@/components/landing/Landing/LandingPageDesktop";
 import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
-import { getLatestNewsArticles } from "@/lib/news/store";
 import PrefetchNewsRoute from "./News/PrefetchNewsRoute";
 
 type PageProps = {
@@ -29,11 +28,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function LandingPage({ params }: PageProps) {
   const { locale } = await params;
-  const prefetchedArticles = await getLatestNewsArticles(6);
-
   return (
     <>
-      <PrefetchNewsRoute locale={locale} articleIds={prefetchedArticles.map((article) => article.id)} />
+      <PrefetchNewsRoute locale={locale} />
       <LandingPageDesktop />
     </>
   );

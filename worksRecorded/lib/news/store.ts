@@ -12,6 +12,8 @@ type SourceLink = { title: string; url: string };
 const hasVercelPostgres = Boolean(process.env.POSTGRES_URL);
 const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
 
+let ensureNewsTablePromise: Promise<void> | null = null;
+
 function cleanTopicKey(value: string) {
   return value
     .toLowerCase()
@@ -195,13 +197,27 @@ async function ensureNewsTableWithVercelPg() {
 }
 
 async function ensureNewsTable() {
-  if (hasVercelPostgres) {
-    await ensureNewsTableWithVercelPg();
+  if (ensureNewsTablePromise) {
+    await ensureNewsTablePromise;
     return;
   }
 
-  if (hasDatabaseUrl) {
-    await ensureNewsTableWithPrisma();
+  ensureNewsTablePromise = (async () => {
+    if (hasVercelPostgres) {
+      await ensureNewsTableWithVercelPg();
+      return;
+    }
+
+    if (hasDatabaseUrl) {
+      await ensureNewsTableWithPrisma();
+    }
+  })();
+
+  try {
+    await ensureNewsTablePromise;
+  } catch (error) {
+    ensureNewsTablePromise = null;
+    throw error;
   }
 }
 
