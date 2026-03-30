@@ -358,6 +358,100 @@ export async function getLatestNewsArticles(limit = 24): Promise<StoredNewsArtic
   return [];
 }
 
+export async function getPaginatedNewsArticles(page = 1, pageSize = 6): Promise<{
+  articles: StoredNewsArticle[];
+  totalArticles: number;
+}> {
+  await ensureNewsTable();
+
+  const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+  const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : 6;
+  const offset = (safePage - 1) * safePageSize;
+
+  if (hasVercelPostgres) {
+    const { sql } = await import("@vercel/postgres");
+
+    const [countResult, rowsResult] = await Promise.all([
+      sql`SELECT COUNT(*)::int AS total FROM ai_news_feed`,
+      sql`
+        SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
+               image_url, source_title, source_url, source_publisher, source_links, created_at
+        FROM ai_news_feed
+        ORDER BY created_at DESC
+        LIMIT ${safePageSize}
+        OFFSET ${offset}
+      `,
+    ]);
+
+    return {
+      articles: rowsResult.rows.map((row) =>
+        normalizeArticleRow({
+          id: row.id,
+          topic_key: row.topic_key as string | undefined,
+          headline: String(row.headline),
+          summary: String(row.summary),
+          full_article: row.full_article as string | undefined,
+          seo_title: row.seo_title as string | undefined,
+          seo_description: row.seo_description as string | undefined,
+          seo_keywords: row.seo_keywords,
+          tags: row.tags,
+          image_url: String(row.image_url),
+          source_title: row.source_title as string | undefined,
+          source_url: row.source_url as string | undefined,
+          source_publisher: row.source_publisher as string | undefined,
+          source_links: row.source_links,
+          created_at: String(row.created_at),
+        })
+      ),
+      totalArticles: Number(countResult.rows[0]?.total || 0),
+    };
+  }
+
+  if (hasDatabaseUrl) {
+    const [countRows, rows] = await Promise.all([
+      prisma.$queryRawUnsafe<Array<{ total: number | string }>>(`SELECT COUNT(*)::int AS total FROM ai_news_feed`),
+      prisma.$queryRawUnsafe<
+        Array<{
+          id: number | string;
+          topic_key: string | null;
+          headline: string;
+          summary: string;
+          full_article: string | null;
+          seo_title: string | null;
+          seo_description: string | null;
+          seo_keywords: unknown;
+          tags: unknown;
+          image_url: string;
+          source_title: string | null;
+          source_url: string | null;
+          source_publisher: string | null;
+          source_links: unknown;
+          created_at: Date | string;
+        }>
+      >(
+        `SELECT id, topic_key, headline, summary, full_article, seo_title, seo_description, seo_keywords, tags,
+                image_url, source_title, source_url, source_publisher, source_links, created_at
+         FROM ai_news_feed
+         ORDER BY created_at DESC
+         LIMIT $1
+         OFFSET $2`,
+        safePageSize,
+        offset
+      ),
+    ]);
+
+    return {
+      articles: rows.map((row) => normalizeArticleRow(row)),
+      totalArticles: Number(countRows[0]?.total || 0),
+    };
+  }
+
+  return {
+    articles: [],
+    totalArticles: 0,
+  };
+}
+
 export async function getNewsArticleById(id: number): Promise<StoredNewsArticle | null> {
   await ensureNewsTable();
 
