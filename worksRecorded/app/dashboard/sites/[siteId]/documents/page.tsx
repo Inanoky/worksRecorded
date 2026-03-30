@@ -1,8 +1,6 @@
 
 import AiWidgetRag from "@/components/ai/AiChat";
 import {DocumentsDataTable} from "@/components/documents/DocumentDataTable";
-import { getProjectNameBySiteId} from "@/server/actions/shared-actions";
-import { getDocumentsFromDB } from "@/server/actions/documents-actions";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
 
 import { requireUser } from "@/lib/utils/requireUser";
@@ -10,6 +8,9 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 
 import TourRunner from "@/components/joyride/TourRunner";
+import { steps_dashboard_siteid_documents } from "@/components/joyride/JoyRideSteps";
+import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
+import { getCachedDocuments, getCachedProjectName } from "@/server/cache/dashboard-preload";
 
 
 export default async function Documents({params}:
@@ -20,15 +21,16 @@ export default async function Documents({params}:
 
 
     const {siteId} = await params
-    const projectName = getProjectNameBySiteId(siteId)
-
-     const documents = await getDocumentsFromDB(siteId)
-
-        const user = await requireUser();  
-             const site = await orgCheck(user.id, siteId);
-             if (!site) {
-             notFound();
-             }
+    const user = await requireUser();
+    const site = await orgCheck(user.id, siteId);
+    if (!site) {
+      notFound();
+    }
+    const orgId = await getOrganizationIdByUserId(user.id);
+    const [projectName, documents] = await Promise.all([
+      getCachedProjectName(siteId),
+      getCachedDocuments(siteId, orgId),
+    ]);
      
 
 

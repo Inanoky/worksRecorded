@@ -1,6 +1,7 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/db";
+import { preloadUserDashboardData } from "@/server/cache/dashboard-preload";
 
 export async function GET() {
   const { getUser } = getKindeServerSession();
@@ -103,6 +104,12 @@ export async function GET() {
       : "http://localhost:3000";
 
   const path = createdNewUser ? "/dashboard/welcome" : "/dashboard";
+
+  await preloadUserDashboardData(
+    dbUser.id,
+    dbUser.organizationId ?? null,
+    dbUser.id === process.env.SUPERADMIN,
+  );
 
   console.log("🔀 Redirecting to:", `${base}${path}`);
 

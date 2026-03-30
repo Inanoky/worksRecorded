@@ -18,8 +18,9 @@ import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
-import { getUserEmailByUserId } from "@/server/actions/shared-actions";
+import { getOrganizationIdByUserId, getUserEmailByUserId } from "@/server/actions/shared-actions";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
+import { preloadUserDashboardData } from "@/server/cache/dashboard-preload";
 
 export default async function DashboardLayout({
   children,
@@ -28,7 +29,11 @@ export default async function DashboardLayout({
 }) {
   const user = await requireUser();
   const userId = user.id;
-  const email = await getUserEmailByUserId(user.id);
+  const [email, orgId] = await Promise.all([
+    getUserEmailByUserId(user.id),
+    getOrganizationIdByUserId(user.id),
+  ]);
+  void preloadUserDashboardData(user.id, orgId, user.id === process.env.SUPERADMIN);
 
   console.log(user.id);
   console.log(`this is email ${email}`);

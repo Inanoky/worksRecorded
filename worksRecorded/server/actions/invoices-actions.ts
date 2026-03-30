@@ -6,6 +6,7 @@ import {requireUser} from "@/lib/utils/requireUser";
 import gptResponse from "../ai-flows/agents/extractors/gpt-extractor-for-invoices";
 import { chunk } from "lodash";
 import { getOrganizationIdByUserId } from "./shared-actions";
+import { revalidateSiteCache } from "@/server/cache/revalidate-dashboard";
 
 const INVOICE_FIELDS_TO_COPY = [
   "invoiceNumber",
@@ -83,6 +84,7 @@ export const saveInvoiceToDB = async (_: unknown, formData: FormData) => {
     );
   }
 
+  revalidateSiteCache(siteId);
   return;
 };
 
@@ -142,7 +144,8 @@ export async function getInvoiceItemsFromDB(siteId: string) {
 
 export async function deleteInvoice(invoiceId: string) {
     const user = await requireUser();
-  await prisma.invoices.delete({ where: { id: invoiceId } });
+  const invoice = await prisma.invoices.delete({ where: { id: invoiceId } });
+  revalidateSiteCache(invoice.SiteId);
   return { ok: true };
 }
 
@@ -163,7 +166,7 @@ export async function updateInvoice(id: string, data: any) {
     return Boolean(v);
   };
 
-  await prisma.invoices.update({
+  const updated = await prisma.invoices.update({
     where: { id },
     data: {
       ...data,
@@ -172,16 +175,22 @@ export async function updateInvoice(id: string, data: any) {
       isInvoice: toBool(data.isInvoice),
     },
   });
+  revalidateSiteCache(updated.SiteId);
 
   return { ok: true };
 }
 
 export async function bulkSetIsInvoice(ids: string[], value: boolean) {
     const user = await requireUser();
+  const rows = await prisma.invoices.findMany({
+    where: { id: { in: ids } },
+    select: { SiteId: true },
+  });
   await prisma.invoices.updateMany({
     where: { id: { in: ids } },
     data: { isInvoice: value }
   });
+  rows.forEach((row) => revalidateSiteCache(row.SiteId));
 }
 
 
@@ -200,7 +209,7 @@ export async function updateInvoiceItem(id: string, data: any) {
     return isNaN(num) ? null : num;
   };
 
-  await prisma.invoiceItems.update({
+  const updated = await prisma.invoiceItems.update({
     where: { id },
     data: {
       ...data,
@@ -210,14 +219,16 @@ export async function updateInvoiceItem(id: string, data: any) {
       sum: toNumber(data.sum),
     }
   });
+  revalidateSiteCache(updated.siteId);
   return { ok: true };
 }
 
 export async function deleteInvoiceItem(id: string) {
     const user = await requireUser();
-  await prisma.invoiceItems.delete({
+  const deleted = await prisma.invoiceItems.delete({
     where: { id },
   });
+  revalidateSiteCache(deleted.siteId);
   return { ok: true };
 }
 
