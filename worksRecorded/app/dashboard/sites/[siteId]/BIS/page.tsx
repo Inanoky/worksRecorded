@@ -466,12 +466,27 @@ export async function createMaterialConfiguration(
     accessToken,
   );
   const availableMeasurementCodes = new Set<string>();
+  const measurementByCode = new Map<string, string>();
+  const measurementById = new Map<string, string>();
   for (const item of Array.isArray(measureData?.data) ? measureData.data : []) {
+    const id = item?.id == null ? null : String(item.id);
     const code = item?.attributes?.code == null ? null : String(item.attributes.code);
     if (code) availableMeasurementCodes.add(code);
+    if (code && id) {
+      measurementByCode.set(code, id);
+      measurementById.set(id, code);
+    }
   }
 
-  if (!availableMeasurementCodes.has(measurement)) {
+  const measurementCandidates = Array.from(
+    new Set([
+      measurement,
+      measurementByCode.get(measurement),
+      measurementById.get(measurement),
+    ].filter(Boolean) as string[]),
+  );
+
+  if (measurementCandidates.length === 0) {
     console.error("[Warehouse BIS] Measurement validation failed", {
       siteId,
       bisCaseId,
@@ -527,58 +542,66 @@ export async function createMaterialConfiguration(
     }
   }
 
-  const createPayload = {
-    data: {
-      type: "construction_material",
-      attributes: {
-        type: "construction_material",
-        material_type: materialType,
-        manufacturer,
-        material_kind: materialKind,
-        measurement,
-        reusable: false,
-        testing_obligatory: false,
-      },
-      relationships: attachedDocuments.length
-        ? {
-            attached_documents: {
-              data: attachedDocuments,
-            },
-          }
-        : undefined,
-    },
-  };
-
-  console.log("[Warehouse BIS] createMaterialConfiguration payload preview", {
-    siteId,
-    bisCaseId,
-    materialType,
-    materialKind,
-    measurement,
-    attachedDocuments: attachedDocuments.length,
-  });
-
   let created: any;
-  try {
-    created = await fetchBisJson(
-      `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
-      accessToken,
-      {
-        method: "POST",
-        body: JSON.stringify(createPayload),
+  let lastError: unknown = null;
+  for (const measurementCandidate of measurementCandidates) {
+    const createPayload = {
+      data: {
+        type: "construction_material",
+        attributes: {
+          type: "construction_material",
+          material_type: materialType,
+          manufacturer,
+          material_kind: materialKind,
+          measurement: measurementCandidate,
+          reusable: false,
+          testing_obligatory: false,
+        },
+        relationships: attachedDocuments.length
+          ? {
+              attached_documents: {
+                data: attachedDocuments,
+              },
+            }
+          : undefined,
       },
-    );
-  } catch (error) {
-    console.error("[Warehouse BIS] createMaterialConfiguration failed", {
+    };
+
+    console.log("[Warehouse BIS] createMaterialConfiguration payload preview", {
       siteId,
       bisCaseId,
       materialType,
       materialKind,
-      measurement,
-      attachmentCount: attachedDocuments.length,
-      error: error instanceof Error ? error.message : error,
+      measurementCandidate,
+      attachedDocuments: attachedDocuments.length,
     });
-    throw error;
+
+    try {
+      created = await fetchBisJson(
+        `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
+        accessToken,
+        {
+          method: "POST",
+          body: JSON.stringify(createPayload),
+        },
+      );
+      break;
+    } catch (error) {
+      lastError = error;
+      console.error("[Warehouse BIS] createMaterialConfiguration failed", {
+        siteId,
+        bisCaseId,
+        materialType,
+        materialKind,
+        measurementCandidate,
+        attachmentCount: attachedDocuments.length,
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  }
+
+  if (!created) {
+    throw (lastError instanceof Error ? lastError : new Error("Failed to create BIS material configuration"));
   }
 
   const material = created?.data;

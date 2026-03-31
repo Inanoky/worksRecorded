@@ -1704,7 +1704,7 @@ export default function SiteDiaryCalendar({
 
         {bisEnabled ? (
         <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
-          <DialogContent className="w-[98vw] max-w-7xl max-h-[94vh] overflow-y-auto">
+          <DialogContent className="w-[99vw] max-w-[99vw] sm:max-w-[96vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[84vw] max-h-[96vh] overflow-y-auto p-6">
             <DialogHeader>
               <DialogTitle>Select BIS materials and attachments</DialogTitle>
               <p className="text-xs text-muted-foreground">
