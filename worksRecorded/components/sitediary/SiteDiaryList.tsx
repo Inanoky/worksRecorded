@@ -309,7 +309,7 @@ export default function SiteDiaryCalendar({
   const [bisMaterialOptions, setBisMaterialOptions] = React.useState<BisMaterialOption[]>([]);
   const [galleryAttachmentOptions, setGalleryAttachmentOptions] = React.useState<GalleryAttachmentOption[]>([]);
   const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<string[]>([]);
-  const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, number>>({});
+  const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, string>>({});
   const [bisPickerLoading, setBisPickerLoading] = React.useState(false);
   const [attachmentGalleryOpen, setAttachmentGalleryOpen] = React.useState(false);
   const [approverDialogOpen, setApproverDialogOpen] = React.useState(false);
@@ -595,7 +595,7 @@ export default function SiteDiaryCalendar({
       setGalleryAttachmentOptions(attachments);
       setSelectedAttachmentUrls([]);
       setMaterialQuantities(
-        Object.fromEntries(materials.map((material) => [material.id, 0])),
+        Object.fromEntries(materials.map((material) => [material.id, ""])),
       );
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to load BIS material or attachment options.");
@@ -789,11 +789,11 @@ export default function SiteDiaryCalendar({
     const selectedMaterials = bisMaterialOptions
       .map((material) => {
         const available = Number(material.availableQuantity ?? 0);
-        const requested = Number(materialQuantities[material.id] ?? 0);
-        const quantity = Math.max(0, Math.min(requested, available));
+        const requested = Number.parseFloat(materialQuantities[material.id] ?? "");
+        const normalizedRequested = Number.isFinite(requested) ? requested : 0;
         return {
           constructionMaterialId: material.id,
-          quantity,
+          quantity: Math.max(0, Math.min(normalizedRequested, available)),
         };
       })
       .filter((material) => material.quantity > 0);
@@ -1710,7 +1710,7 @@ export default function SiteDiaryCalendar({
             ) : (
               <div className="space-y-6">
                 <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                  Selected materials: {Object.values(materialQuantities).filter((qty) => Number(qty) > 0).length} • Selected attachments: {selectedAttachmentUrls.length} (optional)
+                  Selected materials: {Object.values(materialQuantities).filter((qty) => (Number.parseFloat(qty || "") || 0) > 0).length} • Selected attachments: {selectedAttachmentUrls.length} (optional)
                 </div>
 
                 <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-3">
@@ -1778,16 +1778,29 @@ export default function SiteDiaryCalendar({
                                   type="text"
                                   inputMode="decimal"
                                   className="ml-auto w-28"
-                                  value={materialQuantities[material.id] ?? 0}
-                                  onChange={(e) =>
+                                  value={materialQuantities[material.id] ?? ""}
+                                  onChange={(e) => {
+                                    const rawValue = e.target.value.replace(",", ".");
+                                    if (!/^\d*\.?\d*$/.test(rawValue)) return;
                                     setMaterialQuantities((prev) => ({
                                       ...prev,
-                                      [material.id]: Math.max(
+                                      [material.id]: rawValue,
+                                    }));
+                                  }}
+                                  onBlur={() => {
+                                    setMaterialQuantities((prev) => {
+                                      const rawValue = prev[material.id] ?? "";
+                                      const parsed = Number.parseFloat(rawValue);
+                                      if (!Number.isFinite(parsed)) {
+                                        return { ...prev, [material.id]: "" };
+                                      }
+                                      const clamped = Math.max(
                                         0,
-                                        Math.min(Number(e.target.value || 0), Number(material.availableQuantity)),
-                                      ),
-                                    }))
-                                  }
+                                        Math.min(parsed, Number(material.availableQuantity)),
+                                      );
+                                      return { ...prev, [material.id]: String(clamped) };
+                                    });
+                                  }}
                                 />
                               </td>
                             </tr>
@@ -1839,7 +1852,7 @@ export default function SiteDiaryCalendar({
                     onClick={handleSendRowToBis}
                     disabled={
                       Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
-                      Object.values(materialQuantities).every((qty) => Number(qty) <= 0)
+                      Object.values(materialQuantities).every((qty) => (Number.parseFloat(qty || "") || 0) <= 0)
                     }
                   >
                     {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
