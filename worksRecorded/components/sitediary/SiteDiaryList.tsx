@@ -1692,7 +1692,7 @@ export default function SiteDiaryCalendar({
 
 {bisUiEnabled ? (
                                       <TableCell
-                                        className="align-top px-3 py-3 text-center"
+                                        className="align-middle px-3 py-3 text-center"
                                         style={{ width: 140 }}
                                       >
                                         {(() => {
@@ -1897,14 +1897,29 @@ export default function SiteDiaryCalendar({
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-foreground">BIS event date</label>
-                    <Input
-                      type="date"
-                      value={bisSubmitDate ? bisSubmitDate.toISOString().slice(0, 10) : ""}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setBisSubmitDate(value ? new Date(`${value}T00:00:00`) : null);
-                      }}
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                          {bisSubmitDate
+                            ? bisSubmitDate.toLocaleDateString("en-GB")
+                            : "Pick BIS event date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={bisSubmitDate || undefined}
+                          onSelect={(value) => setBisSubmitDate(value ?? null)}
+                          className="bg-green-50/40"
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-foreground">Works description</label>

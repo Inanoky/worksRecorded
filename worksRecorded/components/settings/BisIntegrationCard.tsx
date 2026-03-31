@@ -35,6 +35,7 @@ export function BisIntegrationCard({
   const manualAuthorizeHref = getBisAuthorizeUrl("manual-bis-connect");
   const hostedAuthorizeHref = `/api/bis/connect?siteId=${encodeURIComponent(siteId)}&returnTo=${encodeURIComponent(`/dashboard/sites/${siteId}/settings`)}`;
   const useHostedAuthorization = isBisHostedAuthorizationEnabled();
+  const showManualAuthorizationInput = process.env.NODE_ENV !== "production";
 
   return (
     <Card className="mb-6">
@@ -88,23 +89,31 @@ export function BisIntegrationCard({
                     <ol className="mt-2 list-decimal space-y-1 pl-4">
                       <li>Open BIS authorization in a new tab and complete the consent flow.</li>
                       <li>Copy the <code>code</code> value from the final redirected URL.</li>
-                      <li>Either paste that code in the field below or set <code>BIS_AUTHORIZATION_CODE</code> in your environment.</li>
+                      {showManualAuthorizationInput ? (
+                        <li>Either paste that code in the field below or set <code>BIS_AUTHORIZATION_CODE</code> in your environment.</li>
+                      ) : (
+                        <li>Set <code>BIS_AUTHORIZATION_CODE</code> in your environment.</li>
+                      )}
                       <li>Click the button below to exchange the authorization code for BIS tokens for your current user.</li>
                     </ol>
                   </div>
 
                   <form action={completeBisManualAuthorizationAction} className="space-y-2 max-w-2xl">
                     <input type="hidden" name="siteId" value={siteId} />
-                    <label className="block text-xs font-medium text-foreground" htmlFor="bis-manual-authorization-code">
-                      Authorization code (optional if environment variable is set)
-                    </label>
-                    <input
-                      id="bis-manual-authorization-code"
-                      name="authorizationCode"
-                      type="text"
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      placeholder="Paste BIS authorization code"
-                    />
+                    {showManualAuthorizationInput ? (
+                      <>
+                        <label className="block text-xs font-medium text-foreground" htmlFor="bis-manual-authorization-code">
+                          Authorization code (optional if environment variable is set)
+                        </label>
+                        <input
+                          id="bis-manual-authorization-code"
+                          name="authorizationCode"
+                          type="text"
+                          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                          placeholder="Paste BIS authorization code"
+                        />
+                      </>
+                    ) : null}
                     <SubmitButton
                       text="Complete BIS connection"
                       variant="secondary"
@@ -112,7 +121,7 @@ export function BisIntegrationCard({
                     />
                   </form>
 
-                  {!hasManualAuthorizationCode ? (
+                  {!hasManualAuthorizationCode && showManualAuthorizationInput ? (
                     <p className="text-xs text-muted-foreground">Paste an authorization code above, or set <code>BIS_AUTHORIZATION_CODE</code> in the environment before completing the connection.</p>
                   ) : null}
                 </div>

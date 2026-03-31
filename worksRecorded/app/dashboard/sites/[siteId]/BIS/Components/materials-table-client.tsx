@@ -6,6 +6,8 @@ import {
   Search,
   Filter,
   RefreshCw,
+  MoreHorizontal,
+  CalendarIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -27,6 +29,18 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -420,6 +434,12 @@ export default function MaterialsTableClient({
     }
   }
 
+  const openWarehouseRecordInBis = (bisId: string | null | undefined) => {
+    if (!bisId) return
+    const url = `https://test.bis.gov.lv/bisp/lv/portal/logbooks/received_construction_products/${bisId}/`
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
+
   const toggleRowSelection = (recordId: string, checked: boolean) => {
     setSelectedRowIds((current) =>
       checked ? Array.from(new Set([...current, recordId])) : current.filter((id) => id !== recordId),
@@ -633,8 +653,11 @@ export default function MaterialsTableClient({
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="relative md:col-span-2">
+        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="text-sm text-muted-foreground">
+            Total cost: <span className="font-medium text-foreground">{formatMoney(totalCost)}</span>
+          </div>
+          <div className="relative w-full md:w-[420px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
@@ -643,7 +666,9 @@ export default function MaterialsTableClient({
               className="pl-9"
             />
           </div>
+        </div>
 
+        <div className="grid gap-3 md:grid-cols-4">
           <Select
             value={status}
             onValueChange={(v) => setStatus(v as "all" | "sent" | "unsent")}
@@ -734,7 +759,6 @@ export default function MaterialsTableClient({
           ) : null}
 
           <div className="text-sm text-muted-foreground">
-            Total cost: <span className="font-medium text-foreground">{formatMoney(totalCost)}</span> •{" "}
             Showing {filteredMaterials.length} of {rows.length}
           </div>
         </div>
@@ -880,13 +904,35 @@ export default function MaterialsTableClient({
                         />
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="date"
-                          value={toDateInputValue(r.materialDate)}
-                          onChange={(event) => handleMaterialDateChange(r.id, event.target.value)}
-                          disabled={isSent}
-                          className="w-full min-w-0"
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={isSent}
+                              className="w-full min-w-0 justify-start text-left font-normal"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                              {toDateInputValue(r.materialDate)
+                                ? formatDate(r.materialDate)
+                                : "Pick date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={r.materialDate ? new Date(r.materialDate) : undefined}
+                              onSelect={(value) =>
+                                handleMaterialDateChange(
+                                  r.id,
+                                  value ? value.toISOString().slice(0, 10) : "",
+                                )
+                              }
+                              className="bg-green-50/40"
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </TableCell>
                       <TableCell>
                         <Input
@@ -906,8 +952,8 @@ export default function MaterialsTableClient({
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
                       {showBisControls ? (
                         <TableCell className="text-right">
-                          {!isSent ? (
-                            <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center justify-end gap-2">
+                            {!isSent ? (
                               <SendToBisButton
                                 recordId={r.id}
                                 quantity={r.quantity ?? 0}
@@ -917,28 +963,44 @@ export default function MaterialsTableClient({
                                 materialDate={r.materialDate}
                                 action={handleSendToBis}
                               />
-                            </div>
-                          ) : !isApproved && !isAwaitingApproval ? (
-                            <Button
-                              size="sm"
-                              onClick={() => openApproverDialog(r)}
-                              className="bg-blue-600 text-white hover:bg-blue-700"
-                            >
-                              Send for approval
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              disabled
-                              className={
-                                isApproved
-                                  ? "bg-green-600 text-white hover:bg-green-600"
-                                  : "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                              }
-                            >
-                              {isApproved ? "Approved" : "Sent for approval"}
-                            </Button>
-                          )}
+                            ) : !isApproved && !isAwaitingApproval ? (
+                              <Button
+                                size="sm"
+                                onClick={() => openApproverDialog(r)}
+                                className="bg-blue-600 text-white hover:bg-blue-700"
+                              >
+                                Send for approval
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                disabled
+                                className={
+                                  isApproved
+                                    ? "bg-green-600 text-white hover:bg-green-600"
+                                    : "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                }
+                              >
+                                {isApproved ? "Approved" : "Sent for approval"}
+                              </Button>
+                            )}
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => openWarehouseRecordInBis(r.BISId)}
+                                  disabled={!r.BISId}
+                                >
+                                  Open in BIS
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       ) : null}
                     </TableRow>
