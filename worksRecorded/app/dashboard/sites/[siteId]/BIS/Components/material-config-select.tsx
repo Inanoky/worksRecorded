@@ -211,7 +211,7 @@ export default function MaterialConfigSelect({
         }}
         disabled={disabled || pending}
       >
-        <SelectTrigger className="w-[240px]">
+        <SelectTrigger className="w-full min-w-0">
           <SelectValue placeholder="Select configuration" />
         </SelectTrigger>
 

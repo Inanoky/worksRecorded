@@ -771,8 +771,8 @@ export default function MaterialsTableClient({
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="w-full overflow-hidden">
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow className="bg-muted/40">
                 <TableHead className="w-12">
@@ -782,19 +782,19 @@ export default function MaterialsTableClient({
                     aria-label="Select all visible warehouse records"
                   />
                 </TableHead>
-                <TableHead>Photo</TableHead>
-                <TableHead>Material</TableHead>
-                <TableHead>Status</TableHead>
-                {showBisControls ? <TableHead>BIS material configuration</TableHead> : null}
-                <TableHead className="w-[150px]">Cost code</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead>Cost</TableHead>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Invoice date</TableHead>
-                <TableHead>BIS ID</TableHead>
-                {showBisControls ? <TableHead className="text-right">Action</TableHead> : null}
+                <TableHead className="w-[76px]">Photo</TableHead>
+                <TableHead className="w-[14%]">Material</TableHead>
+                <TableHead className="w-[9%]">Status</TableHead>
+                {showBisControls ? <TableHead className="w-[16%]">BIS material configuration</TableHead> : null}
+                <TableHead className="w-[10%]">Cost code</TableHead>
+                <TableHead className="w-[11%]">Date</TableHead>
+                <TableHead className="w-[8%]">Qty</TableHead>
+                <TableHead className="w-[6%]">Unit</TableHead>
+                <TableHead className="w-[8%]">Cost</TableHead>
+                <TableHead className="w-[8%]">Invoice</TableHead>
+                <TableHead className="w-[9%]">Invoice date</TableHead>
+                <TableHead className="w-[10%]">BIS ID</TableHead>
+                {showBisControls ? <TableHead className="w-[11%] text-right">Action</TableHead> : null}
               </TableRow>
             </TableHeader>
 
@@ -838,7 +838,7 @@ export default function MaterialsTableClient({
                         />
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="align-top">
                         {r.sourcePhoto ? (
                           <a href={r.sourcePhoto} target="_blank" rel="noreferrer">
                             <div className="relative h-14 w-14 overflow-hidden rounded-lg border bg-muted">
@@ -858,14 +858,14 @@ export default function MaterialsTableClient({
                         )}
                       </TableCell>
 
-                      <TableCell>
-                        <div className="font-medium">{r.name || "Unnamed material"}</div>
+                      <TableCell className="min-w-0">
+                        <div className="truncate font-medium">{r.name || "Unnamed material"}</div>
                         {r.sourcePhoto && (
                           <a
                             href={r.sourcePhoto}
                             target="_blank"
                             rel="noreferrer"
-                            className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
+                            className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-muted-foreground hover:underline"
                           >
                             Open photo <ExternalLink className="h-3.5 w-3.5" />
                           </a>
@@ -902,7 +902,7 @@ export default function MaterialsTableClient({
                       </TableCell>
 
                       {showBisControls ? (
-                        <TableCell>
+                        <TableCell className="min-w-0">
                           <MaterialConfigSelect
                             siteId={siteId}
                             recordId={r.id}
@@ -917,7 +917,7 @@ export default function MaterialsTableClient({
                         </TableCell>
                       ) : null}
 
-                      <TableCell>
+                      <TableCell className="min-w-0">
                         <CostCodeSelect
                           recordId={r.id}
                           value={r.costCode}
@@ -931,7 +931,7 @@ export default function MaterialsTableClient({
                           value={toDateInputValue(r.materialDate)}
                           onChange={(event) => handleMaterialDateChange(r.id, event.target.value)}
                           disabled={isSent}
-                          className="w-[160px]"
+                          className="w-full min-w-0"
                         />
                       </TableCell>
                       <TableCell>
@@ -943,14 +943,14 @@ export default function MaterialsTableClient({
                           onChange={(event) => handleQuantityChange(r.id, event.target.value)}
                           onBlur={(event) => handleQuantityBlur(r.id, event.target.value)}
                           disabled={isSent}
-                          className="w-[120px]"
+                          className="w-full min-w-0"
                         />
                       </TableCell>
                       <TableCell>{r.measurementUnit || "—"}</TableCell>
                       <TableCell>{formatMoney(r.cost)}</TableCell>
-                      <TableCell>{r.invoiceNr || "—"}</TableCell>
+                      <TableCell className="truncate">{r.invoiceNr || "—"}</TableCell>
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
-                      <TableCell className="font-mono text-xs">{r.BISId || "—"}</TableCell>
+                      <TableCell className="truncate font-mono text-xs">{r.BISId || "—"}</TableCell>
 
                       {showBisControls ? (
                         <TableCell className="text-right">
