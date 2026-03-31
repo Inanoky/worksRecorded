@@ -341,6 +341,8 @@ export default function SiteDiaryCalendar({
   const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
   const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
   const [galleryAttachmentPage, setGalleryAttachmentPage] = React.useState(1);
+  const [showBisUi, setShowBisUi] = React.useState(true);
+  const bisUiEnabled = bisEnabled && showBisUi;
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -354,7 +356,7 @@ export default function SiteDiaryCalendar({
 
   const refreshRowsWithBisSync = React.useCallback(async (options?: { skipSync?: boolean }) => {
     if (!siteId) return [];
-    if (bisEnabled && !options?.skipSync) {
+    if (bisUiEnabled && !options?.skipSync) {
       await syncDeletedSiteDiaryBisRecords(siteId);
     }
     const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
@@ -367,7 +369,7 @@ export default function SiteDiaryCalendar({
       ),
     );
     return data;
-  }, [bisEnabled, siteId]);
+  }, [bisUiEnabled, siteId]);
 
   // Load filled days for calendar
   React.useEffect(() => {
@@ -595,7 +597,7 @@ export default function SiteDiaryCalendar({
 
 
   const openBisPicker = async (row: DiaryRow) => {
-    if (!bisEnabled) {
+    if (!bisUiEnabled) {
       return;
     }
 
@@ -695,20 +697,20 @@ export default function SiteDiaryCalendar({
 
   const getBisStatusLabel = React.useCallback((status: string | null | undefined) => {
     const normalized = normalizeApprovalStatus(status);
-    if (!normalized) return "Local";
-    if (normalized === "approved") return "Approved";
-    if (isApprovalPendingStatus(status)) return "Sent for approval";
-    if (["sent", "draft", "created"].includes(normalized)) return "Sent to BIS";
-    return normalized.replace(/_/g, " ");
+    if (!normalized) return "WorksRecorded";
+    if (normalized === "approved") return "BIS approved";
+    if (isApprovalPendingStatus(status)) return "BIS pending";
+    if (["sent", "draft", "created"].includes(normalized)) return "BIS draft";
+    return "BIS draft";
   }, [isApprovalPendingStatus, normalizeApprovalStatus]);
 
   const getBisStatusClassName = React.useCallback((status: string | null | undefined) => {
     const normalized = normalizeApprovalStatus(status);
-    if (!normalized) return "bg-muted text-muted-foreground";
-    if (normalized === "approved") return "bg-green-600 text-white";
-    if (isApprovalPendingStatus(status)) return "bg-blue-600 text-white";
-    if (["sent", "draft", "created"].includes(normalized)) return "bg-amber-500 text-white";
-    return "bg-muted text-foreground";
+    if (!normalized) return "border border-slate-200 bg-slate-50 text-slate-700";
+    if (normalized === "approved") return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (isApprovalPendingStatus(status)) return "border border-sky-200 bg-sky-50 text-sky-700";
+    if (["sent", "draft", "created"].includes(normalized)) return "border border-blue-200 bg-blue-50 text-blue-700";
+    return "border border-blue-200 bg-blue-50 text-blue-700";
   }, [isApprovalPendingStatus, normalizeApprovalStatus]);
 
   const sortedGalleryAttachmentOptions = React.useMemo(
@@ -841,7 +843,7 @@ export default function SiteDiaryCalendar({
     try {
       setBisSyncLoading(true);
       const result = await syncDeletedSiteDiaryBisRecords(siteId);
-      await refreshRowsWithBisSync();
+      await refreshRowsWithBisSync({ skipSync: true });
 
       if (result.cleared > 0) {
         setBisSentRowIds((prev) => {
@@ -1023,7 +1025,7 @@ export default function SiteDiaryCalendar({
                 <Button variant="outline" onClick={exportToExcel}>
                   Export to Excel
                 </Button>
-                {bisEnabled ? (
+                {bisUiEnabled ? (
                   <Button variant="outline" onClick={handleSyncBisRecords} disabled={bisSyncLoading}>
                     <RefreshCw className={cn("mr-2 h-4 w-4", bisSyncLoading ? "animate-spin" : "")} />
                     {bisSyncLoading ? "Refreshing..." : "Refresh BIS sync"}
@@ -1243,6 +1245,16 @@ export default function SiteDiaryCalendar({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {bisEnabled ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs sm:text-sm"
+                        onClick={() => setShowBisUi((prev) => !prev)}
+                      >
+                        BIS {showBisUi ? "On" : "Off"}
+                      </Button>
+                    ) : null}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1409,7 +1421,7 @@ export default function SiteDiaryCalendar({
                                 </p>
                               </div>
 
-                              {bisEnabled ? (
+                              {bisUiEnabled ? (
                                 <div className="mt-2 flex flex-wrap gap-2">
                                   {(() => {
                                     const approvalStatus = r.id ? bisApprovalStatusByRowId[r.id] : null;
@@ -1461,7 +1473,7 @@ export default function SiteDiaryCalendar({
                                     );
                                   })()}
 
-                                  <Badge className={cn("h-7 text-[10px]", getBisStatusClassName(r.id ? bisApprovalStatusByRowId[r.id] ?? r.bisStatus : r.bisStatus))}>
+                                  <Badge className={cn("h-7 rounded-full px-3 text-[10px] font-medium", getBisStatusClassName(r.id ? bisApprovalStatusByRowId[r.id] ?? r.bisStatus : r.bisStatus))}>
                                     {getBisStatusLabel(r.id ? bisApprovalStatusByRowId[r.id] ?? r.bisStatus : r.bisStatus)}
                                   </Badge>
 
@@ -1569,7 +1581,7 @@ export default function SiteDiaryCalendar({
                                       );
                                     })}
 
-{bisEnabled ? (
+{bisUiEnabled ? (
                                     <TableHead
                                       className="text-center"
                                       style={{ width: 140 }}
@@ -1661,7 +1673,7 @@ export default function SiteDiaryCalendar({
                                         );
                                       })}
 
-{bisEnabled ? (
+{bisUiEnabled ? (
                                       <TableCell
                                         className="align-top px-3 py-2 text-center"
                                         style={{ width: 140 }}
@@ -1731,7 +1743,7 @@ export default function SiteDiaryCalendar({
                                       >
                                         <Badge
                                           className={cn(
-                                            "capitalize",
+                                            "rounded-full px-3 py-1 font-medium capitalize",
                                             getBisStatusClassName(
                                               row.id
                                                 ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
@@ -1837,7 +1849,7 @@ export default function SiteDiaryCalendar({
           <div className="grid gap-3" />
         </DialogWindow>
 
-        {bisEnabled ? (
+        {bisUiEnabled ? (
         <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
           <DialogContent className="w-[99vw] max-w-[99vw] sm:max-w-[96vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[84vw] max-h-[96vh] overflow-y-auto p-6">
             <DialogHeader>

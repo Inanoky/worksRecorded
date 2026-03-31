@@ -598,6 +598,18 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
     receivedProductsUrl,
     accessToken,
   );
+  const measureRows = await fetchBisPagedList(
+    `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+    accessToken,
+  );
+  const measurementNameByCode = new Map<string, string>();
+  for (const row of measureRows) {
+    const code = row?.attributes?.code == null ? "" : String(row.attributes.code);
+    const name = row?.attributes?.name == null ? "" : String(row.attributes.name);
+    if (code && name) {
+      measurementNameByCode.set(code, name);
+    }
+  }
 
   const resolvedReceivedItems = await Promise.all(
     availableReceivedItems.map(async (item: any) => {
@@ -626,21 +638,25 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
       const quantityRaw =
         attributes?.quantity == null ? detailAttributes?.quantity ?? null : attributes.quantity;
 
+      const measurementRaw =
+        attributes?.measurement_unit == null
+          ? attributes?.measurement == null
+            ? detailAttributes?.measurement_unit == null
+              ? detailAttributes?.measurement == null
+                ? null
+                : String(detailAttributes.measurement)
+              : String(detailAttributes.measurement_unit)
+            : String(attributes.measurement)
+          : String(attributes.measurement_unit);
+      const measurementUnit =
+        measurementRaw == null ? null : (measurementNameByCode.get(measurementRaw) ?? measurementRaw);
+
       return {
         id: item?.id ?? null,
         constructionMaterialId,
         quantity: quantityRaw == null ? 0 : Number(quantityRaw),
         materialName: attributes?.material_name ?? attributes?.material_kind ?? null,
-        measurementUnit:
-          attributes?.measurement_unit == null
-            ? attributes?.measurement == null
-              ? detailAttributes?.measurement_unit == null
-                ? detailAttributes?.measurement == null
-                  ? null
-                  : String(detailAttributes.measurement)
-                : String(detailAttributes.measurement_unit)
-              : String(attributes.measurement)
-            : String(attributes.measurement_unit),
+        measurementUnit,
         caseConstructionRoundId: attributes?.case_construction_round_id ?? null,
       };
     }),
@@ -940,28 +956,10 @@ export async function getBisCharacterMeasures(siteId: string) {
   const { accessToken } = await requireBisAccessTokenForSite(siteId);
   const baseUrl = getBisBaseUrl();
 
-  const res = await fetch(
-    `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures&page[number]=1&page[size]=500`,
-    {
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-    },
+  const classifierRows = await fetchBisPagedList(
+    `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+    accessToken,
   );
-
-  const text = await res.text();
-  let json: any = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = null;
-  }
-
-  if (!res.ok) {
-    throw new Error(json?.errors?.[0]?.detail || json?.error || "Failed to load BIS measurement list");
-  }
 
   const allowedMeasurementNames = new Set([
     "cm",
@@ -985,14 +983,14 @@ export async function getBisCharacterMeasures(siteId: string) {
     "t",
   ]);
 
-  return (Array.isArray(json?.data) ? json.data : [])
+  return classifierRows
     .map((item: any) => ({
       id: item?.attributes?.code == null ? "" : String(item.attributes.code),
       name: item?.attributes?.name == null ? "" : String(item.attributes.name),
     }))
     .filter((item: { id: string; name: string }) => {
       if (!item.id || !item.name) return false;
-      const normalizedName = item.name.trim().replace(/\./g, "").toLowerCase();
+      const normalizedName = item.name.trim().replace(/[.\s]/g, "").toLowerCase();
       return allowedMeasurementNames.has(normalizedName);
     })
     .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
@@ -1374,10 +1372,8 @@ export async function getSiteDiaryRecordBisUrl(recordId: string) {
   if (!record?.siteId || !record.BISId) return null;
   await orgCheck(user.id, record.siteId);
 
-  const { bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
-
-  return `${baseUrl}/bisp/lv/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}`;
+  return `${baseUrl}/bisp/lv/portal/logbooks/performed_works/${record.BISId}/`;
 }
 
 async function uploadLogbookAttachmentToBis({

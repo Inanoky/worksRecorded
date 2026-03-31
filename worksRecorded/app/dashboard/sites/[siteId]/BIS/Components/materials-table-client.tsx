@@ -165,7 +165,7 @@ function getApprovalStateStatus(status: string | null | undefined) {
 
   return normalizedStatus === "approved"
     ? "approved"
-    : "submitted_to_approve"
+    : "pending"
 }
 
 export default function MaterialsTableClient({
@@ -874,29 +874,29 @@ export default function MaterialsTableClient({
 
                       <TableCell>
                         {!normalizedStatus ? (
-                          <Badge variant="secondary" className="gap-1">
+                          <Badge className="gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700">
                             <Clock3 className="h-3.5 w-3.5" />
-                            Pending
+                            WorksRecorded
                           </Badge>
                         ) : isDraft ? (
-                          <Badge variant="secondary" className="gap-1">
+                          <Badge className="gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
                             <Clock3 className="h-3.5 w-3.5" />
-                            Draft
+                            BIS draft
                           </Badge>
                         ) : isApproved ? (
-                          <Badge className="gap-1 bg-green-600 text-white hover:bg-green-600">
+                          <Badge className="gap-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
                             <ShieldCheck className="h-3.5 w-3.5" />
-                            Approved
+                            BIS approved
                           </Badge>
                         ) : isAwaitingApproval ? (
-                          <Badge className="gap-1 bg-blue-600 text-white hover:bg-blue-600">
+                          <Badge className="gap-1 rounded-full border border-sky-200 bg-sky-50 text-sky-700">
                             <Clock3 className="h-3.5 w-3.5" />
-                            Waiting for approval
+                            BIS pending
                           </Badge>
                         ) : (
-                          <Badge variant="secondary" className="gap-1">
+                          <Badge className="gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
                             <Clock3 className="h-3.5 w-3.5" />
-                            {normalizedStatus}
+                            BIS draft
                           </Badge>
                         )}
                       </TableCell>
