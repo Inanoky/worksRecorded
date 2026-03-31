@@ -308,7 +308,6 @@ export default function SiteDiaryCalendar({
   const [selectedRowForBis, setSelectedRowForBis] = React.useState<DiaryRow | null>(null);
   const [bisMaterialOptions, setBisMaterialOptions] = React.useState<BisMaterialOption[]>([]);
   const [galleryAttachmentOptions, setGalleryAttachmentOptions] = React.useState<GalleryAttachmentOption[]>([]);
-  const [selectedMaterialIds, setSelectedMaterialIds] = React.useState<string[]>([]);
   const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<string[]>([]);
   const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, number>>({});
   const [bisPickerLoading, setBisPickerLoading] = React.useState(false);
@@ -594,26 +593,15 @@ export default function SiteDiaryCalendar({
 
       setBisMaterialOptions(materials);
       setGalleryAttachmentOptions(attachments);
-      setSelectedMaterialIds([]);
       setSelectedAttachmentUrls([]);
-      setMaterialQuantities({});
+      setMaterialQuantities(
+        Object.fromEntries(materials.map((material) => [material.id, 0])),
+      );
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to load BIS material or attachment options.");
       setBisPickerOpen(false);
     } finally {
       setBisPickerLoading(false);
-    }
-  };
-
-  const toggleMaterial = (materialId: string, checked: boolean) => {
-    setSelectedMaterialIds((prev) =>
-      checked ? Array.from(new Set([...prev, materialId])) : prev.filter((id) => id !== materialId),
-    );
-
-    if (checked) {
-      const material = bisMaterialOptions.find((m) => m.id === materialId);
-      const defaultQty = Math.min(1, Number(material?.availableQuantity ?? 1));
-      setMaterialQuantities((prev) => ({ ...prev, [materialId]: prev[materialId] ?? defaultQty }));
     }
   };
 
@@ -798,7 +786,19 @@ export default function SiteDiaryCalendar({
       return;
     }
 
-    if (selectedMaterialIds.length === 0) {
+    const selectedMaterials = bisMaterialOptions
+      .map((material) => {
+        const available = Number(material.availableQuantity ?? 0);
+        const requested = Number(materialQuantities[material.id] ?? 0);
+        const quantity = Math.max(0, Math.min(requested, available));
+        return {
+          constructionMaterialId: material.id,
+          quantity,
+        };
+      })
+      .filter((material) => material.quantity > 0);
+
+    if (selectedMaterials.length === 0) {
       toast.error("Please select at least one material.");
       return;
     }
@@ -808,17 +808,7 @@ export default function SiteDiaryCalendar({
 
       const parsedAmount = Number(bisSubmitAmount);
       await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
-        materials: selectedMaterialIds.map((materialId) => {
-          const available = Number(
-            bisMaterialOptions.find((material) => material.id === materialId)?.availableQuantity ?? 0,
-          );
-          const requested = Number(materialQuantities[materialId] ?? 0);
-
-          return {
-            constructionMaterialId: materialId,
-            quantity: Math.max(0, Math.min(requested, available)),
-          };
-        }),
+        materials: selectedMaterials,
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
         eventDate: bisSubmitDate ? bisSubmitDate.toISOString() : undefined,
         worksDescription: bisSubmitWorks,
@@ -1720,7 +1710,7 @@ export default function SiteDiaryCalendar({
             ) : (
               <div className="space-y-6">
                 <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                  Selected materials: {selectedMaterialIds.length} • Selected attachments: {selectedAttachmentUrls.length} (optional)
+                  Selected materials: {Object.values(materialQuantities).filter((qty) => Number(qty) > 0).length} • Selected attachments: {selectedAttachmentUrls.length} (optional)
                 </div>
 
                 <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-3">
@@ -1759,54 +1749,51 @@ export default function SiteDiaryCalendar({
 
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">Materials from current BIS case</h3>
-                  <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border p-3">
+                  <div className="max-h-72 overflow-y-auto rounded-md border">
                     {bisMaterialOptions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No BIS materials available in this case.</p>
+                      <p className="p-3 text-xs text-muted-foreground">No BIS materials available in this case.</p>
                     ) : (
-                      bisMaterialOptions.map((material) => {
-                        const checked = selectedMaterialIds.includes(material.id);
-                        const unitSuffix = material.measurementUnit ? ` ${material.measurementUnit}` : "";
-                        return (
-                          <div key={material.id} className="space-y-2 rounded border bg-background p-3">
-                            <label className="flex items-start gap-2 text-sm">
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={(value) => toggleMaterial(material.id, Boolean(value))}
-                              />
-                              <span className="leading-tight">
-                                {material.label}
-                                <span className="block text-xs text-muted-foreground">
-                                  Unit: {material.measurementUnit || "—"}
-                                </span>
-                                <span className="mt-1 block rounded bg-muted px-2 py-1 text-[11px] text-muted-foreground/90">
-                                  Delivered: {material.deliveredQuantity ?? "—"}{unitSuffix} • Used: {material.usedQuantity ?? "—"}{unitSuffix} •
-                                  <span className="font-semibold text-foreground"> Available: {material.availableQuantity}{unitSuffix}</span>
-                                </span>
-                              </span>
-                            </label>
-                            <div className="flex items-center justify-end gap-2">
-                              <span className="text-xs text-muted-foreground">Quantity to send</span>
-                              <Input
-                                type="text"
-                                inputMode="decimal"
-                                className="w-32"
-                                value={materialQuantities[material.id] ?? 0}
-                                disabled={!checked}
-                                onChange={(e) =>
-                                  setMaterialQuantities((prev) => ({
-                                    ...prev,
-                                    [material.id]: Math.max(
-                                      0,
-                                      Math.min(Number(e.target.value || 0), Number(material.availableQuantity)),
-                                    ),
-                                  }))
-                                }
-                              />
-                              <span className="text-xs text-muted-foreground">{material.measurementUnit || ""}</span>
-                            </div>
-                          </div>
-                        );
-                      })
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 text-xs text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">Material</th>
+                            <th className="px-3 py-2 text-right font-medium">Total</th>
+                            <th className="px-3 py-2 text-right font-medium">Used</th>
+                            <th className="px-3 py-2 text-right font-medium">Available</th>
+                            <th className="px-3 py-2 text-right font-medium">Send qty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bisMaterialOptions.map((material) => (
+                            <tr key={material.id} className="border-t">
+                              <td className="px-3 py-2 align-top">
+                                <div className="font-medium">{material.label}</div>
+                                <div className="text-xs text-muted-foreground">{material.measurementUnit || "—"}</div>
+                              </td>
+                              <td className="px-3 py-2 text-right">{material.deliveredQuantity ?? "—"}</td>
+                              <td className="px-3 py-2 text-right">{material.usedQuantity ?? "—"}</td>
+                              <td className="px-3 py-2 text-right font-semibold">{material.availableQuantity}</td>
+                              <td className="px-3 py-2 text-right">
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="ml-auto w-28"
+                                  value={materialQuantities[material.id] ?? 0}
+                                  onChange={(e) =>
+                                    setMaterialQuantities((prev) => ({
+                                      ...prev,
+                                      [material.id]: Math.max(
+                                        0,
+                                        Math.min(Number(e.target.value || 0), Number(material.availableQuantity)),
+                                      ),
+                                    }))
+                                  }
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     )}
                   </div>
                 </div>
@@ -1852,7 +1839,7 @@ export default function SiteDiaryCalendar({
                     onClick={handleSendRowToBis}
                     disabled={
                       Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
-                      selectedMaterialIds.length === 0
+                      Object.values(materialQuantities).every((qty) => Number(qty) <= 0)
                     }
                   >
                     {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
