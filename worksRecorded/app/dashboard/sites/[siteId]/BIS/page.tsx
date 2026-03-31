@@ -451,6 +451,16 @@ export async function createMaterialConfiguration(
   }
 
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  console.log("[Warehouse BIS] createMaterialConfiguration: start", {
+    siteId,
+    bisCaseId,
+    materialKind,
+    materialType,
+    manufacturer,
+    measurement,
+    attachmentCount: payload.attachments.length,
+  });
+
   const measureData = await fetchBisJson(
     `/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
     accessToken,
@@ -462,6 +472,13 @@ export async function createMaterialConfiguration(
   }
 
   if (!availableMeasurementCodes.has(measurement)) {
+    console.error("[Warehouse BIS] Measurement validation failed", {
+      siteId,
+      bisCaseId,
+      measurement,
+      allowedMeasurementsSample: Array.from(availableMeasurementCodes).slice(0, 30),
+      allowedMeasurementsCount: availableMeasurementCodes.size,
+    });
     throw new Error("Selected measurement is not available in BIS measurement list");
   }
 
@@ -510,34 +527,59 @@ export async function createMaterialConfiguration(
     }
   }
 
-  const created = await fetchBisJson(
-    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
-    accessToken,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        data: {
-          type: "construction_material",
-          attributes: {
-            type: "construction_material",
-            material_type: materialType,
-            manufacturer,
-            material_kind: materialKind,
-            measurement,
-            reusable: false,
-            testing_obligatory: false,
-          },
-          relationships: attachedDocuments.length
-            ? {
-                attached_documents: {
-                  data: attachedDocuments,
-                },
-              }
-            : undefined,
-        },
-      }),
+  const createPayload = {
+    data: {
+      type: "construction_material",
+      attributes: {
+        type: "construction_material",
+        material_type: materialType,
+        manufacturer,
+        material_kind: materialKind,
+        measurement,
+        reusable: false,
+        testing_obligatory: false,
+      },
+      relationships: attachedDocuments.length
+        ? {
+            attached_documents: {
+              data: attachedDocuments,
+            },
+          }
+        : undefined,
     },
-  );
+  };
+
+  console.log("[Warehouse BIS] createMaterialConfiguration payload preview", {
+    siteId,
+    bisCaseId,
+    materialType,
+    materialKind,
+    measurement,
+    attachedDocuments: attachedDocuments.length,
+  });
+
+  let created: any;
+  try {
+    created = await fetchBisJson(
+      `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
+      accessToken,
+      {
+        method: "POST",
+        body: JSON.stringify(createPayload),
+      },
+    );
+  } catch (error) {
+    console.error("[Warehouse BIS] createMaterialConfiguration failed", {
+      siteId,
+      bisCaseId,
+      materialType,
+      materialKind,
+      measurement,
+      attachmentCount: attachedDocuments.length,
+      error: error instanceof Error ? error.message : error,
+    });
+    throw error;
+  }
 
   const material = created?.data;
   if (!material?.id) {

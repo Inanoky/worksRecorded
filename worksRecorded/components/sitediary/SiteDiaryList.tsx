@@ -1704,7 +1704,7 @@ export default function SiteDiaryCalendar({
 
         {bisEnabled ? (
         <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
-          <DialogContent className="w-[96vw] max-w-5xl max-h-[92vh] overflow-y-auto">
+          <DialogContent className="w-[98vw] max-w-7xl max-h-[94vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Select BIS materials and attachments</DialogTitle>
               <p className="text-xs text-muted-foreground">
@@ -1719,11 +1719,14 @@ export default function SiteDiaryCalendar({
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+                <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
                   Selected materials: {Object.values(materialQuantities).filter((qty) => (Number.parseFloat(qty || "") || 0) > 0).length} • Selected attachments: {selectedAttachmentUrls.length} (optional)
                 </div>
 
-                <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-4">
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <div className="rounded-md border p-4 lg:col-span-2">
+                    <h3 className="mb-3 text-sm font-semibold">Performed work details</h3>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-foreground">BIS event date</label>
                     <Input
@@ -1770,11 +1773,28 @@ export default function SiteDiaryCalendar({
                       </SelectContent>
                     </Select>
                   </div>
+                    </div>
+                  </div>
+                  <div className="rounded-md border p-4">
+                    <h3 className="mb-2 text-sm font-semibold">Attachments</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Attachments are optional. Add them only if you want photo evidence in BIS.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 w-full"
+                      onClick={() => setAttachmentGalleryOpen(true)}
+                    >
+                      Add / manage attachments
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">Materials from current BIS case</h3>
-                  <div className="max-h-72 overflow-y-auto rounded-md border">
+                  <div className="max-h-[52vh] overflow-y-auto rounded-md border">
                     {bisMaterialOptions.length === 0 ? (
                       <p className="p-3 text-xs text-muted-foreground">No BIS materials available in this case.</p>
                     ) : (
@@ -1838,15 +1858,7 @@ export default function SiteDiaryCalendar({
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold">Attachments from this site gallery</h3>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setAttachmentGalleryOpen(true)}
-                    >
-                      Add attachment
-                    </Button>
+                    <h3 className="text-sm font-semibold">Selected gallery attachments</h3>
                   </div>
 
                   {selectedAttachmentUrls.length === 0 ? (
