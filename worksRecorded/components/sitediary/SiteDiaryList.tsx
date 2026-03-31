@@ -14,6 +14,7 @@ import {
   copySiteDiaryRecordToDate,
   getBisCaseAvailableMaterials,
   getBisCharacterMeasures,
+  getSiteDiaryRecordBisUrl,
   getFilledDays,
   getPossibleSiteDiaryBisApprovers,
   getSiteDiaryBisApprovalStatus,
@@ -28,6 +29,8 @@ import * as XLSX from "xlsx";
 import {
   CalendarIcon,
   Copy,
+  Ellipsis,
+  ExternalLink,
   Filter,
   Images,
   Loader2,
@@ -72,6 +75,13 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import {
   Tabs,
@@ -128,6 +138,7 @@ type DiaryRow = {
   originalUserComment?: string | null;
 
   BISId?: string | null;
+  bisStatus?: string | null;
   [key: string]: any;
 };
 
@@ -329,6 +340,7 @@ export default function SiteDiaryCalendar({
   const [bisSubmitMeasurement, setBisSubmitMeasurement] = React.useState<string>("12");
   const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
   const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
+  const [galleryAttachmentPage, setGalleryAttachmentPage] = React.useState(1);
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -339,6 +351,23 @@ export default function SiteDiaryCalendar({
       setFilledDays,
     );
   }, [siteId, currentMonth, currentYear]);
+
+  const refreshRowsWithBisSync = React.useCallback(async (options?: { skipSync?: boolean }) => {
+    if (!siteId) return [];
+    if (bisEnabled && !options?.skipSync) {
+      await syncDeletedSiteDiaryBisRecords(siteId);
+    }
+    const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+    setRows(data || []);
+    setBisApprovalStatusByRowId(
+      Object.fromEntries(
+        (data || [])
+          .filter((row) => row.id)
+          .map((row) => [row.id as string, row.bisStatus ?? ""]),
+      ),
+    );
+    return data;
+  }, [bisEnabled, siteId]);
 
   // Load filled days for calendar
   React.useEffect(() => {
@@ -412,7 +441,7 @@ export default function SiteDiaryCalendar({
         setTableHeads(tableFields);
 
         //Fetching data
-        const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+        const data: DiaryRow[] = await refreshRowsWithBisSync();
 
         function pickRenderableRows(
           rows: Record<string, any>[],
@@ -435,9 +464,7 @@ export default function SiteDiaryCalendar({
         console.log(`formatted rows`);
         console.dir(formattedRows);
 
-        if (!cancelled) {
-          setRows(data || []);
-        }
+        if (cancelled) return;
       } catch (e: any) {
         if (!cancelled) {
           setError(e?.message ?? "Failed to load site diary");
@@ -451,10 +478,11 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [siteId]);
+  }, [refreshRowsWithBisSync, siteId]);
 
   const hasFilledDays = filledDays.length > 0;
   const hasRecords = rows.length > 0;
+  const GALLERY_PAGE_SIZE = 20;
 
   // Works filter options
   const worksOptions = React.useMemo(() => {
@@ -597,6 +625,7 @@ export default function SiteDiaryCalendar({
 
       setBisMaterialOptions(materials);
       setGalleryAttachmentOptions(attachments);
+      setGalleryAttachmentPage(1);
       setSelectedAttachmentUrls([]);
       setMaterialQuantities(
         Object.fromEntries(materials.map((material) => [material.id, ""])),
@@ -664,6 +693,56 @@ export default function SiteDiaryCalendar({
     ].includes(normalized);
   }, [normalizeApprovalStatus]);
 
+  const getBisStatusLabel = React.useCallback((status: string | null | undefined) => {
+    const normalized = normalizeApprovalStatus(status);
+    if (!normalized) return "Local";
+    if (normalized === "approved") return "Approved";
+    if (isApprovalPendingStatus(status)) return "Sent for approval";
+    if (["sent", "draft", "created"].includes(normalized)) return "Sent to BIS";
+    return normalized.replace(/_/g, " ");
+  }, [isApprovalPendingStatus, normalizeApprovalStatus]);
+
+  const getBisStatusClassName = React.useCallback((status: string | null | undefined) => {
+    const normalized = normalizeApprovalStatus(status);
+    if (!normalized) return "bg-muted text-muted-foreground";
+    if (normalized === "approved") return "bg-green-600 text-white";
+    if (isApprovalPendingStatus(status)) return "bg-blue-600 text-white";
+    if (["sent", "draft", "created"].includes(normalized)) return "bg-amber-500 text-white";
+    return "bg-muted text-foreground";
+  }, [isApprovalPendingStatus, normalizeApprovalStatus]);
+
+  const sortedGalleryAttachmentOptions = React.useMemo(
+    () =>
+      [...galleryAttachmentOptions].sort((a, b) => {
+        const aTime = a.date ? new Date(a.date).getTime() : 0;
+        const bTime = b.date ? new Date(b.date).getTime() : 0;
+        return bTime - aTime;
+      }),
+    [galleryAttachmentOptions],
+  );
+
+  const galleryTotalPages = Math.max(
+    1,
+    Math.ceil(sortedGalleryAttachmentOptions.length / GALLERY_PAGE_SIZE),
+  );
+
+  const pagedGalleryAttachments = React.useMemo(() => {
+    const safePage = Math.min(galleryAttachmentPage, galleryTotalPages);
+    const start = (safePage - 1) * GALLERY_PAGE_SIZE;
+    return sortedGalleryAttachmentOptions.slice(start, start + GALLERY_PAGE_SIZE);
+  }, [
+    GALLERY_PAGE_SIZE,
+    galleryAttachmentPage,
+    galleryTotalPages,
+    sortedGalleryAttachmentOptions,
+  ]);
+
+  React.useEffect(() => {
+    if (galleryAttachmentPage > galleryTotalPages) {
+      setGalleryAttachmentPage(galleryTotalPages);
+    }
+  }, [galleryAttachmentPage, galleryTotalPages]);
+
   const openApprovalDialog = async (row: DiaryRow) => {
     if (!row.id || !row.BISId) {
       toast.error("Send this site diary record to BIS first.");
@@ -716,6 +795,7 @@ export default function SiteDiaryCalendar({
         })),
       );
       setBisApprovalStatusByRowId((prev) => ({ ...prev, [approvalRow.id as string]: result.status }));
+      await refreshRowsWithBisSync({ skipSync: true });
       toast.success("Site diary record submitted for BIS approval.");
       setApproverDialogOpen(false);
     } catch (e: any) {
@@ -741,8 +821,7 @@ export default function SiteDiaryCalendar({
       setCopyLoading(true);
       await copySiteDiaryRecordToDate(copyTargetRow.id, copyTargetDate.toISOString());
       if (!siteId) return;
-      const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
-      setRows(data || []);
+      await refreshRowsWithBisSync();
       reloadFilledDays();
       toast.success("Record copied locally. Submit it to BIS again if needed.");
       setCopyDialogOpen(false);
@@ -762,8 +841,7 @@ export default function SiteDiaryCalendar({
     try {
       setBisSyncLoading(true);
       const result = await syncDeletedSiteDiaryBisRecords(siteId);
-      const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
-      setRows(data || []);
+      await refreshRowsWithBisSync();
 
       if (result.cleared > 0) {
         setBisSentRowIds((prev) => {
@@ -830,25 +908,31 @@ export default function SiteDiaryCalendar({
         setBisApprovalStatusByRowId((prev) => ({ ...prev, [selectedRowForBis.id as string]: "draft" }));
       }
       setBisSentRowIds((prev) => new Set(prev).add(selectedRowForBis.id as string));
-      setRows((prev) =>
-        prev.map((row) =>
-          row.id === selectedRowForBis.id
-            ? {
-                ...row,
-                Date: bisSubmitDate ?? row.Date,
-                Works: bisSubmitWorks,
-                Amounts: Number.isFinite(parsedAmount) ? parsedAmount : row.Amounts,
-                BISId: row.BISId ?? "sent",
-              }
-            : row,
-        ),
-      );
+      await refreshRowsWithBisSync();
       setBisPickerOpen(false);
       toast.success("Site diary record sent to BIS.");
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to send site diary record to BIS.");
     } finally {
       setBisSendingRowId(null);
+    }
+  };
+
+  const handleOpenRecordInBis = async (row: DiaryRow) => {
+    if (!row?.id || !row.BISId) {
+      toast.error("This record has not been sent to BIS yet.");
+      return;
+    }
+
+    try {
+      const url = await getSiteDiaryRecordBisUrl(row.id);
+      if (!url) {
+        toast.error("BIS URL is not available for this record.");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to open record in BIS.");
     }
   };
   const handleDownloadPdf = async (groupKey: string, date: Date) => {
@@ -1377,16 +1461,27 @@ export default function SiteDiaryCalendar({
                                     );
                                   })()}
 
-                                  <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    className="h-7 text-[10px]"
-                                    disabled={!r.id}
-                                    onClick={() => openCopyDialog(r)}
-                                  >
-                                    <Copy className="mr-1 h-3 w-3" />
-                                    Copy to date
-                                  </Button>
+                                  <Badge className={cn("h-7 text-[10px]", getBisStatusClassName(r.id ? bisApprovalStatusByRowId[r.id] ?? r.bisStatus : r.bisStatus))}>
+                                    {getBisStatusLabel(r.id ? bisApprovalStatusByRowId[r.id] ?? r.bisStatus : r.bisStatus)}
+                                  </Badge>
+
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button size="sm" variant="outline" className="h-7 px-2">
+                                        <Ellipsis className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
+                                        <Copy className="mr-2 h-3 w-3" />
+                                        Copy to date
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleOpenRecordInBis(r)} disabled={!r.BISId}>
+                                        <ExternalLink className="mr-2 h-3 w-3" />
+                                        Open in BIS
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               ) : (
                                 <div className="mt-2">
@@ -1484,9 +1579,16 @@ export default function SiteDiaryCalendar({
                                   ) : null}
                                     <TableHead
                                       className="text-center"
-                                      style={{ width: 120 }}
+                                      style={{ width: 140 }}
                                     >
-                                      Copy
+                                      Status
+                                    </TableHead>
+
+                                    <TableHead
+                                      className="text-center"
+                                      style={{ width: 100 }}
+                                    >
+                                      Action
                                     </TableHead>
 
                                     <TableHead
@@ -1625,18 +1727,53 @@ export default function SiteDiaryCalendar({
 
                                       <TableCell
                                         className="align-top px-3 py-2 text-center"
-                                        style={{ width: 120 }}
+                                        style={{ width: 140 }}
                                       >
-                                        <Button
-                                          size="sm"
-                                          variant="secondary"
-                                          className="h-8"
-                                          disabled={!row.id}
-                                          onClick={() => openCopyDialog(group.rows[i] ?? row)}
+                                        <Badge
+                                          className={cn(
+                                            "capitalize",
+                                            getBisStatusClassName(
+                                              row.id
+                                                ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
+                                                : group.rows[i]?.bisStatus,
+                                            ),
+                                          )}
                                         >
-                                          <Copy className="mr-1 h-3 w-3" />
-                                          Copy
-                                        </Button>
+                                          {getBisStatusLabel(
+                                            row.id
+                                              ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
+                                              : group.rows[i]?.bisStatus,
+                                          )}
+                                        </Badge>
+                                      </TableCell>
+
+                                      <TableCell
+                                        className="align-top px-3 py-2 text-center"
+                                        style={{ width: 100 }}
+                                      >
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!row.id}>
+                                              <Ellipsis className="h-4 w-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                              onClick={() => openCopyDialog(group.rows[i] ?? row)}
+                                              disabled={!row.id}
+                                            >
+                                              <Copy className="mr-2 h-3.5 w-3.5" />
+                                              Copy
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={() => handleOpenRecordInBis(group.rows[i] ?? row)}
+                                              disabled={!group.rows[i]?.BISId}
+                                            >
+                                              <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                                              Open in BIS
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
                                       </TableCell>
 
                                       <TableCell
@@ -1693,9 +1830,7 @@ export default function SiteDiaryCalendar({
 
             if (!siteId) return;
             setLoading(true);
-            const data: DiaryRow[] =
-              await getSitediaryRecordsBySiteIdForExcel(siteId);
-            setRows(data || []);
+            await refreshRowsWithBisSync();
             setLoading(false);
           }}
         >
@@ -1802,6 +1937,7 @@ export default function SiteDiaryCalendar({
                         <thead className="bg-muted/50 text-xs text-muted-foreground">
                           <tr>
                             <th className="px-3 py-2 text-left font-medium">Material</th>
+                            <th className="px-3 py-2 text-left font-medium">Unit</th>
                             <th className="px-3 py-2 text-right font-medium">Total</th>
                             <th className="px-3 py-2 text-right font-medium">Used</th>
                             <th className="px-3 py-2 text-right font-medium">Available</th>
@@ -1813,11 +1949,14 @@ export default function SiteDiaryCalendar({
                             <tr key={material.id} className="border-t">
                               <td className="px-3 py-2 align-top">
                                 <div className="font-medium">{material.label}</div>
-                                <div className="text-xs text-muted-foreground">{material.measurementUnit || "—"}</div>
+                                <div className="text-xs text-muted-foreground">ID: {material.id}</div>
                               </td>
+                              <td className="px-3 py-2">{material.measurementUnit || "—"}</td>
                               <td className="px-3 py-2 text-right">{material.deliveredQuantity ?? "—"}</td>
                               <td className="px-3 py-2 text-right">{material.usedQuantity ?? "—"}</td>
-                              <td className="px-3 py-2 text-right font-semibold">{material.availableQuantity}</td>
+                              <td className="px-3 py-2 text-right font-semibold">
+                                {material.availableQuantity} {material.measurementUnit || ""}
+                              </td>
                               <td className="px-3 py-2 text-right">
                                 <Input
                                   type="text"
@@ -1864,7 +2003,8 @@ export default function SiteDiaryCalendar({
                   {selectedAttachmentUrls.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No attachments selected. This is optional.</p>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-4">
+                    <div className="max-h-56 overflow-y-auto rounded-md border p-2">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                       {selectedAttachmentUrls.map((url) => (
                         <div key={url} className="relative overflow-hidden rounded border">
                           <img src={url} alt="Selected attachment" className="h-24 w-full object-cover" />
@@ -1877,6 +2017,7 @@ export default function SiteDiaryCalendar({
                           </button>
                         </div>
                       ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2019,8 +2160,9 @@ export default function SiteDiaryCalendar({
             {galleryAttachmentOptions.length === 0 ? (
               <p className="text-sm text-muted-foreground">No gallery photos available for this site.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-                {galleryAttachmentOptions.map((attachment) => {
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+                {pagedGalleryAttachments.map((attachment) => {
                   const checked = selectedAttachmentUrls.includes(attachment.url);
                   return (
                     <label
@@ -2053,6 +2195,35 @@ export default function SiteDiaryCalendar({
                     </label>
                   );
                 })}
+                </div>
+
+                <div className="flex items-center justify-between rounded border bg-muted/20 px-3 py-2 text-xs">
+                  <span>
+                    Page {galleryAttachmentPage} of {galleryTotalPages} • {sortedGalleryAttachmentOptions.length} photos
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={galleryAttachmentPage <= 1}
+                      onClick={() => setGalleryAttachmentPage((prev) => Math.max(1, prev - 1))}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={galleryAttachmentPage >= galleryTotalPages}
+                      onClick={() =>
+                        setGalleryAttachmentPage((prev) => Math.min(galleryTotalPages, prev + 1))
+                      }
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 

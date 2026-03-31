@@ -232,6 +232,7 @@ model sitediaryrecords {
   Units           String?
   Amounts         Float?
   BISId String?
+  bisStatus String?
   WorkersInvolved Int?
   TimeInvolved    Float?
   Photos          String[]

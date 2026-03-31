@@ -377,6 +377,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       TimeInvolved: true,
       Photos: true,
       BISId: true,
+      bisStatus: true,
       originalUserComment: true,
 
       // createdBy support
@@ -440,6 +441,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
 
       Photos: rec.Photos ?? [],
       BISId: rec.BISId || null,
+      bisStatus: rec.bisStatus || null,
       originalUserComment: rec.originalUserComment || "",
 
       createdBy: createdBy || "N/A",
@@ -915,9 +917,11 @@ export async function sendSiteDiaryRecordToBis(
   const bisId = json?.data?.id ? String(json.data.id) : null;
 
   if (bisId) {
+    const bisStatus =
+      json?.data?.attributes?.status == null ? "sent" : String(json.data.attributes.status);
     await prisma.sitediaryrecords.update({
       where: { id: recordId },
-      data: { BISId: bisId },
+      data: { BISId: bisId, bisStatus },
     });
   }
 
@@ -1099,10 +1103,23 @@ export async function getSiteDiaryBisApprovalStatus(recordId: string) {
   }
 
   if (!res.ok) {
+    if (res.status === 404) {
+      await prisma.sitediaryrecords.update({
+        where: { id: recordId },
+        data: { BISId: null, bisStatus: null },
+      });
+      return null;
+    }
     throw new Error(json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS record status");
   }
 
-  return json?.data?.attributes?.status ? String(json.data.attributes.status) : null;
+  const status = json?.data?.attributes?.status ? String(json.data.attributes.status) : null;
+  await prisma.sitediaryrecords.update({
+    where: { id: recordId },
+    data: { bisStatus: status },
+  });
+
+  return status;
 }
 
 export async function submitSiteDiaryRecordToBisApproval(
@@ -1175,10 +1192,16 @@ export async function submitSiteDiaryRecordToBisApproval(
     );
   }
 
+  const status = json?.data?.attributes?.status
+    ? String(json.data.attributes.status)
+    : "submitted_to_approve";
+  await prisma.sitediaryrecords.update({
+    where: { id: recordId },
+    data: { bisStatus: status },
+  });
+
   return {
-    status: json?.data?.attributes?.status
-      ? String(json.data.attributes.status)
-      : "submitted_to_approve",
+    status,
   };
 }
 
@@ -1250,6 +1273,7 @@ export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO:
       TimeInvolved: source.TimeInvolved,
       Photos: source.Photos,
       BISId: null,
+      bisStatus: null,
     },
     select: { id: true },
   });
@@ -1271,7 +1295,7 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
       siteId,
       BISId: { not: null },
     },
-    select: { id: true, BISId: true },
+    select: { id: true, BISId: true, bisStatus: true },
   });
 
   const clearedRecordIds: string[] = [];
@@ -1291,7 +1315,25 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
       },
     );
 
-    if (res.ok) continue;
+    if (res.ok) {
+      const text = await res.text();
+      let json: any = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = null;
+      }
+
+      const currentStatus =
+        json?.data?.attributes?.status == null ? null : String(json.data.attributes.status);
+      if ((record.bisStatus ?? null) !== currentStatus) {
+        await prisma.sitediaryrecords.update({
+          where: { id: record.id },
+          data: { bisStatus: currentStatus },
+        });
+      }
+      continue;
+    }
 
     const text = await res.text();
     let json: any = null;
@@ -1307,7 +1349,7 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
     if (shouldClear) {
       await prisma.sitediaryrecords.update({
         where: { id: record.id },
-        data: { BISId: null },
+        data: { BISId: null, bisStatus: null },
       });
       clearedRecordIds.push(record.id);
     }
@@ -1318,6 +1360,24 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
     cleared: clearedRecordIds.length,
     clearedRecordIds,
   };
+}
+
+export async function getSiteDiaryRecordBisUrl(recordId: string) {
+  if (!recordId) throw new Error("Missing site diary record id");
+
+  const user = await requireUser();
+  const record = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true, BISId: true },
+  });
+
+  if (!record?.siteId || !record.BISId) return null;
+  await orgCheck(user.id, record.siteId);
+
+  const { bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const baseUrl = getBisBaseUrl();
+
+  return `${baseUrl}/bisp/lv/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}`;
 }
 
 async function uploadLogbookAttachmentToBis({
