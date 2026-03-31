@@ -112,6 +112,7 @@ type MaterialType = {
   id: string;
   name: string;
   categoryName?: string | null;
+  isHeader?: boolean;
 };
 
 type WarehouseBisSyncResult = {
@@ -270,10 +271,14 @@ async function loadWarehouseBisState(
 async function fetchBisPagedData(pathname: string, accessToken: string) {
   const results: any[] = [];
   let page = 1;
+  const pageSize = 100;
 
   while (true) {
     const separator = pathname.includes("?") ? "&" : "?";
-    const json = await fetchBisJson(`${pathname}${separator}page[number]=${page}&page[size]=200`, accessToken);
+    const json = await fetchBisJson(
+      `${pathname}${separator}page[number]=${page}&page[size]=${pageSize}`,
+      accessToken,
+    );
     const rows = Array.isArray(json?.data) ? json.data : [];
 
     if (!rows.length) {
@@ -282,7 +287,8 @@ async function fetchBisPagedData(pathname: string, accessToken: string) {
 
     results.push(...rows);
 
-    if (rows.length < 200) {
+    const hasNextPage = Boolean(json?.links?.next);
+    if (!hasNextPage && rows.length < pageSize) {
       break;
     }
 
@@ -336,8 +342,34 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
     .filter((item: MaterialCategory) => item.id && item.material_kind)
     .sort((a, b) => a.material_kind.localeCompare(b.material_kind));
 
+  const allowedMeasurementNames = new Set([
+    "cm",
+    "dienas",
+    "gab",
+    "ha",
+    "kg",
+    "km",
+    "komplekts",
+    "kv",
+    "kva",
+    "kw",
+    "l",
+    "m",
+    "m2",
+    "m3",
+    "mēneši",
+    "mm",
+    "mm2",
+    "stundas",
+    "t",
+  ]);
+
   const materialMeasures = Array.from(measurementMap.entries())
     .map(([id, name]) => ({ id, name }))
+    .filter((item) => {
+      const normalizedName = item.name.trim().replace(/\./g, "").toLowerCase();
+      return allowedMeasurementNames.has(normalizedName);
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const materialTypes = materialTypesData
@@ -348,9 +380,10 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
         item?.attributes?.category_name == null
           ? null
           : String(item.attributes.category_name),
+      isHeader: /^\d{2}$/.test(String(item?.attributes?.code ?? "")),
     }))
     .filter((item: MaterialType) => item.id && item.name)
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a, b) => a.id.localeCompare(b.id));
 
   return { materialConfigurations, materialMeasures, materialTypes };
 }

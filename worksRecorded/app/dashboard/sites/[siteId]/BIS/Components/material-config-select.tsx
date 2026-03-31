@@ -35,6 +35,7 @@ type MaterialTypeOption = {
   id: string
   name: string
   categoryName?: string | null
+  isHeader?: boolean
 }
 
 export default function MaterialConfigSelect({
@@ -276,8 +277,10 @@ export default function MaterialConfigSelect({
                 </SelectTrigger>
                 <SelectContent>
                   {materialTypes.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.categoryName ? `${item.categoryName} — ${item.name}` : item.name}
+                    <SelectItem key={item.id} value={item.id} disabled={item.isHeader}>
+                      {item.categoryName
+                        ? `${item.categoryName} — ${item.name}`
+                        : item.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
