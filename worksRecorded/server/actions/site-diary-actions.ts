@@ -626,6 +626,9 @@ export async function sendSiteDiaryRecordToBis(
   options?: {
     materials?: BisPerformedWorkMaterialSelection[];
     attachments?: BisPerformedWorkAttachmentSelection[];
+    eventDate?: string;
+    worksDescription?: string;
+    amount?: number;
   },
 ) {
   if (!recordId) throw new Error("Missing site diary record id");
@@ -660,12 +663,16 @@ export async function sendSiteDiaryRecordToBis(
 
   const baseUrl = getBisBaseUrl();
 
-  const eventDate = (diaryRecord.Date ?? new Date()).toISOString().slice(0, 10);
+  const eventDate = options?.eventDate
+    ? new Date(options.eventDate).toISOString().slice(0, 10)
+    : (diaryRecord.Date ?? new Date()).toISOString().slice(0, 10);
   const eventTimeFrom = new Date().toTimeString().slice(0, 5);
+  const amountValue = Number(options?.amount ?? diaryRecord.Amounts ?? 1);
+  const descriptionOverride = options?.worksDescription?.trim();
 
   const detailAttributes = {
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
-    quantity: Number(diaryRecord.Amounts ?? 1),
+    quantity: Number.isFinite(amountValue) ? amountValue : 1,
     measurement: Number(process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
   };
 
@@ -696,7 +703,7 @@ export async function sendSiteDiaryRecordToBis(
     }));
 
   const descriptionParts = [
-    diaryRecord.Works ? `Works: ${diaryRecord.Works}` : null,
+    (descriptionOverride || diaryRecord.Works) ? `Works: ${descriptionOverride || diaryRecord.Works}` : null,
     diaryRecord.Location ? `Location: ${diaryRecord.Location}` : null,
     diaryRecord.Comments ? `Comments: ${diaryRecord.Comments}` : null,
   ].filter(Boolean);
@@ -1035,6 +1042,69 @@ export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO:
   });
 
   return { id: copied.id };
+}
+
+export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
+  if (!siteId) throw new Error("Missing site id");
+
+  const user = await requireUser();
+  await orgCheck(user.id, siteId);
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const records = await prisma.sitediaryrecords.findMany({
+    where: {
+      siteId,
+      BISId: { not: null },
+    },
+    select: { id: true, BISId: true },
+  });
+
+  const clearedRecordIds: string[] = [];
+
+  for (const record of records) {
+    const bisId = String(record.BISId ?? "");
+    if (!bisId) continue;
+
+    const res = await fetch(
+      `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${bisId}`,
+      {
+        headers: {
+          Accept: "application/vnd.api+json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (res.ok) continue;
+
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+
+    const message = String(json?.errors?.[0]?.detail || json?.error || "").toLowerCase();
+    const shouldClear = res.status === 404 || message.includes("not found") || message.includes("deleted");
+
+    if (shouldClear) {
+      await prisma.sitediaryrecords.update({
+        where: { id: record.id },
+        data: { BISId: null },
+      });
+      clearedRecordIds.push(record.id);
+    }
+  }
+
+  return {
+    checked: records.length,
+    cleared: clearedRecordIds.length,
+    clearedRecordIds,
+  };
 }
 
 async function uploadLogbookAttachmentToBis({

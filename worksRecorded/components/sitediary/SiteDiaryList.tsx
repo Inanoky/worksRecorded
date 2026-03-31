@@ -19,6 +19,7 @@ import {
   getSiteGalleryAttachments,
   getSitediaryRecordsBySiteIdForExcel,
   sendSiteDiaryRecordToBis,
+  syncDeletedSiteDiaryBisRecords,
   submitSiteDiaryRecordToBisApproval,
 } from "@/server/actions/site-diary-actions";
 import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
@@ -29,6 +30,7 @@ import {
   Filter,
   Images,
   Loader2,
+  RefreshCw,
   ShieldCheck,
 } from "lucide-react";
 import TourRunner from "@/components/joyride/TourRunner";
@@ -321,6 +323,10 @@ export default function SiteDiaryCalendar({
   const [copyTargetRow, setCopyTargetRow] = React.useState<DiaryRow | null>(null);
   const [copyTargetDate, setCopyTargetDate] = React.useState<Date | null>(null);
   const [copyLoading, setCopyLoading] = React.useState(false);
+  const [bisSubmitDate, setBisSubmitDate] = React.useState<Date | null>(null);
+  const [bisSubmitWorks, setBisSubmitWorks] = React.useState("");
+  const [bisSubmitAmount, setBisSubmitAmount] = React.useState<string>("1");
+  const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -574,6 +580,9 @@ export default function SiteDiaryCalendar({
     }
 
     setSelectedRowForBis(row);
+    setBisSubmitDate(row.Date ? new Date(row.Date) : new Date());
+    setBisSubmitWorks(String(row.Works ?? ""));
+    setBisSubmitAmount(String(row.Amounts ?? 1));
     setBisPickerOpen(true);
     setBisPickerLoading(true);
 
@@ -747,6 +756,42 @@ export default function SiteDiaryCalendar({
     }
   };
 
+  const handleSyncBisRecords = async () => {
+    if (!siteId) {
+      toast.error("Missing site id.");
+      return;
+    }
+
+    try {
+      setBisSyncLoading(true);
+      const result = await syncDeletedSiteDiaryBisRecords(siteId);
+      const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+      setRows(data || []);
+
+      if (result.cleared > 0) {
+        setBisSentRowIds((prev) => {
+          const next = new Set(prev);
+          result.clearedRecordIds.forEach((id) => next.delete(id));
+          return next;
+        });
+        setBisApprovalStatusByRowId((prev) => {
+          const next = { ...prev };
+          result.clearedRecordIds.forEach((id) => {
+            delete next[id];
+          });
+          return next;
+        });
+        toast.success(`${result.cleared} BIS link(s) were removed because records were deleted in BIS.`);
+      } else {
+        toast.success("BIS sync completed. No deleted BIS records found.");
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to sync BIS records.");
+    } finally {
+      setBisSyncLoading(false);
+    }
+  };
+
   const handleSendRowToBis = async () => {
     if (!selectedRowForBis?.id) {
       toast.error("Missing selected record id.");
@@ -758,14 +803,10 @@ export default function SiteDiaryCalendar({
       return;
     }
 
-    if (selectedAttachmentUrls.length === 0) {
-      toast.error("Please select at least one attachment from gallery.");
-      return;
-    }
-
     try {
       setBisSendingRowId(selectedRowForBis.id);
 
+      const parsedAmount = Number(bisSubmitAmount);
       await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
         materials: selectedMaterialIds.map((materialId) => {
           const available = Number(
@@ -779,6 +820,9 @@ export default function SiteDiaryCalendar({
           };
         }),
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
+        eventDate: bisSubmitDate ? bisSubmitDate.toISOString() : undefined,
+        worksDescription: bisSubmitWorks,
+        amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
       });
 
       const bisStatus = selectedRowForBis.id ? bisApprovalStatusByRowId[selectedRowForBis.id] : null;
@@ -786,6 +830,19 @@ export default function SiteDiaryCalendar({
         setBisApprovalStatusByRowId((prev) => ({ ...prev, [selectedRowForBis.id as string]: "draft" }));
       }
       setBisSentRowIds((prev) => new Set(prev).add(selectedRowForBis.id as string));
+      setRows((prev) =>
+        prev.map((row) =>
+          row.id === selectedRowForBis.id
+            ? {
+                ...row,
+                Date: bisSubmitDate ?? row.Date,
+                Works: bisSubmitWorks,
+                Amounts: Number.isFinite(parsedAmount) ? parsedAmount : row.Amounts,
+                BISId: row.BISId ?? "sent",
+              }
+            : row,
+        ),
+      );
       setBisPickerOpen(false);
       toast.success("Site diary record sent to BIS.");
     } catch (e: any) {
@@ -882,6 +939,12 @@ export default function SiteDiaryCalendar({
                 <Button variant="outline" onClick={exportToExcel}>
                   Export to Excel
                 </Button>
+                {bisEnabled ? (
+                  <Button variant="outline" onClick={handleSyncBisRecords} disabled={bisSyncLoading}>
+                    <RefreshCw className={cn("mr-2 h-4 w-4", bisSyncLoading ? "animate-spin" : "")} />
+                    {bisSyncLoading ? "Refreshing..." : "Refresh BIS sync"}
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>
@@ -1645,7 +1708,7 @@ export default function SiteDiaryCalendar({
             <DialogHeader>
               <DialogTitle>Select BIS materials and attachments</DialogTitle>
               <p className="text-xs text-muted-foreground">
-                Select approved materials with remaining quantity and attach images from the site gallery.
+                Select approved materials, adjust diary data to send, and optionally attach gallery images.
               </p>
             </DialogHeader>
 
@@ -1657,7 +1720,41 @@ export default function SiteDiaryCalendar({
             ) : (
               <div className="space-y-6">
                 <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                  Selected materials: {selectedMaterialIds.length} • Selected attachments: {selectedAttachmentUrls.length}
+                  Selected materials: {selectedMaterialIds.length} • Selected attachments: {selectedAttachmentUrls.length} (optional)
+                </div>
+
+                <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground">BIS event date</label>
+                    <Input
+                      type="date"
+                      value={bisSubmitDate ? bisSubmitDate.toISOString().slice(0, 10) : ""}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setBisSubmitDate(value ? new Date(`${value}T00:00:00`) : null);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground">Works description</label>
+                    <Input
+                      value={bisSubmitWorks}
+                      onChange={(event) => setBisSubmitWorks(event.target.value)}
+                      placeholder="Describe works sent to BIS"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground">
+                      Amount {selectedRowForBis?.Units ? `(${selectedRowForBis.Units})` : ""}
+                    </label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={bisSubmitAmount}
+                      onChange={(event) => setBisSubmitAmount(event.target.value)}
+                      placeholder="Enter amount"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -1668,8 +1765,9 @@ export default function SiteDiaryCalendar({
                     ) : (
                       bisMaterialOptions.map((material) => {
                         const checked = selectedMaterialIds.includes(material.id);
+                        const unitSuffix = material.measurementUnit ? ` ${material.measurementUnit}` : "";
                         return (
-                          <div key={material.id} className="flex items-start justify-between gap-3 rounded border bg-background p-2">
+                          <div key={material.id} className="space-y-2 rounded border bg-background p-3">
                             <label className="flex items-start gap-2 text-sm">
                               <Checkbox
                                 checked={checked}
@@ -1677,33 +1775,35 @@ export default function SiteDiaryCalendar({
                               />
                               <span className="leading-tight">
                                 {material.label}
-                                {material.measurementUnit ? ` (${material.measurementUnit})` : ""}
                                 <span className="block text-xs text-muted-foreground">
-                                  Remaining available: {material.availableQuantity}
+                                  Unit: {material.measurementUnit || "—"}
                                 </span>
-                                <span className="block text-[11px] text-muted-foreground/80">
-                                  Delivered: {material.deliveredQuantity ?? "—"} • Used: {material.usedQuantity ?? "—"}
+                                <span className="mt-1 block rounded bg-muted px-2 py-1 text-[11px] text-muted-foreground/90">
+                                  Delivered: {material.deliveredQuantity ?? "—"}{unitSuffix} • Used: {material.usedQuantity ?? "—"}{unitSuffix} •
+                                  <span className="font-semibold text-foreground"> Available: {material.availableQuantity}{unitSuffix}</span>
                                 </span>
                               </span>
                             </label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={material.availableQuantity}
-                              step="0.01"
-                              className="w-28"
-                              value={materialQuantities[material.id] ?? 0}
-                              disabled={!checked}
-                              onChange={(e) =>
-                                setMaterialQuantities((prev) => ({
-                                  ...prev,
-                                  [material.id]: Math.max(
-                                    0,
-                                    Math.min(Number(e.target.value || 0), Number(material.availableQuantity)),
-                                  ),
-                                }))
-                              }
-                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-xs text-muted-foreground">Quantity to send</span>
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                className="w-32"
+                                value={materialQuantities[material.id] ?? 0}
+                                disabled={!checked}
+                                onChange={(e) =>
+                                  setMaterialQuantities((prev) => ({
+                                    ...prev,
+                                    [material.id]: Math.max(
+                                      0,
+                                      Math.min(Number(e.target.value || 0), Number(material.availableQuantity)),
+                                    ),
+                                  }))
+                                }
+                              />
+                              <span className="text-xs text-muted-foreground">{material.measurementUnit || ""}</span>
+                            </div>
                           </div>
                         );
                       })
@@ -1725,7 +1825,7 @@ export default function SiteDiaryCalendar({
                   </div>
 
                   {selectedAttachmentUrls.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No attachments selected yet. Click “Add attachment” to open gallery.</p>
+                    <p className="text-xs text-muted-foreground">No attachments selected. This is optional.</p>
                   ) : (
                     <div className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-4">
                       {selectedAttachmentUrls.map((url) => (
@@ -1752,8 +1852,7 @@ export default function SiteDiaryCalendar({
                     onClick={handleSendRowToBis}
                     disabled={
                       Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
-                      selectedMaterialIds.length === 0 ||
-                      selectedAttachmentUrls.length === 0
+                      selectedMaterialIds.length === 0
                     }
                   >
                     {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
