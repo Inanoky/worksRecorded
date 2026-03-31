@@ -505,6 +505,40 @@ async function fetchBisPagedList(
   return allRows;
 }
 
+async function fetchBisRelatedResource(
+  relatedUrl: string,
+  accessToken: string,
+  baseUrl: string,
+): Promise<any | null> {
+  if (!relatedUrl) return null;
+
+  const url = relatedUrl.startsWith("http")
+    ? relatedUrl
+    : `${baseUrl}${relatedUrl.startsWith("/") ? relatedUrl : `/${relatedUrl}`}`;
+
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.api+json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return json?.data ?? null;
+}
+
 export async function getBisCaseAvailableMaterials(siteId: string) {
   const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(siteId);
 
@@ -562,41 +596,74 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
     receivedProductsUrl,
     accessToken,
   );
+
+  const resolvedReceivedItems = await Promise.all(
+    availableReceivedItems.map(async (item: any) => {
+      const attributes = item?.attributes ?? {};
+      const detailRelatedUrl = item?.relationships?.detail?.links?.related ?? null;
+      const constructionMaterialRelatedUrl =
+        item?.relationships?.construction_material?.links?.related ?? null;
+      const detailData =
+        attributes?.construction_material_id == null || attributes?.quantity == null
+          ? await fetchBisRelatedResource(detailRelatedUrl, accessToken, baseUrl)
+          : null;
+      const detailAttributes = detailData?.attributes ?? {};
+
+      const directMaterialId =
+        attributes?.construction_material_id ??
+        detailAttributes?.construction_material_id ??
+        null;
+
+      const parsedMaterialIdFromRelation =
+        typeof constructionMaterialRelatedUrl === "string"
+          ? constructionMaterialRelatedUrl.match(/\/construction_materials\/([^/?#]+)/)?.[1] ?? null
+          : null;
+
+      const constructionMaterialId =
+        directMaterialId == null ? parsedMaterialIdFromRelation : String(directMaterialId);
+      const quantityRaw =
+        attributes?.quantity == null ? detailAttributes?.quantity ?? null : attributes.quantity;
+
+      return {
+        id: item?.id ?? null,
+        constructionMaterialId,
+        quantity: quantityRaw == null ? 0 : Number(quantityRaw),
+        materialName: attributes?.material_name ?? attributes?.material_kind ?? null,
+        measurementUnit:
+          attributes?.measurement_unit == null
+            ? attributes?.measurement == null
+              ? detailAttributes?.measurement_unit == null
+                ? detailAttributes?.measurement == null
+                  ? null
+                  : String(detailAttributes.measurement)
+                : String(detailAttributes.measurement_unit)
+              : String(attributes.measurement)
+            : String(attributes.measurement_unit),
+        caseConstructionRoundId: attributes?.case_construction_round_id ?? null,
+      };
+    }),
+  );
+
   console.log("[SiteDiary BIS] Available received construction products loaded", {
     siteId,
     bisCase,
     caseConstructionRoundId,
     endpoint: receivedProductsUrl,
     count: availableReceivedItems.length,
-    sample: availableReceivedItems.slice(0, 3).map((item: any) => ({
-      id: item?.id ?? null,
-      construction_material_id: item?.attributes?.construction_material_id ?? null,
-      quantity: item?.attributes?.quantity ?? null,
-      material_name: item?.attributes?.material_name ?? null,
-      case_construction_round_id: item?.attributes?.case_construction_round_id ?? null,
-    })),
+    sample: resolvedReceivedItems.slice(0, 3),
   });
 
   // Build metadata (label/unit) and total delivered quantity by construction_material_id.
   const approvedMaterialMeta = new Map<string, { label: string; measurementUnit: string | null }>();
   const deliveredByMaterial = new Map<string, number>();
 
-  for (const item of availableReceivedItems) {
-    const attributes = item?.attributes ?? {};
-    const constructionMaterialId = String(attributes?.construction_material_id ?? "");
+  for (const item of resolvedReceivedItems) {
+    const constructionMaterialId = String(item?.constructionMaterialId ?? "");
     if (!constructionMaterialId) continue;
 
-    const deliveredQuantity = Number(attributes?.quantity ?? 0);
-    const measurementUnit =
-      attributes?.measurement_unit == null
-        ? attributes?.measurement == null
-          ? null
-          : String(attributes.measurement)
-        : String(attributes.measurement_unit);
-    const label =
-      attributes?.material_name ??
-      attributes?.material_kind ??
-      `Material #${constructionMaterialId}`;
+    const deliveredQuantity = Number(item?.quantity ?? 0);
+    const measurementUnit = item?.measurementUnit == null ? null : String(item.measurementUnit);
+    const label = item?.materialName ?? `Material #${constructionMaterialId}`;
 
     if (!approvedMaterialMeta.has(constructionMaterialId)) {
       approvedMaterialMeta.set(constructionMaterialId, {
