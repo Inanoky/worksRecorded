@@ -11,19 +11,25 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import {
+  copySiteDiaryRecordToDate,
   getBisCaseAvailableMaterials,
   getFilledDays,
+  getPossibleSiteDiaryBisApprovers,
+  getSiteDiaryBisApprovalStatus,
   getSiteGalleryAttachments,
   getSitediaryRecordsBySiteIdForExcel,
   sendSiteDiaryRecordToBis,
+  submitSiteDiaryRecordToBisApproval,
 } from "@/server/actions/site-diary-actions";
 import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import * as XLSX from "xlsx";
 import {
   CalendarIcon,
+  Copy,
   Filter,
   Images,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import TourRunner from "@/components/joyride/TourRunner";
 
@@ -142,6 +148,14 @@ type GalleryAttachmentOption = {
   url: string;
   date?: Date | null;
   comment?: string | null;
+};
+
+type BisApprover = {
+  memberId: string;
+  memberType: string | null;
+  level: number | null;
+  name: string | null;
+  status: string | null;
 };
 
 function getCalendarGrid(year: number, month: number) {
@@ -297,6 +311,16 @@ export default function SiteDiaryCalendar({
   const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, number>>({});
   const [bisPickerLoading, setBisPickerLoading] = React.useState(false);
   const [attachmentGalleryOpen, setAttachmentGalleryOpen] = React.useState(false);
+  const [approverDialogOpen, setApproverDialogOpen] = React.useState(false);
+  const [approvalLoading, setApprovalLoading] = React.useState(false);
+  const [approverOptions, setApproverOptions] = React.useState<BisApprover[]>([]);
+  const [selectedApproverKeys, setSelectedApproverKeys] = React.useState<string[]>([]);
+  const [approvalRow, setApprovalRow] = React.useState<DiaryRow | null>(null);
+  const [bisApprovalStatusByRowId, setBisApprovalStatusByRowId] = React.useState<Record<string, string>>({});
+  const [copyDialogOpen, setCopyDialogOpen] = React.useState(false);
+  const [copyTargetRow, setCopyTargetRow] = React.useState<DiaryRow | null>(null);
+  const [copyTargetDate, setCopyTargetDate] = React.useState<Date | null>(null);
+  const [copyLoading, setCopyLoading] = React.useState(false);
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -592,6 +616,137 @@ export default function SiteDiaryCalendar({
     );
   };
 
+  const approverKey = React.useCallback(
+    (approver: BisApprover) =>
+      `${approver.memberId}:${approver.memberType ?? ""}:${approver.level ?? ""}`,
+    [],
+  );
+
+  const defaultApproverKeys = React.useCallback(
+    (approvers: BisApprover[]) => {
+      const firstPerLevel = new Map<string, string>();
+      for (const approver of approvers) {
+        const levelKey = String(approver.level ?? "");
+        if (!firstPerLevel.has(levelKey)) {
+          firstPerLevel.set(levelKey, approverKey(approver));
+        }
+      }
+      return Array.from(firstPerLevel.values());
+    },
+    [approverKey],
+  );
+
+  const normalizeApprovalStatus = React.useCallback((status: string | null | undefined) => {
+    return (status ?? "").trim().toLowerCase();
+  }, []);
+
+  const isApprovedStatus = React.useCallback((status: string | null | undefined) => {
+    return normalizeApprovalStatus(status) === "approved";
+  }, [normalizeApprovalStatus]);
+
+  const isApprovalPendingStatus = React.useCallback((status: string | null | undefined) => {
+    const normalized = normalizeApprovalStatus(status);
+    return [
+      "approving",
+      "submitted_to_approve",
+      "submitted",
+      "pending",
+      "pending_approval",
+      "on_approval",
+      "approval_in_progress",
+      "ready_for_approval",
+    ].includes(normalized);
+  }, [normalizeApprovalStatus]);
+
+  const openApprovalDialog = async (row: DiaryRow) => {
+    if (!row.id || !row.BISId) {
+      toast.error("Send this site diary record to BIS first.");
+      return;
+    }
+
+    try {
+      const currentStatus = await getSiteDiaryBisApprovalStatus(row.id);
+      if (currentStatus) {
+        setBisApprovalStatusByRowId((prev) => ({ ...prev, [row.id as string]: currentStatus }));
+      }
+      if (isApprovedStatus(currentStatus) || isApprovalPendingStatus(currentStatus)) {
+        return;
+      }
+
+      setApprovalRow(row);
+      setApproverDialogOpen(true);
+      const approvers = await getPossibleSiteDiaryBisApprovers(row.id);
+      setApproverOptions(approvers);
+      setSelectedApproverKeys(defaultApproverKeys(approvers));
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to load BIS approvers.");
+      setApproverDialogOpen(false);
+    }
+  };
+
+  const submitApproval = async () => {
+    if (!approvalRow?.id) {
+      toast.error("No record selected for approval.");
+      return;
+    }
+
+    const selectedApprovers = approverOptions.filter((approver) =>
+      selectedApproverKeys.includes(approverKey(approver)),
+    );
+
+    if (selectedApprovers.length === 0) {
+      toast.error("Select at least one approver.");
+      return;
+    }
+
+    try {
+      setApprovalLoading(true);
+      const result = await submitSiteDiaryRecordToBisApproval(
+        approvalRow.id,
+        selectedApprovers.map((approver) => ({
+          memberId: approver.memberId,
+          memberType: approver.memberType,
+          level: approver.level,
+        })),
+      );
+      setBisApprovalStatusByRowId((prev) => ({ ...prev, [approvalRow.id as string]: result.status }));
+      toast.success("Site diary record submitted for BIS approval.");
+      setApproverDialogOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to submit approval.");
+    } finally {
+      setApprovalLoading(false);
+    }
+  };
+
+  const openCopyDialog = (row: DiaryRow) => {
+    setCopyTargetRow(row);
+    setCopyTargetDate(row.Date ? new Date(row.Date) : new Date());
+    setCopyDialogOpen(true);
+  };
+
+  const handleCopyRecord = async () => {
+    if (!copyTargetRow?.id || !copyTargetDate) {
+      toast.error("Select a record and target date.");
+      return;
+    }
+
+    try {
+      setCopyLoading(true);
+      await copySiteDiaryRecordToDate(copyTargetRow.id, copyTargetDate.toISOString());
+      if (!siteId) return;
+      const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+      setRows(data || []);
+      reloadFilledDays();
+      toast.success("Record copied locally. Submit it to BIS again if needed.");
+      setCopyDialogOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to copy record.");
+    } finally {
+      setCopyLoading(false);
+    }
+  };
+
   const handleSendRowToBis = async () => {
     if (!selectedRowForBis?.id) {
       toast.error("Missing selected record id.");
@@ -626,6 +781,10 @@ export default function SiteDiaryCalendar({
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
       });
 
+      const bisStatus = selectedRowForBis.id ? bisApprovalStatusByRowId[selectedRowForBis.id] : null;
+      if (selectedRowForBis.id && !bisStatus) {
+        setBisApprovalStatusByRowId((prev) => ({ ...prev, [selectedRowForBis.id as string]: "draft" }));
+      }
       setBisSentRowIds((prev) => new Set(prev).add(selectedRowForBis.id as string));
       setBisPickerOpen(false);
       toast.success("Site diary record sent to BIS.");
@@ -1104,33 +1263,82 @@ export default function SiteDiaryCalendar({
                               </div>
 
                               {bisEnabled ? (
-                              <div className="mt-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {(() => {
+                                    const approvalStatus = r.id ? bisApprovalStatusByRowId[r.id] : null;
+                                    const isPendingApproval = isApprovalPendingStatus(approvalStatus);
+                                    const isApproved = isApprovedStatus(approvalStatus);
+                                    const isSent = Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false);
 
-                                  className={cn(
-                                    "h-7 text-[10px]",
-                                    (Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false))
-                                      ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                      : "bg-green-600 text-white hover:bg-green-700",
-                                  )}
-                                  disabled={!r.id || bisSendingRowId === r.id || Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)}
-                                  onClick={() => openBisPicker(r)}
-                                >
-                                  {(Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)) ? (
-                                    "Already sent"
-                                  ) : bisSendingRowId === r.id ? (
-                                    <>
-                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                      Sending...
-                                    </>
-                                  ) : (
-                                    "Send to BIS"
-                                  )}
-                                </Button>
-                              </div>
-                              ) : null}
+                                    return (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className={cn(
+                                            "h-7 text-[10px]",
+                                            isSent
+                                              ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                              : "bg-green-600 text-white hover:bg-green-700",
+                                          )}
+                                          disabled={!r.id || bisSendingRowId === r.id || isSent}
+                                          onClick={() => openBisPicker(r)}
+                                        >
+                                          {isSent ? "Sent to BIS" : bisSendingRowId === r.id ? (
+                                            <>
+                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                              Sending...
+                                            </>
+                                          ) : "Send to BIS"}
+                                        </Button>
+
+                                        {isSent ? (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className={cn(
+                                              "h-7 text-[10px]",
+                                              isApproved
+                                                ? "bg-green-600 text-white hover:bg-green-600"
+                                                : isPendingApproval
+                                                  ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                  : "bg-blue-600 text-white hover:bg-blue-700",
+                                            )}
+                                            disabled={!r.id || isPendingApproval || isApproved}
+                                            onClick={() => openApprovalDialog(r)}
+                                          >
+                                            {isApproved ? "Approved" : isPendingApproval ? "Sent for approval" : "Send for approval"}
+                                          </Button>
+                                        ) : null}
+                                      </>
+                                    );
+                                  })()}
+
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-7 text-[10px]"
+                                    disabled={!r.id}
+                                    onClick={() => openCopyDialog(r)}
+                                  >
+                                    <Copy className="mr-1 h-3 w-3" />
+                                    Copy to date
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="mt-2">
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-7 text-[10px]"
+                                    disabled={!r.id}
+                                    onClick={() => openCopyDialog(r)}
+                                  >
+                                    <Copy className="mr-1 h-3 w-3" />
+                                    Copy to date
+                                  </Button>
+                                </div>
+                              )}
 
                               {r.originalUserComment ? (
                                 <div className="mt-2">
@@ -1211,6 +1419,12 @@ export default function SiteDiaryCalendar({
                                       BIS
                                     </TableHead>
                                   ) : null}
+                                    <TableHead
+                                      className="text-center"
+                                      style={{ width: 120 }}
+                                    >
+                                      Copy
+                                    </TableHead>
 
                                     <TableHead
                                       className="text-center"
@@ -1287,36 +1501,80 @@ export default function SiteDiaryCalendar({
                                         className="align-top px-3 py-2 text-center"
                                         style={{ width: 140 }}
                                       >
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
+                                        {(() => {
+                                          const originalRow = group.rows[i] ?? row;
+                                          const approvalStatus = row.id ? bisApprovalStatusByRowId[row.id] : null;
+                                          const isPendingApproval = isApprovalPendingStatus(approvalStatus);
+                                          const isApproved = isApprovedStatus(approvalStatus);
+                                          const isSent = Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false);
 
-                                          className={cn(
-                                            "h-8",
-                                            (Boolean(group.rows[i]?.BISId) ||
-                                              (row.id ? bisSentRowIds.has(row.id) : false))
-                                              ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                              : "bg-green-600 text-white hover:bg-green-700",
-                                          )}
-                                          disabled={!row.id || bisSendingRowId === row.id || Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)}
-                                          onClick={() =>
-                                            openBisPicker(group.rows[i] ?? row)
+                                          if (!isSent) {
+                                            return (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-8 bg-green-600 text-white hover:bg-green-700"
+                                                disabled={!row.id || bisSendingRowId === row.id}
+                                                onClick={() => openBisPicker(originalRow)}
+                                              >
+                                                {bisSendingRowId === row.id ? (
+                                                  <>
+                                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                    Sending...
+                                                  </>
+                                                ) : (
+                                                  "Send to BIS"
+                                                )}
+                                              </Button>
+                                            );
                                           }
-                                        >
 
-                                          {(Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)) ? (
-                                            "Already sent"
-                                          ) : bisSendingRowId === row.id ? (
-                                            <>
-                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                              Sending...
-                                            </>
-                                          ) : (
-                                            "Send to BIS"
-                                          )}
-                                        </Button>
+                                          return (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className={cn(
+                                                "h-8",
+                                                isApproved
+                                                  ? "bg-green-600 text-white hover:bg-green-600"
+                                                  : isPendingApproval
+                                                    ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                    : "bg-blue-600 text-white hover:bg-blue-700",
+                                              )}
+                                              disabled={!row.id || isPendingApproval || isApproved}
+                                              onClick={() => openApprovalDialog(originalRow)}
+                                            >
+                                              {isApproved ? (
+                                                <>
+                                                  <ShieldCheck className="mr-1 h-3 w-3" />
+                                                  Approved
+                                                </>
+                                              ) : isPendingApproval ? (
+                                                "Sent for approval"
+                                              ) : (
+                                                "Send for approval"
+                                              )}
+                                            </Button>
+                                          );
+                                        })()}
                                       </TableCell>
                                       ) : null}
+
+                                      <TableCell
+                                        className="align-top px-3 py-2 text-center"
+                                        style={{ width: 120 }}
+                                      >
+                                        <Button
+                                          size="sm"
+                                          variant="secondary"
+                                          className="h-8"
+                                          disabled={!row.id}
+                                          onClick={() => openCopyDialog(group.rows[i] ?? row)}
+                                        >
+                                          <Copy className="mr-1 h-3 w-3" />
+                                          Copy
+                                        </Button>
+                                      </TableCell>
 
                                       <TableCell
                                         className="align-top px-3 py-2 text-center"
@@ -1513,6 +1771,108 @@ export default function SiteDiaryCalendar({
           </DialogContent>
         </Dialog>
         ) : null}
+
+        <Dialog
+          open={approverDialogOpen}
+          onOpenChange={(open) => {
+            setApproverDialogOpen(open);
+            if (!open) {
+              setApprovalRow(null);
+              setApproverOptions([]);
+              setSelectedApproverKeys([]);
+            }
+          }}
+        >
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Send site diary record for approval</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Select one or more approvers before submitting this BIS record for approval.
+              </p>
+            </DialogHeader>
+
+            <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
+              {approverOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No BIS approvers returned for this record.</p>
+              ) : (
+                approverOptions.map((approver) => {
+                  const key = approverKey(approver);
+                  const checked = selectedApproverKeys.includes(key);
+                  return (
+                    <label key={key} className="flex items-start gap-3 rounded-lg border p-3">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value) =>
+                          setSelectedApproverKeys((current) =>
+                            value ? [...current, key] : current.filter((item) => item !== key),
+                          )
+                        }
+                      />
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium">{approver.name || "Unnamed approver"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Member ID: {approver.memberId} • Level: {approver.level ?? "—"}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setApproverDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={submitApproval} disabled={approvalLoading || selectedApproverKeys.length === 0}>
+                {approvalLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send for approval"
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Copy record to another date</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                This creates a local copy only. If the original was sent to BIS, copied record must be sent again.
+              </p>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Target date</label>
+              <Calendar
+                mode="single"
+                selected={copyTargetDate || undefined}
+                onSelect={(value) => setCopyTargetDate(value ?? null)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCopyRecord} disabled={!copyTargetDate || copyLoading}>
+                {copyLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Copying...
+                  </>
+                ) : (
+                  "Copy record"
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={attachmentGalleryOpen} onOpenChange={setAttachmentGalleryOpen}>
           <DialogContent className="w-[98vw] max-w-[98vw] lg:max-w-7xl max-h-[94vh] overflow-y-auto">

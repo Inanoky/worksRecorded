@@ -7,7 +7,7 @@ import { parseExcelToTree } from "@/server/ai-flows/agents/settings/schema-uploa
 import { validateExcel } from "@/lib/utils/SiteDiary/Settings/validateSchema";
 import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
-import { getOrganizationIdByWorkerId } from "./shared-actions";
+import { getOrganizationIdByWorkerId, orgCheck } from "./shared-actions";
 import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
 import { Turret_Road } from "next/font/google";
 import { isQuestionDotToken } from "typescript";
@@ -772,6 +772,269 @@ export async function sendSiteDiaryRecordToBis(
     bisId,
     response: json,
   };
+}
+
+type BisApproverSelection = {
+  memberId: string;
+  memberType: string | null;
+  level: number | null;
+};
+
+export async function getPossibleSiteDiaryBisApprovers(recordId: string) {
+  if (!recordId) throw new Error("Missing site diary record id");
+
+  const user = await requireUser();
+  const record = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true, BISId: true },
+  });
+
+  if (!record?.siteId) {
+    throw new Error("Site diary record is not assigned to a site");
+  }
+
+  await orgCheck(user.id, record.siteId);
+
+  if (!record.BISId) {
+    throw new Error("Send this record to BIS before selecting approvers");
+  }
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const res = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/possible_approvers`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS possible approvers",
+    );
+  }
+
+  return (Array.isArray(json?.data) ? json.data : []).map((item: any) => ({
+    memberId: String(item?.attributes?.member_id ?? item?.id ?? ""),
+    memberType: item?.attributes?.member_type ?? null,
+    level: item?.attributes?.level == null ? null : Number(item.attributes.level),
+    name:
+      item?.attributes?.member_name ??
+      item?.attributes?.name ??
+      item?.attributes?.full_name ??
+      item?.attributes?.approver_name ??
+      null,
+    status: item?.attributes?.status ?? null,
+  }));
+}
+
+export async function getSiteDiaryBisApprovalStatus(recordId: string) {
+  if (!recordId) throw new Error("Missing site diary record id");
+
+  const user = await requireUser();
+  const record = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true, BISId: true },
+  });
+
+  if (!record?.siteId || !record.BISId) {
+    return null;
+  }
+
+  await orgCheck(user.id, record.siteId);
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const res = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS record status");
+  }
+
+  return json?.data?.attributes?.status ? String(json.data.attributes.status) : null;
+}
+
+export async function submitSiteDiaryRecordToBisApproval(
+  recordId: string,
+  approvers: BisApproverSelection[],
+) {
+  if (!recordId) throw new Error("Missing site diary record id");
+  if (!approvers.length) throw new Error("Select at least one approver");
+
+  const user = await requireUser();
+  const record = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true, BISId: true },
+  });
+
+  if (!record?.siteId) {
+    throw new Error("Site diary record is not assigned to a site");
+  }
+
+  await orgCheck(user.id, record.siteId);
+
+  if (!record.BISId) {
+    throw new Error("Send this record to BIS before approval");
+  }
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const res = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/submit_to_approve`,
+    {
+      method: "PATCH",
+      headers: {
+        Accept: "application/vnd.api+json",
+        "Content-Type": "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        data: {
+          type: "performed_work",
+          relationships: {
+            approvers: {
+              data: approvers.map((approver) => ({
+                type: "approver",
+                attributes: {
+                  member_id: Number(approver.memberId),
+                  member_type: approver.memberType,
+                  level: approver.level,
+                },
+              })),
+            },
+          },
+        },
+      }),
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      json?.errors?.[0]?.detail || json?.error || "Failed to submit site diary record for BIS approval",
+    );
+  }
+
+  return {
+    status: json?.data?.attributes?.status
+      ? String(json.data.attributes.status)
+      : "submitted_to_approve",
+  };
+}
+
+export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO: string) {
+  if (!recordId) throw new Error("Missing site diary record id");
+  if (!targetDateISO) throw new Error("Missing target date");
+
+  const user = await requireUser();
+  const source = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: {
+      userId: true,
+      workerId: true,
+      siteId: true,
+      organizationId: true,
+      Date_Custom_1: true,
+      Date_Custom_2: true,
+      Location: true,
+      Location_Custom_1: true,
+      Location_Custom_2: true,
+      Works: true,
+      Works_Custom_1: true,
+      Works_Custom_2: true,
+      Comments: true,
+      Comments_Custom_1: true,
+      Comments_Custom_2: true,
+      originalUserComment: true,
+      Units: true,
+      Amounts: true,
+      WorkersInvolved: true,
+      TimeInvolved: true,
+      Photos: true,
+    },
+  });
+
+  if (!source?.siteId) {
+    throw new Error("Source site diary record not found");
+  }
+
+  await orgCheck(user.id, source.siteId);
+
+  const targetDate = new Date(targetDateISO);
+  if (Number.isNaN(targetDate.getTime())) {
+    throw new Error("Invalid target date");
+  }
+
+  const copied = await prisma.sitediaryrecords.create({
+    data: {
+      userId: source.userId,
+      workerId: source.workerId,
+      siteId: source.siteId,
+      organizationId: source.organizationId,
+      Date: targetDate,
+      Date_Custom_1: source.Date_Custom_1,
+      Date_Custom_2: source.Date_Custom_2,
+      Location: source.Location,
+      Location_Custom_1: source.Location_Custom_1,
+      Location_Custom_2: source.Location_Custom_2,
+      Works: source.Works,
+      Works_Custom_1: source.Works_Custom_1,
+      Works_Custom_2: source.Works_Custom_2,
+      Comments: source.Comments,
+      Comments_Custom_1: source.Comments_Custom_1,
+      Comments_Custom_2: source.Comments_Custom_2,
+      originalUserComment: source.originalUserComment,
+      Units: source.Units,
+      Amounts: source.Amounts,
+      WorkersInvolved: source.WorkersInvolved,
+      TimeInvolved: source.TimeInvolved,
+      Photos: source.Photos,
+      BISId: null,
+    },
+    select: { id: true },
+  });
+
+  return { id: copied.id };
 }
 
 async function uploadLogbookAttachmentToBis({
