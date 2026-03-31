@@ -13,6 +13,7 @@ import DialogWindow from "@/components/sitediary/DialogWindow";
 import {
   copySiteDiaryRecordToDate,
   getBisCaseAvailableMaterials,
+  getBisCharacterMeasures,
   getFilledDays,
   getPossibleSiteDiaryBisApprovers,
   getSiteDiaryBisApprovalStatus,
@@ -325,6 +326,8 @@ export default function SiteDiaryCalendar({
   const [bisSubmitDate, setBisSubmitDate] = React.useState<Date | null>(null);
   const [bisSubmitWorks, setBisSubmitWorks] = React.useState("");
   const [bisSubmitAmount, setBisSubmitAmount] = React.useState<string>("1");
+  const [bisSubmitMeasurement, setBisSubmitMeasurement] = React.useState<string>("12");
+  const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
   const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
 
   const reloadFilledDays = React.useCallback(() => {
@@ -586,9 +589,10 @@ export default function SiteDiaryCalendar({
     setBisPickerLoading(true);
 
     try {
-      const [materials, attachments] = await Promise.all([
+      const [materials, attachments, measurements] = await Promise.all([
         getBisCaseAvailableMaterials(siteId),
         getSiteGalleryAttachments(siteId),
+        getBisCharacterMeasures(siteId),
       ]);
 
       setBisMaterialOptions(materials);
@@ -597,6 +601,11 @@ export default function SiteDiaryCalendar({
       setMaterialQuantities(
         Object.fromEntries(materials.map((material) => [material.id, ""])),
       );
+      setBisMeasurementOptions(measurements);
+      if (measurements.length > 0) {
+        const current = measurements.find((item) => item.id === bisSubmitMeasurement);
+        setBisSubmitMeasurement(current?.id ?? measurements[0]?.id ?? "12");
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to load BIS material or attachment options.");
       setBisPickerOpen(false);
@@ -813,6 +822,7 @@ export default function SiteDiaryCalendar({
         eventDate: bisSubmitDate ? bisSubmitDate.toISOString() : undefined,
         worksDescription: bisSubmitWorks,
         amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
+        measurement: bisSubmitMeasurement,
       });
 
       const bisStatus = selectedRowForBis.id ? bisApprovalStatusByRowId[selectedRowForBis.id] : null;
@@ -1713,7 +1723,7 @@ export default function SiteDiaryCalendar({
                   Selected materials: {Object.values(materialQuantities).filter((qty) => (Number.parseFloat(qty || "") || 0) > 0).length} • Selected attachments: {selectedAttachmentUrls.length} (optional)
                 </div>
 
-                <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-3">
+                <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-4">
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-foreground">BIS event date</label>
                     <Input
@@ -1744,6 +1754,21 @@ export default function SiteDiaryCalendar({
                       onChange={(event) => setBisSubmitAmount(event.target.value)}
                       placeholder="Enter amount"
                     />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground">BIS measurement unit</label>
+                    <Select value={bisSubmitMeasurement} onValueChange={setBisSubmitMeasurement}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select measurement" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bisMeasurementOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name} ({option.id})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 

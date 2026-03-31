@@ -111,6 +111,7 @@ type MaterialMeasure = {
 type MaterialType = {
   id: string;
   name: string;
+  categoryName?: string | null;
 };
 
 type WarehouseBisSyncResult = {
@@ -343,6 +344,10 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
     .map((item: any) => ({
       id: item?.attributes?.code == null ? "" : String(item.attributes.code),
       name: item?.attributes?.name == null ? "" : String(item.attributes.name),
+      categoryName:
+        item?.attributes?.category_name == null
+          ? null
+          : String(item.attributes.category_name),
     }))
     .filter((item: MaterialType) => item.id && item.name)
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -446,6 +451,20 @@ export async function createMaterialConfiguration(
   }
 
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const measureData = await fetchBisJson(
+    `/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+    accessToken,
+  );
+  const availableMeasurementCodes = new Set<string>();
+  for (const item of Array.isArray(measureData?.data) ? measureData.data : []) {
+    const code = item?.attributes?.code == null ? null : String(item.attributes.code);
+    if (code) availableMeasurementCodes.add(code);
+  }
+
+  if (!availableMeasurementCodes.has(measurement)) {
+    throw new Error("Selected measurement is not available in BIS measurement list");
+  }
+
   const attachedDocuments: Array<{ attributes: { uuid: string; code: string } }> = [];
 
   for (const file of payload.attachments) {
@@ -525,10 +544,6 @@ export async function createMaterialConfiguration(
     throw new Error("BIS did not return a created material configuration");
   }
 
-  const measureData = await fetchBisJson(
-    `/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
-    accessToken,
-  );
   const measurementMap = new Map<string, string>();
   for (const item of Array.isArray(measureData?.data) ? measureData.data : []) {
     const code = item?.attributes?.code == null ? null : String(item.attributes.code);

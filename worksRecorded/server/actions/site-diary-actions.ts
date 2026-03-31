@@ -629,6 +629,7 @@ export async function sendSiteDiaryRecordToBis(
     eventDate?: string;
     worksDescription?: string;
     amount?: number;
+    measurement?: string;
   },
 ) {
   if (!recordId) throw new Error("Missing site diary record id");
@@ -673,7 +674,7 @@ export async function sendSiteDiaryRecordToBis(
   const detailAttributes = {
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
     quantity: Number.isFinite(amountValue) ? amountValue : 1,
-    measurement: Number(process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
+    measurement: Number(options?.measurement ?? process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
   };
 
   const attachments: Array<{ type: "shared_attachments"; uuid: string }> = [];
@@ -779,6 +780,46 @@ export async function sendSiteDiaryRecordToBis(
     bisId,
     response: json,
   };
+}
+
+export async function getBisCharacterMeasures(siteId: string) {
+  if (!siteId) throw new Error("Missing site id");
+  const user = await requireUser();
+  await orgCheck(user.id, siteId);
+
+  const { accessToken } = await requireBisAccessTokenForSite(siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const res = await fetch(
+    `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures&page[number]=1&page[size]=500`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(json?.errors?.[0]?.detail || json?.error || "Failed to load BIS measurement list");
+  }
+
+  return (Array.isArray(json?.data) ? json.data : [])
+    .map((item: any) => ({
+      id: item?.attributes?.code == null ? "" : String(item.attributes.code),
+      name: item?.attributes?.name == null ? "" : String(item.attributes.name),
+    }))
+    .filter((item: { id: string; name: string }) => item.id && item.name)
+    .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
 }
 
 type BisApproverSelection = {

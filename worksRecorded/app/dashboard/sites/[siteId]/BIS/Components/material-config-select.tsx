@@ -31,6 +31,12 @@ export type MaterialCategory = {
   measurement_unit: string | null
 }
 
+type MaterialTypeOption = {
+  id: string
+  name: string
+  categoryName?: string | null
+}
+
 export default function MaterialConfigSelect({
   siteId,
   recordId,
@@ -74,7 +80,7 @@ export default function MaterialConfigSelect({
   }>
   categories: MaterialCategory[]
   measurements: Array<{ id: string; name: string }>
-  materialTypes: Array<{ id: string; name: string }>
+  materialTypes: MaterialTypeOption[]
 }) {
   const [pending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -271,7 +277,7 @@ export default function MaterialConfigSelect({
                 <SelectContent>
                   {materialTypes.map((item) => (
                     <SelectItem key={item.id} value={item.id}>
-                      {item.name}
+                      {item.categoryName ? `${item.categoryName} — ${item.name}` : item.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
