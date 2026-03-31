@@ -509,13 +509,73 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
   const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(siteId);
 
   const baseUrl = getBisBaseUrl();
+  let caseConstructionRoundId: string | null = null;
+
+  try {
+    const caseResponse = await fetch(
+      `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}`,
+      {
+        headers: {
+          Accept: "application/vnd.api+json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    const caseText = await caseResponse.text();
+    let caseJson: any = null;
+    try {
+      caseJson = caseText ? JSON.parse(caseText) : null;
+    } catch {
+      caseJson = null;
+    }
+
+    if (caseResponse.ok) {
+      const rawRoundId =
+        caseJson?.data?.attributes?.case_construction_round_id ??
+        caseJson?.data?.attributes?.current_case_construction_round_id ??
+        null;
+      caseConstructionRoundId = rawRoundId == null ? null : String(rawRoundId);
+    } else {
+      console.warn("[SiteDiary BIS] Could not load case round id for material availability", {
+        siteId,
+        bisCase,
+        status: caseResponse.status,
+        detail: caseJson?.errors?.[0]?.detail ?? caseJson?.error ?? null,
+      });
+    }
+  } catch (error) {
+    console.warn("[SiteDiary BIS] Failed to resolve case round id for material availability", {
+      siteId,
+      bisCase,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 
   // 12I7-136: available received construction products for adding into performed works.
   // This endpoint already includes all available rows for the current case context.
+  const receivedProductsUrl = caseConstructionRoundId
+    ? `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products?filter[case_construction_round_id_eq]=${encodeURIComponent(caseConstructionRoundId)}`
+    : `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products`;
   const availableReceivedItems = await fetchBisPagedList(
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products`,
+    receivedProductsUrl,
     accessToken,
   );
+  console.log("[SiteDiary BIS] Available received construction products loaded", {
+    siteId,
+    bisCase,
+    caseConstructionRoundId,
+    endpoint: receivedProductsUrl,
+    count: availableReceivedItems.length,
+    sample: availableReceivedItems.slice(0, 3).map((item: any) => ({
+      id: item?.id ?? null,
+      construction_material_id: item?.attributes?.construction_material_id ?? null,
+      quantity: item?.attributes?.quantity ?? null,
+      material_name: item?.attributes?.material_name ?? null,
+      case_construction_round_id: item?.attributes?.case_construction_round_id ?? null,
+    })),
+  });
 
   // Build metadata (label/unit) and total delivered quantity by construction_material_id.
   const approvedMaterialMeta = new Map<string, { label: string; measurementUnit: string | null }>();
@@ -556,6 +616,16 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials`,
     accessToken,
   );
+  console.log("[SiteDiary BIS] Available used materials loaded", {
+    siteId,
+    bisCase,
+    count: availableItems.length,
+    sample: availableItems.slice(0, 3).map((item: any) => ({
+      id: item?.id ?? null,
+      construction_material_id: item?.attributes?.construction_material_id ?? null,
+      quantity: item?.attributes?.quantity ?? null,
+    })),
+  });
 
   const usedByMaterial = new Map<string, number>();
   for (const item of availableItems) {
@@ -569,7 +639,7 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
   }
 
   // Remaining = approved delivered (12I7-092 detail.quantity) - used (12I7-184 quantity)
-  return Array.from(deliveredByMaterial.entries())
+  const results = Array.from(deliveredByMaterial.entries())
     .map(([materialId, deliveredQuantity]) => {
       if (!approvedMaterialMeta.has(materialId)) return null;
 
@@ -588,6 +658,17 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
     })
     .filter((item: any) => item && item.availableQuantity > 0)
     .sort((a: any, b: any) => String(a.label).localeCompare(String(b.label)));
+
+  console.log("[SiteDiary BIS] Final materials prepared for dialog", {
+    siteId,
+    bisCase,
+    deliveredMaterialCount: deliveredByMaterial.size,
+    usedMaterialCount: usedByMaterial.size,
+    finalCount: results.length,
+    sample: results.slice(0, 5),
+  });
+
+  return results;
 }
 
 export async function getSiteGalleryAttachments(siteId: string) {
