@@ -772,9 +772,9 @@ export default function MaterialsTableClient({
 
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
         <div className="w-full overflow-hidden">
-          <Table className="w-full table-fixed">
+          <Table className="w-full table-fixed text-sm">
             <TableHeader>
-              <TableRow className="bg-muted/40">
+              <TableRow className="bg-muted/40 [&_th]:px-3 [&_th]:py-3">
                 <TableHead className="w-12">
                   <Checkbox
                     checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
@@ -829,7 +829,7 @@ export default function MaterialsTableClient({
                   ].includes(normalizedStatus)
 
                   return (
-                    <TableRow key={r.id} className="align-middle">
+                    <TableRow key={r.id} className="align-middle [&_td]:px-3 [&_td]:py-3">
                       <TableCell>
                         <Checkbox
                           checked={selectedRowIds.includes(r.id)}

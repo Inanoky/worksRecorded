@@ -75,6 +75,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -1449,10 +1450,10 @@ export default function SiteDiaryCalendar({
                                             size="sm"
                                             variant="outline"
                                             className={cn(
-                                            "h-7 rounded-full px-3 text-[10px] border",
+                                            "h-7 text-[10px]",
                                             isSent
-                                              ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-50"
-                                              : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
+                                              ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                              : "bg-green-600 text-white hover:bg-green-700",
                                             )}
                                           disabled={!r.id || bisSendingRowId === r.id || isSent}
                                           onClick={() => openBisPicker(r)}
@@ -1470,12 +1471,12 @@ export default function SiteDiaryCalendar({
                                             size="sm"
                                             variant="outline"
                                             className={cn(
-                                              "h-7 rounded-full px-3 text-[10px] border",
+                                              "h-7 text-[10px]",
                                               isApproved
-                                                ? "cursor-not-allowed border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+                                                ? "bg-green-600 text-white hover:bg-green-600"
                                                 : isPendingApproval
-                                                  ? "cursor-not-allowed border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50"
-                                                  : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
+                                                  ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                  : "bg-blue-600 text-white hover:bg-blue-700",
                                             )}
                                             disabled={!r.id || isPendingApproval || isApproved}
                                             onClick={() => openApprovalDialog(r)}
@@ -1635,7 +1636,7 @@ export default function SiteDiaryCalendar({
                                           return (
                                             <TableCell
                                               key={field}
-                                              className="align-top px-3 py-2 whitespace-normal break-words text-left"
+                                              className="align-top px-3 py-3 whitespace-normal break-words text-left"
                                               style={{ width: 120 }}
                                             >
                                               {row[field] ? (
@@ -1662,7 +1663,7 @@ export default function SiteDiaryCalendar({
                                         return (
                                           <TableCell
                                             key={field}
-                                            className={`align-top px-3 py-2 whitespace-normal break-words text-${align}`}
+                                            className={`align-top px-3 py-3 whitespace-normal break-words text-${align}`}
                                             style={{
                                               width: getCellWidthByKey(
                                                 field,
@@ -1689,7 +1690,7 @@ export default function SiteDiaryCalendar({
 
 {bisUiEnabled ? (
                                       <TableCell
-                                        className="align-top px-3 py-2 text-center"
+                                        className="align-top px-3 py-3 text-center"
                                         style={{ width: 140 }}
                                       >
                                         {(() => {
@@ -1704,7 +1705,7 @@ export default function SiteDiaryCalendar({
                                               <Button
                                                 size="sm"
                                                 variant="outline"
-                                                className="h-8 rounded-full border-blue-200 bg-blue-50 px-3 text-blue-700 hover:bg-blue-100"
+                                                className="h-8 bg-green-600 text-white hover:bg-green-700"
                                                 disabled={!row.id || bisSendingRowId === row.id}
                                                 onClick={() => openBisPicker(originalRow)}
                                               >
@@ -1725,12 +1726,12 @@ export default function SiteDiaryCalendar({
                                               size="sm"
                                               variant="outline"
                                               className={cn(
-                                                "h-8 rounded-full px-3",
+                                                "h-8",
                                                 isApproved
-                                                  ? "cursor-not-allowed border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+                                                  ? "bg-green-600 text-white hover:bg-green-600"
                                                   : isPendingApproval
-                                                    ? "cursor-not-allowed border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50"
-                                                    : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
+                                                    ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                    : "bg-blue-600 text-white hover:bg-blue-700",
                                               )}
                                               disabled={!row.id || isPendingApproval || isApproved}
                                               onClick={() => openApprovalDialog(originalRow)}
@@ -1752,7 +1753,7 @@ export default function SiteDiaryCalendar({
                                       ) : null}
 
                                       <TableCell
-                                        className="align-top px-3 py-2 text-center"
+                                        className="align-top px-3 py-3 text-center"
                                         style={{ width: 140 }}
                                       >
                                         <Badge
@@ -1774,7 +1775,7 @@ export default function SiteDiaryCalendar({
                                       </TableCell>
 
                                       <TableCell
-                                        className="align-top px-3 py-2 text-center"
+                                        className="align-top px-3 py-3 text-center"
                                         style={{ width: 100 }}
                                       >
                                         <DropdownMenu>
@@ -1803,7 +1804,7 @@ export default function SiteDiaryCalendar({
                                       </TableCell>
 
                                       <TableCell
-                                        className="align-top px-3 py-2 text-center"
+                                        className="align-top px-3 py-3 text-center"
                                         style={{ width: 60 }}
                                       >
                                         {row.originalUserComment ? (
@@ -1901,10 +1902,12 @@ export default function SiteDiaryCalendar({
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-foreground">Works description</label>
-                    <Input
+                    <Textarea
                       value={bisSubmitWorks}
                       onChange={(event) => setBisSubmitWorks(event.target.value)}
                       placeholder="Describe works sent to BIS"
+                      rows={3}
+                      className="min-h-[84px]"
                     />
                   </div>
                   <div className="space-y-1">
@@ -1928,7 +1931,7 @@ export default function SiteDiaryCalendar({
                       <SelectContent>
                         {bisMeasurementOptions.map((option) => (
                           <SelectItem key={option.id} value={option.id}>
-                            {option.name} ({option.id})
+                            {option.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1975,7 +1978,6 @@ export default function SiteDiaryCalendar({
                             <tr key={material.id} className="border-t">
                               <td className="px-3 py-2 align-top">
                                 <div className="font-medium">{material.label}</div>
-                                <div className="text-xs text-muted-foreground">ID: {material.id}</div>
                               </td>
                               <td className="px-3 py-2">{material.measurementUnit || "—"}</td>
                               <td className="px-3 py-2 text-right">{material.deliveredQuantity ?? "—"}</td>
