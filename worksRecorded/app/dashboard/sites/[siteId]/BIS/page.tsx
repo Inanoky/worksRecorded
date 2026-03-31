@@ -483,6 +483,8 @@ export async function createMaterialConfiguration(
       measurement,
       measurementByCode.get(measurement),
       measurementById.get(measurement),
+      process.env.BIS_DEFAULT_MEASUREMENT,
+      "12",
     ].filter(Boolean) as string[]),
   );
 
@@ -498,6 +500,25 @@ export async function createMaterialConfiguration(
   }
 
   const attachedDocuments: Array<{ attributes: { uuid: string; code: string } }> = [];
+
+  let caseConstructionRoundId: number | null = null;
+  try {
+    const caseJson = await fetchBisJson(
+      `/bisp/api/portal/bis_cases/${bisCaseId}`,
+      accessToken,
+    );
+    const rawRoundId =
+      caseJson?.data?.attributes?.case_construction_round_id ??
+      caseJson?.data?.attributes?.current_case_construction_round_id ??
+      null;
+    caseConstructionRoundId = rawRoundId == null ? null : Number(rawRoundId);
+  } catch (error) {
+    console.warn("[Warehouse BIS] Failed to fetch case construction round id", {
+      siteId,
+      bisCaseId,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 
   for (const file of payload.attachments) {
     const bytes = Buffer.from(file.base64Data, "base64");
@@ -550,6 +571,7 @@ export async function createMaterialConfiguration(
         type: "construction_material",
         attributes: {
           type: "construction_material",
+          case_construction_round_id: caseConstructionRoundId,
           material_type: materialType,
           manufacturer,
           material_kind: materialKind,
@@ -574,6 +596,7 @@ export async function createMaterialConfiguration(
       materialKind,
       measurementCandidate,
       attachedDocuments: attachedDocuments.length,
+      caseConstructionRoundId,
     });
 
     try {
@@ -595,6 +618,7 @@ export async function createMaterialConfiguration(
         materialKind,
         measurementCandidate,
         attachmentCount: attachedDocuments.length,
+        caseConstructionRoundId,
         error: error instanceof Error ? error.message : error,
       });
     }
