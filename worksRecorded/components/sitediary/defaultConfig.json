@@ -189,7 +189,7 @@
       "cellWidth": 450,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 7,
-      "displayinSiteListWidth": 400,
+      "displayinSiteListWidth": 350,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -288,6 +288,6 @@
   },
   "otherSettings" : {
     "Type": "noRender",
-    "displaySiteListWidth" : 80
+    "displaySiteListWidth" : 100
   }
 }
