@@ -1246,14 +1246,28 @@ export default function SiteDiaryCalendar({
 
                   <div className="flex items-center gap-2">
                     {bisEnabled ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="text-xs sm:text-sm"
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={showBisUi}
                         onClick={() => setShowBisUi((prev) => !prev)}
+                        className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-xs sm:text-sm"
                       >
-                        BIS {showBisUi ? "On" : "Off"}
-                      </Button>
+                        <span className="text-muted-foreground">BIS</span>
+                        <span
+                          className={cn(
+                            "relative inline-flex h-5 w-9 rounded-full transition-colors",
+                            showBisUi ? "bg-blue-200" : "bg-slate-300",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
+                              showBisUi ? "translate-x-4" : "translate-x-0.5",
+                            )}
+                          />
+                        </span>
+                      </button>
                     ) : null}
                     <Button
                       variant="ghost"
@@ -1431,15 +1445,15 @@ export default function SiteDiaryCalendar({
 
                                     return (
                                       <>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className={cn(
-                                            "h-7 text-[10px]",
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className={cn(
+                                            "h-7 rounded-full px-3 text-[10px] border",
                                             isSent
-                                              ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                              : "bg-green-600 text-white hover:bg-green-700",
-                                          )}
+                                              ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-50"
+                                              : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
+                                            )}
                                           disabled={!r.id || bisSendingRowId === r.id || isSent}
                                           onClick={() => openBisPicker(r)}
                                         >
@@ -1456,12 +1470,12 @@ export default function SiteDiaryCalendar({
                                             size="sm"
                                             variant="outline"
                                             className={cn(
-                                              "h-7 text-[10px]",
+                                              "h-7 rounded-full px-3 text-[10px] border",
                                               isApproved
-                                                ? "bg-green-600 text-white hover:bg-green-600"
+                                                ? "cursor-not-allowed border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
                                                 : isPendingApproval
-                                                  ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                                  : "bg-blue-600 text-white hover:bg-blue-700",
+                                                  ? "cursor-not-allowed border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50"
+                                                  : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
                                             )}
                                             disabled={!r.id || isPendingApproval || isApproved}
                                             onClick={() => openApprovalDialog(r)}
@@ -1690,7 +1704,7 @@ export default function SiteDiaryCalendar({
                                               <Button
                                                 size="sm"
                                                 variant="outline"
-                                                className="h-8 bg-green-600 text-white hover:bg-green-700"
+                                                className="h-8 rounded-full border-blue-200 bg-blue-50 px-3 text-blue-700 hover:bg-blue-100"
                                                 disabled={!row.id || bisSendingRowId === row.id}
                                                 onClick={() => openBisPicker(originalRow)}
                                               >
@@ -1711,12 +1725,12 @@ export default function SiteDiaryCalendar({
                                               size="sm"
                                               variant="outline"
                                               className={cn(
-                                                "h-8",
+                                                "h-8 rounded-full px-3",
                                                 isApproved
-                                                  ? "bg-green-600 text-white hover:bg-green-600"
+                                                  ? "cursor-not-allowed border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
                                                   : isPendingApproval
-                                                    ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                                    : "bg-blue-600 text-white hover:bg-blue-700",
+                                                    ? "cursor-not-allowed border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50"
+                                                    : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100",
                                               )}
                                               disabled={!row.id || isPendingApproval || isApproved}
                                               onClick={() => openApprovalDialog(originalRow)}
@@ -1982,20 +1996,6 @@ export default function SiteDiaryCalendar({
                                       ...prev,
                                       [material.id]: rawValue,
                                     }));
-                                  }}
-                                  onBlur={() => {
-                                    setMaterialQuantities((prev) => {
-                                      const rawValue = prev[material.id] ?? "";
-                                      const parsed = Number.parseFloat(rawValue);
-                                      if (!Number.isFinite(parsed)) {
-                                        return { ...prev, [material.id]: "" };
-                                      }
-                                      const clamped = Math.max(
-                                        0,
-                                        Math.min(parsed, Number(material.availableQuantity)),
-                                      );
-                                      return { ...prev, [material.id]: String(clamped) };
-                                    });
                                   }}
                                 />
                               </td>
