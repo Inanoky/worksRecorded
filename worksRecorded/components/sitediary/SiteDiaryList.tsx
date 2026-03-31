@@ -1604,12 +1604,14 @@ export default function SiteDiaryCalendar({
                                       BIS
                                     </TableHead>
                                   ) : null}
-                                    <TableHead
-                                      className="text-center"
-                                      style={{ width: 140 }}
-                                    >
-                                      Status
-                                    </TableHead>
+                                    {bisUiEnabled ? (
+                                      <TableHead
+                                        className="text-center"
+                                        style={{ width: 140 }}
+                                      >
+                                        Status
+                                      </TableHead>
+                                    ) : null}
 
                                     <TableHead
                                       className="text-center"
@@ -1752,27 +1754,29 @@ export default function SiteDiaryCalendar({
                                       </TableCell>
                                       ) : null}
 
-                                      <TableCell
-                                        className="align-top px-3 py-3 text-center"
-                                        style={{ width: 140 }}
-                                      >
-                                        <Badge
-                                          className={cn(
-                                            "rounded-full px-3 py-1 font-medium capitalize",
-                                            getBisStatusClassName(
+                                      {bisUiEnabled ? (
+                                        <TableCell
+                                          className="align-middle px-3 py-3 text-center"
+                                          style={{ width: 140 }}
+                                        >
+                                          <Badge
+                                            className={cn(
+                                              "inline-flex items-center justify-center rounded-full px-3 py-1 font-medium capitalize",
+                                              getBisStatusClassName(
+                                                row.id
+                                                  ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
+                                                  : group.rows[i]?.bisStatus,
+                                              ),
+                                            )}
+                                          >
+                                            {getBisStatusLabel(
                                               row.id
                                                 ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
                                                 : group.rows[i]?.bisStatus,
-                                            ),
-                                          )}
-                                        >
-                                          {getBisStatusLabel(
-                                            row.id
-                                              ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
-                                              : group.rows[i]?.bisStatus,
-                                          )}
-                                        </Badge>
-                                      </TableCell>
+                                            )}
+                                          </Badge>
+                                        </TableCell>
+                                      ) : null}
 
                                       <TableCell
                                         className="align-top px-3 py-3 text-center"
@@ -1792,13 +1796,15 @@ export default function SiteDiaryCalendar({
                                               <Copy className="mr-2 h-3.5 w-3.5" />
                                               Copy
                                             </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                              onClick={() => handleOpenRecordInBis(group.rows[i] ?? row)}
-                                              disabled={!group.rows[i]?.BISId}
-                                            >
-                                              <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                                              Open in BIS
-                                            </DropdownMenuItem>
+                                            {bisUiEnabled ? (
+                                              <DropdownMenuItem
+                                                onClick={() => handleOpenRecordInBis(group.rows[i] ?? row)}
+                                                disabled={!group.rows[i]?.BISId}
+                                              >
+                                                <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                                                Open in BIS
+                                              </DropdownMenuItem>
+                                            ) : null}
                                           </DropdownMenuContent>
                                         </DropdownMenu>
                                       </TableCell>

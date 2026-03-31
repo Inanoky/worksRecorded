@@ -4,10 +4,7 @@ import * as React from "react"
 import Image from "next/image"
 import {
   Search,
-  ExternalLink,
-  Clock3,
   Filter,
-  ShieldCheck,
   RefreshCw,
 } from "lucide-react"
 
@@ -626,43 +623,15 @@ export default function MaterialsTableClient({
   const allVisibleSelected = filteredMaterials.length > 0 && filteredMaterials.every((row) => selectedRowIds.includes(row.id))
   const someVisibleSelected = filteredMaterials.some((row) => selectedRowIds.includes(row.id))
 
-  const stats = React.useMemo(() => {
-    const total = rows.length
-    const sent = rows.filter((m) => !!m.BISId).length
-    const unsent = total - sent
-    const totalCost = rows.reduce((sum, m) => sum + (m.cost ?? 0), 0)
-
-    return { total, sent, unsent, totalCost }
-  }, [rows])
+  const totalCost = React.useMemo(
+    () => rows.reduce((sum, m) => sum + (m.cost ?? 0), 0),
+    [rows],
+  )
 
   const showBisControls = bisEnabled
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="text-sm text-muted-foreground">Total records</div>
-          <div className="mt-1 text-2xl font-semibold">{stats.total}</div>
-        </div>
-
-        <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="text-sm text-muted-foreground">Sent to BIS</div>
-          <div className="mt-1 text-2xl font-semibold">{stats.sent}</div>
-        </div>
-
-        <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="text-sm text-muted-foreground">Pending</div>
-          <div className="mt-1 text-2xl font-semibold">{stats.unsent}</div>
-        </div>
-
-        <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="text-sm text-muted-foreground">Total cost</div>
-          <div className="mt-1 text-2xl font-semibold">
-            {formatMoney(stats.totalCost)}
-          </div>
-        </div>
-      </div>
-
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
         <div className="grid gap-3 md:grid-cols-4">
           <div className="relative md:col-span-2">
@@ -765,6 +734,7 @@ export default function MaterialsTableClient({
           ) : null}
 
           <div className="text-sm text-muted-foreground">
+            Total cost: <span className="font-medium text-foreground">{formatMoney(totalCost)}</span> •{" "}
             Showing {filteredMaterials.length} of {rows.length}
           </div>
         </div>
@@ -783,17 +753,16 @@ export default function MaterialsTableClient({
                   />
                 </TableHead>
                 <TableHead className="w-[76px]">Photo</TableHead>
-                <TableHead className="w-[14%]">Material</TableHead>
+                <TableHead className="w-[20%]">Material</TableHead>
                 <TableHead className="w-[9%]">Status</TableHead>
                 {showBisControls ? <TableHead className="w-[16%]">BIS material configuration</TableHead> : null}
                 <TableHead className="w-[10%]">Cost code</TableHead>
                 <TableHead className="w-[11%]">Date</TableHead>
-                <TableHead className="w-[8%]">Qty</TableHead>
-                <TableHead className="w-[6%]">Unit</TableHead>
-                <TableHead className="w-[8%]">Cost</TableHead>
-                <TableHead className="w-[8%]">Invoice</TableHead>
+                <TableHead className="w-[6%]">Qty</TableHead>
+                <TableHead className="w-[5%]">Unit</TableHead>
+                <TableHead className="w-[7%]">Cost</TableHead>
+                <TableHead className="w-[7%]">Invoice</TableHead>
                 <TableHead className="w-[9%]">Invoice date</TableHead>
-                <TableHead className="w-[10%]">BIS ID</TableHead>
                 {showBisControls ? <TableHead className="w-[11%] text-right">Action</TableHead> : null}
               </TableRow>
             </TableHeader>
@@ -801,7 +770,7 @@ export default function MaterialsTableClient({
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showBisControls ? 14 : 12} className="py-12 text-center">
+                  <TableCell colSpan={showBisControls ? 13 : 11} className="py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-medium">No materials found</p>
                       <p className="text-sm text-muted-foreground">
@@ -860,42 +829,27 @@ export default function MaterialsTableClient({
 
                       <TableCell className="min-w-0">
                         <div className="truncate font-medium">{r.name || "Unnamed material"}</div>
-                        {r.sourcePhoto && (
-                          <a
-                            href={r.sourcePhoto}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs text-muted-foreground hover:underline"
-                          >
-                            Open photo <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
                       </TableCell>
 
                       <TableCell>
                         {!normalizedStatus ? (
-                          <Badge className="gap-1 rounded-full border border-slate-200 bg-slate-50 text-slate-700">
-                            <Clock3 className="h-3.5 w-3.5" />
+                          <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700">
                             WorksRecorded
                           </Badge>
                         ) : isDraft ? (
-                          <Badge className="gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
-                            <Clock3 className="h-3.5 w-3.5" />
+                          <Badge className="rounded-full border border-blue-200 bg-blue-50 text-blue-700">
                             BIS draft
                           </Badge>
                         ) : isApproved ? (
-                          <Badge className="gap-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
-                            <ShieldCheck className="h-3.5 w-3.5" />
+                          <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
                             BIS approved
                           </Badge>
                         ) : isAwaitingApproval ? (
-                          <Badge className="gap-1 rounded-full border border-sky-200 bg-sky-50 text-sky-700">
-                            <Clock3 className="h-3.5 w-3.5" />
+                          <Badge className="rounded-full border border-sky-200 bg-sky-50 text-sky-700">
                             BIS pending
                           </Badge>
                         ) : (
-                          <Badge className="gap-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700">
-                            <Clock3 className="h-3.5 w-3.5" />
+                          <Badge className="rounded-full border border-blue-200 bg-blue-50 text-blue-700">
                             BIS draft
                           </Badge>
                         )}
@@ -950,8 +904,6 @@ export default function MaterialsTableClient({
                       <TableCell>{formatMoney(r.cost)}</TableCell>
                       <TableCell className="truncate">{r.invoiceNr || "—"}</TableCell>
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
-                      <TableCell className="truncate font-mono text-xs">{r.BISId || "—"}</TableCell>
-
                       {showBisControls ? (
                         <TableCell className="text-right">
                           {!isSent ? (
