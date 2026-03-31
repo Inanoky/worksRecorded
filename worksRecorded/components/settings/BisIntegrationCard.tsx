@@ -88,13 +88,23 @@ export function BisIntegrationCard({
                     <ol className="mt-2 list-decimal space-y-1 pl-4">
                       <li>Open BIS authorization in a new tab and complete the consent flow.</li>
                       <li>Copy the <code>code</code> value from the final redirected URL.</li>
-                      <li>Set <code>BIS_AUTHORIZATION_CODE</code> in your environment to that copied value and restart the app.</li>
-                      <li>Click the button below to exchange that code for BIS tokens for your current user.</li>
+                      <li>Either paste that code in the field below or set <code>BIS_AUTHORIZATION_CODE</code> in your environment.</li>
+                      <li>Click the button below to exchange the authorization code for BIS tokens for your current user.</li>
                     </ol>
                   </div>
 
-                  <form action={completeBisManualAuthorizationAction}>
+                  <form action={completeBisManualAuthorizationAction} className="space-y-2 max-w-2xl">
                     <input type="hidden" name="siteId" value={siteId} />
+                    <label className="block text-xs font-medium text-foreground" htmlFor="bis-manual-authorization-code">
+                      Authorization code (optional if environment variable is set)
+                    </label>
+                    <input
+                      id="bis-manual-authorization-code"
+                      name="authorizationCode"
+                      type="text"
+                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                      placeholder="Paste BIS authorization code"
+                    />
                     <SubmitButton
                       text="Complete BIS connection"
                       variant="secondary"
@@ -103,7 +113,7 @@ export function BisIntegrationCard({
                   </form>
 
                   {!hasManualAuthorizationCode ? (
-                    <p className="text-xs text-muted-foreground">Set <code>BIS_AUTHORIZATION_CODE</code> in the environment before completing the connection.</p>
+                    <p className="text-xs text-muted-foreground">Paste an authorization code above, or set <code>BIS_AUTHORIZATION_CODE</code> in the environment before completing the connection.</p>
                   ) : null}
                 </div>
               )
