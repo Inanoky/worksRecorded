@@ -136,6 +136,8 @@ type WarehouseMaterialRecord = {
   materialDate: Date | null;
   costCode: string | null;
   sourcePhoto: string | null;
+  declarationAttachment: any;
+  agreementAttachment: any;
   BISId: string | null;
   bisStatus: string | null;
 };
@@ -846,6 +848,26 @@ export async function updateMaterialDetails(
   return { success: true };
 }
 
+export async function updateMaterialAttachments(
+  recordId: string,
+  payload: {
+    declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>;
+    agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>;
+  },
+) {
+  "use server";
+
+  await prisma.bISmaterialRecords.update({
+    where: { id: recordId },
+    data: {
+      declarationAttachment: payload.declarationAttachment ?? [],
+      agreementAttachment: payload.agreementAttachment ?? [],
+    },
+  });
+
+  return { success: true };
+}
+
 export async function attachCertificateToMaterialConfiguration(
   siteId: string,
   materialConfigurationId: string,
@@ -987,6 +1009,8 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
       materialDate: true,
       costCode: true,
       sourcePhoto: true,
+      declarationAttachment: true,
+      agreementAttachment: true,
       BISId: true,
       bisStatus: true,
     },
@@ -1196,6 +1220,10 @@ export async function sendToBis(
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
   const baseUrl = getBisBaseUrl();
   const attachments: Array<{ type: string; uuid: string }> = [];
+  const materialRecord = await prisma.bISmaterialRecords.findUnique({
+    where: { id: recordId },
+    select: { declarationAttachment: true, agreementAttachment: true },
+  });
 
   if (sourcePhoto) {
     const temp_uuid = await uploadPhotoToBis(sourcePhoto, accessToken, bisCaseId);
@@ -1205,6 +1233,52 @@ export async function sendToBis(
       attachments.push({
         type: "shared_attachments",
         uuid: temp_uuid,
+      });
+    }
+  }
+
+  const storedAttachments = [
+    ...(Array.isArray(materialRecord?.declarationAttachment) ? materialRecord?.declarationAttachment : []),
+    ...(Array.isArray(materialRecord?.agreementAttachment) ? materialRecord?.agreementAttachment : []),
+  ] as Array<{ name: string; mimeType: string; base64Data: string }>;
+
+  for (const file of storedAttachments) {
+    const bytes = Buffer.from(file.base64Data, "base64");
+    const blob = new Blob([bytes], {
+      type: file.mimeType || "application/octet-stream",
+    });
+    const form = new FormData();
+    form.append("upload[file]", blob, file.name || "attachment");
+    form.append("upload[obj_id]", crypto.randomUUID());
+
+    const uploadResponse = await bisFetch(
+      getBisBaseUrl(),
+      `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.api+json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: form,
+        cache: "no-store",
+      },
+    );
+
+    if (!uploadResponse.ok) {
+      const text = await uploadResponse.text();
+      throw new Error(`Failed to upload attachment to BIS: ${text || uploadResponse.status}`);
+    }
+
+    const uploaded = await uploadResponse.json();
+    const tempUuid = uploaded?.data?.attributes?.temp_uuid
+      ? String(uploaded.data.attributes.temp_uuid)
+      : null;
+
+    if (tempUuid) {
+      attachments.push({
+        type: "shared_attachments",
+        uuid: tempUuid,
       });
     }
   }
@@ -1314,6 +1388,8 @@ export default async function MaterialsPage({
         materialDate: true,
         costCode: true,
         sourcePhoto: true,
+        declarationAttachment: true,
+        agreementAttachment: true,
         BISId: true,
         bisStatus: true,
       },
@@ -1373,6 +1449,7 @@ export default async function MaterialsPage({
         updateMaterialDate={updateMaterialDate}
         updateQuantity={updateQuantity}
         updateMaterialDetails={updateMaterialDetails}
+        updateMaterialAttachments={updateMaterialAttachments}
         attachCertificate={attachCertificateToMaterialConfiguration}
         deleteRecords={deleteWarehouseRecords}
       />

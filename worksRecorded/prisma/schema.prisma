@@ -380,6 +380,8 @@ model BISmaterialRecords {
  
 
   sourcePhoto String?
+  declarationAttachment Json?
+  agreementAttachment Json?
 
 
   site Site? @relation(fields: [siteId], references: [id], onDelete: Cascade)

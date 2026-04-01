@@ -79,6 +79,8 @@ type MaterialRow = {
   materialDate: Date | null
   costCode: string | null
   sourcePhoto: string | null
+  declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
+  agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
   BISId: string | null
   bisStatus: string | null
   bisApprovers: BisApprover[]
@@ -124,6 +126,13 @@ type Props = {
       measurementUnitId: string
       measurementUnit: string
     }
+  ) => Promise<{ success: true }>
+  updateMaterialAttachments: (
+    recordId: string,
+    payload: {
+      declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
+      agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
+    },
   ) => Promise<{ success: true }>
   createMaterialConfiguration: (
     siteId: string,
@@ -232,6 +241,7 @@ export default function MaterialsTableClient({
   updateMaterialDate,
   updateQuantity,
   updateMaterialDetails,
+  updateMaterialAttachments,
   attachCertificate,
   deleteRecords,
 }: Props) {
@@ -270,6 +280,16 @@ export default function MaterialsTableClient({
     materialDate?: Date | null
     quantity?: number | null
   }>>({})
+  const [editModalOpen, setEditModalOpen] = React.useState(false)
+  const [editDraft, setEditDraft] = React.useState<{
+    id: string
+    name: string
+    quantity: string
+    cost: string
+    materialDate: Date | null
+    declarationAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
+    agreementAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
+  } | null>(null)
 
   React.useEffect(() => {
     setRows(materials)
@@ -515,6 +535,70 @@ export default function MaterialsTableClient({
     setAttachmentQueue([])
     setAttachmentType("compliance")
     setAttachmentDialogOpen(true)
+  }
+
+  const openEditModal = (row: MaterialRow) => {
+    setEditDraft({
+      id: row.id,
+      name: row.name ?? "",
+      quantity: row.quantity == null ? "" : String(row.quantity),
+      cost: row.cost == null ? "" : String(row.cost),
+      materialDate: row.materialDate ? new Date(row.materialDate) : null,
+      declarationAttachment: (row.declarationAttachment ?? []).map((file, index) => ({ id: `d-${index}-${file.name}`, ...file })),
+      agreementAttachment: (row.agreementAttachment ?? []).map((file, index) => ({ id: `a-${index}-${file.name}`, ...file })),
+    })
+    setEditModalOpen(true)
+  }
+
+  const fileToBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = String(reader.result ?? "")
+        resolve(result.includes(",") ? result.split(",")[1] : result)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+  const saveEditModal = async () => {
+    if (!editDraft) return
+    const quantity = editDraft.quantity.trim() === "" ? null : Number(editDraft.quantity)
+    const cost = editDraft.cost.trim() === "" ? null : Number(editDraft.cost)
+
+    try {
+      await updateMaterialDetails(editDraft.id, {
+        name: editDraft.name.trim() || null,
+        cost: Number.isNaN(cost as number) ? null : cost,
+        materialDate: editDraft.materialDate,
+      })
+      await updateQuantity(editDraft.id, Number.isNaN(quantity as number) ? null : quantity)
+      await updateMaterialAttachments(editDraft.id, {
+        declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
+        agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
+      })
+
+      setRows((current) =>
+        current.map((row) =>
+          row.id === editDraft.id
+            ? {
+                ...row,
+                name: editDraft.name,
+                quantity: Number.isNaN(quantity as number) ? null : quantity,
+                cost: Number.isNaN(cost as number) ? null : cost,
+                materialDate: editDraft.materialDate,
+                declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
+                agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
+              }
+            : row,
+        ),
+      )
+      setEditModalOpen(false)
+      toast.success("Material updated")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to save material")
+    }
   }
 
   const queueAttachmentFile = async (file: File) => {
@@ -1245,8 +1329,8 @@ export default function MaterialsTableClient({
                                 >
                                   Open in BIS
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => toggleRowEditable(r.id)}>
-                                  {isRowEditable(r.id) ? "Stop editing" : "Edit"}
+                                <DropdownMenuItem onClick={() => openEditModal(r)}>
+                                  Edit
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openAttachmentModal(r.id)}>
                                   Attachments
@@ -1375,6 +1459,78 @@ export default function MaterialsTableClient({
           <DialogFooter>
             <Button variant="outline" onClick={() => setAttachmentDialogOpen(false)}>Cancel</Button>
             <Button onClick={saveAttachmentQueue}>Add attachment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit material</DialogTitle>
+            <DialogDescription>
+              Update material details and attachments.
+            </DialogDescription>
+          </DialogHeader>
+          {editDraft ? (
+            <div className="space-y-4">
+              <Input value={editDraft.name} onChange={(event) => setEditDraft({ ...editDraft, name: event.target.value })} placeholder="Material" />
+              <div className="grid grid-cols-2 gap-3">
+                <Input value={editDraft.quantity} onChange={(event) => setEditDraft({ ...editDraft, quantity: event.target.value })} placeholder="Qty" />
+                <Input value={editDraft.cost} onChange={(event) => setEditDraft({ ...editDraft, cost: event.target.value })} placeholder="Cost" />
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full justify-start">
+                    <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                    {editDraft.materialDate ? formatDate(editDraft.materialDate) : "Pick date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={editDraft.materialDate ?? undefined} onSelect={(value) => setEditDraft({ ...editDraft, materialDate: value ?? null })} />
+                </PopoverContent>
+              </Popover>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Atbilstību apliecinošs dokuments</div>
+                <Input type="file" onChange={async (event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) return
+                  const base64Data = await fileToBase64(file)
+                  setEditDraft({
+                    ...editDraft,
+                    declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                  })
+                  event.currentTarget.value = ""
+                }} />
+                {editDraft.declarationAttachment.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between text-sm">
+                    <span>{file.name}</span>
+                    <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Vienošanās</div>
+                <Input type="file" onChange={async (event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) return
+                  const base64Data = await fileToBase64(file)
+                  setEditDraft({
+                    ...editDraft,
+                    agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                  })
+                  event.currentTarget.value = ""
+                }} />
+                {editDraft.agreementAttachment.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between text-sm">
+                    <span>{file.name}</span>
+                    <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            <Button onClick={saveEditModal}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
