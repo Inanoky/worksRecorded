@@ -44,14 +44,27 @@ export default function SendToBisButton({
         const result = await action(recordId, quantity, categoryId, sourcePhoto, materialName, materialDate)
 
         if (result?.errors) {
-          toast.error("Failed to send to BIS")
+          const detail =
+            result?.errors?.[0]?.detail ||
+            result?.errors?.[0]?.title ||
+            "Failed to send to BIS"
+          if (String(detail).includes("Izvēlētajam materiālam nav norādīts neviens atbilstību apliecinošs dokuments")) {
+            toast.error(`${detail}. Add a certificate/attachment to this BIS material configuration and try again.`)
+          } else {
+            toast.error(String(detail))
+          }
           return
         }
 
         toast.success("Sent successfully")
       } catch (error) {
         console.error(error)
-        toast.error("Failed to send to BIS")
+        const message = error instanceof Error ? error.message : "Failed to send to BIS"
+        if (message.includes("Izvēlētajam materiālam nav norādīts neviens atbilstību apliecinošs dokuments")) {
+          toast.error(`${message}. Add a certificate/attachment to this BIS material configuration and try again.`)
+        } else {
+          toast.error(message)
+        }
       }
     })
   }

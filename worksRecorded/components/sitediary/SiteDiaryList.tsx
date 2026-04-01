@@ -11,19 +11,31 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import {
+  copySiteDiaryRecordToDate,
   getBisCaseAvailableMaterials,
+  getBisCharacterMeasures,
+  getSiteDiaryRecordBisUrl,
   getFilledDays,
+  getPossibleSiteDiaryBisApprovers,
+  getSiteDiaryBisApprovalStatus,
   getSiteGalleryAttachments,
   getSitediaryRecordsBySiteIdForExcel,
   sendSiteDiaryRecordToBis,
+  syncDeletedSiteDiaryBisRecords,
+  submitSiteDiaryRecordToBisApproval,
 } from "@/server/actions/site-diary-actions";
 import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import * as XLSX from "xlsx";
 import {
   CalendarIcon,
+  Copy,
+  Ellipsis,
+  ExternalLink,
   Filter,
   Images,
   Loader2,
+  RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 import TourRunner from "@/components/joyride/TourRunner";
 
@@ -63,6 +75,14 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import {
   Tabs,
@@ -119,6 +139,7 @@ type DiaryRow = {
   originalUserComment?: string | null;
 
   BISId?: string | null;
+  bisStatus?: string | null;
   [key: string]: any;
 };
 
@@ -142,6 +163,14 @@ type GalleryAttachmentOption = {
   url: string;
   date?: Date | null;
   comment?: string | null;
+};
+
+type BisApprover = {
+  memberId: string;
+  memberType: string | null;
+  level: number | null;
+  name: string | null;
+  status: string | null;
 };
 
 function getCalendarGrid(year: number, month: number) {
@@ -292,11 +321,29 @@ export default function SiteDiaryCalendar({
   const [selectedRowForBis, setSelectedRowForBis] = React.useState<DiaryRow | null>(null);
   const [bisMaterialOptions, setBisMaterialOptions] = React.useState<BisMaterialOption[]>([]);
   const [galleryAttachmentOptions, setGalleryAttachmentOptions] = React.useState<GalleryAttachmentOption[]>([]);
-  const [selectedMaterialIds, setSelectedMaterialIds] = React.useState<string[]>([]);
   const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<string[]>([]);
-  const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, number>>({});
+  const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, string>>({});
   const [bisPickerLoading, setBisPickerLoading] = React.useState(false);
   const [attachmentGalleryOpen, setAttachmentGalleryOpen] = React.useState(false);
+  const [approverDialogOpen, setApproverDialogOpen] = React.useState(false);
+  const [approvalLoading, setApprovalLoading] = React.useState(false);
+  const [approverOptions, setApproverOptions] = React.useState<BisApprover[]>([]);
+  const [selectedApproverKeys, setSelectedApproverKeys] = React.useState<string[]>([]);
+  const [approvalRow, setApprovalRow] = React.useState<DiaryRow | null>(null);
+  const [bisApprovalStatusByRowId, setBisApprovalStatusByRowId] = React.useState<Record<string, string>>({});
+  const [copyDialogOpen, setCopyDialogOpen] = React.useState(false);
+  const [copyTargetRow, setCopyTargetRow] = React.useState<DiaryRow | null>(null);
+  const [copyTargetDate, setCopyTargetDate] = React.useState<Date | null>(null);
+  const [copyLoading, setCopyLoading] = React.useState(false);
+  const [bisSubmitDate, setBisSubmitDate] = React.useState<Date | null>(null);
+  const [bisSubmitWorks, setBisSubmitWorks] = React.useState("");
+  const [bisSubmitAmount, setBisSubmitAmount] = React.useState<string>("1");
+  const [bisSubmitMeasurement, setBisSubmitMeasurement] = React.useState<string>("12");
+  const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
+  const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
+  const [galleryAttachmentPage, setGalleryAttachmentPage] = React.useState(1);
+  const [showBisUi, setShowBisUi] = React.useState(true);
+  const bisUiEnabled = bisEnabled && showBisUi;
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -307,6 +354,23 @@ export default function SiteDiaryCalendar({
       setFilledDays,
     );
   }, [siteId, currentMonth, currentYear]);
+
+  const refreshRowsWithBisSync = React.useCallback(async (options?: { skipSync?: boolean }) => {
+    if (!siteId) return [];
+    if (bisUiEnabled && !options?.skipSync) {
+      await syncDeletedSiteDiaryBisRecords(siteId);
+    }
+    const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+    setRows(data || []);
+    setBisApprovalStatusByRowId(
+      Object.fromEntries(
+        (data || [])
+          .filter((row) => row.id)
+          .map((row) => [row.id as string, row.bisStatus ?? ""]),
+      ),
+    );
+    return data;
+  }, [bisUiEnabled, siteId]);
 
   // Load filled days for calendar
   React.useEffect(() => {
@@ -380,7 +444,7 @@ export default function SiteDiaryCalendar({
         setTableHeads(tableFields);
 
         //Fetching data
-        const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+        const data: DiaryRow[] = await refreshRowsWithBisSync();
 
         function pickRenderableRows(
           rows: Record<string, any>[],
@@ -403,9 +467,7 @@ export default function SiteDiaryCalendar({
         console.log(`formatted rows`);
         console.dir(formattedRows);
 
-        if (!cancelled) {
-          setRows(data || []);
-        }
+        if (cancelled) return;
       } catch (e: any) {
         if (!cancelled) {
           setError(e?.message ?? "Failed to load site diary");
@@ -419,10 +481,11 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [siteId]);
+  }, [refreshRowsWithBisSync, siteId]);
 
   const hasFilledDays = filledDays.length > 0;
   const hasRecords = rows.length > 0;
+  const GALLERY_PAGE_SIZE = 20;
 
   // Works filter options
   const worksOptions = React.useMemo(() => {
@@ -535,7 +598,7 @@ export default function SiteDiaryCalendar({
 
 
   const openBisPicker = async (row: DiaryRow) => {
-    if (!bisEnabled) {
+    if (!bisUiEnabled) {
       return;
     }
 
@@ -550,37 +613,36 @@ export default function SiteDiaryCalendar({
     }
 
     setSelectedRowForBis(row);
+    setBisSubmitDate(row.Date ? new Date(row.Date) : new Date());
+    setBisSubmitWorks(String(row.Works ?? ""));
+    setBisSubmitAmount(String(row.Amounts ?? 1));
     setBisPickerOpen(true);
     setBisPickerLoading(true);
 
     try {
-      const [materials, attachments] = await Promise.all([
+      const [materials, attachments, measurements] = await Promise.all([
         getBisCaseAvailableMaterials(siteId),
         getSiteGalleryAttachments(siteId),
+        getBisCharacterMeasures(siteId),
       ]);
 
       setBisMaterialOptions(materials);
       setGalleryAttachmentOptions(attachments);
-      setSelectedMaterialIds([]);
+      setGalleryAttachmentPage(1);
       setSelectedAttachmentUrls([]);
-      setMaterialQuantities({});
+      setMaterialQuantities(
+        Object.fromEntries(materials.map((material) => [material.id, ""])),
+      );
+      setBisMeasurementOptions(measurements);
+      if (measurements.length > 0) {
+        const current = measurements.find((item) => item.id === bisSubmitMeasurement);
+        setBisSubmitMeasurement(current?.id ?? measurements[0]?.id ?? "12");
+      }
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to load BIS material or attachment options.");
       setBisPickerOpen(false);
     } finally {
       setBisPickerLoading(false);
-    }
-  };
-
-  const toggleMaterial = (materialId: string, checked: boolean) => {
-    setSelectedMaterialIds((prev) =>
-      checked ? Array.from(new Set([...prev, materialId])) : prev.filter((id) => id !== materialId),
-    );
-
-    if (checked) {
-      const material = bisMaterialOptions.find((m) => m.id === materialId);
-      const defaultQty = Math.min(1, Number(material?.availableQuantity ?? 1));
-      setMaterialQuantities((prev) => ({ ...prev, [materialId]: prev[materialId] ?? defaultQty }));
     }
   };
 
@@ -592,47 +654,288 @@ export default function SiteDiaryCalendar({
     );
   };
 
+  const approverKey = React.useCallback(
+    (approver: BisApprover) =>
+      `${approver.memberId}:${approver.memberType ?? ""}:${approver.level ?? ""}`,
+    [],
+  );
+
+  const defaultApproverKeys = React.useCallback(
+    (approvers: BisApprover[]) => {
+      const firstPerLevel = new Map<string, string>();
+      for (const approver of approvers) {
+        const levelKey = String(approver.level ?? "");
+        if (!firstPerLevel.has(levelKey)) {
+          firstPerLevel.set(levelKey, approverKey(approver));
+        }
+      }
+      return Array.from(firstPerLevel.values());
+    },
+    [approverKey],
+  );
+
+  const normalizeApprovalStatus = React.useCallback((status: string | null | undefined) => {
+    return (status ?? "").trim().toLowerCase();
+  }, []);
+
+  const isApprovedStatus = React.useCallback((status: string | null | undefined) => {
+    return normalizeApprovalStatus(status) === "approved";
+  }, [normalizeApprovalStatus]);
+
+  const isApprovalPendingStatus = React.useCallback((status: string | null | undefined) => {
+    const normalized = normalizeApprovalStatus(status);
+    return [
+      "approving",
+      "submitted_to_approve",
+      "submitted",
+      "pending",
+      "pending_approval",
+      "on_approval",
+      "approval_in_progress",
+      "ready_for_approval",
+    ].includes(normalized);
+  }, [normalizeApprovalStatus]);
+
+  const getBisStatusLabel = React.useCallback((status: string | null | undefined) => {
+    const normalized = normalizeApprovalStatus(status);
+    if (!normalized) return "WorksRecorded";
+    if (normalized === "approved") return "BIS approved";
+    if (isApprovalPendingStatus(status)) return "BIS pending";
+    if (["sent", "draft", "created"].includes(normalized)) return "BIS draft";
+    return "BIS draft";
+  }, [isApprovalPendingStatus, normalizeApprovalStatus]);
+
+  const getBisStatusClassName = React.useCallback((status: string | null | undefined) => {
+    const normalized = normalizeApprovalStatus(status);
+    if (!normalized) return "border border-slate-200 bg-slate-50 text-slate-700";
+    if (normalized === "approved") return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+    if (isApprovalPendingStatus(status)) return "border border-sky-200 bg-sky-50 text-sky-700";
+    if (["sent", "draft", "created"].includes(normalized)) return "border border-blue-200 bg-blue-50 text-blue-700";
+    return "border border-blue-200 bg-blue-50 text-blue-700";
+  }, [isApprovalPendingStatus, normalizeApprovalStatus]);
+
+  const sortedGalleryAttachmentOptions = React.useMemo(
+    () =>
+      [...galleryAttachmentOptions].sort((a, b) => {
+        const aTime = a.date ? new Date(a.date).getTime() : 0;
+        const bTime = b.date ? new Date(b.date).getTime() : 0;
+        return bTime - aTime;
+      }),
+    [galleryAttachmentOptions],
+  );
+
+  const galleryTotalPages = Math.max(
+    1,
+    Math.ceil(sortedGalleryAttachmentOptions.length / GALLERY_PAGE_SIZE),
+  );
+
+  const pagedGalleryAttachments = React.useMemo(() => {
+    const safePage = Math.min(galleryAttachmentPage, galleryTotalPages);
+    const start = (safePage - 1) * GALLERY_PAGE_SIZE;
+    return sortedGalleryAttachmentOptions.slice(start, start + GALLERY_PAGE_SIZE);
+  }, [
+    GALLERY_PAGE_SIZE,
+    galleryAttachmentPage,
+    galleryTotalPages,
+    sortedGalleryAttachmentOptions,
+  ]);
+
+  React.useEffect(() => {
+    if (galleryAttachmentPage > galleryTotalPages) {
+      setGalleryAttachmentPage(galleryTotalPages);
+    }
+  }, [galleryAttachmentPage, galleryTotalPages]);
+
+  const openApprovalDialog = async (row: DiaryRow) => {
+    if (!row.id || !row.BISId) {
+      toast.error("Send this site diary record to BIS first.");
+      return;
+    }
+
+    try {
+      const currentStatus = await getSiteDiaryBisApprovalStatus(row.id);
+      if (currentStatus) {
+        setBisApprovalStatusByRowId((prev) => ({ ...prev, [row.id as string]: currentStatus }));
+      }
+      if (isApprovedStatus(currentStatus) || isApprovalPendingStatus(currentStatus)) {
+        return;
+      }
+
+      setApprovalRow(row);
+      setApproverDialogOpen(true);
+      const approvers = await getPossibleSiteDiaryBisApprovers(row.id);
+      setApproverOptions(approvers);
+      setSelectedApproverKeys(defaultApproverKeys(approvers));
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to load BIS approvers.");
+      setApproverDialogOpen(false);
+    }
+  };
+
+  const submitApproval = async () => {
+    if (!approvalRow?.id) {
+      toast.error("No record selected for approval.");
+      return;
+    }
+
+    const selectedApprovers = approverOptions.filter((approver) =>
+      selectedApproverKeys.includes(approverKey(approver)),
+    );
+
+    if (selectedApprovers.length === 0) {
+      toast.error("Select at least one approver.");
+      return;
+    }
+
+    try {
+      setApprovalLoading(true);
+      const result = await submitSiteDiaryRecordToBisApproval(
+        approvalRow.id,
+        selectedApprovers.map((approver) => ({
+          memberId: approver.memberId,
+          memberType: approver.memberType,
+          level: approver.level,
+        })),
+      );
+      setBisApprovalStatusByRowId((prev) => ({ ...prev, [approvalRow.id as string]: result.status }));
+      await refreshRowsWithBisSync({ skipSync: true });
+      toast.success("Site diary record submitted for BIS approval.");
+      setApproverDialogOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to submit approval.");
+    } finally {
+      setApprovalLoading(false);
+    }
+  };
+
+  const openCopyDialog = (row: DiaryRow) => {
+    setCopyTargetRow(row);
+    setCopyTargetDate(row.Date ? new Date(row.Date) : new Date());
+    setCopyDialogOpen(true);
+  };
+
+  const handleCopyRecord = async () => {
+    if (!copyTargetRow?.id || !copyTargetDate) {
+      toast.error("Select a record and target date.");
+      return;
+    }
+
+    try {
+      setCopyLoading(true);
+      await copySiteDiaryRecordToDate(copyTargetRow.id, copyTargetDate.toISOString());
+      if (!siteId) return;
+      await refreshRowsWithBisSync();
+      reloadFilledDays();
+      toast.success("Record copied locally. Submit it to BIS again if needed.");
+      setCopyDialogOpen(false);
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to copy record.");
+    } finally {
+      setCopyLoading(false);
+    }
+  };
+
+  const handleSyncBisRecords = async () => {
+    if (!siteId) {
+      toast.error("Missing site id.");
+      return;
+    }
+
+    try {
+      setBisSyncLoading(true);
+      const result = await syncDeletedSiteDiaryBisRecords(siteId);
+      await refreshRowsWithBisSync({ skipSync: true });
+
+      if (result.cleared > 0) {
+        setBisSentRowIds((prev) => {
+          const next = new Set(prev);
+          result.clearedRecordIds.forEach((id) => next.delete(id));
+          return next;
+        });
+        setBisApprovalStatusByRowId((prev) => {
+          const next = { ...prev };
+          result.clearedRecordIds.forEach((id) => {
+            delete next[id];
+          });
+          return next;
+        });
+        toast.success(`${result.cleared} BIS link(s) were removed because records were deleted in BIS.`);
+      } else {
+        toast.success("BIS sync completed. No deleted BIS records found.");
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to sync BIS records.");
+    } finally {
+      setBisSyncLoading(false);
+    }
+  };
+
   const handleSendRowToBis = async () => {
     if (!selectedRowForBis?.id) {
       toast.error("Missing selected record id.");
       return;
     }
 
-    if (selectedMaterialIds.length === 0) {
-      toast.error("Please select at least one material.");
-      return;
-    }
+    const selectedMaterials = bisMaterialOptions
+      .map((material) => {
+        const available = Number(material.availableQuantity ?? 0);
+        const requested = Number.parseFloat(materialQuantities[material.id] ?? "");
+        const normalizedRequested = Number.isFinite(requested) ? requested : 0;
+        return {
+          constructionMaterialId: material.id,
+          quantity: Math.max(0, Math.min(normalizedRequested, available)),
+        };
+      })
+      .filter((material) => material.quantity > 0);
 
-    if (selectedAttachmentUrls.length === 0) {
-      toast.error("Please select at least one attachment from gallery.");
+    if (selectedMaterials.length === 0) {
+      toast.error("Please select at least one material.");
       return;
     }
 
     try {
       setBisSendingRowId(selectedRowForBis.id);
 
+      const parsedAmount = Number(bisSubmitAmount);
       await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
-        materials: selectedMaterialIds.map((materialId) => {
-          const available = Number(
-            bisMaterialOptions.find((material) => material.id === materialId)?.availableQuantity ?? 0,
-          );
-          const requested = Number(materialQuantities[materialId] ?? 0);
-
-          return {
-            constructionMaterialId: materialId,
-            quantity: Math.max(0, Math.min(requested, available)),
-          };
-        }),
+        materials: selectedMaterials,
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
+        eventDate: bisSubmitDate ? bisSubmitDate.toISOString() : undefined,
+        worksDescription: bisSubmitWorks,
+        amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
+        measurement: bisSubmitMeasurement,
       });
 
+      const bisStatus = selectedRowForBis.id ? bisApprovalStatusByRowId[selectedRowForBis.id] : null;
+      if (selectedRowForBis.id && !bisStatus) {
+        setBisApprovalStatusByRowId((prev) => ({ ...prev, [selectedRowForBis.id as string]: "draft" }));
+      }
       setBisSentRowIds((prev) => new Set(prev).add(selectedRowForBis.id as string));
+      await refreshRowsWithBisSync();
       setBisPickerOpen(false);
       toast.success("Site diary record sent to BIS.");
     } catch (e: any) {
       toast.error(e?.message ?? "Failed to send site diary record to BIS.");
     } finally {
       setBisSendingRowId(null);
+    }
+  };
+
+  const handleOpenRecordInBis = async (row: DiaryRow) => {
+    if (!row?.id || !row.BISId) {
+      toast.error("This record has not been sent to BIS yet.");
+      return;
+    }
+
+    try {
+      const url = await getSiteDiaryRecordBisUrl(row.id);
+      if (!url) {
+        toast.error("BIS URL is not available for this record.");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to open record in BIS.");
     }
   };
   const handleDownloadPdf = async (groupKey: string, date: Date) => {
@@ -723,6 +1026,12 @@ export default function SiteDiaryCalendar({
                 <Button variant="outline" onClick={exportToExcel}>
                   Export to Excel
                 </Button>
+                {bisUiEnabled ? (
+                  <Button variant="outline" onClick={handleSyncBisRecords} disabled={bisSyncLoading}>
+                    <RefreshCw className={cn("mr-2 h-4 w-4", bisSyncLoading ? "animate-spin" : "")} />
+                    {bisSyncLoading ? "Refreshing..." : "Refresh BIS sync"}
+                  </Button>
+                ) : null}
               </div>
             </div>
           </div>
@@ -937,6 +1246,30 @@ export default function SiteDiaryCalendar({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {bisEnabled ? (
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={showBisUi}
+                        onClick={() => setShowBisUi((prev) => !prev)}
+                        className="inline-flex items-center gap-2 rounded-full border px-2 py-1 text-xs sm:text-sm"
+                      >
+                        <span className="text-muted-foreground">BIS</span>
+                        <span
+                          className={cn(
+                            "relative inline-flex h-5 w-9 rounded-full transition-colors",
+                            showBisUi ? "bg-blue-200" : "bg-slate-300",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform",
+                              showBisUi ? "translate-x-4" : "translate-x-0.5",
+                            )}
+                          />
+                        </span>
+                      </button>
+                    ) : null}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1103,34 +1436,94 @@ export default function SiteDiaryCalendar({
                                 </p>
                               </div>
 
-                              {bisEnabled ? (
-                              <div className="mt-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
+                              {bisUiEnabled ? (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {(() => {
+                                    const approvalStatus = r.id ? bisApprovalStatusByRowId[r.id] : null;
+                                    const isPendingApproval = isApprovalPendingStatus(approvalStatus);
+                                    const isApproved = isApprovedStatus(approvalStatus);
+                                    const isSent = Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false);
 
-                                  className={cn(
-                                    "h-7 text-[10px]",
-                                    (Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false))
-                                      ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                      : "bg-green-600 text-white hover:bg-green-700",
-                                  )}
-                                  disabled={!r.id || bisSendingRowId === r.id || Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)}
-                                  onClick={() => openBisPicker(r)}
-                                >
-                                  {(Boolean(r.BISId) || (r.id ? bisSentRowIds.has(r.id) : false)) ? (
-                                    "Already sent"
-                                  ) : bisSendingRowId === r.id ? (
-                                    <>
-                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                      Sending...
-                                    </>
-                                  ) : (
-                                    "Send to BIS"
-                                  )}
-                                </Button>
-                              </div>
-                              ) : null}
+                                    return (
+                                      <>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className={cn(
+                                            "h-7 text-[10px]",
+                                            isSent
+                                              ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                              : "bg-green-600 text-white hover:bg-green-700",
+                                            )}
+                                          disabled={!r.id || bisSendingRowId === r.id || isSent}
+                                          onClick={() => openBisPicker(r)}
+                                        >
+                                          {isSent ? "Sent to BIS" : bisSendingRowId === r.id ? (
+                                            <>
+                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                              Sending...
+                                            </>
+                                          ) : "Send to BIS"}
+                                        </Button>
+
+                                        {isSent ? (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className={cn(
+                                              "h-7 text-[10px]",
+                                              isApproved
+                                                ? "bg-green-600 text-white hover:bg-green-600"
+                                                : isPendingApproval
+                                                  ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                  : "bg-blue-600 text-white hover:bg-blue-700",
+                                            )}
+                                            disabled={!r.id || isPendingApproval || isApproved}
+                                            onClick={() => openApprovalDialog(r)}
+                                          >
+                                            {isApproved ? "Approved" : isPendingApproval ? "Sent for approval" : "Send for approval"}
+                                          </Button>
+                                        ) : null}
+                                      </>
+                                    );
+                                  })()}
+
+                                  <Badge className={cn("h-7 rounded-full px-3 text-[10px] font-medium", getBisStatusClassName(r.id ? bisApprovalStatusByRowId[r.id] ?? r.bisStatus : r.bisStatus))}>
+                                    {getBisStatusLabel(r.id ? bisApprovalStatusByRowId[r.id] ?? r.bisStatus : r.bisStatus)}
+                                  </Badge>
+
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button size="sm" variant="outline" className="h-7 px-2">
+                                        <Ellipsis className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
+                                        <Copy className="mr-2 h-3 w-3" />
+                                        Copy to date
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleOpenRecordInBis(r)} disabled={!r.BISId}>
+                                        <ExternalLink className="mr-2 h-3 w-3" />
+                                        Open in BIS
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              ) : (
+                                <div className="mt-2">
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    className="h-7 text-[10px]"
+                                    disabled={!r.id}
+                                    onClick={() => openCopyDialog(r)}
+                                  >
+                                    <Copy className="mr-1 h-3 w-3" />
+                                    Copy to date
+                                  </Button>
+                                </div>
+                              )}
 
                               {r.originalUserComment ? (
                                 <div className="mt-2">
@@ -1203,7 +1596,7 @@ export default function SiteDiaryCalendar({
                                       );
                                     })}
 
-{bisEnabled ? (
+{bisUiEnabled ? (
                                     <TableHead
                                       className="text-center"
                                       style={{ width: 140 }}
@@ -1211,6 +1604,21 @@ export default function SiteDiaryCalendar({
                                       BIS
                                     </TableHead>
                                   ) : null}
+                                    {bisUiEnabled ? (
+                                      <TableHead
+                                        className="text-center"
+                                        style={{ width: 140 }}
+                                      >
+                                        Status
+                                      </TableHead>
+                                    ) : null}
+
+                                    <TableHead
+                                      className="text-center"
+                                      style={{ width: 100 }}
+                                    >
+                                      Action
+                                    </TableHead>
 
                                     <TableHead
                                       className="text-center"
@@ -1230,7 +1638,7 @@ export default function SiteDiaryCalendar({
                                           return (
                                             <TableCell
                                               key={field}
-                                              className="align-top px-3 py-2 whitespace-normal break-words text-left"
+                                              className="align-top px-3 py-3 whitespace-normal break-words text-left"
                                               style={{ width: 120 }}
                                             >
                                               {row[field] ? (
@@ -1257,7 +1665,7 @@ export default function SiteDiaryCalendar({
                                         return (
                                           <TableCell
                                             key={field}
-                                            className={`align-top px-3 py-2 whitespace-normal break-words text-${align}`}
+                                            className={`align-top px-3 py-3 whitespace-normal break-words text-${align}`}
                                             style={{
                                               width: getCellWidthByKey(
                                                 field,
@@ -1282,44 +1690,127 @@ export default function SiteDiaryCalendar({
                                         );
                                       })}
 
-{bisEnabled ? (
+{bisUiEnabled ? (
                                       <TableCell
-                                        className="align-top px-3 py-2 text-center"
+                                        className="align-middle px-3 py-3 text-center"
                                         style={{ width: 140 }}
                                       >
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
+                                        {(() => {
+                                          const originalRow = group.rows[i] ?? row;
+                                          const approvalStatus = row.id ? bisApprovalStatusByRowId[row.id] : null;
+                                          const isPendingApproval = isApprovalPendingStatus(approvalStatus);
+                                          const isApproved = isApprovedStatus(approvalStatus);
+                                          const isSent = Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false);
 
-                                          className={cn(
-                                            "h-8",
-                                            (Boolean(group.rows[i]?.BISId) ||
-                                              (row.id ? bisSentRowIds.has(row.id) : false))
-                                              ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                              : "bg-green-600 text-white hover:bg-green-700",
-                                          )}
-                                          disabled={!row.id || bisSendingRowId === row.id || Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)}
-                                          onClick={() =>
-                                            openBisPicker(group.rows[i] ?? row)
+                                          if (!isSent) {
+                                            return (
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-8 bg-green-600 text-white hover:bg-green-700"
+                                                disabled={!row.id || bisSendingRowId === row.id}
+                                                onClick={() => openBisPicker(originalRow)}
+                                              >
+                                                {bisSendingRowId === row.id ? (
+                                                  <>
+                                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                    Sending...
+                                                  </>
+                                                ) : (
+                                                  "Send to BIS"
+                                                )}
+                                              </Button>
+                                            );
                                           }
-                                        >
 
-                                          {(Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false)) ? (
-                                            "Already sent"
-                                          ) : bisSendingRowId === row.id ? (
-                                            <>
-                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                              Sending...
-                                            </>
-                                          ) : (
-                                            "Send to BIS"
-                                          )}
-                                        </Button>
+                                          return (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              className={cn(
+                                                "h-8",
+                                                isApproved
+                                                  ? "bg-green-600 text-white hover:bg-green-600"
+                                                  : isPendingApproval
+                                                    ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                    : "bg-blue-600 text-white hover:bg-blue-700",
+                                              )}
+                                              disabled={!row.id || isPendingApproval || isApproved}
+                                              onClick={() => openApprovalDialog(originalRow)}
+                                            >
+                                              {isApproved ? (
+                                                <>
+                                                  <ShieldCheck className="mr-1 h-3 w-3" />
+                                                  Approved
+                                                </>
+                                              ) : isPendingApproval ? (
+                                                "Sent for approval"
+                                              ) : (
+                                                "Send for approval"
+                                              )}
+                                            </Button>
+                                          );
+                                        })()}
                                       </TableCell>
                                       ) : null}
 
+                                      {bisUiEnabled ? (
+                                        <TableCell
+                                          className="align-middle px-3 py-3 text-center"
+                                          style={{ width: 140 }}
+                                        >
+                                          <Badge
+                                            className={cn(
+                                              "inline-flex items-center justify-center rounded-full px-3 py-1 font-medium capitalize",
+                                              getBisStatusClassName(
+                                                row.id
+                                                  ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
+                                                  : group.rows[i]?.bisStatus,
+                                              ),
+                                            )}
+                                          >
+                                            {getBisStatusLabel(
+                                              row.id
+                                                ? bisApprovalStatusByRowId[row.id] ?? group.rows[i]?.bisStatus
+                                                : group.rows[i]?.bisStatus,
+                                            )}
+                                          </Badge>
+                                        </TableCell>
+                                      ) : null}
+
                                       <TableCell
-                                        className="align-top px-3 py-2 text-center"
+                                        className="align-top px-3 py-3 text-center"
+                                        style={{ width: 100 }}
+                                      >
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!row.id}>
+                                              <Ellipsis className="h-4 w-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                              onClick={() => openCopyDialog(group.rows[i] ?? row)}
+                                              disabled={!row.id}
+                                            >
+                                              <Copy className="mr-2 h-3.5 w-3.5" />
+                                              Copy
+                                            </DropdownMenuItem>
+                                            {bisUiEnabled ? (
+                                              <DropdownMenuItem
+                                                onClick={() => handleOpenRecordInBis(group.rows[i] ?? row)}
+                                                disabled={!group.rows[i]?.BISId}
+                                              >
+                                                <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                                                Open in BIS
+                                              </DropdownMenuItem>
+                                            ) : null}
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </TableCell>
+
+                                      <TableCell
+                                        className="align-top px-3 py-3 text-center"
                                         style={{ width: 60 }}
                                       >
                                         {row.originalUserComment ? (
@@ -1372,22 +1863,20 @@ export default function SiteDiaryCalendar({
 
             if (!siteId) return;
             setLoading(true);
-            const data: DiaryRow[] =
-              await getSitediaryRecordsBySiteIdForExcel(siteId);
-            setRows(data || []);
+            await refreshRowsWithBisSync();
             setLoading(false);
           }}
         >
           <div className="grid gap-3" />
         </DialogWindow>
 
-        {bisEnabled ? (
+        {bisUiEnabled ? (
         <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
-          <DialogContent className="w-[96vw] max-w-5xl max-h-[92vh] overflow-y-auto">
+          <DialogContent className="w-[99vw] max-w-[99vw] sm:max-w-[96vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[84vw] max-h-[96vh] overflow-y-auto p-6">
             <DialogHeader>
               <DialogTitle>Select BIS materials and attachments</DialogTitle>
               <p className="text-xs text-muted-foreground">
-                Select approved materials with remaining quantity and attach images from the site gallery.
+                Select approved materials, adjust diary data to send, and optionally attach gallery images.
               </p>
             </DialogHeader>
 
@@ -1398,78 +1887,159 @@ export default function SiteDiaryCalendar({
               </div>
             ) : (
               <div className="space-y-6">
-                <div className="rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
-                  Selected materials: {selectedMaterialIds.length} • Selected attachments: {selectedAttachmentUrls.length}
+                <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                  Selected materials: {Object.values(materialQuantities).filter((qty) => (Number.parseFloat(qty || "") || 0) > 0).length} • Selected attachments: {selectedAttachmentUrls.length} (optional)
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-3">
+                  <div className="rounded-md border p-4 lg:col-span-2">
+                    <h3 className="mb-3 text-sm font-semibold">Performed work details</h3>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground">BIS event date</label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                          {bisSubmitDate
+                            ? bisSubmitDate.toLocaleDateString("en-GB")
+                            : "Pick BIS event date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={bisSubmitDate || undefined}
+                          onSelect={(value) => setBisSubmitDate(value ?? null)}
+                          className="bg-green-50/40"
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground">Works description</label>
+                    <Textarea
+                      value={bisSubmitWorks}
+                      onChange={(event) => setBisSubmitWorks(event.target.value)}
+                      placeholder="Describe works sent to BIS"
+                      rows={3}
+                      className="min-h-[84px]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground">
+                      Amount {selectedRowForBis?.Units ? `(${selectedRowForBis.Units})` : ""}
+                    </label>
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={bisSubmitAmount}
+                      onChange={(event) => setBisSubmitAmount(event.target.value)}
+                      placeholder="Enter amount"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-foreground">BIS measurement unit</label>
+                    <Select value={bisSubmitMeasurement} onValueChange={setBisSubmitMeasurement}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select measurement" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bisMeasurementOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                    </div>
+                  </div>
+                  <div className="rounded-md border p-4">
+                    <h3 className="mb-2 text-sm font-semibold">Attachments</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Attachments are optional. Add them only if you want photo evidence in BIS.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 w-full"
+                      onClick={() => setAttachmentGalleryOpen(true)}
+                    >
+                      Add / manage attachments
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold">Materials from current BIS case</h3>
-                  <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border p-3">
+                  <div className="max-h-[52vh] overflow-y-auto rounded-md border">
                     {bisMaterialOptions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">No BIS materials available in this case.</p>
+                      <p className="p-3 text-xs text-muted-foreground">No BIS materials available in this case.</p>
                     ) : (
-                      bisMaterialOptions.map((material) => {
-                        const checked = selectedMaterialIds.includes(material.id);
-                        return (
-                          <div key={material.id} className="flex items-start justify-between gap-3 rounded border bg-background p-2">
-                            <label className="flex items-start gap-2 text-sm">
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={(value) => toggleMaterial(material.id, Boolean(value))}
-                              />
-                              <span className="leading-tight">
-                                {material.label}
-                                {material.measurementUnit ? ` (${material.measurementUnit})` : ""}
-                                <span className="block text-xs text-muted-foreground">
-                                  Remaining available: {material.availableQuantity}
-                                </span>
-                                <span className="block text-[11px] text-muted-foreground/80">
-                                  Delivered: {material.deliveredQuantity ?? "—"} • Used: {material.usedQuantity ?? "—"}
-                                </span>
-                              </span>
-                            </label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={material.availableQuantity}
-                              step="0.01"
-                              className="w-28"
-                              value={materialQuantities[material.id] ?? 0}
-                              disabled={!checked}
-                              onChange={(e) =>
-                                setMaterialQuantities((prev) => ({
-                                  ...prev,
-                                  [material.id]: Math.max(
-                                    0,
-                                    Math.min(Number(e.target.value || 0), Number(material.availableQuantity)),
-                                  ),
-                                }))
-                              }
-                            />
-                          </div>
-                        );
-                      })
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50 text-xs text-muted-foreground">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium">Material</th>
+                            <th className="px-3 py-2 text-left font-medium">Unit</th>
+                            <th className="px-3 py-2 text-right font-medium">Total</th>
+                            <th className="px-3 py-2 text-right font-medium">Used</th>
+                            <th className="px-3 py-2 text-right font-medium">Available</th>
+                            <th className="px-3 py-2 text-right font-medium">Send qty</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bisMaterialOptions.map((material) => (
+                            <tr key={material.id} className="border-t">
+                              <td className="px-3 py-2 align-top">
+                                <div className="font-medium">{material.label}</div>
+                              </td>
+                              <td className="px-3 py-2">{material.measurementUnit || "—"}</td>
+                              <td className="px-3 py-2 text-right">{material.deliveredQuantity ?? "—"}</td>
+                              <td className="px-3 py-2 text-right">{material.usedQuantity ?? "—"}</td>
+                              <td className="px-3 py-2 text-right font-semibold">
+                                {material.availableQuantity} {material.measurementUnit || ""}
+                              </td>
+                              <td className="px-3 py-2 text-right">
+                                <Input
+                                  type="text"
+                                  inputMode="decimal"
+                                  className="ml-auto w-28"
+                                  value={materialQuantities[material.id] ?? ""}
+                                  onChange={(e) => {
+                                    const rawValue = e.target.value.replace(",", ".");
+                                    if (!/^\d*\.?\d*$/.test(rawValue)) return;
+                                    setMaterialQuantities((prev) => ({
+                                      ...prev,
+                                      [material.id]: rawValue,
+                                    }));
+                                  }}
+                                />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold">Attachments from this site gallery</h3>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setAttachmentGalleryOpen(true)}
-                    >
-                      Add attachment
-                    </Button>
+                    <h3 className="text-sm font-semibold">Selected gallery attachments</h3>
                   </div>
 
                   {selectedAttachmentUrls.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No attachments selected yet. Click “Add attachment” to open gallery.</p>
+                    <p className="text-xs text-muted-foreground">No attachments selected. This is optional.</p>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-4">
+                    <div className="max-h-56 overflow-y-auto rounded-md border p-2">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                       {selectedAttachmentUrls.map((url) => (
                         <div key={url} className="relative overflow-hidden rounded border">
                           <img src={url} alt="Selected attachment" className="h-24 w-full object-cover" />
@@ -1482,6 +2052,7 @@ export default function SiteDiaryCalendar({
                           </button>
                         </div>
                       ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1494,8 +2065,7 @@ export default function SiteDiaryCalendar({
                     onClick={handleSendRowToBis}
                     disabled={
                       Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
-                      selectedMaterialIds.length === 0 ||
-                      selectedAttachmentUrls.length === 0
+                      Object.values(materialQuantities).every((qty) => (Number.parseFloat(qty || "") || 0) <= 0)
                     }
                   >
                     {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
@@ -1514,6 +2084,108 @@ export default function SiteDiaryCalendar({
         </Dialog>
         ) : null}
 
+        <Dialog
+          open={approverDialogOpen}
+          onOpenChange={(open) => {
+            setApproverDialogOpen(open);
+            if (!open) {
+              setApprovalRow(null);
+              setApproverOptions([]);
+              setSelectedApproverKeys([]);
+            }
+          }}
+        >
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Send site diary record for approval</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Select one or more approvers before submitting this BIS record for approval.
+              </p>
+            </DialogHeader>
+
+            <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
+              {approverOptions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No BIS approvers returned for this record.</p>
+              ) : (
+                approverOptions.map((approver) => {
+                  const key = approverKey(approver);
+                  const checked = selectedApproverKeys.includes(key);
+                  return (
+                    <label key={key} className="flex items-start gap-3 rounded-lg border p-3">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value) =>
+                          setSelectedApproverKeys((current) =>
+                            value ? [...current, key] : current.filter((item) => item !== key),
+                          )
+                        }
+                      />
+                      <div className="space-y-1 text-sm">
+                        <p className="font-medium">{approver.name || "Unnamed approver"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Member ID: {approver.memberId} • Level: {approver.level ?? "—"}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setApproverDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={submitApproval} disabled={approvalLoading || selectedApproverKeys.length === 0}>
+                {approvalLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send for approval"
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Copy record to another date</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                This creates a local copy only. If the original was sent to BIS, copied record must be sent again.
+              </p>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Target date</label>
+              <Calendar
+                mode="single"
+                selected={copyTargetDate || undefined}
+                onSelect={(value) => setCopyTargetDate(value ?? null)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCopyRecord} disabled={!copyTargetDate || copyLoading}>
+                {copyLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Copying...
+                  </>
+                ) : (
+                  "Copy record"
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={attachmentGalleryOpen} onOpenChange={setAttachmentGalleryOpen}>
           <DialogContent className="w-[98vw] max-w-[98vw] lg:max-w-7xl max-h-[94vh] overflow-y-auto">
             <DialogHeader>
@@ -1523,8 +2195,9 @@ export default function SiteDiaryCalendar({
             {galleryAttachmentOptions.length === 0 ? (
               <p className="text-sm text-muted-foreground">No gallery photos available for this site.</p>
             ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-                {galleryAttachmentOptions.map((attachment) => {
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+                {pagedGalleryAttachments.map((attachment) => {
                   const checked = selectedAttachmentUrls.includes(attachment.url);
                   return (
                     <label
@@ -1557,6 +2230,35 @@ export default function SiteDiaryCalendar({
                     </label>
                   );
                 })}
+                </div>
+
+                <div className="flex items-center justify-between rounded border bg-muted/20 px-3 py-2 text-xs">
+                  <span>
+                    Page {galleryAttachmentPage} of {galleryTotalPages} • {sortedGalleryAttachmentOptions.length} photos
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={galleryAttachmentPage <= 1}
+                      onClick={() => setGalleryAttachmentPage((prev) => Math.max(1, prev - 1))}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={galleryAttachmentPage >= galleryTotalPages}
+                      onClick={() =>
+                        setGalleryAttachmentPage((prev) => Math.min(galleryTotalPages, prev + 1))
+                      }
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
 

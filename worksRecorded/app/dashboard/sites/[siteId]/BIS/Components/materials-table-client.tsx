@@ -4,11 +4,10 @@ import * as React from "react"
 import Image from "next/image"
 import {
   Search,
-  ExternalLink,
-  Clock3,
   Filter,
-  ShieldCheck,
   RefreshCw,
+  MoreHorizontal,
+  CalendarIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -30,6 +29,18 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -143,6 +154,14 @@ type Props = {
     recordId: string,
     quantity: number | null,
   ) => Promise<{ success: true }>
+  updateName: (
+    recordId: string,
+    name: string | null,
+  ) => Promise<void>
+  updateCost: (
+    recordId: string,
+    cost: number | null,
+  ) => Promise<void>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
 
@@ -165,7 +184,7 @@ function getApprovalStateStatus(status: string | null | undefined) {
 
   return normalizedStatus === "approved"
     ? "approved"
-    : "submitted_to_approve"
+    : "pending"
 }
 
 export default function MaterialsTableClient({
@@ -184,6 +203,8 @@ export default function MaterialsTableClient({
   updateCostCode,
   updateMaterialDate,
   updateQuantity,
+  updateName,
+  updateCost,
   deleteRecords,
 }: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
@@ -423,6 +444,12 @@ export default function MaterialsTableClient({
     }
   }
 
+  const openWarehouseRecordInBis = (bisId: string | null | undefined) => {
+    if (!bisId) return
+    const url = `https://test.bis.gov.lv/bisp/lv/portal/logbooks/received_construction_products/${bisId}/`
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
+
   const toggleRowSelection = (recordId: string, checked: boolean) => {
     setSelectedRowIds((current) =>
       checked ? Array.from(new Set([...current, recordId])) : current.filter((id) => id !== recordId),
@@ -440,6 +467,12 @@ export default function MaterialsTableClient({
 
   const deleteSelectedRows = async () => {
     if (!selectedRowIds.length) return
+
+    const selectedRows = rows.filter((row) => selectedRowIds.includes(row.id))
+    const hasBisLinkedRows = selectedRows.some((row) => !!row.BISId)
+    if (hasBisLinkedRows) {
+      toast.warning("These BIS-linked records will be deleted only from WorksRecorded. They will remain in BIS.")
+    }
 
     setDeleteLoading(true)
     try {
@@ -502,7 +535,11 @@ export default function MaterialsTableClient({
         bisId: approverDialogRow.BISId,
         error,
       })
-      toast.error(message)
+      if (message.includes("Izvēlētajam materiālam nav norādīts neviens atbilstību apliecinošs dokuments")) {
+        toast.error(`${message}. Add a certificate/attachment to the BIS material configuration before approval.`)
+      } else {
+        toast.error(message)
+      }
     } finally {
       setApprovalLoading(false)
     }
@@ -536,6 +573,53 @@ export default function MaterialsTableClient({
       console.error(error)
       setRows(previousRows)
       toast.error("Failed to update material date")
+    }
+  }
+
+  const handleNameChange = async (recordId: string, nextValue: string) => {
+    const previousRows = rows
+    setRows((current) =>
+      current.map((row) =>
+        row.id === recordId
+          ? {
+              ...row,
+              name: nextValue,
+            }
+          : row,
+      ),
+    )
+
+    try {
+      await updateName(recordId, nextValue)
+    } catch (error) {
+      console.error(error)
+      setRows(previousRows)
+      toast.error("Failed to update material name")
+    }
+  }
+
+  const handleCostChange = async (recordId: string, nextValue: string) => {
+    const parsedValue = nextValue === "" ? null : Number(nextValue)
+    if (parsedValue != null && Number.isNaN(parsedValue)) return
+
+    const previousRows = rows
+    setRows((current) =>
+      current.map((row) =>
+        row.id === recordId
+          ? {
+              ...row,
+              cost: parsedValue,
+            }
+          : row,
+      ),
+    )
+
+    try {
+      await updateCost(recordId, parsedValue)
+    } catch (error) {
+      console.error(error)
+      setRows(previousRows)
+      toast.error("Failed to update cost")
     }
   }
 
@@ -626,46 +710,21 @@ export default function MaterialsTableClient({
   const allVisibleSelected = filteredMaterials.length > 0 && filteredMaterials.every((row) => selectedRowIds.includes(row.id))
   const someVisibleSelected = filteredMaterials.some((row) => selectedRowIds.includes(row.id))
 
-  const stats = React.useMemo(() => {
-    const total = rows.length
-    const sent = rows.filter((m) => !!m.BISId).length
-    const unsent = total - sent
-    const totalCost = rows.reduce((sum, m) => sum + (m.cost ?? 0), 0)
-
-    return { total, sent, unsent, totalCost }
-  }, [rows])
+  const totalCost = React.useMemo(
+    () => rows.reduce((sum, m) => sum + (m.cost ?? 0), 0),
+    [rows],
+  )
 
   const showBisControls = bisEnabled
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="text-sm text-muted-foreground">Total records</div>
-          <div className="mt-1 text-2xl font-semibold">{stats.total}</div>
-        </div>
-
-        <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="text-sm text-muted-foreground">Sent to BIS</div>
-          <div className="mt-1 text-2xl font-semibold">{stats.sent}</div>
-        </div>
-
-        <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="text-sm text-muted-foreground">Pending</div>
-          <div className="mt-1 text-2xl font-semibold">{stats.unsent}</div>
-        </div>
-
-        <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="text-sm text-muted-foreground">Total cost</div>
-          <div className="mt-1 text-2xl font-semibold">
-            {formatMoney(stats.totalCost)}
-          </div>
-        </div>
-      </div>
-
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="relative md:col-span-2">
+        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="text-sm text-muted-foreground">
+            Total cost: <span className="font-medium text-foreground">{formatMoney(totalCost)}</span>
+          </div>
+          <div className="relative w-full md:w-[420px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
@@ -674,7 +733,9 @@ export default function MaterialsTableClient({
               className="pl-9"
             />
           </div>
+        </div>
 
+        <div className="grid gap-3 md:grid-cols-4">
           <Select
             value={status}
             onValueChange={(v) => setStatus(v as "all" | "sent" | "unsent")}
@@ -771,10 +832,10 @@ export default function MaterialsTableClient({
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="w-full overflow-hidden">
+          <Table className="w-full table-fixed text-sm">
             <TableHeader>
-              <TableRow className="bg-muted/40">
+              <TableRow className="bg-muted/40 [&_th]:px-3 [&_th]:py-3">
                 <TableHead className="w-12">
                   <Checkbox
                     checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
@@ -782,26 +843,25 @@ export default function MaterialsTableClient({
                     aria-label="Select all visible warehouse records"
                   />
                 </TableHead>
-                <TableHead>Photo</TableHead>
-                <TableHead>Material</TableHead>
-                <TableHead>Status</TableHead>
-                {showBisControls ? <TableHead>BIS material configuration</TableHead> : null}
-                <TableHead className="w-[150px]">Cost code</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead>Unit</TableHead>
-                <TableHead>Cost</TableHead>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Invoice date</TableHead>
-                <TableHead>BIS ID</TableHead>
-                {showBisControls ? <TableHead className="text-right">Action</TableHead> : null}
+                <TableHead className="w-[76px]">Photo</TableHead>
+                <TableHead className="w-[20%]">Material</TableHead>
+                <TableHead className="w-[9%]">Status</TableHead>
+                {showBisControls ? <TableHead className="w-[16%]">BIS material configuration</TableHead> : null}
+                <TableHead className="w-[10%]">Cost code</TableHead>
+                <TableHead className="w-[11%]">Date</TableHead>
+                <TableHead className="w-[6%]">Qty</TableHead>
+                <TableHead className="w-[5%]">Unit</TableHead>
+                <TableHead className="w-[7%]">Cost</TableHead>
+                <TableHead className="w-[7%]">Invoice</TableHead>
+                <TableHead className="w-[9%]">Invoice date</TableHead>
+                {showBisControls ? <TableHead className="w-[11%] text-right">Action</TableHead> : null}
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showBisControls ? 14 : 12} className="py-12 text-center">
+                  <TableCell colSpan={showBisControls ? 13 : 11} className="py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-medium">No materials found</p>
                       <p className="text-sm text-muted-foreground">
@@ -829,7 +889,7 @@ export default function MaterialsTableClient({
                   ].includes(normalizedStatus)
 
                   return (
-                    <TableRow key={r.id} className="align-middle">
+                    <TableRow key={r.id} className="align-middle [&_td]:px-3 [&_td]:py-3">
                       <TableCell>
                         <Checkbox
                           checked={selectedRowIds.includes(r.id)}
@@ -838,7 +898,7 @@ export default function MaterialsTableClient({
                         />
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="align-top">
                         {r.sourcePhoto ? (
                           <a href={r.sourcePhoto} target="_blank" rel="noreferrer">
                             <div className="relative h-14 w-14 overflow-hidden rounded-lg border bg-muted">
@@ -858,51 +918,41 @@ export default function MaterialsTableClient({
                         )}
                       </TableCell>
 
-                      <TableCell>
-                        <div className="font-medium">{r.name || "Unnamed material"}</div>
-                        {r.sourcePhoto && (
-                          <a
-                            href={r.sourcePhoto}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:underline"
-                          >
-                            Open photo <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        )}
+                      <TableCell className="min-w-0">
+                        <Input
+                          value={r.name ?? ""}
+                          onChange={(event) => handleNameChange(r.id, event.target.value)}
+                          placeholder="Material name"
+                          className="w-full min-w-0"
+                        />
                       </TableCell>
 
                       <TableCell>
                         {!normalizedStatus ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            Pending
+                          <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700">
+                            WorksRecorded
                           </Badge>
                         ) : isDraft ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            Draft
+                          <Badge className="rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+                            BIS draft
                           </Badge>
                         ) : isApproved ? (
-                          <Badge className="gap-1 bg-green-600 text-white hover:bg-green-600">
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            Approved
+                          <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
+                            BIS approved
                           </Badge>
                         ) : isAwaitingApproval ? (
-                          <Badge className="gap-1 bg-blue-600 text-white hover:bg-blue-600">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            Waiting for approval
+                          <Badge className="rounded-full border border-sky-200 bg-sky-50 text-sky-700">
+                            BIS pending
                           </Badge>
                         ) : (
-                          <Badge variant="secondary" className="gap-1">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            {normalizedStatus}
+                          <Badge className="rounded-full border border-blue-200 bg-blue-50 text-blue-700">
+                            BIS draft
                           </Badge>
                         )}
                       </TableCell>
 
                       {showBisControls ? (
-                        <TableCell>
+                        <TableCell className="min-w-0">
                           <MaterialConfigSelect
                             siteId={siteId}
                             recordId={r.id}
@@ -917,7 +967,7 @@ export default function MaterialsTableClient({
                         </TableCell>
                       ) : null}
 
-                      <TableCell>
+                      <TableCell className="min-w-0">
                         <CostCodeSelect
                           recordId={r.id}
                           value={r.costCode}
@@ -926,13 +976,35 @@ export default function MaterialsTableClient({
                         />
                       </TableCell>
                       <TableCell>
-                        <Input
-                          type="date"
-                          value={toDateInputValue(r.materialDate)}
-                          onChange={(event) => handleMaterialDateChange(r.id, event.target.value)}
-                          disabled={isSent}
-                          className="w-[160px]"
-                        />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={isSent}
+                              className="w-full min-w-0 justify-start text-left font-normal"
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                              {toDateInputValue(r.materialDate)
+                                ? formatDate(r.materialDate)
+                                : "Pick date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={r.materialDate ? new Date(r.materialDate) : undefined}
+                              onSelect={(value) =>
+                                handleMaterialDateChange(
+                                  r.id,
+                                  value ? value.toISOString().slice(0, 10) : "",
+                                )
+                              }
+                              className="bg-green-50/40"
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </TableCell>
                       <TableCell>
                         <Input
@@ -943,19 +1015,26 @@ export default function MaterialsTableClient({
                           onChange={(event) => handleQuantityChange(r.id, event.target.value)}
                           onBlur={(event) => handleQuantityBlur(r.id, event.target.value)}
                           disabled={isSent}
-                          className="w-[120px]"
+                          className="w-full min-w-0"
                         />
                       </TableCell>
                       <TableCell>{r.measurementUnit || "—"}</TableCell>
-                      <TableCell>{formatMoney(r.cost)}</TableCell>
-                      <TableCell>{r.invoiceNr || "—"}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={r.cost ?? ""}
+                          onChange={(event) => handleCostChange(r.id, event.target.value)}
+                          className="w-full min-w-0"
+                        />
+                      </TableCell>
+                      <TableCell className="truncate">{r.invoiceNr || "—"}</TableCell>
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
-                      <TableCell className="font-mono text-xs">{r.BISId || "—"}</TableCell>
-
                       {showBisControls ? (
                         <TableCell className="text-right">
-                          {!isSent ? (
-                            <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center justify-end gap-2">
+                            {!isSent ? (
                               <SendToBisButton
                                 recordId={r.id}
                                 quantity={r.quantity ?? 0}
@@ -965,28 +1044,44 @@ export default function MaterialsTableClient({
                                 materialDate={r.materialDate}
                                 action={handleSendToBis}
                               />
-                            </div>
-                          ) : !isApproved && !isAwaitingApproval ? (
-                            <Button
-                              size="sm"
-                              onClick={() => openApproverDialog(r)}
-                              className="bg-blue-600 text-white hover:bg-blue-700"
-                            >
-                              Send for approval
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              disabled
-                              className={
-                                isApproved
-                                  ? "bg-green-600 text-white hover:bg-green-600"
-                                  : "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                              }
-                            >
-                              {isApproved ? "Approved" : "Sent for approval"}
-                            </Button>
-                          )}
+                            ) : !isApproved && !isAwaitingApproval ? (
+                              <Button
+                                size="sm"
+                                onClick={() => openApproverDialog(r)}
+                                className="bg-blue-600 text-white hover:bg-blue-700"
+                              >
+                                Send for approval
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                disabled
+                                className={
+                                  isApproved
+                                    ? "bg-green-600 text-white hover:bg-green-600"
+                                    : "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                }
+                              >
+                                {isApproved ? "Approved" : "Sent for approval"}
+                              </Button>
+                            )}
+
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => openWarehouseRecordInBis(r.BISId)}
+                                  disabled={!r.BISId}
+                                >
+                                  Open in BIS
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       ) : null}
                     </TableRow>

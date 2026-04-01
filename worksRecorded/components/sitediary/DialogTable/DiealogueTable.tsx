@@ -178,6 +178,9 @@ export function DialogTable({
     const row = rows.find((r) => r.id === id || r._tempId === tempId);
 
     if (row?.id) {
+      if (row.BISId || row.bisStatus) {
+        toast.warning("This BIS-linked record will be deleted only from WorksRecorded and will remain in BIS.");
+      }
       await deleteSiteDiaryRecord({ id: row.id });
       toast.success("Record deleted");
       onSaved?.();

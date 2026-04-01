@@ -70,6 +70,7 @@ export async function assignBisCaseToSiteAction(formData: FormData) {
 
 export async function completeBisManualAuthorizationAction(formData: FormData) {
   const siteId = String(formData.get("siteId") ?? "");
+  const manualAuthorizationCode = String(formData.get("authorizationCode") ?? "").trim();
   const user = await requireUser();
 
   if (!siteId) {
@@ -78,10 +79,10 @@ export async function completeBisManualAuthorizationAction(formData: FormData) {
 
   await orgCheck(user.id, siteId);
 
-  const authorizationCode = process.env.BIS_AUTHORIZATION_CODE;
+  const authorizationCode = manualAuthorizationCode || process.env.BIS_AUTHORIZATION_CODE;
 
   if (!authorizationCode) {
-    throw new Error("Missing BIS_AUTHORIZATION_CODE in environment");
+    throw new Error("Missing authorization code. Paste one manually or set BIS_AUTHORIZATION_CODE in environment");
   }
 
   const tokens = await exchangeBisAuthorizationCode(authorizationCode);

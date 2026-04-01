@@ -31,6 +31,13 @@ export type MaterialCategory = {
   measurement_unit: string | null
 }
 
+type MaterialTypeOption = {
+  id: string
+  name: string
+  categoryName?: string | null
+  isHeader?: boolean
+}
+
 export default function MaterialConfigSelect({
   siteId,
   recordId,
@@ -74,7 +81,7 @@ export default function MaterialConfigSelect({
   }>
   categories: MaterialCategory[]
   measurements: Array<{ id: string; name: string }>
-  materialTypes: Array<{ id: string; name: string }>
+  materialTypes: MaterialTypeOption[]
 }) {
   const [pending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -204,7 +211,7 @@ export default function MaterialConfigSelect({
         }}
         disabled={disabled || pending}
       >
-        <SelectTrigger className="w-[240px]">
+        <SelectTrigger className="w-full min-w-0">
           <SelectValue placeholder="Select configuration" />
         </SelectTrigger>
 
@@ -270,8 +277,10 @@ export default function MaterialConfigSelect({
                 </SelectTrigger>
                 <SelectContent>
                   {materialTypes.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name}
+                    <SelectItem key={item.id} value={item.id} disabled={item.isHeader}>
+                      {item.categoryName
+                        ? `${item.categoryName} — ${item.name}`
+                        : item.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

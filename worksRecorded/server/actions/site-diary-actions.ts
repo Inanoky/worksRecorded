@@ -7,7 +7,7 @@ import { parseExcelToTree } from "@/server/ai-flows/agents/settings/schema-uploa
 import { validateExcel } from "@/lib/utils/SiteDiary/Settings/validateSchema";
 import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
-import { getOrganizationIdByWorkerId } from "./shared-actions";
+import { getOrganizationIdByWorkerId, orgCheck } from "./shared-actions";
 import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
 import { Turret_Road } from "next/font/google";
 import { isQuestionDotToken } from "typescript";
@@ -377,6 +377,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       TimeInvolved: true,
       Photos: true,
       BISId: true,
+      bisStatus: true,
       originalUserComment: true,
 
       // createdBy support
@@ -440,6 +441,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
 
       Photos: rec.Photos ?? [],
       BISId: rec.BISId || null,
+      bisStatus: rec.bisStatus || null,
       originalUserComment: rec.originalUserComment || "",
 
       createdBy: createdBy || "N/A",
@@ -456,108 +458,259 @@ export type BisPerformedWorkAttachmentSelection = {
   url: string;
 };
 
+async function fetchBisPagedList(
+  urlBase: string,
+  accessToken: string,
+): Promise<any[]> {
+  const allRows: any[] = [];
+  let page = 1;
+  const pageSize = 100;
+
+  while (true) {
+    const separator = urlBase.includes("?") ? "&" : "?";
+    const res = await fetch(
+      `${urlBase}${separator}page[number]=${page}&page[size]=${pageSize}`,
+      {
+        headers: {
+          Accept: "application/vnd.api+json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+
+    if (!res.ok) {
+      throw new Error(json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS paged list");
+    }
+
+    const rows = Array.isArray(json?.data) ? json.data : [];
+    if (!rows.length) break;
+
+    allRows.push(...rows);
+
+    const hasNextPage = Boolean(json?.links?.next);
+    if (!hasNextPage && rows.length < pageSize) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return allRows;
+}
+
+async function fetchBisRelatedResource(
+  relatedUrl: string,
+  accessToken: string,
+  baseUrl: string,
+): Promise<any | null> {
+  if (!relatedUrl) return null;
+
+  const url = relatedUrl.startsWith("http")
+    ? relatedUrl
+    : `${baseUrl}${relatedUrl.startsWith("/") ? relatedUrl : `/${relatedUrl}`}`;
+
+  const res = await fetch(url, {
+    headers: {
+      Accept: "application/vnd.api+json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return json?.data ?? null;
+}
+
 export async function getBisCaseAvailableMaterials(siteId: string) {
   const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(siteId);
 
   const baseUrl = getBisBaseUrl();
+  let caseConstructionRoundId: string | null = null;
 
-  // 12I7-092: received construction products list
-  const receivedResponse = await fetch(
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/received_construction_products?page[number]=1&page[size]=200`,
-    {
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
+  try {
+    const caseResponse = await fetch(
+      `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}`,
+      {
+        headers: {
+          Accept: "application/vnd.api+json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
       },
-      cache: "no-store",
-    },
-  );
+    );
 
-  if (!receivedResponse.ok) {
-    const text = await receivedResponse.text();
-    throw new Error(text || "Failed to fetch BIS received construction products");
+    const caseText = await caseResponse.text();
+    let caseJson: any = null;
+    try {
+      caseJson = caseText ? JSON.parse(caseText) : null;
+    } catch {
+      caseJson = null;
+    }
+
+    if (caseResponse.ok) {
+      const rawRoundId =
+        caseJson?.data?.attributes?.case_construction_round_id ??
+        caseJson?.data?.attributes?.current_case_construction_round_id ??
+        null;
+      caseConstructionRoundId = rawRoundId == null ? null : String(rawRoundId);
+    } else {
+      console.warn("[SiteDiary BIS] Could not load case round id for material availability", {
+        siteId,
+        bisCase,
+        status: caseResponse.status,
+        detail: caseJson?.errors?.[0]?.detail ?? caseJson?.error ?? null,
+      });
+    }
+  } catch (error) {
+    console.warn("[SiteDiary BIS] Failed to resolve case round id for material availability", {
+      siteId,
+      bisCase,
+      error: error instanceof Error ? error.message : error,
+    });
   }
 
-  const receivedJson = await receivedResponse.json();
-  const approvedReceivedItems = (Array.isArray(receivedJson?.data) ? receivedJson.data : []).filter(
-    (item: any) => item?.attributes?.status === "approved",
+  // 12I7-136: available received construction products for adding into performed works.
+  // This endpoint already includes all available rows for the current case context.
+  const receivedProductsUrl = caseConstructionRoundId
+    ? `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products?filter[case_construction_round_id_eq]=${encodeURIComponent(caseConstructionRoundId)}`
+    : `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products`;
+  const availableReceivedItems = await fetchBisPagedList(
+    receivedProductsUrl,
+    accessToken,
   );
+  const measureRows = await fetchBisPagedList(
+    `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+    accessToken,
+  );
+  const measurementNameByCode = new Map<string, string>();
+  for (const row of measureRows) {
+    const code = row?.attributes?.code == null ? "" : String(row.attributes.code);
+    const name = row?.attributes?.name == null ? "" : String(row.attributes.name);
+    if (code && name) {
+      measurementNameByCode.set(code, name);
+    }
+  }
 
-  // Build metadata (label/unit) and total delivered quantity by construction_material_id
-  // from approved 12I7-092 details.
-  const approvedMaterialMeta = new Map<string, { label: string; measurementUnit: string | null }>();
-  const deliveredByMaterial = new Map<string, number>();
+  const resolvedReceivedItems = await Promise.all(
+    availableReceivedItems.map(async (item: any) => {
+      const attributes = item?.attributes ?? {};
+      const detailRelatedUrl = item?.relationships?.detail?.links?.related ?? null;
+      const constructionMaterialRelatedUrl =
+        item?.relationships?.construction_material?.links?.related ?? null;
+      const detailData =
+        attributes?.construction_material_id == null || attributes?.quantity == null
+          ? await fetchBisRelatedResource(detailRelatedUrl, accessToken, baseUrl)
+          : null;
+      const detailAttributes = detailData?.attributes ?? {};
 
-  const approvedDetails = await Promise.all(
-    approvedReceivedItems.map(async (item: any) => {
-      const logbookId = String(item?.id ?? "");
-      if (!logbookId) return null;
+      const directMaterialId =
+        attributes?.construction_material_id ??
+        detailAttributes?.construction_material_id ??
+        null;
 
-      const detailResponse = await fetch(
-        `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/received_construction_products/${logbookId}/detail`,
-        {
-          headers: {
-            Accept: "application/vnd.api+json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          cache: "no-store",
-        },
-      );
+      const parsedMaterialIdFromRelation =
+        typeof constructionMaterialRelatedUrl === "string"
+          ? constructionMaterialRelatedUrl.match(/\/construction_materials\/([^/?#]+)/)?.[1] ?? null
+          : null;
 
-      if (!detailResponse.ok) return null;
+      const constructionMaterialId =
+        directMaterialId == null ? parsedMaterialIdFromRelation : String(directMaterialId);
+      const quantityRaw =
+        attributes?.quantity == null ? detailAttributes?.quantity ?? null : attributes.quantity;
 
-      const detailJson = await detailResponse.json();
-      const detail = detailJson?.data?.attributes;
-      const constructionMaterialId = String(detail?.construction_material_id ?? "");
-      if (!constructionMaterialId) return null;
+      const measurementRaw =
+        attributes?.measurement_unit == null
+          ? attributes?.measurement == null
+            ? detailAttributes?.measurement_unit == null
+              ? detailAttributes?.measurement == null
+                ? null
+                : String(detailAttributes.measurement)
+              : String(detailAttributes.measurement_unit)
+            : String(attributes.measurement)
+          : String(attributes.measurement_unit);
+      const measurementUnit =
+        measurementRaw == null ? null : (measurementNameByCode.get(measurementRaw) ?? measurementRaw);
 
       return {
+        id: item?.id ?? null,
         constructionMaterialId,
-        deliveredQuantity: Number(detail?.quantity ?? 0),
-        label:
-          item?.attributes?.material_name ||
-          detail?.material_kind ||
-          `Material #${constructionMaterialId}`,
-        measurementUnit: detail?.measurement ? String(detail.measurement) : null,
+        quantity: quantityRaw == null ? 0 : Number(quantityRaw),
+        materialName: attributes?.material_name ?? attributes?.material_kind ?? null,
+        measurementUnit,
+        caseConstructionRoundId: attributes?.case_construction_round_id ?? null,
       };
     }),
   );
 
-  for (const detail of approvedDetails) {
-    if (!detail) continue;
+  console.log("[SiteDiary BIS] Available received construction products loaded", {
+    siteId,
+    bisCase,
+    caseConstructionRoundId,
+    endpoint: receivedProductsUrl,
+    count: availableReceivedItems.length,
+    sample: resolvedReceivedItems.slice(0, 3),
+  });
 
-    if (!approvedMaterialMeta.has(detail.constructionMaterialId)) {
-      approvedMaterialMeta.set(detail.constructionMaterialId, {
-        label: detail.label,
-        measurementUnit: detail.measurementUnit,
+  // Build metadata (label/unit) and total delivered quantity by construction_material_id.
+  const approvedMaterialMeta = new Map<string, { label: string; measurementUnit: string | null }>();
+  const deliveredByMaterial = new Map<string, number>();
+
+  for (const item of resolvedReceivedItems) {
+    const constructionMaterialId = String(item?.constructionMaterialId ?? "");
+    if (!constructionMaterialId) continue;
+
+    const deliveredQuantity = Number(item?.quantity ?? 0);
+    const measurementUnit = item?.measurementUnit == null ? null : String(item.measurementUnit);
+    const label = item?.materialName ?? `Material #${constructionMaterialId}`;
+
+    if (!approvedMaterialMeta.has(constructionMaterialId)) {
+      approvedMaterialMeta.set(constructionMaterialId, {
+        label: String(label),
+        measurementUnit,
       });
     }
 
     deliveredByMaterial.set(
-      detail.constructionMaterialId,
-      (deliveredByMaterial.get(detail.constructionMaterialId) ?? 0) + detail.deliveredQuantity,
+      constructionMaterialId,
+      (deliveredByMaterial.get(constructionMaterialId) ?? 0) + deliveredQuantity,
     );
   }
 
   // 12I7-184: used materials list (quantity already used in logbook records)
-  const availableResponse = await fetch(
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials?page[number]=1&page[size]=200`,
-    {
-      headers: {
-        Accept: "application/vnd.api+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-    },
+  const availableItems = await fetchBisPagedList(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials`,
+    accessToken,
   );
-
-  if (!availableResponse.ok) {
-    const text = await availableResponse.text();
-    throw new Error(text || "Failed to fetch BIS available used materials");
-  }
-
-  const availableJson = await availableResponse.json();
-  const availableItems = Array.isArray(availableJson?.data) ? availableJson.data : [];
+  console.log("[SiteDiary BIS] Available used materials loaded", {
+    siteId,
+    bisCase,
+    count: availableItems.length,
+    sample: availableItems.slice(0, 3).map((item: any) => ({
+      id: item?.id ?? null,
+      construction_material_id: item?.attributes?.construction_material_id ?? null,
+      quantity: item?.attributes?.quantity ?? null,
+    })),
+  });
 
   const usedByMaterial = new Map<string, number>();
   for (const item of availableItems) {
@@ -571,7 +724,7 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
   }
 
   // Remaining = approved delivered (12I7-092 detail.quantity) - used (12I7-184 quantity)
-  return Array.from(deliveredByMaterial.entries())
+  const results = Array.from(deliveredByMaterial.entries())
     .map(([materialId, deliveredQuantity]) => {
       if (!approvedMaterialMeta.has(materialId)) return null;
 
@@ -590,6 +743,17 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
     })
     .filter((item: any) => item && item.availableQuantity > 0)
     .sort((a: any, b: any) => String(a.label).localeCompare(String(b.label)));
+
+  console.log("[SiteDiary BIS] Final materials prepared for dialog", {
+    siteId,
+    bisCase,
+    deliveredMaterialCount: deliveredByMaterial.size,
+    usedMaterialCount: usedByMaterial.size,
+    finalCount: results.length,
+    sample: results.slice(0, 5),
+  });
+
+  return results;
 }
 
 export async function getSiteGalleryAttachments(siteId: string) {
@@ -626,6 +790,10 @@ export async function sendSiteDiaryRecordToBis(
   options?: {
     materials?: BisPerformedWorkMaterialSelection[];
     attachments?: BisPerformedWorkAttachmentSelection[];
+    eventDate?: string;
+    worksDescription?: string;
+    amount?: number;
+    measurement?: string;
   },
 ) {
   if (!recordId) throw new Error("Missing site diary record id");
@@ -660,13 +828,17 @@ export async function sendSiteDiaryRecordToBis(
 
   const baseUrl = getBisBaseUrl();
 
-  const eventDate = (diaryRecord.Date ?? new Date()).toISOString().slice(0, 10);
+  const eventDate = options?.eventDate
+    ? new Date(options.eventDate).toISOString().slice(0, 10)
+    : (diaryRecord.Date ?? new Date()).toISOString().slice(0, 10);
   const eventTimeFrom = new Date().toTimeString().slice(0, 5);
+  const amountValue = Number(options?.amount ?? diaryRecord.Amounts ?? 1);
+  const descriptionOverride = options?.worksDescription?.trim();
 
   const detailAttributes = {
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
-    quantity: Number(diaryRecord.Amounts ?? 1),
-    measurement: Number(process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
+    quantity: Number.isFinite(amountValue) ? amountValue : 1,
+    measurement: Number(options?.measurement ?? process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
   };
 
   const attachments: Array<{ type: "shared_attachments"; uuid: string }> = [];
@@ -696,7 +868,7 @@ export async function sendSiteDiaryRecordToBis(
     }));
 
   const descriptionParts = [
-    diaryRecord.Works ? `Works: ${diaryRecord.Works}` : null,
+    (descriptionOverride || diaryRecord.Works) ? `Works: ${descriptionOverride || diaryRecord.Works}` : null,
     diaryRecord.Location ? `Location: ${diaryRecord.Location}` : null,
     diaryRecord.Comments ? `Comments: ${diaryRecord.Comments}` : null,
   ].filter(Boolean);
@@ -761,9 +933,11 @@ export async function sendSiteDiaryRecordToBis(
   const bisId = json?.data?.id ? String(json.data.id) : null;
 
   if (bisId) {
+    const bisStatus =
+      json?.data?.attributes?.status == null ? "sent" : String(json.data.attributes.status);
     await prisma.sitediaryrecords.update({
       where: { id: recordId },
-      data: { BISId: bisId },
+      data: { BISId: bisId, bisStatus },
     });
   }
 
@@ -772,6 +946,434 @@ export async function sendSiteDiaryRecordToBis(
     bisId,
     response: json,
   };
+}
+
+export async function getBisCharacterMeasures(siteId: string) {
+  if (!siteId) throw new Error("Missing site id");
+  const user = await requireUser();
+  await orgCheck(user.id, siteId);
+
+  const { accessToken } = await requireBisAccessTokenForSite(siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const classifierRows = await fetchBisPagedList(
+    `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+    accessToken,
+  );
+
+  const allowedMeasurementNames = new Set([
+    "cm",
+    "dienas",
+    "gab",
+    "ha",
+    "kg",
+    "km",
+    "komplekts",
+    "kv",
+    "kva",
+    "kw",
+    "l",
+    "m",
+    "m2",
+    "m3",
+    "mēneši",
+    "mm",
+    "mm2",
+    "stundas",
+    "t",
+  ]);
+
+  return classifierRows
+    .map((item: any) => ({
+      id: item?.attributes?.code == null ? "" : String(item.attributes.code),
+      name: item?.attributes?.name == null ? "" : String(item.attributes.name),
+    }))
+    .filter((item: { id: string; name: string }) => {
+      if (!item.id || !item.name) return false;
+      const normalizedName = item.name.trim().replace(/[.\s]/g, "").toLowerCase();
+      return allowedMeasurementNames.has(normalizedName);
+    })
+    .sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name));
+}
+
+type BisApproverSelection = {
+  memberId: string;
+  memberType: string | null;
+  level: number | null;
+};
+
+export async function getPossibleSiteDiaryBisApprovers(recordId: string) {
+  if (!recordId) throw new Error("Missing site diary record id");
+
+  const user = await requireUser();
+  const record = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true, BISId: true },
+  });
+
+  if (!record?.siteId) {
+    throw new Error("Site diary record is not assigned to a site");
+  }
+
+  await orgCheck(user.id, record.siteId);
+
+  if (!record.BISId) {
+    throw new Error("Send this record to BIS before selecting approvers");
+  }
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const res = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/possible_approvers`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS possible approvers",
+    );
+  }
+
+  return (Array.isArray(json?.data) ? json.data : []).map((item: any) => ({
+    memberId: String(item?.attributes?.member_id ?? item?.id ?? ""),
+    memberType: item?.attributes?.member_type ?? null,
+    level: item?.attributes?.level == null ? null : Number(item.attributes.level),
+    name:
+      item?.attributes?.member_name ??
+      item?.attributes?.name ??
+      item?.attributes?.full_name ??
+      item?.attributes?.approver_name ??
+      null,
+    status: item?.attributes?.status ?? null,
+  }));
+}
+
+export async function getSiteDiaryBisApprovalStatus(recordId: string) {
+  if (!recordId) throw new Error("Missing site diary record id");
+
+  const user = await requireUser();
+  const record = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true, BISId: true },
+  });
+
+  if (!record?.siteId || !record.BISId) {
+    return null;
+  }
+
+  await orgCheck(user.id, record.siteId);
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const res = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    if (res.status === 404) {
+      await prisma.sitediaryrecords.update({
+        where: { id: recordId },
+        data: { BISId: null, bisStatus: null },
+      });
+      return null;
+    }
+    throw new Error(json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS record status");
+  }
+
+  const status = json?.data?.attributes?.status ? String(json.data.attributes.status) : null;
+  await prisma.sitediaryrecords.update({
+    where: { id: recordId },
+    data: { bisStatus: status },
+  });
+
+  return status;
+}
+
+export async function submitSiteDiaryRecordToBisApproval(
+  recordId: string,
+  approvers: BisApproverSelection[],
+) {
+  if (!recordId) throw new Error("Missing site diary record id");
+  if (!approvers.length) throw new Error("Select at least one approver");
+
+  const user = await requireUser();
+  const record = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true, BISId: true },
+  });
+
+  if (!record?.siteId) {
+    throw new Error("Site diary record is not assigned to a site");
+  }
+
+  await orgCheck(user.id, record.siteId);
+
+  if (!record.BISId) {
+    throw new Error("Send this record to BIS before approval");
+  }
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const res = await fetch(
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/submit_to_approve`,
+    {
+      method: "PATCH",
+      headers: {
+        Accept: "application/vnd.api+json",
+        "Content-Type": "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        data: {
+          type: "performed_work",
+          relationships: {
+            approvers: {
+              data: approvers.map((approver) => ({
+                type: "approver",
+                attributes: {
+                  member_id: Number(approver.memberId),
+                  member_type: approver.memberType,
+                  level: approver.level,
+                },
+              })),
+            },
+          },
+        },
+      }),
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      json?.errors?.[0]?.detail || json?.error || "Failed to submit site diary record for BIS approval",
+    );
+  }
+
+  const status = json?.data?.attributes?.status
+    ? String(json.data.attributes.status)
+    : "submitted_to_approve";
+  await prisma.sitediaryrecords.update({
+    where: { id: recordId },
+    data: { bisStatus: status },
+  });
+
+  return {
+    status,
+  };
+}
+
+export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO: string) {
+  if (!recordId) throw new Error("Missing site diary record id");
+  if (!targetDateISO) throw new Error("Missing target date");
+
+  const user = await requireUser();
+  const source = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: {
+      userId: true,
+      workerId: true,
+      siteId: true,
+      organizationId: true,
+      Date_Custom_1: true,
+      Date_Custom_2: true,
+      Location: true,
+      Location_Custom_1: true,
+      Location_Custom_2: true,
+      Works: true,
+      Works_Custom_1: true,
+      Works_Custom_2: true,
+      Comments: true,
+      Comments_Custom_1: true,
+      Comments_Custom_2: true,
+      originalUserComment: true,
+      Units: true,
+      Amounts: true,
+      WorkersInvolved: true,
+      TimeInvolved: true,
+      Photos: true,
+    },
+  });
+
+  if (!source?.siteId) {
+    throw new Error("Source site diary record not found");
+  }
+
+  await orgCheck(user.id, source.siteId);
+
+  const targetDate = new Date(targetDateISO);
+  if (Number.isNaN(targetDate.getTime())) {
+    throw new Error("Invalid target date");
+  }
+
+  const copied = await prisma.sitediaryrecords.create({
+    data: {
+      userId: source.userId,
+      workerId: source.workerId,
+      siteId: source.siteId,
+      organizationId: source.organizationId,
+      Date: targetDate,
+      Date_Custom_1: source.Date_Custom_1,
+      Date_Custom_2: source.Date_Custom_2,
+      Location: source.Location,
+      Location_Custom_1: source.Location_Custom_1,
+      Location_Custom_2: source.Location_Custom_2,
+      Works: source.Works,
+      Works_Custom_1: source.Works_Custom_1,
+      Works_Custom_2: source.Works_Custom_2,
+      Comments: source.Comments,
+      Comments_Custom_1: source.Comments_Custom_1,
+      Comments_Custom_2: source.Comments_Custom_2,
+      originalUserComment: source.originalUserComment,
+      Units: source.Units,
+      Amounts: source.Amounts,
+      WorkersInvolved: source.WorkersInvolved,
+      TimeInvolved: source.TimeInvolved,
+      Photos: source.Photos,
+      BISId: null,
+      bisStatus: null,
+    },
+    select: { id: true },
+  });
+
+  return { id: copied.id };
+}
+
+export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
+  if (!siteId) throw new Error("Missing site id");
+
+  const user = await requireUser();
+  await orgCheck(user.id, siteId);
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const baseUrl = getBisBaseUrl();
+
+  const records = await prisma.sitediaryrecords.findMany({
+    where: {
+      siteId,
+      BISId: { not: null },
+    },
+    select: { id: true, BISId: true, bisStatus: true },
+  });
+
+  const clearedRecordIds: string[] = [];
+
+  for (const record of records) {
+    const bisId = String(record.BISId ?? "");
+    if (!bisId) continue;
+
+    const res = await fetch(
+      `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${bisId}`,
+      {
+        headers: {
+          Accept: "application/vnd.api+json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (res.ok) {
+      const text = await res.text();
+      let json: any = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = null;
+      }
+
+      const currentStatus =
+        json?.data?.attributes?.status == null ? null : String(json.data.attributes.status);
+      if ((record.bisStatus ?? null) !== currentStatus) {
+        await prisma.sitediaryrecords.update({
+          where: { id: record.id },
+          data: { bisStatus: currentStatus },
+        });
+      }
+      continue;
+    }
+
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+
+    const message = String(json?.errors?.[0]?.detail || json?.error || "").toLowerCase();
+    const shouldClear = res.status === 404 || message.includes("not found") || message.includes("deleted");
+
+    if (shouldClear) {
+      await prisma.sitediaryrecords.update({
+        where: { id: record.id },
+        data: { BISId: null, bisStatus: null },
+      });
+      clearedRecordIds.push(record.id);
+    }
+  }
+
+  return {
+    checked: records.length,
+    cleared: clearedRecordIds.length,
+    clearedRecordIds,
+  };
+}
+
+export async function getSiteDiaryRecordBisUrl(recordId: string) {
+  if (!recordId) throw new Error("Missing site diary record id");
+
+  const user = await requireUser();
+  const record = await prisma.sitediaryrecords.findUnique({
+    where: { id: recordId },
+    select: { siteId: true, BISId: true },
+  });
+
+  if (!record?.siteId || !record.BISId) return null;
+  await orgCheck(user.id, record.siteId);
+
+  const baseUrl = getBisBaseUrl();
+  return `${baseUrl}/bisp/lv/portal/logbooks/performed_works/${record.BISId}/`;
 }
 
 async function uploadLogbookAttachmentToBis({
