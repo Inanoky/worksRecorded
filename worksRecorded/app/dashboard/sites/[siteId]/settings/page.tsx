@@ -32,6 +32,7 @@ import Reminder from "@/components/settings/ReminderUI";
 import { getRemindersData, getReminderTimes, getDataForReminderTable} from "@/server/actions/reminder-actions";
 import { BisIntegrationCard } from "@/components/settings/BisIntegrationCard";
 import { fetchBisAvailableCases, getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
+import { SiteGeofenceEditor } from "@/components/settings/SiteGeofenceEditor";
 
 
 
@@ -192,31 +193,15 @@ export default async function SettingsSiteRoute({
               />
             </div>
             <div>
-              <label className="block mb-1 text-sm font-medium" htmlFor="geofenceMapLink">
-                Site map link (Google Maps polygon link)
+              <label className="block mb-2 text-sm font-medium">
+                Site area (Google Maps + Terra Draw)
               </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2 text-base"
-                name="geofenceMapLink"
-                id="geofenceMapLink"
-                type="url"
-                placeholder="https://maps.google.com/..."
-                defaultValue={site?.geofenceMapLink || ""}
-              />
-            </div>
-            <div>
-              <label className="block mb-1 text-sm font-medium" htmlFor="geofencePolygon">
-                Site area polygon (JSON)
-              </label>
-              <textarea
-                className="w-full border rounded-lg px-3 py-2 text-sm min-h-28"
-                name="geofencePolygon"
-                id="geofencePolygon"
-                placeholder='[{"lat":56.9496,"lng":24.1052},{"lat":56.9499,"lng":24.1060},{"lat":56.9492,"lng":24.1064}]'
-                defaultValue={site?.geofencePolygon ? JSON.stringify(site.geofencePolygon, null, 2) : ""}
+              <SiteGeofenceEditor
+                initialPolygon={site?.geofencePolygon}
+                initialMapLink={site?.geofenceMapLink}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Draw area corners in Google Maps (or similar) and paste coordinates as JSON array of {"{lat,lng}"} points.
+                Draw or edit polygon directly on the map. Saved polygon points are used for WhatsApp location-based clock-in checks.
               </p>
             </div>
           </div>
