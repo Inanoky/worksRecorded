@@ -75,17 +75,47 @@ export function SiteGeofenceEditor({
           mapTypeId: "roadmap",
         });
 
-        const adapter = new w.TerraDrawGoogleMapsAdapter({ map });
-        const draw = new w.TerraDraw({
+        const TerraDrawCtor =
+          w.TerraDraw ||
+          w.terraDraw?.TerraDraw ||
+          w["terra-draw"]?.TerraDraw;
+        const TerraDrawGoogleMapsAdapterCtor =
+          w.TerraDrawGoogleMapsAdapter ||
+          w.terraDrawGoogleMapsAdapter?.TerraDrawGoogleMapsAdapter ||
+          w["terra-draw-google-maps-adapter"]?.TerraDrawGoogleMapsAdapter;
+        const TerraDrawPolygonModeCtor =
+          w.TerraDrawPolygonMode ||
+          w.terraDraw?.TerraDrawPolygonMode ||
+          w["terra-draw"]?.TerraDrawPolygonMode;
+        const TerraDrawSelectModeCtor =
+          w.TerraDrawSelectMode ||
+          w.terraDraw?.TerraDrawSelectMode ||
+          w["terra-draw"]?.TerraDrawSelectMode;
+
+        if (
+          !TerraDrawCtor ||
+          !TerraDrawGoogleMapsAdapterCtor ||
+          !TerraDrawPolygonModeCtor ||
+          !TerraDrawSelectModeCtor
+        ) {
+          setStatus("Terra Draw globals were not found. Please refresh and try again.");
+          return;
+        }
+
+        const adapter = new TerraDrawGoogleMapsAdapterCtor({
+          map,
+          lib: w.google.maps,
+        });
+        const draw = new TerraDrawCtor({
           adapter,
           modes: [
-            new w.TerraDrawPolygonMode(),
-            new w.TerraDrawSelectMode(),
+            new TerraDrawPolygonModeCtor(),
+            new TerraDrawSelectModeCtor(),
           ],
         });
 
         draw.start();
-        draw.setMode("select");
+        draw.setMode("polygon");
         drawRef.current = draw;
 
         if (initialPoints.length >= 3) {
@@ -118,7 +148,7 @@ export function SiteGeofenceEditor({
           }
         });
 
-        setStatus("Use Draw polygon, then Edit to adjust vertices.");
+        setStatus("Draw polygon directly on the map. Switch to Edit mode to adjust vertices.");
       } catch (err: any) {
         setStatus(err?.message || "Could not initialize Terra Draw.");
       }
