@@ -7,28 +7,36 @@
     "signIn": "Talk to a live person",
     "noCardNote": "No credit card",
     "heroImageAlt": "worksRecorded hero preview",
-
     "section2Pill": "For building contractors, MEP, energy and utilities",
     "section2Title": "Simple yet powerful record keeping solution",
     "section2Description": "No more excuses, there is always time for a voice message",
     "section2ImageAlt": "Site diary and project records in worksRecorded",
     "section2Caption": "WhatsApp notes become structured daily records – with workers, locations, works, and photos in one place."
   },
-
   "LandingText": {
     "whatDoWeDo": {
       "heading": "Features",
       "items": [
-        { "title": "Fully customizible to fit your operations" },
-        { "title": "Fields from your existing forms" },
-        { "title": "Upload photos with comments" },
-        { "title": "Sorted by cost codes and locations" },
-        { "title": "24/7 live technical support" },
-   
-        { "title": "Intelligent sorting set up according to your trade specifics" }
+        {
+          "title": "Fully customizible to fit your operations"
+        },
+        {
+          "title": "Fields from your existing forms"
+        },
+        {
+          "title": "Upload photos with comments"
+        },
+        {
+          "title": "Sorted by cost codes and locations"
+        },
+        {
+          "title": "24/7 live technical support"
+        },
+        {
+          "title": "Intelligent sorting set up according to your trade specifics"
+        }
       ]
     },
-
     "howDoWeDoThat": {
       "heading": "Who is it for?",
       "items": [
@@ -58,7 +66,6 @@
         }
       ]
     },
-
     "why": {
       "heading": "Why WorksRecorded?",
       "description": "WhatsApp is the most widely used messenger for construction",
@@ -70,15 +77,12 @@
       ]
     }
   },
-
   "SiteDiary": {
     "title": "Construction site records",
-
     "block1": {
       "title": "How do we do that",
       "text": "Just send a voice message to WorksRecorded WhatsApp describing what happened today. Our AI will transform your words into a structured site diary record."
     },
-
     "block2": {
       "title": "What is your benefit",
       "p1": "Everything that happens on site during the project is stored and easily accessible.",
@@ -93,44 +97,36 @@
       "p4": "Estimation? You know exactly how much time you’ve spent.",
       "p5": "Your project recorded."
     },
-
     "images": {
       "siteDiaryAlt": "Site diary",
       "whatsappAlt": "WhatsApp",
       "galleryAlt": "Site diary gallery"
     }
   },
-
   "Timesheets": {
     "title": "Timesheets",
-
     "block1": {
       "title": "How do we do that",
       "text": "Workers use WhatsApp to chat with WorksRecorded to clock in and out of work. Before clocking out, the AI asks them to describe what was achieved during the day. The information is structured and stored in the database automatically."
     },
-
     "block2": {
       "title": "What is your benefit",
       "li1": "Get every work hour accounted for.",
       "li2": "Bid labor precisely on the next project.",
       "li3": "Identify waste, set targets, and measure KPIs for labor."
     },
-
     "images": {
       "dashboardAlt": "Timesheets dashboard",
       "whatsappAlt": "WhatsApp",
       "analyticsAlt": "Timesheet analytics"
     }
   },
-
   "Analytics": {
     "title": "Analytics",
-
     "block1": {
       "title": "How do we do that",
       "text": "We combine data science with AI and construction industry expertise to automatically extract analytics from your data. We’ll provide the insights you need—bill of quantities, progress statistics, hindrances, delays, average performance, cost per category and period, areas of waste and improvement, and more."
     },
-
     "block2": {
       "title": "What is your benefit",
       "li1": "Advanced pre-made analytics for immediate results.",
@@ -138,16 +134,13 @@
       "li3": "Fully dynamic — updates as the project progresses.",
       "li4": "Forecast finances, cash flow, and work progress."
     },
-
     "images": {
       "overviewAlt": "Analytics overview",
       "detailsAlt": "Analytics details"
     }
   },
-
   "CustomSolutions": {
     "title": "Custom digital solutions",
-
     "block1": {
       "title": "How do we do that",
       "p1": {
@@ -158,19 +151,16 @@
       "p2": "Once a custom system is designed and implemented, it keeps paying off—clean records, less manual work, and analytics that support decisions.",
       "p3": "Email us the process you want to digitalize and automate, and we’ll propose an effective, pragmatic solution."
     },
-
     "block2": {
       "title": "What is your benefit",
       "p1": "Construction is one of the last under-digitalized frontiers. Get ahead and leverage the AI wave to improve margins, bids, and day-to-day processes.",
       "p2": "From construction professionals to construction professionals. Practical tools, minimal friction, real outcomes."
     },
-
     "images": {
       "siteAlt": "On-site digital solutions",
       "developmentAlt": "Custom development"
     }
   },
-
   "Pricing": {
     "title": {
       "prefix": "20 EUR /",
@@ -178,7 +168,6 @@
     },
     "description": "Transparent monthly pricing per user, designed to scale with your project’s size and complexity. We also offer per-project pricing options, depending on how your company operates and discounts if you have many operatives. Contact us for a custom quote."
   },
-
   "About": {
     "title": "About",
     "p1": "Do you know what is happening on your construction site? Tracking construction works is not easy.",
@@ -199,41 +188,32 @@
       "selfieAlt": "Vjaceslavs Gromatovičs"
     }
   },
-
   "Contact": {
     "heroTitle": "Let's Connect! 🚀",
     "heroDescription": "Call us, send an email, write on WhatsApp, or fill out the form. We guarantee to get in touch with you **the same day**!",
-
     "quickDetailsTitle": "Quick Details",
     "phoneLabel": "Phone:",
     "emailLabel": "Email:",
     "webLabel": "Web:",
-
     "formTitle": "Send us a Message",
-
     "firstNameLabel": "First Name",
     "lastNameLabel": "Last Name",
     "emailFieldLabel": "Email",
     "subjectLabel": "Subject",
     "messageLabel": "Message",
-
     "firstNamePlaceholder": "First Name",
     "lastNamePlaceholder": "Last Name",
     "emailPlaceholder": "Your best email",
     "subjectPlaceholder": "Project Inquiry, Consultation, etc.",
     "messagePlaceholder": "Tell us about your project or inquiry...",
-
     "sending": "Sending…",
     "sendMessage": "Send Message",
-
     "status": {
       "errorDefault": "Something went wrong. Please try again."
     }
   },
-
   "Navigation": {
     "features": "Features",
-
     "data": {
       "whatsapp": {
         "title": "Site records",
@@ -247,12 +227,11 @@
         "title": "Analytics",
         "description": "Get live custom analytics"
       },
-            "projects": {
+      "projects": {
         "title": "Projects",
         "description": "Case studies"
       }
     },
-
     "main": {
       "custom": "Custom solutions",
       "pricing": "Pricing",
@@ -260,11 +239,67 @@
       "news": "News",
       "contacts": "Contacts",
       "caseStudies": "Projects"
-
     },
-
     "combined": {
       "generic": "Get live custom analytics"
     }
+  },
+  "Dashboard": {
+    "navProjects": "Projects",
+    "navCompanySettings": "Company Settings",
+    "navSiteDiary": "Site Diary",
+    "navTimesheets": "Timesheets",
+    "navWarehouse": "Warehouse",
+    "navSettings": "Settings",
+    "repeatTutorial": "Repeat Tutorial",
+    "contactUs": "Contact us",
+    "contactDescription": "Contact us any time if you have any questions or problems.",
+    "email": "Email",
+    "phone": "Phone",
+    "close": "Close",
+    "emailUs": "Email us",
+    "logOut": "Log out",
+    "companySettingsTitle": "Company Settings",
+    "inviteColleaguesTitle": "Invite colleagues",
+    "inviteColleaguesDescription": "Manage your team and send invitations.",
+    "dashboardLanguage": "Dashboard language",
+    "dashboardLanguageDescription": "Choose the language used in /dashboard and all child pages for static UI text.",
+    "english": "English",
+    "latvian": "Latvian",
+    "languageUpdated": "Language updated",
+    "languageUpdateFailed": "Failed to update language"
+  },
+  "DashboardStatic": {
+    "Save": "Save",
+    "Save changes": "Save changes",
+    "Save Changes": "Save Changes",
+    "Cancel": "Cancel",
+    "Close": "Close",
+    "Delete": "Delete",
+    "Edit": "Edit",
+    "Add": "Add",
+    "Add user": "Add user",
+    "Invite user": "Invite user",
+    "Send invite": "Send invite",
+    "Export to Excel": "Export to Excel",
+    "Search...": "Search...",
+    "Settings": "Settings",
+    "Warehouse": "Warehouse",
+    "Timesheets": "Timesheets",
+    "Time records": "Time records",
+    "Go Back": "Go Back",
+    "Name": "Name",
+    "Description": "Description",
+    "Subdirectory": "Subdirectory",
+    "Danger": "Danger",
+    "Actions": "Actions",
+    "No data found.": "No data found.",
+    "Enabled": "Enabled",
+    "Disabled": "Disabled",
+    "Projects": "Projects",
+    "Company Settings": "Company Settings",
+    "Site Diary": "Site Diary",
+    "Log out": "Log out",
+    "Contact us": "Contact us"
   }
 }
