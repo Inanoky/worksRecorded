@@ -169,6 +169,9 @@ type Props = {
       name?: string | null
       cost?: number | null
       materialDate?: Date | null
+      costCode?: string | null
+      measurementUnit?: string | null
+      invoiceDate?: Date | null
     },
   ) => Promise<{ success: true }>
   attachCertificate: (
@@ -274,11 +277,17 @@ export default function MaterialsTableClient({
   const editNameRef = React.useRef("")
   const editQuantityRef = React.useRef("")
   const editCostRef = React.useRef("")
+  const editCostCodeRef = React.useRef("")
+  const editUnitRef = React.useRef("")
+  const editInvoiceDateRef = React.useRef("")
   const [editDraft, setEditDraft] = React.useState<{
     id: string
     name: string
     quantity: string
     cost: string
+    costCode: string
+    measurementUnit: string
+    invoiceDate: Date | null
     materialDate: Date | null
     declarationAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
     agreementAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
@@ -527,11 +536,17 @@ export default function MaterialsTableClient({
     editNameRef.current = row.name ?? ""
     editQuantityRef.current = row.quantity == null ? "" : String(row.quantity)
     editCostRef.current = row.cost == null ? "" : String(row.cost)
+    editCostCodeRef.current = row.costCode ?? ""
+    editUnitRef.current = row.measurementUnit ?? ""
+    editInvoiceDateRef.current = row.invoiceDate ? toLocalDateInputValue(row.invoiceDate) : ""
     setEditDraft({
       id: row.id,
       name: row.name ?? "",
       quantity: row.quantity == null ? "" : String(row.quantity),
       cost: row.cost == null ? "" : String(row.cost),
+      costCode: row.costCode ?? "",
+      measurementUnit: row.measurementUnit ?? "",
+      invoiceDate: row.invoiceDate ? new Date(row.invoiceDate) : null,
       materialDate: row.materialDate ? new Date(row.materialDate) : null,
       declarationAttachment: (row.declarationAttachment ?? []).map((file, index) => ({ id: `d-${index}-${file.name}`, ...file })),
       agreementAttachment: (row.agreementAttachment ?? []).map((file, index) => ({ id: `a-${index}-${file.name}`, ...file })),
@@ -560,6 +575,9 @@ export default function MaterialsTableClient({
         name: editNameRef.current.trim() || null,
         cost: Number.isNaN(cost as number) ? null : cost,
         materialDate: editDraft.materialDate,
+        costCode: editCostCodeRef.current.trim() || null,
+        measurementUnit: editUnitRef.current.trim() || null,
+        invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
       })
       await updateQuantity(editDraft.id, Number.isNaN(quantity as number) ? null : quantity)
       await updateMaterialAttachments(editDraft.id, {
@@ -575,6 +593,9 @@ export default function MaterialsTableClient({
                 name: editNameRef.current,
                 quantity: Number.isNaN(quantity as number) ? null : quantity,
                 cost: Number.isNaN(cost as number) ? null : cost,
+                costCode: editCostCodeRef.current.trim() || null,
+                measurementUnit: editUnitRef.current.trim() || null,
+                invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
                 materialDate: editDraft.materialDate,
                 declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
                 agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
@@ -1014,20 +1035,20 @@ export default function MaterialsTableClient({
                 <TableHead className="w-[9%]">Status</TableHead>
                 {showBisControls ? <TableHead className="w-[16%]">BIS material configuration</TableHead> : null}
                 <TableHead className="w-[10%]">Cost code</TableHead>
-                <TableHead className="w-[11%]">Date</TableHead>
+                <TableHead className="w-[11%]">Delivery Date</TableHead>
                 <TableHead className="w-[6%]">Qty</TableHead>
                 <TableHead className="w-[5%]">Unit</TableHead>
                 <TableHead className="w-[7%]">Cost</TableHead>
                 <TableHead className="w-[7%]">Invoice</TableHead>
                 <TableHead className="w-[9%]">Invoice date</TableHead>
-                {showBisControls ? <TableHead className="w-[11%] text-right">Action</TableHead> : null}
+                <TableHead className="w-[11%] text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showBisControls ? 13 : 11} className="py-12 text-center">
+                  <TableCell colSpan={13} className="py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-medium">No materials found</p>
                       <p className="text-sm text-muted-foreground">
@@ -1228,10 +1249,9 @@ export default function MaterialsTableClient({
                       </TableCell>
                       <TableCell className="truncate">{r.invoiceNr || "—"}</TableCell>
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
-                      {showBisControls ? (
-                        <TableCell className="text-right">
+                      <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {!isSent ? (
+                            {showBisControls && !isSent ? (
                               <SendToBisButton
                                 siteId={siteId}
                                 recordId={r.id}
@@ -1243,7 +1263,7 @@ export default function MaterialsTableClient({
                                 onAttachCertificate={attachCertificate}
                                 action={handleSendToBis}
                               />
-                            ) : !isApproved && !isAwaitingApproval ? (
+                            ) : showBisControls && !isApproved && !isAwaitingApproval ? (
                               <Button
                                 size="sm"
                                 onClick={() => openApproverDialog(r)}
@@ -1251,7 +1271,7 @@ export default function MaterialsTableClient({
                               >
                                 Send for approval
                               </Button>
-                            ) : (
+                            ) : showBisControls ? (
                               <Button
                                 size="sm"
                                 disabled
@@ -1263,7 +1283,7 @@ export default function MaterialsTableClient({
                               >
                                 {isApproved ? "Approved" : "Sent for approval"}
                               </Button>
-                            )}
+                            ) : null}
 
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -1272,12 +1292,14 @@ export default function MaterialsTableClient({
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => openWarehouseRecordInBis(r.BISId)}
-                                  disabled={!r.BISId}
-                                >
-                                  Open in BIS
-                                </DropdownMenuItem>
+                                {showBisControls ? (
+                                  <DropdownMenuItem
+                                    onClick={() => openWarehouseRecordInBis(r.BISId)}
+                                    disabled={!r.BISId}
+                                  >
+                                    Open in BIS
+                                  </DropdownMenuItem>
+                                ) : null}
                                 <DropdownMenuItem onClick={() => openEditModal(r)}>
                                   Edit
                                 </DropdownMenuItem>
@@ -1285,7 +1307,6 @@ export default function MaterialsTableClient({
                             </DropdownMenu>
                           </div>
                         </TableCell>
-                      ) : null}
                     </TableRow>
                   )
                 })
@@ -1381,6 +1402,16 @@ export default function MaterialsTableClient({
                 <Input key={`qty-${editDraft.id}`} defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder="Qty" />
                 <Input key={`cost-${editDraft.id}`} defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder="Cost" />
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input key={`costcode-${editDraft.id}`} defaultValue={editDraft.costCode} onChange={(event) => { editCostCodeRef.current = event.target.value }} placeholder="Cost code" />
+                <Input key={`unit-${editDraft.id}`} defaultValue={editDraft.measurementUnit} onChange={(event) => { editUnitRef.current = event.target.value }} placeholder="Units" />
+              </div>
+              <Input
+                type="date"
+                key={`invoice-date-${editDraft.id}`}
+                defaultValue={editDraft.invoiceDate ? toLocalDateInputValue(editDraft.invoiceDate) : ""}
+                onChange={(event) => { editInvoiceDateRef.current = event.target.value }}
+              />
               <Popover>
                 <PopoverTrigger asChild>
                   <Button type="button" variant="outline" className="w-full justify-start">
@@ -1392,44 +1423,48 @@ export default function MaterialsTableClient({
                   <Calendar mode="single" selected={editDraft.materialDate ?? undefined} onSelect={(value) => setEditDraft({ ...editDraft, materialDate: value ?? null })} />
                 </PopoverContent>
               </Popover>
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Atbilstību apliecinošs dokuments</div>
-                <Input type="file" onChange={async (event) => {
-                  const file = event.target.files?.[0]
-                  if (!file) return
-                  const base64Data = await fileToBase64(file)
-                  setEditDraft({
-                    ...editDraft,
-                    declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                  })
-                  event.currentTarget.value = ""
-                }} />
-                {editDraft.declarationAttachment.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between text-sm">
-                    <span>{file.name}</span>
-                    <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+              {showBisControls ? (
+                <>
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Atbilstību apliecinošs dokuments</div>
+                    <Input type="file" onChange={async (event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) return
+                      const base64Data = await fileToBase64(file)
+                      setEditDraft({
+                        ...editDraft,
+                        declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                      })
+                      event.currentTarget.value = ""
+                    }} />
+                    {editDraft.declarationAttachment.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between text-sm">
+                        <span>{file.name}</span>
+                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Vienošanās</div>
-                <Input type="file" onChange={async (event) => {
-                  const file = event.target.files?.[0]
-                  if (!file) return
-                  const base64Data = await fileToBase64(file)
-                  setEditDraft({
-                    ...editDraft,
-                    agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                  })
-                  event.currentTarget.value = ""
-                }} />
-                {editDraft.agreementAttachment.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between text-sm">
-                    <span>{file.name}</span>
-                    <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Vienošanās</div>
+                    <Input type="file" onChange={async (event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) return
+                      const base64Data = await fileToBase64(file)
+                      setEditDraft({
+                        ...editDraft,
+                        agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                      })
+                      event.currentTarget.value = ""
+                    }} />
+                    {editDraft.agreementAttachment.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between text-sm">
+                        <span>{file.name}</span>
+                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </>
+              ) : null}
             </div>
           ) : null}
           <DialogFooter>
