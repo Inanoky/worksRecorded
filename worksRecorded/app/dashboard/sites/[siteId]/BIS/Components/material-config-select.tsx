@@ -297,7 +297,7 @@ export default function MaterialConfigSelect({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Attachments</label>
+              <label className="text-sm font-medium">Declaration</label>
               <Input
                 type="file"
                 multiple
