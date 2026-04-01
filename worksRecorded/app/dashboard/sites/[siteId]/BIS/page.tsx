@@ -1242,6 +1242,14 @@ export async function sendToBis(
     ...(Array.isArray(materialRecord?.agreementAttachment) ? materialRecord?.agreementAttachment : []),
   ] as Array<{ name: string; mimeType: string; base64Data: string }>;
 
+  console.log("[Warehouse BIS] Preparing stored material attachments for send", {
+    siteId,
+    recordId,
+    declarationCount: Array.isArray(materialRecord?.declarationAttachment) ? materialRecord?.declarationAttachment.length : 0,
+    agreementCount: Array.isArray(materialRecord?.agreementAttachment) ? materialRecord?.agreementAttachment.length : 0,
+    totalStoredAttachments: storedAttachments.length,
+  });
+
   for (const file of storedAttachments) {
     const bytes = Buffer.from(file.base64Data, "base64");
     const blob = new Blob([bytes], {
@@ -1253,7 +1261,7 @@ export async function sendToBis(
 
     const uploadResponse = await bisFetch(
       getBisBaseUrl(),
-      `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
+      `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_product_attachments`,
       {
         method: "POST",
         headers: {
@@ -1276,6 +1284,12 @@ export async function sendToBis(
       : null;
 
     if (tempUuid) {
+      console.log("[Warehouse BIS] Uploaded material attachment for send", {
+        siteId,
+        recordId,
+        fileName: file.name,
+        tempUuid,
+      });
       attachments.push({
         type: "shared_attachments",
         uuid: tempUuid,
@@ -1319,6 +1333,7 @@ export async function sendToBis(
     materialName,
     construction_material_id,
     quantity,
+    uploadedAttachmentCount: attachments.length,
     body,
   });
 

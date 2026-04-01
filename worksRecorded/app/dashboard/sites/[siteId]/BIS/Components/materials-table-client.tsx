@@ -264,16 +264,6 @@ export default function MaterialsTableClient({
   const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
   const [deleteLoading, setDeleteLoading] = React.useState(false)
   const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
-  const [attachmentDialogOpen, setAttachmentDialogOpen] = React.useState(false)
-  const [attachmentRowId, setAttachmentRowId] = React.useState<string | null>(null)
-  const [attachmentType, setAttachmentType] = React.useState<"compliance" | "agreement">("compliance")
-  const [attachmentQueue, setAttachmentQueue] = React.useState<Array<{
-    id: string
-    name: string
-    mimeType: string
-    base64Data: string
-    code: "compliance" | "agreement"
-  }>>([])
   const [pendingEdits, setPendingEdits] = React.useState<Record<string, {
     name?: string | null
     cost?: number | null
@@ -530,13 +520,6 @@ export default function MaterialsTableClient({
     )
   }
 
-  const openAttachmentModal = (recordId: string) => {
-    setAttachmentRowId(recordId)
-    setAttachmentQueue([])
-    setAttachmentType("compliance")
-    setAttachmentDialogOpen(true)
-  }
-
   const openEditModal = (row: MaterialRow) => {
     setEditDraft({
       id: row.id,
@@ -598,56 +581,6 @@ export default function MaterialsTableClient({
     } catch (error) {
       console.error(error)
       toast.error("Failed to save material")
-    }
-  }
-
-  const queueAttachmentFile = async (file: File) => {
-    const base64Data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const result = String(reader.result ?? "")
-        resolve(result.includes(",") ? result.split(",")[1] : result)
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-
-    setAttachmentQueue((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        name: file.name,
-        mimeType: file.type || "application/octet-stream",
-        base64Data,
-        code: attachmentType,
-      },
-    ])
-  }
-
-  const saveAttachmentQueue = async () => {
-    if (!attachmentRowId) return
-    const row = rows.find((item) => item.id === attachmentRowId)
-    if (!row?.categoryId || row.categoryId === NO_MATCH_VALUE) {
-      toast.error("Select BIS material configuration first")
-      return
-    }
-    if (!attachmentQueue.length) {
-      setAttachmentDialogOpen(false)
-      return
-    }
-
-    try {
-      await Promise.all(
-        attachmentQueue.map((item) =>
-          attachCertificate(siteId, row.categoryId as string, item),
-        ),
-      )
-      toast.success("Attachments added")
-      setAttachmentDialogOpen(false)
-      setAttachmentQueue([])
-    } catch (error) {
-      console.error(error)
-      toast.error(error instanceof Error ? error.message : "Failed to add attachment")
     }
   }
 
@@ -1332,9 +1265,6 @@ export default function MaterialsTableClient({
                                 <DropdownMenuItem onClick={() => openEditModal(r)}>
                                   Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => openAttachmentModal(r.id)}>
-                                  Attachments
-                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -1420,48 +1350,6 @@ export default function MaterialsTableClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={attachmentDialogOpen} onOpenChange={setAttachmentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add attachment</DialogTitle>
-            <DialogDescription>
-              Add/remove attachments for BIS material configuration.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <Select value={attachmentType} onValueChange={(value) => setAttachmentType(value as "compliance" | "agreement")}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="compliance">Atbilstību apliecinošs dokuments</SelectItem>
-                <SelectItem value="agreement">Vienošanās</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              type="file"
-              onChange={async (event) => {
-                const file = event.target.files?.[0]
-                if (!file) return
-                await queueAttachmentFile(file)
-                event.currentTarget.value = ""
-              }}
-            />
-            <div className="max-h-40 space-y-2 overflow-y-auto">
-              {attachmentQueue.map((item) => (
-                <div key={item.id} className="flex items-center justify-between rounded border px-2 py-1 text-sm">
-                  <span>{item.name} ({item.code === "compliance" ? "Atbilstību apliecinošs dokuments" : "Vienošanās"})</span>
-                  <Button size="sm" variant="ghost" onClick={() => setAttachmentQueue((current) => current.filter((file) => file.id !== item.id))}>Remove</Button>
-                </div>
-              ))}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAttachmentDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveAttachmentQueue}>Add attachment</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
