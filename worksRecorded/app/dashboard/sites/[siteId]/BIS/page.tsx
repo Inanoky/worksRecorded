@@ -1237,18 +1237,26 @@ export async function sendToBis(
     }
   }
 
+  const declarationAttachments = (Array.isArray(materialRecord?.declarationAttachment)
+    ? materialRecord?.declarationAttachment
+    : []) as Array<{ name: string; mimeType: string; base64Data: string }>;
+  const agreementAttachments = (Array.isArray(materialRecord?.agreementAttachment)
+    ? materialRecord?.agreementAttachment
+    : []) as Array<{ name: string; mimeType: string; base64Data: string }>;
   const storedAttachments = [
-    ...(Array.isArray(materialRecord?.declarationAttachment) ? materialRecord?.declarationAttachment : []),
-    ...(Array.isArray(materialRecord?.agreementAttachment) ? materialRecord?.agreementAttachment : []),
-  ] as Array<{ name: string; mimeType: string; base64Data: string }>;
+    ...declarationAttachments.map((file) => ({ ...file, code: "compliance" as const })),
+    ...agreementAttachments.map((file) => ({ ...file, code: "agreement" as const })),
+  ];
 
   console.log("[Warehouse BIS] Preparing stored material attachments for send", {
     siteId,
     recordId,
-    declarationCount: Array.isArray(materialRecord?.declarationAttachment) ? materialRecord?.declarationAttachment.length : 0,
-    agreementCount: Array.isArray(materialRecord?.agreementAttachment) ? materialRecord?.agreementAttachment.length : 0,
+    declarationCount: declarationAttachments.length,
+    agreementCount: agreementAttachments.length,
     totalStoredAttachments: storedAttachments.length,
   });
+
+  const configurationAttachedDocuments: Array<{ attributes: { uuid: string; code: "compliance" | "agreement" } }> = [];
 
   for (const file of storedAttachments) {
     const bytes = Buffer.from(file.base64Data, "base64");
@@ -1261,7 +1269,7 @@ export async function sendToBis(
 
     const uploadResponse = await bisFetch(
       getBisBaseUrl(),
-      `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_product_attachments`,
+      `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
       {
         method: "POST",
         headers: {
@@ -1288,13 +1296,44 @@ export async function sendToBis(
         siteId,
         recordId,
         fileName: file.name,
+        code: file.code,
         tempUuid,
       });
-      attachments.push({
-        type: "shared_attachments",
-        uuid: tempUuid,
+      configurationAttachedDocuments.push({
+        attributes: {
+          uuid: tempUuid,
+          code: file.code,
+        },
       });
     }
+  }
+
+  if (configurationAttachedDocuments.length > 0) {
+    console.log("[Warehouse BIS] Updating construction material attached_documents before send", {
+      siteId,
+      recordId,
+      construction_material_id,
+      attachedDocumentsCount: configurationAttachedDocuments.length,
+    });
+
+    await fetchBisJson(
+      `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials/${construction_material_id}`,
+      accessToken,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          data: {
+            id: construction_material_id,
+            type: "construction_material",
+            relationships: {
+              attached_documents: {
+                data: configurationAttachedDocuments,
+              },
+            },
+          },
+        }),
+      },
+    );
   }
 
   const eventDate = materialDate
@@ -1333,7 +1372,7 @@ export async function sendToBis(
     materialName,
     construction_material_id,
     quantity,
-    uploadedAttachmentCount: attachments.length,
+    uploadedAttachmentCount: configurationAttachedDocuments.length,
     body,
   });
 
