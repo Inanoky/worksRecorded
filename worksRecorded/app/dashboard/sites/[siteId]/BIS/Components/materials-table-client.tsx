@@ -79,6 +79,8 @@ type MaterialRow = {
   materialDate: Date | null
   costCode: string | null
   sourcePhoto: string | null
+  declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
+  agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
   BISId: string | null
   bisStatus: string | null
   bisApprovers: BisApprover[]
@@ -125,6 +127,13 @@ type Props = {
       measurementUnit: string
     }
   ) => Promise<{ success: true }>
+  updateMaterialAttachments: (
+    recordId: string,
+    payload: {
+      declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
+      agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
+    },
+  ) => Promise<{ success: true }>
   createMaterialConfiguration: (
     siteId: string,
     payload: {
@@ -154,6 +163,24 @@ type Props = {
     recordId: string,
     quantity: number | null,
   ) => Promise<{ success: true }>
+  updateMaterialDetails: (
+    recordId: string,
+    payload: {
+      name?: string | null
+      cost?: number | null
+      materialDate?: Date | null
+    },
+  ) => Promise<{ success: true }>
+  attachCertificate: (
+    siteId: string,
+    materialConfigurationId: string,
+    payload: {
+      name: string
+      mimeType: string
+      base64Data: string
+      code?: "compliance" | "agreement"
+    },
+  ) => Promise<{ success: true }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
 
@@ -179,6 +206,24 @@ function getApprovalStateStatus(status: string | null | undefined) {
     : "pending"
 }
 
+function toLocalDateInputValue(value: Date | null | undefined) {
+  if (!value) return ""
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function normalizeBisErrorMessage(message: string) {
+  if (message.includes("Izvēlētajam materiālam nav norādīts neviens atbilstību apliecinošs dokuments")) {
+    return "BIS rejected this material because no declaration document is attached. Please attach a certificate to this material configuration and try again."
+  }
+
+  return message
+}
+
 export default function MaterialsTableClient({
   siteId,
   bisEnabled,
@@ -195,6 +240,9 @@ export default function MaterialsTableClient({
   updateCostCode,
   updateMaterialDate,
   updateQuantity,
+  updateMaterialDetails,
+  updateMaterialAttachments,
+  attachCertificate,
   deleteRecords,
 }: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
@@ -205,8 +253,8 @@ export default function MaterialsTableClient({
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
   const [sortBy, setSortBy] = React.useState<
-    "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
-  >("invoiceDate_desc")
+    "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
+  >("default")
   const [approverDialogOpen, setApproverDialogOpen] = React.useState(false)
   const [approverDialogRow, setApproverDialogRow] = React.useState<MaterialRow | null>(null)
   const [possibleApprovers, setPossibleApprovers] = React.useState<BisApprover[]>([])
@@ -215,6 +263,26 @@ export default function MaterialsTableClient({
   const [syncLoading, setSyncLoading] = React.useState(false)
   const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
   const [deleteLoading, setDeleteLoading] = React.useState(false)
+  const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
+  const [pendingEdits, setPendingEdits] = React.useState<Record<string, {
+    name?: string | null
+    cost?: number | null
+    materialDate?: Date | null
+    quantity?: number | null
+  }>>({})
+  const [editModalOpen, setEditModalOpen] = React.useState(false)
+  const editNameRef = React.useRef("")
+  const editQuantityRef = React.useRef("")
+  const editCostRef = React.useRef("")
+  const [editDraft, setEditDraft] = React.useState<{
+    id: string
+    name: string
+    quantity: string
+    cost: string
+    materialDate: Date | null
+    declarationAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
+    agreementAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
+  } | null>(null)
 
   React.useEffect(() => {
     setRows(materials)
@@ -436,14 +504,90 @@ export default function MaterialsTableClient({
 
   const openWarehouseRecordInBis = (bisId: string | null | undefined) => {
     if (!bisId) return
-    const url = `https://test.bis.gov.lv/bisp/lv/portal/logbooks/received_construction_products/${bisId}/`
+    const url = `https://test.bis.gov.lv/bisp/lv/portal/logbooks/received_construction_products/${bisId}/edit`
     window.open(url, "_blank", "noopener,noreferrer")
+  }
+
+  const isRowEditable = (recordId: string) => editableRowIds.includes(recordId)
+  const toggleRowEditable = (recordId: string) => {
+    setEditableRowIds((current) =>
+      current.includes(recordId)
+        ? current.filter((id) => id !== recordId)
+        : [...current, recordId],
+    )
   }
 
   const toggleRowSelection = (recordId: string, checked: boolean) => {
     setSelectedRowIds((current) =>
       checked ? Array.from(new Set([...current, recordId])) : current.filter((id) => id !== recordId),
     )
+  }
+
+  const openEditModal = (row: MaterialRow) => {
+    editNameRef.current = row.name ?? ""
+    editQuantityRef.current = row.quantity == null ? "" : String(row.quantity)
+    editCostRef.current = row.cost == null ? "" : String(row.cost)
+    setEditDraft({
+      id: row.id,
+      name: row.name ?? "",
+      quantity: row.quantity == null ? "" : String(row.quantity),
+      cost: row.cost == null ? "" : String(row.cost),
+      materialDate: row.materialDate ? new Date(row.materialDate) : null,
+      declarationAttachment: (row.declarationAttachment ?? []).map((file, index) => ({ id: `d-${index}-${file.name}`, ...file })),
+      agreementAttachment: (row.agreementAttachment ?? []).map((file, index) => ({ id: `a-${index}-${file.name}`, ...file })),
+    })
+    setEditModalOpen(true)
+  }
+
+  const fileToBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = String(reader.result ?? "")
+        resolve(result.includes(",") ? result.split(",")[1] : result)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+  const saveEditModal = async () => {
+    if (!editDraft) return
+    const quantity = editQuantityRef.current.trim() === "" ? null : Number(editQuantityRef.current)
+    const cost = editCostRef.current.trim() === "" ? null : Number(editCostRef.current)
+
+    try {
+      await updateMaterialDetails(editDraft.id, {
+        name: editNameRef.current.trim() || null,
+        cost: Number.isNaN(cost as number) ? null : cost,
+        materialDate: editDraft.materialDate,
+      })
+      await updateQuantity(editDraft.id, Number.isNaN(quantity as number) ? null : quantity)
+      await updateMaterialAttachments(editDraft.id, {
+        declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
+        agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
+      })
+
+      setRows((current) =>
+        current.map((row) =>
+          row.id === editDraft.id
+            ? {
+                ...row,
+                name: editNameRef.current,
+                quantity: Number.isNaN(quantity as number) ? null : quantity,
+                cost: Number.isNaN(cost as number) ? null : cost,
+                materialDate: editDraft.materialDate,
+                declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
+                agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
+              }
+            : row,
+        ),
+      )
+      setEditModalOpen(false)
+      toast.success("Material updated")
+    } catch (error) {
+      console.error(error)
+      toast.error("Failed to save material")
+    }
   }
 
   const toggleAllVisibleRows = (checked: boolean) => {
@@ -460,10 +604,14 @@ export default function MaterialsTableClient({
 
     setDeleteLoading(true)
     try {
+      const bisBackedRowsCount = rows.filter((row) => selectedRowIds.includes(row.id) && !!row.BISId).length
       const { deletedIds } = await deleteRecords(siteId, selectedRowIds)
       setRows((current) => current.filter((row) => !deletedIds.includes(row.id)))
       setSelectedRowIds((current) => current.filter((id) => !deletedIds.includes(id)))
       toast.success(deletedIds.length === 1 ? "Record deleted" : `${deletedIds.length} records deleted`)
+      if (bisBackedRowsCount > 0) {
+        toast.warning("Some deleted records were already sent to BIS. They were removed only from WorksRecorded and stay in BIS.")
+      }
     } catch (error) {
       console.error("[Warehouse BIS] Delete records failed", { siteId, selectedRowIds, error })
       toast.error(error instanceof Error ? error.message : "Failed to delete records")
@@ -513,7 +661,7 @@ export default function MaterialsTableClient({
       setPossibleApprovers([])
       setSelectedApproverKeys([])
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to send record for approval"
+      const message = error instanceof Error ? normalizeBisErrorMessage(error.message) : "Failed to send record for approval"
       console.error("[Warehouse BIS] Send for approval failed", {
         siteId,
         bisId: approverDialogRow.BISId,
@@ -525,15 +673,7 @@ export default function MaterialsTableClient({
     }
   }
 
-  const toDateInputValue = (value: Date | null) => {
-    if (!value) return ""
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return ""
-    return date.toISOString().slice(0, 10)
-  }
-
-  const handleMaterialDateChange = async (recordId: string, nextValue: string) => {
-    const previousRows = rows
+  const handleMaterialDateChange = (recordId: string, nextValue: string) => {
     const materialDate = nextValue ? new Date(`${nextValue}T00:00:00`) : null
 
     setRows((current) =>
@@ -546,14 +686,54 @@ export default function MaterialsTableClient({
           : row,
       ),
     )
+    setPendingEdits((current) => ({
+      ...current,
+      [recordId]: {
+        ...(current[recordId] ?? {}),
+        materialDate,
+      },
+    }))
+  }
 
-    try {
-      await updateMaterialDate(recordId, materialDate)
-    } catch (error) {
-      console.error(error)
-      setRows(previousRows)
-      toast.error("Failed to update material date")
-    }
+  const handleMaterialNameChange = (recordId: string, nextValue: string) => {
+    setPendingEdits((current) => ({
+      ...current,
+      [recordId]: {
+        ...(current[recordId] ?? {}),
+        name: nextValue.trim() || null,
+      },
+    }))
+  }
+
+  const handleMaterialCostChange = (recordId: string, nextValue: string) => {
+    const parsedValue = nextValue === "" ? null : Number(nextValue)
+    setRows((current) =>
+      current.map((row) =>
+        row.id === recordId
+          ? {
+              ...row,
+              cost:
+                parsedValue == null || Number.isNaN(parsedValue)
+                  ? null
+                  : parsedValue,
+            }
+          : row,
+      ),
+    )
+  }
+
+  const handleMaterialCostBlur = (recordId: string, nextValue: string) => {
+    const parsedValue = nextValue.trim() === "" ? null : Number(nextValue)
+    const normalizedCost =
+      parsedValue == null || Number.isNaN(parsedValue) ? null : parsedValue
+
+    setPendingEdits((current) => ({
+      ...current,
+      [recordId]: {
+        ...(current[recordId] ?? {}),
+        cost: normalizedCost,
+      },
+    }))
   }
 
   const handleQuantityChange = (recordId: string, nextValue: string) => {
@@ -573,18 +753,51 @@ export default function MaterialsTableClient({
     )
   }
 
-  const handleQuantityBlur = async (recordId: string, nextValue: string) => {
-    const previousRows = rows
+  const handleQuantityBlur = (recordId: string, nextValue: string) => {
     const parsedValue = nextValue.trim() === "" ? null : Number(nextValue)
     const normalizedQuantity =
       parsedValue == null || Number.isNaN(parsedValue) ? null : parsedValue
 
+    setPendingEdits((current) => ({
+      ...current,
+      [recordId]: {
+        ...(current[recordId] ?? {}),
+        quantity: normalizedQuantity,
+      },
+    }))
+  }
+
+  const saveRowEdits = async () => {
+    const editIds = Object.keys(pendingEdits).filter((id) => editableRowIds.includes(id))
+    if (!editIds.length) {
+      setEditableRowIds([])
+      return
+    }
+
     try {
-      await updateQuantity(recordId, normalizedQuantity)
+      await Promise.all(editIds.map(async (recordId) => {
+        const draft = pendingEdits[recordId] ?? {}
+        if ("name" in draft || "cost" in draft || "materialDate" in draft) {
+          await updateMaterialDetails(recordId, {
+            name: draft.name,
+            cost: draft.cost,
+            materialDate: draft.materialDate,
+          })
+        }
+        if ("quantity" in draft) {
+          await updateQuantity(recordId, draft.quantity ?? null)
+        }
+      }))
+      setPendingEdits((current) => {
+        const next = { ...current }
+        editIds.forEach((id) => delete next[id])
+        return next
+      })
+      setEditableRowIds([])
+      toast.success("Changes saved")
     } catch (error) {
       console.error(error)
-      setRows(previousRows)
-      toast.error("Failed to update quantity")
+      toast.error("Failed to save changes")
     }
   }
 
@@ -624,6 +837,12 @@ export default function MaterialsTableClient({
             new Date(a.invoiceDate ?? 0).getTime() -
             new Date(b.invoiceDate ?? 0).getTime()
           )
+        case "default": {
+          const aDate = new Date(a.materialDate ?? a.invoiceDate ?? 0).getTime()
+          const bDate = new Date(b.materialDate ?? b.invoiceDate ?? 0).getTime()
+          if (bDate !== aDate) return bDate - aDate
+          return String(b.id).localeCompare(String(a.id))
+        }
         case "name_asc":
           return (a.name ?? "").localeCompare(b.name ?? "")
         case "quantity_desc":
@@ -711,6 +930,7 @@ export default function MaterialsTableClient({
                 v as
                   | "invoiceDate_desc"
                   | "invoiceDate_asc"
+                  | "default"
                   | "name_asc"
                   | "quantity_desc",
               )
@@ -720,6 +940,9 @@ export default function MaterialsTableClient({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="default">
+                Default (Date + ID)
+              </SelectItem>
               <SelectItem value="invoiceDate_desc">
                 Newest invoice date
               </SelectItem>
@@ -755,6 +978,16 @@ export default function MaterialsTableClient({
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${syncLoading ? "animate-spin" : ""}`} />
               {syncLoading ? "Refreshing..." : "Refresh from BIS"}
+            </Button>
+          ) : null}
+
+          {editableRowIds.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={saveRowEdits}
+            >
+              Save changes
             </Button>
           ) : null}
 
@@ -852,7 +1085,28 @@ export default function MaterialsTableClient({
                       </TableCell>
 
                       <TableCell className="min-w-0">
-                        <div className="truncate font-medium">{r.name || "Unnamed material"}</div>
+                        {isRowEditable(r.id) ? (
+                          <Input
+                            value={r.name ?? ""}
+                            onChange={(event) =>
+                              setRows((current) =>
+                                current.map((row) =>
+                                  row.id === r.id
+                                    ? {
+                                        ...row,
+                                        name: event.target.value,
+                                      }
+                                    : row,
+                                ),
+                              )
+                            }
+                            onBlur={(event) => handleMaterialNameChange(r.id, event.target.value)}
+                            placeholder="Unnamed material"
+                            className="h-9 min-w-0"
+                          />
+                        ) : (
+                          <div className="whitespace-normal break-words leading-snug">{r.name || "Unnamed material"}</div>
+                        )}
                       </TableCell>
 
                       <TableCell>
@@ -906,17 +1160,30 @@ export default function MaterialsTableClient({
                       <TableCell>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              disabled={isSent}
-                              className="w-full min-w-0 justify-start text-left font-normal"
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
-                              {toDateInputValue(r.materialDate)
-                                ? formatDate(r.materialDate)
-                                : "Pick date"}
-                            </Button>
+                            {isRowEditable(r.id) ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full min-w-0 justify-start text-left font-normal"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                                {toLocalDateInputValue(r.materialDate)
+                                  ? formatDate(r.materialDate)
+                                  : "Pick date"}
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                disabled
+                                className="w-full min-w-0 justify-start text-left font-normal"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                                {toLocalDateInputValue(r.materialDate)
+                                  ? formatDate(r.materialDate)
+                                  : "Pick date"}
+                              </Button>
+                            )}
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
                             <Calendar
@@ -925,7 +1192,7 @@ export default function MaterialsTableClient({
                               onSelect={(value) =>
                                 handleMaterialDateChange(
                                   r.id,
-                                  value ? value.toISOString().slice(0, 10) : "",
+                                  toLocalDateInputValue(value),
                                 )
                               }
                               className="bg-green-50/40"
@@ -942,12 +1209,23 @@ export default function MaterialsTableClient({
                           value={r.quantity ?? ""}
                           onChange={(event) => handleQuantityChange(r.id, event.target.value)}
                           onBlur={(event) => handleQuantityBlur(r.id, event.target.value)}
-                          disabled={isSent}
+                          disabled={!isRowEditable(r.id) || isSent}
                           className="w-full min-w-0"
                         />
                       </TableCell>
                       <TableCell>{r.measurementUnit || "—"}</TableCell>
-                      <TableCell>{formatMoney(r.cost)}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={r.cost ?? ""}
+                          onChange={(event) => handleMaterialCostChange(r.id, event.target.value)}
+                          onBlur={(event) => handleMaterialCostBlur(r.id, event.target.value)}
+                          disabled={!isRowEditable(r.id)}
+                          className="w-full min-w-0"
+                        />
+                      </TableCell>
                       <TableCell className="truncate">{r.invoiceNr || "—"}</TableCell>
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
                       {showBisControls ? (
@@ -955,12 +1233,14 @@ export default function MaterialsTableClient({
                           <div className="flex items-center justify-end gap-2">
                             {!isSent ? (
                               <SendToBisButton
+                                siteId={siteId}
                                 recordId={r.id}
                                 quantity={r.quantity ?? 0}
                                 categoryId={hasValidConfiguration ? r.categoryId ?? "" : ""}
                                 sourcePhoto={r.sourcePhoto ?? ""}
                                 materialName={r.name ?? ""}
                                 materialDate={r.materialDate}
+                                onAttachCertificate={attachCertificate}
                                 action={handleSendToBis}
                               />
                             ) : !isApproved && !isAwaitingApproval ? (
@@ -997,6 +1277,9 @@ export default function MaterialsTableClient({
                                   disabled={!r.BISId}
                                 >
                                   Open in BIS
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEditModal(r)}>
+                                  Edit
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1079,6 +1362,79 @@ export default function MaterialsTableClient({
             >
               {approvalLoading ? "Submitting..." : "Send for approval"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit material</DialogTitle>
+            <DialogDescription>
+              Update material details and attachments.
+            </DialogDescription>
+          </DialogHeader>
+          {editDraft ? (
+            <div className="space-y-4">
+              <Input key={`name-${editDraft.id}`} defaultValue={editDraft.name} onChange={(event) => { editNameRef.current = event.target.value }} placeholder="Material" />
+              <div className="grid grid-cols-2 gap-3">
+                <Input key={`qty-${editDraft.id}`} defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder="Qty" />
+                <Input key={`cost-${editDraft.id}`} defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder="Cost" />
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full justify-start">
+                    <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                    {editDraft.materialDate ? formatDate(editDraft.materialDate) : "Pick date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={editDraft.materialDate ?? undefined} onSelect={(value) => setEditDraft({ ...editDraft, materialDate: value ?? null })} />
+                </PopoverContent>
+              </Popover>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Atbilstību apliecinošs dokuments</div>
+                <Input type="file" onChange={async (event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) return
+                  const base64Data = await fileToBase64(file)
+                  setEditDraft({
+                    ...editDraft,
+                    declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                  })
+                  event.currentTarget.value = ""
+                }} />
+                {editDraft.declarationAttachment.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between text-sm">
+                    <span>{file.name}</span>
+                    <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                  </div>
+                ))}
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Vienošanās</div>
+                <Input type="file" onChange={async (event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) return
+                  const base64Data = await fileToBase64(file)
+                  setEditDraft({
+                    ...editDraft,
+                    agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                  })
+                  event.currentTarget.value = ""
+                }} />
+                {editDraft.agreementAttachment.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between text-sm">
+                    <span>{file.name}</span>
+                    <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            <Button onClick={saveEditModal}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -380,6 +380,8 @@ model BISmaterialRecords {
  
 
   sourcePhoto String?
+  declarationAttachment Json?
+  agreementAttachment Json?
 
 
   site Site? @relation(fields: [siteId], references: [id], onDelete: Cascade)
@@ -390,6 +392,7 @@ model BISmaterialRecords {
 
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId String?
+  createdBy String?
 
   BISId String?
   bisStatus String?

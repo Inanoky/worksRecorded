@@ -322,7 +322,7 @@ export default function SiteDiaryCalendar({
   const [bisMaterialOptions, setBisMaterialOptions] = React.useState<BisMaterialOption[]>([]);
   const [galleryAttachmentOptions, setGalleryAttachmentOptions] = React.useState<GalleryAttachmentOption[]>([]);
   const [selectedAttachmentUrls, setSelectedAttachmentUrls] = React.useState<string[]>([]);
-  const [materialQuantities, setMaterialQuantities] = React.useState<Record<string, string>>({});
+  const materialQuantitiesRef = React.useRef<Record<string, string>>({});
   const [bisPickerLoading, setBisPickerLoading] = React.useState(false);
   const [attachmentGalleryOpen, setAttachmentGalleryOpen] = React.useState(false);
   const [approverDialogOpen, setApproverDialogOpen] = React.useState(false);
@@ -336,8 +336,9 @@ export default function SiteDiaryCalendar({
   const [copyTargetDate, setCopyTargetDate] = React.useState<Date | null>(null);
   const [copyLoading, setCopyLoading] = React.useState(false);
   const [bisSubmitDate, setBisSubmitDate] = React.useState<Date | null>(null);
-  const [bisSubmitWorks, setBisSubmitWorks] = React.useState("");
-  const [bisSubmitAmount, setBisSubmitAmount] = React.useState<string>("1");
+  const bisSubmitWorksRef = React.useRef("");
+  const bisSubmitAmountRef = React.useRef<string>("1");
+  const [bisInputResetKey, setBisInputResetKey] = React.useState(0);
   const [bisSubmitMeasurement, setBisSubmitMeasurement] = React.useState<string>("12");
   const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
   const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
@@ -614,8 +615,9 @@ export default function SiteDiaryCalendar({
 
     setSelectedRowForBis(row);
     setBisSubmitDate(row.Date ? new Date(row.Date) : new Date());
-    setBisSubmitWorks(String(row.Works ?? ""));
-    setBisSubmitAmount(String(row.Amounts ?? 1));
+    bisSubmitWorksRef.current = String(row.Works ?? "");
+    bisSubmitAmountRef.current = String(row.Amounts ?? 1);
+    setBisInputResetKey((value) => value + 1);
     setBisPickerOpen(true);
     setBisPickerLoading(true);
 
@@ -630,9 +632,7 @@ export default function SiteDiaryCalendar({
       setGalleryAttachmentOptions(attachments);
       setGalleryAttachmentPage(1);
       setSelectedAttachmentUrls([]);
-      setMaterialQuantities(
-        Object.fromEntries(materials.map((material) => [material.id, ""])),
-      );
+      materialQuantitiesRef.current = Object.fromEntries(materials.map((material) => [material.id, ""]));
       setBisMeasurementOptions(measurements);
       if (measurements.length > 0) {
         const current = measurements.find((item) => item.id === bisSubmitMeasurement);
@@ -879,7 +879,7 @@ export default function SiteDiaryCalendar({
     const selectedMaterials = bisMaterialOptions
       .map((material) => {
         const available = Number(material.availableQuantity ?? 0);
-        const requested = Number.parseFloat(materialQuantities[material.id] ?? "");
+        const requested = Number.parseFloat(materialQuantitiesRef.current[material.id] ?? "");
         const normalizedRequested = Number.isFinite(requested) ? requested : 0;
         return {
           constructionMaterialId: material.id,
@@ -896,12 +896,12 @@ export default function SiteDiaryCalendar({
     try {
       setBisSendingRowId(selectedRowForBis.id);
 
-      const parsedAmount = Number(bisSubmitAmount);
+      const parsedAmount = Number(bisSubmitAmountRef.current);
       await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
         materials: selectedMaterials,
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
         eventDate: bisSubmitDate ? bisSubmitDate.toISOString() : undefined,
-        worksDescription: bisSubmitWorks,
+        worksDescription: bisSubmitWorksRef.current,
         amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
         measurement: bisSubmitMeasurement,
       });
@@ -1012,7 +1012,7 @@ export default function SiteDiaryCalendar({
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                 <button
                   type="button"
-                  onClick={() => window.open("https://wa.me/13135131153", "_blank")}
+                  onClick={() => window.open("https://wa.me/37127445304", "_blank")}
                   className="inline-flex items-center justify-center gap-2 rounded-md border border-green-100 bg-white px-3 py-1.5 text-sm font-medium text-green-600 shadow-sm transition hover:bg-green-50 hover:text-green-700"
                   data-tour="calendar"
                 >
@@ -1888,7 +1888,7 @@ export default function SiteDiaryCalendar({
             ) : (
               <div className="space-y-6">
                 <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                  Selected materials: {Object.values(materialQuantities).filter((qty) => (Number.parseFloat(qty || "") || 0) > 0).length} • Selected attachments: {selectedAttachmentUrls.length} (optional)
+                  Selected attachments: {selectedAttachmentUrls.length} (optional)
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-3">
@@ -1924,8 +1924,11 @@ export default function SiteDiaryCalendar({
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-foreground">Works description</label>
                     <Textarea
-                      value={bisSubmitWorks}
-                      onChange={(event) => setBisSubmitWorks(event.target.value)}
+                      key={`works-${bisInputResetKey}`}
+                      defaultValue={bisSubmitWorksRef.current}
+                      onChange={(event) => {
+                        bisSubmitWorksRef.current = event.target.value;
+                      }}
                       placeholder="Describe works sent to BIS"
                       rows={3}
                       className="min-h-[84px]"
@@ -1936,10 +1939,13 @@ export default function SiteDiaryCalendar({
                       Amount {selectedRowForBis?.Units ? `(${selectedRowForBis.Units})` : ""}
                     </label>
                     <Input
+                      key={`amount-${bisInputResetKey}`}
                       type="text"
                       inputMode="decimal"
-                      value={bisSubmitAmount}
-                      onChange={(event) => setBisSubmitAmount(event.target.value)}
+                      defaultValue={bisSubmitAmountRef.current}
+                      onChange={(event) => {
+                        bisSubmitAmountRef.current = event.target.value;
+                      }}
                       placeholder="Enter amount"
                     />
                   </div>
@@ -2011,14 +2017,11 @@ export default function SiteDiaryCalendar({
                                   type="text"
                                   inputMode="decimal"
                                   className="ml-auto w-28"
-                                  value={materialQuantities[material.id] ?? ""}
+                                  defaultValue={materialQuantitiesRef.current[material.id] ?? ""}
                                   onChange={(e) => {
                                     const rawValue = e.target.value.replace(",", ".");
                                     if (!/^\d*\.?\d*$/.test(rawValue)) return;
-                                    setMaterialQuantities((prev) => ({
-                                      ...prev,
-                                      [material.id]: rawValue,
-                                    }));
+                                    materialQuantitiesRef.current[material.id] = rawValue;
                                   }}
                                 />
                               </td>
@@ -2065,7 +2068,7 @@ export default function SiteDiaryCalendar({
                     onClick={handleSendRowToBis}
                     disabled={
                       Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
-                      Object.values(materialQuantities).every((qty) => (Number.parseFloat(qty || "") || 0) <= 0)
+                      Object.values(materialQuantitiesRef.current).every((qty) => (Number.parseFloat(qty || "") || 0) <= 0)
                     }
                   >
                     {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { revalidatePath } from "next/cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MaterialsTableClient from "./Components/materials-table-client";
+import AiWidgetRag from "@/components/ai/AiChat";
 import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 
@@ -136,6 +137,8 @@ type WarehouseMaterialRecord = {
   materialDate: Date | null;
   costCode: string | null;
   sourcePhoto: string | null;
+  declarationAttachment: any;
+  agreementAttachment: any;
   BISId: string | null;
   bisStatus: string | null;
 };
@@ -822,6 +825,141 @@ export async function updateQuantity(recordId: string, quantity: number | null) 
   return { success: true };
 }
 
+export async function updateMaterialDetails(
+  recordId: string,
+  payload: {
+    name?: string | null;
+    cost?: number | null;
+    materialDate?: Date | null;
+  },
+) {
+  "use server";
+
+  const data: { name?: string | null; cost?: number | null; materialDate?: Date | null } = {};
+
+  if ("name" in payload) data.name = payload.name ?? null;
+  if ("cost" in payload) data.cost = payload.cost ?? null;
+  if ("materialDate" in payload) data.materialDate = payload.materialDate ?? null;
+
+  await prisma.bISmaterialRecords.update({
+    where: { id: recordId },
+    data,
+  });
+
+  return { success: true };
+}
+
+export async function updateMaterialAttachments(
+  recordId: string,
+  payload: {
+    declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>;
+    agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>;
+  },
+) {
+  "use server";
+
+  await prisma.bISmaterialRecords.update({
+    where: { id: recordId },
+    data: {
+      declarationAttachment: payload.declarationAttachment ?? [],
+      agreementAttachment: payload.agreementAttachment ?? [],
+    },
+  });
+
+  return { success: true };
+}
+
+export async function attachCertificateToMaterialConfiguration(
+  siteId: string,
+  materialConfigurationId: string,
+  payload: {
+    name: string;
+    mimeType: string;
+    base64Data: string;
+    code?: "compliance" | "agreement";
+  },
+) {
+  "use server";
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const bytes = Buffer.from(payload.base64Data, "base64");
+  const blob = new Blob([bytes], {
+    type: payload.mimeType || "application/octet-stream",
+  });
+  const form = new FormData();
+  form.append("upload[file]", blob, payload.name || "certificate");
+  form.append("upload[obj_id]", crypto.randomUUID());
+
+  const uploadResponse = await bisFetch(
+    getBisBaseUrl(),
+    `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: form,
+      cache: "no-store",
+    },
+  );
+
+  if (!uploadResponse.ok) {
+    const text = await uploadResponse.text();
+    throw new Error(`Failed to upload certificate to BIS: ${text || uploadResponse.status}`);
+  }
+
+  const uploadJson = await uploadResponse.json();
+  const tempUuid = uploadJson?.data?.attributes?.temp_uuid
+    ? String(uploadJson.data.attributes.temp_uuid)
+    : null;
+
+  if (!tempUuid) {
+    throw new Error("BIS did not return certificate upload uuid");
+  }
+
+  const currentMaterial = await fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials/${materialConfigurationId}`,
+    accessToken,
+  );
+
+  const existingDocuments = Array.isArray(currentMaterial?.data?.relationships?.attached_documents?.data)
+    ? currentMaterial.data.relationships.attached_documents.data
+    : [];
+
+  const nextDocuments = [
+    ...existingDocuments,
+    {
+      attributes: {
+        uuid: tempUuid,
+        code: payload.code || "compliance",
+      },
+    },
+  ];
+
+  await fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials/${materialConfigurationId}`,
+    accessToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        data: {
+          id: materialConfigurationId,
+          type: "construction_material",
+          relationships: {
+            attached_documents: {
+              data: nextDocuments,
+            },
+          },
+        },
+      }),
+    },
+  );
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+  return { success: true };
+}
+
 export async function getPossibleWarehouseBisApprovers(siteId: string, bisId: string) {
   "use server";
 
@@ -872,6 +1010,8 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
       materialDate: true,
       costCode: true,
       sourcePhoto: true,
+      declarationAttachment: true,
+      agreementAttachment: true,
       BISId: true,
       bisStatus: true,
     },
@@ -1081,6 +1221,10 @@ export async function sendToBis(
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
   const baseUrl = getBisBaseUrl();
   const attachments: Array<{ type: string; uuid: string }> = [];
+  const materialRecord = await prisma.bISmaterialRecords.findUnique({
+    where: { id: recordId },
+    select: { declarationAttachment: true, agreementAttachment: true },
+  });
 
   if (sourcePhoto) {
     const temp_uuid = await uploadPhotoToBis(sourcePhoto, accessToken, bisCaseId);
@@ -1092,6 +1236,105 @@ export async function sendToBis(
         uuid: temp_uuid,
       });
     }
+  }
+
+  const declarationAttachments = (Array.isArray(materialRecord?.declarationAttachment)
+    ? materialRecord?.declarationAttachment
+    : []) as Array<{ name: string; mimeType: string; base64Data: string }>;
+  const agreementAttachments = (Array.isArray(materialRecord?.agreementAttachment)
+    ? materialRecord?.agreementAttachment
+    : []) as Array<{ name: string; mimeType: string; base64Data: string }>;
+  const storedAttachments = [
+    ...declarationAttachments.map((file) => ({ ...file, code: "compliance" as const })),
+    ...agreementAttachments.map((file) => ({ ...file, code: "agreement" as const })),
+  ];
+
+  console.log("[Warehouse BIS] Preparing stored material attachments for send", {
+    siteId,
+    recordId,
+    declarationCount: declarationAttachments.length,
+    agreementCount: agreementAttachments.length,
+    totalStoredAttachments: storedAttachments.length,
+  });
+
+  const configurationAttachedDocuments: Array<{ attributes: { uuid: string; code: "compliance" | "agreement" } }> = [];
+
+  for (const file of storedAttachments) {
+    const bytes = Buffer.from(file.base64Data, "base64");
+    const blob = new Blob([bytes], {
+      type: file.mimeType || "application/octet-stream",
+    });
+    const form = new FormData();
+    form.append("upload[file]", blob, file.name || "attachment");
+    form.append("upload[obj_id]", crypto.randomUUID());
+
+    const uploadResponse = await bisFetch(
+      getBisBaseUrl(),
+      `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/vnd.api+json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: form,
+        cache: "no-store",
+      },
+    );
+
+    if (!uploadResponse.ok) {
+      const text = await uploadResponse.text();
+      throw new Error(`Failed to upload attachment to BIS: ${text || uploadResponse.status}`);
+    }
+
+    const uploaded = await uploadResponse.json();
+    const tempUuid = uploaded?.data?.attributes?.temp_uuid
+      ? String(uploaded.data.attributes.temp_uuid)
+      : null;
+
+    if (tempUuid) {
+      console.log("[Warehouse BIS] Uploaded material attachment for send", {
+        siteId,
+        recordId,
+        fileName: file.name,
+        code: file.code,
+        tempUuid,
+      });
+      configurationAttachedDocuments.push({
+        attributes: {
+          uuid: tempUuid,
+          code: file.code,
+        },
+      });
+    }
+  }
+
+  if (configurationAttachedDocuments.length > 0) {
+    console.log("[Warehouse BIS] Updating construction material attached_documents before send", {
+      siteId,
+      recordId,
+      construction_material_id,
+      attachedDocumentsCount: configurationAttachedDocuments.length,
+    });
+
+    await fetchBisJson(
+      `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials/${construction_material_id}`,
+      accessToken,
+      {
+        method: "PATCH",
+        body: JSON.stringify({
+          data: {
+            id: construction_material_id,
+            type: "construction_material",
+            relationships: {
+              attached_documents: {
+                data: configurationAttachedDocuments,
+              },
+            },
+          },
+        }),
+      },
+    );
   }
 
   const eventDate = materialDate
@@ -1130,6 +1373,7 @@ export async function sendToBis(
     materialName,
     construction_material_id,
     quantity,
+    uploadedAttachmentCount: configurationAttachedDocuments.length,
     body,
   });
 
@@ -1199,6 +1443,8 @@ export default async function MaterialsPage({
         materialDate: true,
         costCode: true,
         sourcePhoto: true,
+        declarationAttachment: true,
+        agreementAttachment: true,
         BISId: true,
         bisStatus: true,
       },
@@ -1257,8 +1503,12 @@ export default async function MaterialsPage({
         updateCostCode={updateCostCode}
         updateMaterialDate={updateMaterialDate}
         updateQuantity={updateQuantity}
+        updateMaterialDetails={updateMaterialDetails}
+        updateMaterialAttachments={updateMaterialAttachments}
+        attachCertificate={attachCertificateToMaterialConfiguration}
         deleteRecords={deleteWarehouseRecords}
       />
+      <AiWidgetRag siteId={siteId} />
     </div>
   );
 }

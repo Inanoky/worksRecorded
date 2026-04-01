@@ -472,6 +472,7 @@ export async function saveBISMaterialPayloadToDatabase(
     siteId: context.siteId,
     orgId: context.orgId,
     userId: context.userId,
+    createdBy: context.userId,
   }))
 })
 
