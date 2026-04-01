@@ -246,6 +246,7 @@ export default function SiteDiaryCalendar({
   //----------------------Table---------------------------------------------------
 
   const [defaultMap, setMap] = React.useState<Record<string, any>>(defaultConfig);
+  const [usesCustomConfig, setUsesCustomConfig] = React.useState(false);
   const [tableHeads, setTableHeads] = React.useState<string[]>([]);
   const [tableRows, setTableRows] = React.useState<any[]>([]);
   const [screenWidth, setScreenWidth] = React.useState<number>(150);
@@ -295,7 +296,8 @@ export default function SiteDiaryCalendar({
   }
 
   function getDisplayNameByKey(key) {
-    return defaultMap[key]?.DisplayName ?? key;
+    const label = defaultMap[key]?.DisplayName ?? key;
+    return usesCustomConfig ? label : translateStaticUiText(language, label);
   }
 
   function getCellWidthByKey(
@@ -442,6 +444,9 @@ export default function SiteDiaryCalendar({
         console.dir(cfg);
 
         setMap(cfg);
+        setUsesCustomConfig(
+          JSON.stringify(cfg ?? {}) !== JSON.stringify(defaultConfig),
+        );
 
         const renderableFields = getRenderableFieldsOrdered(cfg);
         const tableFields = ["createdAt", ...renderableFields];
@@ -593,7 +598,7 @@ export default function SiteDiaryCalendar({
   };
 
   const dayLabel = (d: Date) =>
-    d.toLocaleDateString("en-GB", {
+    d.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB", {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -1214,7 +1219,7 @@ export default function SiteDiaryCalendar({
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFrom
-                            ? dateFrom.toLocaleDateString("en-GB", {
+                            ? dateFrom.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB", {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
@@ -1245,7 +1250,7 @@ export default function SiteDiaryCalendar({
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateTo
-                            ? dateTo.toLocaleDateString("en-GB", {
+                            ? dateTo.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB", {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
@@ -1442,7 +1447,7 @@ export default function SiteDiaryCalendar({
                             variant="outline"
                             onClick={() => openDayDialog(group.date)}
                           >
-                            Open diary
+                            {translateStaticUiText(language, "Open diary")}
                           </Button>
                         </div>
                       </CardHeader>
@@ -1915,6 +1920,7 @@ export default function SiteDiaryCalendar({
           setOpen={setDialogOpen}
           date={dialogDate ?? calendarDate}
           siteId={siteId}
+          language={language}
           onSaved={async () => {
             reloadFilledDays();
 
@@ -1963,7 +1969,7 @@ export default function SiteDiaryCalendar({
                         >
                           <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
                           {bisSubmitDate
-                            ? bisSubmitDate.toLocaleDateString("en-GB")
+                            ? bisSubmitDate.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB")
                             : "Pick BIS event date"}
                         </Button>
                       </PopoverTrigger>
@@ -2284,7 +2290,7 @@ export default function SiteDiaryCalendar({
                       </div>
                       <div className="p-2 text-[11px] text-muted-foreground">
                         {attachment.date
-                          ? new Date(attachment.date).toLocaleDateString("en-GB")
+                          ? new Date(attachment.date).toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB")
                           : ""}
                       </div>
                     </label>
@@ -2337,7 +2343,7 @@ export default function SiteDiaryCalendar({
               <DialogTitle className="text-base sm:text-lg">
                 Photos –{" "}
                 {photosDate
-                  ? photosDate.toLocaleDateString("en-GB", {
+                  ? photosDate.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
