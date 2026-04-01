@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils/utils";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
+import { DashboardLanguage, tDashboard } from "@/lib/dashboard-i18n";
 
 import {Wrench, Layers, NotebookPen, Clock8, ReceiptText, ChartLine, Package} from "lucide-react";
 
@@ -69,7 +70,7 @@ export const projectNavLinks = [
   },
 ];
 
-export function DashboardItems({ userEmail }: { userEmail?: string }) {
+export function DashboardItems({ userEmail, language = "en" }: { userEmail?: string; language?: DashboardLanguage }) {
   const { projectId, projectName, setProject } = useProject();
   const pathname = usePathname();
 
@@ -97,8 +98,14 @@ return (
             )}
           >
             <item.icon className="size-4" />
-            <span className="hidden md:inline-block">{item.name}</span>
-          </Link>
+              <span className="hidden md:inline-block">
+                {item.href === "/dashboard/sites"
+                  ? tDashboard(language, "navProjects")
+                  : item.href === "/dashboard/settings"
+                    ? tDashboard(language, "navCompanySettings")
+                    : item.name}
+              </span>
+            </Link>
         ))}
 
         {/* Only show project nav links when in a project subroute */}
@@ -119,7 +126,17 @@ return (
         : {})}
             >
               <item.icon className="size-4" />
-              <span className="hidden md:inline-block">{item.name}</span>
+              <span className="hidden md:inline-block">
+                {item.path === "dashboard"
+                  ? tDashboard(language, "navSiteDiary")
+                  : item.path === "timesheets"
+                    ? tDashboard(language, "navTimesheets")
+                    : item.path === "BIS"
+                      ? tDashboard(language, "navWarehouse")
+                      : item.path === "settings"
+                        ? tDashboard(language, "navSettings")
+                        : item.name}
+              </span>
             </Link>
           ))
         }

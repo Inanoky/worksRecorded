@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
-import { getOrganizationIdByUserId, updateSiteAction } from "@/server/actions/shared-actions";
+import { getOrganizationIdByUserId, getOrganizationLanguageByUserId, updateSiteAction } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 import DocumentUpload from "@/components/documents/DocumentsUpload";
 import XslxUpload from "@/components/settings/XlsxUpload";
@@ -32,6 +32,7 @@ import Reminder from "@/components/settings/ReminderUI";
 import { getRemindersData, getReminderTimes, getDataForReminderTable} from "@/server/actions/reminder-actions";
 import { BisIntegrationCard } from "@/components/settings/BisIntegrationCard";
 import { fetchBisAvailableCases, getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
+import { getDashboardLanguage } from "@/lib/dashboard-i18n";
 
 
 
@@ -47,6 +48,8 @@ export default async function SettingsSiteRoute({
   const { siteId } = await params
   const resolvedSearchParams = (await searchParams) ?? {}
   const user = await requireUser();
+  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const language = getDashboardLanguage(organizationLanguage);
   const siteCheck = await orgCheck(user.id, siteId);
   if (!siteCheck) {
   notFound();
@@ -113,7 +116,7 @@ export default async function SettingsSiteRoute({
             <ChevronLeft className="size-4" />
           </Link>
         </Button>
-        <h3 className="text-xl font-semibold">Go Back</h3>
+        <h3 className="text-xl font-semibold">{language === "lv" ? "Atpakaļ" : "Go Back"}</h3>
       </div>
 
       <UploadImageForm siteId={siteId} />
@@ -135,9 +138,9 @@ export default async function SettingsSiteRoute({
       {/* Edit Site Info Card */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle>Edit Site Info</CardTitle>
+          <CardTitle>{language === "lv" ? "Rediģēt objekta informāciju" : "Edit Site Info"}</CardTitle>
           <CardDescription>
-            Update your site’s name, description, or subdirectory.
+            {language === "lv" ? "Atjauniniet objekta nosaukumu, aprakstu vai apakšdirektoriju." : "Update your site’s name, description, or subdirectory."}
           </CardDescription>
         </CardHeader>
         <form action={updateSiteAction}>
@@ -148,7 +151,7 @@ export default async function SettingsSiteRoute({
                 className="block mb-1 text-sm font-medium"
                 htmlFor="name"
               >
-                Name
+                {language === "lv" ? "Nosaukums" : "Name"}
               </label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-base"
@@ -164,7 +167,7 @@ export default async function SettingsSiteRoute({
                 className="block mb-1 text-sm font-medium"
                 htmlFor="description"
               >
-                Description
+                {language === "lv" ? "Apraksts" : "Description"}
               </label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-base"
@@ -180,7 +183,7 @@ export default async function SettingsSiteRoute({
                 className="block mb-1 text-sm font-medium"
                 htmlFor="subdirectory"
               >
-                Subdirectory
+                {language === "lv" ? "Apakšdirektorija" : "Subdirectory"}
               </label>
               <input
                 className="w-full border rounded-lg px-3 py-2 text-base"
@@ -193,7 +196,7 @@ export default async function SettingsSiteRoute({
             </div>
           </div>
           <CardFooter>
-            <SubmitButton text="Save Changes" />
+            <SubmitButton text={language === "lv" ? "Saglabāt izmaiņas" : "Save Changes"} />
           </CardFooter>
         </form>
       </Card>
@@ -209,10 +212,11 @@ export default async function SettingsSiteRoute({
          {/* Danger Card */}
       <Card className="border-red-500 bg-red-500/10">
         <CardHeader>
-          <CardTitle className="text-red-500">Danger</CardTitle>
+          <CardTitle className="text-red-500">{language === "lv" ? "Bīstami" : "Danger"}</CardTitle>
           <CardDescription>
-            This will delete your site and all data associated with it.
-            Click the button below to delete everything.
+            {language === "lv"
+              ? "Tas dzēsīs jūsu objektu un visus ar to saistītos datus. Noklikšķiniet uz pogas zemāk, lai visu izdzēstu."
+              : "This will delete your site and all data associated with it. Click the button below to delete everything."}
           </CardDescription>
         </CardHeader>
         <CardFooter>

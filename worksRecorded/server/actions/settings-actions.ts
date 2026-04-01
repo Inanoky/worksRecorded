@@ -4,7 +4,8 @@ import { prisma } from "@/lib/utils/db";
 import { Resend } from "resend";
 import defaultConfig from "@/components/sitediary/defaultConfig.json";
 import { requireUser } from "@/lib/utils/requireUser";
-import { orgCheck } from "@/server/actions/shared-actions";
+import { getOrganizationIdByUserId, orgCheck } from "@/server/actions/shared-actions";
+import { DashboardLanguage, getDashboardLanguage } from "@/lib/dashboard-i18n";
 
 
 
@@ -227,4 +228,25 @@ export async function saveSiteDiaryMode(
   });
 
   return { success: true };
+}
+
+export async function updateOrganizationLanguage(language: DashboardLanguage) {
+  try {
+    const user = await requireUser();
+    const normalizedLanguage = getDashboardLanguage(language);
+    const organizationId = await getOrganizationIdByUserId(user.id);
+    if (!organizationId) {
+      return { ok: false, message: "Organization not found for user" };
+    }
+
+    await prisma.organization.update({
+      where: { id: organizationId },
+      data: { orgLanguage: normalizedLanguage },
+    });
+
+    return { ok: true };
+  } catch (error) {
+    console.error("[updateOrganizationLanguage] Failed to update organization language", error);
+    return { ok: false, message: "Could not update language. Please try again." };
+  }
 }

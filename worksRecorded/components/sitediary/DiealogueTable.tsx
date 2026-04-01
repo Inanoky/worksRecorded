@@ -35,6 +35,7 @@ import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
 import defaultConfig from "./defaultConfig.json"
 import GMCIRLmap from "./GMCIRLmap.json"
+import { DashboardLanguage } from "@/lib/dashboard-i18n";
 
 
 //--------Loading config------------
@@ -214,10 +215,12 @@ export function DialogTable({
   date,
   siteId,
   onSaved,
+  language = "en",
 }: {
   date: Date | null;
   siteId: string | null;
   onSaved?: () => void;
+  language?: DashboardLanguage;
 }) {
 
 

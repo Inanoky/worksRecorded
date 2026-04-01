@@ -10,7 +10,9 @@ import { SiteSchemaProvider } from "@/components/providers/SiteSchemaProvider";
 import { WorkerTableCard } from "@/components/ai/WorkerTableCard";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
+import { getDashboardLanguage } from "@/lib/dashboard-i18n";
 
 export const maxDuration = 800;
 
@@ -30,6 +32,8 @@ export default async function AddWorkerPage({
   const { siteId } = await params;
 
   const user = await requireUser();
+  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const language = getDashboardLanguage(organizationLanguage);
   const siteCheck = await orgCheck(user.id, siteId);
   if (!siteCheck) notFound();
 
@@ -52,9 +56,11 @@ export default async function AddWorkerPage({
         {/* Header */}
         <header className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Timesheets</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{language === "lv" ? "Darba laika uzskaite" : "Timesheets"}</h1>
             <p className="text-sm text-muted-foreground">
-              Review time records and keep your worker list up to date.
+              {language === "lv"
+                ? "Pārskatiet laika ierakstus un uzturiet darbinieku sarakstu aktuālu."
+                : "Review time records and keep your worker list up to date."}
             </p>
           </div>
         </header>
@@ -69,9 +75,11 @@ export default async function AddWorkerPage({
         <section data-tour="timesheets">
           <Card className="border-muted/60 shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base md:text-lg">Time records</CardTitle>
+              <CardTitle className="text-base md:text-lg">{language === "lv" ? "Laika ieraksti" : "Time records"}</CardTitle>
               <p className="text-xs text-muted-foreground">
-                All logged entries for this site. Search, edit, and export.
+                {language === "lv"
+                  ? "Visi šī objekta reģistrētie ieraksti. Meklējiet, rediģējiet un eksportējiet."
+                  : "All logged entries for this site. Search, edit, and export."}
               </p>
             </CardHeader>
             <CardContent className="pt-2">

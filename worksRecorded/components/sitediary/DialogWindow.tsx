@@ -13,9 +13,17 @@ import { Button } from "@/components/ui/button";
 import { DialogTable } from "@/components/sitediary/DiealogueTable";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import TourRunner from "@/components/joyride/TourRunner";
+import { DashboardLanguage, translateStaticUiText } from "@/lib/dashboard-i18n";
 
 
-export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
+export default function DialogWindow({ open, setOpen, date, siteId, onSaved, language = "en" }: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  date: Date | null;
+  siteId: string | null;
+  onSaved?: () => void;
+  language?: DashboardLanguage;
+}) {
   const [refreshKey, setRefreshKey] = React.useState(0);
 
   return (
@@ -34,12 +42,12 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
         <DialogHeader>
           <DialogTitle className="text-lg sm:text-xl">
             {date
-              ? date.toLocaleDateString("en-GB", {
+              ? date.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB", {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
                 })
-              : "No date selected"}
+              : translateStaticUiText(language, "No date selected")}
           </DialogTitle>
           <DialogDescription className="w-full" />
         </DialogHeader>
@@ -57,6 +65,7 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
                 onSaved && onSaved();
                 setRefreshKey((k) => k + 1);
               }}
+              language={language}
             />
           </div>
 
@@ -69,7 +78,7 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
         <DialogFooter className="sm:justify-end">
           <DialogClose asChild>
             <Button variant="outline" className="w-full sm:w-auto">
-              Close
+              {translateStaticUiText(language, "Close")}
             </Button>
           </DialogClose>
         </DialogFooter>

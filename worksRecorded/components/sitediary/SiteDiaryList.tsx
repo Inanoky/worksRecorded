@@ -96,8 +96,10 @@ import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "./defaultConfig.json";
 import { toast } from "sonner";
+import { DashboardLanguage, translateStaticUiText } from "@/lib/dashboard-i18n";
 
-const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const daysOfWeekEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const daysOfWeekLv = ["Sv", "Pr", "Ot", "Tr", "Ce", "Pk", "Se"];
 
 const WhatsAppIcon = ({ size = 22 }) => (
   <svg
@@ -201,11 +203,14 @@ function toLocalDateKey(d: Date) {
 export default function SiteDiaryCalendar({
   siteId,
   bisEnabled = true,
+  language = "en",
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
+  language?: DashboardLanguage;
 }) {
   const today = new Date();
+  const daysOfWeek = language === "lv" ? daysOfWeekLv : daysOfWeekEn;
 
   // 👇 add "gallery" to view mode
   const [viewMode, setViewMode] =
@@ -241,6 +246,7 @@ export default function SiteDiaryCalendar({
   //----------------------Table---------------------------------------------------
 
   const [defaultMap, setMap] = React.useState<Record<string, any>>(defaultConfig);
+  const [usesCustomConfig, setUsesCustomConfig] = React.useState(false);
   const [tableHeads, setTableHeads] = React.useState<string[]>([]);
   const [tableRows, setTableRows] = React.useState<any[]>([]);
   const [screenWidth, setScreenWidth] = React.useState<number>(150);
@@ -290,7 +296,8 @@ export default function SiteDiaryCalendar({
   }
 
   function getDisplayNameByKey(key) {
-    return defaultMap[key]?.DisplayName ?? key;
+    const label = defaultMap[key]?.DisplayName ?? key;
+    return usesCustomConfig ? label : translateStaticUiText(language, label);
   }
 
   function getCellWidthByKey(
@@ -437,6 +444,9 @@ export default function SiteDiaryCalendar({
         console.dir(cfg);
 
         setMap(cfg);
+        setUsesCustomConfig(
+          JSON.stringify(cfg ?? {}) !== JSON.stringify(defaultConfig),
+        );
 
         const renderableFields = getRenderableFieldsOrdered(cfg);
         const tableFields = ["createdAt", ...renderableFields];
@@ -588,7 +598,7 @@ export default function SiteDiaryCalendar({
   };
 
   const dayLabel = (d: Date) =>
-    d.toLocaleDateString("en-GB", {
+    d.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB", {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -976,12 +986,64 @@ export default function SiteDiaryCalendar({
     }
   };
 
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (language !== "lv") return;
+    const root = rootRef.current;
+    if (!root) return;
+
+    const translateElementAttrs = (el: Element) => {
+      const placeholders = ["placeholder", "aria-label", "title"] as const;
+      placeholders.forEach((attr) => {
+        const value = el.getAttribute(attr);
+        if (!value) return;
+        const next = translateStaticUiText(language, value.trim());
+        if (next !== value) el.setAttribute(attr, next);
+      });
+    };
+
+    const walk = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent?.trim();
+        if (!text) return;
+        const translated = translateStaticUiText(language, text);
+        if (translated !== text && node.textContent) {
+          node.textContent = node.textContent.replace(text, translated);
+        }
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      const el = node as Element;
+      translateElementAttrs(el);
+      for (const child of Array.from(el.childNodes)) walk(child);
+    };
+
+    walk(root);
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => walk(node));
+        if (mutation.type === "attributes" && mutation.target instanceof Element) {
+          translateElementAttrs(mutation.target);
+        }
+      }
+    });
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["placeholder", "aria-label", "title"],
+    });
+    return () => observer.disconnect();
+  }, [language]);
+
   // this flag is reset on every render – used to mark only the first green day / first card
   let firstFilledMarked = false;
 
   return (
     <TooltipProvider>
       <div
+        ref={rootRef}
         className="w-full mx-auto px-2 sm:px-4 py-4"
         style={{ maxWidth: `${screenWidth}rem` }}
       >
@@ -1157,7 +1219,7 @@ export default function SiteDiaryCalendar({
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFrom
-                            ? dateFrom.toLocaleDateString("en-GB", {
+                            ? dateFrom.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB", {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
@@ -1188,7 +1250,7 @@ export default function SiteDiaryCalendar({
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateTo
-                            ? dateTo.toLocaleDateString("en-GB", {
+                            ? dateTo.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB", {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
@@ -1385,7 +1447,7 @@ export default function SiteDiaryCalendar({
                             variant="outline"
                             onClick={() => openDayDialog(group.date)}
                           >
-                            Open diary
+                            {translateStaticUiText(language, "Open diary")}
                           </Button>
                         </div>
                       </CardHeader>
@@ -1858,6 +1920,7 @@ export default function SiteDiaryCalendar({
           setOpen={setDialogOpen}
           date={dialogDate ?? calendarDate}
           siteId={siteId}
+          language={language}
           onSaved={async () => {
             reloadFilledDays();
 
@@ -1906,7 +1969,7 @@ export default function SiteDiaryCalendar({
                         >
                           <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
                           {bisSubmitDate
-                            ? bisSubmitDate.toLocaleDateString("en-GB")
+                            ? bisSubmitDate.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB")
                             : "Pick BIS event date"}
                         </Button>
                       </PopoverTrigger>
@@ -2227,7 +2290,7 @@ export default function SiteDiaryCalendar({
                       </div>
                       <div className="p-2 text-[11px] text-muted-foreground">
                         {attachment.date
-                          ? new Date(attachment.date).toLocaleDateString("en-GB")
+                          ? new Date(attachment.date).toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB")
                           : ""}
                       </div>
                     </label>
@@ -2280,7 +2343,7 @@ export default function SiteDiaryCalendar({
               <DialogTitle className="text-base sm:text-lg">
                 Photos –{" "}
                 {photosDate
-                  ? photosDate.toLocaleDateString("en-GB", {
+                  ? photosDate.toLocaleDateString(language === "lv" ? "lv-LV" : "en-GB", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",

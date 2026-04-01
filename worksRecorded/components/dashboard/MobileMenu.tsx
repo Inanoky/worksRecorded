@@ -9,8 +9,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/utils";
 import { Menu } from "lucide-react";
+import { DashboardLanguage, tDashboard } from "@/lib/dashboard-i18n";
 
-export function MobileMenu() {
+export function MobileMenu({ language = "en" }: { language?: DashboardLanguage }) {
   const { projectId, projectName } = useProject();
   const pathname = usePathname();
 
@@ -33,7 +34,11 @@ export function MobileMenu() {
               )}
             >
               <item.icon className="size-4" />
-              {item.name}
+              {item.href === "/dashboard/sites"
+                ? tDashboard(language, "navProjects")
+                : item.href === "/dashboard/settings"
+                  ? tDashboard(language, "navCompanySettings")
+                  : item.name}
             </Link>
           </DropdownMenuItem>
         ))}
@@ -56,7 +61,15 @@ export function MobileMenu() {
                   )}
                 >
                   <item.icon className="size-4" />
-                  {item.name}
+                  {item.path === "dashboard"
+                    ? tDashboard(language, "navSiteDiary")
+                    : item.path === "timesheets"
+                      ? tDashboard(language, "navTimesheets")
+                      : item.path === "BIS"
+                        ? tDashboard(language, "navWarehouse")
+                        : item.path === "settings"
+                          ? tDashboard(language, "navSettings")
+                          : item.name}
                 </Link>
               </DropdownMenuItem>
             ))}

@@ -20,6 +20,8 @@ import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
 import { getUserEmailByUserId } from "@/server/actions/shared-actions";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { getDashboardLanguage, tDashboard } from "@/lib/dashboard-i18n";
 
 export default async function DashboardLayout({
   children,
@@ -29,6 +31,8 @@ export default async function DashboardLayout({
   const user = await requireUser();
   const userId = user.id;
   const email = await getUserEmailByUserId(user.id);
+  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const language = getDashboardLanguage(organizationLanguage);
 
   console.log(user.id);
   console.log(`this is email ${email}`);
@@ -40,7 +44,7 @@ export default async function DashboardLayout({
 
   return (
     <ProjectProvider userId={userId}>
-      <section className="min-h-screen w-full flex flex-col">
+      <section className="min-h-screen w-full flex flex-col" data-dashboard-root="true">
         {/* CSS-only modal (hash :target) */}
         <style>{`
           #contact-modal {
@@ -61,7 +65,7 @@ export default async function DashboardLayout({
           <div className="flex items-center gap-4">
             {/* Mobile menu button - only shows on small screens */}
             <div className="lg:hidden">
-              <MobileMenu />
+              <MobileMenu language={language} />
             </div>
 
             {/* Logo - smaller on mobile */}
@@ -77,7 +81,7 @@ export default async function DashboardLayout({
 
           {/* Navigation - hidden on mobile, shown on desktop */}
           <nav className="hidden lg:flex gap-2 items-center flex-1 ml-6">
-            <DashboardItems userEmail={email} />
+            <DashboardItems userEmail={email} language={language} />
           </nav>
 
           {/* Theme/User menu */}
@@ -96,7 +100,7 @@ export default async function DashboardLayout({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <LogoutLink>Log out</LogoutLink>
+                  <LogoutLink>{tDashboard(language, "logOut")}</LogoutLink>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -116,14 +120,14 @@ export default async function DashboardLayout({
                 <DropdownMenuItem asChild>
                   <form action={clearUserTourAction}>
                     <button type="submit" className="w-full text-left">
-                      Repeat Tutorial
+                      {tDashboard(language, "repeatTutorial")}
                     </button>
                   </form>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem asChild>
                   <a href="#contact-modal" className="w-full text-left">
-                    Contact us
+                    {tDashboard(language, "contactUs")}
                   </a>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -135,13 +139,13 @@ export default async function DashboardLayout({
         <div
           id="contact-modal"
           className="fixed inset-0 z-[999] flex items-center justify-center bg-black/50 p-4"
-          aria-label="Contact us dialog"
+          aria-label={`${tDashboard(language, "contactUs")} dialog`}
           role="dialog"
           aria-modal="true"
         >
           <div className="w-full max-w-md rounded-xl border bg-background shadow-lg">
             <div className="flex items-center justify-between border-b px-4 py-3">
-              <div className="font-semibold">Contact us</div>
+              <div className="font-semibold">{tDashboard(language, "contactUs")}</div>
               <a
                 href="#"
                 aria-label="Close"
@@ -153,12 +157,12 @@ export default async function DashboardLayout({
 
             <div className="px-4 py-4 space-y-3">
               <div className="text-sm text-muted-foreground">
-                Contact us any time if you have any questions or problems.
+                {tDashboard(language, "contactDescription")}
               </div>
 
               <div className="space-y-2">
                 <div className="text-sm">
-                  <div className="text-muted-foreground">Email</div>
+                  <div className="text-muted-foreground">{tDashboard(language, "email")}</div>
                   <a
                     className="font-medium underline underline-offset-4"
                     href="mailto:vjaceslavs.gromatovics@buvconsult.com"
@@ -168,7 +172,7 @@ export default async function DashboardLayout({
                 </div>
 
                 <div className="text-sm">
-                  <div className="text-muted-foreground">Phone</div>
+                  <div className="text-muted-foreground">{tDashboard(language, "phone")}</div>
                   <a
                     className="font-medium underline underline-offset-4"
                     href="tel:+37124885690"
@@ -180,13 +184,13 @@ export default async function DashboardLayout({
 
               <div className="pt-2 flex gap-2 justify-end">
                 <a href="#" className="inline-flex">
-                  <Button variant="secondary">Close</Button>
+                  <Button variant="secondary">{tDashboard(language, "close")}</Button>
                 </a>
                 <a
                   href="mailto:vjaceslavs.gromatovics@buvconsult.com"
                   className="inline-flex"
                 >
-                  <Button>Email us</Button>
+                  <Button>{tDashboard(language, "emailUs")}</Button>
                 </a>
               </div>
             </div>

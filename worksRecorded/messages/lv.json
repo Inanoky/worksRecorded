@@ -7,27 +7,36 @@
     "signIn": "Uzdot jautājumu",
     "noCardNote": "Nav nepieciešama bankas karte. Bezmaksas beta versijas laikā.",
     "heroImageAlt": "worksRecorded galvenais priekšskatījums",
-
     "section2Pill": "Būvlaukuma pieraksti, kas patiešām tiek veikti",
     "section2Title": "Ko var sasniegt ar worksRecorded",
     "section2Description": "Atvieglojiet vadītājiem un meistariem reģistrēt to, kas patiesībā notika būvlaukumā — bez papildu lietotnēm, formām vai vēla vakara dokumentēšanas.",
     "section2ImageAlt": "Būvdienasgrāmata un projekta pieraksti worksRecorded",
     "section2Caption": "WhatsApp piezīmes kļūst par strukturētiem ikdienas ierakstiem — ar darbiniekiem, vietām, darbiem un fotoattēliem vienuviet."
   },
-
   "LandingText": {
     "whatDoWeDo": {
       "heading": "Mēs palīdzam apakšuzņēmējiem ar:",
       "items": [
-        { "title": "Vienkārša un ātra būvdarbu pierakstīšana" },
-        { "title": "Automātiska strukturēšana" },
-        { "title": "Iespēja rediģēt ierakstus tīmeklī, ja nepieciešams" },
-        { "title": "WhatsApp darba laika uzskaite – pievienojiet darbiniekus, reģistrējiet laikus, darbinieki var pievienot piezīmes un bildes" },
-        { "title": "Būvdarbu žurnāls – analītika, papildu darbu un kavējumu uzskaite" },
-        { "title": "Bildes – sistemātiski uzglabāti." }
+        {
+          "title": "Vienkārša un ātra būvdarbu pierakstīšana"
+        },
+        {
+          "title": "Automātiska strukturēšana"
+        },
+        {
+          "title": "Iespēja rediģēt ierakstus tīmeklī, ja nepieciešams"
+        },
+        {
+          "title": "WhatsApp darba laika uzskaite – pievienojiet darbiniekus, reģistrējiet laikus, darbinieki var pievienot piezīmes un bildes"
+        },
+        {
+          "title": "Būvdarbu žurnāls – analītika, papildu darbu un kavējumu uzskaite"
+        },
+        {
+          "title": "Bildes – sistemātiski uzglabāti."
+        }
       ]
     },
-
     "howDoWeDoThat": {
       "heading": "Kā worksRecorded palīdz apakšuzņēmējiem",
       "items": [
@@ -57,7 +66,6 @@
         }
       ]
     },
-
     "why": {
       "heading": "Kāpēc worksRecorded ir atšķirīgs",
       "description": "Lai sāktu lietot, nepieciešams tikai WhatsApp. Nav papildu sloga būvlaukuma vadībai",
@@ -69,15 +77,12 @@
       ]
     }
   },
-
-   "SiteDiary": {
+  "SiteDiary": {
     "title": "Būvdarbu žurnāls",
-
     "block1": {
       "title": "Kā tas darbojas",
       "text": "Vienkārši nosūtiet balss ziņu uz WorksRecorded WhatsApp, aprakstot, kas šodien notika. Mūsu AI pārvērtīs jūsu teikto strukturētā būvdienasgrāmatas ierakstā."
     },
-
     "block2": {
       "title": "Kāds ir ieguvums",
       "p1": "Viss, kas notiek būvlaukumā projekta laikā, tiek saglabāts un ir viegli pieejams.",
@@ -92,44 +97,36 @@
       "p4": "Tāme? Jūs precīzi zināt, cik daudz laika ir patērēts.",
       "p5": "Jūsu projekts ir pierakstīts."
     },
-
     "images": {
       "siteDiaryAlt": "Būvdienasgrāmata",
       "whatsappAlt": "WhatsApp",
       "galleryAlt": "Būvdienasgrāmatas galerija"
     }
   },
-
   "Timesheets": {
     "title": "Darba laika uzskaite",
-
     "block1": {
       "title": "Kā tas darbojas",
       "text": "Darbinieki izmanto WhatsApp saraksti ar WorksRecorded, lai reģistrētu darba sākumu un beigas. Pirms darba beigām AI viņiem palūdz aprakstīt, kas dienas laikā tika paveikts. Informācija tiek strukturēta un automātiski saglabāta datubāzē."
     },
-
     "block2": {
       "title": "Kāds ir ieguvums",
       "li1": "Katru darba stundu var uzskaitīt.",
       "li2": "Nākamajā projektā darba izmaksas var precīzi iecenot.",
       "li3": "Iespējams identificēt izšķērdēšanu, uzstādīt mērķus un mērīt darba KPI."
     },
-
     "images": {
       "dashboardAlt": "Darba laika uzskaites panelis",
       "whatsappAlt": "WhatsApp",
       "analyticsAlt": "Darba laika analītika"
     }
   },
-
   "Analytics": {
     "title": "Analītika",
-
     "block1": {
       "title": "Kā tas darbojas",
       "text": "Mēs apvienojam datu zinātni, mākslīgo intelektu un būvniecības nozares pieredzi, lai automātiski iegūtu analītiku no jūsu datiem. Nodrošinām nepieciešamos ieskatus — apjomu tāmes, progresa statistiku, šķēršļus, kavējumus, vidējo veiktspēju, izmaksas pa kategorijām un periodiem, izšķērdēšanas un uzlabošanas iespējas, un vairāk."
     },
-
     "block2": {
       "title": "Kāds ir ieguvums",
       "li1": "Gatava, uzlabota analītika tūlītējiem rezultātiem.",
@@ -137,16 +134,13 @@
       "li3": "Pilnībā dinamiska — atjaunojas projekta gaitā.",
       "li4": "Finanšu, naudas plūsmas un darbu progresa prognozēšana."
     },
-
     "images": {
       "overviewAlt": "Analītikas pārskats",
       "detailsAlt": "Analītikas detaļas"
     }
   },
-
-   "CustomSolutions": {
+  "CustomSolutions": {
     "title": "Pielāgoti digitālie risinājumi",
-
     "block1": {
       "title": "Kā tas darbojas",
       "p1": {
@@ -157,28 +151,24 @@
       "p2": "Kad pielāgota sistēma ir izstrādāta un ieviesta, tā turpina nest rezultātu — sakārtoti pieraksti, mazāk manuāla darba un analītika, kas palīdz pieņemt lēmumus.",
       "p3": "Nosūtiet mums e-pastā procesu, ko vēlaties digitalizēt un automatizēt, un mēs piedāvāsim efektīvu, pragmatisku risinājumu."
     },
-
     "block2": {
       "title": "Kāds ir ieguvums",
       "p1": "Būvniecība ir viena no pēdējām maz digitalizētajām nozarēm. Esiet soli priekšā un izmantojiet AI vilni, lai uzlabotu peļņas maržas, piedāvājumus un ikdienas procesus.",
       "p2": "No būvniecības profesionāļiem būvniecības profesionāļiem. Praktiski rīki, minimāla berze, reāli rezultāti."
     },
-
     "images": {
       "siteAlt": "Digitālie risinājumi būvlaukumā",
       "developmentAlt": "Pielāgota izstrāde"
     }
   },
-
-   "Pricing": {
+  "Pricing": {
     "title": {
       "prefix": "Cenas, kas veidotas",
       "highlight": "būvniecībai"
     },
-"description": "Caurspīdīga mēneša maksa par projektu, pielāgota projekta apjomam un sarežģītībai. Piedāvājam arī cenu modeli par lietotāju vai par projektu — atkarībā no jūsu uzņēmuma darbības. Sazinieties ar mums individuālam piedāvājumam."
+    "description": "Caurspīdīga mēneša maksa par projektu, pielāgota projekta apjomam un sarežģītībai. Piedāvājam arī cenu modeli par lietotāju vai par projektu — atkarībā no jūsu uzņēmuma darbības. Sazinieties ar mums individuālam piedāvājumam."
   },
-
-    "About": {
+  "About": {
     "title": "Par mums",
     "p1": "Vai jūs zināt, kas notiek jūsu būvlaukumā? Būvdarbu uzskaite nav vienkārša.",
     "p2": "Būvlaukuma vadība bieži ir pārslogota un nevēlas uzņemties papildu administratīvo slogu pierakstu veikšanai.",
@@ -198,41 +188,32 @@
       "selfieAlt": "Vjaceslavs Gromatovičs"
     }
   },
-
   "Contact": {
     "heroTitle": "Sazināmies! 🚀",
     "heroDescription": "Piezvaniet, atsūtiet e-pastu, rakstiet WhatsApp vai aizpildiet formu. Mēs garantējam, ka sazināsimies ar jums **tajā pašā dienā**!",
-
     "quickDetailsTitle": "Ātra informācija",
     "phoneLabel": "Tālrunis:",
     "emailLabel": "E-pasts:",
     "webLabel": "Mājaslapa:",
-
     "formTitle": "Nosūtiet mums ziņu",
-
     "firstNameLabel": "Vārds",
     "lastNameLabel": "Uzvārds",
     "emailFieldLabel": "E-pasts",
     "subjectLabel": "Temats",
     "messageLabel": "Ziņa",
-
     "firstNamePlaceholder": "Vārds",
     "lastNamePlaceholder": "Uzvārds",
     "emailPlaceholder": "Jūsu e-pasts",
     "subjectPlaceholder": "Projekta jautājums, konsultācija u.c.",
     "messagePlaceholder": "Pastāstiet par savu projektu vai jautājumu...",
-
     "sending": "Sūta…",
     "sendMessage": "Sūtīt ziņu",
-
     "status": {
       "errorDefault": "Kaut kas nogāja greizi. Lūdzu, mēģiniet vēlreiz."
     }
   },
-
-    "Navigation": {
+  "Navigation": {
     "features": "Funkcijas",
-
     "data": {
       "whatsapp": {
         "title": "Būvdarbu žurnāls",
@@ -247,21 +228,137 @@
         "description": "Tiešsaistes pielāgota analītika"
       }
     },
-
     "main": {
       "custom": "Pielāgoti risinājumi",
       "pricing": "Cenas",
-      "caseStudies" : "Projekti",
+      "caseStudies": "Projekti",
       "about": "Par mums",
       "news": "Ziņas",
       "contacts": "Kontakti"
     },
-
     "combined": {
       "generic": "Tiešsaistes pielāgota analītika"
     }
+  },
+  "Dashboard": {
+    "navProjects": "Projekti",
+    "navCompanySettings": "Uzņēmuma iestatījumi",
+    "navSiteDiary": "Būvdarbu žurnāls",
+    "navTimesheets": "Darba laika uzskaite",
+    "navWarehouse": "Noliktava",
+    "navSettings": "Iestatījumi",
+    "repeatTutorial": "Atkārtot pamācību",
+    "contactUs": "Sazināties ar mums",
+    "contactDescription": "Sazinieties ar mums jebkurā laikā, ja jums ir jautājumi vai problēmas.",
+    "email": "E-pasts",
+    "phone": "Tālrunis",
+    "close": "Aizvērt",
+    "emailUs": "Rakstīt e-pastu",
+    "logOut": "Izrakstīties",
+    "companySettingsTitle": "Uzņēmuma iestatījumi",
+    "inviteColleaguesTitle": "Uzaicināt kolēģus",
+    "inviteColleaguesDescription": "Pārvaldiet komandu un sūtiet uzaicinājumus.",
+    "dashboardLanguage": "Paneļa valoda",
+    "dashboardLanguageDescription": "Izvēlieties valodu, kas tiek lietota /dashboard un visās apakšlapās statiskajam UI tekstam.",
+    "english": "Angļu",
+    "latvian": "Latviešu",
+    "languageUpdated": "Valoda atjaunināta",
+    "languageUpdateFailed": "Neizdevās atjaunināt valodu"
+  },
+  "DashboardStatic": {
+    "Save": "Saglabāt",
+    "Save changes": "Saglabāt izmaiņas",
+    "Save Changes": "Saglabāt izmaiņas",
+    "Cancel": "Atcelt",
+    "Close": "Aizvērt",
+    "Delete": "Dzēst",
+    "Edit": "Rediģēt",
+    "Add": "Pievienot",
+    "Add user": "Pievienot lietotāju",
+    "Invite user": "Uzaicināt lietotāju",
+    "Send invite": "Nosūtīt uzaicinājumu",
+    "Export to Excel": "Eksportēt uz Excel",
+    "Search...": "Meklēt...",
+    "Settings": "Iestatījumi",
+    "Warehouse": "Noliktava",
+    "Timesheets": "Darba laika uzskaite",
+    "Time records": "Laika ieraksti",
+    "Go Back": "Atpakaļ",
+    "Name": "Nosaukums",
+    "Description": "Apraksts",
+    "Subdirectory": "Apakšdirektorija",
+    "Danger": "Bīstami",
+    "Actions": "Darbības",
+    "No data found.": "Dati nav atrasti.",
+    "Enabled": "Iespējots",
+    "Disabled": "Atspējots",
+    "Projects": "Projekti",
+    "Company Settings": "Uzņēmuma iestatījumi",
+    "Site Diary": "Būvdarbu žurnāls",
+    "Log out": "Izrakstīties",
+    "Contact us": "Sazināties ar mums",
+    "Switch between calendar, list and gallery views.": "Pārslēdzieties starp kalendāra, saraksta un galerijas skatu.",
+    "List": "Saraksts",
+    "Calendar": "Kalendārs",
+    "Gallery": "Galerija",
+    "Record site work via WhatsApp": "Reģistrēt darbus caur WhatsApp",
+    "Record via WhatsApp": "Reģistrēt caur WhatsApp",
+    "Refreshing...": "Atjauno...",
+    "Refresh BIS sync": "Atjaunot BIS sinhronizāciju",
+    "Filters": "Filtri",
+    "From date": "No datuma",
+    "To date": "Līdz datumam",
+    "Filter by works": "Filtrs pēc darbiem",
+    "All works": "Visi darbi",
+    "Filter by floor/location": "Filtrs pēc stāva/lokācijas",
+    "No location": "Nav lokācijas",
+    "No works recorded": "Nav reģistrētu darbu",
+    "No comments": "Nav komentāru",
+    "View photos for this day": "Skatīt šīs dienas foto",
+    "PDF report": "PDF atskaite",
+    "Sent to BIS": "Nosūtīts uz BIS",
+    "Send to BIS": "Nosūtīt uz BIS",
+    "Approved": "Apstiprināts",
+    "Sent for approval": "Nosūtīts apstiprināšanai",
+    "Send for approval": "Nosūtīt apstiprināšanai",
+    "BIS": "BIS",
+    "Select a record and target date.": "Izvēlieties ierakstu un mērķa datumu.",
+    "Select at least one approver.": "Izvēlieties vismaz vienu apstiprinātāju.",
+    "Select at least one material.": "Izvēlieties vismaz vienu materiālu.",
+    "Missing site id.": "Trūkst objekta ID.",
+    "Missing selected record id.": "Trūkst izvēlētā ieraksta ID.",
+    "Site diary records": "Būvdarbu žurnāla ieraksti",
+    "Open diary": "Atvērt dienasgrāmatu",
+    "No date selected": "Datums nav izvēlēts",
+    "Select BIS materials and attachments": "Izvēlieties BIS materiālus un pielikumus",
+    "Loading options...": "Ielādē opcijas...",
+    "Selected attachments:": "Izvēlētie pielikumi:",
+    "Performed work details": "Veikto darbu informācija",
+    "BIS event date": "BIS notikuma datums",
+    "Pick BIS event date": "Izvēlieties BIS notikuma datumu",
+    "Works description": "Darbu apraksts",
+    "Describe works sent to BIS": "Aprakstiet uz BIS nosūtītos darbus",
+    "Enter amount": "Ievadiet daudzumu",
+    "BIS measurement unit": "BIS mērvienība",
+    "Select measurement": "Izvēlieties mērvienību",
+    "Attachments": "Pielikumi",
+    "Attachments are optional. Add them only if you want photo evidence in BIS.": "Pielikumi nav obligāti. Pievienojiet tos tikai, ja vēlaties foto pierādījumus BIS.",
+    "Add / manage attachments": "Pievienot / pārvaldīt pielikumus",
+    "Materials from current BIS case": "Materiāli no pašreizējās BIS lietas",
+    "No BIS materials available in this case.": "Šajā lietā nav pieejamu BIS materiālu.",
+    "Material": "Materiāls",
+    "Unit": "Mērvienība",
+    "Total": "Kopā",
+    "Used": "Izmantots",
+    "Available": "Pieejams",
+    "Send qty": "Nosūtāmais daudzums",
+    "Selected gallery attachments": "Izvēlētie galerijas pielikumi",
+    "No attachments selected. This is optional.": "Nav izvēlētu pielikumu. Tas nav obligāti.",
+    "Remove": "Noņemt",
+    "Sending...": "Sūta...",
+    "Send site diary record for approval": "Nosūtīt būvdarbu žurnāla ierakstu apstiprināšanai",
+    "Select one or more approvers before submitting this BIS record for approval.": "Pirms šī BIS ieraksta nosūtīšanas apstiprināšanai izvēlieties vienu vai vairākus apstiprinātājus.",
+    "Copy record to another date": "Kopēt ierakstu uz citu datumu",
+    "Select attachments from gallery": "Izvēlieties pielikumus no galerijas"
   }
-
-
-
 }
