@@ -162,6 +162,15 @@ type Props = {
       materialDate?: Date | null
     },
   ) => Promise<{ success: true }>
+  attachCertificate: (
+    siteId: string,
+    materialConfigurationId: string,
+    payload: {
+      name: string
+      mimeType: string
+      base64Data: string
+    },
+  ) => Promise<{ success: true }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
 
@@ -222,6 +231,7 @@ export default function MaterialsTableClient({
   updateMaterialDate,
   updateQuantity,
   updateMaterialDetails,
+  attachCertificate,
   deleteRecords,
 }: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
@@ -242,6 +252,7 @@ export default function MaterialsTableClient({
   const [syncLoading, setSyncLoading] = React.useState(false)
   const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
   const [deleteLoading, setDeleteLoading] = React.useState(false)
+  const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
 
   React.useEffect(() => {
     setRows(materials)
@@ -463,8 +474,17 @@ export default function MaterialsTableClient({
 
   const openWarehouseRecordInBis = (bisId: string | null | undefined) => {
     if (!bisId) return
-    const url = `https://test.bis.gov.lv/bisp/lv/portal/logbooks/received_construction_products/${bisId}/`
+    const url = `https://test.bis.gov.lv/bisp/lv/portal/logbooks/received_construction_products/${bisId}/edit`
     window.open(url, "_blank", "noopener,noreferrer")
+  }
+
+  const isRowEditable = (recordId: string) => editableRowIds.includes(recordId)
+  const toggleRowEditable = (recordId: string) => {
+    setEditableRowIds((current) =>
+      current.includes(recordId)
+        ? current.filter((id) => id !== recordId)
+        : [...current, recordId],
+    )
   }
 
   const toggleRowSelection = (recordId: string, checked: boolean) => {
@@ -920,24 +940,28 @@ export default function MaterialsTableClient({
                       </TableCell>
 
                       <TableCell className="min-w-0">
-                        <Input
-                          value={r.name ?? ""}
-                          onChange={(event) =>
-                            setRows((current) =>
-                              current.map((row) =>
-                                row.id === r.id
-                                  ? {
-                                      ...row,
-                                      name: event.target.value,
-                                    }
-                                  : row,
-                              ),
-                            )
-                          }
-                          onBlur={(event) => handleMaterialNameBlur(r.id, event.target.value)}
-                          placeholder="Unnamed material"
-                          className="h-9 min-w-0"
-                        />
+                        {isRowEditable(r.id) ? (
+                          <Input
+                            value={r.name ?? ""}
+                            onChange={(event) =>
+                              setRows((current) =>
+                                current.map((row) =>
+                                  row.id === r.id
+                                    ? {
+                                        ...row,
+                                        name: event.target.value,
+                                      }
+                                    : row,
+                                ),
+                              )
+                            }
+                            onBlur={(event) => handleMaterialNameBlur(r.id, event.target.value)}
+                            placeholder="Unnamed material"
+                            className="h-9 min-w-0"
+                          />
+                        ) : (
+                          <div className="whitespace-normal break-words leading-snug">{r.name || "Unnamed material"}</div>
+                        )}
                       </TableCell>
 
                       <TableCell>
@@ -991,16 +1015,30 @@ export default function MaterialsTableClient({
                       <TableCell>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full min-w-0 justify-start text-left font-normal"
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
-                              {toLocalDateInputValue(r.materialDate)
-                                ? formatDate(r.materialDate)
-                                : "Pick date"}
-                            </Button>
+                            {isRowEditable(r.id) ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full min-w-0 justify-start text-left font-normal"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                                {toLocalDateInputValue(r.materialDate)
+                                  ? formatDate(r.materialDate)
+                                  : "Pick date"}
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                disabled
+                                className="w-full min-w-0 justify-start text-left font-normal"
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                                {toLocalDateInputValue(r.materialDate)
+                                  ? formatDate(r.materialDate)
+                                  : "Pick date"}
+                              </Button>
+                            )}
                           </PopoverTrigger>
                           <PopoverContent className="w-auto p-0" align="start">
                             <Calendar
@@ -1026,7 +1064,7 @@ export default function MaterialsTableClient({
                           value={r.quantity ?? ""}
                           onChange={(event) => handleQuantityChange(r.id, event.target.value)}
                           onBlur={(event) => handleQuantityBlur(r.id, event.target.value)}
-                          disabled={isSent}
+                          disabled={!isRowEditable(r.id) || isSent}
                           className="w-full min-w-0"
                         />
                       </TableCell>
@@ -1039,6 +1077,7 @@ export default function MaterialsTableClient({
                           value={r.cost ?? ""}
                           onChange={(event) => handleMaterialCostChange(r.id, event.target.value)}
                           onBlur={(event) => handleMaterialCostBlur(r.id, event.target.value)}
+                          disabled={!isRowEditable(r.id)}
                           className="w-full min-w-0"
                         />
                       </TableCell>
@@ -1049,12 +1088,14 @@ export default function MaterialsTableClient({
                           <div className="flex items-center justify-end gap-2">
                             {!isSent ? (
                               <SendToBisButton
+                                siteId={siteId}
                                 recordId={r.id}
                                 quantity={r.quantity ?? 0}
                                 categoryId={hasValidConfiguration ? r.categoryId ?? "" : ""}
                                 sourcePhoto={r.sourcePhoto ?? ""}
                                 materialName={r.name ?? ""}
                                 materialDate={r.materialDate}
+                                onAttachCertificate={attachCertificate}
                                 action={handleSendToBis}
                               />
                             ) : !isApproved && !isAwaitingApproval ? (
@@ -1091,6 +1132,9 @@ export default function MaterialsTableClient({
                                   disabled={!r.BISId}
                                 >
                                   Open in BIS
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => toggleRowEditable(r.id)}>
+                                  {isRowEditable(r.id) ? "Stop editing" : "Edit"}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

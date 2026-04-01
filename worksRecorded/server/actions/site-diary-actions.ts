@@ -1373,7 +1373,7 @@ export async function getSiteDiaryRecordBisUrl(recordId: string) {
   await orgCheck(user.id, record.siteId);
 
   const baseUrl = getBisBaseUrl();
-  return `${baseUrl}/bisp/lv/portal/logbooks/performed_works/${record.BISId}/`;
+  return `${baseUrl}/bisp/lv/portal/logbooks/performed_works/${record.BISId}/edit`;
 }
 
 async function uploadLogbookAttachmentToBis({

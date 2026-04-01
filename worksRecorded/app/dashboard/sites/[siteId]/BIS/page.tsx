@@ -846,6 +846,96 @@ export async function updateMaterialDetails(
   return { success: true };
 }
 
+export async function attachCertificateToMaterialConfiguration(
+  siteId: string,
+  materialConfigurationId: string,
+  payload: {
+    name: string;
+    mimeType: string;
+    base64Data: string;
+  },
+) {
+  "use server";
+
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const bytes = Buffer.from(payload.base64Data, "base64");
+  const blob = new Blob([bytes], {
+    type: payload.mimeType || "application/octet-stream",
+  });
+  const form = new FormData();
+  form.append("upload[file]", blob, payload.name || "certificate");
+  form.append("upload[obj_id]", crypto.randomUUID());
+
+  const uploadResponse = await bisFetch(
+    getBisBaseUrl(),
+    `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: form,
+      cache: "no-store",
+    },
+  );
+
+  if (!uploadResponse.ok) {
+    const text = await uploadResponse.text();
+    throw new Error(`Failed to upload certificate to BIS: ${text || uploadResponse.status}`);
+  }
+
+  const uploadJson = await uploadResponse.json();
+  const tempUuid = uploadJson?.data?.attributes?.temp_uuid
+    ? String(uploadJson.data.attributes.temp_uuid)
+    : null;
+
+  if (!tempUuid) {
+    throw new Error("BIS did not return certificate upload uuid");
+  }
+
+  const currentMaterial = await fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials/${materialConfigurationId}`,
+    accessToken,
+  );
+
+  const existingDocuments = Array.isArray(currentMaterial?.data?.relationships?.attached_documents?.data)
+    ? currentMaterial.data.relationships.attached_documents.data
+    : [];
+
+  const nextDocuments = [
+    ...existingDocuments,
+    {
+      attributes: {
+        uuid: tempUuid,
+        code: "compliance",
+      },
+    },
+  ];
+
+  await fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials/${materialConfigurationId}`,
+    accessToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        data: {
+          id: materialConfigurationId,
+          type: "construction_material",
+          relationships: {
+            attached_documents: {
+              data: nextDocuments,
+            },
+          },
+        },
+      }),
+    },
+  );
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+  return { success: true };
+}
+
 export async function getPossibleWarehouseBisApprovers(siteId: string, bisId: string) {
   "use server";
 
@@ -1282,6 +1372,7 @@ export default async function MaterialsPage({
         updateMaterialDate={updateMaterialDate}
         updateQuantity={updateQuantity}
         updateMaterialDetails={updateMaterialDetails}
+        attachCertificate={attachCertificateToMaterialConfiguration}
         deleteRecords={deleteWarehouseRecords}
       />
     </div>
