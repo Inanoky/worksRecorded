@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { toast } from "sonner";
 import { z } from "zod"; // <-- Zod
+import { DashboardLanguage } from "@/lib/dashboard-i18n";
 
 // server actions
 import { editUserData, saveTemporaryUser, inviteUserByEmail } from "@/server/actions/settings-actions";
@@ -54,21 +55,22 @@ type MembersTableProps = {
   exportFileName?: string;
   userid?: string;
   orgId?: string;
+  language?: DashboardLanguage;
 };
 
-const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: "project manager", label: "Project manager" },
-  { value: "site manager", label: "Site manager" },
+const ROLE_OPTIONS: { value: Role; label: string; labelLv: string }[] = [
+  { value: "project manager", label: "Project manager", labelLv: "Projekta vadītājs" },
+  { value: "site manager", label: "Site manager", labelLv: "Objekta vadītājs" },
 ];
 
-function getColumns(): ColumnDef<Member, any>[] {
+function getColumns(language: DashboardLanguage): ColumnDef<Member, any>[] {
   return [
-    { accessorKey: "email", header: "Email" },
-    { accessorKey: "firstName", header: "First name" },
-    { accessorKey: "lastName", header: "Last name" },
-    { accessorKey: "phone", header: "Phone" },
-    { accessorKey: "role", header: "Role" },
-    { accessorKey: "status", header: "Status" },
+    { accessorKey: "email", header: language === "lv" ? "E-pasts" : "Email" },
+    { accessorKey: "firstName", header: language === "lv" ? "Vārds" : "First name" },
+    { accessorKey: "lastName", header: language === "lv" ? "Uzvārds" : "Last name" },
+    { accessorKey: "phone", header: language === "lv" ? "Tālrunis" : "Phone" },
+    { accessorKey: "role", header: language === "lv" ? "Loma" : "Role" },
+    { accessorKey: "status", header: language === "lv" ? "Statuss" : "Status" },
     // { accessorKey: "reminderTime", header: "Whatsapp reminder" },
     // { accessorKey: "remindersEnabled", header: "Allow reminders" },
   ];
@@ -135,10 +137,11 @@ export function MembersTable({
   pageSize,
   exportFileName = "table_data.xlsx",
   userid,
-  orgId
+  orgId,
+  language = "en",
 }: MembersTableProps) {
   const router = useRouter();
-  const columns = React.useMemo(() => getColumns(), []);
+  const columns = React.useMemo(() => getColumns(language), [language]);
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
   const [editRowId, setEditRowId] = React.useState<string | null>(null);
@@ -271,46 +274,46 @@ export function MembersTable({
       <CardHeader>
         <div className="flex items-center py-4 gap-2">
           <Input
-            placeholder="Search..."
+            placeholder={language === "lv" ? "Meklēt..." : "Search..."}
             value={globalFilter ?? ""}
             onChange={e => setGlobalFilter(e.target.value)}
             className="max-w-sm"
           />
           <Button variant="outline" onClick={exportToExcel} type="button">
-            Export to Excel
+            {language === "lv" ? "Eksportēt uz Excel" : "Export to Excel"}
           </Button>
 
           <Dialog open={openAdd} onOpenChange={setOpenAdd}>
             <DialogTrigger asChild>
-              <Button>Add user</Button>
+              <Button>{language === "lv" ? "Pievienot lietotāju" : "Add user"}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Invite user</DialogTitle>
+                <DialogTitle>{language === "lv" ? "Uzaicināt lietotāju" : "Invite user"}</DialogTitle>
               </DialogHeader>
 
               <form
                 action={async (formData) => {
                   formData.set("email", newEmail);
                   if (!newEmail) {
-                    toast.error("Email is required");
+                    toast.error(language === "lv" ? "E-pasts ir obligāts" : "Email is required");
                     return;
                   }
                   const res = await inviteUserByEmail(formData);
                   await saveTemporaryUser(newEmail, orgId || "");
                   router.refresh();
                   if (res?.ok) {
-                    toast.success("Invitation email sent");
+                    toast.success(language === "lv" ? "Uzaicinājuma e-pasts nosūtīts" : "Invitation email sent");
                     setNewEmail("");
                     setOpenAdd(false);
                   } else {
-                    toast.error(res?.message ?? "Failed to send invite");
+                    toast.error(res?.message ?? (language === "lv" ? "Neizdevās nosūtīt uzaicinājumu" : "Failed to send invite"));
                   }
                 }}
               >
                 <Input
                   type="email"
-                  placeholder="Email"
+                  placeholder={language === "lv" ? "E-pasts" : "Email"}
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   className="mt-3"
@@ -319,9 +322,9 @@ export function MembersTable({
 
                 <div className="flex justify-end gap-2 mt-4">
                   <Button type="button" variant="ghost" onClick={() => setOpenAdd(false)}>
-                    Cancel
+                    {language === "lv" ? "Atcelt" : "Cancel"}
                   </Button>
-                  <Button type="submit">Send invite</Button>
+                  <Button type="submit">{language === "lv" ? "Nosūtīt uzaicinājumu" : "Send invite"}</Button>
                 </div>
               </form>
             </DialogContent>
@@ -329,9 +332,9 @@ export function MembersTable({
 
           {anyChanges && (
             <>
-              <Button type="submit" form="members-form">Save changes</Button>
+              <Button type="submit" form="members-form">{language === "lv" ? "Saglabāt izmaiņas" : "Save changes"}</Button>
               <Button variant="ghost" type="button" onClick={cancelEdit}>
-                Cancel
+                {language === "lv" ? "Atcelt" : "Cancel"}
               </Button>
             </>
           )}
@@ -372,7 +375,7 @@ export function MembersTable({
         >
           <div className="w-full overflow-x-auto">
             <div className="mb-2 text-sm text-muted-foreground">
-              {table.getFilteredRowModel().rows.length} of {data.length} results
+              {table.getFilteredRowModel().rows.length} {language === "lv" ? "no" : "of"} {data.length} {language === "lv" ? "rezultātiem" : "results"}
             </div>
 
             <Table>
@@ -390,7 +393,7 @@ export function MembersTable({
                         {h.column.getIsSorted() === "desc" && " 🔽"}
                       </TableHead>
                     ))}
-                    <TableHead>Actions</TableHead>
+                    <TableHead>{language === "lv" ? "Darbības" : "Actions"}</TableHead>
                   </TableRow>
                 ))}
               </TableHeader>
@@ -445,12 +448,12 @@ export function MembersTable({
                                       checked={checked}
                                       onChange={(e) => handleChange(r.id, "remindersEnabled", e.currentTarget.checked)}
                                     />
-                                    <span>{checked ? "Enabled" : "Disabled"}</span>
+                                    <span>{checked ? (language === "lv" ? "Iespējots" : "Enabled") : (language === "lv" ? "Atspējots" : "Disabled")}</span>
                                   </label>
                                 </TableCell>
                               );
                             }
-                            return <TableCell key={cell.id}>{r.remindersEnabled ? "Enabled" : "Disabled"}</TableCell>;
+                            return <TableCell key={cell.id}>{r.remindersEnabled ? (language === "lv" ? "Iespējots" : "Enabled") : (language === "lv" ? "Atspējots" : "Disabled")}</TableCell>;
                           }
 
                           // Email read-only
@@ -503,12 +506,12 @@ export function MembersTable({
                                   onValueChange={(v) => handleChange(r.id, "role", v)}
                                 >
                                   <SelectTrigger className="w-[220px]">
-                                    <SelectValue placeholder="Select role" />
+                                    <SelectValue placeholder={language === "lv" ? "Izvēlieties lomu" : "Select role"} />
                                   </SelectTrigger>
                                   <SelectContent>
                                     {ROLE_OPTIONS.map(opt => (
                                       <SelectItem key={opt.value} value={opt.value}>
-                                        {opt.label}
+                                        {language === "lv" ? opt.labelLv : opt.label}
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
@@ -521,7 +524,9 @@ export function MembersTable({
                           const value = r[col as keyof Member];
                           const display =
                             col === "role"
-                              ? ROLE_OPTIONS.find(o => o.value === value)?.label ?? ""
+                              ? (language === "lv"
+                                ? ROLE_OPTIONS.find(o => o.value === value)?.labelLv
+                                : ROLE_OPTIONS.find(o => o.value === value)?.label) ?? ""
                               : col === "phone"
                                 ? formatPhoneForDisplay(String(value ?? "")) // display with '+'
                                 : String(value ?? "");
@@ -541,19 +546,19 @@ export function MembersTable({
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuLabel>{language === "lv" ? "Darbības" : "Actions"}</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               {editRowId !== row.id ? (
                                 <DropdownMenuItem onClick={() => startEdit(row.id, row.original)}>
-                                  Edit
+                                  {language === "lv" ? "Rediģēt" : "Edit"}
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem onClick={() => {}}>
-                                  Use “Save changes” above
+                                  {language === "lv" ? "Izmantojiet augstāk “Saglabāt izmaiņas”" : "Use “Save changes” above"}
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem className="cursor-pointer text-red-600" disabled>
-                                Delete (not implemented)
+                                {language === "lv" ? "Dzēst (nav ieviests)" : "Delete (not implemented)"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -564,7 +569,7 @@ export function MembersTable({
                 ) : (
                   <TableRow>
                     <TableCell colSpan={columns.length + 1} className="text-center">
-                      No data found.
+                      {language === "lv" ? "Dati nav atrasti." : "No data found."}
                     </TableCell>
                   </TableRow>
                 )}
