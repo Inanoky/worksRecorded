@@ -1397,7 +1397,10 @@ export default function MaterialsTableClient({
           </DialogHeader>
           {editDraft ? (
             <div className="space-y-4">
-              <Input key={`name-${editDraft.id}`} defaultValue={editDraft.name} onChange={(event) => { editNameRef.current = event.target.value }} placeholder="Material" />
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Material Name</label>
+                <Input key={`name-${editDraft.id}`} defaultValue={editDraft.name} onChange={(event) => { editNameRef.current = event.target.value }} placeholder="Material Name" />
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input key={`qty-${editDraft.id}`} defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder="Qty" />
                 <Input key={`cost-${editDraft.id}`} defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder="Cost" />
@@ -1406,23 +1409,44 @@ export default function MaterialsTableClient({
                 <Input key={`costcode-${editDraft.id}`} defaultValue={editDraft.costCode} onChange={(event) => { editCostCodeRef.current = event.target.value }} placeholder="Cost code" />
                 <Input key={`unit-${editDraft.id}`} defaultValue={editDraft.measurementUnit} onChange={(event) => { editUnitRef.current = event.target.value }} placeholder="Units" />
               </div>
-              <Input
-                type="date"
-                key={`invoice-date-${editDraft.id}`}
-                defaultValue={editDraft.invoiceDate ? toLocalDateInputValue(editDraft.invoiceDate) : ""}
-                onChange={(event) => { editInvoiceDateRef.current = event.target.value }}
-              />
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button type="button" variant="outline" className="w-full justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
-                    {editDraft.materialDate ? formatDate(editDraft.materialDate) : "Pick date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={editDraft.materialDate ?? undefined} onSelect={(value) => setEditDraft({ ...editDraft, materialDate: value ?? null })} />
-                </PopoverContent>
-              </Popover>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Delivery Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full justify-start">
+                        <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                        {editDraft.materialDate ? formatDate(editDraft.materialDate) : "Pick delivery date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={editDraft.materialDate ?? undefined} onSelect={(value) => setEditDraft({ ...editDraft, materialDate: value ?? null })} />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Invoice Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full justify-start">
+                        <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                        {editDraft.invoiceDate ? formatDate(editDraft.invoiceDate) : "Pick invoice date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={editDraft.invoiceDate ?? undefined}
+                        onSelect={(value) => {
+                          const local = value ? toLocalDateInputValue(value) : ""
+                          editInvoiceDateRef.current = local
+                          setEditDraft({ ...editDraft, invoiceDate: value ?? null })
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
               {showBisControls ? (
                 <>
                   <div className="space-y-2">
