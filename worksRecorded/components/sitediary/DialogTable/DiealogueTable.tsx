@@ -180,6 +180,9 @@ export function DialogTable({
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
       toast.success("Record deleted");
+      if (row.BISId || String(row.bisStatus ?? "").toLowerCase() === "approved") {
+        toast.warning("This record was deleted only from WorksRecorded. It stays in BIS.")
+      }
       onSaved?.();
       setRows((prev) => prev.filter((r) => r.id !== row.id));
       return;

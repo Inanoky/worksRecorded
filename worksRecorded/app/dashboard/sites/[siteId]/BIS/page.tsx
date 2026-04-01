@@ -822,6 +822,30 @@ export async function updateQuantity(recordId: string, quantity: number | null) 
   return { success: true };
 }
 
+export async function updateMaterialDetails(
+  recordId: string,
+  payload: {
+    name?: string | null;
+    cost?: number | null;
+    materialDate?: Date | null;
+  },
+) {
+  "use server";
+
+  const data: { name?: string | null; cost?: number | null; materialDate?: Date | null } = {};
+
+  if ("name" in payload) data.name = payload.name ?? null;
+  if ("cost" in payload) data.cost = payload.cost ?? null;
+  if ("materialDate" in payload) data.materialDate = payload.materialDate ?? null;
+
+  await prisma.bISmaterialRecords.update({
+    where: { id: recordId },
+    data,
+  });
+
+  return { success: true };
+}
+
 export async function getPossibleWarehouseBisApprovers(siteId: string, bisId: string) {
   "use server";
 
@@ -1257,6 +1281,7 @@ export default async function MaterialsPage({
         updateCostCode={updateCostCode}
         updateMaterialDate={updateMaterialDate}
         updateQuantity={updateQuantity}
+        updateMaterialDetails={updateMaterialDetails}
         deleteRecords={deleteWarehouseRecords}
       />
     </div>

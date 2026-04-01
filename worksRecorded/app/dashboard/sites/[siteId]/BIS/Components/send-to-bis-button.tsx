@@ -5,6 +5,16 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { NO_MATCH_VALUE } from "./material-config-select"
 
+function normalizeBisErrorMessage(message: string) {
+  if (
+    message.includes("Izvēlētajam materiālam nav norādīts neviens atbilstību apliecinošs dokuments")
+  ) {
+    return "BIS rejected this material because no declaration document is attached. Please attach a certificate to this material configuration and try again."
+  }
+
+  return message
+}
+
 export default function SendToBisButton({
   recordId,
   quantity,
@@ -44,14 +54,16 @@ export default function SendToBisButton({
         const result = await action(recordId, quantity, categoryId, sourcePhoto, materialName, materialDate)
 
         if (result?.errors) {
-          toast.error("Failed to send to BIS")
+          const detail = result.errors?.[0]?.detail || "Failed to send to BIS"
+          toast.error(normalizeBisErrorMessage(String(detail)))
           return
         }
 
         toast.success("Sent successfully")
       } catch (error) {
         console.error(error)
-        toast.error("Failed to send to BIS")
+        const message = error instanceof Error ? error.message : "Failed to send to BIS"
+        toast.error(normalizeBisErrorMessage(message))
       }
     })
   }

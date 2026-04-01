@@ -154,6 +154,14 @@ type Props = {
     recordId: string,
     quantity: number | null,
   ) => Promise<{ success: true }>
+  updateMaterialDetails: (
+    recordId: string,
+    payload: {
+      name?: string | null
+      cost?: number | null
+      materialDate?: Date | null
+    },
+  ) => Promise<{ success: true }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
 
@@ -179,6 +187,24 @@ function getApprovalStateStatus(status: string | null | undefined) {
     : "pending"
 }
 
+function toLocalDateInputValue(value: Date | null | undefined) {
+  if (!value) return ""
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ""
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function normalizeBisErrorMessage(message: string) {
+  if (message.includes("Izvēlētajam materiālam nav norādīts neviens atbilstību apliecinošs dokuments")) {
+    return "BIS rejected this material because no declaration document is attached. Please attach a certificate to this material configuration and try again."
+  }
+
+  return message
+}
+
 export default function MaterialsTableClient({
   siteId,
   bisEnabled,
@@ -195,6 +221,7 @@ export default function MaterialsTableClient({
   updateCostCode,
   updateMaterialDate,
   updateQuantity,
+  updateMaterialDetails,
   deleteRecords,
 }: Props) {
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
@@ -460,10 +487,14 @@ export default function MaterialsTableClient({
 
     setDeleteLoading(true)
     try {
+      const bisBackedRowsCount = rows.filter((row) => selectedRowIds.includes(row.id) && !!row.BISId).length
       const { deletedIds } = await deleteRecords(siteId, selectedRowIds)
       setRows((current) => current.filter((row) => !deletedIds.includes(row.id)))
       setSelectedRowIds((current) => current.filter((id) => !deletedIds.includes(id)))
       toast.success(deletedIds.length === 1 ? "Record deleted" : `${deletedIds.length} records deleted`)
+      if (bisBackedRowsCount > 0) {
+        toast.warning("Some deleted records were already sent to BIS. They were removed only from WorksRecorded and stay in BIS.")
+      }
     } catch (error) {
       console.error("[Warehouse BIS] Delete records failed", { siteId, selectedRowIds, error })
       toast.error(error instanceof Error ? error.message : "Failed to delete records")
@@ -513,7 +544,7 @@ export default function MaterialsTableClient({
       setPossibleApprovers([])
       setSelectedApproverKeys([])
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to send record for approval"
+      const message = error instanceof Error ? normalizeBisErrorMessage(error.message) : "Failed to send record for approval"
       console.error("[Warehouse BIS] Send for approval failed", {
         siteId,
         bisId: approverDialogRow.BISId,
@@ -523,13 +554,6 @@ export default function MaterialsTableClient({
     } finally {
       setApprovalLoading(false)
     }
-  }
-
-  const toDateInputValue = (value: Date | null) => {
-    if (!value) return ""
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return ""
-    return date.toISOString().slice(0, 10)
   }
 
   const handleMaterialDateChange = async (recordId: string, nextValue: string) => {
@@ -553,6 +577,50 @@ export default function MaterialsTableClient({
       console.error(error)
       setRows(previousRows)
       toast.error("Failed to update material date")
+    }
+  }
+
+  const handleMaterialNameBlur = async (recordId: string, nextValue: string) => {
+    const previousRows = rows
+
+    try {
+      await updateMaterialDetails(recordId, { name: nextValue.trim() || null })
+    } catch (error) {
+      console.error(error)
+      setRows(previousRows)
+      toast.error("Failed to update material name")
+    }
+  }
+
+  const handleMaterialCostChange = (recordId: string, nextValue: string) => {
+    const parsedValue = nextValue === "" ? null : Number(nextValue)
+    setRows((current) =>
+      current.map((row) =>
+        row.id === recordId
+          ? {
+              ...row,
+              cost:
+                parsedValue == null || Number.isNaN(parsedValue)
+                  ? null
+                  : parsedValue,
+            }
+          : row,
+      ),
+    )
+  }
+
+  const handleMaterialCostBlur = async (recordId: string, nextValue: string) => {
+    const previousRows = rows
+    const parsedValue = nextValue.trim() === "" ? null : Number(nextValue)
+    const normalizedCost =
+      parsedValue == null || Number.isNaN(parsedValue) ? null : parsedValue
+
+    try {
+      await updateMaterialDetails(recordId, { cost: normalizedCost })
+    } catch (error) {
+      console.error(error)
+      setRows(previousRows)
+      toast.error("Failed to update material cost")
     }
   }
 
@@ -852,7 +920,24 @@ export default function MaterialsTableClient({
                       </TableCell>
 
                       <TableCell className="min-w-0">
-                        <div className="truncate font-medium">{r.name || "Unnamed material"}</div>
+                        <Input
+                          value={r.name ?? ""}
+                          onChange={(event) =>
+                            setRows((current) =>
+                              current.map((row) =>
+                                row.id === r.id
+                                  ? {
+                                      ...row,
+                                      name: event.target.value,
+                                    }
+                                  : row,
+                              ),
+                            )
+                          }
+                          onBlur={(event) => handleMaterialNameBlur(r.id, event.target.value)}
+                          placeholder="Unnamed material"
+                          className="h-9 min-w-0"
+                        />
                       </TableCell>
 
                       <TableCell>
@@ -909,11 +994,10 @@ export default function MaterialsTableClient({
                             <Button
                               type="button"
                               variant="outline"
-                              disabled={isSent}
                               className="w-full min-w-0 justify-start text-left font-normal"
                             >
                               <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
-                              {toDateInputValue(r.materialDate)
+                              {toLocalDateInputValue(r.materialDate)
                                 ? formatDate(r.materialDate)
                                 : "Pick date"}
                             </Button>
@@ -925,7 +1009,7 @@ export default function MaterialsTableClient({
                               onSelect={(value) =>
                                 handleMaterialDateChange(
                                   r.id,
-                                  value ? value.toISOString().slice(0, 10) : "",
+                                  toLocalDateInputValue(value),
                                 )
                               }
                               className="bg-green-50/40"
@@ -947,7 +1031,17 @@ export default function MaterialsTableClient({
                         />
                       </TableCell>
                       <TableCell>{r.measurementUnit || "—"}</TableCell>
-                      <TableCell>{formatMoney(r.cost)}</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min={0}
+                          value={r.cost ?? ""}
+                          onChange={(event) => handleMaterialCostChange(r.id, event.target.value)}
+                          onBlur={(event) => handleMaterialCostBlur(r.id, event.target.value)}
+                          className="w-full min-w-0"
+                        />
+                      </TableCell>
                       <TableCell className="truncate">{r.invoiceNr || "—"}</TableCell>
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
                       {showBisControls ? (
