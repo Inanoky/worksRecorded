@@ -5,9 +5,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { updateOrganizationLanguage } from "@/server/actions/settings-actions";
 import { DashboardLanguage, tDashboard } from "@/lib/dashboard-i18n";
+import { useRouter } from "next/navigation";
 
 export function CompanyLanguageSelector({ language }: { language: DashboardLanguage }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <Select
@@ -15,11 +17,16 @@ export function CompanyLanguageSelector({ language }: { language: DashboardLangu
       disabled={isPending}
       onValueChange={(value: DashboardLanguage) => {
         startTransition(async () => {
-          const res = await updateOrganizationLanguage(value);
-          if (res?.ok) {
-            toast.success(tDashboard(value, "languageUpdated"));
-          } else {
-            toast.error(tDashboard(language, "languageUpdateFailed"));
+          try {
+            const res = await updateOrganizationLanguage(value);
+            if (res?.ok) {
+              toast.success(tDashboard(value, "languageUpdated"));
+              router.refresh();
+            } else {
+              toast.error(res?.message ?? tDashboard(language, "languageUpdateFailed"));
+            }
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : tDashboard(language, "languageUpdateFailed"));
           }
         });
       }}

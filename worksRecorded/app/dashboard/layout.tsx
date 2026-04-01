@@ -22,6 +22,7 @@ import { getUserEmailByUserId } from "@/server/actions/shared-actions";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { getDashboardLanguage, tDashboard } from "@/lib/dashboard-i18n";
+import { DashboardAutoTranslator } from "@/components/dashboard/DashboardAutoTranslator";
 
 export default async function DashboardLayout({
   children,
@@ -44,7 +45,8 @@ export default async function DashboardLayout({
 
   return (
     <ProjectProvider userId={userId}>
-      <section className="min-h-screen w-full flex flex-col">
+      <section className="min-h-screen w-full flex flex-col" data-dashboard-root="true">
+        <DashboardAutoTranslator language={language} />
         {/* CSS-only modal (hash :target) */}
         <style>{`
           #contact-modal {

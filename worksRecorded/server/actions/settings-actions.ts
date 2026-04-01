@@ -231,17 +231,22 @@ export async function saveSiteDiaryMode(
 }
 
 export async function updateOrganizationLanguage(language: DashboardLanguage) {
-  const user = await requireUser();
-  const normalizedLanguage = getDashboardLanguage(language);
+  try {
+    const user = await requireUser();
+    const normalizedLanguage = getDashboardLanguage(language);
 
-  if (!user.organizationId) {
-    return { ok: false, message: "Organization not found for user" };
+    if (!user.organizationId) {
+      return { ok: false, message: "Organization not found for user" };
+    }
+
+    await prisma.organization.update({
+      where: { id: user.organizationId },
+      data: { orgLanguage: normalizedLanguage },
+    });
+
+    return { ok: true };
+  } catch (error) {
+    console.error("[updateOrganizationLanguage] Failed to update organization language", error);
+    return { ok: false, message: "Could not update language. Please try again." };
   }
-
-  await prisma.organization.update({
-    where: { id: user.organizationId },
-    data: { orgLanguage: normalizedLanguage },
-  });
-
-  return { ok: true };
 }

@@ -62,3 +62,42 @@ export function getDashboardLanguage(value?: string | null): DashboardLanguage {
 export function tDashboard(language: DashboardLanguage, key: DashboardTranslationKey): string {
   return DASHBOARD_TRANSLATIONS[language][key] ?? DASHBOARD_TRANSLATIONS.en[key];
 }
+
+const LV_STATIC_TEXT_MAP: Record<string, string> = {
+  "Save": "Saglabāt",
+  "Save changes": "Saglabāt izmaiņas",
+  "Save Changes": "Saglabāt izmaiņas",
+  "Cancel": "Atcelt",
+  "Close": "Aizvērt",
+  "Delete": "Dzēst",
+  "Edit": "Rediģēt",
+  "Add": "Pievienot",
+  "Add user": "Pievienot lietotāju",
+  "Invite user": "Uzaicināt lietotāju",
+  "Send invite": "Nosūtīt uzaicinājumu",
+  "Export to Excel": "Eksportēt uz Excel",
+  "Search...": "Meklēt...",
+  "Settings": "Iestatījumi",
+  "Warehouse": "Noliktava",
+  "Timesheets": "Darba laika uzskaite",
+  "Time records": "Laika ieraksti",
+  "Go Back": "Atpakaļ",
+  "Name": "Nosaukums",
+  "Description": "Apraksts",
+  "Subdirectory": "Apakšdirektorija",
+  "Danger": "Bīstami",
+  "Actions": "Darbības",
+  "No data found.": "Dati nav atrasti.",
+  "Enabled": "Iespējots",
+  "Disabled": "Atspējots",
+  "Projects": "Projekti",
+  "Company Settings": "Uzņēmuma iestatījumi",
+  "Site Diary": "Būvdarbu žurnāls",
+  "Log out": "Izrakstīties",
+  "Contact us": "Sazināties ar mums",
+};
+
+export function translateStaticUiText(language: DashboardLanguage, text: string): string {
+  if (language !== "lv") return text;
+  return LV_STATIC_TEXT_MAP[text] ?? text;
+}
