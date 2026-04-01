@@ -853,6 +853,7 @@ export async function attachCertificateToMaterialConfiguration(
     name: string;
     mimeType: string;
     base64Data: string;
+    code?: "compliance" | "agreement";
   },
 ) {
   "use server";
@@ -908,7 +909,7 @@ export async function attachCertificateToMaterialConfiguration(
     {
       attributes: {
         uuid: tempUuid,
-        code: "compliance",
+        code: payload.code || "compliance",
       },
     },
   ];

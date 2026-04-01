@@ -169,6 +169,7 @@ type Props = {
       name: string
       mimeType: string
       base64Data: string
+      code?: "compliance" | "agreement"
     },
   ) => Promise<{ success: true }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
@@ -253,6 +254,22 @@ export default function MaterialsTableClient({
   const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
   const [deleteLoading, setDeleteLoading] = React.useState(false)
   const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
+  const [attachmentDialogOpen, setAttachmentDialogOpen] = React.useState(false)
+  const [attachmentRowId, setAttachmentRowId] = React.useState<string | null>(null)
+  const [attachmentType, setAttachmentType] = React.useState<"compliance" | "agreement">("compliance")
+  const [attachmentQueue, setAttachmentQueue] = React.useState<Array<{
+    id: string
+    name: string
+    mimeType: string
+    base64Data: string
+    code: "compliance" | "agreement"
+  }>>([])
+  const [pendingEdits, setPendingEdits] = React.useState<Record<string, {
+    name?: string | null
+    cost?: number | null
+    materialDate?: Date | null
+    quantity?: number | null
+  }>>({})
 
   React.useEffect(() => {
     setRows(materials)
@@ -493,6 +510,63 @@ export default function MaterialsTableClient({
     )
   }
 
+  const openAttachmentModal = (recordId: string) => {
+    setAttachmentRowId(recordId)
+    setAttachmentQueue([])
+    setAttachmentType("compliance")
+    setAttachmentDialogOpen(true)
+  }
+
+  const queueAttachmentFile = async (file: File) => {
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const result = String(reader.result ?? "")
+        resolve(result.includes(",") ? result.split(",")[1] : result)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+
+    setAttachmentQueue((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        name: file.name,
+        mimeType: file.type || "application/octet-stream",
+        base64Data,
+        code: attachmentType,
+      },
+    ])
+  }
+
+  const saveAttachmentQueue = async () => {
+    if (!attachmentRowId) return
+    const row = rows.find((item) => item.id === attachmentRowId)
+    if (!row?.categoryId || row.categoryId === NO_MATCH_VALUE) {
+      toast.error("Select BIS material configuration first")
+      return
+    }
+    if (!attachmentQueue.length) {
+      setAttachmentDialogOpen(false)
+      return
+    }
+
+    try {
+      await Promise.all(
+        attachmentQueue.map((item) =>
+          attachCertificate(siteId, row.categoryId as string, item),
+        ),
+      )
+      toast.success("Attachments added")
+      setAttachmentDialogOpen(false)
+      setAttachmentQueue([])
+    } catch (error) {
+      console.error(error)
+      toast.error(error instanceof Error ? error.message : "Failed to add attachment")
+    }
+  }
+
   const toggleAllVisibleRows = (checked: boolean) => {
     const visibleIds = filteredMaterials.map((row) => row.id)
     setSelectedRowIds((current) =>
@@ -576,8 +650,7 @@ export default function MaterialsTableClient({
     }
   }
 
-  const handleMaterialDateChange = async (recordId: string, nextValue: string) => {
-    const previousRows = rows
+  const handleMaterialDateChange = (recordId: string, nextValue: string) => {
     const materialDate = nextValue ? new Date(`${nextValue}T00:00:00`) : null
 
     setRows((current) =>
@@ -590,26 +663,23 @@ export default function MaterialsTableClient({
           : row,
       ),
     )
-
-    try {
-      await updateMaterialDate(recordId, materialDate)
-    } catch (error) {
-      console.error(error)
-      setRows(previousRows)
-      toast.error("Failed to update material date")
-    }
+    setPendingEdits((current) => ({
+      ...current,
+      [recordId]: {
+        ...(current[recordId] ?? {}),
+        materialDate,
+      },
+    }))
   }
 
-  const handleMaterialNameBlur = async (recordId: string, nextValue: string) => {
-    const previousRows = rows
-
-    try {
-      await updateMaterialDetails(recordId, { name: nextValue.trim() || null })
-    } catch (error) {
-      console.error(error)
-      setRows(previousRows)
-      toast.error("Failed to update material name")
-    }
+  const handleMaterialNameChange = (recordId: string, nextValue: string) => {
+    setPendingEdits((current) => ({
+      ...current,
+      [recordId]: {
+        ...(current[recordId] ?? {}),
+        name: nextValue.trim() || null,
+      },
+    }))
   }
 
   const handleMaterialCostChange = (recordId: string, nextValue: string) => {
@@ -629,19 +699,18 @@ export default function MaterialsTableClient({
     )
   }
 
-  const handleMaterialCostBlur = async (recordId: string, nextValue: string) => {
-    const previousRows = rows
+  const handleMaterialCostBlur = (recordId: string, nextValue: string) => {
     const parsedValue = nextValue.trim() === "" ? null : Number(nextValue)
     const normalizedCost =
       parsedValue == null || Number.isNaN(parsedValue) ? null : parsedValue
 
-    try {
-      await updateMaterialDetails(recordId, { cost: normalizedCost })
-    } catch (error) {
-      console.error(error)
-      setRows(previousRows)
-      toast.error("Failed to update material cost")
-    }
+    setPendingEdits((current) => ({
+      ...current,
+      [recordId]: {
+        ...(current[recordId] ?? {}),
+        cost: normalizedCost,
+      },
+    }))
   }
 
   const handleQuantityChange = (recordId: string, nextValue: string) => {
@@ -661,18 +730,51 @@ export default function MaterialsTableClient({
     )
   }
 
-  const handleQuantityBlur = async (recordId: string, nextValue: string) => {
-    const previousRows = rows
+  const handleQuantityBlur = (recordId: string, nextValue: string) => {
     const parsedValue = nextValue.trim() === "" ? null : Number(nextValue)
     const normalizedQuantity =
       parsedValue == null || Number.isNaN(parsedValue) ? null : parsedValue
 
+    setPendingEdits((current) => ({
+      ...current,
+      [recordId]: {
+        ...(current[recordId] ?? {}),
+        quantity: normalizedQuantity,
+      },
+    }))
+  }
+
+  const saveRowEdits = async () => {
+    const editIds = Object.keys(pendingEdits).filter((id) => editableRowIds.includes(id))
+    if (!editIds.length) {
+      setEditableRowIds([])
+      return
+    }
+
     try {
-      await updateQuantity(recordId, normalizedQuantity)
+      await Promise.all(editIds.map(async (recordId) => {
+        const draft = pendingEdits[recordId] ?? {}
+        if ("name" in draft || "cost" in draft || "materialDate" in draft) {
+          await updateMaterialDetails(recordId, {
+            name: draft.name,
+            cost: draft.cost,
+            materialDate: draft.materialDate,
+          })
+        }
+        if ("quantity" in draft) {
+          await updateQuantity(recordId, draft.quantity ?? null)
+        }
+      }))
+      setPendingEdits((current) => {
+        const next = { ...current }
+        editIds.forEach((id) => delete next[id])
+        return next
+      })
+      setEditableRowIds([])
+      toast.success("Changes saved")
     } catch (error) {
       console.error(error)
-      setRows(previousRows)
-      toast.error("Failed to update quantity")
+      toast.error("Failed to save changes")
     }
   }
 
@@ -846,6 +948,16 @@ export default function MaterialsTableClient({
             </Button>
           ) : null}
 
+          {editableRowIds.length > 0 ? (
+            <Button
+              type="button"
+              size="sm"
+              onClick={saveRowEdits}
+            >
+              Save changes
+            </Button>
+          ) : null}
+
           <div className="text-sm text-muted-foreground">
             Showing {filteredMaterials.length} of {rows.length}
           </div>
@@ -955,7 +1067,7 @@ export default function MaterialsTableClient({
                                 ),
                               )
                             }
-                            onBlur={(event) => handleMaterialNameBlur(r.id, event.target.value)}
+                            onBlur={(event) => handleMaterialNameChange(r.id, event.target.value)}
                             placeholder="Unnamed material"
                             className="h-9 min-w-0"
                           />
@@ -1136,6 +1248,9 @@ export default function MaterialsTableClient({
                                 <DropdownMenuItem onClick={() => toggleRowEditable(r.id)}>
                                   {isRowEditable(r.id) ? "Stop editing" : "Edit"}
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openAttachmentModal(r.id)}>
+                                  Attachments
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -1217,6 +1332,49 @@ export default function MaterialsTableClient({
             >
               {approvalLoading ? "Submitting..." : "Send for approval"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={attachmentDialogOpen} onOpenChange={setAttachmentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add attachment</DialogTitle>
+            <DialogDescription>
+              Add/remove attachments for BIS material configuration.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Select value={attachmentType} onValueChange={(value) => setAttachmentType(value as "compliance" | "agreement")}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="compliance">Atbilstību apliecinošs dokuments</SelectItem>
+                <SelectItem value="agreement">Vienošanās</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              type="file"
+              onChange={async (event) => {
+                const file = event.target.files?.[0]
+                if (!file) return
+                await queueAttachmentFile(file)
+                event.currentTarget.value = ""
+              }}
+            />
+            <div className="max-h-40 space-y-2 overflow-y-auto">
+              {attachmentQueue.map((item) => (
+                <div key={item.id} className="flex items-center justify-between rounded border px-2 py-1 text-sm">
+                  <span>{item.name} ({item.code === "compliance" ? "Atbilstību apliecinošs dokuments" : "Vienošanās"})</span>
+                  <Button size="sm" variant="ghost" onClick={() => setAttachmentQueue((current) => current.filter((file) => file.id !== item.id))}>Remove</Button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAttachmentDialogOpen(false)}>Cancel</Button>
+            <Button onClick={saveAttachmentQueue}>Add attachment</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

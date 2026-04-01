@@ -42,6 +42,7 @@ export default function SendToBisButton({
       name: string
       mimeType: string
       base64Data: string
+      code?: "compliance" | "agreement"
     }
   ) => Promise<{ success: true }>
   action: (
@@ -118,6 +119,7 @@ export default function SendToBisButton({
           name: certificateFile.name,
           mimeType: certificateFile.type || "application/octet-stream",
           base64Data,
+          code: "compliance",
         })
 
         toast.success("Certificate attached. Please click Send to BIS again.")
