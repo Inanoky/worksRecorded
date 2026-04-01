@@ -11,7 +11,7 @@ import {Wrench, Layers, NotebookPen, Clock8, ReceiptText, ChartLine, Package} fr
 
 export const projectNavLinks = [
   {
-    name: "Dashboard",
+    name: "Site Diary",
     href: "/dashboard/dashboard",
     path: "dashboard",
     icon: ReceiptText,

@@ -392,6 +392,7 @@ model BISmaterialRecords {
 
   organization Organization? @relation(fields: [orgId], references: [id], onDelete: Cascade)
   orgId String?
+  createdAt DateTime @default(now())
 
   BISId String?
   bisStatus String?

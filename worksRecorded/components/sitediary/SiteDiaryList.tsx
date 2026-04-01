@@ -1012,7 +1012,7 @@ export default function SiteDiaryCalendar({
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                 <button
                   type="button"
-                  onClick={() => window.open("https://wa.me/13135131153", "_blank")}
+                  onClick={() => window.open("https://wa.me/37127445304", "_blank")}
                   className="inline-flex items-center justify-center gap-2 rounded-md border border-green-100 bg-white px-3 py-1.5 text-sm font-medium text-green-600 shadow-sm transition hover:bg-green-50 hover:text-green-700"
                   data-tour="calendar"
                 >

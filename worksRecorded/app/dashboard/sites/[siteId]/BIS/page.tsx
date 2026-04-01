@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { revalidatePath } from "next/cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MaterialsTableClient from "./Components/materials-table-client";
+import AiWidgetRag from "@/components/ai/AiChat";
 import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 
@@ -830,15 +831,28 @@ export async function updateMaterialDetails(
     name?: string | null;
     cost?: number | null;
     materialDate?: Date | null;
+    costCode?: string | null;
+    measurementUnit?: string | null;
+    invoiceDate?: Date | null;
   },
 ) {
   "use server";
 
-  const data: { name?: string | null; cost?: number | null; materialDate?: Date | null } = {};
+  const data: {
+    name?: string | null;
+    cost?: number | null;
+    materialDate?: Date | null;
+    costCode?: string | null;
+    measurementUnit?: string | null;
+    invoiceDate?: Date | null;
+  } = {};
 
   if ("name" in payload) data.name = payload.name ?? null;
   if ("cost" in payload) data.cost = payload.cost ?? null;
   if ("materialDate" in payload) data.materialDate = payload.materialDate ?? null;
+  if ("costCode" in payload) data.costCode = payload.costCode ?? null;
+  if ("measurementUnit" in payload) data.measurementUnit = payload.measurementUnit ?? null;
+  if ("invoiceDate" in payload) data.invoiceDate = payload.invoiceDate ?? null;
 
   await prisma.bISmaterialRecords.update({
     where: { id: recordId },
@@ -1507,6 +1521,7 @@ export default async function MaterialsPage({
         attachCertificate={attachCertificateToMaterialConfiguration}
         deleteRecords={deleteWarehouseRecords}
       />
+      <AiWidgetRag siteId={siteId} />
     </div>
   );
 }

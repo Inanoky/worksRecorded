@@ -109,7 +109,7 @@ export default function SiteDiaryCalendar({ siteId }) {
 <div>
   <button
     type="button"
-    onClick={() => window.open("https://wa.me/13135131153", "_blank")}
+    onClick={() => window.open("https://wa.me/37127445304", "_blank")}
     className="flex items-center gap-2 text-sm font-medium
                text-green-600 hover:text-green-700 
                cursor-pointer px-2 py-1 rounded-md 

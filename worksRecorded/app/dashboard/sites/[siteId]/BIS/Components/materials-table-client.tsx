@@ -169,6 +169,9 @@ type Props = {
       name?: string | null
       cost?: number | null
       materialDate?: Date | null
+      costCode?: string | null
+      measurementUnit?: string | null
+      invoiceDate?: Date | null
     },
   ) => Promise<{ success: true }>
   attachCertificate: (
@@ -253,8 +256,8 @@ export default function MaterialsTableClient({
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
   const [sortBy, setSortBy] = React.useState<
-    "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
-  >("invoiceDate_desc")
+    "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
+  >("default")
   const [approverDialogOpen, setApproverDialogOpen] = React.useState(false)
   const [approverDialogRow, setApproverDialogRow] = React.useState<MaterialRow | null>(null)
   const [possibleApprovers, setPossibleApprovers] = React.useState<BisApprover[]>([])
@@ -271,11 +274,20 @@ export default function MaterialsTableClient({
     quantity?: number | null
   }>>({})
   const [editModalOpen, setEditModalOpen] = React.useState(false)
+  const editNameRef = React.useRef("")
+  const editQuantityRef = React.useRef("")
+  const editCostRef = React.useRef("")
+  const editCostCodeRef = React.useRef("")
+  const editUnitRef = React.useRef("")
+  const editInvoiceDateRef = React.useRef("")
   const [editDraft, setEditDraft] = React.useState<{
     id: string
     name: string
     quantity: string
     cost: string
+    costCode: string
+    measurementUnit: string
+    invoiceDate: Date | null
     materialDate: Date | null
     declarationAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
     agreementAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
@@ -521,11 +533,20 @@ export default function MaterialsTableClient({
   }
 
   const openEditModal = (row: MaterialRow) => {
+    editNameRef.current = row.name ?? ""
+    editQuantityRef.current = row.quantity == null ? "" : String(row.quantity)
+    editCostRef.current = row.cost == null ? "" : String(row.cost)
+    editCostCodeRef.current = row.costCode ?? ""
+    editUnitRef.current = row.measurementUnit ?? ""
+    editInvoiceDateRef.current = row.invoiceDate ? toLocalDateInputValue(row.invoiceDate) : ""
     setEditDraft({
       id: row.id,
       name: row.name ?? "",
       quantity: row.quantity == null ? "" : String(row.quantity),
       cost: row.cost == null ? "" : String(row.cost),
+      costCode: row.costCode ?? "",
+      measurementUnit: row.measurementUnit ?? "",
+      invoiceDate: row.invoiceDate ? new Date(row.invoiceDate) : null,
       materialDate: row.materialDate ? new Date(row.materialDate) : null,
       declarationAttachment: (row.declarationAttachment ?? []).map((file, index) => ({ id: `d-${index}-${file.name}`, ...file })),
       agreementAttachment: (row.agreementAttachment ?? []).map((file, index) => ({ id: `a-${index}-${file.name}`, ...file })),
@@ -546,14 +567,17 @@ export default function MaterialsTableClient({
 
   const saveEditModal = async () => {
     if (!editDraft) return
-    const quantity = editDraft.quantity.trim() === "" ? null : Number(editDraft.quantity)
-    const cost = editDraft.cost.trim() === "" ? null : Number(editDraft.cost)
+    const quantity = editQuantityRef.current.trim() === "" ? null : Number(editQuantityRef.current)
+    const cost = editCostRef.current.trim() === "" ? null : Number(editCostRef.current)
 
     try {
       await updateMaterialDetails(editDraft.id, {
-        name: editDraft.name.trim() || null,
+        name: editNameRef.current.trim() || null,
         cost: Number.isNaN(cost as number) ? null : cost,
         materialDate: editDraft.materialDate,
+        costCode: editCostCodeRef.current.trim() || null,
+        measurementUnit: editUnitRef.current.trim() || null,
+        invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
       })
       await updateQuantity(editDraft.id, Number.isNaN(quantity as number) ? null : quantity)
       await updateMaterialAttachments(editDraft.id, {
@@ -566,9 +590,12 @@ export default function MaterialsTableClient({
           row.id === editDraft.id
             ? {
                 ...row,
-                name: editDraft.name,
+                name: editNameRef.current,
                 quantity: Number.isNaN(quantity as number) ? null : quantity,
                 cost: Number.isNaN(cost as number) ? null : cost,
+                costCode: editCostCodeRef.current.trim() || null,
+                measurementUnit: editUnitRef.current.trim() || null,
+                invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
                 materialDate: editDraft.materialDate,
                 declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
                 agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
@@ -831,6 +858,12 @@ export default function MaterialsTableClient({
             new Date(a.invoiceDate ?? 0).getTime() -
             new Date(b.invoiceDate ?? 0).getTime()
           )
+        case "default": {
+          const aDate = new Date(a.materialDate ?? a.invoiceDate ?? 0).getTime()
+          const bDate = new Date(b.materialDate ?? b.invoiceDate ?? 0).getTime()
+          if (bDate !== aDate) return bDate - aDate
+          return String(b.id).localeCompare(String(a.id))
+        }
         case "name_asc":
           return (a.name ?? "").localeCompare(b.name ?? "")
         case "quantity_desc":
@@ -918,6 +951,7 @@ export default function MaterialsTableClient({
                 v as
                   | "invoiceDate_desc"
                   | "invoiceDate_asc"
+                  | "default"
                   | "name_asc"
                   | "quantity_desc",
               )
@@ -927,6 +961,9 @@ export default function MaterialsTableClient({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="default">
+                Default (Date + ID)
+              </SelectItem>
               <SelectItem value="invoiceDate_desc">
                 Newest invoice date
               </SelectItem>
@@ -1004,14 +1041,14 @@ export default function MaterialsTableClient({
                 <TableHead className="w-[7%]">Cost</TableHead>
                 <TableHead className="w-[7%]">Invoice</TableHead>
                 <TableHead className="w-[9%]">Invoice date</TableHead>
-                {showBisControls ? <TableHead className="w-[11%] text-right">Action</TableHead> : null}
+                <TableHead className="w-[11%] text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
 
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showBisControls ? 13 : 11} className="py-12 text-center">
+                  <TableCell colSpan={13} className="py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-medium">No materials found</p>
                       <p className="text-sm text-muted-foreground">
@@ -1212,10 +1249,9 @@ export default function MaterialsTableClient({
                       </TableCell>
                       <TableCell className="truncate">{r.invoiceNr || "—"}</TableCell>
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
-                      {showBisControls ? (
-                        <TableCell className="text-right">
+                      <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {!isSent ? (
+                            {showBisControls && !isSent ? (
                               <SendToBisButton
                                 siteId={siteId}
                                 recordId={r.id}
@@ -1227,7 +1263,7 @@ export default function MaterialsTableClient({
                                 onAttachCertificate={attachCertificate}
                                 action={handleSendToBis}
                               />
-                            ) : !isApproved && !isAwaitingApproval ? (
+                            ) : showBisControls && !isApproved && !isAwaitingApproval ? (
                               <Button
                                 size="sm"
                                 onClick={() => openApproverDialog(r)}
@@ -1235,7 +1271,7 @@ export default function MaterialsTableClient({
                               >
                                 Send for approval
                               </Button>
-                            ) : (
+                            ) : showBisControls ? (
                               <Button
                                 size="sm"
                                 disabled
@@ -1247,7 +1283,7 @@ export default function MaterialsTableClient({
                               >
                                 {isApproved ? "Approved" : "Sent for approval"}
                               </Button>
-                            )}
+                            ) : null}
 
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -1256,12 +1292,14 @@ export default function MaterialsTableClient({
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => openWarehouseRecordInBis(r.BISId)}
-                                  disabled={!r.BISId}
-                                >
-                                  Open in BIS
-                                </DropdownMenuItem>
+                                {showBisControls ? (
+                                  <DropdownMenuItem
+                                    onClick={() => openWarehouseRecordInBis(r.BISId)}
+                                    disabled={!r.BISId}
+                                  >
+                                    Open in BIS
+                                  </DropdownMenuItem>
+                                ) : null}
                                 <DropdownMenuItem onClick={() => openEditModal(r)}>
                                   Edit
                                 </DropdownMenuItem>
@@ -1269,7 +1307,6 @@ export default function MaterialsTableClient({
                             </DropdownMenu>
                           </div>
                         </TableCell>
-                      ) : null}
                     </TableRow>
                   )
                 })
@@ -1360,60 +1397,98 @@ export default function MaterialsTableClient({
           </DialogHeader>
           {editDraft ? (
             <div className="space-y-4">
-              <Input value={editDraft.name} onChange={(event) => setEditDraft({ ...editDraft, name: event.target.value })} placeholder="Material" />
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Material Name</label>
+                <Input key={`name-${editDraft.id}`} defaultValue={editDraft.name} onChange={(event) => { editNameRef.current = event.target.value }} placeholder="Material Name" />
+              </div>
               <div className="grid grid-cols-2 gap-3">
-                <Input value={editDraft.quantity} onChange={(event) => setEditDraft({ ...editDraft, quantity: event.target.value })} placeholder="Qty" />
-                <Input value={editDraft.cost} onChange={(event) => setEditDraft({ ...editDraft, cost: event.target.value })} placeholder="Cost" />
+                <Input key={`qty-${editDraft.id}`} defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder="Qty" />
+                <Input key={`cost-${editDraft.id}`} defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder="Cost" />
               </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button type="button" variant="outline" className="w-full justify-start">
-                    <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
-                    {editDraft.materialDate ? formatDate(editDraft.materialDate) : "Pick date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={editDraft.materialDate ?? undefined} onSelect={(value) => setEditDraft({ ...editDraft, materialDate: value ?? null })} />
-                </PopoverContent>
-              </Popover>
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Atbilstību apliecinošs dokuments</div>
-                <Input type="file" onChange={async (event) => {
-                  const file = event.target.files?.[0]
-                  if (!file) return
-                  const base64Data = await fileToBase64(file)
-                  setEditDraft({
-                    ...editDraft,
-                    declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                  })
-                  event.currentTarget.value = ""
-                }} />
-                {editDraft.declarationAttachment.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between text-sm">
-                    <span>{file.name}</span>
-                    <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+              <div className="grid grid-cols-2 gap-3">
+                <Input key={`costcode-${editDraft.id}`} defaultValue={editDraft.costCode} onChange={(event) => { editCostCodeRef.current = event.target.value }} placeholder="Cost code" />
+                <Input key={`unit-${editDraft.id}`} defaultValue={editDraft.measurementUnit} onChange={(event) => { editUnitRef.current = event.target.value }} placeholder="Units" />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Delivery Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full justify-start">
+                        <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                        {editDraft.materialDate ? formatDate(editDraft.materialDate) : "Pick delivery date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={editDraft.materialDate ?? undefined} onSelect={(value) => setEditDraft({ ...editDraft, materialDate: value ?? null })} />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Invoice Date</label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full justify-start">
+                        <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                        {editDraft.invoiceDate ? formatDate(editDraft.invoiceDate) : "Pick invoice date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={editDraft.invoiceDate ?? undefined}
+                        onSelect={(value) => {
+                          const local = value ? toLocalDateInputValue(value) : ""
+                          editInvoiceDateRef.current = local
+                          setEditDraft({ ...editDraft, invoiceDate: value ?? null })
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              {showBisControls ? (
+                <>
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Atbilstību apliecinošs dokuments</div>
+                    <Input type="file" onChange={async (event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) return
+                      const base64Data = await fileToBase64(file)
+                      setEditDraft({
+                        ...editDraft,
+                        declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                      })
+                      event.currentTarget.value = ""
+                    }} />
+                    {editDraft.declarationAttachment.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between text-sm">
+                        <span>{file.name}</span>
+                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Vienošanās</div>
-                <Input type="file" onChange={async (event) => {
-                  const file = event.target.files?.[0]
-                  if (!file) return
-                  const base64Data = await fileToBase64(file)
-                  setEditDraft({
-                    ...editDraft,
-                    agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                  })
-                  event.currentTarget.value = ""
-                }} />
-                {editDraft.agreementAttachment.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between text-sm">
-                    <span>{file.name}</span>
-                    <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Vienošanās</div>
+                    <Input type="file" onChange={async (event) => {
+                      const file = event.target.files?.[0]
+                      if (!file) return
+                      const base64Data = await fileToBase64(file)
+                      setEditDraft({
+                        ...editDraft,
+                        agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                      })
+                      event.currentTarget.value = ""
+                    }} />
+                    {editDraft.agreementAttachment.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between text-sm">
+                        <span>{file.name}</span>
+                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </>
+              ) : null}
             </div>
           ) : null}
           <DialogFooter>
