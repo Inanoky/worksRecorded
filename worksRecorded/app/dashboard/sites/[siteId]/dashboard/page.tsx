@@ -18,6 +18,8 @@ import WeeklyVehicleReportsMockupF25 from "@/components/mockups/vehicleReportMoc
 import ElectricalInstallationsInspectionReportMockup from "@/components/mockups/inspectiosnReportMockup";
 import InspectionReportsSummaryMockup from "@/components/mockups/inspectonReportsdashboard";
 import { getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { getDashboardLanguage } from "@/lib/dashboard-i18n";
 
 export const maxDuration = 800;
 
@@ -38,6 +40,8 @@ export default async function InvoiceRoute({
 
   // --- Group 2: User Check ---
   const user = await requireUser();
+  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const language = getDashboardLanguage(organizationLanguage);
 
   const isSuperAdmin = user.id === process.env.SUPERADMIN;
 
@@ -89,7 +93,11 @@ export default async function InvoiceRoute({
         />
       </div>
 
-      <SiteDiaryList siteId={siteId} bisEnabled={Boolean(siteBisStatus?.bisCaseId && userBisToken?.accessToken)} />
+      <SiteDiaryList
+        siteId={siteId}
+        bisEnabled={Boolean(siteBisStatus?.bisCaseId && userBisToken?.accessToken)}
+        language={language}
+      />
       <AiWidgetRag siteId={siteId} />
     </>
   );

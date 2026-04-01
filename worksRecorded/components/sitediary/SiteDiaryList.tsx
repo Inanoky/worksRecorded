@@ -96,8 +96,10 @@ import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "./defaultConfig.json";
 import { toast } from "sonner";
+import { DashboardLanguage, translateStaticUiText } from "@/lib/dashboard-i18n";
 
-const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const daysOfWeekEn = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const daysOfWeekLv = ["Sv", "Pr", "Ot", "Tr", "Ce", "Pk", "Se"];
 
 const WhatsAppIcon = ({ size = 22 }) => (
   <svg
@@ -201,11 +203,14 @@ function toLocalDateKey(d: Date) {
 export default function SiteDiaryCalendar({
   siteId,
   bisEnabled = true,
+  language = "en",
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
+  language?: DashboardLanguage;
 }) {
   const today = new Date();
+  const daysOfWeek = language === "lv" ? daysOfWeekLv : daysOfWeekEn;
 
   // 👇 add "gallery" to view mode
   const [viewMode, setViewMode] =
@@ -976,12 +981,64 @@ export default function SiteDiaryCalendar({
     }
   };
 
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (language !== "lv") return;
+    const root = rootRef.current;
+    if (!root) return;
+
+    const translateElementAttrs = (el: Element) => {
+      const placeholders = ["placeholder", "aria-label", "title"] as const;
+      placeholders.forEach((attr) => {
+        const value = el.getAttribute(attr);
+        if (!value) return;
+        const next = translateStaticUiText(language, value.trim());
+        if (next !== value) el.setAttribute(attr, next);
+      });
+    };
+
+    const walk = (node: Node) => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent?.trim();
+        if (!text) return;
+        const translated = translateStaticUiText(language, text);
+        if (translated !== text && node.textContent) {
+          node.textContent = node.textContent.replace(text, translated);
+        }
+        return;
+      }
+      if (node.nodeType !== Node.ELEMENT_NODE) return;
+      const el = node as Element;
+      translateElementAttrs(el);
+      for (const child of Array.from(el.childNodes)) walk(child);
+    };
+
+    walk(root);
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => walk(node));
+        if (mutation.type === "attributes" && mutation.target instanceof Element) {
+          translateElementAttrs(mutation.target);
+        }
+      }
+    });
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["placeholder", "aria-label", "title"],
+    });
+    return () => observer.disconnect();
+  }, [language]);
+
   // this flag is reset on every render – used to mark only the first green day / first card
   let firstFilledMarked = false;
 
   return (
     <TooltipProvider>
       <div
+        ref={rootRef}
         className="w-full mx-auto px-2 sm:px-4 py-4"
         style={{ maxWidth: `${screenWidth}rem` }}
       >
