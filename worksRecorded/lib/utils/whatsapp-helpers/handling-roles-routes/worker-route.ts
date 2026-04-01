@@ -3,10 +3,11 @@
 import { prisma } from "@/lib/utils/db";
 import talkToClockInAgent from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/agent";
 import OpenAI, { toFile } from "openai";
-import { sendMessage } from "../shared/twillio";
+import { sendLocationRequestMessage, sendMessage } from "../shared/twillio";
 // UPDATE: Ensure this import path is correct for your file structure
 // (assuming handleImage.ts is in the same directory as this file based on surrounding context)
 import { handleImage } from "../shared/handleImage";
+import { canWorkerClockInAtLocation, clockInWorker } from "@/server/actions/timesheets-actions";
 // NOTE: I am using './handleImage' as a placeholder. You used '../shared/handleImage',
 // ensure the path matches where you placed the updated handleImage.ts file.
 
@@ -26,6 +27,12 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
   const numMedia = parseInt(NumMedia, 10); // NEW: parse NumMedia for general checks
 
   let messageText = body;
+  const isMetaMessage = formData.get("MediaProvider0") === "meta";
+  const latitudeRaw = formData.get("Latitude");
+  const longitudeRaw = formData.get("Longitude");
+  const latitude = latitudeRaw !== null ? Number(latitudeRaw) : NaN;
+  const longitude = longitudeRaw !== null ? Number(longitudeRaw) : NaN;
+  const hasLocationPayload = Number.isFinite(latitude) && Number.isFinite(longitude);
 
   // Find worker by phone number (FIRST LOOKUP)
   const worker = await prisma.workers.findFirst({
@@ -36,6 +43,65 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
   if (!worker) {
     console.warn("[handleWorkerMessage] No worker found for phone:", phone);
     await sendMessage(from, "Worker not found in system.");
+    return;
+  }
+
+  if (hasLocationPayload) {
+    if (!worker.pendingLocationClockIn) {
+      await sendMessage(from, "No pending clock-in location request found. Please type 'clock in' first.");
+      return;
+    }
+
+    const locationCheck = await canWorkerClockInAtLocation(worker.id, latitude, longitude);
+    if (!locationCheck.ok || !locationCheck.siteId) {
+      await prisma.workers.update({
+        where: { id: worker.id },
+        data: {
+          pendingLocationClockIn: false,
+          pendingLocationClockInAt: null,
+        },
+      });
+      await sendMessage(from, locationCheck.message || "Location check failed.");
+      return;
+    }
+
+    const now = new Date();
+    const result = await clockInWorker({
+      workerId: worker.id,
+      date: now,
+      clockIn: now,
+      siteId: locationCheck.siteId,
+    });
+
+    await prisma.workers.update({
+      where: { id: worker.id },
+      data: {
+        pendingLocationClockIn: false,
+        pendingLocationClockInAt: null,
+      },
+    });
+
+    if (result.success) {
+      await sendMessage(from, "✅ Clocked in successfully. Location verified.");
+    } else {
+      await sendMessage(from, `Clock-in failed: ${result.error}`);
+    }
+    return;
+  }
+
+  if (isMetaMessage && /\b(clock\s*in|check\s*in)\b/i.test(messageText)) {
+    await prisma.workers.update({
+      where: { id: worker.id },
+      data: {
+        pendingLocationClockIn: true,
+        pendingLocationClockInAt: new Date(),
+      },
+    });
+
+    await sendLocationRequestMessage(
+      from,
+      "Please share your live location to complete clock-in."
+    );
     return;
   }
 

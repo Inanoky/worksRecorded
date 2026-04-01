@@ -47,6 +47,42 @@ async function sendMetaMessage(ctx: MetaReplyContext, to: string | null, message
   }
 }
 
+async function sendMetaLocationRequest(
+  ctx: MetaReplyContext,
+  to: string | null,
+  promptText: string
+) {
+  const token = process.env.META_ACCESS_TOKEN;
+  const recipient = normalizeMetaRecipient(to);
+  if (!token || !recipient) return;
+
+  const res = await fetch(
+    `https://graph.facebook.com/v18.0/${ctx.businessPhoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: recipient,
+        type: "interactive",
+        interactive: {
+          type: "location_request_message",
+          body: { text: promptText },
+          action: { name: "send_location" },
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.error("❌ Meta location request send error:", res.status, res.statusText, errBody);
+  }
+}
+
 export async function runWithMetaReplyContext<T>(
   context: MetaReplyContext,
   fn: () => Promise<T>
@@ -70,4 +106,16 @@ export async function sendMessage(to: string | null, message: string) {
   } catch (err) {
     console.error("❌ Twilio send error:", err);
   }
+}
+
+export async function sendLocationRequestMessage(to: string | null, promptText: string) {
+  if (!to) return;
+
+  const metaCtx = metaReplyContext.getStore();
+  if (metaCtx) {
+    await sendMetaLocationRequest(metaCtx, to, promptText);
+    return;
+  }
+
+  await sendMessage(to, `${promptText}\n(Please send your location in WhatsApp.)`);
 }

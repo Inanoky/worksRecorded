@@ -162,6 +162,7 @@ async function toTwilioLikeFormData(message: any): Promise<FormData> {
   const from = message?.from ? `whatsapp:+${message.from}` : "";
   const hasImage = Boolean(message?.image?.id);
   const hasAudio = Boolean(message?.audio?.id);
+  const hasLocation = Boolean(message?.location);
   const numMedia = hasImage || hasAudio ? "1" : "0";
 
   formData.set("SmsStatus", "received");
@@ -188,6 +189,12 @@ async function toTwilioLikeFormData(message: any): Promise<FormData> {
       formData.set("MediaContentType0", mediaInfo.mimeType);
       formData.set("MediaProvider0", "meta");
     }
+  }
+
+  if (hasLocation) {
+    formData.set("Latitude", String(message.location.latitude ?? ""));
+    formData.set("Longitude", String(message.location.longitude ?? ""));
+    formData.set("MediaProvider0", "meta");
   }
 
   return formData;
@@ -297,7 +304,7 @@ export async function POST(req: Request): Promise<Response> {
       body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
 
     if (message && business_phone_number_id) {
-      if (message.id && (message.type === "text" || message.type === "image" || message.type === "audio")) {
+      if (message.id && (message.type === "text" || message.type === "image" || message.type === "audio" || message.type === "location")) {
         await sendMetaTypingIndicator(business_phone_number_id, message.id);
       }
 
@@ -467,7 +474,7 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       // 2.5) Run the same role-based WhatsApp routing used by Twilio webhook.
-      if (message.type === "text" || message.type === "image" || message.type === "audio") {
+      if (message.type === "text" || message.type === "image" || message.type === "audio" || message.type === "location") {
         await runWithMetaReplyContext(
           { businessPhoneNumberId: business_phone_number_id },
           async () =>

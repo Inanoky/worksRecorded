@@ -191,6 +191,34 @@ export default async function SettingsSiteRoute({
                 defaultValue={site?.subdirectory || ""}
               />
             </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium" htmlFor="geofenceMapLink">
+                Site map link (Google Maps polygon link)
+              </label>
+              <input
+                className="w-full border rounded-lg px-3 py-2 text-base"
+                name="geofenceMapLink"
+                id="geofenceMapLink"
+                type="url"
+                placeholder="https://maps.google.com/..."
+                defaultValue={site?.geofenceMapLink || ""}
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium" htmlFor="geofencePolygon">
+                Site area polygon (JSON)
+              </label>
+              <textarea
+                className="w-full border rounded-lg px-3 py-2 text-sm min-h-28"
+                name="geofencePolygon"
+                id="geofencePolygon"
+                placeholder='[{"lat":56.9496,"lng":24.1052},{"lat":56.9499,"lng":24.1060},{"lat":56.9492,"lng":24.1064}]'
+                defaultValue={site?.geofencePolygon ? JSON.stringify(site.geofencePolygon, null, 2) : ""}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Draw area corners in Google Maps (or similar) and paste coordinates as JSON array of {"{lat,lng}"} points.
+              </p>
+            </div>
           </div>
           <CardFooter>
             <SubmitButton text="Save Changes" />
