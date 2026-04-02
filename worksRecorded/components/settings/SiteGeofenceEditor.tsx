@@ -31,6 +31,24 @@ async function loadScript(src: string) {
   });
 }
 
+async function loadScriptWithFallback(urls: string[]) {
+  let lastError: unknown = null;
+  for (const url of urls) {
+    try {
+      await loadScript(url);
+      console.log("[SiteGeofenceEditor] script loaded:", url);
+      return;
+    } catch (err) {
+      lastError = err;
+      console.warn("[SiteGeofenceEditor] script failed, trying next URL", {
+        url,
+        err,
+      });
+    }
+  }
+  throw lastError ?? new Error("All script URLs failed to load.");
+}
+
 export function SiteGeofenceEditor({
   initialPolygon,
   initialMapLink,
@@ -60,8 +78,14 @@ export function SiteGeofenceEditor({
 
       try {
         await loadScript(`https://maps.googleapis.com/maps/api/js?key=${gmapsKey}`);
-        await loadScript("https://unpkg.com/terra-draw@1.12.0/dist/terra-draw.umd.js");
-        await loadScript("https://unpkg.com/terra-draw-google-maps-adapter@1.12.0/dist/terra-draw-google-maps-adapter.umd.js");
+        await loadScriptWithFallback([
+          "https://unpkg.com/terra-draw@latest/dist/terra-draw.umd.js",
+          "https://cdn.jsdelivr.net/npm/terra-draw@latest/dist/terra-draw.umd.js",
+        ]);
+        await loadScriptWithFallback([
+          "https://unpkg.com/terra-draw-google-maps-adapter@latest/dist/terra-draw-google-maps-adapter.umd.js",
+          "https://cdn.jsdelivr.net/npm/terra-draw-google-maps-adapter@latest/dist/terra-draw-google-maps-adapter.umd.js",
+        ]);
       } catch (err: any) {
         console.error("[SiteGeofenceEditor] script load failed", err);
         if (!cancelled) setStatus(err?.message || "Failed to load map libraries.");
@@ -75,6 +99,9 @@ export function SiteGeofenceEditor({
         hasGoogle: Boolean(w.google?.maps),
         terraDrawKeys: Object.keys(w).filter((k) =>
           k.toLowerCase().includes("terra")
+        ),
+        terraDrawGoogleMapsAdapterKeys: Object.keys(
+          w.terraDrawGoogleMapsAdapter ?? {}
         ),
       });
       const center = initialPoints[0] ?? { lat: 56.9496, lng: 24.1052 };
@@ -90,9 +117,12 @@ export function SiteGeofenceEditor({
           w.TerraDraw ||
           w.terraDraw?.TerraDraw ||
           w["terra-draw"]?.TerraDraw;
-        const TerraDrawGoogleMapsAdapterCtor =
+        let TerraDrawGoogleMapsAdapterCtor =
           w.TerraDrawGoogleMapsAdapter ||
+          w.terraDrawGoogleMapsAdapter ||
           w.terraDrawGoogleMapsAdapter?.TerraDrawGoogleMapsAdapter ||
+          w.terraDrawGoogleMapsAdapter?.GoogleMapsAdapter ||
+          w.TerraDrawGoogleMapsAdapterLib?.TerraDrawGoogleMapsAdapter ||
           w["terra-draw-google-maps-adapter"]?.TerraDrawGoogleMapsAdapter;
         const TerraDrawPolygonModeCtor =
           w.TerraDrawPolygonMode ||
@@ -102,6 +132,30 @@ export function SiteGeofenceEditor({
           w.TerraDrawSelectMode ||
           w.terraDraw?.TerraDrawSelectMode ||
           w["terra-draw"]?.TerraDrawSelectMode;
+
+        if (!TerraDrawGoogleMapsAdapterCtor) {
+          try {
+            console.log(
+              "[SiteGeofenceEditor] trying ESM adapter import fallback..."
+            );
+            const mod: any = await import(
+              /* webpackIgnore: true */ "https://cdn.jsdelivr.net/npm/terra-draw-google-maps-adapter@1.3.1/dist/terra-draw-google-maps-adapter.module.js"
+            );
+            TerraDrawGoogleMapsAdapterCtor =
+              mod?.TerraDrawGoogleMapsAdapter ||
+              mod?.GoogleMapsAdapter ||
+              mod?.default;
+            console.log("[SiteGeofenceEditor] adapter import result", {
+              moduleKeys: Object.keys(mod ?? {}),
+              hasCtor: Boolean(TerraDrawGoogleMapsAdapterCtor),
+            });
+          } catch (importErr) {
+            console.error(
+              "[SiteGeofenceEditor] ESM adapter import fallback failed",
+              importErr
+            );
+          }
+        }
 
         console.log("[SiteGeofenceEditor] resolved constructors", {
           TerraDrawCtor: Boolean(TerraDrawCtor),
