@@ -49,6 +49,36 @@ async function loadScriptWithFallback(urls: string[]) {
   throw lastError ?? new Error("All script URLs failed to load.");
 }
 
+function collectCallableAdapterFactories(value: any): Array<{ name: string; fn: any }> {
+  const factories: Array<{ name: string; fn: any }> = [];
+  const seen = new Set<any>();
+
+  const pushIfFn = (name: string, maybeFn: any) => {
+    if (typeof maybeFn === "function" && !seen.has(maybeFn)) {
+      seen.add(maybeFn);
+      factories.push({ name, fn: maybeFn });
+    }
+  };
+
+  pushIfFn("root", value);
+  pushIfFn("default", value?.default);
+  pushIfFn("create", value?.create);
+  pushIfFn("TerraDrawGoogleMapsAdapter", value?.TerraDrawGoogleMapsAdapter);
+  pushIfFn("GoogleMapsAdapter", value?.GoogleMapsAdapter);
+
+  if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value)) {
+      pushIfFn(k, v);
+      if (v && typeof v === "object") {
+        pushIfFn(`${k}.default`, (v as any).default);
+        pushIfFn(`${k}.create`, (v as any).create);
+      }
+    }
+  }
+
+  return factories;
+}
+
 export function SiteGeofenceEditor({
   initialPolygon,
   initialMapLink,
@@ -188,41 +218,55 @@ export function SiteGeofenceEditor({
           return;
         }
 
-        const adapterArgs = {
-          map,
-          lib: w.google.maps,
-        };
+        const adapterArgs = { map, lib: w.google.maps };
+        const adapterFactoryCandidates =
+          collectCallableAdapterFactories(TerraDrawGoogleMapsAdapterCtor);
+        console.log("[SiteGeofenceEditor] adapter factory candidates", {
+          count: adapterFactoryCandidates.length,
+          names: adapterFactoryCandidates.map((x) => x.name),
+        });
 
-        let adapter: any;
-        try {
-          adapter = new TerraDrawGoogleMapsAdapterCtor(adapterArgs);
-          console.log("[SiteGeofenceEditor] adapter created with new");
-        } catch (ctorErr) {
-          console.warn(
-            "[SiteGeofenceEditor] adapter constructor with 'new' failed, trying fallback invocation",
-            ctorErr
-          );
+        let adapter: any = null;
+        let lastAdapterError: unknown = null;
 
-          if (typeof TerraDrawGoogleMapsAdapterCtor === "function") {
-            adapter = TerraDrawGoogleMapsAdapterCtor(adapterArgs);
-            console.log("[SiteGeofenceEditor] adapter created via function call");
-          } else if (
-            typeof TerraDrawGoogleMapsAdapterCtor?.create === "function"
-          ) {
-            adapter = TerraDrawGoogleMapsAdapterCtor.create(adapterArgs);
-            console.log("[SiteGeofenceEditor] adapter created via .create()");
-          } else if (
-            typeof TerraDrawGoogleMapsAdapterCtor?.default === "function"
-          ) {
-            adapter = TerraDrawGoogleMapsAdapterCtor.default(adapterArgs);
-            console.log("[SiteGeofenceEditor] adapter created via .default()");
-          } else {
-            throw ctorErr;
+        for (const candidate of adapterFactoryCandidates) {
+          try {
+            console.log("[SiteGeofenceEditor] trying adapter candidate", candidate.name);
+            adapter = new candidate.fn(adapterArgs);
+            console.log(
+              "[SiteGeofenceEditor] adapter created via new candidate",
+              candidate.name
+            );
+            break;
+          } catch (newErr) {
+            lastAdapterError = newErr;
+            console.warn(
+              "[SiteGeofenceEditor] candidate failed with new(), trying as function",
+              { name: candidate.name, newErr }
+            );
+            try {
+              adapter = candidate.fn(adapterArgs);
+              console.log(
+                "[SiteGeofenceEditor] adapter created via function candidate",
+                candidate.name
+              );
+              break;
+            } catch (fnErr) {
+              lastAdapterError = fnErr;
+              console.warn("[SiteGeofenceEditor] candidate failed as function()", {
+                name: candidate.name,
+                fnErr,
+              });
+            }
           }
         }
 
         if (!adapter) {
-          throw new Error("Adapter creation failed; adapter is undefined.");
+          console.error("[SiteGeofenceEditor] all adapter candidates failed", {
+            lastAdapterError,
+            adapterCtorValue: TerraDrawGoogleMapsAdapterCtor,
+          });
+          throw new Error("Adapter creation failed for all known constructor/function candidates.");
         }
         const draw = new TerraDrawCtor({
           adapter,
