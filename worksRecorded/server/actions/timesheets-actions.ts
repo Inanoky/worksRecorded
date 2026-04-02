@@ -370,6 +370,72 @@ export async function getSiteIdByWorkerId(workerId: string): Promise<string | nu
   return worker?.siteId ?? null;
 }
 
+type LatLngPoint = { lat: number; lng: number };
+
+function isValidPoint(value: unknown): value is LatLngPoint {
+  if (!value || typeof value !== "object") return false;
+  const point = value as Record<string, unknown>;
+  return typeof point.lat === "number" && typeof point.lng === "number";
+}
+
+function isPointInPolygon(point: LatLngPoint, polygon: LatLngPoint[]): boolean {
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lng;
+    const yi = polygon[i].lat;
+    const xj = polygon[j].lng;
+    const yj = polygon[j].lat;
+
+    const intersects =
+      yi > point.lat !== yj > point.lat &&
+      point.lng < ((xj - xi) * (point.lat - yi)) / (yj - yi) + xi;
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+export async function canWorkerClockInAtLocation(
+  workerId: string,
+  latitude: number,
+  longitude: number
+): Promise<{ ok: boolean; message?: string; siteId?: string }> {
+  const worker = await prisma.workers.findUnique({
+    where: { id: workerId },
+    select: {
+      siteId: true,
+      Site: {
+        select: {
+          geofencePolygon: true,
+        },
+      },
+    },
+  });
+
+  if (!worker?.siteId) {
+    return { ok: false, message: "Worker is not assigned to a site." };
+  }
+
+  const polygonRaw = worker.Site?.geofencePolygon;
+  if (!Array.isArray(polygonRaw)) {
+    return { ok: false, message: "Site location area is not configured yet." };
+  }
+
+  const polygon = polygonRaw.filter(isValidPoint);
+  if (polygon.length < 3) {
+    return { ok: false, message: "Site location area is invalid. Contact manager." };
+  }
+
+  const inside = isPointInPolygon({ lat: latitude, lng: longitude }, polygon);
+  if (!inside) {
+    return { ok: false, message: "You are outside the approved site area." };
+  }
+
+  return { ok: true, siteId: worker.siteId };
+}
+
 
 
 

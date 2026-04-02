@@ -32,6 +32,7 @@ import Reminder from "@/components/settings/ReminderUI";
 import { getRemindersData, getReminderTimes, getDataForReminderTable} from "@/server/actions/reminder-actions";
 import { BisIntegrationCard } from "@/components/settings/BisIntegrationCard";
 import { fetchBisAvailableCases, getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
+import { SiteGeofenceEditor } from "@/components/settings/SiteGeofenceEditor";
 
 
 
@@ -190,6 +191,18 @@ export default async function SettingsSiteRoute({
                 required
                 defaultValue={site?.subdirectory || ""}
               />
+            </div>
+            <div>
+              <label className="block mb-2 text-sm font-medium">
+                Site area (Google Maps + Terra Draw)
+              </label>
+              <SiteGeofenceEditor
+                initialPolygon={site?.geofencePolygon}
+                initialMapLink={site?.geofenceMapLink}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Draw or edit polygon directly on the map. Saved polygon points are used for WhatsApp location-based clock-in checks.
+              </p>
             </div>
           </div>
           <CardFooter>

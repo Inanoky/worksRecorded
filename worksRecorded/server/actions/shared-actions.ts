@@ -241,9 +241,24 @@ export async function updateSiteAction(formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const subdirectory = formData.get("subdirectory") as string;
+  const geofenceMapLink = (formData.get("geofenceMapLink") as string | null)?.trim() || null;
+  const geofencePolygonRaw = (formData.get("geofencePolygon") as string | null)?.trim() || "";
 
   if (!siteId || !name || !description || !subdirectory) {
     return { success: false, message: "Missing required fields" };
+  }
+
+  let geofencePolygon: any = null;
+  if (geofencePolygonRaw.length > 0) {
+    try {
+      const parsed = JSON.parse(geofencePolygonRaw);
+      if (!Array.isArray(parsed)) {
+        return { success: false, message: "Geofence polygon must be a JSON array of points." };
+      }
+      geofencePolygon = parsed;
+    } catch {
+      return { success: false, message: "Invalid geofence polygon JSON." };
+    }
   }
 
   try {
@@ -253,6 +268,8 @@ export async function updateSiteAction(formData: FormData) {
         name,
         description,
         subdirectory,
+        geofenceMapLink,
+        geofencePolygon,
       },
     });
 
