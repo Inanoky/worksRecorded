@@ -20,6 +20,10 @@ import {
   deleteSession,
 } from "@/app/api/webhook/meta/webhook/helperes";
 import { sendToGpt } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
+import {
+  clockInWorker,
+  isWorkerClockedIn,
+} from "@/server/actions/timesheets-actions";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
@@ -107,6 +111,203 @@ async function sendMetaTypingIndicator(
       type: "text",
     },
   });
+}
+
+type GeoPoint = { lat: number; lng: number };
+
+function parseGeofencePolygon(raw: unknown): GeoPoint[] {
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((point: any) => ({
+      lat: Number(point?.lat),
+      lng: Number(point?.lng),
+    }))
+    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+}
+
+function isPointInsidePolygon(point: GeoPoint, polygon: GeoPoint[]): boolean {
+  if (polygon.length < 3) return false;
+
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lng;
+    const yi = polygon[i].lat;
+    const xj = polygon[j].lng;
+    const yj = polygon[j].lat;
+
+    const intersects =
+      yi > point.lat !== yj > point.lat &&
+      point.lng < ((xj - xi) * (point.lat - yi)) / (yj - yi) + xi;
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+function isClockInIntentText(text: string): boolean {
+  return /\b(clock[\s-]?in|check[\s-]?in)\b/i.test(text.trim());
+}
+
+async function sendLocationRequestMessage(
+  businessPhoneNumberId: string,
+  workerPhone: string
+) {
+  await graphSendMessage(businessPhoneNumberId, {
+    messaging_product: "whatsapp",
+    to: workerPhone,
+    type: "interactive",
+    interactive: {
+      type: "location_request_message",
+      body: {
+        text: "Please share your current location so we can validate your site clock-in.",
+      },
+      action: {
+        name: "send_location",
+      },
+    },
+  });
+}
+
+async function maybeHandleWorkerClockInLocationFlow(args: {
+  message: any;
+  businessPhoneNumberId: string;
+}): Promise<boolean> {
+  const { message, businessPhoneNumberId } = args;
+
+  if (!message?.from) return false;
+  if (message.type !== "text" && message.type !== "location") return false;
+
+  const phone = await normalizePhone(null, `whatsapp:+${message.from}`);
+  const worker = await prisma.workers.findFirst({
+    where: { phone },
+    include: {
+      Site: {
+        select: {
+          id: true,
+          name: true,
+          geofencePolygon: true,
+        },
+      },
+    },
+  });
+
+  if (!worker) return false;
+
+  if (message.type === "text") {
+    const incomingText =
+      typeof message.text?.body === "string" ? message.text.body : "";
+
+    if (!isClockInIntentText(incomingText)) return false;
+
+    await sendLocationRequestMessage(businessPhoneNumberId, message.from);
+    return true;
+  }
+
+  const latitude = Number(message.location?.latitude);
+  const longitude = Number(message.location?.longitude);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    await graphSendMessage(businessPhoneNumberId, {
+      messaging_product: "whatsapp",
+      to: message.from,
+      text: {
+        body: "Location data was invalid. Please share your location again.",
+      },
+    });
+    return true;
+  }
+
+  if (!worker.siteId || !worker.Site) {
+    await graphSendMessage(businessPhoneNumberId, {
+      messaging_product: "whatsapp",
+      to: message.from,
+      text: {
+        body: "You are not assigned to a site yet. Please contact your manager.",
+      },
+    });
+    return true;
+  }
+
+  const geofencePolygon = parseGeofencePolygon(worker.Site.geofencePolygon);
+
+  if (geofencePolygon.length < 3) {
+    await graphSendMessage(businessPhoneNumberId, {
+      messaging_product: "whatsapp",
+      to: message.from,
+      text: {
+        body: "Site geofence is not configured. Please ask your manager to set it in site settings.",
+      },
+    });
+    return true;
+  }
+
+  const insideGeofence = isPointInsidePolygon(
+    { lat: latitude, lng: longitude },
+    geofencePolygon
+  );
+
+  if (!insideGeofence) {
+    await graphSendMessage(businessPhoneNumberId, {
+      messaging_product: "whatsapp",
+      to: message.from,
+      text: {
+        body: "You are outside the site area. Please enter the site and try again.",
+      },
+    });
+    await sendLocationRequestMessage(businessPhoneNumberId, message.from);
+    return true;
+  }
+
+  const clockStatus = await isWorkerClockedIn(worker.id);
+  if (clockStatus.success && clockStatus.isClockedIn) {
+    await graphSendMessage(businessPhoneNumberId, {
+      messaging_product: "whatsapp",
+      to: message.from,
+      text: {
+        body: "You are already clocked in.",
+      },
+    });
+    return true;
+  }
+
+  const now = new Date();
+  const result = await clockInWorker({
+    workerId: worker.id,
+    siteId: worker.siteId,
+    date: now,
+    clockIn: now,
+  });
+
+  if (!result.success) {
+    await graphSendMessage(businessPhoneNumberId, {
+      messaging_product: "whatsapp",
+      to: message.from,
+      text: {
+        body: `Clock-in failed: ${result.error ?? "Unknown error"}`,
+      },
+    });
+    return true;
+  }
+
+  await graphSendMessage(businessPhoneNumberId, {
+    messaging_product: "whatsapp",
+    to: message.from,
+    text: {
+      body: `✅ Clock-in successful at ${worker.Site.name}.`,
+    },
+  });
+
+  return true;
 }
 
 /**
@@ -297,6 +498,24 @@ export async function POST(req: Request): Promise<Response> {
       body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
 
     if (message && business_phone_number_id) {
+      const workerClockInFlowHandled = await maybeHandleWorkerClockInLocationFlow(
+        {
+          message,
+          businessPhoneNumberId: business_phone_number_id,
+        }
+      );
+
+      if (workerClockInFlowHandled) {
+        if (message.id) {
+          await graphSendMessage(business_phone_number_id, {
+            messaging_product: "whatsapp",
+            status: "read",
+            message_id: message.id,
+          });
+        }
+        return new Response("OK", { status: 200 });
+      }
+
       if (message.id && (message.type === "text" || message.type === "image" || message.type === "audio")) {
         await sendMetaTypingIndicator(business_phone_number_id, message.id);
       }

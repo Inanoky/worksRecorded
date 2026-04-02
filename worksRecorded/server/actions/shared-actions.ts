@@ -241,9 +241,21 @@ export async function updateSiteAction(formData: FormData) {
   const name = formData.get("name") as string;
   const description = formData.get("description") as string;
   const subdirectory = formData.get("subdirectory") as string;
+  const geofencePolygonRaw = (formData.get("geofencePolygon") as string) || "";
+  const geofenceMapLink = (formData.get("geofenceMapLink") as string) || "";
 
   if (!siteId || !name || !description || !subdirectory) {
     return { success: false, message: "Missing required fields" };
+  }
+
+  let geofencePolygon: unknown = null;
+
+  if (geofencePolygonRaw.trim().length > 0) {
+    try {
+      geofencePolygon = JSON.parse(geofencePolygonRaw);
+    } catch {
+      return { success: false, message: "Invalid geofence polygon format." };
+    }
   }
 
   try {
@@ -253,11 +265,12 @@ export async function updateSiteAction(formData: FormData) {
         name,
         description,
         subdirectory,
+        geofencePolygon: geofencePolygon as any,
+        geofenceMapLink,
       },
     });
 
-    // Redirect to refresh the page (adjust path as needed)
-    redirect(`/dashboard/sites`);
+    redirect(`/dashboard/sites/${siteId}/settings?saved=1`);
   } catch (err: any) {
     return { success: false, message: err.message || "Update failed." };
   }
