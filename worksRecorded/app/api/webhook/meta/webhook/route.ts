@@ -154,30 +154,6 @@ function isPointInsidePolygon(point: GeoPoint, polygon: GeoPoint[]): boolean {
   return inside;
 }
 
-function isClockInIntentText(text: string): boolean {
-  return /\b(clock[\s-]?in|check[\s-]?in)\b/i.test(text.trim());
-}
-
-async function sendLocationRequestMessage(
-  businessPhoneNumberId: string,
-  workerPhone: string
-) {
-  await graphSendMessage(businessPhoneNumberId, {
-    messaging_product: "whatsapp",
-    to: workerPhone,
-    type: "interactive",
-    interactive: {
-      type: "location_request_message",
-      body: {
-        text: "Please share your current location so we can validate your site clock-in.",
-      },
-      action: {
-        name: "send_location",
-      },
-    },
-  });
-}
-
 async function maybeHandleWorkerClockInLocationFlow(args: {
   message: any;
   businessPhoneNumberId: string;
@@ -185,7 +161,7 @@ async function maybeHandleWorkerClockInLocationFlow(args: {
   const { message, businessPhoneNumberId } = args;
 
   if (!message?.from) return false;
-  if (message.type !== "text" && message.type !== "location") return false;
+  if (message.type !== "location") return false;
 
   const phone = await normalizePhone(null, `whatsapp:+${message.from}`);
   const worker = await prisma.workers.findFirst({
@@ -202,16 +178,6 @@ async function maybeHandleWorkerClockInLocationFlow(args: {
   });
 
   if (!worker) return false;
-
-  if (message.type === "text") {
-    const incomingText =
-      typeof message.text?.body === "string" ? message.text.body : "";
-
-    if (!isClockInIntentText(incomingText)) return false;
-
-    await sendLocationRequestMessage(businessPhoneNumberId, message.from);
-    return true;
-  }
 
   const latitude = Number(message.location?.latitude);
   const longitude = Number(message.location?.longitude);
@@ -264,7 +230,6 @@ async function maybeHandleWorkerClockInLocationFlow(args: {
         body: "You are outside the site area. Please enter the site and try again.",
       },
     });
-    await sendLocationRequestMessage(businessPhoneNumberId, message.from);
     return true;
   }
 

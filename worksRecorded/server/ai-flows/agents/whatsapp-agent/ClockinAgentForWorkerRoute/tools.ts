@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import { clockInWorker, clockOutWorker } from "@/server/actions/timesheets-actions";
+import { clockOutWorker } from "@/server/actions/timesheets-actions";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import { ChatOpenAI } from "@langchain/openai";
@@ -10,6 +10,8 @@ import defaultConfig from "@/components/sitediary/defaultConfig.json"
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
 import { getOrganizationLanguageByWorkerId } from "@/server/actions/shared-actions";
+import { prisma } from "@/lib/utils/db";
+import { sendLocationRequest } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 
 async function buildSystemPromptSaveToDatabase(workerId: string) {
   const organizationLanguage = await getOrganizationLanguageByWorkerId(workerId);
@@ -24,28 +26,53 @@ async function buildSystemPromptSaveToDatabase(workerId: string) {
 
 export const clockInWorkerTool = new DynamicStructuredTool({
   name: "ClockInWorker",
-  description: "Clock a worker in (start workday)",
+  description: "Start worker clock-in flow by requesting worker WhatsApp location for geofence validation",
   schema: z.object({
     workerId: z.string().describe("The unique worker ID"),
      siteId: z.string().describe("Site Id "),
     
   }),
   async func({ workerId, siteId}) {
-
-    const now = new Date()
-
-    // Server action expects Date objects, not strings
-    const result = await clockInWorker({
-      workerId,
-      date: now,
-      clockIn: now,
-      siteId
+    const worker = await prisma.workers.findUnique({
+      where: { id: workerId },
+      select: {
+        id: true,
+        phone: true,
+        isClockedIn: true,
+        siteId: true,
+      },
     });
-    if (result.success) {
-      return { messages: ["Clocked in successfully"] };
-    } else {
-      return { messages: [`Failed to clock in: ${result.error}`] };
+
+    if (!worker) {
+      return { messages: ["Failed to clock in: worker not found."] };
     }
+
+    if (worker.isClockedIn) {
+      return { messages: ["You are already clocked in."] };
+    }
+
+    if (!worker.siteId || worker.siteId !== siteId) {
+      return { messages: ["Failed to clock in: worker is not assigned to this site."] };
+    }
+
+    if (!worker.phone) {
+      return { messages: ["Failed to clock in: worker phone is missing."] };
+    }
+
+    const normalizedRecipient = worker.phone.startsWith("whatsapp:")
+      ? worker.phone
+      : `whatsapp:${worker.phone}`;
+
+    await sendLocationRequest(
+      normalizedRecipient,
+      "Please share your location to complete clock-in."
+    );
+
+    return {
+      messages: [
+        "Location request sent. Please share your location. Clock-in will be completed automatically after geofence validation.",
+      ],
+    };
   }
 });
 

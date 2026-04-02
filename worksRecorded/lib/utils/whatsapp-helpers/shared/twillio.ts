@@ -71,3 +71,53 @@ export async function sendMessage(to: string | null, message: string) {
     console.error("❌ Twilio send error:", err);
   }
 }
+
+export async function sendLocationRequest(to: string | null, prompt?: string) {
+  if (!to) return;
+
+  const metaCtx = metaReplyContext.getStore();
+  if (!metaCtx) {
+    await sendMessage(
+      to,
+      prompt ||
+        "Please share your current location so we can validate your site clock-in."
+    );
+    return;
+  }
+
+  const token = process.env.META_ACCESS_TOKEN;
+  const recipient = normalizeMetaRecipient(to);
+  if (!token || !recipient) return;
+
+  const res = await fetch(
+    `https://graph.facebook.com/v18.0/${metaCtx.businessPhoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: recipient,
+        type: "interactive",
+        interactive: {
+          type: "location_request_message",
+          body: {
+            text:
+              prompt ||
+              "Please share your current location so we can validate your site clock-in.",
+          },
+          action: {
+            name: "send_location",
+          },
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.error("❌ Meta location request send error:", res.status, res.statusText, errBody);
+  }
+}
