@@ -44,7 +44,7 @@ export function SiteGeofenceEditor({
       }
 
       try {
-        const [{ Loader }, terraModule, adapterModule] = await Promise.all([
+        const [googleLoaderModule, terraModule, adapterModule] = await Promise.all([
           import("@googlemaps/js-api-loader"),
           import("terra-draw"),
           import("terra-draw-google-maps-adapter"),
@@ -68,21 +68,27 @@ export function SiteGeofenceEditor({
           return;
         }
 
-        const loader = new Loader({ apiKey: gmapsKey, version: "weekly" });
-        const google = await loader.load();
+        const { setOptions, importLibrary } = googleLoaderModule as any;
+        setOptions({ apiKey: gmapsKey, version: "weekly" });
+        const { Map } = (await importLibrary("maps")) as google.maps.MapsLibrary;
 
         if (cancelled || !mapRef.current) return;
 
         const center = initialPoints[0] ?? { lat: 56.9496, lng: 24.1052 };
-        const map = new google.maps.Map(mapRef.current, {
+        const map = new Map(mapRef.current, {
           center,
           zoom: 18,
           mapTypeId: "roadmap",
         });
 
+        const googleMapsLib = (window as any)?.google?.maps;
+        if (!googleMapsLib) {
+          throw new Error("Google Maps library is not available on window.google.maps.");
+        }
+
         const adapter = new TerraDrawGoogleMapsAdapter({
           map,
-          lib: google.maps,
+          lib: googleMapsLib,
         });
 
         const draw = new TerraDraw({
