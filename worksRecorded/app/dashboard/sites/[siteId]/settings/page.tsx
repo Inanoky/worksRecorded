@@ -1,5 +1,6 @@
 import InvoiceUpload from "@/components/settings/InvoiceUpload";
 // export const revalidate = 0
+import GeoMap from "@/components/settings/geomap";
 
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,10 @@ import {
 } from "@/components/ui/card";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
-import { getOrganizationIdByUserId, updateSiteAction } from "@/server/actions/shared-actions";
+import {
+  getOrganizationIdByUserId,
+  updateSiteAction,
+} from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 import DocumentUpload from "@/components/documents/DocumentsUpload";
 import XslxUpload from "@/components/settings/XlsxUpload";
@@ -29,11 +33,17 @@ import { getUserData } from "@/server/actions/settings-actions";
 import TourRunner from "@/components/joyride/TourRunner";
 
 import Reminder from "@/components/settings/ReminderUI";
-import { getRemindersData, getReminderTimes, getDataForReminderTable} from "@/server/actions/reminder-actions";
+import {
+  getRemindersData,
+  getReminderTimes,
+  getDataForReminderTable,
+} from "@/server/actions/reminder-actions";
 import { BisIntegrationCard } from "@/components/settings/BisIntegrationCard";
-import { fetchBisAvailableCases, getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
-
-
+import {
+  fetchBisAvailableCases,
+  getSiteBisConfig,
+  getUserBisTokenByUserId,
+} from "@/server/actions/BIS/service";
 
 export default async function SettingsSiteRoute({
   params,
@@ -42,18 +52,26 @@ export default async function SettingsSiteRoute({
   params: Promise<{ siteId: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-
-
-  const { siteId } = await params
-  const resolvedSearchParams = (await searchParams) ?? {}
+  const { siteId } = await params;
+  const resolvedSearchParams = (await searchParams) ?? {};
   const user = await requireUser();
   const siteCheck = await orgCheck(user.id, siteId);
-  if (!siteCheck) {
-  notFound();
-    }
 
-  const orgId = await getOrganizationIdByUserId(user.id)
-  const [userData, site, siteBisConfig, settings, remindersData, reminderTimes, bisToken] = await Promise.all([
+  if (!siteCheck) {
+    notFound();
+  }
+
+  const orgId = await getOrganizationIdByUserId(user.id);
+
+  const [
+    userData,
+    site,
+    siteBisConfig,
+    settings,
+    remindersData,
+    reminderTimes,
+    bisToken,
+  ] = await Promise.all([
     getUserData(orgId),
     prisma.site.findUnique({
       where: { id: siteId },
@@ -66,9 +84,10 @@ export default async function SettingsSiteRoute({
     getDataForReminderTable(orgId),
     getReminderTimes(orgId),
     getUserBisTokenByUserId(user.id),
-  ])
-  console.log(`this is page.tsx ${remindersData}`)
-  console.log(remindersData)
+  ]);
+
+  console.log(`this is page.tsx ${remindersData}`);
+  console.log(remindersData);
 
   const isBisConnected = Boolean(bisToken?.accessToken);
 
@@ -90,24 +109,26 @@ export default async function SettingsSiteRoute({
   const bisStatus = Array.isArray(resolvedSearchParams.bis)
     ? resolvedSearchParams.bis[0]
     : resolvedSearchParams.bis;
+
   const bisMessage = Array.isArray(resolvedSearchParams.message)
     ? resolvedSearchParams.message[0]
     : resolvedSearchParams.message;
 
   const statusMessageMap: Record<string, string> = {
     connected: "BIS authorization completed successfully.",
-    disconnected: "BIS access tokens were removed and this site's BIS case selection was cleared. Existing BIS-linked records were kept.",
+    disconnected:
+      "BIS access tokens were removed and this site's BIS case selection was cleared. Existing BIS-linked records were kept.",
     "case-selected": "BIS case was saved for this site.",
-    error: bisMessage ? `BIS connection failed: ${bisMessage}` : "BIS connection failed.",
+    error: bisMessage
+      ? `BIS connection failed: ${bisMessage}`
+      : "BIS connection failed.",
   };
 
   const statusMessage = bisStatus ? statusMessageMap[bisStatus] ?? null : null;
 
   return (
     <>
-      {/* Back Button */}
       <div className="flex items-center gap-x-2 mb-6">
- 
         <Button variant="outline" size="icon" asChild>
           <Link href={`/dashboard/sites/${siteId}/analytics`}>
             <ChevronLeft className="size-4" />
@@ -129,10 +150,11 @@ export default async function SettingsSiteRoute({
         }}
         availableCases={availableBisCases}
         statusMessage={statusMessage}
-        hasManualAuthorizationCode={Boolean(process.env.BIS_AUTHORIZATION_CODE)}
+        hasManualAuthorizationCode={Boolean(
+          process.env.BIS_AUTHORIZATION_CODE
+        )}
       />
 
-      {/* Edit Site Info Card */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Edit Site Info</CardTitle>
@@ -140,14 +162,13 @@ export default async function SettingsSiteRoute({
             Update your site’s name, description, or subdirectory.
           </CardDescription>
         </CardHeader>
+
         <form action={updateSiteAction}>
           <input type="hidden" name="siteId" value={siteId} />
+
           <div className="px-6 pb-2 flex flex-col gap-4">
             <div>
-              <label
-                className="block mb-1 text-sm font-medium"
-                htmlFor="name"
-              >
+              <label className="block mb-1 text-sm font-medium" htmlFor="name">
                 Name
               </label>
               <input
@@ -159,6 +180,7 @@ export default async function SettingsSiteRoute({
                 defaultValue={site?.name || ""}
               />
             </div>
+
             <div>
               <label
                 className="block mb-1 text-sm font-medium"
@@ -175,6 +197,7 @@ export default async function SettingsSiteRoute({
                 defaultValue={site?.description || ""}
               />
             </div>
+
             <div>
               <label
                 className="block mb-1 text-sm font-medium"
@@ -191,22 +214,31 @@ export default async function SettingsSiteRoute({
                 defaultValue={site?.subdirectory || ""}
               />
             </div>
+
+            <div>
+              <label className="block mb-2 text-sm font-medium">
+                Site area
+              </label>
+              <GeoMap
+                initialPolygon={
+                  Array.isArray(site?.geofencePolygon)
+                    ? (site.geofencePolygon as { lat: number; lng: number }[])
+                    : []
+                }
+                initialMapLink={site?.geofenceMapLink ?? ""}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Draw the permitted site area for location-based worker clock-in.
+              </p>
+            </div>
           </div>
+
           <CardFooter>
             <SubmitButton text="Save Changes" />
           </CardFooter>
         </form>
       </Card>
 
-      {/* Upload Sections */}
- 
-
-     
-  
-   
-      
-      
-         {/* Danger Card */}
       <Card className="border-red-500 bg-red-500/10">
         <CardHeader>
           <CardTitle className="text-red-500">Danger</CardTitle>
