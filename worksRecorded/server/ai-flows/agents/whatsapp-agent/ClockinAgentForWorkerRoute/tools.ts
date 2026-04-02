@@ -11,7 +11,8 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
 import { getOrganizationLanguageByWorkerId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
-import { sendLocationRequest } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { createClockInToken } from "@/lib/utils/clock-in-link";
 
 async function buildSystemPromptSaveToDatabase(workerId: string) {
   const organizationLanguage = await getOrganizationLanguageByWorkerId(workerId);
@@ -26,7 +27,7 @@ async function buildSystemPromptSaveToDatabase(workerId: string) {
 
 export const clockInWorkerTool = new DynamicStructuredTool({
   name: "ClockInWorker",
-  description: "Start worker clock-in flow by requesting worker WhatsApp location for geofence validation",
+  description: "Start worker clock-in flow by sending a secure clock-in link that collects phone GPS in browser",
   schema: z.object({
     workerId: z.string().describe("The unique worker ID"),
      siteId: z.string().describe("Site Id "),
@@ -63,14 +64,25 @@ export const clockInWorkerTool = new DynamicStructuredTool({
       ? worker.phone
       : `whatsapp:${worker.phone}`;
 
-    await sendLocationRequest(
+    const token = createClockInToken({
+      workerId,
+      siteId,
+      ttlSeconds: 15 * 60,
+    });
+    const baseUrl =
+      process.env.CLOCKIN_BROWSER_BASE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      "https://unimperiously-unbilleted-soo.ngrok-free.dev";
+    const clockInLink = `${baseUrl.replace(/\/$/, "")}/clock-in?token=${encodeURIComponent(token)}`;
+
+    await sendMessage(
       normalizedRecipient,
-      "Please share your location to complete clock-in."
+      `Clock in: ${clockInLink}`
     );
 
     return {
       messages: [
-        "Location request sent. Please share your location. Clock-in will be completed automatically after geofence validation.",
+        "Clock-in link sent. Open it, allow GPS, and we will validate geofence before clock-in.",
       ],
     };
   }
