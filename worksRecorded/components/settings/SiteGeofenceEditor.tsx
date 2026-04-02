@@ -19,6 +19,7 @@ function buildPolygonString(points: LatLngPoint[]) {
 
 async function loadScript(src: string) {
   if (document.querySelector(`script[src="${src}"]`)) return;
+  console.log("[SiteGeofenceEditor] loading script:", src);
   await new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
     script.src = src;
@@ -49,6 +50,9 @@ export function SiteGeofenceEditor({
 
     async function boot() {
       const gmapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      console.log("[SiteGeofenceEditor] init start", {
+        hasGoogleMapsApiKey: Boolean(gmapsKey),
+      });
       if (!gmapsKey) {
         setStatus("Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable map drawing.");
         return;
@@ -59,6 +63,7 @@ export function SiteGeofenceEditor({
         await loadScript("https://unpkg.com/terra-draw@1.12.0/dist/terra-draw.umd.js");
         await loadScript("https://unpkg.com/terra-draw-google-maps-adapter@1.12.0/dist/terra-draw-google-maps-adapter.umd.js");
       } catch (err: any) {
+        console.error("[SiteGeofenceEditor] script load failed", err);
         if (!cancelled) setStatus(err?.message || "Failed to load map libraries.");
         return;
       }
@@ -66,6 +71,12 @@ export function SiteGeofenceEditor({
       if (cancelled || !mapRef.current) return;
 
       const w = window as any;
+      console.log("[SiteGeofenceEditor] globals snapshot", {
+        hasGoogle: Boolean(w.google?.maps),
+        terraDrawKeys: Object.keys(w).filter((k) =>
+          k.toLowerCase().includes("terra")
+        ),
+      });
       const center = initialPoints[0] ?? { lat: 56.9496, lng: 24.1052 };
 
       try {
@@ -92,12 +103,25 @@ export function SiteGeofenceEditor({
           w.terraDraw?.TerraDrawSelectMode ||
           w["terra-draw"]?.TerraDrawSelectMode;
 
+        console.log("[SiteGeofenceEditor] resolved constructors", {
+          TerraDrawCtor: Boolean(TerraDrawCtor),
+          TerraDrawGoogleMapsAdapterCtor: Boolean(TerraDrawGoogleMapsAdapterCtor),
+          TerraDrawPolygonModeCtor: Boolean(TerraDrawPolygonModeCtor),
+          TerraDrawSelectModeCtor: Boolean(TerraDrawSelectModeCtor),
+        });
+
         if (
           !TerraDrawCtor ||
           !TerraDrawGoogleMapsAdapterCtor ||
           !TerraDrawPolygonModeCtor ||
           !TerraDrawSelectModeCtor
         ) {
+          console.error("[SiteGeofenceEditor] missing constructors", {
+            hasTerraDraw: Boolean(TerraDrawCtor),
+            hasAdapter: Boolean(TerraDrawGoogleMapsAdapterCtor),
+            hasPolygonMode: Boolean(TerraDrawPolygonModeCtor),
+            hasSelectMode: Boolean(TerraDrawSelectModeCtor),
+          });
           setStatus("Terra Draw globals were not found. Please refresh and try again.");
           return;
         }
@@ -117,6 +141,7 @@ export function SiteGeofenceEditor({
         draw.start();
         draw.setMode("polygon");
         drawRef.current = draw;
+        console.log("[SiteGeofenceEditor] draw initialized");
 
         if (initialPoints.length >= 3) {
           draw.addFeatures([
@@ -133,6 +158,7 @@ export function SiteGeofenceEditor({
 
         draw.on("change", () => {
           const snapshot = draw.getSnapshot();
+          console.log("[SiteGeofenceEditor] draw change snapshot", snapshot);
           const poly = snapshot.find((f: any) => f?.geometry?.type === "Polygon");
           const coords = poly?.geometry?.coordinates?.[0];
           if (!Array.isArray(coords)) return;
@@ -150,6 +176,7 @@ export function SiteGeofenceEditor({
 
         setStatus("Draw polygon directly on the map. Switch to Edit mode to adjust vertices.");
       } catch (err: any) {
+        console.error("[SiteGeofenceEditor] Terra Draw init failed", err);
         setStatus(err?.message || "Could not initialize Terra Draw.");
       }
     }
