@@ -17,6 +17,8 @@ function buildPolygonString(points: LatLngPoint[]) {
   return JSON.stringify(points, null, 2);
 }
 
+let googleMapsOptionsInitialized = false;
+
 export function SiteGeofenceEditor({
   initialPolygon,
   initialMapLink,
@@ -69,7 +71,12 @@ export function SiteGeofenceEditor({
         }
 
         const { setOptions, importLibrary } = googleLoaderModule as any;
-        setOptions({ apiKey: gmapsKey, version: "weekly" });
+        if (!googleMapsOptionsInitialized) {
+          setOptions({ apiKey: gmapsKey, version: "weekly" });
+          googleMapsOptionsInitialized = true;
+        } else {
+          console.log("[SiteGeofenceEditor] setOptions skipped (already initialized)");
+        }
         const { Map } = (await importLibrary("maps")) as google.maps.MapsLibrary;
 
         if (cancelled || !mapRef.current) return;
@@ -80,6 +87,11 @@ export function SiteGeofenceEditor({
           zoom: 18,
           mapTypeId: "roadmap",
         });
+
+        const mapDiv = map?.getDiv?.();
+        if (!mapDiv) {
+          throw new Error("Google Map container is not available after map creation.");
+        }
 
         const googleMapsLib = (window as any)?.google?.maps;
         if (!googleMapsLib) {
@@ -130,9 +142,20 @@ export function SiteGeofenceEditor({
 
         console.log("[SiteGeofenceEditor] draw initialized");
         setStatus("Draw polygon directly on the map. Switch to Edit mode to adjust vertices.");
-      } catch (err) {
+      } catch (err: any) {
         console.error("[SiteGeofenceEditor] init failed", err);
-        setStatus("Could not initialize Google Maps + Terra Draw. See console logs.");
+        const errText = String(err?.message ?? "");
+        if (
+          errText.includes("addEventListener") ||
+          errText.includes("ApiProjectMapError") ||
+          errText.includes("NoApiKeys")
+        ) {
+          setStatus(
+            "Google Maps API key/project is misconfigured (NoApiKeys / ApiProjectMapError). Fix API key, billing and referrer restrictions."
+          );
+        } else {
+          setStatus("Could not initialize Google Maps + Terra Draw. See console logs.");
+        }
       }
     }
 
