@@ -77,7 +77,9 @@ export function SiteGeofenceEditor({
       }
 
       try {
-        await loadScript(`https://maps.googleapis.com/maps/api/js?key=${gmapsKey}`);
+        await loadScript(
+          `https://maps.googleapis.com/maps/api/js?key=${gmapsKey}&loading=async`
+        );
         await loadScriptWithFallback([
           "https://unpkg.com/terra-draw@latest/dist/terra-draw.umd.js",
           "https://cdn.jsdelivr.net/npm/terra-draw@latest/dist/terra-draw.umd.js",
@@ -162,6 +164,12 @@ export function SiteGeofenceEditor({
           TerraDrawGoogleMapsAdapterCtor: Boolean(TerraDrawGoogleMapsAdapterCtor),
           TerraDrawPolygonModeCtor: Boolean(TerraDrawPolygonModeCtor),
           TerraDrawSelectModeCtor: Boolean(TerraDrawSelectModeCtor),
+          adapterType: typeof TerraDrawGoogleMapsAdapterCtor,
+          adapterKeys:
+            TerraDrawGoogleMapsAdapterCtor &&
+            typeof TerraDrawGoogleMapsAdapterCtor === "object"
+              ? Object.keys(TerraDrawGoogleMapsAdapterCtor)
+              : [],
         });
 
         if (
@@ -180,10 +188,42 @@ export function SiteGeofenceEditor({
           return;
         }
 
-        const adapter = new TerraDrawGoogleMapsAdapterCtor({
+        const adapterArgs = {
           map,
           lib: w.google.maps,
-        });
+        };
+
+        let adapter: any;
+        try {
+          adapter = new TerraDrawGoogleMapsAdapterCtor(adapterArgs);
+          console.log("[SiteGeofenceEditor] adapter created with new");
+        } catch (ctorErr) {
+          console.warn(
+            "[SiteGeofenceEditor] adapter constructor with 'new' failed, trying fallback invocation",
+            ctorErr
+          );
+
+          if (typeof TerraDrawGoogleMapsAdapterCtor === "function") {
+            adapter = TerraDrawGoogleMapsAdapterCtor(adapterArgs);
+            console.log("[SiteGeofenceEditor] adapter created via function call");
+          } else if (
+            typeof TerraDrawGoogleMapsAdapterCtor?.create === "function"
+          ) {
+            adapter = TerraDrawGoogleMapsAdapterCtor.create(adapterArgs);
+            console.log("[SiteGeofenceEditor] adapter created via .create()");
+          } else if (
+            typeof TerraDrawGoogleMapsAdapterCtor?.default === "function"
+          ) {
+            adapter = TerraDrawGoogleMapsAdapterCtor.default(adapterArgs);
+            console.log("[SiteGeofenceEditor] adapter created via .default()");
+          } else {
+            throw ctorErr;
+          }
+        }
+
+        if (!adapter) {
+          throw new Error("Adapter creation failed; adapter is undefined.");
+        }
         const draw = new TerraDrawCtor({
           adapter,
           modes: [
@@ -247,14 +287,32 @@ export function SiteGeofenceEditor({
         <button
           type="button"
           className="px-3 py-2 rounded-md border text-sm"
-          onClick={() => drawRef.current?.setMode("polygon")}
+          onClick={() => {
+            console.log("[SiteGeofenceEditor] Draw polygon clicked", {
+              hasDrawRef: Boolean(drawRef.current),
+            });
+            try {
+              drawRef.current?.setMode("polygon");
+            } catch (err) {
+              console.error("[SiteGeofenceEditor] setMode('polygon') failed", err);
+            }
+          }}
         >
           Draw polygon
         </button>
         <button
           type="button"
           className="px-3 py-2 rounded-md border text-sm"
-          onClick={() => drawRef.current?.setMode("select")}
+          onClick={() => {
+            console.log("[SiteGeofenceEditor] Edit polygon clicked", {
+              hasDrawRef: Boolean(drawRef.current),
+            });
+            try {
+              drawRef.current?.setMode("select");
+            } catch (err) {
+              console.error("[SiteGeofenceEditor] setMode('select') failed", err);
+            }
+          }}
         >
           Edit polygon
         </button>
@@ -262,8 +320,15 @@ export function SiteGeofenceEditor({
           type="button"
           className="px-3 py-2 rounded-md border text-sm"
           onClick={() => {
-            drawRef.current?.clear();
-            setPolygonText("");
+            console.log("[SiteGeofenceEditor] Clear clicked", {
+              hasDrawRef: Boolean(drawRef.current),
+            });
+            try {
+              drawRef.current?.clear();
+              setPolygonText("");
+            } catch (err) {
+              console.error("[SiteGeofenceEditor] clear() failed", err);
+            }
           }}
         >
           Clear
