@@ -74,7 +74,7 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json(
-        { ok: false, message: "This link is already opened on another phone/browser." },
+        { ok: false, message: "Not allowed" },
         { status: 400 }
       );
     }
