@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 export default function ClockInClient() {
@@ -9,10 +9,57 @@ export default function ClockInClient() {
 
   const [status, setStatus] = useState<string>("Press button to share GPS and clock in.");
   const [busy, setBusy] = useState(false);
+  const [initializing, setInitializing] = useState(true);
+  const [challengeId, setChallengeId] = useState<string>("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const initChallenge = async () => {
+      if (!token) {
+        setStatus("Invalid clock-in link.");
+        setInitializing(false);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/clock-in/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!cancelled) {
+          if (!res.ok || !data?.challengeId) {
+            setStatus(data?.message || "Could not initialize clock-in session.");
+            return;
+          }
+          setChallengeId(data.challengeId);
+        }
+      } catch {
+        if (!cancelled) {
+          setStatus("Could not initialize clock-in session.");
+        }
+      } finally {
+        if (!cancelled) {
+          setInitializing(false);
+        }
+      }
+    };
+
+    initChallenge();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const handleClockIn = async () => {
     if (!token) {
       setStatus("Invalid clock-in link.");
+      return;
+    }
+    if (!challengeId) {
+      setStatus("Clock-in session is missing. Reopen the link from WhatsApp.");
       return;
     }
 
@@ -33,6 +80,7 @@ export default function ClockInClient() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               token,
+              challengeId,
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude,
             }),
@@ -71,10 +119,10 @@ export default function ClockInClient() {
         <button
           type="button"
           onClick={handleClockIn}
-          disabled={busy}
+          disabled={busy || initializing || !challengeId}
           className="w-full rounded-lg bg-black text-white py-2 disabled:opacity-60"
         >
-          {busy ? "Working..." : "Clock in now"}
+          {initializing ? "Preparing..." : busy ? "Working..." : "Clock in now"}
         </button>
       </div>
     </main>
