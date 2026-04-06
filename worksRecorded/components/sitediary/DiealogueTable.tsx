@@ -511,7 +511,7 @@ export function DialogTable({
       return (
         <Input
           type="time"
-          style={{ width: getCellWidthByKey(field, defaultMap) }}
+          style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
           value={dateTimeToHHmm(row[field])}
           onChange={(e) => {
             const dt = hhmmToDateTime(e.target.value, row.Date);
@@ -529,7 +529,7 @@ export function DialogTable({
       return (
         <Input
           type="date"
-          style={{ width: getCellWidthByKey(field, defaultMap) }}
+          style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
           value={v.length >= 10 ? ymd : v}
           onChange={(e) => handleChange(rowKey, field, e.target.value)}
         />
@@ -566,7 +566,7 @@ export function DialogTable({
     if (type === "textInput") {
       return (
         <Textarea
-          style={{ width: getCellWidthByKey(field, defaultMap) }}
+          style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
           rows={1}
           value={String(row[field] ?? "")}
           onChange={(e) => handleChange(rowKey, field, e.target.value)}
@@ -579,7 +579,7 @@ export function DialogTable({
       return (
         <Input
           inputMode="decimal"
-          style={{ width: getCellWidthByKey(field, defaultMap) }}
+          style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
           value={String(row[field] ?? "")}
           onChange={(e) => handleChange(rowKey, field, e.target.value)}
         />
@@ -619,7 +619,7 @@ export function DialogTable({
         >
           <SelectTrigger
 
-            style={{ width: getCellWidthByKey(field, defaultMap) }}
+            style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
 
           >
             <SelectValue placeholder={String(row[field] ?? "Select…")} />
@@ -805,84 +805,135 @@ export function DialogTable({
     return <div className="flex justify-center items-center min-h-[300px]">Loading…</div>;
   }
 
+  const mobileFieldGroups = tableHeads.reduce<string[][]>((groups, field, index) => {
+    const groupIndex = Math.floor(index / 2);
+    if (!groups[groupIndex]) groups[groupIndex] = [];
+    groups[groupIndex].push(field);
+    return groups;
+  }, []);
 
 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <ScrollArea className="w-full h-[45vh] sm:h-[56vh] rounded-none border">
-        <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-none">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleAddRow}
-            className="w-full sm:w-auto"
-          >
-            Add task
-          </Button>
-          <Button type="submit" className="w-full sm:w-auto">
-            Save diary
-          </Button>
-        </div>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-md border">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleAddRow}
+          className="w-full sm:w-auto"
+        >
+          Add task
+        </Button>
+        <Button type="submit" className="w-full sm:w-auto">
+          Save diary
+        </Button>
+      </div>
 
-        <div className="overflow-x-auto">
-          <div className={isMobile ? "w-full" : "min-w-[1000px]"}>
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-background">
-                <TableRow>
-                  {tableHeads.map((head) => (
-                    <TableHead
-                      key={head}
-                      className="text-center whitespace-nowrap"
-                    >
-                      {getDisplayNameByKey(head)}
-                    </TableHead>
+      {isMobile ? (
+        <ScrollArea className="w-full h-[48vh] rounded-md border p-2">
+          <div className="space-y-3 pr-1">
+            {rows.map((row, rowIndex) => (
+              <div
+                key={row.id ?? row._tempId}
+                className="rounded-lg border bg-card p-3 space-y-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">Task #{rowIndex + 1}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    type="button"
+                    onClick={() => handleDeleteRow(row.id, row._tempId)}
+                    aria-label={`Delete task ${rowIndex + 1}`}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </div>
 
-                  )
-
-
-                  )}
-
-                  <TableHead className="text-center w-[150px]">Created by</TableHead>
-                  <TableHead className="text-center w-[80px]">Delete</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id ?? row._tempId}>
-                    {tableHeads.map((field) => (
-                      <TableCell key={field} className="text-center">
-
-
+                {mobileFieldGroups.map((group, groupIdx) => (
+                  <div key={groupIdx} className="grid grid-cols-1 gap-2">
+                    {group.map((field) => (
+                      <div key={field} className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {getDisplayNameByKey(field)}
+                        </p>
                         {cellRender({ field, row, rowKey: row.id ?? row._tempId })}
-
-
-
-                      </TableCell>
+                      </div>
                     ))}
-
-                    <TableCell className="text-center">{row.createdBy ?? ""}</TableCell>
-
-                    <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        type="button"
-                        onClick={() => handleDeleteRow(row.id, row._tempId)}
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
 
-        <ScrollBar orientation="horizontal" />
-        <ScrollBar orientation="vertical" />
-      </ScrollArea>
+                <div className="rounded-md bg-muted/40 px-2 py-1">
+                  <p className="text-xs text-muted-foreground">
+                    Created by: {row.createdBy ?? "—"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <ScrollBar orientation="vertical" />
+        </ScrollArea>
+      ) : (
+        <ScrollArea className="w-full h-[56vh] rounded-none border">
+          <div className="overflow-x-auto">
+            <div className="min-w-[1000px]">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-background">
+                  <TableRow>
+                    {tableHeads.map((head) => (
+                      <TableHead
+                        key={head}
+                        className="text-center whitespace-nowrap"
+                      >
+                        {getDisplayNameByKey(head)}
+                      </TableHead>
+
+                    )
+
+
+                    )}
+
+                    <TableHead className="text-center w-[150px]">Created by</TableHead>
+                    <TableHead className="text-center w-[80px]">Delete</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={row.id ?? row._tempId}>
+                      {tableHeads.map((field) => (
+                        <TableCell key={field} className="text-center">
+
+
+                          {cellRender({ field, row, rowKey: row.id ?? row._tempId })}
+
+
+
+                        </TableCell>
+                      ))}
+
+                      <TableCell className="text-center">{row.createdBy ?? ""}</TableCell>
+
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          type="button"
+                          onClick={() => handleDeleteRow(row.id, row._tempId)}
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <ScrollBar orientation="horizontal" />
+          <ScrollBar orientation="vertical" />
+        </ScrollArea>
+      )}
     </form>
   );
 }

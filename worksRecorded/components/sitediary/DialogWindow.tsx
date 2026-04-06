@@ -20,18 +20,20 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-  
-
       <DialogContent
         className="
-          w-[95vw] max-w-[95vw] sm:w-[90vw] sm:max-w-[90vw] md:max-w-[750px]
-          lg:max-w-[1700px] flex flex-col
-          max-h-[90vh]
-          !top-[5%] !translate-y-0 sm:!top-[5%] sm:!translate-y-0
+          w-[100vw] max-w-[100vw] rounded-none p-0
+          sm:w-[95vw] sm:max-w-[95vw] sm:rounded-lg sm:p-6
+          md:max-w-[750px] lg:max-w-[1700px]
+          flex flex-col
+          h-[100dvh] max-h-[100dvh]
+          sm:h-auto sm:max-h-[90vh]
+          !top-0 !translate-y-0
+          sm:!top-[5%] sm:!translate-y-0
         "
         onInteractOutside={(e) => e.preventDefault()} // 👈 don’t close on outside click
       >
-        <DialogHeader>
+        <DialogHeader className="px-4 pt-4 pb-2 sm:px-0 sm:pt-0 sm:pb-0">
           <DialogTitle className="text-lg sm:text-xl">
             {date
               ? date.toLocaleDateString("en-GB", {
@@ -45,7 +47,7 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
         </DialogHeader>
 
         {/* SCROLLING CONTAINER */}
-        <div className="flex flex-col gap-4 overflow-y-auto p-4 sm:p-6 -mx-6 -my-4">
+        <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto px-4 pb-4 sm:px-0 sm:pb-0">
           {/* Table area – Joyride target */}
           <div data-tour="dialog-table">
             <DialogTable
@@ -66,7 +68,7 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
           </div>
         </div>
 
-        <DialogFooter className="sm:justify-end">
+        <DialogFooter className="border-t bg-background px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:justify-end">
           <DialogClose asChild>
             <Button variant="outline" className="w-full sm:w-auto">
               Close
