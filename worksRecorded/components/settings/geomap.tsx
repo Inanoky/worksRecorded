@@ -82,20 +82,26 @@ export default function GeoMap({
   initialMapLink,
 }: GeoMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
+  const googleMapRef = useRef<google.maps.Map | null>(null);
   const drawRef = useRef<TerraDraw | null>(null);
   const initializedRef = useRef(false);
-
-  const [status, setStatus] = useState("Loading map...");
-  const [isReady, setIsReady] = useState(false);
-  const [polygon, setPolygon] = useState<LatLngPoint[]>(
-    sanitizePolygon(initialPolygon)
-  );
-  const [mapLink, setMapLink] = useState(initialMapLink ?? "");
 
   const safeInitialPolygon = useMemo(
     () => sanitizePolygon(initialPolygon),
     [initialPolygon]
   );
+
+  const [status, setStatus] = useState("Loading map...");
+  const [isReady, setIsReady] = useState(false);
+  const [polygon, setPolygon] = useState<LatLngPoint[]>(safeInitialPolygon);
+  const [mapLink, setMapLink] = useState(
+    initialMapLink ?? buildMapLink(safeInitialPolygon[0])
+  );
+
+  useEffect(() => {
+    setPolygon(safeInitialPolygon);
+    setMapLink(initialMapLink ?? buildMapLink(safeInitialPolygon[0]));
+  }, [safeInitialPolygon, initialMapLink]);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +133,8 @@ export default function GeoMap({
           mapTypeControl: true,
           clickableIcons: false,
         });
+
+        googleMapRef.current = map;
 
         google.maps.event.addListenerOnce(map, "idle", () => {
           if (cancelled || initializedRef.current) return;
@@ -168,6 +176,10 @@ export default function GeoMap({
             if (initialFeature) {
               draw.addFeatures([initialFeature as never]);
             }
+
+            setPolygon(safeInitialPolygon);
+            setMapLink(initialMapLink ?? buildMapLink(safeInitialPolygon[0]));
+            map.setCenter(safeInitialPolygon[0]);
           }
 
           draw.on("change", () => {
@@ -213,8 +225,9 @@ export default function GeoMap({
         drawRef.current?.stop();
       } catch {}
       drawRef.current = null;
+      googleMapRef.current = null;
     };
-  }, [safeInitialPolygon]);
+  }, [safeInitialPolygon, initialMapLink]);
 
   const handleDraw = () => {
     const draw = drawRef.current;
