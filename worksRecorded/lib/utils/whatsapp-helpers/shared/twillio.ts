@@ -121,3 +121,62 @@ export async function sendLocationRequest(to: string | null, prompt?: string) {
     console.error("❌ Meta location request send error:", res.status, res.statusText, errBody);
   }
 }
+
+export async function sendClockInCard(
+  to: string | null,
+  args: {
+    title?: string;
+    body?: string;
+    buttonText?: string;
+    url: string;
+  }
+) {
+  if (!to) return;
+  const title = args.title || "Clock in";
+  const body = args.body || "Tap button below to clock in with GPS verification.";
+  const buttonText = args.buttonText || "Clock in";
+
+  const metaCtx = metaReplyContext.getStore();
+  if (!metaCtx) {
+    await sendMessage(to, `${title}\n${body}\n${args.url}`);
+    return;
+  }
+
+  const token = process.env.META_ACCESS_TOKEN;
+  const recipient = normalizeMetaRecipient(to);
+  if (!token || !recipient) return;
+
+  const res = await fetch(
+    `https://graph.facebook.com/v18.0/${metaCtx.businessPhoneNumberId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: recipient,
+        type: "interactive",
+        interactive: {
+          type: "cta_url",
+          header: { type: "text", text: title },
+          body: { text: body },
+          action: {
+            name: "cta_url",
+            parameters: {
+              display_text: buttonText,
+              url: args.url,
+            },
+          },
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    console.error("❌ Meta clock-in card send error:", res.status, res.statusText, errBody);
+    await sendMessage(to, `${title}\n${body}\n${args.url}`);
+  }
+}

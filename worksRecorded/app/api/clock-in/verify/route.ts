@@ -5,6 +5,7 @@ import {
   parseGeofencePolygon,
   verifyClockInToken,
 } from "@/lib/utils/clock-in-link";
+import { sendMessage, SENDER_NUMBER } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 
 export async function POST(req: Request) {
   try {
@@ -30,6 +31,8 @@ export async function POST(req: Request) {
         },
       },
     });
+    const senderDigits = SENDER_NUMBER.replace(/^whatsapp:/i, "").replace(/\D/g, "");
+    const redirectUrl = senderDigits ? `https://wa.me/${senderDigits}` : null;
 
     if (!worker || !worker.siteId || worker.siteId !== payload.siteId || !worker.Site) {
       return Response.json({ ok: false, message: "Worker or site assignment not found." }, { status: 404 });
@@ -50,7 +53,7 @@ export async function POST(req: Request) {
 
     const clockStatus = await isWorkerClockedIn(worker.id);
     if (clockStatus.success && clockStatus.isClockedIn) {
-      return Response.json({ ok: true, message: "You are already clocked in." });
+      return Response.json({ ok: true, message: "You are already clocked in.", redirectUrl });
     }
 
     const now = new Date();
@@ -65,7 +68,18 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, message: `Clock-in failed: ${result.error ?? "Unknown error"}` }, { status: 500 });
     }
 
-    return Response.json({ ok: true, message: `Clock-in successful at ${worker.Site.name}.` });
+    const workerTo = worker.phone
+      ? worker.phone.startsWith("whatsapp:")
+        ? worker.phone
+        : `whatsapp:${worker.phone}`
+      : null;
+    await sendMessage(workerTo, `✅ Clock-in successful at ${worker.Site.name}.`);
+
+    return Response.json({
+      ok: true,
+      message: `Clock-in successful at ${worker.Site.name}. Returning to WhatsApp...`,
+      redirectUrl,
+    });
   } catch (error) {
     console.error("clock-in verify route error", error);
     return Response.json({ ok: false, message: "Unexpected server error." }, { status: 500 });

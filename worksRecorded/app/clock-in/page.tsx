@@ -40,6 +40,12 @@ export default function ClockInPage() {
 
           const data = await res.json().catch(() => null);
           setStatus(data?.message || "Unexpected response.");
+
+          if (res.ok && data?.ok && typeof data?.redirectUrl === "string") {
+            setTimeout(() => {
+              window.location.href = data.redirectUrl;
+            }, 1200);
+          }
         } catch {
           setStatus("Could not reach server. Please try again.");
         } finally {

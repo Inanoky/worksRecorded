@@ -4,6 +4,8 @@ import { prisma } from "@/lib/utils/db";
 import talkToClockInAgent from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/agent";
 import OpenAI, { toFile } from "openai";
 import { sendMessage } from "../shared/twillio";
+import { clockOutWorker } from "@/server/actions/timesheets-actions";
+import { startClockInFlow } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools";
 // UPDATE: Ensure this import path is correct for your file structure
 // (assuming handleImage.ts is in the same directory as this file based on surrounding context)
 import { handleImage } from "../shared/handleImage";
@@ -19,6 +21,11 @@ const authToken = process.env.TWILIO_AUTH_TOKEN!;
  * Supports both text and audio (voice) messages.
  */
 export async function handleWorkerMessage(phone: string, formData: FormData) {
+  const isClockInIntent = (text: string) =>
+    /\b(clock[\s-]?in|check[\s-]?in|start\s+work)\b/i.test(text.trim());
+  const isClockOutIntent = (text: string) =>
+    /\b(clock[\s-]?out|check[\s-]?out|finish\s+work|end\s+work)\b/i.test(text.trim());
+
   // Parse incoming message body and media info
   const body = (formData.get("Body") || "").toString().trim();
   const from = formData.get("From") as string;
@@ -113,6 +120,26 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
     if (messageText.length === 0) {
         // Handles cases where there was no message body and no transcribable audio
         return;
+    }
+
+    if (isClockInIntent(messageText) && worker.siteId) {
+      await startClockInFlow({ workerId: worker.id, siteId: worker.siteId });
+      return;
+    }
+
+    if (isClockOutIntent(messageText)) {
+      const now = new Date();
+      const result = await clockOutWorker({
+        workerId: worker.id,
+        clockOut: now,
+        location: "",
+        works: "",
+      });
+      await sendMessage(
+        from,
+        result.success ? "Clocked out successfully." : `Failed to clock out: ${result.error ?? "Unknown error"}`
+      );
+      return;
     }
 
     console.log("[handleWorkerMessage] Sending to talkToClockInAgent...");
