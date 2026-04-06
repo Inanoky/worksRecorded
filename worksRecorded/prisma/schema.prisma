@@ -448,3 +448,17 @@ model ai_news_feed {
   source_links     Json     @default("[]")
   created_at       DateTime @default(now()) @db.Timestamptz(6)
 }
+
+model ClockInChallenge {
+  id          String   @id @default(cuid())
+  workerId    String
+  siteId      String
+  tokenHash   String
+  sessionHash String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([workerId, siteId])
+  @@index([expiresAt])
+}
