@@ -104,12 +104,33 @@ export default async function talkToClockInAgent(question, workerId) {
         };
     };
 
+    const shouldContinueAfterTools = (state) => {
+        const { messages } = state;
+        const lastMessage = messages[messages.length - 1] as any;
+
+        const hasClockInCardSignal =
+            (typeof lastMessage?.content === "string" &&
+                lastMessage.content.includes(CLOCK_IN_CARD_SENT_TOKEN)) ||
+            (Array.isArray(lastMessage?.content) &&
+                lastMessage.content.some((entry: any) =>
+                    typeof entry?.text === "string" &&
+                    entry.text.includes(CLOCK_IN_CARD_SENT_TOKEN)
+                ));
+
+        if (hasClockInCardSignal) {
+            console.log("Clock-in card signal detected in tool output. Ending graph run without extra LLM reply.");
+            return END;
+        }
+
+        return "agent";
+    };
+
     const workflow = new StateGraph(state)
         .addNode("agent", agent)
         .addNode("tools", toolNode)
         .addEdge(START, "agent")
         .addConditionalEdges("agent", shouldContinue, ["tools", END])
-        .addEdge("tools", "agent") // <--- loop back to agent!
+        .addConditionalEdges("tools", shouldContinueAfterTools, ["agent", END])
 
     const checkpointer = PostgresSaver.fromConnString(
         process.env.DATABASE_URL
