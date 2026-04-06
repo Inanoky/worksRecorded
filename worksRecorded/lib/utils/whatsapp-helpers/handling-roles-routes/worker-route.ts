@@ -12,6 +12,16 @@ import { handleImage } from "../shared/handleImage";
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID!;
 const authToken = process.env.TWILIO_AUTH_TOKEN!;
+const metaAccessToken = process.env.META_ACCESS_TOKEN || "";
+
+function inferAudioExtension(contentType: string) {
+  const normalized = contentType.toLowerCase();
+  if (normalized.includes("ogg")) return "ogg";
+  if (normalized.includes("mpeg") || normalized.includes("mp3")) return "mp3";
+  if (normalized.includes("wav")) return "wav";
+  if (normalized.includes("m4a") || normalized.includes("mp4")) return "m4a";
+  return "ogg";
+}
 
 /**
  * Handles incoming worker WhatsApp messages,
@@ -73,16 +83,33 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
   if (NumMedia === "1") {
     const MediaUrl0 = formData.get("MediaUrl0") as string | null;
     const MediaContentType0 = (formData.get("MediaContentType0") || "").toString();
+    const MediaProvider0 = (formData.get("MediaProvider0") || "").toString().toLowerCase();
 
     if (MediaUrl0 && MediaContentType0.startsWith("audio")) {
       try {
         console.log("🎤 Audio message detected");
-        const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
-        const res = await fetch(MediaUrl0, {
-          headers: { Authorization: `Basic ${basicAuth}` },
-        });
+        const headers: Record<string, string> = {};
+        if (MediaProvider0 === "meta") {
+          if (!metaAccessToken) {
+            throw new Error("Missing META_ACCESS_TOKEN for Meta media download");
+          }
+          headers.Authorization = `Bearer ${metaAccessToken}`;
+        } else {
+          const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+          headers.Authorization = `Basic ${basicAuth}`;
+        }
+
+        const res = await fetch(MediaUrl0, { headers });
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          throw new Error(
+            `Failed to fetch audio media (${MediaProvider0 || "twilio"}): ${res.status} ${res.statusText} ${errText}`
+          );
+        }
+
         const buf = Buffer.from(await res.arrayBuffer());
-        const file = await toFile(buf, "voice-message.ogg");
+        const ext = inferAudioExtension(MediaContentType0);
+        const file = await toFile(buf, `voice-message.${ext}`);
 
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const transcriptResult = await openai.audio.transcriptions.create({
@@ -94,7 +121,11 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
         console.log("📝 Transcription result:", messageText);
       } catch (err) {
         console.error("Failed to transcribe audio message:", err);
-        // Fallback: will use plain body
+        await sendMessage(
+          from,
+          "Sorry, I couldn’t transcribe this voice message. Please try again or send your request as text."
+        );
+        return;
       }
     }
   }
