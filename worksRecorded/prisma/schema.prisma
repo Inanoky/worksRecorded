@@ -95,6 +95,8 @@ model Site {
   bisCaseNumber    String?
   bisCaseName      String?
   bisCaseStage     String?
+  geofenceMapLink    String?
+  geofencePolygon    Json?
   
   invoices          Invoices[]
   InvoiceItems      InvoiceItems[]
