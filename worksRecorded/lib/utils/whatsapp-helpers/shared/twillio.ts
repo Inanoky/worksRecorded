@@ -54,6 +54,10 @@ export async function runWithMetaReplyContext<T>(
   return metaReplyContext.run(context, fn);
 }
 
+export function getMetaReplyContext() {
+  return metaReplyContext.getStore() ?? null;
+}
+
 export async function sendMessage(to: string | null, message: string) {
   if (!to || !message) return;
   if (to === SENDER_NUMBER) return;

@@ -11,7 +11,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
 import { getOrganizationLanguageByWorkerId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
-import { sendClockInCard } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { getMetaReplyContext, sendClockInCard } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 import { createClockInToken } from "@/lib/utils/clock-in-link";
 
 async function buildSystemPromptSaveToDatabase(workerId: string) {
@@ -63,6 +63,7 @@ export async function startClockInFlow(args: { workerId: string; siteId: string 
     workerId,
     siteId,
     ttlSeconds: 15 * 60,
+    businessPhoneNumberId: getMetaReplyContext()?.businessPhoneNumberId,
   });
   const baseUrl =
     process.env.CLOCKIN_BROWSER_BASE_URL ||

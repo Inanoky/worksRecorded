@@ -5,7 +5,49 @@ import {
   parseGeofencePolygon,
   verifyClockInToken,
 } from "@/lib/utils/clock-in-link";
-import { sendMessage, SENDER_NUMBER } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+
+async function sendMetaTextFromRouteNumber(args: {
+  businessPhoneNumberId: string;
+  toPhone: string;
+  body: string;
+}) {
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token) return;
+  const to = args.toPhone.replace(/^whatsapp:/i, "").replace(/\D/g, "");
+  if (!to) return;
+
+  await fetch(`https://graph.facebook.com/v18.0/${args.businessPhoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      text: { body: args.body },
+    }),
+  });
+}
+
+async function getWaMeUrlForMetaRouteNumber(businessPhoneNumberId: string): Promise<string | null> {
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token) return null;
+
+  const res = await fetch(
+    `https://graph.facebook.com/v18.0/${businessPhoneNumberId}?fields=display_phone_number`,
+    {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  if (!res.ok) return null;
+
+  const data = await res.json().catch(() => null);
+  const digits = (data?.display_phone_number || "").toString().replace(/\D/g, "");
+  if (!digits) return null;
+  return `https://wa.me/${digits}`;
+}
 
 export async function POST(req: Request) {
   try {
@@ -31,8 +73,10 @@ export async function POST(req: Request) {
         },
       },
     });
-    const senderDigits = SENDER_NUMBER.replace(/^whatsapp:/i, "").replace(/\D/g, "");
-    const redirectUrl = senderDigits ? `https://wa.me/${senderDigits}` : null;
+    const businessPhoneNumberId = payload.businessPhoneNumberId || "";
+    const redirectUrl = businessPhoneNumberId
+      ? await getWaMeUrlForMetaRouteNumber(businessPhoneNumberId)
+      : null;
 
     if (!worker || !worker.siteId || worker.siteId !== payload.siteId || !worker.Site) {
       return Response.json({ ok: false, message: "Worker or site assignment not found." }, { status: 404 });
@@ -73,7 +117,13 @@ export async function POST(req: Request) {
         ? worker.phone
         : `whatsapp:${worker.phone}`
       : null;
-    await sendMessage(workerTo, `✅ Clock-in successful at ${worker.Site.name}.`);
+    if (businessPhoneNumberId && workerTo) {
+      await sendMetaTextFromRouteNumber({
+        businessPhoneNumberId,
+        toPhone: workerTo,
+        body: `✅ Clock-in successful at ${worker.Site.name}.`,
+      });
+    }
 
     return Response.json({
       ok: true,

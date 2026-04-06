@@ -4,6 +4,7 @@ type ClockInTokenPayload = {
   workerId: string;
   siteId: string;
   exp: number;
+  businessPhoneNumberId?: string;
 };
 
 function base64UrlEncode(input: string) {
@@ -33,6 +34,7 @@ export function createClockInToken(payload: {
   workerId: string;
   siteId: string;
   ttlSeconds?: number;
+  businessPhoneNumberId?: string;
 }) {
   const secret = getClockInSecret();
   if (!secret) throw new Error("Missing CLOCKIN_LINK_SECRET (or fallback secret).");
@@ -42,6 +44,7 @@ export function createClockInToken(payload: {
     workerId: payload.workerId,
     siteId: payload.siteId,
     exp,
+    businessPhoneNumberId: payload.businessPhoneNumberId,
   };
 
   const encodedBody = base64UrlEncode(JSON.stringify(body));
