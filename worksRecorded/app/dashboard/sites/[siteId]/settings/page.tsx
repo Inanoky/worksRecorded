@@ -182,6 +182,14 @@ export default async function SettingsSiteRoute({
     return [];
   })();
 
+  console.log("[SettingsSiteRoute] geofence debug", {
+    siteId,
+    geofencePolygonRaw: site?.geofencePolygon ?? null,
+    parsedPolygonCount: parsedPolygon.length,
+    parsedPolygonFirstPoint: parsedPolygon[0] ?? null,
+    geofenceMapLink: site?.geofenceMapLink ?? null,
+  });
+
   const statusMessageMap: Record<string, string> = {
     connected: "BIS authorization completed successfully.",
     disconnected:

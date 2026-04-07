@@ -42,7 +42,7 @@ function pointsToFeature(points: LatLngPoint[]): TerraFeature | null {
 
   return {
     type: "Feature",
-    properties: {},
+    properties: { mode: "polygon" },
     geometry: {
       type: "Polygon",
       coordinates: [
@@ -96,6 +96,14 @@ export default function GeoMap({
     () => sanitizePolygon(initialPolygon),
     [initialPolygon]
   );
+
+  useEffect(() => {
+    console.log("[GeoMap] initialPolygon received", {
+      count: safeInitialPolygon.length,
+      firstPoint: safeInitialPolygon[0] ?? null,
+      initialMapLink,
+    });
+  }, [initialMapLink, safeInitialPolygon]);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,8 +175,18 @@ export default function GeoMap({
           if (safeInitialPolygon.length >= 3) {
             const initialFeature = pointsToFeature(safeInitialPolygon);
             if (initialFeature) {
-              draw.addFeatures([initialFeature as never]);
+              console.log("[GeoMap] adding initial polygon feature", initialFeature);
+              try {
+                draw.addFeatures([initialFeature as never]);
+                console.log("[GeoMap] snapshot after addFeatures", draw.getSnapshot());
+              } catch (error) {
+                console.error("[GeoMap] addFeatures failed", error);
+              }
             }
+          } else {
+            console.log("[GeoMap] initial polygon skipped (needs >= 3 points)", {
+              count: safeInitialPolygon.length,
+            });
           }
 
           draw.on("change", () => {
