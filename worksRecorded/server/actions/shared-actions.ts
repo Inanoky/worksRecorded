@@ -243,6 +243,14 @@ export async function updateSiteAction(formData: FormData) {
   const subdirectory = formData.get("subdirectory") as string;
   const geofencePolygonRaw = (formData.get("geofencePolygon") as string) || "";
   const geofenceMapLink = (formData.get("geofenceMapLink") as string) || "";
+  console.log("[updateSiteAction] incoming payload", {
+    siteId,
+    hasName: Boolean(name),
+    hasDescription: Boolean(description),
+    hasSubdirectory: Boolean(subdirectory),
+    geofencePolygonRawLength: geofencePolygonRaw.length,
+    geofenceMapLink,
+  });
 
   if (!siteId || !name || !description || !subdirectory) {
     return { success: false, message: "Missing required fields" };
@@ -253,6 +261,7 @@ export async function updateSiteAction(formData: FormData) {
   if (geofencePolygonRaw.trim().length > 0) {
     try {
       geofencePolygon = JSON.parse(geofencePolygonRaw);
+      console.log("[updateSiteAction] parsed geofence polygon", geofencePolygon);
     } catch {
       return { success: false, message: "Invalid geofence polygon format." };
     }
@@ -270,7 +279,12 @@ export async function updateSiteAction(formData: FormData) {
       },
     });
 
-    redirect(`/dashboard/sites/${siteId}/settings?saved=${Date.now()}`);
+    const savedToken = Date.now();
+    console.log("[updateSiteAction] update success, redirecting", {
+      siteId,
+      savedToken,
+    });
+    redirect(`/dashboard/sites/${siteId}/settings?saved=${savedToken}`);
   } catch (err: any) {
     return { success: false, message: err.message || "Update failed." };
   }
