@@ -42,7 +42,7 @@ function pointsToFeature(points: LatLngPoint[]): TerraFeature | null {
 
   return {
     type: "Feature",
-    properties: {},
+    properties: { mode: "polygon" },
     geometry: {
       type: "Polygon",
       coordinates: [
@@ -104,6 +104,14 @@ export default function GeoMap({
   }, [safeInitialPolygon, initialMapLink]);
 
   useEffect(() => {
+    console.log("[GeoMap] initialPolygon received", {
+      count: safeInitialPolygon.length,
+      firstPoint: safeInitialPolygon[0] ?? null,
+      initialMapLink,
+    });
+  }, [initialMapLink, safeInitialPolygon]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function init() {
@@ -128,6 +136,7 @@ export default function GeoMap({
           center,
           zoom: 18,
           mapTypeId: "roadmap",
+          gestureHandling: "greedy",
           fullscreenControl: false,
           streetViewControl: false,
           mapTypeControl: true,
@@ -172,14 +181,30 @@ export default function GeoMap({
           draw.start();
 
           if (safeInitialPolygon.length >= 3) {
-            const initialFeature = pointsToFeature(safeInitialPolygon);
-            if (initialFeature) {
-              draw.addFeatures([initialFeature as never]);
-            }
+  const initialFeature = pointsToFeature(safeInitialPolygon);
+  if (initialFeature) {
+    console.log("[GeoMap] adding initial polygon feature", initialFeature);
+    try {
+      draw.addFeatures([initialFeature as never]);
 
-            setPolygon(safeInitialPolygon);
-            setMapLink(initialMapLink ?? buildMapLink(safeInitialPolygon[0]));
-            map.setCenter(safeInitialPolygon[0]);
+      const bounds = new google.maps.LatLngBounds();
+      for (const point of safeInitialPolygon) {
+        bounds.extend(point);
+      }
+
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, 80);
+      }
+
+      console.log("[GeoMap] snapshot after addFeatures", draw.getSnapshot());
+    } catch (error) {
+      console.error("[GeoMap] addFeatures failed", error);
+    }
+  }
+} else {
+            console.log("[GeoMap] initial polygon skipped (needs >= 3 points)", {
+              count: safeInitialPolygon.length,
+            });
           }
 
           draw.on("change", () => {
@@ -292,7 +317,7 @@ export default function GeoMap({
         </button>
       </div>
 
-      <div ref={mapRef} className="w-full h-80 rounded-lg border" />
+      <div ref={mapRef} className="w-full h-[40rem] rounded-lg border" />
 
       <input
         type="hidden"

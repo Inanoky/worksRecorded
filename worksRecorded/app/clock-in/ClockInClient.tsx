@@ -11,6 +11,7 @@ export default function ClockInClient() {
   const [busy, setBusy] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [challengeId, setChallengeId] = useState<string>("");
+  const [hideClockInButton, setHideClockInButton] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +69,7 @@ export default function ClockInClient() {
       return;
     }
 
+    setHideClockInButton(true);
     setBusy(true);
     setStatus("Getting GPS location...");
 
@@ -116,14 +118,16 @@ export default function ClockInClient() {
       <div className="w-full max-w-md rounded-xl border p-6 space-y-4">
         <h1 className="text-xl font-semibold">Clock in</h1>
         <p className="text-sm text-muted-foreground">{status}</p>
-        <button
-          type="button"
-          onClick={handleClockIn}
-          disabled={busy || initializing || !challengeId}
-          className="w-full rounded-lg bg-black text-white py-2 disabled:opacity-60"
-        >
-          {initializing ? "Preparing..." : busy ? "Working..." : "Clock in now"}
-        </button>
+        {!hideClockInButton ? (
+          <button
+            type="button"
+            onClick={handleClockIn}
+            disabled={busy || initializing || !challengeId}
+            className="w-full rounded-lg bg-black text-white py-2 disabled:opacity-60"
+          >
+            {initializing ? "Preparing..." : busy ? "Working..." : "Clock in now"}
+          </button>
+        ) : null}
       </div>
     </main>
   );

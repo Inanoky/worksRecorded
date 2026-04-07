@@ -1,6 +1,5 @@
 import InvoiceUpload from "@/components/settings/InvoiceUpload";
 // export const revalidate = 0
-import GeoMap from "@/components/settings/geomap";
 
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,12 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
-import {
-  getOrganizationIdByUserId,
-  updateSiteAction,
-} from "@/server/actions/shared-actions";
+import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 import DocumentUpload from "@/components/documents/DocumentsUpload";
 import XslxUpload from "@/components/settings/XlsxUpload";
@@ -44,7 +39,7 @@ import {
   getSiteBisConfig,
   getUserBisTokenByUserId,
 } from "@/server/actions/BIS/service";
-import { SettingsSavedToast } from "@/components/settings/SettingsSavedToast";
+import { UpdateSiteForm } from "./updatesiteform";
 
 export default async function SettingsSiteRoute({
   params,
@@ -114,9 +109,92 @@ export default async function SettingsSiteRoute({
   const bisMessage = Array.isArray(resolvedSearchParams.message)
     ? resolvedSearchParams.message[0]
     : resolvedSearchParams.message;
-  const saveStatus = Array.isArray(resolvedSearchParams.saved)
-    ? resolvedSearchParams.saved[0]
-    : resolvedSearchParams.saved;
+
+  const parsedPolygon = (() => {
+    const toPoints = (value: unknown): { lat: number; lng: number }[] => {
+      if (!Array.isArray(value)) return [];
+
+      return value
+        .map((point) => {
+          if (!point || typeof point !== "object") return null;
+          const candidate = point as { lat?: unknown; lng?: unknown };
+          if (
+            typeof candidate.lat !== "number" ||
+            typeof candidate.lng !== "number"
+          ) {
+            return null;
+          }
+          return { lat: candidate.lat, lng: candidate.lng };
+        })
+        .filter(
+          (point): point is { lat: number; lng: number } => Boolean(point)
+        );
+    };
+
+    const fromFeature = (value: unknown): { lat: number; lng: number }[] => {
+      if (!value || typeof value !== "object") return [];
+      const geometry = (
+        value as { geometry?: { type?: unknown; coordinates?: unknown } }
+      ).geometry;
+      if (
+        !geometry ||
+        geometry.type !== "Polygon" ||
+        !Array.isArray(geometry.coordinates)
+      ) {
+        return [];
+      }
+
+      const ring = geometry.coordinates[0];
+      if (!Array.isArray(ring) || ring.length < 4) return [];
+
+      return ring
+        .slice(0, -1)
+        .map((coordinate) => {
+          if (!Array.isArray(coordinate) || coordinate.length < 2) return null;
+          const [lng, lat] = coordinate;
+          if (typeof lat !== "number" || typeof lng !== "number") return null;
+          return { lat, lng };
+        })
+        .filter(
+          (point): point is { lat: number; lng: number } => Boolean(point)
+        );
+    };
+
+    const raw = site?.geofencePolygon;
+
+    if (Array.isArray(raw)) {
+      return toPoints(raw);
+    }
+
+    if (raw && typeof raw === "object") {
+      const points = fromFeature(raw);
+      return points.length > 0 ? points : toPoints(raw);
+    }
+
+    if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return toPoints(parsed);
+        if (parsed && typeof parsed === "object") {
+          const points = fromFeature(parsed);
+          if (points.length > 0) return points;
+          return toPoints(parsed);
+        }
+      } catch {
+        return [];
+      }
+    }
+
+    return [];
+  })();
+
+  console.log("[SettingsSiteRoute] geofence debug", {
+    siteId,
+    geofencePolygonRaw: site?.geofencePolygon ?? null,
+    parsedPolygonCount: parsedPolygon.length,
+    parsedPolygonFirstPoint: parsedPolygon[0] ?? null,
+    geofenceMapLink: site?.geofenceMapLink ?? null,
+  });
 
   const statusMessageMap: Record<string, string> = {
     connected: "BIS authorization completed successfully.",
@@ -132,7 +210,6 @@ export default async function SettingsSiteRoute({
 
   return (
     <>
-      <SettingsSavedToast shouldShow={saveStatus === "1"} />
       <div className="flex items-center gap-x-2 mb-6">
         <Button variant="outline" size="icon" asChild>
           <Link href={`/dashboard/sites/${siteId}/analytics`}>
@@ -160,89 +237,16 @@ export default async function SettingsSiteRoute({
         )}
       />
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Edit Site Info</CardTitle>
-          <CardDescription>
-            Update your site’s name, description, or subdirectory.
-          </CardDescription>
-        </CardHeader>
-
-        <form action={updateSiteAction}>
-          <input type="hidden" name="siteId" value={siteId} />
-
-          <div className="px-6 pb-2 flex flex-col gap-4">
-            <div>
-              <label className="block mb-1 text-sm font-medium" htmlFor="name">
-                Name
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2 text-base"
-                name="name"
-                id="name"
-                type="text"
-                required
-                defaultValue={site?.name || ""}
-              />
-            </div>
-
-            <div>
-              <label
-                className="block mb-1 text-sm font-medium"
-                htmlFor="description"
-              >
-                Description
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2 text-base"
-                name="description"
-                id="description"
-                type="text"
-                required
-                defaultValue={site?.description || ""}
-              />
-            </div>
-
-            <div>
-              <label
-                className="block mb-1 text-sm font-medium"
-                htmlFor="subdirectory"
-              >
-                Subdirectory
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2 text-base"
-                name="subdirectory"
-                id="subdirectory"
-                type="text"
-                required
-                defaultValue={site?.subdirectory || ""}
-              />
-            </div>
-
-            <div>
-              <label className="block mb-2 text-sm font-medium">
-                Site area
-              </label>
-              <GeoMap
-                initialPolygon={
-                  Array.isArray(site?.geofencePolygon)
-                    ? (site.geofencePolygon as { lat: number; lng: number }[])
-                    : []
-                }
-                initialMapLink={site?.geofenceMapLink ?? ""}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Draw the permitted site area for location-based worker clock-in.
-              </p>
-            </div>
-          </div>
-
-          <CardFooter>
-            <SubmitButton text="Save Changes" />
-          </CardFooter>
-        </form>
-      </Card>
+      <UpdateSiteForm
+        siteId={siteId}
+        site={{
+          name: site?.name ?? "",
+          description: site?.description ?? "",
+          subdirectory: site?.subdirectory ?? "",
+          geofenceMapLink: site?.geofenceMapLink ?? "",
+        }}
+        parsedPolygon={parsedPolygon}
+      />
 
       <Card className="border-red-500 bg-red-500/10">
         <CardHeader>
