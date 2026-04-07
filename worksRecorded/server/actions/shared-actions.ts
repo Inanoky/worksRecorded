@@ -270,7 +270,7 @@ export async function updateSiteAction(formData: FormData) {
       },
     });
 
-    redirect(`/dashboard/sites/${siteId}/settings?saved=1`);
+    redirect(`/dashboard/sites/${siteId}/settings?saved=${Date.now()}`);
   } catch (err: any) {
     return { success: false, message: err.message || "Update failed." };
   }

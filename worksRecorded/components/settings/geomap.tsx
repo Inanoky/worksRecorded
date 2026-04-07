@@ -279,7 +279,7 @@ export default function GeoMap({
         </button>
       </div>
 
-      <div ref={mapRef} className="w-full h-80 rounded-lg border" />
+      <div ref={mapRef} className="w-full h-[40rem] rounded-lg border" />
 
       <input
         type="hidden"

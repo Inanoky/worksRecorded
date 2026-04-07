@@ -117,6 +117,21 @@ export default async function SettingsSiteRoute({
   const saveStatus = Array.isArray(resolvedSearchParams.saved)
     ? resolvedSearchParams.saved[0]
     : resolvedSearchParams.saved;
+  const parsedPolygon = (() => {
+    const raw = site?.geofencePolygon;
+    if (Array.isArray(raw)) {
+      return raw as { lat: number; lng: number }[];
+    }
+    if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? (parsed as { lat: number; lng: number }[]) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  })();
 
   const statusMessageMap: Record<string, string> = {
     connected: "BIS authorization completed successfully.",
@@ -132,7 +147,7 @@ export default async function SettingsSiteRoute({
 
   return (
     <>
-      <SettingsSavedToast shouldShow={saveStatus === "1"} />
+      <SettingsSavedToast saveToken={saveStatus ?? null} />
       <div className="flex items-center gap-x-2 mb-6">
         <Button variant="outline" size="icon" asChild>
           <Link href={`/dashboard/sites/${siteId}/analytics`}>
@@ -225,11 +240,7 @@ export default async function SettingsSiteRoute({
                 Site area
               </label>
               <GeoMap
-                initialPolygon={
-                  Array.isArray(site?.geofencePolygon)
-                    ? (site.geofencePolygon as { lat: number; lng: number }[])
-                    : []
-                }
+                initialPolygon={parsedPolygon}
                 initialMapLink={site?.geofenceMapLink ?? ""}
               />
               <p className="text-xs text-muted-foreground mt-1">

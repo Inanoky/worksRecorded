@@ -1,16 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 
-export function SettingsSavedToast({ shouldShow }: { shouldShow: boolean }) {
-  const shownRef = useRef(false);
-
+export function SettingsSavedToast({ saveToken }: { saveToken: string | null }) {
   useEffect(() => {
-    if (!shouldShow || shownRef.current) return;
-    shownRef.current = true;
+    if (!saveToken) return;
     toast.success("Changes saved");
-  }, [shouldShow]);
+  }, [saveToken]);
 
   return null;
 }
