@@ -114,9 +114,6 @@ export default async function SettingsSiteRoute({
   const bisMessage = Array.isArray(resolvedSearchParams.message)
     ? resolvedSearchParams.message[0]
     : resolvedSearchParams.message;
-  const saveStatus = Array.isArray(resolvedSearchParams.saved)
-    ? resolvedSearchParams.saved[0]
-    : resolvedSearchParams.saved;
   const parsedPolygon = (() => {
     const toPoints = (value: unknown): { lat: number; lng: number }[] => {
       if (!Array.isArray(value)) return [];
@@ -204,7 +201,7 @@ export default async function SettingsSiteRoute({
 
   return (
     <>
-      <SettingsSavedToast saveToken={saveStatus ?? null} />
+      <SettingsSavedToast />
       <div className="flex items-center gap-x-2 mb-6">
         <Button variant="outline" size="icon" asChild>
           <Link href={`/dashboard/sites/${siteId}/analytics`}>
