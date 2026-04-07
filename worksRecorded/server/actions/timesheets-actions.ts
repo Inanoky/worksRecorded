@@ -12,10 +12,24 @@ export async function createTeamMember(formData: {
   phone: string 
 }) {
   try {
+    console.log("[createTeamMember] Start", {
+      name: formData.name,
+      surname: formData.surname,
+      siteId: formData.siteId ?? null,
+      hasPersonalId: !!formData.personalId,
+      phone: formData.phone,
+    });
+
     const user = await requireUser();
+    console.log("[createTeamMember] Authenticated user", { userId: user.id });
+
     const currentUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: { organizationId: true },
+    });
+    console.log("[createTeamMember] Resolved user org", {
+      userId: user.id,
+      organizationId: currentUser?.organizationId ?? null,
     });
 
     const worker = await prisma.workers.create({
@@ -29,8 +43,15 @@ export async function createTeamMember(formData: {
         organizationId: currentUser?.organizationId ?? null,
       },
     });
+    console.log("[createTeamMember] Worker created", {
+      workerId: worker.id,
+      workerOrganizationId: worker.organizationId ?? null,
+      siteId: worker.siteId ?? null,
+    });
+
     return { success: true, worker };
   } catch (error) {
+    console.error("[createTeamMember] Failed", error);
     return { success: false, error: "Failed to create team member" };
   }
 }
