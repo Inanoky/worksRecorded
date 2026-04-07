@@ -295,9 +295,9 @@ export default function GeoMap({
           disabled={!isReady}
           className="px-3 py-2 rounded border text-sm disabled:opacity-50"
         >
-          Draw area
+          Draw site area
         </button>
-
+{/* 
         <button
           type="button"
           onClick={handleEdit}
@@ -305,7 +305,7 @@ export default function GeoMap({
           className="px-3 py-2 rounded border text-sm disabled:opacity-50"
         >
           Edit area
-        </button>
+        </button> */}
 
         <button
           type="button"
@@ -332,23 +332,7 @@ export default function GeoMap({
         readOnly
       />
 
-      <div>
-        <label className="block mb-1 text-sm font-medium">Map link</label>
-        <input
-          className="w-full border rounded-lg px-3 py-2 text-sm"
-          value={mapLink}
-          readOnly
-        />
-      </div>
-
-      <div>
-        <label className="block mb-1 text-sm font-medium">Polygon JSON</label>
-        <textarea
-          className="w-full border rounded-lg px-3 py-2 text-sm min-h-32"
-          value={polygon.length > 0 ? JSON.stringify(polygon, null, 2) : ""}
-          readOnly
-        />
-      </div>
+   
 
       <p className="text-xs text-muted-foreground">{status}</p>
     </div>
