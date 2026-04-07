@@ -97,10 +97,12 @@ async function graphSendMessage(
 
 async function sendMetaTypingIndicator(
   businessPhoneNumberId: string,
-  messageId: string
+  messageId: string,
+  to: string
 ): Promise<void> {
   await graphSendMessage(businessPhoneNumberId, {
     messaging_product: "whatsapp",
+    to,
     status: "read",
     message_id: messageId,
     typing_indicator: {
@@ -298,7 +300,7 @@ export async function POST(req: Request): Promise<Response> {
 
     if (message && business_phone_number_id) {
       if (message.id && (message.type === "text" || message.type === "image" || message.type === "audio")) {
-        await sendMetaTypingIndicator(business_phone_number_id, message.id);
+        await sendMetaTypingIndicator(business_phone_number_id, message.id, message.from);
       }
 
       // 1) If user sends "action" -> send a Flow message

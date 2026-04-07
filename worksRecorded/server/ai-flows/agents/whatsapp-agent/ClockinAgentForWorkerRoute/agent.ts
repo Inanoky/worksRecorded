@@ -4,7 +4,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/prompts";
-import {toolNode, tools } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools"
+import { CLOCK_IN_CARD_SENT_TOKEN, toolNode, tools } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools"
 import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/server/actions/timesheets-actions";
 import { clickInAgentForWorkersModel, clockInAgentForWorkersModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getWorkerFullNameById } from "@/server/actions/whatsapp-actions";
@@ -104,12 +104,33 @@ export default async function talkToClockInAgent(question, workerId) {
         };
     };
 
+    const shouldContinueAfterTools = (state) => {
+        const { messages } = state;
+        const lastMessage = messages[messages.length - 1] as any;
+
+        const hasClockInCardSignal =
+            (typeof lastMessage?.content === "string" &&
+                lastMessage.content.includes(CLOCK_IN_CARD_SENT_TOKEN)) ||
+            (Array.isArray(lastMessage?.content) &&
+                lastMessage.content.some((entry: any) =>
+                    typeof entry?.text === "string" &&
+                    entry.text.includes(CLOCK_IN_CARD_SENT_TOKEN)
+                ));
+
+        if (hasClockInCardSignal) {
+            console.log("Clock-in card signal detected in tool output. Ending graph run without extra LLM reply.");
+            return END;
+        }
+
+        return "agent";
+    };
+
     const workflow = new StateGraph(state)
         .addNode("agent", agent)
         .addNode("tools", toolNode)
         .addEdge(START, "agent")
         .addConditionalEdges("agent", shouldContinue, ["tools", END])
-        .addEdge("tools", "agent") // <--- loop back to agent!
+        .addConditionalEdges("tools", shouldContinueAfterTools, ["agent", END])
 
     const checkpointer = PostgresSaver.fromConnString(
         process.env.DATABASE_URL
@@ -146,6 +167,23 @@ export default async function talkToClockInAgent(question, workerId) {
     }
 
     if (finalState && finalState.messages && finalState.messages.length > 0) {
+        const hasClockInCardSignal = finalState.messages.some((msg: any) => {
+            if (typeof msg?.content === "string") {
+                return msg.content.includes(CLOCK_IN_CARD_SENT_TOKEN);
+            }
+            if (Array.isArray(msg?.content)) {
+                return msg.content.some((entry: any) =>
+                    typeof entry?.text === "string" &&
+                    entry.text.includes(CLOCK_IN_CARD_SENT_TOKEN)
+                );
+            }
+            return false;
+        });
+
+        if (hasClockInCardSignal) {
+            return "";
+        }
+
         // Find the last actual message content (usually after tool execution)
         const lastContentMsg = finalState.messages.findLast(
             (msg: BaseMessage) => typeof msg.content === 'string' && msg.content.length > 0

@@ -122,6 +122,7 @@ export default function GeoMap({
           center,
           zoom: 18,
           mapTypeId: "roadmap",
+          gestureHandling: "greedy",
           fullscreenControl: false,
           streetViewControl: false,
           mapTypeControl: true,
@@ -279,7 +280,7 @@ export default function GeoMap({
         </button>
       </div>
 
-      <div ref={mapRef} className="w-full h-80 rounded-lg border" />
+      <div ref={mapRef} className="w-full h-[40rem] rounded-lg border" />
 
       <input
         type="hidden"

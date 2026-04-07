@@ -1,6 +1,6 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import { clockInWorker, clockOutWorker } from "@/server/actions/timesheets-actions";
+import { clockOutWorker } from "@/server/actions/timesheets-actions";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import { ChatOpenAI } from "@langchain/openai";
@@ -10,6 +10,9 @@ import defaultConfig from "@/components/sitediary/defaultConfig.json"
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
 import { getOrganizationLanguageByWorkerId } from "@/server/actions/shared-actions";
+import { prisma } from "@/lib/utils/db";
+import { getMetaReplyContext, sendClockInCard } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { createClockInToken } from "@/lib/utils/clock-in-link";
 
 async function buildSystemPromptSaveToDatabase(workerId: string) {
   const organizationLanguage = await getOrganizationLanguageByWorkerId(workerId);
@@ -22,30 +25,72 @@ async function buildSystemPromptSaveToDatabase(workerId: string) {
 
 
 
+export const CLOCK_IN_CARD_SENT_TOKEN = "__CLOCK_IN_CARD_SENT__";
+
+export async function startClockInFlow(args: { workerId: string; siteId: string }) {
+  const { workerId, siteId } = args;
+  const worker = await prisma.workers.findUnique({
+    where: { id: workerId },
+    select: {
+      id: true,
+      phone: true,
+      isClockedIn: true,
+      siteId: true,
+    },
+  });
+
+  if (!worker) {
+    return { messages: ["Failed to clock in: worker not found."] };
+  }
+
+  if (worker.isClockedIn) {
+    return { messages: ["You are already clocked in."] };
+  }
+
+  if (!worker.siteId || worker.siteId !== siteId) {
+    return { messages: ["Failed to clock in: worker is not assigned to this site."] };
+  }
+
+  if (!worker.phone) {
+    return { messages: ["Failed to clock in: worker phone is missing."] };
+  }
+
+  const normalizedRecipient = worker.phone.startsWith("whatsapp:")
+    ? worker.phone
+    : `whatsapp:${worker.phone}`;
+
+  const token = createClockInToken({
+    workerId,
+    siteId,
+    ttlSeconds: 15 * 60,
+    businessPhoneNumberId: getMetaReplyContext()?.businessPhoneNumberId,
+  });
+  const baseUrl =
+    process.env.CLOCKIN_BROWSER_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://unimperiously-unbilleted-soo.ngrok-free.dev";
+  const clockInLink = `${baseUrl.replace(/\/$/, "")}/clock-in?token=${encodeURIComponent(token)}`;
+
+  await sendClockInCard(normalizedRecipient, {
+    title: "Clock in",
+    body: "Tap the button to open GPS authorization and complete clock in.",
+    buttonText: "Clock in",
+    url: clockInLink,
+  });
+
+  return { messages: [CLOCK_IN_CARD_SENT_TOKEN] };
+}
+
 export const clockInWorkerTool = new DynamicStructuredTool({
   name: "ClockInWorker",
-  description: "Clock a worker in (start workday)",
+  description: "Start worker clock-in flow by sending a secure clock-in link that collects phone GPS in browser",
   schema: z.object({
     workerId: z.string().describe("The unique worker ID"),
      siteId: z.string().describe("Site Id "),
     
   }),
   async func({ workerId, siteId}) {
-
-    const now = new Date()
-
-    // Server action expects Date objects, not strings
-    const result = await clockInWorker({
-      workerId,
-      date: now,
-      clockIn: now,
-      siteId
-    });
-    if (result.success) {
-      return { messages: ["Clocked in successfully"] };
-    } else {
-      return { messages: [`Failed to clock in: ${result.error}`] };
-    }
+    return startClockInFlow({ workerId, siteId });
   }
 });
 
