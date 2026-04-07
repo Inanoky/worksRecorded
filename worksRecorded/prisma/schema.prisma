@@ -462,3 +462,45 @@ model ClockInChallenge {
   @@index([workerId, siteId])
   @@index([expiresAt])
 }
+
+model checkpoints {
+  thread_id            String
+  checkpoint_ns        String  @default("")
+  checkpoint_id        String
+  parent_checkpoint_id String?
+  type                 String?
+  checkpoint           Json
+  metadata             Json    @default("{}")
+
+  @@id([thread_id, checkpoint_ns, checkpoint_id])
+  @@map("checkpoints")
+}
+model checkpoint_writes {
+  thread_id     String
+  checkpoint_ns String @default("")
+  checkpoint_id String
+  task_id       String
+  idx           Int
+  channel       String
+  type          String?
+  blob          Bytes
+
+  @@id([thread_id, checkpoint_ns, checkpoint_id, task_id, idx])
+  @@map("checkpoint_writes")
+}
+model checkpoint_migrations {
+  v Int @id
+
+  @@map("checkpoint_migrations")
+}
+model checkpoint_blobs {
+  thread_id     String
+  checkpoint_ns String @default("")
+  channel       String
+  version       String
+  type          String
+  blob          Bytes?
+
+  @@id([thread_id, checkpoint_ns, channel, version])
+  @@map("checkpoint_blobs")
+}
