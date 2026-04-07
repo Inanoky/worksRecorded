@@ -122,6 +122,7 @@ export default function GeoMap({
           center,
           zoom: 18,
           mapTypeId: "roadmap",
+          gestureHandling: "greedy",
           fullscreenControl: false,
           streetViewControl: false,
           mapTypeControl: true,
