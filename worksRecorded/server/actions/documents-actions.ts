@@ -9,6 +9,7 @@ import {LoadEmbeddings} from "@/server/ai-flows/agents/shared-between-agents/loa
 import { Pinecone } from '@pinecone-database/pinecone'
 import { isLikelyScannedPdf } from "../../lib/utils/actions-helpers/is-likely-scanned-pdf";
 import { getOrganizationIdByUserId } from "./shared-actions";
+import { revalidateSiteCache } from "@/server/cache/revalidate-dashboard";
 
 
 
@@ -101,6 +102,7 @@ export const saveDocumentsToDB = async (_: unknown, formData: FormData) => {
     );
   }
 
+  revalidateSiteCache(siteId);
   return { accepted,total};
 }; //Multitenant 
 
@@ -154,13 +156,15 @@ export async function deleteDocuments(documentId: string, siteId: string) {
 
 
  await prisma.documents.delete({ where: { id: documentId } });
+  revalidateSiteCache(siteId);
   return { ok: true };
 }
 
 export async function updateDocuments(id: string, data: any) {
-  await prisma.documents.update({
+  const updated = await prisma.documents.update({
     where: { id },
     data,
   });
+  revalidateSiteCache(updated.siteId);
   return { ok: true };
 }

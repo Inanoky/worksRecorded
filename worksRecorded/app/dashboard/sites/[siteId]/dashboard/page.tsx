@@ -1,8 +1,4 @@
-import { getProjectNameBySiteId } from "@/server/actions/shared-actions";
-import { getInvoiceItemsFromDB, getInvoicesFromDB } from "@/server/actions/invoices-actions";
-
 import { ChartAreaInteractive } from "@/components/analytics/ChartAreaInteractive";
-import { getCurrentWeekMetrics, getDailyAggregatedCosts, getPreviousWeekMetrics, getCurrentWorkersOnSite } from "@/server/actions/analytics-actions";
 import { KeyMetricsDashboard } from "@/components/analytics/KeyMetricsDashboard/KeyMetricsDashboard";
 import AiWidgetRag from "@/components/ai/AiChat";
 import { notFound } from "next/navigation";
@@ -18,6 +14,15 @@ import WeeklyVehicleReportsMockupF25 from "@/components/mockups/vehicleReportMoc
 import ElectricalInstallationsInspectionReportMockup from "@/components/mockups/inspectiosnReportMockup";
 import InspectionReportsSummaryMockup from "@/components/mockups/inspectonReportsdashboard";
 import { getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
+import {
+  getCachedCurrentWeekMetrics,
+  getCachedCurrentWorkersOnSite,
+  getCachedDailyAggregatedCosts,
+  getCachedInvoiceItems,
+  getCachedInvoices,
+  getCachedPreviousWeekMetrics,
+  getCachedProjectName,
+} from "@/server/cache/dashboard-preload";
 
 export const maxDuration = 800;
 
@@ -58,13 +63,13 @@ export default async function InvoiceRoute({
     siteBisStatus,
     userBisToken,
   ] = await Promise.all([
-    getInvoicesFromDB(siteId),
-    getInvoiceItemsFromDB(siteId),
-    getDailyAggregatedCosts(siteId),
-    getProjectNameBySiteId(siteId),
-    getPreviousWeekMetrics(siteId),
-    getCurrentWeekMetrics(siteId),
-    getCurrentWorkersOnSite(siteId),
+    getCachedInvoices(siteId),
+    getCachedInvoiceItems(siteId),
+    getCachedDailyAggregatedCosts(siteId),
+    getCachedProjectName(siteId),
+    getCachedPreviousWeekMetrics(siteId),
+    getCachedCurrentWeekMetrics(siteId),
+    getCachedCurrentWorkersOnSite(siteId),
     getSiteBisConfig(siteId),
     getUserBisTokenByUserId(user.id),
   ]);

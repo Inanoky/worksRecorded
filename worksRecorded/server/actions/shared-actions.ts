@@ -11,6 +11,7 @@ import {requireUser} from "@/lib/utils/requireUser";
 import {stripe} from "@/lib/utils/stripe";
 import gptResponse from "@/server/ai-flows/agents/extractors/gpt-extractor-for-invoices";
 import { defaultProgram } from "@/lib/utils/DefaultProgram";
+import { revalidateSiteCache, revalidateUserSitesCache } from "@/server/cache/revalidate-dashboard";
 
 
 import { chunk } from "lodash";
@@ -124,7 +125,7 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
         }
 
     });
-
+    revalidateUserSitesCache(user.id);
 
         }
      return redirect("/dashboard/sites")
@@ -150,6 +151,7 @@ export async function UpdateImage(formData: FormData){
          }
 
      })
+    revalidateUserSitesCache(user.id);
 
     return redirect(`/dashboard/sites`)
 
@@ -163,13 +165,16 @@ export async function DeleteSite(formData: FormData){
     const user = await requireUser();
 
 
+    const siteId = formData.get('siteId') as string;
     await prisma.site.delete({
         where: {
             // userId: user.id,
-            id: formData.get('siteId') as string,
+            id: siteId,
 
         },
     })
+    revalidateUserSitesCache(user.id);
+    revalidateSiteCache(siteId);
     return redirect("/dashboard/sites")
 }
 
@@ -279,6 +284,8 @@ export async function updateSiteAction(formData: FormData) {
         geofenceMapLink,
       },
     });
+    revalidateSiteCache(siteId);
+    revalidateUserSitesCache((await requireUser()).id);
 
     console.log("[updateSiteAction] update success", { siteId });
 

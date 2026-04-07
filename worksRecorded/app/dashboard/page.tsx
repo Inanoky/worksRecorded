@@ -1,6 +1,5 @@
 // C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\dashboard\page.tsx
 
-import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { EmptyState } from "@/components/dashboard/EmptyState";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,21 +12,11 @@ import { PlusCircle } from "lucide-react";
 import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard_sites_open_project } from "@/components/joyride/JoyRideSteps";
+import { getCachedSitesForUser } from "@/server/cache/dashboard-preload";
 
 const SUPER_USER_IDS = new Set([
   process.env.SUPERADMIN
 ]);
-
-async function getData(orgId: string | null, isSuperUser: boolean) {
-  const [sites] = await Promise.all([
-    prisma.site.findMany({
-      where: isSuperUser ? {} : { organizationId: orgId ?? "" },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
-
-  return { sites };
-}
 
 export default async function DashboardIndexPage() {
   const user = await requireUser();
@@ -36,7 +25,7 @@ export default async function DashboardIndexPage() {
 
   const org = isSuperUser ? null : await getOrganizationIdByUserId(user.id);
 
-  const { sites } = await getData(org, isSuperUser);
+  const sites = await getCachedSitesForUser(user.id, org, isSuperUser);
 
   return (
     <>
