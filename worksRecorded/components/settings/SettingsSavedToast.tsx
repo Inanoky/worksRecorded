@@ -6,7 +6,7 @@ import { toast } from "sonner";
 export function SettingsSavedToast({ saveToken }: { saveToken: string | null }) {
   useEffect(() => {
     if (!saveToken) return;
-    toast.success("Changes saved");
+    toast.success("Saved successfully");
   }, [saveToken]);
 
   return null;

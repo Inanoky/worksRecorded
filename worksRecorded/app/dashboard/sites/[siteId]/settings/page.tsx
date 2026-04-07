@@ -118,18 +118,67 @@ export default async function SettingsSiteRoute({
     ? resolvedSearchParams.saved[0]
     : resolvedSearchParams.saved;
   const parsedPolygon = (() => {
+    const toPoints = (value: unknown): { lat: number; lng: number }[] => {
+      if (!Array.isArray(value)) return [];
+
+      return value
+        .map((point) => {
+          if (!point || typeof point !== "object") return null;
+          const candidate = point as { lat?: unknown; lng?: unknown };
+          if (typeof candidate.lat !== "number" || typeof candidate.lng !== "number") {
+            return null;
+          }
+          return { lat: candidate.lat, lng: candidate.lng };
+        })
+        .filter((point): point is { lat: number; lng: number } => Boolean(point));
+    };
+
+    const fromFeature = (value: unknown): { lat: number; lng: number }[] => {
+      if (!value || typeof value !== "object") return [];
+      const geometry = (value as { geometry?: { type?: unknown; coordinates?: unknown } }).geometry;
+      if (!geometry || geometry.type !== "Polygon" || !Array.isArray(geometry.coordinates)) {
+        return [];
+      }
+
+      const ring = geometry.coordinates[0];
+      if (!Array.isArray(ring) || ring.length < 4) return [];
+
+      return ring
+        .slice(0, -1)
+        .map((coordinate) => {
+          if (!Array.isArray(coordinate) || coordinate.length < 2) return null;
+          const [lng, lat] = coordinate;
+          if (typeof lat !== "number" || typeof lng !== "number") return null;
+          return { lat, lng };
+        })
+        .filter((point): point is { lat: number; lng: number } => Boolean(point));
+    };
+
     const raw = site?.geofencePolygon;
+
     if (Array.isArray(raw)) {
-      return raw as { lat: number; lng: number }[];
+      return toPoints(raw);
     }
+
+    if (raw && typeof raw === "object") {
+      const points = fromFeature(raw);
+      return points.length > 0 ? points : toPoints(raw);
+    }
+
     if (typeof raw === "string") {
       try {
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? (parsed as { lat: number; lng: number }[]) : [];
+        if (Array.isArray(parsed)) return toPoints(parsed);
+        if (parsed && typeof parsed === "object") {
+          const points = fromFeature(parsed);
+          if (points.length > 0) return points;
+          return toPoints(parsed);
+        }
       } catch {
         return [];
       }
     }
+
     return [];
   })();
 
