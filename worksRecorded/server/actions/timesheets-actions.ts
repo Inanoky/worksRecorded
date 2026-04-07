@@ -1,6 +1,7 @@
 "use server";
 import {prisma} from "@/lib/utils/db";
 import { revalidatePath } from "next/cache";
+import { requireUser } from "@/lib/utils/requireUser";
 
 
 export async function createTeamMember(formData: {
@@ -11,6 +12,12 @@ export async function createTeamMember(formData: {
   phone: string 
 }) {
   try {
+    const user = await requireUser();
+    const currentUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { organizationId: true },
+    });
+
     const worker = await prisma.workers.create({
       data: {
         name: formData.name,
@@ -19,6 +26,7 @@ export async function createTeamMember(formData: {
         siteId: formData.siteId || null,
         phone: formData.phone,
         isClockedIn: false,
+        organizationId: currentUser?.organizationId ?? null,
       },
     });
     return { success: true, worker };
