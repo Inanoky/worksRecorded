@@ -173,17 +173,27 @@ export default function GeoMap({
           draw.start();
 
           if (safeInitialPolygon.length >= 3) {
-            const initialFeature = pointsToFeature(safeInitialPolygon);
-            if (initialFeature) {
-              console.log("[GeoMap] adding initial polygon feature", initialFeature);
-              try {
-                draw.addFeatures([initialFeature as never]);
-                console.log("[GeoMap] snapshot after addFeatures", draw.getSnapshot());
-              } catch (error) {
-                console.error("[GeoMap] addFeatures failed", error);
-              }
-            }
-          } else {
+  const initialFeature = pointsToFeature(safeInitialPolygon);
+  if (initialFeature) {
+    console.log("[GeoMap] adding initial polygon feature", initialFeature);
+    try {
+      draw.addFeatures([initialFeature as never]);
+
+      const bounds = new google.maps.LatLngBounds();
+      for (const point of safeInitialPolygon) {
+        bounds.extend(point);
+      }
+
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, 80);
+      }
+
+      console.log("[GeoMap] snapshot after addFeatures", draw.getSnapshot());
+    } catch (error) {
+      console.error("[GeoMap] addFeatures failed", error);
+    }
+  }
+} else {
             console.log("[GeoMap] initial polygon skipped (needs >= 3 points)", {
               count: safeInitialPolygon.length,
             });

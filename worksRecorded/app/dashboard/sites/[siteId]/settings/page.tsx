@@ -1,6 +1,5 @@
 import InvoiceUpload from "@/components/settings/InvoiceUpload";
 // export const revalidate = 0
-import GeoMap from "@/components/settings/geomap";
 
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,12 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
-import {
-  getOrganizationIdByUserId,
-  updateSiteAction,
-} from "@/server/actions/shared-actions";
+import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 import DocumentUpload from "@/components/documents/DocumentsUpload";
 import XslxUpload from "@/components/settings/XlsxUpload";
@@ -44,7 +39,7 @@ import {
   getSiteBisConfig,
   getUserBisTokenByUserId,
 } from "@/server/actions/BIS/service";
-import { SettingsSavedToast } from "@/components/settings/SettingsSavedToast";
+import { UpdateSiteForm } from "./updatesiteform";
 
 export default async function SettingsSiteRoute({
   params,
@@ -114,6 +109,7 @@ export default async function SettingsSiteRoute({
   const bisMessage = Array.isArray(resolvedSearchParams.message)
     ? resolvedSearchParams.message[0]
     : resolvedSearchParams.message;
+
   const parsedPolygon = (() => {
     const toPoints = (value: unknown): { lat: number; lng: number }[] => {
       if (!Array.isArray(value)) return [];
@@ -122,18 +118,29 @@ export default async function SettingsSiteRoute({
         .map((point) => {
           if (!point || typeof point !== "object") return null;
           const candidate = point as { lat?: unknown; lng?: unknown };
-          if (typeof candidate.lat !== "number" || typeof candidate.lng !== "number") {
+          if (
+            typeof candidate.lat !== "number" ||
+            typeof candidate.lng !== "number"
+          ) {
             return null;
           }
           return { lat: candidate.lat, lng: candidate.lng };
         })
-        .filter((point): point is { lat: number; lng: number } => Boolean(point));
+        .filter(
+          (point): point is { lat: number; lng: number } => Boolean(point)
+        );
     };
 
     const fromFeature = (value: unknown): { lat: number; lng: number }[] => {
       if (!value || typeof value !== "object") return [];
-      const geometry = (value as { geometry?: { type?: unknown; coordinates?: unknown } }).geometry;
-      if (!geometry || geometry.type !== "Polygon" || !Array.isArray(geometry.coordinates)) {
+      const geometry = (
+        value as { geometry?: { type?: unknown; coordinates?: unknown } }
+      ).geometry;
+      if (
+        !geometry ||
+        geometry.type !== "Polygon" ||
+        !Array.isArray(geometry.coordinates)
+      ) {
         return [];
       }
 
@@ -148,7 +155,9 @@ export default async function SettingsSiteRoute({
           if (typeof lat !== "number" || typeof lng !== "number") return null;
           return { lat, lng };
         })
-        .filter((point): point is { lat: number; lng: number } => Boolean(point));
+        .filter(
+          (point): point is { lat: number; lng: number } => Boolean(point)
+        );
     };
 
     const raw = site?.geofencePolygon;
@@ -201,7 +210,6 @@ export default async function SettingsSiteRoute({
 
   return (
     <>
-      <SettingsSavedToast />
       <div className="flex items-center gap-x-2 mb-6">
         <Button variant="outline" size="icon" asChild>
           <Link href={`/dashboard/sites/${siteId}/analytics`}>
@@ -229,85 +237,16 @@ export default async function SettingsSiteRoute({
         )}
       />
 
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Edit Site Info</CardTitle>
-          <CardDescription>
-            Update your site’s name, description, or subdirectory.
-          </CardDescription>
-        </CardHeader>
-
-        <form action={updateSiteAction}>
-          <input type="hidden" name="siteId" value={siteId} />
-
-          <div className="px-6 pb-2 flex flex-col gap-4">
-            <div>
-              <label className="block mb-1 text-sm font-medium" htmlFor="name">
-                Name
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2 text-base"
-                name="name"
-                id="name"
-                type="text"
-                required
-                defaultValue={site?.name || ""}
-              />
-            </div>
-
-            <div>
-              <label
-                className="block mb-1 text-sm font-medium"
-                htmlFor="description"
-              >
-                Description
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2 text-base"
-                name="description"
-                id="description"
-                type="text"
-                required
-                defaultValue={site?.description || ""}
-              />
-            </div>
-
-            <div>
-              <label
-                className="block mb-1 text-sm font-medium"
-                htmlFor="subdirectory"
-              >
-                Subdirectory
-              </label>
-              <input
-                className="w-full border rounded-lg px-3 py-2 text-base"
-                name="subdirectory"
-                id="subdirectory"
-                type="text"
-                required
-                defaultValue={site?.subdirectory || ""}
-              />
-            </div>
-
-            <div>
-              <label className="block mb-2 text-sm font-medium">
-                Site area
-              </label>
-              <GeoMap
-                initialPolygon={parsedPolygon}
-                initialMapLink={site?.geofenceMapLink ?? ""}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Draw the permitted site area for location-based worker clock-in.
-              </p>
-            </div>
-          </div>
-
-          <CardFooter>
-            <SubmitButton text="Save Changes" />
-          </CardFooter>
-        </form>
-      </Card>
+      <UpdateSiteForm
+        siteId={siteId}
+        site={{
+          name: site?.name ?? "",
+          description: site?.description ?? "",
+          subdirectory: site?.subdirectory ?? "",
+          geofenceMapLink: site?.geofenceMapLink ?? "",
+        }}
+        parsedPolygon={parsedPolygon}
+      />
 
       <Card className="border-red-500 bg-red-500/10">
         <CardHeader>

@@ -243,6 +243,7 @@ export async function updateSiteAction(formData: FormData) {
   const subdirectory = formData.get("subdirectory") as string;
   const geofencePolygonRaw = (formData.get("geofencePolygon") as string) || "";
   const geofenceMapLink = (formData.get("geofenceMapLink") as string) || "";
+
   console.log("[updateSiteAction] incoming payload", {
     siteId,
     hasName: Boolean(name),
@@ -279,12 +280,9 @@ export async function updateSiteAction(formData: FormData) {
       },
     });
 
-    const savedToken = Date.now();
-    console.log("[updateSiteAction] update success, redirecting", {
-      siteId,
-      savedToken,
-    });
-    redirect(`/dashboard/sites/${siteId}/settings?saved=${savedToken}`);
+    console.log("[updateSiteAction] update success", { siteId });
+
+    return { success: true };
   } catch (err: any) {
     return { success: false, message: err.message || "Update failed." };
   }
