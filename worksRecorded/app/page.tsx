@@ -27,5 +27,5 @@ export default async function Home({ searchParams }: RootPageProps) {
     return redirect(`/api/bis/callback?${callbackParams.toString()}`);
   }
 
-  return redirect("/Landing");
+  return redirect("/en");
 }

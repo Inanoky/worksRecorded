@@ -72,6 +72,7 @@ export async function editTeamMember(formData: {
   name?: string;
   surname?: string;
   personalId?: string;
+  phone?: string;
   siteId?: string | null;
 }) {
   try {
@@ -81,6 +82,7 @@ export async function editTeamMember(formData: {
         name: formData.name,
         surname: formData.surname,
         personalId: formData.personalId,
+        phone: formData.phone,
         siteId: formData.siteId,
       },
     });
@@ -468,6 +470,7 @@ export async function getWorkersBySiteId(siteId) {
     id: row.id,
     name: row.name ?? "",
     surname: row.surname ?? "",
+    personalId: row.personalId ?? "",
     phone: row.phone ?? "",
     isClockedIn: row.isClockedIn ? "Yes" : "No",
     // If you want to show info from most recent timelog (optional)

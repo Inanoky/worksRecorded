@@ -11,8 +11,7 @@ import {
 import { useLocale } from "next-intl";
 
 export default function FooterDesktop() {
-
-    const locale = useLocale(); // ✅ en / lv / etc
+  const locale = useLocale();
 
   return (
     <>
@@ -36,18 +35,18 @@ export default function FooterDesktop() {
           <h1>Data</h1>
 
           <p>
-            <Link   href={`/${locale}/Landing/SiteDiary`} className="underline text-muted-foreground">
+            <Link href={`/${locale}/Landing/SiteDiary`} className="underline text-muted-foreground">
               Site diary
             </Link>
           </p>
-   
+
           <p>
             <Link href={`/${locale}/Landing/Timesheets`} className="underline text-muted-foreground">
               Timesheets
             </Link>
           </p>
           <p>
-            <Link href={`/${locale}/Landing/Analytics`}className="underline text-muted-foreground">
+            <Link href={`/${locale}/Landing/Analytics`} className="underline text-muted-foreground">
               Analytics
             </Link>
           </p>
@@ -67,8 +66,13 @@ export default function FooterDesktop() {
               </Link>
             </p>
             <p>
-              <Link href={`/${locale}/Landing/About`}className="underline">
+              <Link href={`/${locale}/Landing/About`} className="underline">
                 About
+              </Link>
+            </p>
+            <p>
+              <Link href={`/${locale}/Landing/Privacy`} className="underline">
+                Privacy Policy
               </Link>
             </p>
           </div>
