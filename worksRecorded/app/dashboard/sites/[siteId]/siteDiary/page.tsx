@@ -1,7 +1,6 @@
 // app/[...]/page.tsx  (Server Component)
 import SiteDiaryCalendar from "@/components/sitediary/Calendar";
 import AiWidgetRag from "@/components/ai/AiChat";
-import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";

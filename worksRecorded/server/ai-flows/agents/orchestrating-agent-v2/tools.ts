@@ -1,13 +1,12 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import {retriever} from "@/server/ai-flows/agents/shared-between-agents/retrievers";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
-import InvoiceAgent from "@/server/ai-flows/agents/invoices-agent/agent";
+
 import SiteDiaryAgent from "@/server/ai-flows/agents/sitediary-agent/agent";
 import TimesheetsAgent from "@/server/ai-flows/agents/timeshets-agent/agent";
 import { siteDiaryToDatabaseTool } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
-import { ChatOpenAI } from "@langchain/openai";
+
 import OpenAI from "openai";
 
 
@@ -18,33 +17,7 @@ const client = new OpenAI({
 
 
 
-export const constructionDocumentationTool = new DynamicStructuredTool({
-  name: "constructionDocumentationTool",
-  description: "This tool has access to all project legal and technical documentation",
-  schema: z.object({
-    prompt: z.string(),
-    siteId: z.string(),
-  }),
-  async func({ prompt, siteId }) {
-    return await retriever(prompt, siteId);
-  },
-});
 
-export const invoiceAgentTool = new DynamicStructuredTool({
-  name: "invoiceAgentTool",
-  description: "This tool has acess to all invoices in the project",
-  schema: z.object({
-    prompt: z.string(),
-    siteId: z.string(),
-  }),
-  async func({ prompt, siteId }) {
-
-      const result = await InvoiceAgent(prompt, siteId);
-    // console.log("[general_sql_agent] Tool returned:", result);
-    return result;
-
-  },
-});
 
 
 

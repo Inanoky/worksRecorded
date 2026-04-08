@@ -1,5 +1,4 @@
 // app/Landing/ContactForm/email-template.tsx
-import * as React from "react";
 
 export function EmailTemplate(props: {
   firstName: string;

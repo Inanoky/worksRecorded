@@ -8,7 +8,8 @@ import {getSiteDiarySchema} from "@/server/actions/site-diary-actions";
 import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 import {HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
 import { systemPromptSaveToDatabaseFunction } from "./prompts";
-import defaultConfig from "@/components/sitediary/defaultConfig.json"
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
+
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
 

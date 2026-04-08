@@ -8,13 +8,11 @@ import Dashboard from "@/public/frontend/pages/Home/Dashboard.png";
 import Dashboard2 from "@/public/frontend/pages/Home/Dashboard2.png";
 import { Features } from "@/components/landing/Features";
 import {
-  Header,
-  Header2,
-  SmallDescription,
+
   WhatDoWeDo,
   HowDoWeDoThat,
   Why,
-  NoIntegration,
+
 } from "@/components/landing/Landing/Text";
 
 export default function LandingPageMobile() {

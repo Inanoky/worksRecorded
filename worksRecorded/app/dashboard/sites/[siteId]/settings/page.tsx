@@ -1,4 +1,4 @@
-import InvoiceUpload from "@/components/settings/InvoiceUpload";
+
 // export const revalidate = 0
 
 import { ChevronLeft } from "lucide-react";
@@ -14,22 +14,17 @@ import {
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
 import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
-import DocumentUpload from "@/components/documents/DocumentsUpload";
-import XslxUpload from "@/components/settings/XlsxUpload";
-import { SchemaCard } from "@/components/settings/SchemaCard";
-import { TemplateCard } from "@/components/settings/Templates";
+
 import { ConfirmDeleteSite } from "@/components/settings/ConfirmDeleteSite";
 
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
-import { MembersTable } from "@/components/settings/MembersTable";
-import { getUserData } from "@/server/actions/settings-actions";
-import TourRunner from "@/components/joyride/TourRunner";
 
-import Reminder from "@/components/settings/ReminderUI";
+import { getUserData } from "@/server/actions/settings-actions";
+
 import {
-  getRemindersData,
+
   getReminderTimes,
   getDataForReminderTable,
 } from "@/server/actions/reminder-actions";

@@ -8,10 +8,10 @@ import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
 import { WhatsAppIcon } from "@/components/ui/whatsappIcon";
-import LandingHero from "@/public/frontend/pages/Home/LandingHero.png";
+
 import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
 
-import { Features } from "@/components/landing/Features";
+
 import { WhatDoWeDo, HowDoWeDoThat, Why } from "@/components/landing/Landing/Text";
 
 export default function LandingPage() {

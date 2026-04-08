@@ -11,7 +11,7 @@ export const navLinks = [
         icon: HardHat,
     },
         {
-        name: 'Invite Colleagues',
+        name: 'Organization settings',
         href: '/dashboard/settings',
         icon: HardHat,
     },

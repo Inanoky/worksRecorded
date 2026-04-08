@@ -3,14 +3,12 @@
 import { prisma } from "@/lib/utils/db";
 import { requireBisAccessTokenForSite, getBisBaseUrl } from "@/server/actions/BIS/service";
 import { requireUser } from "@/lib/utils/requireUser";
-import { parseExcelToTree } from "@/server/ai-flows/agents/settings/schema-upload/agent"; // Optional: if you want to refresh data on page
-import { validateExcel } from "@/lib/utils/SiteDiary/Settings/validateSchema";
+
 import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
 import { getOrganizationIdByWorkerId, orgCheck } from "./shared-actions";
 import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
-import { Turret_Road } from "next/font/google";
-import { isQuestionDotToken } from "typescript";
+
 
 //nothing
 
@@ -1466,63 +1464,6 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
   return Array.from(daysSet).sort((a, b) => a - b);
 }
 
-export async function saveSettingsToDB(formData: FormData) {
-  //Multitenant
-
-  const user = await requireUser();
-  const org = await getOrganizationIdByUserId(user.id);
-
-  const siteId = formData.get("siteId") as string;
-  let urls = formData.get("fileUrls");
-  let fileUrl = "";
-
-  if (Array.isArray(urls)) {
-    fileUrl = urls[0] || "";
-  } else if (typeof urls === "string") {
-    try {
-      const parsed = JSON.parse(urls);
-      fileUrl = Array.isArray(parsed) ? (parsed[0] ?? "") : parsed;
-    } catch {
-      fileUrl = urls;
-    }
-  }
-
-  if (!siteId || !fileUrl) {
-    throw new Error("Missing siteId or fileUrl");
-  }
-
-  // ✅ Download file buffer and validate
-  const res = await fetch(fileUrl);
-  if (!res.ok) throw new Error(`Failed to download file. HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-
-  // Throws if invalid, otherwise returns true
-  validateExcel(buf);
-  console.log("✅ Excel validation passed");
-
-  // 1) Run AI – normalize to an array before saving
-  let schemaStr: string | null = null;
-  try {
-    const result = await parseExcelToTree(fileUrl, buf); // could be Node[] or { tree: Node[] }
-    const treeArray = Array.isArray(result) ? result : result?.tree;
-    if (Array.isArray(treeArray)) {
-      schemaStr = JSON.stringify(treeArray);
-    } else {
-      console.warn("AI returned unexpected shape; skipping schema save.");
-    }
-  } catch (err) {
-    console.error("AI parse failed; saving fileUrl only:", err);
-  }
-
-  // 2) Upsert
-  await prisma.sitediarysettings.upsert({
-    where: { siteId },
-    update: { fileUrl, schema: schemaStr, organizationId: org },
-    create: { siteId, fileUrl, schema: schemaStr, organizationId: org },
-  });
-
-  return { success: true, siteId, fileUrl, schemaSaved: Boolean(schemaStr) };
-}
 
 export async function getSiteDiarySchema({ siteId }) {
   if (!siteId) return null;

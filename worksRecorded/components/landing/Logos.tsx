@@ -1,6 +1,5 @@
 
 import Image from "next/image"
-import KindeLogo from '@/public/logos/kinde.svg'
 import DepromLogo from '@/public/logos/deprom.svg'
 import Nextjs from '@/public/logos/nextjs.svg'
 

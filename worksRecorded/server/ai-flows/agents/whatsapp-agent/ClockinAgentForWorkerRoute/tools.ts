@@ -6,7 +6,8 @@ import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import { ChatOpenAI } from "@langchain/openai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
-import defaultConfig from "@/components/sitediary/defaultConfig.json"
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
+
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
 import { getOrganizationLanguageByWorkerId } from "@/server/actions/shared-actions";

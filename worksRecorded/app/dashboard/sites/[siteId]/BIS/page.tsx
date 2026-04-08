@@ -1485,20 +1485,10 @@ export default async function MaterialsPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Warehouse</h1>
         <p className="text-sm text-muted-foreground">
-          Review all warehouse material records here. BIS sending, approval, and sync actions appear when BIS is connected and this site is linked to a BIS case.
+          Send delivery note/invoice note to WhatsaApp WorksRecorded, line items will appear hear
         </p>
       </div>
 
-      {!bisEnabled ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Warehouse is available without BIS</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            You can review warehouse records even when BIS is disconnected. Connect BIS and select a site case in Settings to enable BIS material mapping, send-to-BIS, and approval actions.
-          </CardContent>
-        </Card>
-      ) : null}
 
       <MaterialsTableClient
         siteId={siteId}

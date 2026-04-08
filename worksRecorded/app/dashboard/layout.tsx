@@ -2,8 +2,7 @@
 
 import { ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import Logo from "@/public/buvconsultLogo.svg";
+
 import { DashboardItems } from "@/components/dashboard/DashboardItems";
 import { BadgeQuestionMark, CircleUser, X } from "lucide-react";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
@@ -66,7 +65,7 @@ export default async function DashboardLayout({
 
             {/* Logo - smaller on mobile */}
             <Link href="/" className="flex items-center gap-2 font-semibold">
-              <Image src={Logo} alt="Logo" className="size-8 lg:size-12" />
+            
               <h3 className="text-xl lg:text-2xl">
                 Works<span className="text-green-700">Recorded</span>
               </h3>

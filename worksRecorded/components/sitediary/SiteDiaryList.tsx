@@ -37,7 +37,7 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
-import TourRunner from "@/components/joyride/TourRunner";
+
 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -94,7 +94,8 @@ import {
 // 👇 NEW: full gallery view
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
-import defaultConfig from "./defaultConfig.json";
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
+
 import { toast } from "sonner";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

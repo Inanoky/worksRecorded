@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 
 import { Inter } from "next/font/google";
 import "@/app/globals.css";
-import {ThemeProvider} from "@/components/dashboard/ThemeProvider";
+
 import {Toaster} from "@/components/ui/sonner"
 
 import { useIsMobile } from "@/lib/utils/hooks/use-mobile"

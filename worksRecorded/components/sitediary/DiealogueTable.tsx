@@ -33,8 +33,7 @@ import {
 import { toast } from "sonner";
 import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
-import defaultConfig from "./defaultConfig.json"
-import GMCIRLmap from "./GMCIRLmap.json"
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 
 
 //--------Loading config------------

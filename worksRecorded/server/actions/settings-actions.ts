@@ -2,7 +2,8 @@
 
 import { prisma } from "@/lib/utils/db";
 import { Resend } from "resend";
-import defaultConfig from "@/components/sitediary/defaultConfig.json";
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
+
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 

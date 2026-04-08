@@ -26,15 +26,7 @@ const table_definition = `
 export function systemPrompt(siteId: string) {
 
 
-const systemPrompt_dd_mm_yyyy = `Answer user queries using the postreSQL_site_diary_records_database_query_tool. When needed,
- construct a valid SQL query based on the table definition below to retrieve information from the database.
- Summarize information and present to the user\n
- Always filter(scope) by siteId.\n
- '''\n
- ${table_definition} \n
- '''\n
- siteId: ${siteId}\n
- `
+
 
    
   const systemPrompt_31_10_2025 = `Answer user queries using the postreSQL_site_diary_records_database_query_tool. When needed,
