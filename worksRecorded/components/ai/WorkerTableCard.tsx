@@ -29,7 +29,6 @@ type WorkerRow = {
   id: string;
   name: string;
   surname: string;
-  personalId?: string;
   phone: string;
   isClockedIn: string;
   lastWorkDate: string;
@@ -45,7 +44,6 @@ const EMPTY_EDIT_FORM = {
   id: "",
   name: "",
   surname: "",
-  personalId: "",
   phone: "",
 };
 
@@ -71,7 +69,6 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
       id: worker.id,
       name: worker.name ?? "",
       surname: worker.surname ?? "",
-      personalId: worker.personalId ?? "",
       phone: worker.phone ?? "",
     });
     setEditOpen(true);
@@ -90,7 +87,6 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
         id: editForm.id,
         name: editForm.name.trim(),
         surname: editForm.surname.trim(),
-        personalId: editForm.personalId.trim() || undefined,
         phone: editForm.phone.trim() || undefined,
         siteId,
       });
@@ -143,12 +139,12 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
           <ScrollTable
             data={initialWorkers}
             pageSize={25}
-            visibleColumns={[2, 3, 4, 5, 6, 7, 8]}
+            visibleColumns={[2, 3, 5, 6, 7, 8]}
             columnLabels={[
               "ID",
               "First Name",
               "Last Name",
-              "Personal ID",
+              "",
               "Phone",
               "On site?",
               "Last Work Date",
@@ -190,15 +186,6 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
                 value={editForm.surname}
                 onChange={(e) => setEditForm((prev) => ({ ...prev, surname: e.target.value }))}
                 required
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="edit-personal-id">Personal ID</Label>
-              <Input
-                id="edit-personal-id"
-                value={editForm.personalId}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, personalId: e.target.value }))}
               />
             </div>
 
