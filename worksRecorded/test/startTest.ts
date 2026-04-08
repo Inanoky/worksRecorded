@@ -17,18 +17,19 @@ type StepResult = {
 
 const projectRoot = path.resolve(import.meta.dir, "..");
 const localJestBin = path.join(projectRoot, "node_modules", "jest", "bin", "jest.js");
+const jestArgs = ["--config", "jest.config.js", "--runInBand", "--watchAll=false"];
 const jestCommand = existsSync(localJestBin)
-  ? ["bun", "run", localJestBin]
+  ? ["node", localJestBin]
   : ["bun", "x", "jest"];
 
 const steps: Step[] = [
   {
     name: "Unit tests (Jest)",
-    command: [...jestCommand, "--config", "jest.config.js", "test/unit", "--runInBand"],
+    command: [...jestCommand, ...jestArgs, "test/unit"],
   },
   {
     name: "Integration contract tests (Jest, requires BASE_URL)",
-    command: [...jestCommand, "--config", "jest.config.js", "test/integration", "--runInBand"],
+    command: [...jestCommand, ...jestArgs, "test/integration"],
   },
   {
     name: "Smoke tests (non-invasive HTTP sweep)",
