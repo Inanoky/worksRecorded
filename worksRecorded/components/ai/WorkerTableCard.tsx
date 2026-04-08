@@ -24,6 +24,14 @@ import {
 import { AddWorkerForm } from "@/components/timesheets/AddWorkerFrom";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
 
 type WorkerRow = {
   id: string;
@@ -40,10 +48,36 @@ type WorkerTableCardProps = {
   initialWorkers: WorkerRow[];
 };
 
+const DEFAULT_COUNTRY_CODE = "371";
+
+const normalizePhonePart = (raw: string) => (raw || "").replace(/\D/g, "");
+
+function splitPhone(phone: string) {
+  const digits = normalizePhonePart(phone);
+  if (!digits) {
+    return { countryCode: DEFAULT_COUNTRY_CODE, phone: "" };
+  }
+
+  const codesByLength = [...COUNTRY_CALLING_CODES]
+    .sort((a, b) => b.dialCode.length - a.dialCode.length)
+    .map((item) => item.dialCode);
+
+  const matchedCode = codesByLength.find((code) => digits.startsWith(code));
+  if (!matchedCode) {
+    return { countryCode: DEFAULT_COUNTRY_CODE, phone: digits };
+  }
+
+  return {
+    countryCode: matchedCode,
+    phone: digits.slice(matchedCode.length),
+  };
+}
+
 const EMPTY_EDIT_FORM = {
   id: "",
   name: "",
   surname: "",
+  countryCode: DEFAULT_COUNTRY_CODE,
   phone: "",
 };
 
@@ -65,11 +99,14 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
   }
 
   function handleStartEdit(worker: WorkerRow) {
+    const parsedPhone = splitPhone(worker.phone ?? "");
+
     setEditForm({
       id: worker.id,
       name: worker.name ?? "",
       surname: worker.surname ?? "",
-      phone: worker.phone ?? "",
+      countryCode: parsedPhone.countryCode,
+      phone: parsedPhone.phone,
     });
     setEditOpen(true);
   }
@@ -82,12 +119,26 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
       return;
     }
 
+    const normalizedPhone = normalizePhonePart(editForm.phone);
+    if (normalizedPhone && normalizedPhone.length < 6) {
+      toast.error("Phone number is too short");
+      return;
+    }
+    if (normalizedPhone.length > 14) {
+      toast.error("Phone number is too long");
+      return;
+    }
+
+    const fullPhone = normalizedPhone
+      ? `${editForm.countryCode}${normalizedPhone}`
+      : undefined;
+
     startEditTransition(async () => {
       const res = await editTeamMember({
         id: editForm.id,
         name: editForm.name.trim(),
         surname: editForm.surname.trim(),
-        phone: editForm.phone.trim() || undefined,
+        phone: fullPhone,
         siteId,
       });
 
@@ -191,11 +242,35 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
 
             <div className="space-y-1">
               <Label htmlFor="edit-phone">Phone</Label>
-              <Input
-                id="edit-phone"
-                value={editForm.phone}
-                onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
-              />
+              <div className="flex gap-2">
+                <Select
+                  value={editForm.countryCode}
+                  onValueChange={(value) => {
+                    setEditForm((prev) => ({ ...prev, countryCode: value }));
+                  }}
+                >
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Country code" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRY_CALLING_CODES.map((country) => (
+                      <SelectItem
+                        key={`${country.iso2}-${country.dialCode}`}
+                        value={country.dialCode}
+                      >
+                        {country.name} (+{country.dialCode})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  id="edit-phone"
+                  inputMode="tel"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
+                  placeholder="24885690"
+                />
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-1">
