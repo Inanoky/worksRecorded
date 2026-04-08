@@ -52,17 +52,10 @@ export default function middleware(req: NextRequest) {
       return NextResponse.redirect(callbackUrl);
     }
 
-    return NextResponse.redirect(new URL("/en/Landing", req.url));
+    return NextResponse.redirect(new URL("/en", req.url));
   }
 
-  // Redirect /en or /lv to /<locale>/Landing
-  const m = pathname.match(/^\/(en|lv)\/?$/);
-  if (m) {
-    const locale = m[1];
-    return NextResponse.redirect(new URL(`/${locale}/Landing`, req.url));
-  }
-
-  return intlMiddleware(req);
+    return intlMiddleware(req);
 }
 
 

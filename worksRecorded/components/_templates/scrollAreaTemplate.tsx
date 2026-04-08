@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "../ui/scroll-area";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 // --- Helper to generate columns with optional labels and visibleColumns
 function getColumnsFromData(
@@ -52,6 +52,7 @@ export function ScrollTable({
   toolbar = true,
   tableName = "",
   onDeleteRow = (id: string) => {}, // callback (row id)
+  onEditRow,
 }: {
   data: any[],
   pageSize?: number,
@@ -61,16 +62,28 @@ export function ScrollTable({
   toolbar?: boolean,
   tableName?: string,
   onDeleteRow?: (id: string) => void,
+  onEditRow?: (row: any) => void,
 }) {
-  // Memoized columns with delete column at the end
+  // Memoized columns with optional actions column
   const columns = React.useMemo(() => {
     const base = getColumnsFromData(data, columnLabels, visibleColumns);
-    return [
-      ...base,
-      {
-        id: "delete",
-        header: "",
-        cell: ({ row }: any) => (
+    const actionsColumn = {
+      id: "actions",
+      header: "",
+      cell: ({ row }: any) => (
+        <div className="flex items-center gap-1">
+          {onEditRow ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onEditRow(row.original)}
+              className="text-blue-500 hover:bg-blue-100"
+              title="Edit row"
+              type="button"
+            >
+              <Pencil size={18} />
+            </Button>
+          ) : null}
           <Button
             variant="ghost"
             size="icon"
@@ -81,19 +94,23 @@ export function ScrollTable({
           >
             <Trash2 size={18} />
           </Button>
-        ),
-        enableSorting: false,
-        enableHiding: false,
-      }
-    ];
-  }, [data, columnLabels, visibleColumns, onDeleteRow]);
+        </div>
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    };
+
+    return [...base, actionsColumn];
+  }, [data, columnLabels, visibleColumns, onDeleteRow, onEditRow]);
 
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
 
   function exportToExcel() {
-    // Exclude the last "delete" column from export
-    const exportCols = columns.slice(0, -1).map(col => col.accessorKey);
+    // Exclude synthetic/action columns from export
+    const exportCols = columns
+      .map((col: any) => col.accessorKey)
+      .filter((key: any): key is string => typeof key === "string");
     const rows = table.getFilteredRowModel().rows.map(row =>
       exportCols.reduce((acc, key) => ({ ...acc, [key]: row.original[key] }), {})
     );
