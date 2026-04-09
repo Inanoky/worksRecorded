@@ -3,16 +3,17 @@
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useProject } from "@/components/providers/ProjectProvider";
-import { navLinks } from "./NavLinks";
-import { projectNavLinks } from "./DashboardItems";
+import { getNavLinks, getProjectNavLinks } from "./NavLinks";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/utils";
 import { Menu } from "lucide-react";
 
-export function MobileMenu() {
+export function MobileMenu({ organizationLanguage }: { organizationLanguage?: string | null }) {
   const { projectId, projectName } = useProject();
   const pathname = usePathname();
+  const navLinks = getNavLinks(organizationLanguage);
+  const projectNavLinks = getProjectNavLinks(organizationLanguage);
 
   return (
     <DropdownMenu>

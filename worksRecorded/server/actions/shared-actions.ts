@@ -348,6 +348,25 @@ export async function saveUserPhone(formData: FormData) {
 
 
 
+
+export async function updateOrganizationLanguage(language: "en" | "lv") {
+  const user = await requireUser();
+  const organizationId = await getOrganizationIdByUserId(user.id);
+
+  if (!organizationId) {
+    return { ok: false, message: "Organization not found" };
+  }
+
+  const nextLanguage = language === "lv" ? "lv" : "en";
+
+  await prisma.organization.update({
+    where: { id: organizationId },
+    data: { orgLanguage: nextLanguage },
+  });
+
+  return { ok: true };
+}
+
 export async function getOrganizationLanguageByUserId(userId: string) {
   const u = await prisma.user.findUnique({
     where: { id: userId },

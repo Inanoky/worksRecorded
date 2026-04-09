@@ -7,11 +7,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils/utils";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type ImageGalleryProps = {
   date: Date | null;
   siteId: string | null;
   className?: string;
+  organizationLanguage?: string | null;
 };
 
 type PhotoRow = {
@@ -33,7 +35,8 @@ function toDayRangeISO(date: Date) {
   return { startISO: start.toISOString(), endISO: end.toISOString() };
 }
 
-export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
+export function ImageGallery({ date, siteId, className, organizationLanguage }: ImageGalleryProps) {
+  const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
@@ -132,7 +135,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
         setPhotos(rows || []);
       } catch (e: any) {
         if (!alive) return;
-        setError(e?.message ?? "Failed to load photos");
+        setError(e?.message ?? t.failedLoadPhotos);
         setPhotos([]);
       } finally {
         if (alive) setLoading(false);
@@ -150,7 +153,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
     try {
       await deletePhotoById(id);
     } catch {
-      setError("Failed to delete photo");
+      setError(t.failedDeletePhoto);
     } finally {
       setDeleting(null);
     }
@@ -376,12 +379,10 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
     <div className={cn("p-3 border border-muted rounded-lg bg-background", className)}>
       <div className="mb-2 text-sm text-muted-foreground">
         {loading
-          ? "Loading photos…"
+          ? t.loadingPhotos
           : error
           ? error
-          : `${photos?.length ?? 0} photo${
-              (photos?.length ?? 0) === 1 ? "" : "s"
-            }`}
+          : `${photos?.length ?? 0} ${t.photosCount}`}
       </div>
 
       <div className="relative h-full">
@@ -393,7 +394,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
           </div>
         ) : (photos?.length ?? 0) === 0 ? (
           <div className="text-sm text-muted-foreground p-2">
-            No photos for this date.
+            {t.noPhotosForDate}
           </div>
         ) : (
           <div data-tour="dialog-gallery">
@@ -418,7 +419,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
                     >
                       <img
                         src={src}
-                        alt={p.Comment ?? "Photo"}
+                        alt={p.Comment ?? t.photo}
                         className={cn(
                           "h-full w-full object-cover transition-transform duration-200 group-hover:scale-105",
                           isDeleting && "opacity-50",
@@ -440,8 +441,8 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
                           "opacity-0 group-hover:opacity-100 transition-opacity",
                           "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus:ring-ring",
                         )}
-                        aria-label="Delete photo"
-                        title="Delete photo"
+                        aria-label={t.deletePhoto}
+                        title={t.deletePhoto}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -476,8 +477,8 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
                   closeLightbox();
                 }}
                 className="absolute right-4 top-4 rounded-full p-2 bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label="Close"
-                title="Close"
+                aria-label={t.close}
+                title={t.close}
               >
                 <X className="h-6 w-6" />
               </button>
@@ -489,8 +490,8 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
                   goPrev();
                 }}
                 className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label="Previous"
-                title="Previous"
+                aria-label={t.previous}
+                title={t.previous}
               >
                 <ChevronLeft className="h-7 w-7" />
               </button>
@@ -502,8 +503,8 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
                   goNext();
                 }}
                 className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label="Next"
-                title="Next"
+                aria-label={t.next}
+                title={t.next}
               >
                 <ChevronRight className="h-7 w-7" />
               </button>
@@ -534,7 +535,7 @@ export function ImageGallery({ date, siteId, className }: ImageGalleryProps) {
                   <img
                     ref={imgRef}
                     src={imageList[currentIndex]?.src}
-                    alt={imageList[currentIndex]?.caption || "Photo"}
+                    alt={imageList[currentIndex]?.caption || t.photo}
                     onLoad={handleImgLoaded}
                     className="select-none"
                     draggable={false}

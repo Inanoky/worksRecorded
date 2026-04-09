@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
+import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 
 //--------Loading config------------
@@ -213,11 +214,14 @@ export function DialogTable({
   date,
   siteId,
   onSaved,
+  organizationLanguage,
 }: {
   date: Date | null;
   siteId: string | null;
   onSaved?: () => void;
+  organizationLanguage?: string | null;
 }) {
+  const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
 
 
 
@@ -267,7 +271,7 @@ export function DialogTable({
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
 
-      toast.success("Record deleted!");
+      toast.success(t.recordDeleted);
       onSaved?.();
     } else {
       setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
@@ -390,7 +394,7 @@ export function DialogTable({
     }
 
 
-    toast.success("Records saved!");
+    toast.success(t.recordsSaved);
     onSaved?.();
   };
 
@@ -621,7 +625,7 @@ export function DialogTable({
             style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
 
           >
-            <SelectValue placeholder={String(row[field] ?? "Select…")} />
+            <SelectValue placeholder={String(row[field] ?? t.select)} />
           </SelectTrigger>
           <SelectContent>
             {options.map((opt) => (
@@ -801,7 +805,7 @@ export function DialogTable({
   }, [date, siteId]);
 
   if (loading) {
-    return <div className="flex justify-center items-center min-h-[300px]">Loading…</div>;
+    return <div className="flex justify-center items-center min-h-[300px]">{t.loading}</div>;
   }
 
   const mobileFieldGroups = tableHeads.reduce<string[][]>((groups, field, index) => {
@@ -822,10 +826,10 @@ export function DialogTable({
           onClick={handleAddRow}
           className="w-full sm:w-auto"
         >
-          Add task
+          {t.addTask}
         </Button>
         <Button type="submit" className="w-full sm:w-auto">
-          Save diary
+          {t.saveDiary}
         </Button>
       </div>
 
@@ -838,13 +842,13 @@ export function DialogTable({
                 className="rounded-lg border bg-card p-3 space-y-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">Task #{rowIndex + 1}</p>
+                  <p className="text-sm font-semibold">{t.task} #{rowIndex + 1}</p>
                   <Button
                     variant="ghost"
                     size="icon"
                     type="button"
                     onClick={() => handleDeleteRow(row.id, row._tempId)}
-                    aria-label={`Delete task ${rowIndex + 1}`}
+                    aria-label={`${t.deleteTaskAria} ${rowIndex + 1}`}
                   >
                     <Trash2 className="h-5 w-5" />
                   </Button>
@@ -865,7 +869,7 @@ export function DialogTable({
 
                 <div className="rounded-md bg-muted/40 px-2 py-1">
                   <p className="text-xs text-muted-foreground">
-                    Created by: {row.createdBy ?? "—"}
+                    {t.createdBy}: {row.createdBy ?? "—"}
                   </p>
                 </div>
               </div>
@@ -893,8 +897,8 @@ export function DialogTable({
 
                     )}
 
-                    <TableHead className="text-center w-[150px]">Created by</TableHead>
-                    <TableHead className="text-center w-[80px]">Delete</TableHead>
+                    <TableHead className="text-center w-[150px]">{t.createdBy}</TableHead>
+                    <TableHead className="text-center w-[80px]">{t.delete}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

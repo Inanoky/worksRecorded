@@ -15,30 +15,32 @@ import {
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { DeleteSite } from "@/server/actions/shared-actions";
+import { getSiteSettingsMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
-export function ConfirmDeleteSite({ siteId }: { siteId: string }) {
+export function ConfirmDeleteSite({ siteId, organizationLanguage }: { siteId: string; organizationLanguage?: string | null }) {
   const [open, setOpen] = React.useState(false);
+  const t = getSiteSettingsMessages(normalizeOrganizationLanguage(organizationLanguage));
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="destructive">Delete Everything</Button>
+        <Button variant="destructive">{t.deleteEverything}</Button>
       </AlertDialogTrigger>
 
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this project?</AlertDialogTitle>
+          <AlertDialogTitle>{t.deleteProjectQuestion}</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. It will permanently delete this site and **all** related data (invoices, documents, templates, etc.).
+            {t.deleteProjectDescription}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
 
           <form action={DeleteSite}>
             <input type="hidden" name="siteId" value={siteId} />
-            <SubmitButton text="Yes, delete" variant="destructive" />
+            <SubmitButton text={t.yesDelete} variant="destructive" />
           </form>
         </AlertDialogFooter>
       </AlertDialogContent>
