@@ -244,6 +244,7 @@ export default function SiteDiaryCalendar({
   const [tableHeads, setTableHeads] = React.useState<string[]>([]);
   const [tableRows, setTableRows] = React.useState<any[]>([]);
   const [screenWidth, setScreenWidth] = React.useState<number>(150);
+  const [showFallbackColumns, setShowFallbackColumns] = React.useState(false);
 
   //------------------------map helpers----------------------------------------------
 
@@ -289,6 +290,13 @@ export default function SiteDiaryCalendar({
     return defaultMap[key]?.Type ?? null;
   }
 
+  function formatTimeFromDateValue(value: string | Date | null | undefined) {
+    if (!value) return "—";
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  }
+
   function getDisplayNameByKey(key) {
     return defaultMap[key]?.DisplayName ?? key;
   }
@@ -299,6 +307,15 @@ export default function SiteDiaryCalendar({
     fallback = 200,
   ): number {
     return map?.[key]?.customSettings?.displayinSiteListWidth ?? fallback;
+  }
+
+  function getCompactCellWidthByKey(
+    key: string,
+    map: Record<string, any>,
+    fallback = 160,
+  ): number {
+    const configuredWidth = getCellWidthByKey(key, map, fallback);
+    return Math.min(configuredWidth, 180);
   }
 
   type TextAlign = "left" | "center" | "right";
@@ -427,8 +444,10 @@ export default function SiteDiaryCalendar({
         }
 
         //Here we load config from database, and if no config we use default.
-        const cfg = (await getConfig(siteId)) ?? defaultConfig;
+        const siteDiaryRecordMapConfig = await getConfig(siteId);
+        const cfg = siteDiaryRecordMapConfig ?? defaultConfig;
         if (cancelled) return;
+        setShowFallbackColumns(!siteDiaryRecordMapConfig);
 
         const screenWidth = cfg?.otherSettings?.displaySiteListWidth ?? 140;
         setScreenWidth(screenWidth);
@@ -1552,6 +1571,8 @@ export default function SiteDiaryCalendar({
                             const formattedGroupRows = group.rows.map((r) => ({
                               id: r.id ?? undefined,
                               originalUserComment: r.originalUserComment ?? "",
+                              createdAt: r.createdAt,
+                              createdBy: r.createdBy ?? "N/A",
                               ...Object.fromEntries(
                                 tableHeads.map((f) => [
                                   f,
@@ -1561,10 +1582,27 @@ export default function SiteDiaryCalendar({
                             }));
 
                             return (
-                              <Table className="table-fixed min-w-[760px] text-xs sm:text-sm">
+                              <Table className="w-full table-auto text-xs sm:text-sm">
                                 {/* HEADER */}
                                 <TableHeader>
                                   <TableRow>
+                                    {showFallbackColumns ? (
+                                      <>
+                                        <TableHead
+                                          className="text-left"
+                                          style={{ width: 70 }}
+                                        >
+                                          Time
+                                        </TableHead>
+                                        <TableHead
+                                          className="text-left"
+                                          style={{ width: 140 }}
+                                        >
+                                          Created by
+                                        </TableHead>
+                                      </>
+                                    ) : null}
+
                                     {tableHeads.map((head) => {
                                       if (head === "createdAt") {
                                         return (
@@ -1588,7 +1626,7 @@ export default function SiteDiaryCalendar({
                                           key={head}
                                           className={`text-${align}`}
                                           style={{
-                                            width: getCellWidthByKey(head, defaultMap),
+                                            width: getCompactCellWidthByKey(head, defaultMap),
                                           }}
                                         >
                                           {getDisplayNameByKey(head)}
@@ -1633,6 +1671,23 @@ export default function SiteDiaryCalendar({
                                 <TableBody>
                                   {formattedGroupRows.map((row, i) => (
                                     <TableRow key={row.id ?? `${group.key}-${i}`}>
+                                      {showFallbackColumns ? (
+                                        <>
+                                          <TableCell
+                                            className="align-top px-3 py-2 whitespace-normal break-words text-left"
+                                            style={{ width: 70 }}
+                                          >
+                                            {formatTimeFromDateValue(row.createdAt)}
+                                          </TableCell>
+                                          <TableCell
+                                            className="align-top px-3 py-2 whitespace-normal break-words text-left"
+                                            style={{ width: 140 }}
+                                          >
+                                            {row.createdBy || "—"}
+                                          </TableCell>
+                                        </>
+                                      ) : null}
+
                                       {tableHeads.map((field) => {
                                         if (field === "createdAt") {
                                           return (
@@ -1667,7 +1722,7 @@ export default function SiteDiaryCalendar({
                                             key={field}
                                             className={`align-top px-3 py-3 whitespace-normal break-words text-${align}`}
                                             style={{
-                                              width: getCellWidthByKey(
+                                              width: getCompactCellWidthByKey(
                                                 field,
                                                 defaultMap,
                                               ),
