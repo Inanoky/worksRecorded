@@ -11,7 +11,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { updateOrganizationLanguage } from "@/server/actions/shared-actions";
-import { normalizeOrganizationLanguage, type OrganizationLanguage } from "@/lib/dashboard-i18n";
+import {
+  getSettingsUiMessages,
+  normalizeOrganizationLanguage,
+  type OrganizationLanguage,
+} from "@/lib/dashboard-i18n";
 
 type Props = {
   currentLanguage?: string | null;
@@ -21,6 +25,7 @@ export function OrganizationLanguageSwitcher({ currentLanguage }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const value = normalizeOrganizationLanguage(currentLanguage);
+  const t = getSettingsUiMessages(value);
 
   const onChange = (language: OrganizationLanguage) => {
     startTransition(async () => {
@@ -38,9 +43,9 @@ export function OrganizationLanguageSwitcher({ currentLanguage }: Props) {
 
   return (
     <div className="mb-6 rounded-lg border p-4">
-      <div className="text-sm font-medium">Organization language</div>
+      <div className="text-sm font-medium">{t.organizationLanguage}</div>
       <p className="text-sm text-muted-foreground mt-1 mb-3">
-        Choose which language is used for shared organization UI text.
+        {t.organizationLanguageHelp}
       </p>
 
       <Select value={value} onValueChange={(v) => onChange(v as OrganizationLanguage)} disabled={isPending}>

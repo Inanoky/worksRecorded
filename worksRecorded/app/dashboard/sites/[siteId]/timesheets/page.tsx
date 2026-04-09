@@ -64,7 +64,11 @@ export default async function AddWorkerPage({
 
              {/* SECONDARY: Workers card (list + modal button) */}
         <section>
-          <WorkerTableCard siteId={siteId} initialWorkers={workers} />
+          <WorkerTableCard
+            siteId={siteId}
+            initialWorkers={workers}
+            organizationLanguage={organizationLanguage}
+          />
         </section>
 
 
@@ -83,6 +87,7 @@ export default async function AddWorkerPage({
                 data={timelogs}
                 siteId={siteId}
                 pageSize={20}
+                organizationLanguage={organizationLanguage}
               />
             </CardContent>
           </Card>

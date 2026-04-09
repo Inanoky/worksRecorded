@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { toast } from "sonner";
 import { z } from "zod"; // <-- Zod
+import { getSettingsUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 // server actions
 import { editUserData, saveTemporaryUser, inviteUserByEmail } from "@/server/actions/settings-actions";
@@ -54,6 +55,7 @@ type MembersTableProps = {
   exportFileName?: string;
   userid?: string;
   orgId?: string;
+  organizationLanguage?: string | null;
 };
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
@@ -135,9 +137,11 @@ export function MembersTable({
   pageSize,
   exportFileName = "table_data.xlsx",
   userid,
-  orgId
+  orgId,
+  organizationLanguage,
 }: MembersTableProps) {
   const router = useRouter();
+  const t = getSettingsUiMessages(normalizeOrganizationLanguage(organizationLanguage));
   const columns = React.useMemo(() => getColumns(), []);
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
@@ -193,15 +197,15 @@ export function MembersTable({
 
   React.useEffect(() => {
     if (result?.ok) {
-      toast.success("Member updated");
+      toast.success(t.memberUpdated);
       setDraftById({});
       setEditRowId(null);
       setAnyChanges(false);
       router.refresh();
     } else if (result && result.ok === false) {
-      toast.error(result.message ?? "Update failed");
+      toast.error(result.message ?? t.updateFailed);
     }
-  }, [result, router]);
+  }, [result, router, t.memberUpdated, t.updateFailed]);
 
   const table = useReactTable({
     data,
@@ -271,36 +275,36 @@ export function MembersTable({
       <CardHeader>
         <div className="flex items-center py-4 gap-2">
           <Input
-            placeholder="Search..."
+            placeholder={t.search}
             value={globalFilter ?? ""}
             onChange={e => setGlobalFilter(e.target.value)}
             className="max-w-sm"
           />
           <Button variant="outline" onClick={exportToExcel} type="button">
-            Export to Excel
+            {t.exportToExcel}
           </Button>
 
           <Dialog open={openAdd} onOpenChange={setOpenAdd}>
             <DialogTrigger asChild>
-              <Button>Add user</Button>
+              <Button>{t.addUser}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Invite user</DialogTitle>
+                <DialogTitle>{t.inviteUser}</DialogTitle>
               </DialogHeader>
 
               <form
                 action={async (formData) => {
                   formData.set("email", newEmail);
                   if (!newEmail) {
-                    toast.error("Email is required");
+                    toast.error(t.emailRequired);
                     return;
                   }
                   const res = await inviteUserByEmail(formData);
                   await saveTemporaryUser(newEmail, orgId || "");
                   router.refresh();
                   if (res?.ok) {
-                    toast.success("Invitation email sent");
+                    toast.success(t.invitationSent);
                     setNewEmail("");
                     setOpenAdd(false);
                   } else {
@@ -319,9 +323,9 @@ export function MembersTable({
 
                 <div className="flex justify-end gap-2 mt-4">
                   <Button type="button" variant="ghost" onClick={() => setOpenAdd(false)}>
-                    Cancel
+                    {t.cancel}
                   </Button>
-                  <Button type="submit">Send invite</Button>
+                  <Button type="submit">{t.sendInvite}</Button>
                 </div>
               </form>
             </DialogContent>
@@ -329,9 +333,9 @@ export function MembersTable({
 
           {anyChanges && (
             <>
-              <Button type="submit" form="members-form">Save changes</Button>
+              <Button type="submit" form="members-form">{t.saveChanges}</Button>
               <Button variant="ghost" type="button" onClick={cancelEdit}>
-                Cancel
+                {t.cancel}
               </Button>
             </>
           )}
@@ -390,7 +394,7 @@ export function MembersTable({
                         {h.column.getIsSorted() === "desc" && " 🔽"}
                       </TableHead>
                     ))}
-                    <TableHead>Actions</TableHead>
+                    <TableHead>{t.actions}</TableHead>
                   </TableRow>
                 ))}
               </TableHeader>
@@ -541,15 +545,15 @@ export function MembersTable({
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuLabel>{t.actions}</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               {editRowId !== row.id ? (
                                 <DropdownMenuItem onClick={() => startEdit(row.id, row.original)}>
-                                  Edit
+                                  {t.edit}
                                 </DropdownMenuItem>
                               ) : (
                                 <DropdownMenuItem onClick={() => {}}>
-                                  Use “Save changes” above
+                                  {t.saveChanges}
                                 </DropdownMenuItem>
                               )}
                               <DropdownMenuItem className="cursor-pointer text-red-600" disabled>
@@ -564,7 +568,7 @@ export function MembersTable({
                 ) : (
                   <TableRow>
                     <TableCell colSpan={columns.length + 1} className="text-center">
-                      No data found.
+                      {t.noDataFound}
                     </TableCell>
                   </TableRow>
                 )}

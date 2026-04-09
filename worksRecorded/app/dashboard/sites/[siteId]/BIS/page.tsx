@@ -1496,6 +1496,7 @@ export default async function MaterialsPage({
 
       <MaterialsTableClient
         siteId={siteId}
+        organizationLanguage={organizationLanguage}
         bisEnabled={bisEnabled}
         materials={materialsWithBisState}
         materialConfigurations={materialConfigurationData.materialConfigurations}

@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
+import { getWorkersUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type WorkerRow = {
   id: string;
@@ -46,6 +47,7 @@ type WorkerRow = {
 type WorkerTableCardProps = {
   siteId: string;
   initialWorkers: WorkerRow[];
+  organizationLanguage?: string | null;
 };
 
 const DEFAULT_COUNTRY_CODE = "371";
@@ -81,8 +83,9 @@ const EMPTY_EDIT_FORM = {
   phone: "",
 };
 
-export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps) {
+export function WorkerTableCard({ siteId, initialWorkers, organizationLanguage }: WorkerTableCardProps) {
   const router = useRouter();
+  const t = getWorkersUiMessages(normalizeOrganizationLanguage(organizationLanguage));
   const [open, setOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [editPending, startEditTransition] = React.useTransition();
@@ -157,21 +160,21 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
     <Card className="border-muted/60 shadow-sm">
       <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
         <div>
-          <CardTitle className="text-base md:text-lg">Workers on site</CardTitle>
+          <CardTitle className="text-base md:text-lg">{t.workersOnSite}</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Create, update, and delete workers available for timesheets on this project.
+            {t.workersDescription}
           </p>
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button size="sm">Add worker</Button>
+            <Button size="sm">{t.addWorker}</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Add worker</DialogTitle>
+              <DialogTitle>{t.addWorker}</DialogTitle>
               <DialogDescription>
-                Create a new worker profile for this site.
+                {t.addWorkerDescription}
               </DialogDescription>
             </DialogHeader>
             <AddWorkerForm
@@ -209,19 +212,19 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
       </CardContent>
 
       <CardFooter className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Total workers: {initialWorkers.length}</span>
+        <span>{t.totalWorkers}: {initialWorkers.length}</span>
       </CardFooter>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit worker</DialogTitle>
-            <DialogDescription>Update worker information.</DialogDescription>
+            <DialogTitle>{t.editWorker}</DialogTitle>
+            <DialogDescription>{t.updateWorkerInformation}</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleEditSubmit} className="space-y-3">
             <div className="space-y-1">
-              <Label htmlFor="edit-name">Name</Label>
+              <Label htmlFor="edit-name">{t.name}</Label>
               <Input
                 id="edit-name"
                 value={editForm.name}
@@ -231,7 +234,7 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="edit-surname">Surname</Label>
+              <Label htmlFor="edit-surname">{t.surname}</Label>
               <Input
                 id="edit-surname"
                 value={editForm.surname}
@@ -241,7 +244,7 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="edit-phone">Phone</Label>
+              <Label htmlFor="edit-phone">{t.phone}</Label>
               <div className="flex gap-2">
                 <Select
                   value={editForm.countryCode}
@@ -250,7 +253,7 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
                   }}
                 >
                   <SelectTrigger className="w-[220px]">
-                    <SelectValue placeholder="Country code" />
+                    <SelectValue placeholder={t.countryCode} />
                   </SelectTrigger>
                   <SelectContent>
                     {COUNTRY_CALLING_CODES.map((country) => (
@@ -281,10 +284,10 @@ export function WorkerTableCard({ siteId, initialWorkers }: WorkerTableCardProps
                 onClick={() => setEditOpen(false)}
                 disabled={editPending}
               >
-                Cancel
+                {t.cancel}
               </Button>
               <Button type="submit" size="sm" disabled={editPending}>
-                {editPending ? "Saving..." : "Save changes"}
+                {editPending ? "..." : t.saveChanges}
               </Button>
             </div>
           </form>

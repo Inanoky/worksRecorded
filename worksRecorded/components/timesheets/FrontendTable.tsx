@@ -72,6 +72,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { getTimesheetsUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type TableRecord = {
   id: string;
@@ -148,6 +149,7 @@ type FrontendTableProps = {
   siteId: string;
   pageSize: number;
   exportFileName?: string;
+  organizationLanguage?: string | null;
 };
 
 type EditDraft = {
@@ -199,7 +201,9 @@ export function FrontendTable({
   siteId,
   pageSize,
   exportFileName = "table_data.xlsx",
+  organizationLanguage,
 }: FrontendTableProps) {
+  const t = getTimesheetsUiMessages(normalizeOrganizationLanguage(organizationLanguage));
   const columns = React.useMemo(() => getColumnsFromData(data), [data]);
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [localData, setLocalData] = React.useState<TableRecord[]>(data);
@@ -415,7 +419,7 @@ export function FrontendTable({
                 className="h-9 max-w-md text-sm"
               />
               <Button type="button" variant="outline" size="sm" className="h-9" onClick={exportToExcel}>
-                Export to Excel
+                {t.exportToExcel}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">Use row actions to edit or delete a time record.</p>
@@ -441,7 +445,7 @@ export function FrontendTable({
                         {header.column.getIsSorted() === "desc" && " 🔽"}
                       </TableHead>
                     ))}
-                    <TableHead className="whitespace-nowrap text-xs font-medium">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap text-xs font-medium"> {t.actions}</TableHead>
                   </TableRow>
                 ))}
               </TableHeader>
@@ -465,18 +469,18 @@ export function FrontendTable({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuLabel> {t.actions}</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setEditDraft(getInitialDraft(row.original, workers))}>
                               <Pencil className="mr-2 h-4 w-4" />
-                              Edit record
+                              {t.edit}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => setRecordToDelete(row.original)}
                               className="cursor-pointer text-destructive focus:text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Delete record
+                              {t.delete}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -489,7 +493,7 @@ export function FrontendTable({
                       colSpan={columns.length + 1}
                       className="py-10 text-center text-sm text-muted-foreground"
                     >
-                      No data found.
+                      {t.noData}
                     </TableCell>
                   </TableRow>
                 )}
@@ -629,10 +633,10 @@ export function FrontendTable({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDraft(null)} disabled={isSaving}>
-              Cancel
+              {t.cancel}
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save changes"}
+              {isSaving ? "..." : t.save}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -647,9 +651,9 @@ export function FrontendTable({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}> {t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? "Deleting..." : "Delete record"}
+              {isDeleting ? "..." : t.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

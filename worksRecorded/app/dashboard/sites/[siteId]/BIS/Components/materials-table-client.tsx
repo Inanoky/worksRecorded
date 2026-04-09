@@ -56,6 +56,7 @@ import MaterialConfigSelect, {
 } from "./material-config-select"
 import CostCodeSelect from "./cost-code-select"
 import { toast } from "sonner"
+import { getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 
 type BisApprover = {
   memberId: string
@@ -88,6 +89,7 @@ type MaterialRow = {
 
 type Props = {
   siteId: string
+  organizationLanguage?: string | null
   bisEnabled: boolean
   materials: MaterialRow[]
   materialConfigurations: MaterialCategory[]
@@ -229,6 +231,7 @@ function normalizeBisErrorMessage(message: string) {
 
 export default function MaterialsTableClient({
   siteId,
+  organizationLanguage,
   bisEnabled,
   materials,
   materialConfigurations,
@@ -248,6 +251,7 @@ export default function MaterialsTableClient({
   attachCertificate,
   deleteRecords,
 }: Props) {
+  const t = getWarehouseUiMessages(normalizeOrganizationLanguage(organizationLanguage))
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
@@ -902,7 +906,7 @@ export default function MaterialsTableClient({
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search material, invoice, warehouse or BIS data..."
+              placeholder={t.searchMaterials}
               className="pl-9"
             />
           </div>
@@ -914,11 +918,11 @@ export default function MaterialsTableClient({
             onValueChange={(v) => setStatus(v as "all" | "sent" | "unsent")}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder={t.status} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="sent">Sent to BIS</SelectItem>
+              <SelectItem value="all">{t.all}</SelectItem>
+              <SelectItem value="sent">{t.sent}</SelectItem>
               <SelectItem value="unsent">Not sent</SelectItem>
             </SelectContent>
           </Select>
@@ -984,7 +988,7 @@ export default function MaterialsTableClient({
               disabled={deleteLoading}
               className={showBisControls ? "" : "ml-auto"}
             >
-              {deleteLoading ? "Deleting..." : `Delete selected (${selectedRowIds.length})`}
+              {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
             </Button>
           ) : null}
 
@@ -998,7 +1002,7 @@ export default function MaterialsTableClient({
               className="ml-auto"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${syncLoading ? "animate-spin" : ""}`} />
-              {syncLoading ? "Refreshing..." : "Refresh from BIS"}
+              {syncLoading ? "..." : t.refresh}
             </Button>
           ) : null}
 
@@ -1008,7 +1012,7 @@ export default function MaterialsTableClient({
               size="sm"
               onClick={saveRowEdits}
             >
-              Save changes
+              {t.save}
             </Button>
           ) : null}
 
@@ -1032,7 +1036,7 @@ export default function MaterialsTableClient({
                 </TableHead>
                 <TableHead className="w-[76px]">Photo</TableHead>
                 <TableHead className="w-[20%]">Material</TableHead>
-                <TableHead className="w-[9%]">Status</TableHead>
+                <TableHead className="w-[9%]">{t.status}</TableHead>
                 {showBisControls ? <TableHead className="w-[16%]">BIS material configuration</TableHead> : null}
                 <TableHead className="w-[10%]">Cost code</TableHead>
                 <TableHead className="w-[11%]">Delivery Date</TableHead>
@@ -1050,7 +1054,7 @@ export default function MaterialsTableClient({
                 <TableRow>
                   <TableCell colSpan={13} className="py-12 text-center">
                     <div className="space-y-1">
-                      <p className="font-medium">No materials found</p>
+                      <p className="font-medium">{t.noRows}</p>
                       <p className="text-sm text-muted-foreground">
                         Try changing filters or search query.
                       </p>
@@ -1281,7 +1285,7 @@ export default function MaterialsTableClient({
                                     : "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
                                 }
                               >
-                                {isApproved ? "Approved" : "Sent for approval"}
+                                {isApproved ? t.approved : t.sentForApproval}
                               </Button>
                             ) : null}
 
@@ -1301,7 +1305,7 @@ export default function MaterialsTableClient({
                                   </DropdownMenuItem>
                                 ) : null}
                                 <DropdownMenuItem onClick={() => openEditModal(r)}>
-                                  Edit
+                                  {t.edit}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -1390,7 +1394,7 @@ export default function MaterialsTableClient({
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit material</DialogTitle>
+            <DialogTitle>{t.edit}</DialogTitle>
             <DialogDescription>
               Update material details and attachments.
             </DialogDescription>
@@ -1464,7 +1468,7 @@ export default function MaterialsTableClient({
                     {editDraft.declarationAttachment.map((file) => (
                       <div key={file.id} className="flex items-center justify-between text-sm">
                         <span>{file.name}</span>
-                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id) })}> {t.delete}</Button>
                       </div>
                     ))}
                   </div>
@@ -1483,7 +1487,7 @@ export default function MaterialsTableClient({
                     {editDraft.agreementAttachment.map((file) => (
                       <div key={file.id} className="flex items-center justify-between text-sm">
                         <span>{file.name}</span>
-                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}>Remove</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}> {t.delete}</Button>
                       </div>
                     ))}
                   </div>
@@ -1492,8 +1496,8 @@ export default function MaterialsTableClient({
             </div>
           ) : null}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditModalOpen(false)}>Cancel</Button>
-            <Button onClick={saveEditModal}>Save</Button>
+            <Button variant="outline" onClick={() => setEditModalOpen(false)}>{t.cancel}</Button>
+            <Button onClick={saveEditModal}> {t.save}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

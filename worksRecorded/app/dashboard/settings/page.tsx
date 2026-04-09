@@ -16,7 +16,14 @@ export default async function SettingsSiteRoute() {
   return (
     <>
       <OrganizationLanguageSwitcher currentLanguage={currentLanguage} />
-      <MembersTable pageSize={5} data={userData} exportFileName="Members" userid={user.id} orgId={orgId} />
+      <MembersTable
+        pageSize={5}
+        data={userData}
+        exportFileName="Members"
+        userid={user.id}
+        orgId={orgId}
+        organizationLanguage={currentLanguage}
+      />
     </>
   );
 }
