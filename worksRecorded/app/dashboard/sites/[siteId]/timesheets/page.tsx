@@ -9,8 +9,9 @@ import { getLocationsWorksFromSiteSchema } from "@/server/actions/site-diary-act
 import { SiteSchemaProvider } from "@/components/providers/SiteSchemaProvider";
 import { WorkerTableCard } from "@/components/ai/WorkerTableCard";
 import { requireUser } from "@/lib/utils/requireUser";
-import { orgCheck } from "@/server/actions/shared-actions";
+import { getOrganizationLanguageByUserId, orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
+import { getTimesheetsPageMessages } from "@/lib/dashboard-i18n";
 
 export const maxDuration = 800;
 
@@ -32,6 +33,8 @@ export default async function AddWorkerPage({
   const user = await requireUser();
   const siteCheck = await orgCheck(user.id, siteId);
   if (!siteCheck) notFound();
+  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const t = getTimesheetsPageMessages(organizationLanguage);
 
   const [timelogs, workers, locations, works] = await Promise.all([
     getTimelogsBySiteId(siteId),
@@ -52,9 +55,9 @@ export default async function AddWorkerPage({
         {/* Header */}
         <header className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Timesheets</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">{t.title}</h1>
             <p className="text-sm text-muted-foreground">
-              Review time records and keep your worker list up to date.
+              {t.description}
             </p>
           </div>
         </header>
@@ -67,11 +70,11 @@ export default async function AddWorkerPage({
 
         {/* MAIN: Time records */}
         <section data-tour="timesheets">
-          <Card className="border-muted/60 shadow-sm">
+            <Card className="border-muted/60 shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base md:text-lg">Time records</CardTitle>
+              <CardTitle className="text-base md:text-lg">{t.timeRecordsTitle}</CardTitle>
               <p className="text-xs text-muted-foreground">
-                All logged entries for this site. Search, edit, and export.
+                {t.timeRecordsDescription}
               </p>
             </CardHeader>
             <CardContent className="pt-2">

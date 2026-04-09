@@ -6,6 +6,8 @@ import MaterialsTableClient from "./Components/materials-table-client";
 import AiWidgetRag from "@/components/ai/AiChat";
 import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { getWarehousePageMessages } from "@/lib/dashboard-i18n";
 
 type BisApprover = {
   memberId: string;
@@ -1430,6 +1432,8 @@ export default async function MaterialsPage({
 }) {
   const { siteId } = await params;
   const user = await requireUser();
+  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const t = getWarehousePageMessages(organizationLanguage);
 
   const [site, userBisToken] = await Promise.all([
     getSiteBisConfig(siteId),
@@ -1483,9 +1487,9 @@ export default async function MaterialsPage({
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Warehouse</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
-          Send delivery note/invoice note to WhatsaApp WorksRecorded, line items will appear hear
+          {t.description}
         </p>
       </div>
 
