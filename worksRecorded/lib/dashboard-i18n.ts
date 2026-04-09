@@ -156,6 +156,48 @@ type SettingsUiMessages = {
   noDataFound: string;
 };
 
+type NavigationMessages = {
+  projects: string;
+  organizationSettings: string;
+  siteDiary: string;
+  timesheets: string;
+  warehouse: string;
+  settings: string;
+};
+
+type SiteSettingsMessages = {
+  goBack: string;
+  danger: string;
+  dangerDescription: string;
+  bisIntegration: string;
+  bisDescription: string;
+  connectionStatus: string;
+  connected: string;
+  disconnected: string;
+  connectBis: string;
+  disconnectBis: string;
+  bisCaseForSite: string;
+  selectBisCase: string;
+  saveBisCase: string;
+  noCases: string;
+  connectFirst: string;
+  disconnectNote: string;
+  editSiteInfo: string;
+  editSiteDescription: string;
+  name: string;
+  description: string;
+  subdirectory: string;
+  siteArea: string;
+  siteAreaHint: string;
+  saveChanges: string;
+  saving: string;
+  deleteEverything: string;
+  deleteProjectQuestion: string;
+  deleteProjectDescription: string;
+  cancel: string;
+  yesDelete: string;
+};
+
 export function normalizeOrganizationLanguage(language?: string | null): OrganizationLanguage {
   return language === "lv" ? "lv" : "en";
 }
@@ -462,6 +504,92 @@ const SETTINGS_UI_MESSAGES: Record<OrganizationLanguage, SettingsUiMessages> = {
   },
 };
 
+const NAVIGATION_MESSAGES: Record<OrganizationLanguage, NavigationMessages> = {
+  en: {
+    projects: "Projects",
+    organizationSettings: "Organization settings",
+    siteDiary: "Site Diary",
+    timesheets: "Timesheets",
+    warehouse: "Warehouse",
+    settings: "Settings",
+  },
+  lv: {
+    projects: "Projekti",
+    organizationSettings: "Organizācijas iestatījumi",
+    siteDiary: "Būvdarbu žurnāls",
+    timesheets: "Darba laika uzskaites lapas",
+    warehouse: "Noliktava",
+    settings: "Iestatījumi",
+  },
+};
+
+const SITE_SETTINGS_MESSAGES: Record<OrganizationLanguage, SiteSettingsMessages> = {
+  en: {
+    goBack: "Go Back",
+    danger: "Danger",
+    dangerDescription: "This will delete your site and all data associated with it. Click the button below to delete everything.",
+    bisIntegration: "BIS integration",
+    bisDescription: "Connect your BIS account, then lock this site to a single BIS case.",
+    connectionStatus: "Connection status",
+    connected: "BIS is connected for your user account.",
+    disconnected: "BIS is not connected. BIS actions stay hidden until you connect and assign a case.",
+    connectBis: "Connect BIS",
+    disconnectBis: "Disconnect BIS",
+    bisCaseForSite: "BIS case for this site",
+    selectBisCase: "Select a BIS case",
+    saveBisCase: "Save BIS case",
+    noCases: "BIS is connected, but no authorized BIS cases were returned for this user.",
+    connectFirst: "Connect BIS first to load cases for this site.",
+    disconnectNote: "Disconnecting BIS only removes access tokens. Existing site diary and material records remain in the database.",
+    editSiteInfo: "Edit Site Info",
+    editSiteDescription: "Update your site's name, description, or subdirectory.",
+    name: "Name",
+    description: "Description",
+    subdirectory: "Subdirectory",
+    siteArea: "Site area",
+    siteAreaHint: "Draw the permitted site area for location-based worker clock-in.",
+    saveChanges: "Save Changes",
+    saving: "Saving...",
+    deleteEverything: "Delete Everything",
+    deleteProjectQuestion: "Delete this project?",
+    deleteProjectDescription: "This action cannot be undone. It will permanently delete this site and all related data.",
+    cancel: "Cancel",
+    yesDelete: "Yes, delete",
+  },
+  lv: {
+    goBack: "Atpakaļ",
+    danger: "Bīstami",
+    dangerDescription: "Tas izdzēsīs jūsu objektu un visus ar to saistītos datus. Noklikšķiniet uz pogas zemāk, lai dzēstu visu.",
+    bisIntegration: "BIS integrācija",
+    bisDescription: "Pieslēdziet savu BIS kontu un piesaistiet šim objektam vienu BIS lietu.",
+    connectionStatus: "Savienojuma statuss",
+    connected: "BIS ir pieslēgts jūsu lietotāja kontam.",
+    disconnected: "BIS nav pieslēgts. BIS darbības būs paslēptas līdz savienojuma izveidei un lietas piesaistei.",
+    connectBis: "Pieslēgt BIS",
+    disconnectBis: "Atvienot BIS",
+    bisCaseForSite: "BIS lieta šim objektam",
+    selectBisCase: "Izvēlieties BIS lietu",
+    saveBisCase: "Saglabāt BIS lietu",
+    noCases: "BIS ir pieslēgts, bet šim lietotājam netika atrastas autorizētas BIS lietas.",
+    connectFirst: "Vispirms pieslēdziet BIS, lai ielādētu šī objekta lietas.",
+    disconnectNote: "BIS atvienošana noņem tikai piekļuves tokenus. Esošie žurnāla un materiālu ieraksti datubāzē paliek.",
+    editSiteInfo: "Rediģēt objekta informāciju",
+    editSiteDescription: "Atjauniniet objekta nosaukumu, aprakstu vai apakšdomēnu.",
+    name: "Nosaukums",
+    description: "Apraksts",
+    subdirectory: "Apakšdirektorija",
+    siteArea: "Objekta teritorija",
+    siteAreaHint: "Uzzīmējiet atļauto objekta teritoriju darbinieku lokācijai balstītai ierašanās atzīmei.",
+    saveChanges: "Saglabāt izmaiņas",
+    saving: "Saglabā...",
+    deleteEverything: "Dzēst visu",
+    deleteProjectQuestion: "Dzēst šo projektu?",
+    deleteProjectDescription: "Šo darbību nevar atsaukt. Tā neatgriezeniski dzēsīs objektu un visus saistītos datus.",
+    cancel: "Atcelt",
+    yesDelete: "Jā, dzēst",
+  },
+};
+
 export function getDashboardMessages(language?: string | null) {
   return DASHBOARD_MESSAGES[normalizeOrganizationLanguage(language)];
 }
@@ -492,4 +620,12 @@ export function getWarehouseUiMessages(language?: string | null) {
 
 export function getSettingsUiMessages(language?: string | null) {
   return SETTINGS_UI_MESSAGES[normalizeOrganizationLanguage(language)];
+}
+
+export function getNavigationMessages(language?: string | null) {
+  return NAVIGATION_MESSAGES[normalizeOrganizationLanguage(language)];
+}
+
+export function getSiteSettingsMessages(language?: string | null) {
+  return SITE_SETTINGS_MESSAGES[normalizeOrganizationLanguage(language)];
 }

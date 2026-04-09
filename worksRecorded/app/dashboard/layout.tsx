@@ -17,7 +17,7 @@ import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
-import { getUserEmailByUserId } from "@/server/actions/shared-actions";
+import { getOrganizationLanguageByUserId, getUserEmailByUserId } from "@/server/actions/shared-actions";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 
 export default async function DashboardLayout({
@@ -27,7 +27,10 @@ export default async function DashboardLayout({
 }) {
   const user = await requireUser();
   const userId = user.id;
-  const email = await getUserEmailByUserId(user.id);
+  const [email, organizationLanguage] = await Promise.all([
+    getUserEmailByUserId(user.id),
+    getOrganizationLanguageByUserId(user.id),
+  ]);
 
   console.log(user.id);
   console.log(`this is email ${email}`);
@@ -60,7 +63,7 @@ export default async function DashboardLayout({
           <div className="flex items-center gap-4">
             {/* Mobile menu button - only shows on small screens */}
             <div className="lg:hidden">
-              <MobileMenu />
+              <MobileMenu organizationLanguage={organizationLanguage} />
             </div>
 
             {/* Logo - smaller on mobile */}
@@ -76,7 +79,7 @@ export default async function DashboardLayout({
 
           {/* Navigation - hidden on mobile, shown on desktop */}
           <nav className="hidden lg:flex gap-2 items-center flex-1 ml-6">
-            <DashboardItems userEmail={email} />
+            <DashboardItems userEmail={email} organizationLanguage={organizationLanguage} />
           </nav>
 
           {/* Theme/User menu */}

@@ -1,77 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { navLinks } from "./NavLinks";
+import { getNavLinks, getProjectNavLinks } from "./NavLinks";
 import { cn } from "@/lib/utils/utils";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
 
-import {Wrench, Layers, NotebookPen, Clock8, ReceiptText, ChartLine, Package} from "lucide-react";
-
-export const projectNavLinks = [
-  {
-    name: "Site Diary",
-    href: "/dashboard/dashboard",
-    path: "dashboard",
-    icon: ReceiptText,
-  },
-  // {
-  //   name: "Site Diary",
-  //   href: "/dashboard/siteDiary",
-  //   path: "siteDiary",
-  //   icon: NotebookPen,
-  // },
-  //     {
-  //   name: "Project Diary",
-  //   href: "/dashboard/projectDiary",
-  //   path: "projectDiary",
-  //   icon: NotebookPen,
-  // },
-  //   {
-  //   name: "Invoices",
-  //   href: "/dashboard/invoices",
-  //   path: "invoices",
-  //   icon: ReceiptText,
-  // },
-  //    {
-  //   name: "Documents",
-  //   href: "/dashboard/documents",
-  //   path: "documents",
-  //   icon: Layers,
-  // },
-  
- 
-  {
-    name: "Timesheets",
-    href: "/dashboard/timesheets",
-    path: "timesheets",
-    icon: Clock8,
-  },
-  {
-    name: "Warehouse",
-    href: "/dashboard/BIS",
-    path: "BIS",
-    icon: Package,
-  },
-  // {
-  //   name: "Analytics",
-  //   href: "/dashboard/programm",
-  //   path: "analytics",
-  //   icon: ChartLine,
-  // },
-
-    {
-    name: "Settings",
-    href: "/dashboard/settings",
-    path: "settings",
-    icon: Wrench,
-  },
-];
-
-export function DashboardItems({ userEmail }: { userEmail?: string }) {
+export function DashboardItems({ userEmail, organizationLanguage }: { userEmail?: string; organizationLanguage?: string | null }) {
   const { projectId, projectName, setProject } = useProject();
   const pathname = usePathname();
+  const navLinks = getNavLinks(organizationLanguage);
+  const projectNavLinks = getProjectNavLinks(organizationLanguage);
 
   console.log(userEmail)
 

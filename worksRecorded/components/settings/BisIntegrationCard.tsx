@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { getBisAuthorizeUrl, isBisHostedAuthorizationEnabled } from "@/server/actions/BIS/service";
 import { assignBisCaseToSiteAction, completeBisManualAuthorizationAction, disconnectBisAction } from "@/server/actions/bis-settings-actions";
+import { getSiteSettingsMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type BisCaseOption = {
   id: string;
@@ -13,6 +14,7 @@ type BisCaseOption = {
 };
 
 export function BisIntegrationCard({
+  organizationLanguage,
   siteId,
   isConnected,
   selectedCase,
@@ -20,6 +22,7 @@ export function BisIntegrationCard({
   statusMessage,
   hasManualAuthorizationCode,
 }: {
+  organizationLanguage?: string | null;
   siteId: string;
   isConnected: boolean;
   selectedCase: {
@@ -32,6 +35,7 @@ export function BisIntegrationCard({
   statusMessage?: string | null;
   hasManualAuthorizationCode: boolean;
 }) {
+  const t = getSiteSettingsMessages(normalizeOrganizationLanguage(organizationLanguage));
   const manualAuthorizeHref = getBisAuthorizeUrl("manual-bis-connect");
   const hostedAuthorizeHref = `/api/bis/connect?siteId=${encodeURIComponent(siteId)}&returnTo=${encodeURIComponent(`/dashboard/sites/${siteId}/settings`)}`;
   const useHostedAuthorization = isBisHostedAuthorizationEnabled();
@@ -40,9 +44,9 @@ export function BisIntegrationCard({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>BIS integration</CardTitle>
+        <CardTitle>{t.bisIntegration}</CardTitle>
         <CardDescription>
-          Connect your BIS account, then lock this site to a single BIS case.
+          {t.bisDescription}
         </CardDescription>
       </CardHeader>
 
@@ -54,11 +58,11 @@ export function BisIntegrationCard({
         ) : null}
 
         <div className="rounded-lg border p-4">
-          <div className="text-sm font-medium">Connection status</div>
+          <div className="text-sm font-medium">{t.connectionStatus}</div>
           <p className="mt-1 text-sm text-muted-foreground">
             {isConnected
-              ? "BIS is connected for your user account."
-              : "BIS is not connected. BIS actions stay hidden until you connect and assign a case."}
+              ? t.connected
+              : t.disconnected}
           </p>
 
           <div className="mt-4 flex flex-wrap gap-3">
@@ -66,7 +70,7 @@ export function BisIntegrationCard({
               useHostedAuthorization ? (
                 <div className="space-y-3">
                   <Button asChild>
-                    <Link href={hostedAuthorizeHref}>Connect BIS</Link>
+                    <Link href={hostedAuthorizeHref}>{t.connectBis}</Link>
                   </Button>
 
                   <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -129,14 +133,14 @@ export function BisIntegrationCard({
             ) : (
               <form action={disconnectBisAction}>
                 <input type="hidden" name="siteId" value={siteId} />
-                <SubmitButton text="Disconnect BIS" variant="destructive" className="w-fit" />
+                <SubmitButton text={t.disconnectBis} variant="destructive" className="w-fit" />
               </form>
             )}
           </div>
         </div>
 
         <div className="rounded-lg border p-4">
-          <div className="text-sm font-medium">BIS case for this site</div>
+          <div className="text-sm font-medium">{t.bisCaseForSite}</div>
           {selectedCase.id ? (
             <div className="mt-2 space-y-1 text-sm text-muted-foreground">
               <p>
@@ -177,7 +181,7 @@ export function BisIntegrationCard({
                   defaultValue=""
                 >
                   <option value="" disabled>
-                    Select a BIS case
+                    {t.selectBisCase}
                   </option>
                   {availableCases.map((bisCase) => (
                     <option key={bisCase.id} value={bisCase.id}>
@@ -191,23 +195,23 @@ export function BisIntegrationCard({
                 <input type="hidden" name="bisCaseName" value="" />
                 <input type="hidden" name="bisCaseStage" value="" />
 
-                <SubmitButton text="Save BIS case" className="w-fit" />
+                <SubmitButton text={t.saveBisCase} className="w-fit" />
               </form>
             ) : (
               <p className="mt-2 text-sm text-muted-foreground">
-                BIS is connected, but no authorized BIS cases were returned for this user.
+                {t.noCases}
               </p>
             )
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">
-              Connect BIS first to load cases for this site.
+              {t.connectFirst}
             </p>
           )}
         </div>
       </CardContent>
 
       <CardFooter className="text-xs text-muted-foreground">
-        Disconnecting BIS only removes access tokens. Existing site diary and material records remain in the database.
+        {t.disconnectNote}
       </CardFooter>
     </Card>
   );
