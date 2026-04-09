@@ -10,7 +10,7 @@ import {
   normalizePhone,
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { handleWorkerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/worker";
-import { handleProjectManagerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/project-manager-route";
+
 import { handleSiteManagerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/site-manager-route";
 import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 import {
@@ -261,10 +261,7 @@ async function runWhatsappRoutingForMeta(args: {
 
     const role = (user.role || "").trim().toLowerCase();
 
-    if (role === "project manager") {
-      await handleProjectManagerRoute({ from, formData, user });
-      return;
-    }
+    
 
     await handleSiteManagerRoute({ from, formData, user });
   } catch (err) {
