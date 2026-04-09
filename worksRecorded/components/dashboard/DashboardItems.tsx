@@ -13,8 +13,6 @@ export function DashboardItems({ userEmail, organizationLanguage }: { userEmail?
   const navLinks = getNavLinks(organizationLanguage);
   const projectNavLinks = getProjectNavLinks(organizationLanguage);
 
-  console.log(userEmail)
-
   useEffect(() => {
     const isAboveProject =
       pathname === "/dashboard" || pathname === "/dashboard/sites";
@@ -22,7 +20,7 @@ export function DashboardItems({ userEmail, organizationLanguage }: { userEmail?
   }, [pathname]);
 
 return (
-    <div className="flex items-center w-full justify-between">
+    <div className="flex items-center w-full justify-between gap-3">
       {/* LEFT: Main navigation links + project nav links if selected */}
       <div className="flex items-center gap-1 overflow-x-auto py-1">
         {navLinks.map((item) => (
@@ -31,13 +29,13 @@ return (
             key={item.name}
             className={cn(
               pathname === item.href
-                ? "bg-muted text-primary"
-                : "text-muted-foreground bg-none",
-              "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary/70 text-sm lg:text-base"
+                ? "bg-primary/10 text-primary border-primary/30"
+                : "text-muted-foreground bg-transparent border-transparent hover:bg-muted/60 hover:text-foreground",
+              "flex items-center gap-2 rounded-full border px-3 py-1.5 transition-all text-sm whitespace-nowrap"
             )}
           >
             <item.icon className="size-4" />
-            <span className="hidden md:inline-block">{item.name}</span>
+            <span className="hidden xl:inline-block">{item.name}</span>
           </Link>
         ))}
 
@@ -50,35 +48,25 @@ return (
               className={cn(
                 "text-blue-500 text-sm lg:text-base",
                 pathname === `/dashboard/sites/${projectId}/${item.path}`
-                  ? "bg-muted"
-                  : "bg-none",
-                "flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-blue-700"
+                  ? "bg-blue-50 border-blue-300 text-blue-700"
+                  : "bg-transparent border-transparent text-blue-600 hover:bg-blue-50/70",
+                "flex items-center gap-2 rounded-full border px-3 py-1.5 transition-all whitespace-nowrap"
               )}
                  {...(item.path === "siteDiary"
         ? { "data-tour": "nav-site-diary" } // 👈 always present for Site Diary (this is is Jouyride thingy from 111 : 113)
         : {})}
             >
               <item.icon className="size-4" />
-              <span className="hidden md:inline-block">{item.name}</span>
+              <span className="hidden xl:inline-block">{item.name}</span>
             </Link>
           ))
         }
       </div>
-        <div>
-         
-        </div>
       {/* RIGHT: Project name - now with better mobile handling */}
       {projectName && (
-       
-     
-        <div className="hidden sm:flex items-center gap-2 rounded-lg px-3 py-2 text-blue-600 font-semibold bg-none max-w-[150px] lg:max-w-[200px]">
-             
+        <div className="hidden md:flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-700 font-semibold max-w-[220px]">
           <span className="truncate">{projectName}</span>
-        
         </div>
-       
-
-        
       )}
     </div>
   );
