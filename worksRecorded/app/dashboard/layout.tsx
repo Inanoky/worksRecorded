@@ -6,6 +6,7 @@ import Link from "next/link";
 import { DashboardItems } from "@/components/dashboard/DashboardItems";
 import { BadgeQuestionMark, CircleUser, X } from "lucide-react";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
+import { LanguageFlagSwitcher } from "@/components/dashboard/LanguageFlagSwitcher";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,6 +85,7 @@ export default async function DashboardLayout({
 
           {/* Theme/User menu */}
           <div className="flex items-center gap-x-3 lg:gap-x-5">
+            <LanguageFlagSwitcher currentLanguage={organizationLanguage} />
             <ThemeToggle />
 
             <DropdownMenu>
