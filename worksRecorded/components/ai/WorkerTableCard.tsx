@@ -179,6 +179,7 @@ export function WorkerTableCard({ siteId, initialWorkers, organizationLanguage }
             </DialogHeader>
             <AddWorkerForm
               siteId={siteId}
+              organizationLanguage={organizationLanguage}
               onSuccess={() => {
                 setOpen(false);
               }}
@@ -196,13 +197,13 @@ export function WorkerTableCard({ siteId, initialWorkers, organizationLanguage }
             visibleColumns={[2, 3, 5, 6, 7, 8]}
             columnLabels={[
               "ID",
-              "First Name",
-              "Last Name",
+              t.firstName,
+              t.lastName,
               "",
-              "Phone",
-              "On site?",
-              "Last Work Date",
-              "Last Work Type",
+              t.phone,
+              t.onSite,
+              t.lastWorkDate,
+              t.lastWorkType,
             ]}
             toolbar={false}
             onDeleteRow={handleDeleteRow}

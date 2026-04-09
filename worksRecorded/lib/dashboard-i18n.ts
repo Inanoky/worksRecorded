@@ -137,6 +137,11 @@ type WorkersUiMessages = {
   addWorker: string;
   addWorkerDescription: string;
   totalWorkers: string;
+  firstName: string;
+  lastName: string;
+  onSite: string;
+  lastWorkDate: string;
+  lastWorkType: string;
   editWorker: string;
   updateWorkerInformation: string;
   name: string;
@@ -579,6 +584,11 @@ const WORKERS_UI_MESSAGES: Record<OrganizationLanguage, WorkersUiMessages> = {
     addWorker: "Add worker",
     addWorkerDescription: "Create a new worker profile for this site.",
     totalWorkers: "Total workers",
+    firstName: "First Name",
+    lastName: "Last Name",
+    onSite: "On site?",
+    lastWorkDate: "Last Work Date",
+    lastWorkType: "Last Work Type",
     editWorker: "Edit worker",
     updateWorkerInformation: "Update worker information.",
     name: "Name",
@@ -594,6 +604,11 @@ const WORKERS_UI_MESSAGES: Record<OrganizationLanguage, WorkersUiMessages> = {
     addWorker: "Pievienot darbinieku",
     addWorkerDescription: "Izveidojiet jaunu darbinieka profilu šim objektam.",
     totalWorkers: "Kopā darbinieki",
+    firstName: "Vārds",
+    lastName: "Uzvārds",
+    onSite: "Objektā?",
+    lastWorkDate: "Pēdējā darba diena",
+    lastWorkType: "Pēdējais darba veids",
     editWorker: "Rediģēt darbinieku",
     updateWorkerInformation: "Atjauniniet darbinieka informāciju.",
     name: "Vārds",
