@@ -6,6 +6,7 @@ import Link from "next/link";
 import { DashboardItems } from "@/components/dashboard/DashboardItems";
 import { BadgeQuestionMark, CircleUser, X } from "lucide-react";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
+import { LanguageFlagSwitcher } from "@/components/dashboard/LanguageFlagSwitcher";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +18,7 @@ import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
-import { getUserEmailByUserId } from "@/server/actions/shared-actions";
+import { getOrganizationLanguageByUserId, getUserEmailByUserId } from "@/server/actions/shared-actions";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 
 export default async function DashboardLayout({
@@ -27,15 +28,10 @@ export default async function DashboardLayout({
 }) {
   const user = await requireUser();
   const userId = user.id;
-  const email = await getUserEmailByUserId(user.id);
-
-  console.log(user.id);
-  console.log(`this is email ${email}`);
-  console.log(
-    "[layout] runtime:",
-    typeof EdgeRuntime !== "undefined" ? "EDGE" : "NODE"
-  );
-  console.log("[layout] email:", email);
+  const [email, organizationLanguage] = await Promise.all([
+    getUserEmailByUserId(user.id),
+    getOrganizationLanguageByUserId(user.id),
+  ]);
 
   return (
     <ProjectProvider userId={userId}>
@@ -56,31 +52,33 @@ export default async function DashboardLayout({
         `}</style>
 
         {/* Top Navigation Bar */}
-        <header className="flex h-14 items-center justify-between gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-8">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b bg-background/85 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/70 lg:h-[64px] lg:px-8">
+          <div className="flex items-center gap-3 min-w-0">
             {/* Mobile menu button - only shows on small screens */}
             <div className="lg:hidden">
-              <MobileMenu />
+              <MobileMenu organizationLanguage={organizationLanguage} />
             </div>
 
             {/* Logo - smaller on mobile */}
-            <Link href="/" className="flex items-center gap-2 font-semibold">
+            <Link href="/" className="flex items-center gap-2 font-semibold shrink-0">
             
-              <h3 className="text-xl lg:text-2xl">
+              <h3 className="text-xl lg:text-2xl tracking-tight">
                 Works<span className="text-green-700">Recorded</span>
               </h3>
             </Link>
-          </div>
-
-          <div className="max-w-[150px] truncate">{email}</div>
 
           {/* Navigation - hidden on mobile, shown on desktop */}
-          <nav className="hidden lg:flex gap-2 items-center flex-1 ml-6">
-            <DashboardItems userEmail={email} />
+          <nav className="hidden lg:flex gap-2 items-center flex-1 min-w-0 ml-3">
+            <DashboardItems userEmail={email} organizationLanguage={organizationLanguage} />
           </nav>
+          </div>
 
           {/* Theme/User menu */}
-          <div className="flex items-center gap-x-3 lg:gap-x-5">
+          <div className="flex items-center gap-x-2 lg:gap-x-3 shrink-0">
+            <div className="hidden md:block max-w-[220px] truncate rounded-full border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
+              {email}
+            </div>
+            <LanguageFlagSwitcher currentLanguage={organizationLanguage} />
             <ThemeToggle />
 
             <DropdownMenu>

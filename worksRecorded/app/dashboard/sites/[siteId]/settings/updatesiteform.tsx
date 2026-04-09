@@ -9,6 +9,7 @@ import GeoMap from "@/components/settings/geomap";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { updateSiteAction } from "@/server/actions/shared-actions";
+import { getSiteSettingsMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type Point = {
   lat: number;
@@ -24,23 +25,26 @@ type UpdateSiteFormProps = {
     geofenceMapLink: string;
   };
   parsedPolygon: Point[];
+  organizationLanguage?: string | null;
 };
 
 export function UpdateSiteForm({
   siteId,
   site,
   parsedPolygon,
+  organizationLanguage,
 }: UpdateSiteFormProps) {
+  const t = getSiteSettingsMessages(normalizeOrganizationLanguage(organizationLanguage));
   const [isPending, startTransition] = useTransition();
 
   async function formAction(formData: FormData) {
     startTransition(async () => {
       try {
         await updateSiteAction(formData);
-        toast.success("Saved successfully");
+        toast.success(t.saveChanges);
       } catch (error) {
         console.error("Failed to update site", error);
-        toast.error("Failed to save changes");
+        toast.error(t.cancel);
       }
     });
   }
@@ -48,9 +52,9 @@ export function UpdateSiteForm({
   return (
     <Card className="mb-6">
       <CardHeader>
-        <CardTitle>Edit Site Info</CardTitle>
+        <CardTitle>{t.editSiteInfo}</CardTitle>
         <CardDescription>
-          Update your site’s name, description, or subdirectory.
+          {t.editSiteDescription}
         </CardDescription>
       </CardHeader>
 
@@ -60,7 +64,7 @@ export function UpdateSiteForm({
         <div className="px-6 pb-2 flex flex-col gap-4">
           <div>
             <label className="block mb-1 text-sm font-medium" htmlFor="name">
-              Name
+              {t.name}
             </label>
             <input
               className="w-full border rounded-lg px-3 py-2 text-base"
@@ -78,7 +82,7 @@ export function UpdateSiteForm({
               className="block mb-1 text-sm font-medium"
               htmlFor="description"
             >
-              Description
+              {t.description}
             </label>
             <input
               className="w-full border rounded-lg px-3 py-2 text-base"
@@ -96,7 +100,7 @@ export function UpdateSiteForm({
               className="block mb-1 text-sm font-medium"
               htmlFor="subdirectory"
             >
-              Subdirectory
+              {t.subdirectory}
             </label>
             <input
               className="w-full border rounded-lg px-3 py-2 text-base"
@@ -111,20 +115,20 @@ export function UpdateSiteForm({
 
           <div>
             <label className="block mb-2 text-sm font-medium">
-              Site area
+              {t.siteArea}
             </label>
             <GeoMap
               initialPolygon={parsedPolygon}
               initialMapLink={site.geofenceMapLink}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Draw the permitted site area for location-based worker clock-in.
+              {t.siteAreaHint}
             </p>
           </div>
         </div>
 
         <CardFooter>
-          <SubmitButton text={isPending ? "Saving..." : "Save Changes"} />
+          <SubmitButton text={isPending ? t.saving : t.saveChanges} />
         </CardFooter>
       </form>
     </Card>

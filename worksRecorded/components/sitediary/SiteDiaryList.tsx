@@ -97,8 +97,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 
 import { toast } from "sonner";
-
-const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+import { getSiteDiaryListMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 const WhatsAppIcon = ({ size = 22 }) => (
   <svg
@@ -202,11 +201,16 @@ function toLocalDateKey(d: Date) {
 export default function SiteDiaryCalendar({
   siteId,
   bisEnabled = true,
+  organizationLanguage,
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
+  organizationLanguage?: string | null;
 }) {
   const today = new Date();
+  const language = normalizeOrganizationLanguage(organizationLanguage);
+  const t = getSiteDiaryListMessages(language);
+  const dateLocale = language === "lv" ? "lv-LV" : "en-GB";
 
   // 👇 add "gallery" to view mode
   const [viewMode, setViewMode] =
@@ -226,7 +230,7 @@ export default function SiteDiaryCalendar({
   const [calendarDate, setCalendarDate] = React.useState<Date | null>(null);
   const [filledDays, setFilledDays] = React.useState<number[]>([]);
   const weeks = getCalendarGrid(currentYear, currentMonth);
-  const monthName = new Date(currentYear, currentMonth).toLocaleString("default", {
+  const monthName = new Date(currentYear, currentMonth).toLocaleString(dateLocale, {
     month: "long",
   });
 
@@ -589,7 +593,7 @@ export default function SiteDiaryCalendar({
   };
 
   const dayLabel = (d: Date) =>
-    d.toLocaleDateString("en-GB", {
+    d.toLocaleDateString(dateLocale, {
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -700,11 +704,11 @@ export default function SiteDiaryCalendar({
   const getBisStatusLabel = React.useCallback((status: string | null | undefined) => {
     const normalized = normalizeApprovalStatus(status);
     if (!normalized) return "WorksRecorded";
-    if (normalized === "approved") return "BIS approved";
-    if (isApprovalPendingStatus(status)) return "BIS pending";
-    if (["sent", "draft", "created"].includes(normalized)) return "BIS draft";
-    return "BIS draft";
-  }, [isApprovalPendingStatus, normalizeApprovalStatus]);
+    if (normalized === "approved") return t.bisApproved;
+    if (isApprovalPendingStatus(status)) return t.bisPending;
+    if (["sent", "draft", "created"].includes(normalized)) return t.bisDraft;
+    return t.bisDraft;
+  }, [isApprovalPendingStatus, normalizeApprovalStatus, t]);
 
   const getBisStatusClassName = React.useCallback((status: string | null | undefined) => {
     const normalized = normalizeApprovalStatus(status);
@@ -996,18 +1000,18 @@ export default function SiteDiaryCalendar({
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">
-                Site Diary
+                {t.title}
               </h2>
               <p className="text-sm text-muted-foreground">
-                Switch between calendar, list and gallery views.
+                {t.subtitle}
               </p>
             </div>
 
             <div className="flex flex-col items-stretch gap-2 sm:items-end">
               <TabsList className="self-start sm:self-end">
-                <TabsTrigger value="list">List</TabsTrigger>
-                <TabsTrigger value="calendar">Calendar</TabsTrigger>
-                <TabsTrigger value="gallery">Gallery</TabsTrigger>
+                <TabsTrigger value="list">{t.tabList}</TabsTrigger>
+                <TabsTrigger value="calendar">{t.tabCalendar}</TabsTrigger>
+                <TabsTrigger value="gallery">{t.tabGallery}</TabsTrigger>
               </TabsList>
 
               <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
@@ -1019,18 +1023,18 @@ export default function SiteDiaryCalendar({
                 >
                   <WhatsAppIcon />
                   <span className="hidden sm:inline">
-                    Record site work via WhatsApp
+                    {t.recordViaWhatsApp}
                   </span>
-                  <span className="sm:hidden">Record via WhatsApp</span>
+                  <span className="sm:hidden">{t.recordViaWhatsAppShort}</span>
                 </button>
 
                 <Button variant="outline" onClick={exportToExcel}>
-                  Export to Excel
+                  {t.exportToExcel}
                 </Button>
                 {bisUiEnabled ? (
                   <Button variant="outline" onClick={handleSyncBisRecords} disabled={bisSyncLoading}>
                     <RefreshCw className={cn("mr-2 h-4 w-4", bisSyncLoading ? "animate-spin" : "")} />
-                    {bisSyncLoading ? "Refreshing..." : "Refresh BIS sync"}
+                    {bisSyncLoading ? t.refreshing : t.refreshBisSync}
                   </Button>
                 ) : null}
               </div>
@@ -1074,7 +1078,7 @@ export default function SiteDiaryCalendar({
 
             {/* Days of Week Header */}
             <div className="mb-1 grid grid-cols-7 gap-1 sm:gap-2">
-              {daysOfWeek.map((day) => (
+              {t.daysOfWeek.map((day) => (
                 <div
                   key={day}
                   className="truncate text-center text-xs font-medium text-gray-500 sm:text-sm"
@@ -1135,13 +1139,13 @@ export default function SiteDiaryCalendar({
 
           {/* LIST VIEW */}
           <TabsContent value="list" className="mt-0">
-            {/* Filters */}
+            {/* {t.filters} */}
             <Card className="mb-4 border-muted bg-muted/30">
               <CardContent className="px-3 py-3 sm:px-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
                   <div className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Filter className="h-4 w-4" />
-                    Filters
+                    {t.filters}
                   </div>
 
                   <div className="flex flex-1 flex-wrap gap-2">
@@ -1158,12 +1162,12 @@ export default function SiteDiaryCalendar({
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFrom
-                            ? dateFrom.toLocaleDateString("en-GB", {
+                            ? dateFrom.toLocaleDateString(dateLocale, {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
                               })
-                            : "From date"}
+                            : t.fromDate}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -1189,12 +1193,12 @@ export default function SiteDiaryCalendar({
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateTo
-                            ? dateTo.toLocaleDateString("en-GB", {
+                            ? dateTo.toLocaleDateString(dateLocale, {
                                 year: "numeric",
                                 month: "short",
                                 day: "numeric",
                               })
-                            : "To date"}
+                            : t.toDate}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -1213,10 +1217,10 @@ export default function SiteDiaryCalendar({
                       onValueChange={(val) => setWorkFilter(val)}
                     >
                       <SelectTrigger className="h-9 w-full text-sm sm:w-[220px]">
-                        <SelectValue placeholder="Filter by works" />
+                        <SelectValue placeholder={t.filterByWorks} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__ALL__">All works</SelectItem>
+                        <SelectItem value="__ALL__">{t.allWorks}</SelectItem>
                         {worksOptions.map((w) => (
                           <SelectItem key={w} value={w}>
                             {w}
@@ -1231,11 +1235,11 @@ export default function SiteDiaryCalendar({
                       onValueChange={(val) => setFloorFilter(val)}
                     >
                       <SelectTrigger className="h-9 w-full text-sm sm:w-[200px]">
-                        <SelectValue placeholder="Filter by floor/location" />
+                        <SelectValue placeholder={t.filterByFloorLocation} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__ALL__">
-                          All floors / locations
+                          {t.allFloorsLocations}
                         </SelectItem>
                         {floorOptions.map((f) => (
                           <SelectItem key={f} value={f}>
@@ -1277,12 +1281,12 @@ export default function SiteDiaryCalendar({
                       className="text-xs sm:text-sm"
                       onClick={clearFilters}
                     >
-                      Clear filters
+                      {t.clearFilters}
                     </Button>
                     {loading && (
                       <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        Loading…
+                        {t.loading}
                       </div>
                     )}
                   </div>
@@ -1302,7 +1306,7 @@ export default function SiteDiaryCalendar({
             {!loading && dayGroups.length === 0 && !error && (
               <Card className="border-dashed">
                 <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  No site diary records match your filters.
+                  {t.noRecords}
                 </CardContent>
               </Card>
             )}
@@ -1343,7 +1347,7 @@ export default function SiteDiaryCalendar({
                           </CardTitle>
                           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground sm:text-sm">
                             <span>
-                              {totalTasks} task{totalTasks === 1 ? "" : "s"}
+                              {totalTasks} {totalTasks === 1 ? t.taskSingular : t.taskPlural}
                             </span>
                           </div>
                         </div>
@@ -1361,7 +1365,7 @@ export default function SiteDiaryCalendar({
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>View photos for this day</p>
+                              <p>{t.viewPhotosForDay}</p>
                             </TooltipContent>
                           </Tooltip>
 
@@ -1374,10 +1378,10 @@ export default function SiteDiaryCalendar({
                             {isPdfLoading ? (
                               <>
                                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                Generating…
+                                {t.generating}
                               </>
                             ) : (
-                              "PDF report"
+                              t.pdfReport
                             )}
                           </Button>
 
@@ -1386,7 +1390,7 @@ export default function SiteDiaryCalendar({
                             variant="outline"
                             onClick={() => openDayDialog(group.date)}
                           >
-                            Open diary
+                            {t.openDiary}
                           </Button>
                         </div>
                       </CardHeader>
@@ -1401,7 +1405,7 @@ export default function SiteDiaryCalendar({
                             >
                               <div className="flex flex-wrap items-baseline justify-between gap-1">
                                 <span className="font-medium">
-                                  {r.Location || "No location"}
+                                  {r.Location || t.noLocation}
                                 </span>
                                 <span className="text-[10px] text-muted-foreground">
                                   {r.Units && r.Amounts != null
@@ -1412,19 +1416,19 @@ export default function SiteDiaryCalendar({
 
                               <div className="mt-1 text-[11px]">
                                 <div className="font-semibold">
-                                  {r.Works || "No works recorded"}
+                                  {r.Works || t.noWorksRecorded}
                                 </div>
                               </div>
 
                               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
                                 <span>
-                                  Workers:{" "}
+                                  {t.workers}:{" "}
                                   <span className="font-medium text-foreground">
                                     {r.WorkersInvolved ?? "—"}
                                   </span>
                                 </span>
                                 <span>
-                                  Hours:{" "}
+                                  {t.hours}:{" "}
                                   <span className="font-medium text-foreground">
                                     {r.TimeInvolved ?? "—"}
                                   </span>
@@ -1433,7 +1437,7 @@ export default function SiteDiaryCalendar({
 
                               <div className="mt-1">
                                 <p className="line-clamp-4 whitespace-pre-wrap text-[11px] leading-snug text-foreground">
-                                  {r.Comments || "No comments"}
+                                  {r.Comments || t.noComments}
                                 </p>
                               </div>
 
@@ -1459,12 +1463,12 @@ export default function SiteDiaryCalendar({
                                           disabled={!r.id || bisSendingRowId === r.id || isSent}
                                           onClick={() => openBisPicker(r)}
                                         >
-                                          {isSent ? "Sent to BIS" : bisSendingRowId === r.id ? (
+                                          {isSent ? t.sentToBis : bisSendingRowId === r.id ? (
                                             <>
                                               <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                              Sending...
+                                              {t.sending}
                                             </>
-                                          ) : "Send to BIS"}
+                                          ) : t.sendToBis}
                                         </Button>
 
                                         {isSent ? (
@@ -1482,7 +1486,7 @@ export default function SiteDiaryCalendar({
                                             disabled={!r.id || isPendingApproval || isApproved}
                                             onClick={() => openApprovalDialog(r)}
                                           >
-                                            {isApproved ? "Approved" : isPendingApproval ? "Sent for approval" : "Send for approval"}
+                                            {isApproved ? t.approved : isPendingApproval ? t.sentForApproval : t.sendForApproval}
                                           </Button>
                                         ) : null}
                                       </>
@@ -1502,11 +1506,11 @@ export default function SiteDiaryCalendar({
                                     <DropdownMenuContent align="end">
                                       <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
                                         <Copy className="mr-2 h-3 w-3" />
-                                        Copy to date
+                                        {t.copyToDate}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => handleOpenRecordInBis(r)} disabled={!r.BISId}>
                                         <ExternalLink className="mr-2 h-3 w-3" />
-                                        Open in BIS
+                                        {t.openInBis}
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
@@ -1521,7 +1525,7 @@ export default function SiteDiaryCalendar({
                                     onClick={() => openCopyDialog(r)}
                                   >
                                     <Copy className="mr-1 h-3 w-3" />
-                                    Copy to date
+                                    {t.copyToDate}
                                   </Button>
                                 </div>
                               )}
@@ -1574,7 +1578,7 @@ export default function SiteDiaryCalendar({
                                             className="text-left"
                                             style={{ width: 120 }}
                                           >
-                                            Time
+                                            {t.time}
                                           </TableHead>
                                         );
                                       }
@@ -1610,7 +1614,7 @@ export default function SiteDiaryCalendar({
                                         className="text-center"
                                         style={{ width: 140 }}
                                       >
-                                        Status
+                                        {t.status}
                                       </TableHead>
                                     ) : null}
 
@@ -1618,14 +1622,14 @@ export default function SiteDiaryCalendar({
                                       className="text-center"
                                       style={{ width: 100 }}
                                     >
-                                      Action
+                                      {t.action}
                                     </TableHead>
 
                                     <TableHead
                                       className="text-center"
                                       style={{ width: 60 }}
                                     >
-                                      Source
+                                      {t.source}
                                     </TableHead>
                                   </TableRow>
                                 </TableHeader>
@@ -1644,7 +1648,7 @@ export default function SiteDiaryCalendar({
                                             >
                                               {row[field] ? (
                                                 <div className="line-clamp-4">
-                                                  {new Date(row[field]).toLocaleTimeString("en-GB", {
+                                                  {new Date(row[field]).toLocaleTimeString(dateLocale, {
                                                     hour: "2-digit",
                                                     minute: "2-digit",
                                                     hour12: false,
@@ -1715,10 +1719,10 @@ export default function SiteDiaryCalendar({
                                                 {bisSendingRowId === row.id ? (
                                                   <>
                                                     <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                                    Sending...
+                                                    {t.sending}
                                                   </>
-                                                ) : (
-                                                  "Send to BIS"
+                                                 ) : (
+                                                  t.sendToBis
                                                 )}
                                               </Button>
                                             );
@@ -1742,12 +1746,12 @@ export default function SiteDiaryCalendar({
                                               {isApproved ? (
                                                 <>
                                                   <ShieldCheck className="mr-1 h-3 w-3" />
-                                                  Approved
+                                                  {t.approved}
                                                 </>
                                               ) : isPendingApproval ? (
-                                                "Sent for approval"
+                                                t.sentForApproval
                                               ) : (
-                                                "Send for approval"
+                                                t.sendForApproval
                                               )}
                                             </Button>
                                           );
@@ -1795,7 +1799,7 @@ export default function SiteDiaryCalendar({
                                               disabled={!row.id}
                                             >
                                               <Copy className="mr-2 h-3.5 w-3.5" />
-                                              Copy
+                                              {t.copy}
                                             </DropdownMenuItem>
                                             {bisUiEnabled ? (
                                               <DropdownMenuItem
@@ -1803,7 +1807,7 @@ export default function SiteDiaryCalendar({
                                                 disabled={!group.rows[i]?.BISId}
                                               >
                                                 <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                                                Open in BIS
+                                                {t.openInBis}
                                               </DropdownMenuItem>
                                             ) : null}
                                           </DropdownMenuContent>
@@ -1859,6 +1863,7 @@ export default function SiteDiaryCalendar({
           setOpen={setDialogOpen}
           date={dialogDate ?? calendarDate}
           siteId={siteId}
+          organizationLanguage={organizationLanguage}
           onSaved={async () => {
             reloadFilledDays();
 
@@ -1894,10 +1899,10 @@ export default function SiteDiaryCalendar({
 
                 <div className="grid gap-4 lg:grid-cols-3">
                   <div className="rounded-md border p-4 lg:col-span-2">
-                    <h3 className="mb-3 text-sm font-semibold">Performed work details</h3>
+                    <h3 className="mb-3 text-sm font-semibold">{t.performedWorkDetails}</h3>
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-foreground">BIS event date</label>
+                    <label className="text-xs font-medium text-foreground">{t.bisEventDate}</label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -1907,8 +1912,8 @@ export default function SiteDiaryCalendar({
                         >
                           <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
                           {bisSubmitDate
-                            ? bisSubmitDate.toLocaleDateString("en-GB")
-                            : "Pick BIS event date"}
+                            ? bisSubmitDate.toLocaleDateString(dateLocale)
+                            : t.pickBisEventDate}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
@@ -1923,7 +1928,7 @@ export default function SiteDiaryCalendar({
                     </Popover>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-foreground">Works description</label>
+                    <label className="text-xs font-medium text-foreground">{t.worksDescription}</label>
                     <Textarea
                       key={`works-${bisInputResetKey}`}
                       defaultValue={bisSubmitWorksRef.current}
@@ -1951,7 +1956,7 @@ export default function SiteDiaryCalendar({
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-foreground">BIS measurement unit</label>
+                    <label className="text-xs font-medium text-foreground">{t.bisMeasurementUnit}</label>
                     <Select value={bisSubmitMeasurement} onValueChange={setBisSubmitMeasurement}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select measurement" />
@@ -1968,9 +1973,9 @@ export default function SiteDiaryCalendar({
                     </div>
                   </div>
                   <div className="rounded-md border p-4">
-                    <h3 className="mb-2 text-sm font-semibold">Attachments</h3>
+                    <h3 className="mb-2 text-sm font-semibold">{t.attachments}</h3>
                     <p className="text-xs text-muted-foreground">
-                      Attachments are optional. Add them only if you want photo evidence in BIS.
+                      {t.attachmentsOptionalHelp}
                     </p>
                     <Button
                       type="button"
@@ -1979,26 +1984,26 @@ export default function SiteDiaryCalendar({
                       className="mt-3 w-full"
                       onClick={() => setAttachmentGalleryOpen(true)}
                     >
-                      Add / manage attachments
+                      {t.addManageAttachments}
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">Materials from current BIS case</h3>
+                  <h3 className="text-sm font-semibold">{t.materialsFromCurrentBisCase}</h3>
                   <div className="max-h-[52vh] overflow-y-auto rounded-md border">
                     {bisMaterialOptions.length === 0 ? (
-                      <p className="p-3 text-xs text-muted-foreground">No BIS materials available in this case.</p>
+                      <p className="p-3 text-xs text-muted-foreground">{t.noBisMaterialsAvailable}</p>
                     ) : (
                       <table className="w-full text-sm">
                         <thead className="bg-muted/50 text-xs text-muted-foreground">
                           <tr>
-                            <th className="px-3 py-2 text-left font-medium">Material</th>
-                            <th className="px-3 py-2 text-left font-medium">Unit</th>
-                            <th className="px-3 py-2 text-right font-medium">Total</th>
-                            <th className="px-3 py-2 text-right font-medium">Used</th>
-                            <th className="px-3 py-2 text-right font-medium">Available</th>
-                            <th className="px-3 py-2 text-right font-medium">Send qty</th>
+                            <th className="px-3 py-2 text-left font-medium">{t.material}</th>
+                            <th className="px-3 py-2 text-left font-medium">{t.unit}</th>
+                            <th className="px-3 py-2 text-right font-medium">{t.total}</th>
+                            <th className="px-3 py-2 text-right font-medium">{t.used}</th>
+                            <th className="px-3 py-2 text-right font-medium">{t.available}</th>
+                            <th className="px-3 py-2 text-right font-medium">{t.sendQty}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2036,11 +2041,11 @@ export default function SiteDiaryCalendar({
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold">Selected gallery attachments</h3>
+                    <h3 className="text-sm font-semibold">{t.selectedGalleryAttachments}</h3>
                   </div>
 
                   {selectedAttachmentUrls.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No attachments selected. This is optional.</p>
+                    <p className="text-xs text-muted-foreground">{t.noAttachmentsSelected}</p>
                   ) : (
                     <div className="max-h-56 overflow-y-auto rounded-md border p-2">
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
@@ -2052,7 +2057,7 @@ export default function SiteDiaryCalendar({
                             onClick={() => toggleAttachment(url, false)}
                             className="absolute right-1 top-1 rounded bg-black/70 px-1 text-[10px] text-white"
                           >
-                            Remove
+                            {t.remove}
                           </button>
                         </div>
                       ))}
@@ -2063,7 +2068,7 @@ export default function SiteDiaryCalendar({
 
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setBisPickerOpen(false)}>
-                    Cancel
+                    {t.cancel}
                   </Button>
                   <Button
                     onClick={handleSendRowToBis}
@@ -2075,10 +2080,10 @@ export default function SiteDiaryCalendar({
                     {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sending...
+                        {t.sending}
                       </>
                     ) : (
-                      "Send to BIS"
+                      t.sendToBis
                     )}
                   </Button>
                 </div>
@@ -2144,10 +2149,10 @@ export default function SiteDiaryCalendar({
                 {approvalLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Sending...
+                    {t.sending}
                   </>
                 ) : (
-                  "Send for approval"
+                  t.sendForApproval
                 )}
               </Button>
             </div>
@@ -2164,7 +2169,7 @@ export default function SiteDiaryCalendar({
             </DialogHeader>
 
             <div className="space-y-3">
-              <label className="text-sm font-medium">Target date</label>
+              <label className="text-sm font-medium">{t.targetDate}</label>
               <Calendar
                 mode="single"
                 selected={copyTargetDate || undefined}
@@ -2197,7 +2202,7 @@ export default function SiteDiaryCalendar({
             </DialogHeader>
 
             {galleryAttachmentOptions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No gallery photos available for this site.</p>
+              <p className="text-sm text-muted-foreground">{t.noGalleryPhotos}</p>
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
@@ -2228,7 +2233,7 @@ export default function SiteDiaryCalendar({
                       </div>
                       <div className="p-2 text-[11px] text-muted-foreground">
                         {attachment.date
-                          ? new Date(attachment.date).toLocaleDateString("en-GB")
+                          ? new Date(attachment.date).toLocaleDateString(dateLocale)
                           : ""}
                       </div>
                     </label>
@@ -2248,7 +2253,7 @@ export default function SiteDiaryCalendar({
                       disabled={galleryAttachmentPage <= 1}
                       onClick={() => setGalleryAttachmentPage((prev) => Math.max(1, prev - 1))}
                     >
-                      Previous
+                      {t.previous}
                     </Button>
                     <Button
                       type="button"
@@ -2259,7 +2264,7 @@ export default function SiteDiaryCalendar({
                         setGalleryAttachmentPage((prev) => Math.min(galleryTotalPages, prev + 1))
                       }
                     >
-                      Next
+                      {t.next}
                     </Button>
                   </div>
                 </div>
@@ -2268,7 +2273,7 @@ export default function SiteDiaryCalendar({
 
             <div className="flex justify-end">
               <Button type="button" onClick={() => setAttachmentGalleryOpen(false)}>
-                Done
+                {t.done}
               </Button>
             </div>
           </DialogContent>
@@ -2281,18 +2286,19 @@ export default function SiteDiaryCalendar({
               <DialogTitle className="text-base sm:text-lg">
                 Photos –{" "}
                 {photosDate
-                  ? photosDate.toLocaleDateString("en-GB", {
+                  ? photosDate.toLocaleDateString(dateLocale, {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
                     })
-                  : "No date selected"}
+                  : t.noDateSelected}
               </DialogTitle>
             </DialogHeader>
             <ImageGallery
               date={photosDate}
               siteId={siteId}
               className="h-[70vh]"
+              organizationLanguage={organizationLanguage}
             />
           </DialogContent>
         </Dialog>

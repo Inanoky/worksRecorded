@@ -6,6 +6,7 @@ import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard_siteid_dashboard } from "@/components/joyride/JoyRideSteps";
 import SiteDiaryList from "@/components/sitediary/SiteDiaryList";
 import { getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 
 export const maxDuration = 800;
 
@@ -33,10 +34,12 @@ export default async function InvoiceRoute({
    
     siteBisStatus,
     userBisToken,
+    organizationLanguage,
   ] = await Promise.all([
    
     getSiteBisConfig(siteId),
     getUserBisTokenByUserId(user.id),
+    getOrganizationLanguageByUserId(user.id),
   ]);
 
  
@@ -53,7 +56,11 @@ export default async function InvoiceRoute({
         />
       </div>
 
-      <SiteDiaryList siteId={siteId} bisEnabled={Boolean(siteBisStatus?.bisCaseId && userBisToken?.accessToken)} />
+      <SiteDiaryList
+        siteId={siteId}
+        bisEnabled={Boolean(siteBisStatus?.bisCaseId && userBisToken?.accessToken)}
+        organizationLanguage={organizationLanguage}
+      />
       <AiWidgetRag siteId={siteId} />
     </>
   );

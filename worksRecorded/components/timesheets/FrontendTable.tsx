@@ -72,6 +72,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { getTimesheetsUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type TableRecord = {
   id: string;
@@ -91,7 +92,7 @@ type Worker = {
   surname?: string;
 };
 
-function getColumnsFromData(data: TableRecord[]) {
+function getColumnsFromData(data: TableRecord[], t: ReturnType<typeof getTimesheetsUiMessages>) {
   if (!data || data.length === 0) return [];
 
   const preferredOrder = [
@@ -111,15 +112,21 @@ function getColumnsFromData(data: TableRecord[]) {
       accessorKey: key,
       header:
         key === "clockIn"
-          ? "Clock in"
+          ? t.clockIn
           : key === "clockOut"
-            ? "Clock out"
+            ? t.clockOut
             : key === "timeWorked"
-              ? "Hours"
+              ? t.hours
               : key === "workerName"
-                ? "Worker"
-                : key === "workerRole"
-                  ? "Role"
+                ? t.worker
+              : key === "workerRole"
+                  ? t.role
+                  : key === "date"
+                    ? t.date
+                    : key === "location"
+                      ? t.location
+                      : key === "works"
+                        ? t.works
                   : key.charAt(0).toUpperCase() + key.slice(1),
     }));
 }
@@ -148,6 +155,7 @@ type FrontendTableProps = {
   siteId: string;
   pageSize: number;
   exportFileName?: string;
+  organizationLanguage?: string | null;
 };
 
 type EditDraft = {
@@ -199,8 +207,10 @@ export function FrontendTable({
   siteId,
   pageSize,
   exportFileName = "table_data.xlsx",
+  organizationLanguage,
 }: FrontendTableProps) {
-  const columns = React.useMemo(() => getColumnsFromData(data), [data]);
+  const t = getTimesheetsUiMessages(normalizeOrganizationLanguage(organizationLanguage));
+  const columns = React.useMemo(() => getColumnsFromData(data, t), [data, t]);
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [localData, setLocalData] = React.useState<TableRecord[]>(data);
   const [editDraft, setEditDraft] = React.useState<EditDraft | null>(null);
@@ -392,15 +402,15 @@ export function FrontendTable({
       <div className="space-y-4">
         <div className="grid gap-3 md:grid-cols-3">
           <div className="rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Visible records</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.visibleRecords}</p>
             <p className="mt-2 text-2xl font-semibold">{table.getFilteredRowModel().rows.length}</p>
           </div>
           <div className="rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Workers listed</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.workersListed}</p>
             <p className="mt-2 text-2xl font-semibold">{workers.length}</p>
           </div>
           <div className="rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Tracked hours</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.trackedHours}</p>
             <p className="mt-2 text-2xl font-semibold">{totalHours.toFixed(2)}</p>
           </div>
         </div>
@@ -409,20 +419,20 @@ export function FrontendTable({
           <div className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-3 md:flex-row md:items-center md:justify-between">
             <div className="flex w-full flex-1 flex-col gap-2 md:flex-row md:items-center">
               <Input
-                placeholder="Search by worker, location, work done..."
+                placeholder={t.searchDetailed}
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 className="h-9 max-w-md text-sm"
               />
               <Button type="button" variant="outline" size="sm" className="h-9" onClick={exportToExcel}>
-                Export to Excel
+                {t.exportToExcel}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Use row actions to edit or delete a time record.</p>
+            <p className="text-xs text-muted-foreground">{t.rowActionsHint}</p>
           </div>
 
           <div className="border-b px-3 py-2 text-xs text-muted-foreground">
-            {table.getFilteredRowModel().rows.length} of {localData.length} results
+            {table.getFilteredRowModel().rows.length} of {localData.length} {t.resultsSummary}
           </div>
 
           <div className="w-full overflow-x-auto">
@@ -441,7 +451,7 @@ export function FrontendTable({
                         {header.column.getIsSorted() === "desc" && " 🔽"}
                       </TableHead>
                     ))}
-                    <TableHead className="whitespace-nowrap text-xs font-medium">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap text-xs font-medium"> {t.actions}</TableHead>
                   </TableRow>
                 ))}
               </TableHeader>
@@ -465,18 +475,18 @@ export function FrontendTable({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuLabel> {t.actions}</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setEditDraft(getInitialDraft(row.original, workers))}>
                               <Pencil className="mr-2 h-4 w-4" />
-                              Edit record
+                              {t.edit}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => setRecordToDelete(row.original)}
                               className="cursor-pointer text-destructive focus:text-destructive"
                             >
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Delete record
+                              {t.delete}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -489,7 +499,7 @@ export function FrontendTable({
                       colSpan={columns.length + 1}
                       className="py-10 text-center text-sm text-muted-foreground"
                     >
-                      No data found.
+                      {t.noData}
                     </TableCell>
                   </TableRow>
                 )}
@@ -504,11 +514,15 @@ export function FrontendTable({
                   <PaginationPrevious
                     onClick={() => table.previousPage()}
                     disabled={!table.getCanPreviousPage()}
-                  />
+                  >
+                    {t.previous}
+                  </PaginationPrevious>
                 </PaginationItem>
                 {renderPagination()}
                 <PaginationItem>
-                  <PaginationNext onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} />
+                  <PaginationNext onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+                    {t.next}
+                  </PaginationNext>
                 </PaginationItem>
               </PaginationContent>
             </Pagination>
@@ -519,22 +533,20 @@ export function FrontendTable({
       <Dialog open={!!editDraft} onOpenChange={(open) => !open && setEditDraft(null)}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit time record</DialogTitle>
-            <DialogDescription>
-              Update the worker, schedule, and notes in one place before saving.
-            </DialogDescription>
+            <DialogTitle>{t.editTimeRecord}</DialogTitle>
+            <DialogDescription>{t.editTimeRecordDescription}</DialogDescription>
           </DialogHeader>
 
           {editDraft && (
             <div className="grid gap-4 py-2 sm:grid-cols-2">
               <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium">Worker</label>
+                <label className="text-sm font-medium">{t.worker}</label>
                 <Select
                   value={editDraft.workerId}
                   onValueChange={(value) => setEditDraft((prev) => (prev ? { ...prev, workerId: value } : prev))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select worker" />
+                    <SelectValue placeholder={t.selectWorker} />
                   </SelectTrigger>
                   <SelectContent>
                     {workers.map((worker) => (
@@ -547,11 +559,11 @@ export function FrontendTable({
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Date</label>
+                <label className="text-sm font-medium">{t.date}</label>
                 <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-between font-normal">
-                      <span>{editDraft.date ? format(editDraft.date, "dd.MM.yyyy") : "Select date"}</span>
+                      <span>{editDraft.date ? format(editDraft.date, "dd.MM.yyyy") : t.selectDate}</span>
                       <CalendarIcon className="h-4 w-4 opacity-70" />
                     </Button>
                   </PopoverTrigger>
@@ -570,7 +582,7 @@ export function FrontendTable({
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Location</label>
+                <label className="text-sm font-medium">{t.location}</label>
                 <Select
                   value={editDraft.location || "__none__"}
                   onValueChange={(value) =>
@@ -578,7 +590,7 @@ export function FrontendTable({
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
+                    <SelectValue placeholder={t.selectLocation} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">No location</SelectItem>
@@ -593,7 +605,7 @@ export function FrontendTable({
 
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-medium">
-                  <Clock3 className="h-4 w-4" /> Clock in
+                  <Clock3 className="h-4 w-4" /> {t.clockIn}
                 </label>
                 <Input
                   type="time"
@@ -605,7 +617,7 @@ export function FrontendTable({
 
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-medium">
-                  <Clock3 className="h-4 w-4" /> Clock out
+                  <Clock3 className="h-4 w-4" /> {t.clockOut}
                 </label>
                 <Input
                   type="time"
@@ -616,10 +628,10 @@ export function FrontendTable({
               </div>
 
               <div className="space-y-2 sm:col-span-2">
-                <label className="text-sm font-medium">Work notes</label>
+                <label className="text-sm font-medium">{t.workNotes}</label>
                 <Textarea
                   rows={5}
-                  placeholder="Describe what was completed during this shift."
+                  placeholder={t.workNotesPlaceholder}
                   value={editDraft.works}
                   onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, works: e.target.value } : prev))}
                 />
@@ -629,10 +641,10 @@ export function FrontendTable({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDraft(null)} disabled={isSaving}>
-              Cancel
+              {t.cancel}
             </Button>
             <Button onClick={handleSave} disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save changes"}
+              {isSaving ? "..." : t.save}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -641,15 +653,15 @@ export function FrontendTable({
       <AlertDialog open={!!recordToDelete} onOpenChange={(open) => !open && setRecordToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this time record?</AlertDialogTitle>
+            <AlertDialogTitle>{t.deleteTimeRecord}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the selected entry for {recordToDelete?.workerName || "this worker"}. This action cannot be undone.
+              {t.deleteTimeRecordDescription} {recordToDelete?.workerName || t.thisWorker}. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}> {t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? "Deleting..." : "Delete record"}
+              {isDeleting ? "..." : t.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

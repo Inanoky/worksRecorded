@@ -13,10 +13,13 @@ import { Button } from "@/components/ui/button";
 import { DialogTable } from "@/components/sitediary/DiealogueTable";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import TourRunner from "@/components/joyride/TourRunner";
+import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 
-export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
+export default function DialogWindow({ open, setOpen, date, siteId, onSaved, organizationLanguage }) {
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
+  const dateLocale = normalizeOrganizationLanguage(organizationLanguage) === "lv" ? "lv-LV" : "en-GB";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -36,12 +39,12 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
         <DialogHeader className="px-4 pt-4 pb-2 sm:px-0 sm:pt-0 sm:pb-0">
           <DialogTitle className="text-lg sm:text-xl">
             {date
-              ? date.toLocaleDateString("en-GB", {
+              ? date.toLocaleDateString(dateLocale, {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
                 })
-              : "No date selected"}
+              : t.noDateSelected}
           </DialogTitle>
           <DialogDescription className="w-full" />
         </DialogHeader>
@@ -55,6 +58,7 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
               className="flex-none"
               date={date}
               siteId={siteId}
+              organizationLanguage={organizationLanguage}
               onSaved={() => {
                 onSaved && onSaved();
                 setRefreshKey((k) => k + 1);
@@ -64,14 +68,14 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved }) {
 
           {/* Gallery area – Joyride target */}
           <div data-tour="dialog-gallery" className="flex-1 min-h-[300px]">
-            <ImageGallery date={date} siteId={siteId} />
+            <ImageGallery date={date} siteId={siteId} organizationLanguage={organizationLanguage} />
           </div>
         </div>
 
         <DialogFooter className="border-t bg-background px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:justify-end">
           <DialogClose asChild>
             <Button variant="outline" className="w-full sm:w-auto">
-              Close
+              {t.close}
             </Button>
           </DialogClose>
         </DialogFooter>

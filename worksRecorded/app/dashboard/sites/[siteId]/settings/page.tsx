@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
 import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 
 import { ConfirmDeleteSite } from "@/components/settings/ConfirmDeleteSite";
@@ -35,6 +36,7 @@ import {
   getUserBisTokenByUserId,
 } from "@/server/actions/BIS/service";
 import { UpdateSiteForm } from "./updatesiteform";
+import { getSiteSettingsMessages } from "@/lib/dashboard-i18n";
 
 export default async function SettingsSiteRoute({
   params,
@@ -53,6 +55,8 @@ export default async function SettingsSiteRoute({
   }
 
   const orgId = await getOrganizationIdByUserId(user.id);
+  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const t = getSiteSettingsMessages(organizationLanguage);
 
   const [
     userData,
@@ -192,10 +196,9 @@ export default async function SettingsSiteRoute({
   });
 
   const statusMessageMap: Record<string, string> = {
-    connected: "BIS authorization completed successfully.",
-    disconnected:
-      "BIS access tokens were removed and this site's BIS case selection was cleared. Existing BIS-linked records were kept.",
-    "case-selected": "BIS case was saved for this site.",
+    connected: `${t.bisIntegration}: OK`,
+    disconnected: t.disconnectNote,
+    "case-selected": t.saveBisCase,
     error: bisMessage
       ? `BIS connection failed: ${bisMessage}`
       : "BIS connection failed.",
@@ -211,12 +214,13 @@ export default async function SettingsSiteRoute({
             <ChevronLeft className="size-4" />
           </Link>
         </Button>
-        <h3 className="text-xl font-semibold">Go Back</h3>
+        <h3 className="text-xl font-semibold">{t.goBack}</h3>
       </div>
 
       <UploadImageForm siteId={siteId} />
 
       <BisIntegrationCard
+        organizationLanguage={organizationLanguage}
         siteId={siteId}
         isConnected={isBisConnected}
         selectedCase={{
@@ -233,6 +237,7 @@ export default async function SettingsSiteRoute({
       />
 
       <UpdateSiteForm
+        organizationLanguage={organizationLanguage}
         siteId={siteId}
         site={{
           name: site?.name ?? "",
@@ -245,14 +250,13 @@ export default async function SettingsSiteRoute({
 
       <Card className="border-red-500 bg-red-500/10">
         <CardHeader>
-          <CardTitle className="text-red-500">Danger</CardTitle>
+          <CardTitle className="text-red-500">{t.danger}</CardTitle>
           <CardDescription>
-            This will delete your site and all data associated with it.
-            Click the button below to delete everything.
+            {t.dangerDescription}
           </CardDescription>
         </CardHeader>
         <CardFooter>
-          <ConfirmDeleteSite siteId={siteId} />
+          <ConfirmDeleteSite siteId={siteId} organizationLanguage={organizationLanguage} />
         </CardFooter>
       </Card>
     </>

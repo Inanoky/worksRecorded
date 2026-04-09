@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { createTeamMember } from "@/server/actions/timesheets-actions";
 import { checkPhoneUnique } from "@/lib/utils/Timesheets/phone-check";
 import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
+import { getWorkersUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 const nameRegex = /^[\p{L}][\p{L}\s'-]{1,49}$/u;
 
@@ -57,11 +58,14 @@ export function AddWorkerForm({
   siteId,
   onSuccess,
   onCancel,
+  organizationLanguage,
 }: {
   siteId: string;
   onSuccess?: (w: any) => void;
   onCancel?: () => void;
+  organizationLanguage?: string | null;
 }) {
+  const t = getWorkersUiMessages(normalizeOrganizationLanguage(organizationLanguage));
   const [form, setForm] = useState<FormState>({
     name: "",
     surname: "",
@@ -117,7 +121,7 @@ export function AddWorkerForm({
       });
 
       if (res.success) {
-        toast.success("Worker added!");
+        toast.success(`${t.addWorker}!`);
         setForm({
           name: "",
           surname: "",
@@ -137,7 +141,7 @@ export function AddWorkerForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="space-y-1">
-        <Label htmlFor="name">Name</Label>
+        <Label htmlFor="name">{t.name}</Label>
         <Input
           id="name"
           name="name"
@@ -153,7 +157,7 @@ export function AddWorkerForm({
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="surname">Surname</Label>
+        <Label htmlFor="surname">{t.surname}</Label>
         <Input
           id="surname"
           name="surname"
@@ -169,7 +173,7 @@ export function AddWorkerForm({
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="phone">Phone</Label>
+        <Label htmlFor="phone">{t.phone}</Label>
         <div className="flex gap-2">
           <Select
             value={form.countryCode}
@@ -181,7 +185,7 @@ export function AddWorkerForm({
             }}
           >
             <SelectTrigger className="w-[220px]" aria-invalid={!!errors.countryCode}>
-              <SelectValue placeholder="Country code" />
+              <SelectValue placeholder={t.countryCode} />
             </SelectTrigger>
             <SelectContent>
               {COUNTRY_CALLING_CODES.map((country) => (
@@ -222,11 +226,11 @@ export function AddWorkerForm({
             onClick={onCancel}
             disabled={pending}
           >
-            Cancel
+            {t.cancel}
           </Button>
         )}
         <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Saving..." : "Add worker"}
+          {pending ? `${t.saveChanges}...` : t.addWorker}
         </Button>
       </div>
     </form>

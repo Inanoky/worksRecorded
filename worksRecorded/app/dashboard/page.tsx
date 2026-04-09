@@ -10,9 +10,10 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import { PlusCircle } from "lucide-react";
-import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
+import { getOrganizationIdByUserId, getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard_sites_open_project } from "@/components/joyride/JoyRideSteps";
+import { getDashboardMessages } from "@/lib/dashboard-i18n";
 
 const SUPER_USER_IDS = new Set([
   process.env.SUPERADMIN
@@ -35,6 +36,8 @@ export default async function DashboardIndexPage() {
   const isSuperUser = SUPER_USER_IDS.has(user.id);
 
   const org = isSuperUser ? null : await getOrganizationIdByUserId(user.id);
+  const organizationLanguage = isSuperUser ? "en" : await getOrganizationLanguageByUserId(user.id);
+  const t = getDashboardMessages(organizationLanguage);
 
   const { sites } = await getData(org, isSuperUser);
 
@@ -45,13 +48,13 @@ export default async function DashboardIndexPage() {
       <div className="flex w-full justify-end">
         <Button asChild>
           <Link href={"/dashboard/sites/new"}>
-            <PlusCircle className="mr-2 size-4" /> Create Project
+            <PlusCircle className="mr-2 size-4" /> {t.createProject}
           </Link>
         </Button>
       </div>
 
       <div>
-        <h1 className="text-2xl font-semibold mb-5">Your Sites</h1>
+        <h1 className="text-2xl font-semibold mb-5">{t.yourSites}</h1>
 
         {sites.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 auto-rows-fr">
@@ -70,17 +73,22 @@ export default async function DashboardIndexPage() {
                 </CardHeader>
 
                 <CardFooter data-tour="dashboard/page">
-                  <OpenProjectButton projectId={item.id} projectName={item.name} />
+                  <OpenProjectButton
+                    projectId={item.id}
+                    projectName={item.name}
+                    label={t.openProject}
+                    loadingLabel={t.openingProject}
+                  />
                 </CardFooter>
               </Card>
             ))}
           </div>
         ) : (
           <EmptyState
-            title="You dont have any Projects created"
-            description="You currently dont have any Projects. Please create some so that you can see them right here."
+            title={t.emptyTitle}
+            description={t.emptyDescription}
             href="/dashboard/sites/new"
-            buttonText="Create Project"
+            buttonText={t.createProject}
           />
         )}
       </div>
