@@ -8,7 +8,6 @@ import {
 } from "../../../../lib/utils/whatsapp-helpers/shared/helpers";
 import { sendMessage } from "../../../../lib/utils/whatsapp-helpers/shared/twillio";
 import { handleWorkerRoute } from "../../../../lib/utils/whatsapp-helpers/handling-roles-routes/worker";
-import { handleProjectManagerRoute } from "../../../../lib/utils/whatsapp-helpers/handling-roles-routes/project-manager-route";
 import { handleSiteManagerRoute } from "../../../../lib/utils/whatsapp-helpers/handling-roles-routes/site-manager-route";
 
 const DEBUG_SYNC = true;
@@ -240,12 +239,7 @@ async function dispatch(formData: FormData) {
     const role = (user.role || "").trim().toLowerCase();
     console.log("🎭 User role:", role);
 
-    if (role === "project manager") {
-      console.log("➡️ Orchestrating → PROJECT MANAGER route");
-      await handleProjectManagerRoute({ from, formData, user });
-      console.log("✅ PROJECT MANAGER route handled");
-      return;
-    }
+   
 
     console.log("➡️ Orchestrating → SITE MANAGER route (default)");
     await handleSiteManagerRoute({ from, formData, user });
