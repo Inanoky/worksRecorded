@@ -63,14 +63,14 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "site manager", label: "Site manager" },
 ];
 
-function getColumns(): ColumnDef<Member, any>[] {
+function getColumns(t: ReturnType<typeof getSettingsUiMessages>): ColumnDef<Member, any>[] {
   return [
-    { accessorKey: "email", header: "Email" },
-    { accessorKey: "firstName", header: "First name" },
-    { accessorKey: "lastName", header: "Last name" },
-    { accessorKey: "phone", header: "Phone" },
-    { accessorKey: "role", header: "Role" },
-    { accessorKey: "status", header: "Status" },
+    { accessorKey: "email", header: t.emailColumn },
+    { accessorKey: "firstName", header: t.firstNameColumn },
+    { accessorKey: "lastName", header: t.lastNameColumn },
+    { accessorKey: "phone", header: t.phoneColumn },
+    { accessorKey: "role", header: t.roleColumn },
+    { accessorKey: "status", header: t.statusColumn },
     // { accessorKey: "reminderTime", header: "Whatsapp reminder" },
     // { accessorKey: "remindersEnabled", header: "Allow reminders" },
   ];
@@ -142,7 +142,7 @@ export function MembersTable({
 }: MembersTableProps) {
   const router = useRouter();
   const t = getSettingsUiMessages(normalizeOrganizationLanguage(organizationLanguage));
-  const columns = React.useMemo(() => getColumns(), []);
+  const columns = React.useMemo(() => getColumns(t), [t]);
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
   const [editRowId, setEditRowId] = React.useState<string | null>(null);
@@ -582,14 +582,18 @@ export function MembersTable({
                     <PaginationPrevious
                       onClick={() => table.previousPage()}
                       disabled={!table.getCanPreviousPage()}
-                    />
+                    >
+                      {t.previous}
+                    </PaginationPrevious>
                   </PaginationItem>
                   {renderPagination()}
                   <PaginationItem>
                     <PaginationNext
                       onClick={() => table.nextPage()}
                       disabled={!table.getCanNextPage()}
-                    />
+                    >
+                      {t.next}
+                    </PaginationNext>
                   </PaginationItem>
                 </PaginationContent>
               </Pagination>

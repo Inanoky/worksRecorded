@@ -89,16 +89,16 @@ export function BisIntegrationCard({
                   </Button>
 
                   <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground">Manual BIS connection</p>
+                    <p className="font-medium text-foreground">{t.manualBisConnection}</p>
                     <ol className="mt-2 list-decimal space-y-1 pl-4">
-                      <li>Open BIS authorization in a new tab and complete the consent flow.</li>
-                      <li>Copy the <code>code</code> value from the final redirected URL.</li>
+                      <li>{t.openBisAuthorizationStep}</li>
+                      <li>{t.copyCodeStep}</li>
                       {showManualAuthorizationInput ? (
-                        <li>Either paste that code in the field below or set <code>BIS_AUTHORIZATION_CODE</code> in your environment.</li>
+                        <li>{t.pasteCodeStep}</li>
                       ) : (
-                        <li>Set <code>BIS_AUTHORIZATION_CODE</code> in your environment.</li>
+                        <li>{t.setEnvCodeStep}</li>
                       )}
-                      <li>Click the button below to exchange the authorization code for BIS tokens for your current user.</li>
+                      <li>{t.exchangeCodeStep}</li>
                     </ol>
                   </div>
 

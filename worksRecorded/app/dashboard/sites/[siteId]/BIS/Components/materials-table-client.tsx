@@ -899,7 +899,7 @@ export default function MaterialsTableClient({
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
         <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-muted-foreground">
-            Total cost: <span className="font-medium text-foreground">{formatMoney(totalCost)}</span>
+            {t.totalCost}: <span className="font-medium text-foreground">{formatMoney(totalCost)}</span>
           </div>
           <div className="relative w-full md:w-[420px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -923,16 +923,16 @@ export default function MaterialsTableClient({
             <SelectContent>
               <SelectItem value="all">{t.all}</SelectItem>
               <SelectItem value="sent">{t.sent}</SelectItem>
-              <SelectItem value="unsent">Not sent</SelectItem>
+              <SelectItem value="unsent">{t.notSent}</SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={configFilter} onValueChange={setConfigFilter}>
             <SelectTrigger>
-              <SelectValue placeholder="Warehouse material configuration" />
+              <SelectValue placeholder={t.configPlaceholder} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All configurations</SelectItem>
+              <SelectItem value="all">{t.allConfigurations}</SelectItem>
               {configurations.map((config) => (
                 <SelectItem key={config.id} value={config.id}>
                   {config.material_kind}
@@ -945,7 +945,7 @@ export default function MaterialsTableClient({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Filter className="h-4 w-4" />
-            Sort by
+            {t.sortBy}
           </div>
 
           <Select
@@ -965,17 +965,11 @@ export default function MaterialsTableClient({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="default">
-                Default (Date + ID)
-              </SelectItem>
-              <SelectItem value="invoiceDate_desc">
-                Newest invoice date
-              </SelectItem>
-              <SelectItem value="invoiceDate_asc">
-                Oldest invoice date
-              </SelectItem>
-              <SelectItem value="name_asc">Name A–Z</SelectItem>
-              <SelectItem value="quantity_desc">Highest quantity</SelectItem>
+              <SelectItem value="default">{t.sortDefault}</SelectItem>
+              <SelectItem value="invoiceDate_desc">{t.sortInvoiceNewest}</SelectItem>
+              <SelectItem value="invoiceDate_asc">{t.sortInvoiceOldest}</SelectItem>
+              <SelectItem value="name_asc">{t.sortNameAz}</SelectItem>
+              <SelectItem value="quantity_desc">{t.sortHighestQty}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -1031,21 +1025,21 @@ export default function MaterialsTableClient({
                   <Checkbox
                     checked={allVisibleSelected ? true : someVisibleSelected ? "indeterminate" : false}
                     onCheckedChange={(value) => toggleAllVisibleRows(Boolean(value))}
-                    aria-label="Select all visible warehouse records"
+                    aria-label={t.selectAllRows}
                   />
                 </TableHead>
-                <TableHead className="w-[76px]">Photo</TableHead>
-                <TableHead className="w-[20%]">Material</TableHead>
+                <TableHead className="w-[76px]">{t.photo}</TableHead>
+                <TableHead className="w-[20%]">{t.material}</TableHead>
                 <TableHead className="w-[9%]">{t.status}</TableHead>
-                {showBisControls ? <TableHead className="w-[16%]">BIS material configuration</TableHead> : null}
-                <TableHead className="w-[10%]">Cost code</TableHead>
-                <TableHead className="w-[11%]">Delivery Date</TableHead>
-                <TableHead className="w-[6%]">Qty</TableHead>
-                <TableHead className="w-[5%]">Unit</TableHead>
-                <TableHead className="w-[7%]">Cost</TableHead>
-                <TableHead className="w-[7%]">Invoice</TableHead>
-                <TableHead className="w-[9%]">Invoice date</TableHead>
-                <TableHead className="w-[11%] text-right">Action</TableHead>
+                {showBisControls ? <TableHead className="w-[16%]">{t.bisMaterialConfiguration}</TableHead> : null}
+                <TableHead className="w-[10%]">{t.costCode}</TableHead>
+                <TableHead className="w-[11%]">{t.deliveryDate}</TableHead>
+                <TableHead className="w-[6%]">{t.qty}</TableHead>
+                <TableHead className="w-[5%]">{t.unit}</TableHead>
+                <TableHead className="w-[7%]">{t.cost}</TableHead>
+                <TableHead className="w-[7%]">{t.invoice}</TableHead>
+                <TableHead className="w-[9%]">{t.invoiceDate}</TableHead>
+                <TableHead className="w-[11%] text-right">{t.action}</TableHead>
               </TableRow>
             </TableHeader>
 
@@ -1126,11 +1120,11 @@ export default function MaterialsTableClient({
                               )
                             }
                             onBlur={(event) => handleMaterialNameChange(r.id, event.target.value)}
-                            placeholder="Unnamed material"
+                            placeholder={t.unnamedMaterial}
                             className="h-9 min-w-0"
                           />
                         ) : (
-                          <div className="whitespace-normal break-words leading-snug">{r.name || "Unnamed material"}</div>
+                          <div className="whitespace-normal break-words leading-snug">{r.name || t.unnamedMaterial}</div>
                         )}
                       </TableCell>
 
@@ -1194,7 +1188,7 @@ export default function MaterialsTableClient({
                                 <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
                                 {toLocalDateInputValue(r.materialDate)
                                   ? formatDate(r.materialDate)
-                                  : "Pick date"}
+                                  : t.pickDate}
                               </Button>
                             ) : (
                               <Button
@@ -1206,7 +1200,7 @@ export default function MaterialsTableClient({
                                 <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
                                 {toLocalDateInputValue(r.materialDate)
                                   ? formatDate(r.materialDate)
-                                  : "Pick date"}
+                                  : t.pickDate}
                               </Button>
                             )}
                           </PopoverTrigger>
@@ -1366,7 +1360,7 @@ export default function MaterialsTableClient({
                         {approver.name || `Member ${approver.memberId}`}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {approver.memberType || "Unknown type"}
+                        {approver.memberType || t.unknownType}
                         {approver.level != null ? ` • Level ${approver.level}` : ""}
                       </div>
                     </div>
@@ -1385,7 +1379,7 @@ export default function MaterialsTableClient({
               disabled={approvalLoading || selectedApproverKeys.length === 0}
               className="bg-blue-600 text-white hover:bg-blue-700"
             >
-              {approvalLoading ? "Submitting..." : "Send for approval"}
+              {approvalLoading ? t.submitting : "Send for approval"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1394,7 +1388,7 @@ export default function MaterialsTableClient({
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t.edit}</DialogTitle>
+            <DialogTitle>{t.editMaterial}</DialogTitle>
             <DialogDescription>
               Update material details and attachments.
             </DialogDescription>
@@ -1402,25 +1396,25 @@ export default function MaterialsTableClient({
           {editDraft ? (
             <div className="space-y-4">
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Material Name</label>
-                <Input key={`name-${editDraft.id}`} defaultValue={editDraft.name} onChange={(event) => { editNameRef.current = event.target.value }} placeholder="Material Name" />
+                <label className="text-xs font-medium text-muted-foreground">{t.materialName}</label>
+                <Input key={`name-${editDraft.id}`} defaultValue={editDraft.name} onChange={(event) => { editNameRef.current = event.target.value }} placeholder={t.materialName} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Input key={`qty-${editDraft.id}`} defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder="Qty" />
-                <Input key={`cost-${editDraft.id}`} defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder="Cost" />
+                <Input key={`qty-${editDraft.id}`} defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder={t.qty} />
+                <Input key={`cost-${editDraft.id}`} defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder={t.cost} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Input key={`costcode-${editDraft.id}`} defaultValue={editDraft.costCode} onChange={(event) => { editCostCodeRef.current = event.target.value }} placeholder="Cost code" />
-                <Input key={`unit-${editDraft.id}`} defaultValue={editDraft.measurementUnit} onChange={(event) => { editUnitRef.current = event.target.value }} placeholder="Units" />
+                <Input key={`costcode-${editDraft.id}`} defaultValue={editDraft.costCode} onChange={(event) => { editCostCodeRef.current = event.target.value }} placeholder={t.costCode} />
+                <Input key={`unit-${editDraft.id}`} defaultValue={editDraft.measurementUnit} onChange={(event) => { editUnitRef.current = event.target.value }} placeholder={t.units} />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Delivery Date</label>
+                  <label className="text-xs font-medium text-muted-foreground">{t.deliveryDate}</label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button type="button" variant="outline" className="w-full justify-start">
                         <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
-                        {editDraft.materialDate ? formatDate(editDraft.materialDate) : "Pick delivery date"}
+                        {editDraft.materialDate ? formatDate(editDraft.materialDate) : t.pickDeliveryDate}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -1429,12 +1423,12 @@ export default function MaterialsTableClient({
                   </Popover>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Invoice Date</label>
+                  <label className="text-xs font-medium text-muted-foreground">{t.invoiceDate}</label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button type="button" variant="outline" className="w-full justify-start">
                         <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
-                        {editDraft.invoiceDate ? formatDate(editDraft.invoiceDate) : "Pick invoice date"}
+                        {editDraft.invoiceDate ? formatDate(editDraft.invoiceDate) : t.pickInvoiceDate}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -1454,7 +1448,7 @@ export default function MaterialsTableClient({
               {showBisControls ? (
                 <>
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">Atbilstību apliecinošs dokuments</div>
+                    <div className="text-sm font-medium">{t.declarationDocument}</div>
                     <Input type="file" onChange={async (event) => {
                       const file = event.target.files?.[0]
                       if (!file) return
@@ -1473,7 +1467,7 @@ export default function MaterialsTableClient({
                     ))}
                   </div>
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">Vienošanās</div>
+                    <div className="text-sm font-medium">{t.agreement}</div>
                     <Input type="file" onChange={async (event) => {
                       const file = event.target.files?.[0]
                       if (!file) return

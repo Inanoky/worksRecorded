@@ -96,8 +96,34 @@ type SiteDiaryListMessages = {
 
 type TimesheetsUiMessages = {
   search: string;
+  searchDetailed: string;
   exportToExcel: string;
   noData: string;
+  visibleRecords: string;
+  workersListed: string;
+  trackedHours: string;
+  rowActionsHint: string;
+  resultsSummary: string;
+  previous: string;
+  next: string;
+  worker: string;
+  role: string;
+  date: string;
+  location: string;
+  works: string;
+  clockIn: string;
+  clockOut: string;
+  hours: string;
+  selectWorker: string;
+  selectDate: string;
+  selectLocation: string;
+  workNotes: string;
+  workNotesPlaceholder: string;
+  editTimeRecord: string;
+  editTimeRecordDescription: string;
+  deleteTimeRecord: string;
+  deleteTimeRecordDescription: string;
+  thisWorker: string;
   actions: string;
   edit: string;
   delete: string;
@@ -123,11 +149,44 @@ type WorkersUiMessages = {
 
 type WarehouseUiMessages = {
   searchMaterials: string;
+  totalCost: string;
   refresh: string;
   status: string;
   all: string;
   sent: string;
+  notSent: string;
   unsent: string;
+  configPlaceholder: string;
+  allConfigurations: string;
+  sortBy: string;
+  sortDefault: string;
+  sortInvoiceNewest: string;
+  sortInvoiceOldest: string;
+  sortNameAz: string;
+  sortHighestQty: string;
+  selectAllRows: string;
+  photo: string;
+  material: string;
+  bisMaterialConfiguration: string;
+  costCode: string;
+  deliveryDate: string;
+  qty: string;
+  unit: string;
+  cost: string;
+  invoice: string;
+  invoiceDate: string;
+  action: string;
+  pickDate: string;
+  unnamedMaterial: string;
+  unknownType: string;
+  submitting: string;
+  editMaterial: string;
+  materialName: string;
+  units: string;
+  pickDeliveryDate: string;
+  pickInvoiceDate: string;
+  declarationDocument: string;
+  agreement: string;
   noRows: string;
   edit: string;
   delete: string;
@@ -154,6 +213,14 @@ type SettingsUiMessages = {
   actions: string;
   edit: string;
   noDataFound: string;
+  emailColumn: string;
+  firstNameColumn: string;
+  lastNameColumn: string;
+  phoneColumn: string;
+  roleColumn: string;
+  statusColumn: string;
+  previous: string;
+  next: string;
 };
 
 type NavigationMessages = {
@@ -196,6 +263,42 @@ type SiteSettingsMessages = {
   deleteProjectDescription: string;
   cancel: string;
   yesDelete: string;
+  manualBisConnection: string;
+  openBisAuthorizationStep: string;
+  copyCodeStep: string;
+  pasteCodeStep: string;
+  setEnvCodeStep: string;
+  exchangeCodeStep: string;
+};
+
+type SiteDiaryDialogMessages = {
+  additionalWorks: string;
+  clientDelay: string;
+  internalDelay: string;
+  note: string;
+  otherWorks: string;
+  recordDeleted: string;
+  recordsSaved: string;
+  loading: string;
+  addTask: string;
+  saveDiary: string;
+  task: string;
+  deleteTaskAria: string;
+  createdBy: string;
+  delete: string;
+  unknown: string;
+  select: string;
+  noDateSelected: string;
+  close: string;
+  loadingPhotos: string;
+  failedLoadPhotos: string;
+  failedDeletePhoto: string;
+  photosCount: string;
+  noPhotosForDate: string;
+  photo: string;
+  deletePhoto: string;
+  previous: string;
+  next: string;
 };
 
 export function normalizeOrganizationLanguage(language?: string | null): OrganizationLanguage {
@@ -395,8 +498,78 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
 };
 
 const TIMESHEETS_UI_MESSAGES: Record<OrganizationLanguage, TimesheetsUiMessages> = {
-  en: { search: "Search...", exportToExcel: "Export to Excel", noData: "No data found.", actions: "Actions", edit: "Edit", delete: "Delete", save: "Save", cancel: "Cancel" },
-  lv: { search: "Meklēt...", exportToExcel: "Eksportēt uz Excel", noData: "Dati nav atrasti.", actions: "Darbības", edit: "Rediģēt", delete: "Dzēst", save: "Saglabāt", cancel: "Atcelt" },
+  en: {
+    search: "Search...",
+    searchDetailed: "Search by worker, location, work done...",
+    exportToExcel: "Export to Excel",
+    noData: "No data found.",
+    visibleRecords: "Visible records",
+    workersListed: "Workers listed",
+    trackedHours: "Tracked hours",
+    rowActionsHint: "Use row actions to edit or delete a time record.",
+    resultsSummary: "results",
+    previous: "Previous",
+    next: "Next",
+    worker: "Worker",
+    role: "Role",
+    date: "Date",
+    location: "Location",
+    works: "Work notes",
+    clockIn: "Clock in",
+    clockOut: "Clock out",
+    hours: "Hours",
+    selectWorker: "Select worker",
+    selectDate: "Select date",
+    selectLocation: "Select location",
+    workNotes: "Work notes",
+    workNotesPlaceholder: "Describe what was completed during this shift.",
+    editTimeRecord: "Edit time record",
+    editTimeRecordDescription: "Update the selected record details and save your changes.",
+    deleteTimeRecord: "Delete time record?",
+    deleteTimeRecordDescription: "This will permanently remove the selected entry for",
+    thisWorker: "this worker",
+    actions: "Actions",
+    edit: "Edit",
+    delete: "Delete",
+    save: "Save",
+    cancel: "Cancel",
+  },
+  lv: {
+    search: "Meklēt...",
+    searchDetailed: "Meklēt pēc darbinieka, lokācijas, paveiktā darba...",
+    exportToExcel: "Eksportēt uz Excel",
+    noData: "Dati nav atrasti.",
+    visibleRecords: "Redzamie ieraksti",
+    workersListed: "Uzskaitītie darbinieki",
+    trackedHours: "Uzskaitītās stundas",
+    rowActionsHint: "Izmantojiet rindas darbības, lai rediģētu vai dzēstu laika ierakstu.",
+    resultsSummary: "rezultāti",
+    previous: "Iepriekšējā",
+    next: "Nākamā",
+    worker: "Darbinieks",
+    role: "Loma",
+    date: "Datums",
+    location: "Lokācija",
+    works: "Darba piezīmes",
+    clockIn: "Ierašanās",
+    clockOut: "Aiziešana",
+    hours: "Stundas",
+    selectWorker: "Izvēlieties darbinieku",
+    selectDate: "Izvēlieties datumu",
+    selectLocation: "Izvēlieties lokāciju",
+    workNotes: "Darba piezīmes",
+    workNotesPlaceholder: "Aprakstiet, kas tika paveikts šajā maiņā.",
+    editTimeRecord: "Rediģēt laika ierakstu",
+    editTimeRecordDescription: "Atjauniniet izvēlētā ieraksta datus un saglabājiet izmaiņas.",
+    deleteTimeRecord: "Dzēst laika ierakstu?",
+    deleteTimeRecordDescription: "Tas neatgriezeniski noņems izvēlēto ierakstu par",
+    thisWorker: "šo darbinieku",
+    actions: "Darbības",
+    edit: "Rediģēt",
+    delete: "Dzēst",
+    save: "Saglabāt",
+    cancel: "Atcelt",
+  },
 };
 
 const WORKERS_UI_MESSAGES: Record<OrganizationLanguage, WorkersUiMessages> = {
@@ -435,11 +608,44 @@ const WORKERS_UI_MESSAGES: Record<OrganizationLanguage, WorkersUiMessages> = {
 const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> = {
   en: {
     searchMaterials: "Search materials...",
+    totalCost: "Total cost",
     refresh: "Refresh",
     status: "Status",
     all: "All",
     sent: "Sent",
+    notSent: "Not sent",
     unsent: "Unsent",
+    configPlaceholder: "Warehouse material configuration",
+    allConfigurations: "All configurations",
+    sortBy: "Sort by",
+    sortDefault: "Default order",
+    sortInvoiceNewest: "Invoice date (newest)",
+    sortInvoiceOldest: "Invoice date (oldest)",
+    sortNameAz: "Name A–Z",
+    sortHighestQty: "Highest quantity",
+    selectAllRows: "Select all visible warehouse records",
+    photo: "Photo",
+    material: "Material",
+    bisMaterialConfiguration: "BIS material configuration",
+    costCode: "Cost code",
+    deliveryDate: "Delivery date",
+    qty: "Qty",
+    unit: "Unit",
+    cost: "Cost",
+    invoice: "Invoice",
+    invoiceDate: "Invoice date",
+    action: "Action",
+    pickDate: "Pick date",
+    unnamedMaterial: "Unnamed material",
+    unknownType: "Unknown type",
+    submitting: "Submitting...",
+    editMaterial: "Edit material",
+    materialName: "Material name",
+    units: "Units",
+    pickDeliveryDate: "Pick delivery date",
+    pickInvoiceDate: "Pick invoice date",
+    declarationDocument: "Declaration document",
+    agreement: "Agreement",
     noRows: "No materials found.",
     edit: "Edit",
     delete: "Delete",
@@ -450,11 +656,44 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
   },
   lv: {
     searchMaterials: "Meklēt materiālus...",
+    totalCost: "Kopējās izmaksas",
     refresh: "Atjaunot",
     status: "Statuss",
     all: "Visi",
     sent: "Nosūtīti",
+    notSent: "Nav nosūtīti",
     unsent: "Nenosūtīti",
+    configPlaceholder: "Noliktavas materiāla konfigurācija",
+    allConfigurations: "Visas konfigurācijas",
+    sortBy: "Kārtot pēc",
+    sortDefault: "Noklusējuma secība",
+    sortInvoiceNewest: "Rēķina datums (jaunākie)",
+    sortInvoiceOldest: "Rēķina datums (vecākie)",
+    sortNameAz: "Nosaukums A–Z",
+    sortHighestQty: "Lielākais daudzums",
+    selectAllRows: "Atlasīt visus redzamos noliktavas ierakstus",
+    photo: "Foto",
+    material: "Materiāls",
+    bisMaterialConfiguration: "BIS materiāla konfigurācija",
+    costCode: "Izmaksu kods",
+    deliveryDate: "Piegādes datums",
+    qty: "Daudz.",
+    unit: "Vienība",
+    cost: "Izmaksas",
+    invoice: "Rēķins",
+    invoiceDate: "Rēķina datums",
+    action: "Darbība",
+    pickDate: "Izvēlēties datumu",
+    unnamedMaterial: "Nenorādīts materiāls",
+    unknownType: "Nezināms tips",
+    submitting: "Nosūta...",
+    editMaterial: "Rediģēt materiālu",
+    materialName: "Materiāla nosaukums",
+    units: "Vienības",
+    pickDeliveryDate: "Izvēlieties piegādes datumu",
+    pickInvoiceDate: "Izvēlieties rēķina datumu",
+    declarationDocument: "Atbilstību apliecinošs dokuments",
+    agreement: "Vienošanās",
     noRows: "Materiāli nav atrasti.",
     edit: "Rediģēt",
     delete: "Dzēst",
@@ -483,6 +722,14 @@ const SETTINGS_UI_MESSAGES: Record<OrganizationLanguage, SettingsUiMessages> = {
     actions: "Actions",
     edit: "Edit",
     noDataFound: "No data found.",
+    emailColumn: "Email",
+    firstNameColumn: "First name",
+    lastNameColumn: "Last name",
+    phoneColumn: "Phone",
+    roleColumn: "Role",
+    statusColumn: "Status",
+    previous: "Previous",
+    next: "Next",
   },
   lv: {
     organizationLanguage: "Organizācijas valoda",
@@ -501,6 +748,14 @@ const SETTINGS_UI_MESSAGES: Record<OrganizationLanguage, SettingsUiMessages> = {
     actions: "Darbības",
     edit: "Rediģēt",
     noDataFound: "Dati nav atrasti.",
+    emailColumn: "E-pasts",
+    firstNameColumn: "Vārds",
+    lastNameColumn: "Uzvārds",
+    phoneColumn: "Tālrunis",
+    roleColumn: "Loma",
+    statusColumn: "Statuss",
+    previous: "Iepriekšējā",
+    next: "Nākamā",
   },
 };
 
@@ -555,6 +810,12 @@ const SITE_SETTINGS_MESSAGES: Record<OrganizationLanguage, SiteSettingsMessages>
     deleteProjectDescription: "This action cannot be undone. It will permanently delete this site and all related data.",
     cancel: "Cancel",
     yesDelete: "Yes, delete",
+    manualBisConnection: "Manual BIS connection",
+    openBisAuthorizationStep: "Open BIS authorization in a new tab and complete the consent flow.",
+    copyCodeStep: "Copy the code value from the final redirected URL.",
+    pasteCodeStep: "Either paste that code in the field below or set BIS_AUTHORIZATION_CODE in your environment.",
+    setEnvCodeStep: "Set BIS_AUTHORIZATION_CODE in your environment.",
+    exchangeCodeStep: "Click the button below to exchange the authorization code for BIS tokens for your current user.",
   },
   lv: {
     goBack: "Atpakaļ",
@@ -587,6 +848,73 @@ const SITE_SETTINGS_MESSAGES: Record<OrganizationLanguage, SiteSettingsMessages>
     deleteProjectDescription: "Šo darbību nevar atsaukt. Tā neatgriezeniski dzēsīs objektu un visus saistītos datus.",
     cancel: "Atcelt",
     yesDelete: "Jā, dzēst",
+    manualBisConnection: "Manuāls BIS savienojums",
+    openBisAuthorizationStep: "Atveriet BIS autorizāciju jaunā cilnē un pabeidziet piekrišanas procesu.",
+    copyCodeStep: "Nokopējiet code vērtību no gala pāradresācijas URL.",
+    pasteCodeStep: "Ielīmējiet šo kodu zemāk esošajā laukā vai iestatiet BIS_AUTHORIZATION_CODE savā vidē.",
+    setEnvCodeStep: "Iestatiet BIS_AUTHORIZATION_CODE savā vidē.",
+    exchangeCodeStep: "Noklikšķiniet uz zemāk esošās pogas, lai apmainītu autorizācijas kodu pret BIS tokeniem jūsu lietotājam.",
+  },
+};
+
+const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMessages> = {
+  en: {
+    additionalWorks: "Additional works",
+    clientDelay: "Client Delay (hindrance)",
+    internalDelay: "Internal Delay",
+    note: "Note",
+    otherWorks: "Other Works",
+    recordDeleted: "Record deleted!",
+    recordsSaved: "Records saved!",
+    loading: "Loading…",
+    addTask: "Add task",
+    saveDiary: "Save diary",
+    task: "Task",
+    deleteTaskAria: "Delete task",
+    createdBy: "Created by",
+    delete: "Delete",
+    unknown: "Unknown",
+    select: "Select…",
+    noDateSelected: "No date selected",
+    close: "Close",
+    loadingPhotos: "Loading photos…",
+    failedLoadPhotos: "Failed to load photos",
+    failedDeletePhoto: "Failed to delete photo",
+    photosCount: "photos",
+    noPhotosForDate: "No photos for this date.",
+    photo: "Photo",
+    deletePhoto: "Delete photo",
+    previous: "Previous",
+    next: "Next",
+  },
+  lv: {
+    additionalWorks: "Papildu darbi",
+    clientDelay: "Klienta kavējums (traucējums)",
+    internalDelay: "Iekšējā kavēšanās",
+    note: "Piezīme",
+    otherWorks: "Citi darbi",
+    recordDeleted: "Ieraksts dzēsts!",
+    recordsSaved: "Ieraksti saglabāti!",
+    loading: "Ielādē...",
+    addTask: "Pievienot uzdevumu",
+    saveDiary: "Saglabāt žurnālu",
+    task: "Uzdevums",
+    deleteTaskAria: "Dzēst uzdevumu",
+    createdBy: "Izveidoja",
+    delete: "Dzēst",
+    unknown: "Nezināms",
+    select: "Izvēlēties…",
+    noDateSelected: "Datums nav izvēlēts",
+    close: "Aizvērt",
+    loadingPhotos: "Ielādē foto...",
+    failedLoadPhotos: "Neizdevās ielādēt foto",
+    failedDeletePhoto: "Neizdevās dzēst foto",
+    photosCount: "foto",
+    noPhotosForDate: "Šim datumam nav foto.",
+    photo: "Foto",
+    deletePhoto: "Dzēst foto",
+    previous: "Iepriekšējā",
+    next: "Nākamā",
   },
 };
 
@@ -628,4 +956,8 @@ export function getNavigationMessages(language?: string | null) {
 
 export function getSiteSettingsMessages(language?: string | null) {
   return SITE_SETTINGS_MESSAGES[normalizeOrganizationLanguage(language)];
+}
+
+export function getSiteDiaryDialogMessages(language?: string | null) {
+  return SITE_DIARY_DIALOG_MESSAGES[normalizeOrganizationLanguage(language)];
 }

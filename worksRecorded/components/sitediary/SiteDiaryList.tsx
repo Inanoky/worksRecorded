@@ -1863,6 +1863,7 @@ export default function SiteDiaryCalendar({
           setOpen={setDialogOpen}
           date={dialogDate ?? calendarDate}
           siteId={siteId}
+          organizationLanguage={organizationLanguage}
           onSaved={async () => {
             reloadFilledDays();
 
@@ -2297,6 +2298,7 @@ export default function SiteDiaryCalendar({
               date={photosDate}
               siteId={siteId}
               className="h-[70vh]"
+              organizationLanguage={organizationLanguage}
             />
           </DialogContent>
         </Dialog>
