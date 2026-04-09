@@ -77,6 +77,7 @@ export default async function DashboardIndexPage() {
                     projectId={item.id}
                     projectName={item.name}
                     label={t.openProject}
+                    loadingLabel={t.openingProject}
                   />
                 </CardFooter>
               </Card>

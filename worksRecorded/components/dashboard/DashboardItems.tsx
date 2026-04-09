@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { getNavLinks, getProjectNavLinks } from "./NavLinks";
 import { cn } from "@/lib/utils/utils";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
 
 export function DashboardItems({ userEmail, organizationLanguage }: { userEmail?: string; organizationLanguage?: string | null }) {
   const { projectId, projectName, setProject } = useProject();
   const pathname = usePathname();
+  const router = useRouter();
   const navLinks = getNavLinks(organizationLanguage);
   const projectNavLinks = getProjectNavLinks(organizationLanguage);
 
@@ -18,6 +19,13 @@ export function DashboardItems({ userEmail, organizationLanguage }: { userEmail?
       pathname === "/dashboard" || pathname === "/dashboard/sites";
     if (isAboveProject && (projectId || projectName)) setProject("", "");
   }, [pathname]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    projectNavLinks.forEach((item) => {
+      router.prefetch(`/dashboard/sites/${projectId}/${item.path}`);
+    });
+  }, [projectId, projectNavLinks, router]);
 
 return (
     <div className="flex items-center w-full justify-between gap-3">
@@ -45,6 +53,7 @@ return (
             <Link
               href={`/dashboard/sites/${projectId}/${item.path}`}
               key={item.name}
+              onMouseEnter={() => router.prefetch(`/dashboard/sites/${projectId}/${item.path}`)}
               className={cn(
                 "text-blue-500 text-sm lg:text-base",
                 pathname === `/dashboard/sites/${projectId}/${item.path}`
