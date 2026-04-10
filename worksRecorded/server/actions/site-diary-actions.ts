@@ -79,6 +79,23 @@ function extractGeoPoints(input: unknown): Array<[number, number]> {
     }
     if (typeof node === "object") {
       const rec = node as Record<string, unknown>;
+      const lngCandidate =
+        typeof rec.lng === "number"
+          ? rec.lng
+          : typeof rec.lon === "number"
+            ? rec.lon
+            : typeof rec.longitude === "number"
+              ? rec.longitude
+              : null;
+      const latCandidate =
+        typeof rec.lat === "number"
+          ? rec.lat
+          : typeof rec.latitude === "number"
+            ? rec.latitude
+            : null;
+      if (lngCandidate !== null && latCandidate !== null) {
+        points.push([lngCandidate, latCandidate]);
+      }
       visit(rec.coordinates);
       if (Array.isArray(rec.features)) visit(rec.features);
       if (rec.geometry) visit(rec.geometry);
@@ -110,6 +127,33 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
         const ring = (node as unknown[])
           .map((p) => (Array.isArray(p) ? [Number(p[0]), Number(p[1])] as [number, number] : null))
           .filter((p): p is [number, number] => Boolean(p && Number.isFinite(p[0]) && Number.isFinite(p[1])));
+        if (ring.length >= 3) rings.push(ring);
+        return;
+      }
+      if (
+        node.length >= 3 &&
+        typeof node[0] === "object" &&
+        node[0] !== null &&
+        (("lat" in (node[0] as Record<string, unknown>) && "lng" in (node[0] as Record<string, unknown>)) ||
+          ("latitude" in (node[0] as Record<string, unknown>) && "longitude" in (node[0] as Record<string, unknown>)))
+      ) {
+        const ring = (node as Array<Record<string, unknown>>)
+          .map((p) => {
+            const lat =
+              typeof p.lat === "number"
+                ? p.lat
+                : typeof p.latitude === "number"
+                  ? p.latitude
+                  : null;
+            const lng =
+              typeof p.lng === "number"
+                ? p.lng
+                : typeof p.longitude === "number"
+                  ? p.longitude
+                  : null;
+            return lat !== null && lng !== null ? [lng, lat] as [number, number] : null;
+          })
+          .filter((p): p is [number, number] => Boolean(p));
         if (ring.length >= 3) rings.push(ring);
         return;
       }

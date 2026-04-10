@@ -44,6 +44,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
   const [tutorialLocked, setTutorialLocked] = useState(false);
 
   const [isMobile, setIsMobile] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const router = useRouter();
 
@@ -65,6 +66,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
   useEffect(() => {
     const update = () => setIsMobile(window.innerWidth < 768);
     update();
+    setMounted(true);
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
@@ -389,6 +391,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
       {/* Floating button */}
       {!open &&
+        mounted &&
         createPortal(
           <button
             onClick={() => setOpen(true)}
@@ -403,6 +406,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
       {/* Desktop: floating resizable window */}
       {open &&
+        mounted &&
         !isMobile &&
         createPortal(
           <div className="fixed inset-0 z-50 pointer-events-none">
@@ -475,6 +479,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
       {/* Mobile: bottom sheet */}
       {open &&
+        mounted &&
         isMobile &&
         createPortal(
           <div className="fixed inset-0 z-50 flex flex-col bg-black/30 backdrop-blur-sm">
