@@ -33,7 +33,7 @@ import { z } from "zod"; // <-- Zod
 import { getSettingsUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 // server actions
-import { editUserData, saveTemporaryUser, inviteUserByEmail } from "@/server/actions/settings-actions";
+import { editUserData, saveTemporaryUser, inviteUserByEmail, sendManualReminder } from "@/server/actions/settings-actions";
 
 type Role = "project manager" | "site manager";
 
@@ -582,6 +582,18 @@ export function MembersTable({
                                   {t.saveChanges}
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  try {
+                                    await sendManualReminder({ targetType: "user", targetId: r.id });
+                                    toast.success("Reminder sent");
+                                  } catch (error: any) {
+                                    toast.error(error?.message ?? "Failed to send reminder");
+                                  }
+                                }}
+                              >
+                                Send reminder now
+                              </DropdownMenuItem>
                               <DropdownMenuItem className="cursor-pointer text-red-600" disabled>
                                 Delete (not implemented)
                               </DropdownMenuItem>

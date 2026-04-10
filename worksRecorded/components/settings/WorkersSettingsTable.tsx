@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { updateWorkerOrganizationSettings } from "@/server/actions/settings-actions";
+import { sendManualReminder, updateWorkerOrganizationSettings } from "@/server/actions/settings-actions";
 
 type WorkerRow = {
   id: string;
@@ -72,6 +72,18 @@ export function WorkersSettingsTable({ workers, projects }: Props) {
       router.refresh();
     } catch (error: any) {
       toast.error(error?.message ?? "Failed to save worker");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const sendNow = async (worker: WorkerRow) => {
+    setSavingId(worker.id);
+    try {
+      await sendManualReminder({ targetType: "worker", targetId: worker.id });
+      toast.success("Reminder sent");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Failed to send reminder");
     } finally {
       setSavingId(null);
     }
@@ -146,9 +158,14 @@ export function WorkersSettingsTable({ workers, projects }: Props) {
                     />
                   </TableCell>
                   <TableCell>
-                    <Button onClick={() => saveRow(worker)} disabled={savingId === worker.id}>
-                      {savingId === worker.id ? "Saving..." : "Save"}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button onClick={() => saveRow(worker)} disabled={savingId === worker.id}>
+                        {savingId === worker.id ? "Saving..." : "Save"}
+                      </Button>
+                      <Button variant="outline" onClick={() => sendNow(worker)} disabled={savingId === worker.id}>
+                        Send now
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

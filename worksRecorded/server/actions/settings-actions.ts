@@ -280,3 +280,64 @@ export async function updateWorkerOrganizationSettings(
 
   return { ok: true };
 }
+
+function normalizePhoneForMeta(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  return digits || null;
+}
+
+async function sendMetaWhatsAppText(to: string, body: string) {
+  const token = process.env.META_ACCESS_TOKEN;
+  const businessPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
+
+  if (!token || !businessPhoneNumberId) {
+    throw new Error("Missing META_ACCESS_TOKEN or META_PHONE_NUMBER_ID");
+  }
+
+  const res = await fetch(`https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      text: { body },
+    }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => "");
+    throw new Error(`Meta send failed (${res.status}): ${errorBody}`);
+  }
+}
+
+export async function sendManualReminder(args: { targetType: "user" | "worker"; targetId: string }) {
+  const fallbackText = "Reminder: please fill in your report.";
+
+  if (args.targetType === "user") {
+    const user = await prisma.user.findUnique({
+      where: { id: args.targetId },
+      select: { phone: true, reminderText: true },
+    });
+
+    const to = normalizePhoneForMeta(user?.phone);
+    if (!to) throw new Error("User does not have a valid phone number");
+
+    await sendMetaWhatsAppText(to, user?.reminderText?.trim() || fallbackText);
+    return { ok: true };
+  }
+
+  const worker = await prisma.workers.findUnique({
+    where: { id: args.targetId },
+    select: { phone: true, reminderText: true },
+  });
+
+  const to = normalizePhoneForMeta(worker?.phone);
+  if (!to) throw new Error("Worker does not have a valid phone number");
+
+  await sendMetaWhatsAppText(to, worker?.reminderText?.trim() || fallbackText);
+  return { ok: true };
+}
