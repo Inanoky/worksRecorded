@@ -35,6 +35,18 @@ function toHHmm(dt: string | Date | null | undefined) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
+function normalizeHHmmInput(value: string) {
+  const digits = value.replace(/[^\d]/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function isValidHHmm(value: string) {
+  if (!/^\d{2}:\d{2}$/.test(value)) return false;
+  const [hh, mm] = value.split(":").map(Number);
+  return hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59;
+}
+
 export function WorkersSettingsTable({ workers, projects }: Props) {
   const router = useRouter();
   const [draft, setDraft] = React.useState<Record<string, Partial<WorkerRow>>>({});
@@ -49,6 +61,10 @@ export function WorkersSettingsTable({ workers, projects }: Props) {
     setSavingId(worker.id);
     try {
       const time = rowDraft.reminderTime !== undefined ? String(rowDraft.reminderTime || "") : toHHmm(worker.reminderTime);
+      if (time && !isValidHHmm(time)) {
+        toast.error("Use 24-hour format HH:mm (for example 18:30)");
+        return;
+      }
       await updateWorkerOrganizationSettings(worker.id, {
         siteId: rowDraft.siteId !== undefined ? (rowDraft.siteId || null) : worker.siteId,
         remindersEnabled:
@@ -80,7 +96,13 @@ export function WorkersSettingsTable({ workers, projects }: Props) {
   const sendNow = async (worker: WorkerRow) => {
     setSavingId(worker.id);
     try {
-      await sendManualReminder({ targetType: "worker", targetId: worker.id });
+      const rowDraft = draft[worker.id] ?? {};
+      const text = String(rowDraft.reminderText ?? worker.reminderText ?? "").trim();
+      await sendManualReminder({
+        targetType: "worker",
+        targetId: worker.id,
+        reminderText: text || null,
+      });
       toast.success("Reminder sent");
     } catch (error: any) {
       toast.error(error?.message ?? "Failed to send reminder");
@@ -134,9 +156,15 @@ export function WorkersSettingsTable({ workers, projects }: Props) {
                   </TableCell>
                   <TableCell>
                     <Input
-                      type="time"
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="HH:mm"
                       value={(workerDraft.reminderTime as string | undefined) ?? toHHmm(worker.reminderTime)}
-                      onChange={(e) => updateDraft(worker.id, { reminderTime: e.currentTarget.value })}
+                      onChange={(e) =>
+                        updateDraft(worker.id, {
+                          reminderTime: normalizeHHmmInput(e.currentTarget.value),
+                        })
+                      }
                     />
                   </TableCell>
                   <TableCell>

@@ -585,7 +585,12 @@ export function MembersTable({
                               <DropdownMenuItem
                                 onClick={async () => {
                                   try {
-                                    await sendManualReminder({ targetType: "user", targetId: r.id });
+                                    const currentDraft = draftById[r.id] ?? {};
+                                    await sendManualReminder({
+                                      targetType: "user",
+                                      targetId: r.id,
+                                      reminderText: String(currentDraft.reminderText ?? r.reminderText ?? "").trim() || null,
+                                    });
                                     toast.success("Reminder sent");
                                   } catch (error: any) {
                                     toast.error(error?.message ?? "Failed to send reminder");

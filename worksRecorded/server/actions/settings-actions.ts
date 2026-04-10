@@ -314,8 +314,13 @@ async function sendMetaWhatsAppText(to: string, body: string) {
   }
 }
 
-export async function sendManualReminder(args: { targetType: "user" | "worker"; targetId: string }) {
+export async function sendManualReminder(args: {
+  targetType: "user" | "worker";
+  targetId: string;
+  reminderText?: string | null;
+}) {
   const fallbackText = "Reminder: please fill in your report.";
+  const overrideText = args.reminderText?.trim() || null;
 
   if (args.targetType === "user") {
     const user = await prisma.user.findUnique({
@@ -326,7 +331,7 @@ export async function sendManualReminder(args: { targetType: "user" | "worker"; 
     const to = normalizePhoneForMeta(user?.phone);
     if (!to) throw new Error("User does not have a valid phone number");
 
-    await sendMetaWhatsAppText(to, user?.reminderText?.trim() || fallbackText);
+    await sendMetaWhatsAppText(to, overrideText || user?.reminderText?.trim() || fallbackText);
     return { ok: true };
   }
 
@@ -338,6 +343,6 @@ export async function sendManualReminder(args: { targetType: "user" | "worker"; 
   const to = normalizePhoneForMeta(worker?.phone);
   if (!to) throw new Error("Worker does not have a valid phone number");
 
-  await sendMetaWhatsAppText(to, worker?.reminderText?.trim() || fallbackText);
+  await sendMetaWhatsAppText(to, overrideText || worker?.reminderText?.trim() || fallbackText);
   return { ok: true };
 }
