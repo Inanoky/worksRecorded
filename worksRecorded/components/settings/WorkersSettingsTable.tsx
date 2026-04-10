@@ -1,31 +1,41 @@
 "use client";
 
-import * as React from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ScrollTable } from "../_templates/scrollAreaTemplate";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
 import {
   createOrganizationWorker,
   deleteOrganizationWorker,
   sendManualReminder,
   updateWorkerOrganizationSettings,
 } from "@/server/actions/settings-actions";
-import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
-import { MoreHorizontal } from "lucide-react";
 
 type WorkerRow = {
   id: string;
@@ -46,6 +56,43 @@ type Props = {
   projects: ProjectOption[];
 };
 
+type EditForm = {
+  id: string;
+  name: string;
+  surname: string;
+  countryCode: string;
+  phone: string;
+  siteId: string;
+  reminderTime: string;
+  remindersEnabled: boolean;
+  reminderText: string;
+};
+
+const DEFAULT_COUNTRY_CODE = "371";
+
+const normalizePhonePart = (raw: string) => (raw || "").replace(/\D/g, "");
+
+function splitPhone(phone: string | null | undefined) {
+  const digits = normalizePhonePart(phone || "");
+  if (!digits) {
+    return { countryCode: DEFAULT_COUNTRY_CODE, phone: "" };
+  }
+
+  const codesByLength = [...COUNTRY_CALLING_CODES]
+    .sort((a, b) => b.dialCode.length - a.dialCode.length)
+    .map((item) => item.dialCode);
+
+  const matchedCode = codesByLength.find((code) => digits.startsWith(code));
+  if (!matchedCode) {
+    return { countryCode: DEFAULT_COUNTRY_CODE, phone: digits };
+  }
+
+  return {
+    countryCode: matchedCode,
+    phone: digits.slice(matchedCode.length),
+  };
+}
+
 function toHHmm(dt: string | Date | null | undefined) {
   if (!dt) return "";
   const d = new Date(dt);
@@ -55,373 +102,301 @@ function toHHmm(dt: string | Date | null | undefined) {
 
 export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
   const router = useRouter();
-  const [draft, setDraft] = React.useState<Record<string, Partial<WorkerRow>>>({});
-  const [editRowId, setEditRowId] = React.useState<string | null>(null);
-  const [savingId, setSavingId] = React.useState<string | null>(null);
-  const [creating, setCreating] = React.useState(false);
-  const [createOpen, setCreateOpen] = React.useState(false);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
+  const [pending, startTransition] = React.useTransition();
+
   const [newWorker, setNewWorker] = React.useState({
     name: "",
     surname: "",
+    countryCode: DEFAULT_COUNTRY_CODE,
     phone: "",
-    countryCode: "371",
     siteId: "none",
   });
 
-  const updateDraft = (id: string, patch: Partial<WorkerRow>) => {
-    setDraft((prev) => ({ ...prev, [id]: { ...(prev[id] ?? {}), ...patch } }));
-  };
+  const [editForm, setEditForm] = React.useState<EditForm>({
+    id: "",
+    name: "",
+    surname: "",
+    countryCode: DEFAULT_COUNTRY_CODE,
+    phone: "",
+    siteId: "none",
+    reminderTime: "",
+    remindersEnabled: false,
+    reminderText: "",
+  });
 
-  const saveRow = async (worker: WorkerRow) => {
-    const rowDraft = draft[worker.id] ?? {};
-    setSavingId(worker.id);
-    try {
-      const time = rowDraft.reminderTime !== undefined ? String(rowDraft.reminderTime || "") : toHHmm(worker.reminderTime);
-      await updateWorkerOrganizationSettings(worker.id, {
-        name: rowDraft.name !== undefined ? String(rowDraft.name || "").trim() || null : worker.name,
-        surname: rowDraft.surname !== undefined ? String(rowDraft.surname || "").trim() || null : worker.surname,
-        phone: rowDraft.phone !== undefined ? String(rowDraft.phone || "").replace(/\D/g, "") || null : worker.phone,
-        siteId: rowDraft.siteId !== undefined ? (rowDraft.siteId || null) : worker.siteId,
-        remindersEnabled:
-          rowDraft.remindersEnabled !== undefined
-            ? Boolean(rowDraft.remindersEnabled)
-            : Boolean(worker.remindersEnabled),
-        reminderText:
-          rowDraft.reminderText !== undefined
-            ? (String(rowDraft.reminderText || "").trim() || null)
-            : (worker.reminderText || null),
-        reminderTime: time ? new Date(`1970-01-01T${time}:00.000Z`) : null,
+  const tableData = workers.map((w) => ({
+    id: w.id,
+    name: w.name ?? "",
+    surname: w.surname ?? "",
+    phone: w.phone ?? "",
+    project: projects.find((p) => p.id === w.siteId)?.name ?? "No project",
+    reminderTime: toHHmm(w.reminderTime),
+    remindersEnabled: w.remindersEnabled ? "Enabled" : "Disabled",
+    reminderText: w.reminderText ?? "",
+  }));
+
+  async function handleDeleteRow(id: string) {
+    const res = await deleteOrganizationWorker(id);
+    if (res.ok) {
+      toast.success("Worker deleted");
+      router.refresh();
+    } else {
+      toast.error("Failed to delete worker");
+    }
+  }
+
+  function handleStartEdit(row: any) {
+    const source = workers.find((w) => w.id === row.id);
+    if (!source) return;
+
+    const parsedPhone = splitPhone(source.phone);
+    setEditForm({
+      id: source.id,
+      name: source.name ?? "",
+      surname: source.surname ?? "",
+      countryCode: parsedPhone.countryCode,
+      phone: parsedPhone.phone,
+      siteId: source.siteId ?? "none",
+      reminderTime: toHHmm(source.reminderTime),
+      remindersEnabled: !!source.remindersEnabled,
+      reminderText: source.reminderText ?? "",
+    });
+    setEditOpen(true);
+  }
+
+  function handleAddSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newWorker.name.trim() || !newWorker.surname.trim()) {
+      toast.error("Name and surname are required");
+      return;
+    }
+
+    const normalizedPhone = normalizePhonePart(newWorker.phone);
+
+    startTransition(async () => {
+      const res = await createOrganizationWorker({
+        organizationId: orgId,
+        name: newWorker.name.trim(),
+        surname: newWorker.surname.trim(),
+        phone: normalizedPhone ? `${newWorker.countryCode}${normalizedPhone}` : null,
+        siteId: newWorker.siteId === "none" ? null : newWorker.siteId,
+      });
+
+      if (res.ok) {
+        toast.success("Worker created");
+        setAddOpen(false);
+        setNewWorker({ name: "", surname: "", countryCode: DEFAULT_COUNTRY_CODE, phone: "", siteId: "none" });
+        router.refresh();
+      } else {
+        toast.error("Failed to create worker");
+      }
+    });
+  }
+
+  function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editForm.id || !editForm.name.trim() || !editForm.surname.trim()) {
+      toast.error("Name and surname are required");
+      return;
+    }
+
+    const normalizedPhone = normalizePhonePart(editForm.phone);
+
+    startTransition(async () => {
+      const res = await updateWorkerOrganizationSettings(editForm.id, {
+        name: editForm.name.trim(),
+        surname: editForm.surname.trim(),
+        phone: normalizedPhone ? `${editForm.countryCode}${normalizedPhone}` : null,
+        siteId: editForm.siteId === "none" ? null : editForm.siteId,
+        reminderTime: editForm.reminderTime ? new Date(`1970-01-01T${editForm.reminderTime}:00.000Z`) : null,
+        remindersEnabled: editForm.remindersEnabled,
+        reminderText: editForm.reminderText.trim() || null,
         timezone: "Europe/Riga",
       });
 
-      toast.success("Worker settings updated");
-      setDraft((prev) => {
-        const next = { ...prev };
-        delete next[worker.id];
-        return next;
-      });
-      setEditRowId(null);
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error?.message ?? "Failed to save worker");
-    } finally {
-      setSavingId(null);
-    }
-  };
+      if (res.ok) {
+        toast.success("Worker updated");
+        setEditOpen(false);
+        router.refresh();
+      } else {
+        toast.error("Failed to update worker");
+      }
+    });
+  }
 
-  const sendNow = async (worker: WorkerRow) => {
-    setSavingId(worker.id);
+  async function handleSendNow() {
+    if (!editForm.id) return;
     try {
-      const rowDraft = draft[worker.id] ?? {};
-      const text = String(rowDraft.reminderText ?? worker.reminderText ?? "").trim();
       await sendManualReminder({
         targetType: "worker",
-        targetId: worker.id,
-        reminderText: text || null,
+        targetId: editForm.id,
+        reminderText: editForm.reminderText.trim() || null,
       });
       toast.success("Reminder sent");
     } catch (error: any) {
       toast.error(error?.message ?? "Failed to send reminder");
-    } finally {
-      setSavingId(null);
     }
-  };
-
-  const createWorker = async () => {
-    if (!newWorker.name.trim()) {
-      toast.error("Worker first name is required");
-      return;
-    }
-
-    setCreating(true);
-    try {
-      await createOrganizationWorker({
-        organizationId: orgId,
-        name: newWorker.name,
-        surname: newWorker.surname || null,
-        phone: newWorker.phone ? `${newWorker.countryCode}${newWorker.phone}` : null,
-        siteId: newWorker.siteId === "none" ? null : newWorker.siteId,
-      });
-      toast.success("Worker created");
-      setNewWorker({ name: "", surname: "", phone: "", countryCode: "371", siteId: "none" });
-      setCreateOpen(false);
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error?.message ?? "Failed to create worker");
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const deleteWorker = async (workerId: string) => {
-    setSavingId(workerId);
-    try {
-      await deleteOrganizationWorker(workerId);
-      toast.success("Worker deleted");
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error?.message ?? "Failed to delete worker");
-    } finally {
-      setSavingId(null);
-    }
-  };
-
-  const startEdit = (worker: WorkerRow) => {
-    setEditRowId(worker.id);
-    setDraft((prev) => ({
-      ...prev,
-      [worker.id]: {
-        siteId: worker.siteId,
-        name: worker.name ?? "",
-        surname: worker.surname ?? "",
-        phone: worker.phone ?? "",
-        reminderTime: toHHmm(worker.reminderTime),
-        remindersEnabled: Boolean(worker.remindersEnabled),
-        reminderText: worker.reminderText ?? "",
-      },
-    }));
-  };
+  }
 
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle>Workers settings</CardTitle>
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">Add worker</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add worker</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label>First name</Label>
-                  <Input
-                    placeholder="John"
-                    value={newWorker.name}
-                    onChange={(e) => {
-                      const value = e.currentTarget.value;
-                      setNewWorker((prev) => ({ ...prev, name: value }));
-                    }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Last name</Label>
-                  <Input
-                    placeholder="Doe"
-                    value={newWorker.surname}
-                    onChange={(e) => {
-                      const value = e.currentTarget.value;
-                      setNewWorker((prev) => ({ ...prev, surname: value }));
-                    }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Phone</Label>
-                  <div className="flex gap-2">
-                    <Select
-                      value={newWorker.countryCode}
-                      onValueChange={(value) => setNewWorker((prev) => ({ ...prev, countryCode: value }))}
-                    >
-                      <SelectTrigger className="w-[220px]">
-                        <SelectValue placeholder="Country code" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COUNTRY_CALLING_CODES.map((country) => (
-                          <SelectItem key={`${country.iso2}-${country.dialCode}`} value={country.dialCode}>
-                            {country.name} (+{country.dialCode})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="24885690"
-                      value={newWorker.phone}
-                      onChange={(e) => {
-                        const value = e.currentTarget.value.replace(/\D/g, "");
-                        setNewWorker((prev) => ({ ...prev, phone: value }));
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label>Project</Label>
-                  <Select
-                    value={newWorker.siteId}
-                    onValueChange={(value) => setNewWorker((prev) => ({ ...prev, siteId: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Project" />
-                    </SelectTrigger>
+    <Card className="mt-6 border-muted/60 shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
+        <div>
+          <CardTitle className="text-base md:text-lg">Workers settings</CardTitle>
+          <p className="text-xs text-muted-foreground">Manage workers, assignment and reminders.</p>
+        </div>
+
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm">Add worker</Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add worker</DialogTitle>
+              <DialogDescription>Create a worker and assign project.</DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleAddSubmit} className="space-y-3">
+              <div className="space-y-1">
+                <Label>First name</Label>
+                <Input value={newWorker.name} onChange={(e) => setNewWorker((p) => ({ ...p, name: e.target.value }))} required />
+              </div>
+              <div className="space-y-1">
+                <Label>Last name</Label>
+                <Input value={newWorker.surname} onChange={(e) => setNewWorker((p) => ({ ...p, surname: e.target.value }))} required />
+              </div>
+              <div className="space-y-1">
+                <Label>Phone</Label>
+                <div className="flex gap-2">
+                  <Select value={newWorker.countryCode} onValueChange={(v) => setNewWorker((p) => ({ ...p, countryCode: v }))}>
+                    <SelectTrigger className="w-[220px]"><SelectValue placeholder="Country code" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No project</SelectItem>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
+                      {COUNTRY_CALLING_CODES.map((country) => (
+                        <SelectItem key={`${country.iso2}-${country.dialCode}`} value={country.dialCode}>
+                          {country.name} (+{country.dialCode})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={creating}>
-                    Cancel
-                  </Button>
-                  <Button onClick={createWorker} disabled={creating}>
-                    {creating ? "Creating..." : "Add worker"}
-                  </Button>
+                  <Input value={newWorker.phone} onChange={(e) => setNewWorker((p) => ({ ...p, phone: normalizePhonePart(e.target.value) }))} />
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+              <div className="space-y-1">
+                <Label>Project</Label>
+                <Select value={newWorker.siteId} onValueChange={(v) => setNewWorker((p) => ({ ...p, siteId: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Project" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No project</SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setAddOpen(false)} disabled={pending}>Cancel</Button>
+                <Button type="submit" size="sm" disabled={pending}>{pending ? "..." : "Add worker"}</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Worker</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Current project</TableHead>
-              <TableHead>Reminder time</TableHead>
-              <TableHead>Reminder enabled</TableHead>
-              <TableHead>Reminder text</TableHead>
-              <TableHead>Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {workers.map((worker) => {
-              const workerDraft = draft[worker.id] ?? {};
-              const isEditing = editRowId === worker.id;
-              const resolvedSiteId = (workerDraft.siteId ?? worker.siteId ?? "none") as string;
-              const projectName =
-                projects.find((project) => project.id === (worker.siteId ?? ""))?.name ?? "No project";
-              return (
-                <TableRow key={worker.id}>
-                  <TableCell>
-                    {isEditing ? (
-                      <div className="grid grid-cols-1 gap-1">
-                        <Input
-                          value={(workerDraft.name as string | undefined) ?? worker.name ?? ""}
-                          onChange={(e) => updateDraft(worker.id, { name: e.currentTarget.value })}
-                          placeholder="First name"
-                        />
-                        <Input
-                          value={(workerDraft.surname as string | undefined) ?? worker.surname ?? ""}
-                          onChange={(e) => updateDraft(worker.id, { surname: e.currentTarget.value })}
-                          placeholder="Last name"
-                        />
-                      </div>
-                    ) : (
-                      <span>{`${worker.name ?? ""} ${worker.surname ?? ""}`.trim() || "Unnamed"}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <Input
-                        value={(workerDraft.phone as string | undefined) ?? worker.phone ?? ""}
-                        onChange={(e) => updateDraft(worker.id, { phone: e.currentTarget.value.replace(/\D/g, "") })}
-                        placeholder="Phone"
-                      />
-                    ) : (
-                      <span>{worker.phone ?? ""}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <Select
-                        value={resolvedSiteId}
-                        onValueChange={(value) => updateDraft(worker.id, { siteId: value === "none" ? null : value })}
-                      >
-                        <SelectTrigger className="w-[220px]">
-                          <SelectValue placeholder="Select project" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No project</SelectItem>
-                          {projects.map((project) => (
-                            <SelectItem key={project.id} value={project.id}>
-                              {project.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <span>{projectName}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <Input
-                        type="time"
-                        step={60}
-                        lang="en-GB"
-                        value={(workerDraft.reminderTime as string | undefined) ?? toHHmm(worker.reminderTime)}
-                        onChange={(e) => updateDraft(worker.id, { reminderTime: e.currentTarget.value })}
-                      />
-                    ) : (
-                      <span>{toHHmm(worker.reminderTime) || "-"}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <input
-                        type="checkbox"
-                        checked={
-                          workerDraft.remindersEnabled !== undefined
-                            ? Boolean(workerDraft.remindersEnabled)
-                            : Boolean(worker.remindersEnabled)
-                        }
-                        onChange={(e) => updateDraft(worker.id, { remindersEnabled: e.currentTarget.checked })}
-                      />
-                    ) : (
-                      <span>{worker.remindersEnabled ? "Enabled" : "Disabled"}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {isEditing ? (
-                      <Input
-                        value={(workerDraft.reminderText as string | undefined) ?? worker.reminderText ?? ""}
-                        onChange={(e) => updateDraft(worker.id, { reminderText: e.currentTarget.value })}
-                        placeholder="Reminder text"
-                      />
-                    ) : (
-                      <span>{worker.reminderText ?? ""}</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost">
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {!isEditing ? (
-                          <DropdownMenuItem onClick={() => startEdit(worker)}>Edit</DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => saveRow(worker)}>
-                            {savingId === worker.id ? "Saving..." : "Save"}
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => sendNow(worker)} disabled={savingId === worker.id}>
-                          Send now
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => deleteWorker(worker.id)} className="text-red-600" disabled={savingId === worker.id}>
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+
+      <CardContent className="pt-2">
+        <div className="h-[320px] rounded-md border bg-background">
+          <ScrollTable
+            data={tableData}
+            pageSize={25}
+            visibleColumns={[1, 2, 3, 4, 5, 6, 7]}
+            columnLabels={[
+              "ID",
+              "First name",
+              "Last name",
+              "Phone",
+              "Project",
+              "Reminder time",
+              "Reminder enabled",
+              "Reminder text",
+            ]}
+            toolbar={false}
+            onDeleteRow={handleDeleteRow}
+            onEditRow={handleStartEdit}
+          />
+        </div>
       </CardContent>
+
+      <CardFooter className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>Total workers: {workers.length}</span>
+      </CardFooter>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit worker</DialogTitle>
+            <DialogDescription>Update worker profile and reminder settings.</DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleEditSubmit} className="space-y-3">
+            <div className="space-y-1">
+              <Label>First name</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))} required />
+            </div>
+            <div className="space-y-1">
+              <Label>Last name</Label>
+              <Input value={editForm.surname} onChange={(e) => setEditForm((p) => ({ ...p, surname: e.target.value }))} required />
+            </div>
+            <div className="space-y-1">
+              <Label>Phone</Label>
+              <div className="flex gap-2">
+                <Select value={editForm.countryCode} onValueChange={(v) => setEditForm((p) => ({ ...p, countryCode: v }))}>
+                  <SelectTrigger className="w-[220px]"><SelectValue placeholder="Country code" /></SelectTrigger>
+                  <SelectContent>
+                    {COUNTRY_CALLING_CODES.map((country) => (
+                      <SelectItem key={`${country.iso2}-${country.dialCode}`} value={country.dialCode}>
+                        {country.name} (+{country.dialCode})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: normalizePhonePart(e.target.value) }))} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Project</Label>
+              <Select value={editForm.siteId} onValueChange={(v) => setEditForm((p) => ({ ...p, siteId: v }))}>
+                <SelectTrigger><SelectValue placeholder="Project" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No project</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Reminder time</Label>
+              <Input type="time" step={60} lang="en-GB" value={editForm.reminderTime} onChange={(e) => setEditForm((p) => ({ ...p, reminderTime: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>Reminder text</Label>
+              <Input value={editForm.reminderText} onChange={(e) => setEditForm((p) => ({ ...p, reminderText: e.target.value }))} />
+            </div>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={editForm.remindersEnabled} onChange={(e) => setEditForm((p) => ({ ...p, remindersEnabled: e.target.checked }))} />
+              Reminder enabled
+            </label>
+            <div className="flex justify-between gap-2 pt-1">
+              <Button type="button" variant="outline" size="sm" onClick={handleSendNow}>Send now</Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditOpen(false)} disabled={pending}>Cancel</Button>
+                <Button type="submit" size="sm" disabled={pending}>{pending ? "..." : "Save changes"}</Button>
+              </div>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
