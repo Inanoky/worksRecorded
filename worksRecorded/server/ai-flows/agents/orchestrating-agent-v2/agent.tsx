@@ -102,7 +102,15 @@ const agentNode = async (state) => {
 
 
     await checkpointer.setup();
-    const config = {configurable: {thread_id: "orchestrating-agent-v2" + siteId }}; // Unique thread ID per site
+    // Context window strategy:
+    // Keep the long-running memory out of the server checkpointer thread and let
+    // the client send only the most relevant recent context (sliding window).
+    // This prevents unbounded context growth and token waste.
+    const config = {
+        configurable: {
+            thread_id: `orchestrating-agent-v2:${siteId}:${user.id}:${Date.now()}`
+        }
+    };
 
 
 

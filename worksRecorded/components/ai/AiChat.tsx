@@ -66,6 +66,8 @@ const MAX_ATTACHMENTS = 8;
 const MAX_TEXT_EXTRACT = 5000;
 const STREAM_CHUNK_SIZE = 18;
 const STREAM_DELAY_MS = 14;
+const MAX_CONTEXT_MESSAGES = 10;
+const MAX_CONTEXT_CHARS = 4000;
 
 type AiWidgetRagProps = {
   siteId?: string;
@@ -107,19 +109,30 @@ function safeFilename(name = "download.bin") {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-function composePrompt(text: string, attachments: Attachment[]) {
-  if (!attachments.length) return text;
+function composePrompt(text: string, attachments: Attachment[], recentContext: string) {
+  const sections: string[] = [];
 
-  const attachmentContext = attachments
-    .map((file, i) => {
-      const base = `#${i + 1} ${file.name} (${file.mimeType || "unknown"}, ${formatBytes(file.size)})`;
-      const extracted = file.textContent?.trim();
-      if (!extracted) return base;
-      return `${base}\nExtracted content:\n${extracted.slice(0, MAX_TEXT_EXTRACT)}`;
-    })
-    .join("\n\n");
+  if (recentContext.trim()) {
+    sections.push(`Recent conversation context:\n${recentContext}`);
+  }
 
-  return `${text}\n\nAttached files context:\n${attachmentContext}\n\nUse the attached file context in your answer when relevant.`;
+  if (attachments.length) {
+    const attachmentContext = attachments
+      .map((file, i) => {
+        const base = `#${i + 1} ${file.name} (${file.mimeType || "unknown"}, ${formatBytes(file.size)})`;
+        const extracted = file.textContent?.trim();
+        if (!extracted) return base;
+        return `${base}\nExtracted content:\n${extracted.slice(0, MAX_TEXT_EXTRACT)}`;
+      })
+      .join("\n\n");
+
+    sections.push(
+      `Attached files context:\n${attachmentContext}\n\nUse the attached file context in your answer when relevant.`
+    );
+  }
+
+  if (!sections.length) return text;
+  return `${sections.join("\n\n")}\n\nCurrent user message:\n${text}`;
 }
 
 export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
@@ -155,6 +168,23 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     () => (!loading && !!input.trim()) || (!loading && queuedAttachments.length > 0),
     [input, loading, queuedAttachments.length]
   );
+
+  const buildRecentContext = (history: Message[]) => {
+    const filtered = history.filter((m) => {
+      if (m.sender === "user") return !!m.text?.trim();
+      return !!m.aiComment?.trim() && m.aiComment !== "Hi! 👋 How can I help you today?";
+    });
+
+    const recent = filtered.slice(-MAX_CONTEXT_MESSAGES);
+    const context = recent
+      .map((msg) => {
+        if (msg.sender === "user") return `User: ${msg.text}`;
+        return `Assistant: ${String(msg.aiComment ?? "").replace(/\s+/g, " ").trim()}`;
+      })
+      .join("\n");
+
+    return context.slice(-MAX_CONTEXT_CHARS);
+  };
 
   const scrollToBottom = (behavior: ScrollBehavior = "auto") => {
     bottomRef.current?.scrollIntoView({ behavior, block: "end" });
@@ -345,7 +375,8 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     setQueuedAttachments([]);
 
     try {
-      const prompt = composePrompt(outgoingText, userMsg.attachments ?? []);
+      const recentContext = buildRecentContext(messages);
+      const prompt = composePrompt(outgoingText, userMsg.attachments ?? [], recentContext);
       const result = await OrchestratingAgentV2(prompt, siteId);
 
       const aiComment = String((result as any) ?? "");
