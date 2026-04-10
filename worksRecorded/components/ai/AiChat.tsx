@@ -19,7 +19,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { TableModal } from "@/components/ai/TableModal";
 import ReactMarkdown from "react-markdown";
-import { Rnd } from "react-rnd";
 import { Textarea } from "@/components/ui/textarea";
 import remarkGfm from "remark-gfm";
 import OrchestratingAgentV2 from "@/server/ai-flows/agents/orchestrating-agent-v2/agent";
@@ -72,8 +71,6 @@ const STREAM_CHUNK_SIZE = 18;
 const STREAM_DELAY_MS = 14;
 const MAX_CONTEXT_MESSAGES = 10;
 const MAX_CONTEXT_CHARS = 4000;
-const DESKTOP_MIN_WIDTH = 380;
-const DESKTOP_MIN_HEIGHT = 460;
 
 type AiWidgetRagProps = {
   siteId?: string;
@@ -160,10 +157,6 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
   const [tutorialLocked, setTutorialLocked] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  const pad = 24;
-  const [size, setSize] = useState({ width: 560, height: 680 });
-  const [pos, setPos] = useState({ x: 0, y: 0 });
-
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -202,51 +195,6 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
-
-  useEffect(() => {
-    if (!open || isMobile) return;
-
-    const clampToViewport = (
-      nextSize: { width: number; height: number },
-      nextPos: { x: number; y: number }
-    ) => {
-      const maxWidth = Math.max(DESKTOP_MIN_WIDTH, window.innerWidth - pad * 2);
-      const maxHeight = Math.max(DESKTOP_MIN_HEIGHT, window.innerHeight - pad * 2);
-      const width = Math.min(Math.max(nextSize.width, DESKTOP_MIN_WIDTH), maxWidth);
-      const height = Math.min(Math.max(nextSize.height, DESKTOP_MIN_HEIGHT), maxHeight);
-      const maxX = Math.max(pad, window.innerWidth - width - pad);
-      const maxY = Math.max(pad, window.innerHeight - height - pad);
-      const x = Math.min(Math.max(nextPos.x, pad), maxX);
-      const y = Math.min(Math.max(nextPos.y, pad), maxY);
-      return { size: { width, height }, pos: { x, y } };
-    };
-
-    const initial = clampToViewport(
-      size,
-      {
-        x: Math.max(pad, window.innerWidth - size.width - pad),
-        y: Math.max(pad, window.innerHeight - size.height - pad),
-      }
-    );
-    setSize(initial.size);
-    setPos(initial.pos);
-
-    function onResize() {
-      setSize((currSize) => {
-        let nextSize = currSize;
-        setPos((currPos) => {
-          const clamped = clampToViewport(currSize, currPos);
-          nextSize = clamped.size;
-          return clamped.pos;
-        });
-        return nextSize;
-      });
-    }
-
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isMobile, pad]);
 
   useEffect(() => {
     if (!open) return;
@@ -788,72 +736,8 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
       {open &&
         !isMobile &&
         createPortal(
-          <div className="fixed inset-0 z-50 pointer-events-none">
-            <Rnd
-              size={size}
-              position={pos}
-              bounds="window"
-              disableDragging
-              enableResizing={{
-                top: true,
-                right: true,
-                bottom: true,
-                left: true,
-                topRight: true,
-                bottomRight: true,
-                bottomLeft: true,
-                topLeft: true,
-              }}
-              onResizeStop={(_, __, ref, ___, position) => {
-                const newW = ref.offsetWidth;
-                const newH = ref.offsetHeight;
-                const maxX = Math.max(pad, window.innerWidth - newW - pad);
-                const maxY = Math.max(pad, window.innerHeight - newH - pad);
-                const clampedX = Math.min(Math.max(position.x, pad), maxX);
-                const clampedY = Math.min(Math.max(position.y, pad), maxY);
-                setSize({ width: newW, height: newH });
-                setPos({ x: clampedX, y: clampedY });
-              }}
-              resizeHandleStyles={{
-                right: { width: "10px", right: "-4px", cursor: "ew-resize" },
-                left: { width: "10px", left: "-4px", cursor: "ew-resize" },
-                bottom: { height: "10px", bottom: "-4px", cursor: "ns-resize" },
-                top: { height: "10px", top: "-4px", cursor: "ns-resize" },
-                bottomRight: {
-                  width: "16px",
-                  height: "16px",
-                  right: "-6px",
-                  bottom: "-6px",
-                  cursor: "nwse-resize",
-                },
-                bottomLeft: {
-                  width: "16px",
-                  height: "16px",
-                  left: "-6px",
-                  bottom: "-6px",
-                  cursor: "nesw-resize",
-                },
-                topRight: {
-                  width: "16px",
-                  height: "16px",
-                  right: "-6px",
-                  top: "-6px",
-                  cursor: "nwse-resize",
-                },
-                topLeft: {
-                  width: "16px",
-                  height: "16px",
-                  left: "-6px",
-                  top: "-6px",
-                  cursor: "nwse-resize",
-                },
-              }}
-              minWidth={DESKTOP_MIN_WIDTH}
-              minHeight={DESKTOP_MIN_HEIGHT}
-              className="pointer-events-auto border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl bg-white dark:bg-gray-900 flex flex-col"
-            >
+          <div className="fixed bottom-6 right-6 z-50 w-[min(92vw,560px)] h-[min(82vh,680px)] border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl bg-white dark:bg-gray-900 flex flex-col">
               {chatContent}
-            </Rnd>
           </div>,
           document.body
         )}
