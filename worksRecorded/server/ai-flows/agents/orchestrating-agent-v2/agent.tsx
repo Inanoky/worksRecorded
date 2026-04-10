@@ -4,6 +4,7 @@
 import {Annotation, END, START, StateGraph, } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
+import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import {tools, toolNode} from "@/server/ai-flows/agents/orchestrating-agent-v2/tools"
 import { systemPrompt } from "@/server/ai-flows/agents/orchestrating-agent-v2/prompts";
 import { orchestratingAgentV2ModelModel, } from "@/server/ai-flows/ai-models-settings";
@@ -93,10 +94,20 @@ const agentNode = async (state) => {
             .addConditionalEdges("agentNode", shouldContinue, ["tools", END])           
             .addEdge("tools", "agentNode") // <--- loop back to agent!
     
-    // No persistent graph checkpointing here.
-    // Context is explicitly curated on the client (recent turns + attachments)
-    // and passed in the current `question` payload.
-    const graph = workflow.compile()
+    // Long-term memory stays in the DB-backed checkpointer thread.
+    // Client context window is still useful to bias relevance for current turn.
+    const checkpointer = PostgresSaver.fromConnString(
+        process.env.DATABASE_URL
+    );
+    await checkpointer.setup();
+
+    const config = {
+        configurable: {
+            thread_id: `orchestrating-agent-v2:${siteId}:${user.id}`
+        }
+    };
+
+    const graph = workflow.compile({checkpointer})
 
     const inputs = {
          messages: [
@@ -109,7 +120,7 @@ const agentNode = async (state) => {
 
     let finalState;
 
-    for await (const output of await graph.stream(inputs)) {
+    for await (const output of await graph.stream(inputs, config)) {
         console.log("Step/Run full output:", output);
         for (const [key, value] of Object.entries(output)) {
             const lastMsg = output[key].messages[output[key].messages.length - 1];
