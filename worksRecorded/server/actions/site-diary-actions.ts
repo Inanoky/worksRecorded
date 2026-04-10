@@ -90,23 +90,91 @@ function extractGeoPoints(input: unknown): Array<[number, number]> {
 }
 
 function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude: number } | null {
-  const points = extractGeoPoints(geoJson);
-  if (!points.length) return null;
+  const rings: Array<Array<[number, number]>> = [];
 
-  let lonSum = 0;
-  let latSum = 0;
-  let count = 0;
-  for (const [lon, lat] of points) {
-    if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
-    lonSum += lon;
-    latSum += lat;
-    count += 1;
+  const visit = (node: unknown) => {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      if (
+        node.length >= 3 &&
+        Array.isArray(node[0]) &&
+        node[0].length >= 2 &&
+        typeof node[0][0] === "number" &&
+        typeof node[0][1] === "number"
+      ) {
+        const ring = (node as unknown[])
+          .map((p) => (Array.isArray(p) ? [Number(p[0]), Number(p[1])] as [number, number] : null))
+          .filter((p): p is [number, number] => Boolean(p && Number.isFinite(p[0]) && Number.isFinite(p[1])));
+        if (ring.length >= 3) rings.push(ring);
+        return;
+      }
+      for (const child of node) visit(child);
+      return;
+    }
+    if (typeof node === "object") {
+      const rec = node as Record<string, unknown>;
+      visit(rec.coordinates);
+      visit(rec.geometry);
+      visit(rec.features);
+    }
+  };
+
+  visit(geoJson);
+
+  if (!rings.length) {
+    const points = extractGeoPoints(geoJson);
+    if (!points.length) return null;
+    const lon = points.reduce((s, [x]) => s + x, 0) / points.length;
+    const lat = points.reduce((s, [, y]) => s + y, 0) / points.length;
+    return { latitude: Number(lat.toFixed(6)), longitude: Number(lon.toFixed(6)) };
   }
-  if (!count) return null;
+
+  let areaSum = 0;
+  let cxSum = 0;
+  let cySum = 0;
+
+  for (const ring of rings) {
+    let a = 0;
+    let cx = 0;
+    let cy = 0;
+    for (let i = 0; i < ring.length; i += 1) {
+      const [x1, y1] = ring[i];
+      const [x2, y2] = ring[(i + 1) % ring.length];
+      const cross = x1 * y2 - x2 * y1;
+      a += cross;
+      cx += (x1 + x2) * cross;
+      cy += (y1 + y2) * cross;
+    }
+    a *= 0.5;
+    if (!a) continue;
+    areaSum += a;
+    cxSum += cx / (6 * a) * Math.abs(a);
+    cySum += cy / (6 * a) * Math.abs(a);
+  }
+
+  if (!areaSum) {
+    const points = rings.flat();
+    const lon = points.reduce((s, [x]) => s + x, 0) / points.length;
+    const lat = points.reduce((s, [, y]) => s + y, 0) / points.length;
+    return { latitude: Number(lat.toFixed(6)), longitude: Number(lon.toFixed(6)) };
+  }
+
+  const totalAbsArea = rings.reduce((sum, ring) => {
+    let area = 0;
+    for (let i = 0; i < ring.length; i += 1) {
+      const [x1, y1] = ring[i];
+      const [x2, y2] = ring[(i + 1) % ring.length];
+      area += x1 * y2 - x2 * y1;
+    }
+    return sum + Math.abs(area * 0.5);
+  }, 0);
+
+  const longitude = cxSum / totalAbsArea;
+  const latitude = cySum / totalAbsArea;
 
   return {
-    latitude: Number((latSum / count).toFixed(6)),
-    longitude: Number((lonSum / count).toFixed(6)),
+    latitude: Number(latitude.toFixed(6)),
+    longitude: Number(longitude.toFixed(6)),
   };
 }
 
@@ -320,10 +388,68 @@ export async function getSiteWeatherAvailability(siteId: string) {
 
 export async function getSiteDayWeather(args: { siteId: string; dayISO: string }) {
   await requireUser();
-  return ensureWeatherForSiteDay({
-    siteId: args.siteId,
-    dayISO: args.dayISO,
+  const dayISO = parseDateKey(args.dayISO);
+  const site = await prisma.site.findUnique({
+    where: { id: args.siteId },
+    select: { geofencePolygon: true },
   });
+
+  if (!site) throw new Error("Site not found.");
+  if (!site.geofencePolygon) {
+    throw new Error("Please mark site location in Settings (geofence polygon is missing).");
+  }
+
+  const center = computePolygonCentroid(site.geofencePolygon);
+  if (!center) {
+    throw new Error("Could not determine center of the geofence polygon.");
+  }
+
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const baseUrl = dayISO <= todayISO
+    ? "https://archive-api.open-meteo.com/v1/archive"
+    : "https://api.open-meteo.com/v1/forecast";
+
+  const params = new URLSearchParams({
+    latitude: center.latitude.toString(),
+    longitude: center.longitude.toString(),
+    start_date: dayISO,
+    end_date: dayISO,
+    timezone: "UTC",
+    hourly: "temperature_2m,wind_speed_10m,precipitation",
+  });
+
+  const response = await fetch(`${baseUrl}?${params.toString()}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Failed to fetch weather from provider.");
+  }
+
+  const payload = await response.json();
+  const hourly = payload?.hourly ?? {};
+  const times: string[] = Array.isArray(hourly.time) ? hourly.time : [];
+  const temperatures: Array<number | null> = Array.isArray(hourly.temperature_2m) ? hourly.temperature_2m : [];
+  const windSpeeds: Array<number | null> = Array.isArray(hourly.wind_speed_10m) ? hourly.wind_speed_10m : [];
+  const precipitation: Array<number | null> = Array.isArray(hourly.precipitation) ? hourly.precipitation : [];
+
+  const hours: WeatherHourRow[] = [];
+  for (let i = 0; i < times.length; i += 1) {
+    const timestamp = times[i];
+    if (typeof timestamp !== "string") continue;
+    const hour = Number(timestamp.slice(11, 13));
+    if (!Number.isFinite(hour)) continue;
+
+    hours.push({
+      hour,
+      temperatureC: temperatures[i] == null ? null : Number(temperatures[i]),
+      windSpeedMs: windSpeeds[i] == null ? null : Number(windSpeeds[i]),
+      precipitationMm: precipitation[i] == null ? null : Number(precipitation[i]),
+    });
+  }
+
+  return {
+    dayISO,
+    location: center,
+    hours,
+  };
 }
 
 export async function syncRecentActiveDaysWeather() {
@@ -492,26 +618,6 @@ export async function saveSiteDiaryRecord({
   try {
     await prisma.sitediaryrecords.createMany({ data: toInsert });
 
-    if (siteId) {
-      const activeDays = Array.from(
-        new Set(
-          toInsert
-            .map((row) => toDayISOFromDate(row.Date))
-            .filter((day): day is string => Boolean(day)),
-        ),
-      );
-
-      await Promise.all(
-        activeDays.map(async (dayISO) => {
-          try {
-            await ensureWeatherForSiteDay({ siteId, dayISO, forceRefresh: isRecentDay(dayISO) });
-          } catch (weatherErr) {
-            console.warn("Weather prefetch failed after site diary insert:", weatherErr);
-          }
-        }),
-      );
-    }
-
     return { ok: true, count: toInsert.length }; //Multitenant
   } catch (err: any) {
     return { ok: false, message: err.message };
@@ -559,26 +665,6 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
   // Bulk insert
   try {
     await prisma.sitediaryrecords.createMany({ data: toInsert });
-
-    if (siteId) {
-      const activeDays = Array.from(
-        new Set(
-          toInsert
-            .map((row) => toDayISOFromDate(row.Date))
-            .filter((day): day is string => Boolean(day)),
-        ),
-      );
-
-      await Promise.all(
-        activeDays.map(async (dayISO) => {
-          try {
-            await ensureWeatherForSiteDay({ siteId, dayISO, forceRefresh: isRecentDay(dayISO) });
-          } catch (weatherErr) {
-            console.warn("Weather prefetch failed after web site diary insert:", weatherErr);
-          }
-        }),
-      );
-    }
   } catch (err: any) {
     return { ok: false, message: err.message };
   }
@@ -1957,15 +2043,6 @@ export async function savePhoto({
 
   try {
     const rec = await prisma.photos.create({ data });
-
-    const activeDay = toDayISOFromDate(data.Date);
-    if (siteId && activeDay) {
-      try {
-        await ensureWeatherForSiteDay({ siteId, dayISO: activeDay, forceRefresh: isRecentDay(activeDay) });
-      } catch (weatherErr) {
-        console.warn("Weather prefetch failed after photo insert:", weatherErr);
-      }
-    }
 
     console.log("Photo saved successfully:", rec);
     return rec;

@@ -18,7 +18,6 @@ import {
   getSiteDayWeather,
   getFilledDays,
   getPossibleSiteDiaryBisApprovers,
-  getSiteWeatherAvailability,
   getSiteDiaryBisApprovalStatus,
   getSiteGalleryAttachments,
   getSitediaryRecordsBySiteIdForExcel,
@@ -235,7 +234,6 @@ export default function SiteDiaryCalendar({
   const [photosDate, setPhotosDate] = React.useState<Date | null>(null);
   const [weatherDialogOpen, setWeatherDialogOpen] = React.useState(false);
   const [weatherDate, setWeatherDate] = React.useState<Date | null>(null);
-  const [siteHasGeofencePolygon, setSiteHasGeofencePolygon] = React.useState(false);
   const [weatherLoading, setWeatherLoading] = React.useState(false);
   const [weatherError, setWeatherError] = React.useState<string | null>(null);
   const [weatherHours, setWeatherHours] = React.useState<WeatherHour[]>([]);
@@ -415,32 +413,6 @@ export default function SiteDiaryCalendar({
       cancelled = true;
     };
   }, [siteId, currentMonth, currentYear]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-
-    async function loadWeatherAvailability() {
-      if (!siteId) {
-        setSiteHasGeofencePolygon(false);
-        return;
-      }
-      try {
-        const status = await getSiteWeatherAvailability(siteId);
-        if (!cancelled) {
-          setSiteHasGeofencePolygon(Boolean(status?.hasGeofencePolygon));
-        }
-      } catch {
-        if (!cancelled) {
-          setSiteHasGeofencePolygon(false);
-        }
-      }
-    }
-
-    loadWeatherAvailability();
-    return () => {
-      cancelled = true;
-    };
-  }, [siteId]);
 
   // Load list rows once
   React.useEffect(() => {
@@ -1440,16 +1412,13 @@ export default function SiteDiaryCalendar({
                                 variant="ghost"
                                 className="rounded-full"
                                 onClick={() => openWeather(group.date)}
-                                disabled={!siteHasGeofencePolygon}
                               >
                                 <CloudSun className="h-5 w-5" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>
-                                {siteHasGeofencePolygon
-                                  ? t.viewWeatherForDay
-                                  : t.weatherUnavailableForSite}
+                                {t.viewWeatherForDay}
                               </p>
                             </TooltipContent>
                           </Tooltip>
@@ -2403,11 +2372,7 @@ export default function SiteDiaryCalendar({
               </DialogTitle>
             </DialogHeader>
 
-            {!siteHasGeofencePolygon ? (
-              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-                {t.weatherMissingGeofence}
-              </div>
-            ) : weatherLoading ? (
+            {weatherLoading ? (
               <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t.weatherLoading}
