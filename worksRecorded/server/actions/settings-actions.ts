@@ -232,27 +232,33 @@ export async function saveSiteDiaryMode(
 }
 
 export async function getOrganizationWorkers(orgId: string) {
-  const [workers, projects] = await Promise.all([
-    prisma.workers.findMany({
-      where: { organizationId: orgId },
-      select: {
-        id: true,
-        name: true,
-        surname: true,
-        phone: true,
-        siteId: true,
-        reminderTime: true,
-        remindersEnabled: true,
-        reminderText: true,
-      },
-      orderBy: [{ name: "asc" }, { surname: "asc" }],
-    }),
-    prisma.site.findMany({
-      where: { organizationId: orgId },
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  const projects = await prisma.site.findMany({
+    where: { organizationId: orgId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
+  const siteIds = projects.map((site) => site.id);
+
+  const workers = await prisma.workers.findMany({
+    where: {
+      OR: [
+        { organizationId: orgId },
+        ...(siteIds.length ? [{ siteId: { in: siteIds } }] : []),
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      surname: true,
+      phone: true,
+      siteId: true,
+      reminderTime: true,
+      remindersEnabled: true,
+      reminderText: true,
+    },
+    orderBy: [{ name: "asc" }, { surname: "asc" }],
+  });
 
   return { workers, projects };
 }
