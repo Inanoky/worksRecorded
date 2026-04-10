@@ -32,19 +32,7 @@ function toHHmm(dt: string | Date | null | undefined) {
   if (!dt) return "";
   const d = new Date(dt);
   if (Number.isNaN(d.getTime())) return "";
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-}
-
-function normalizeHHmmInput(value: string) {
-  const digits = value.replace(/[^\d]/g, "").slice(0, 4);
-  if (digits.length <= 2) return digits;
-  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
-}
-
-function isValidHHmm(value: string) {
-  if (!/^\d{2}:\d{2}$/.test(value)) return false;
-  const [hh, mm] = value.split(":").map(Number);
-  return hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59;
+  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 export function WorkersSettingsTable({ workers, projects }: Props) {
@@ -61,10 +49,6 @@ export function WorkersSettingsTable({ workers, projects }: Props) {
     setSavingId(worker.id);
     try {
       const time = rowDraft.reminderTime !== undefined ? String(rowDraft.reminderTime || "") : toHHmm(worker.reminderTime);
-      if (time && !isValidHHmm(time)) {
-        toast.error("Use 24-hour format HH:mm (for example 18:30)");
-        return;
-      }
       await updateWorkerOrganizationSettings(worker.id, {
         siteId: rowDraft.siteId !== undefined ? (rowDraft.siteId || null) : worker.siteId,
         remindersEnabled:
@@ -156,15 +140,11 @@ export function WorkersSettingsTable({ workers, projects }: Props) {
                   </TableCell>
                   <TableCell>
                     <Input
-                      type="text"
-                      inputMode="numeric"
-                      placeholder="HH:mm"
+                      type="time"
+                      step={60}
+                      lang="en-GB"
                       value={(workerDraft.reminderTime as string | undefined) ?? toHHmm(worker.reminderTime)}
-                      onChange={(e) =>
-                        updateDraft(worker.id, {
-                          reminderTime: normalizeHHmmInput(e.currentTarget.value),
-                        })
-                      }
+                      onChange={(e) => updateDraft(worker.id, { reminderTime: e.currentTarget.value })}
                     />
                   </TableCell>
                   <TableCell>
