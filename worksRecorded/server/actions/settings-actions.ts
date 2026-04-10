@@ -267,6 +267,9 @@ export async function updateWorkerOrganizationSettings(
   workerId: string,
   data: {
     siteId?: string | null;
+    name?: string | null;
+    surname?: string | null;
+    phone?: string | null;
     reminderTime?: Date | null;
     remindersEnabled?: boolean;
     reminderText?: string | null;

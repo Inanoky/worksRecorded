@@ -78,6 +78,9 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
     try {
       const time = rowDraft.reminderTime !== undefined ? String(rowDraft.reminderTime || "") : toHHmm(worker.reminderTime);
       await updateWorkerOrganizationSettings(worker.id, {
+        name: rowDraft.name !== undefined ? String(rowDraft.name || "").trim() || null : worker.name,
+        surname: rowDraft.surname !== undefined ? String(rowDraft.surname || "").trim() || null : worker.surname,
+        phone: rowDraft.phone !== undefined ? String(rowDraft.phone || "").replace(/\D/g, "") || null : worker.phone,
         siteId: rowDraft.siteId !== undefined ? (rowDraft.siteId || null) : worker.siteId,
         remindersEnabled:
           rowDraft.remindersEnabled !== undefined
@@ -169,6 +172,9 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
       ...prev,
       [worker.id]: {
         siteId: worker.siteId,
+        name: worker.name ?? "",
+        surname: worker.surname ?? "",
+        phone: worker.phone ?? "",
         reminderTime: toHHmm(worker.reminderTime),
         remindersEnabled: Boolean(worker.remindersEnabled),
         reminderText: worker.reminderText ?? "",
@@ -195,7 +201,10 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
                   <Input
                     placeholder="John"
                     value={newWorker.name}
-                    onChange={(e) => setNewWorker((prev) => ({ ...prev, name: e.currentTarget.value }))}
+                    onChange={(e) => {
+                      const value = e.currentTarget.value;
+                      setNewWorker((prev) => ({ ...prev, name: value }));
+                    }}
                   />
                 </div>
                 <div className="space-y-1">
@@ -203,7 +212,10 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
                   <Input
                     placeholder="Doe"
                     value={newWorker.surname}
-                    onChange={(e) => setNewWorker((prev) => ({ ...prev, surname: e.currentTarget.value }))}
+                    onChange={(e) => {
+                      const value = e.currentTarget.value;
+                      setNewWorker((prev) => ({ ...prev, surname: value }));
+                    }}
                   />
                 </div>
                 <div className="space-y-1">
@@ -227,7 +239,10 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
                     <Input
                       placeholder="24885690"
                       value={newWorker.phone}
-                      onChange={(e) => setNewWorker((prev) => ({ ...prev, phone: e.currentTarget.value.replace(/\D/g, "") }))}
+                      onChange={(e) => {
+                        const value = e.currentTarget.value.replace(/\D/g, "");
+                        setNewWorker((prev) => ({ ...prev, phone: value }));
+                      }}
                     />
                   </div>
                 </div>
@@ -285,8 +300,35 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
                 projects.find((project) => project.id === (worker.siteId ?? ""))?.name ?? "No project";
               return (
                 <TableRow key={worker.id}>
-                  <TableCell>{`${worker.name ?? ""} ${worker.surname ?? ""}`.trim() || "Unnamed"}</TableCell>
-                  <TableCell>{worker.phone ?? ""}</TableCell>
+                  <TableCell>
+                    {isEditing ? (
+                      <div className="grid grid-cols-1 gap-1">
+                        <Input
+                          value={(workerDraft.name as string | undefined) ?? worker.name ?? ""}
+                          onChange={(e) => updateDraft(worker.id, { name: e.currentTarget.value })}
+                          placeholder="First name"
+                        />
+                        <Input
+                          value={(workerDraft.surname as string | undefined) ?? worker.surname ?? ""}
+                          onChange={(e) => updateDraft(worker.id, { surname: e.currentTarget.value })}
+                          placeholder="Last name"
+                        />
+                      </div>
+                    ) : (
+                      <span>{`${worker.name ?? ""} ${worker.surname ?? ""}`.trim() || "Unnamed"}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {isEditing ? (
+                      <Input
+                        value={(workerDraft.phone as string | undefined) ?? worker.phone ?? ""}
+                        onChange={(e) => updateDraft(worker.id, { phone: e.currentTarget.value.replace(/\D/g, "") })}
+                        placeholder="Phone"
+                      />
+                    ) : (
+                      <span>{worker.phone ?? ""}</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {isEditing ? (
                       <Select
