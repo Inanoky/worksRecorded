@@ -60,6 +60,34 @@ export default async function AddWorkerPage({
             </p>
           </div>
         </header>
+
+        <section>
+          <Card className="border-muted/60 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base md:text-lg">Workers on this project</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Showing only workers currently assigned to this site.
+              </p>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="flex flex-wrap gap-2">
+                {workers.length ? (
+                  workers.map((worker) => (
+                    <span
+                      key={worker.id}
+                      className="inline-flex items-center rounded-md border px-2.5 py-1 text-sm"
+                    >
+                      {worker.name} {worker.surname}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No workers assigned to this project.</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
         {/* MAIN: Time records */}
         <section data-tour="timesheets">
             <Card className="border-muted/60 shadow-sm">
