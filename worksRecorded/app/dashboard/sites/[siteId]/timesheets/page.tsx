@@ -7,7 +7,6 @@ import {
 import AiWidgetRag from "@/components/ai/AiChat";
 import { getLocationsWorksFromSiteSchema } from "@/server/actions/site-diary-actions";
 import { SiteSchemaProvider } from "@/components/providers/SiteSchemaProvider";
-import { WorkerTableCard } from "@/components/ai/WorkerTableCard";
 import { requireUser } from "@/lib/utils/requireUser";
 import { getOrganizationLanguageByUserId, orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
@@ -62,15 +61,32 @@ export default async function AddWorkerPage({
           </div>
         </header>
 
-             {/* SECONDARY: Workers card (list + modal button) */}
         <section>
-          <WorkerTableCard
-            siteId={siteId}
-            initialWorkers={workers}
-            organizationLanguage={organizationLanguage}
-          />
+          <Card className="border-muted/60 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base md:text-lg">Workers on this project</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Showing only workers currently assigned to this site.
+              </p>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="flex flex-wrap gap-2">
+                {workers.length ? (
+                  workers.map((worker) => (
+                    <span
+                      key={worker.id}
+                      className="inline-flex items-center rounded-md border px-2.5 py-1 text-sm"
+                    >
+                      {worker.name} {worker.surname}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No workers assigned to this project.</span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </section>
-
 
         {/* MAIN: Time records */}
         <section data-tour="timesheets">

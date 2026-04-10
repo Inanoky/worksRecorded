@@ -116,7 +116,8 @@ export async function getUserData(orgId){
             role : true,
             status: true,
             reminderTime: true,
-            remindersEnabled: true
+            remindersEnabled: true,
+            reminderText: true,
 
         }
     })
@@ -228,4 +229,159 @@ export async function saveSiteDiaryMode(
   });
 
   return { success: true };
+}
+
+export async function getOrganizationWorkers(orgId: string) {
+  const projects = await prisma.site.findMany({
+    where: { organizationId: orgId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+
+  const siteIds = projects.map((site) => site.id);
+
+  const workers = await prisma.workers.findMany({
+    where: {
+      OR: [
+        { organizationId: orgId },
+        ...(siteIds.length ? [{ siteId: { in: siteIds } }] : []),
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      surname: true,
+      phone: true,
+      siteId: true,
+      reminderTime: true,
+      remindersEnabled: true,
+      reminderText: true,
+    },
+    orderBy: [{ name: "asc" }, { surname: "asc" }],
+  });
+
+  return { workers, projects };
+}
+
+export async function updateWorkerOrganizationSettings(
+  workerId: string,
+  data: {
+    siteId?: string | null;
+    name?: string | null;
+    surname?: string | null;
+    phone?: string | null;
+    reminderTime?: Date | null;
+    remindersEnabled?: boolean;
+    reminderText?: string | null;
+    timezone?: string | null;
+  }
+) {
+  await prisma.workers.update({
+    where: { id: workerId },
+    data,
+  });
+
+  return { ok: true };
+}
+
+export async function createOrganizationWorker(data: {
+  organizationId: string;
+  siteId?: string | null;
+  name: string;
+  surname?: string | null;
+  phone?: string | null;
+}) {
+  const created = await prisma.workers.create({
+    data: {
+      organizationId: data.organizationId,
+      siteId: data.siteId ?? null,
+      name: data.name.trim(),
+      surname: data.surname?.trim() || null,
+      phone: data.phone?.trim() || null,
+      remindersEnabled: false,
+      timezone: "Europe/Riga",
+    },
+    select: { id: true },
+  });
+
+  return { ok: true, id: created.id };
+}
+
+export async function deleteOrganizationWorker(workerId: string) {
+  await prisma.workers.delete({
+    where: { id: workerId },
+  });
+
+  return { ok: true };
+}
+
+function normalizePhoneForMeta(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  return digits || null;
+}
+
+async function sendMetaWhatsAppText(to: string, body: string) {
+  const token = process.env.META_ACCESS_TOKEN;
+  const businessPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
+
+  if (!token || !businessPhoneNumberId) {
+    throw new Error("Missing META_ACCESS_TOKEN or META_PHONE_NUMBER_ID");
+  }
+
+  const res = await fetch(`https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      text: { body },
+    }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => "");
+    throw new Error(`Meta send failed (${res.status}): ${errorBody}`);
+  }
+}
+
+export async function sendManualReminder(args: {
+  targetType: "user" | "worker";
+  targetId: string;
+  reminderText?: string | null;
+}) {
+  const overrideText = args.reminderText?.trim() || null;
+
+  if (args.targetType === "user") {
+    const user = await prisma.user.findUnique({
+      where: { id: args.targetId },
+      select: { phone: true, reminderText: true },
+    });
+
+    const to = normalizePhoneForMeta(user?.phone);
+    if (!to) throw new Error("User does not have a valid phone number");
+
+    const text = overrideText || user?.reminderText?.trim() || null;
+    if (!text) throw new Error("Reminder text is empty. Please set reminder text first.");
+
+    await sendMetaWhatsAppText(to, text);
+    return { ok: true };
+  }
+
+  const worker = await prisma.workers.findUnique({
+    where: { id: args.targetId },
+    select: { phone: true, reminderText: true },
+  });
+
+  const to = normalizePhoneForMeta(worker?.phone);
+  if (!to) throw new Error("Worker does not have a valid phone number");
+
+  const text = overrideText || worker?.reminderText?.trim() || null;
+  if (!text) throw new Error("Reminder text is empty. Please set reminder text first.");
+
+  await sendMetaWhatsAppText(to, text);
+  return { ok: true };
 }
