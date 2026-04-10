@@ -33,6 +33,7 @@ model Organization {
       timelog timelog[]
       projectdiaryrecord projectdiaryrecord[]
       BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
+      siteWeatherHourly SiteWeatherHourly[]
 
       
 
@@ -110,6 +111,7 @@ model Site {
   sitediarysettings sitediarysettings? //One site can have one site diary setting
   analytics analytics?
   workers           workers[] //on site can have many workers 
+  siteWeatherHourly SiteWeatherHourly[]
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   siteDiaryRecordsMap Json?
@@ -410,6 +412,33 @@ model BisToken {
   updatedAt    DateTime @updatedAt
   userId       String?  @unique
   user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SiteWeatherHourly {
+  id              String   @id
+  siteId          String
+  organizationId  String?
+  weatherDate     DateTime @db.Date
+  hour            Int
+  observedAt      DateTime
+  latitude        Float
+  longitude       Float
+  temperatureC    Float?
+  windSpeedMs     Float?
+  precipitationMm Float?
+  provider        String   @default("open-meteo")
+  fetchedAt       DateTime @default(now())
+  sourceUpdatedAt DateTime?
+  isForecast      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, weatherDate, hour])
+  @@index([siteId, weatherDate])
+  @@index([weatherDate, isForecast])
 }
 
 
