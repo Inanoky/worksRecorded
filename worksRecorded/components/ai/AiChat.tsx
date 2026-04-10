@@ -61,6 +61,9 @@ type UserMessage = {
 
 type Message = BotMessage | UserMessage;
 
+// Primary context store for chat continuity:
+// we persist the local conversation per site in localStorage
+// and only send a trimmed recent window on each request.
 const STORAGE_KEY = (siteId?: string) => `aiwidget:${siteId ?? "default"}`;
 const MAX_ATTACHMENTS = 8;
 const MAX_TEXT_EXTRACT = 5000;

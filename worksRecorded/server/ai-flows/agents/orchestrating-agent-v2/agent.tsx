@@ -4,7 +4,6 @@
 import {Annotation, END, START, StateGraph, } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
-import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import {tools, toolNode} from "@/server/ai-flows/agents/orchestrating-agent-v2/tools"
 import { systemPrompt } from "@/server/ai-flows/agents/orchestrating-agent-v2/prompts";
 import { orchestratingAgentV2ModelModel, } from "@/server/ai-flows/ai-models-settings";
@@ -94,28 +93,10 @@ const agentNode = async (state) => {
             .addConditionalEdges("agentNode", shouldContinue, ["tools", END])           
             .addEdge("tools", "agentNode") // <--- loop back to agent!
     
-
-
-    const checkpointer = PostgresSaver.fromConnString(
-        process.env.DATABASE_URL
-    );
-
-
-    await checkpointer.setup();
-    // Context window strategy:
-    // Keep the long-running memory out of the server checkpointer thread and let
-    // the client send only the most relevant recent context (sliding window).
-    // This prevents unbounded context growth and token waste.
-    const config = {
-        configurable: {
-            thread_id: `orchestrating-agent-v2:${siteId}:${user.id}:${Date.now()}`
-        }
-    };
-
-
-
-
-    const graph = workflow.compile({checkpointer})
+    // No persistent graph checkpointing here.
+    // Context is explicitly curated on the client (recent turns + attachments)
+    // and passed in the current `question` payload.
+    const graph = workflow.compile()
 
     const inputs = {
          messages: [
@@ -128,7 +109,7 @@ const agentNode = async (state) => {
 
     let finalState;
 
-    for await (const output of await graph.stream(inputs, config)) {
+    for await (const output of await graph.stream(inputs)) {
         console.log("Step/Run full output:", output);
         for (const [key, value] of Object.entries(output)) {
             const lastMsg = output[key].messages[output[key].messages.length - 1];
