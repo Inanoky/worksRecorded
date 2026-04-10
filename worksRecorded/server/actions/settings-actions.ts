@@ -116,7 +116,8 @@ export async function getUserData(orgId){
             role : true,
             status: true,
             reminderTime: true,
-            remindersEnabled: true
+            remindersEnabled: true,
+            reminderText: true,
 
         }
     })
@@ -228,4 +229,48 @@ export async function saveSiteDiaryMode(
   });
 
   return { success: true };
+}
+
+export async function getOrganizationWorkers(orgId: string) {
+  const [workers, projects] = await Promise.all([
+    prisma.workers.findMany({
+      where: { organizationId: orgId },
+      select: {
+        id: true,
+        name: true,
+        surname: true,
+        phone: true,
+        siteId: true,
+        reminderTime: true,
+        remindersEnabled: true,
+        reminderText: true,
+      },
+      orderBy: [{ name: "asc" }, { surname: "asc" }],
+    }),
+    prisma.site.findMany({
+      where: { organizationId: orgId },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  return { workers, projects };
+}
+
+export async function updateWorkerOrganizationSettings(
+  workerId: string,
+  data: {
+    siteId?: string | null;
+    reminderTime?: Date | null;
+    remindersEnabled?: boolean;
+    reminderText?: string | null;
+    timezone?: string | null;
+  }
+) {
+  await prisma.workers.update({
+    where: { id: workerId },
+    data,
+  });
+
+  return { ok: true };
 }
