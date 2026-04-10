@@ -41,6 +41,347 @@ export async function getConfig(siteId: string) {
   return clientConfig?.siteDiaryRecordsMap ?? null;
 }
 
+type WeatherHourRow = {
+  hour: number;
+  temperatureC: number | null;
+  windSpeedMs: number | null;
+  precipitationMm: number | null;
+};
+
+const RECENT_WEATHER_STALE_MS = 2 * 60 * 60 * 1000;
+
+function parseDateKey(dayISO: string): string {
+  const normalized = String(dayISO ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    throw new Error("Invalid day format. Expected YYYY-MM-DD.");
+  }
+  return normalized;
+}
+
+function extractGeoPoints(input: unknown): Array<[number, number]> {
+  const points: Array<[number, number]> = [];
+
+  const visit = (node: unknown) => {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      if (
+        node.length >= 2 &&
+        typeof node[0] === "number" &&
+        typeof node[1] === "number"
+      ) {
+        points.push([node[0], node[1]]);
+        return;
+      }
+      for (const child of node) {
+        visit(child);
+      }
+      return;
+    }
+    if (typeof node === "object") {
+      const rec = node as Record<string, unknown>;
+      visit(rec.coordinates);
+      if (Array.isArray(rec.features)) visit(rec.features);
+      if (rec.geometry) visit(rec.geometry);
+    }
+  };
+
+  visit(input);
+  return points;
+}
+
+function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude: number } | null {
+  const points = extractGeoPoints(geoJson);
+  if (!points.length) return null;
+
+  let lonSum = 0;
+  let latSum = 0;
+  let count = 0;
+  for (const [lon, lat] of points) {
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+    lonSum += lon;
+    latSum += lat;
+    count += 1;
+  }
+  if (!count) return null;
+
+  return {
+    latitude: Number((latSum / count).toFixed(6)),
+    longitude: Number((lonSum / count).toFixed(6)),
+  };
+}
+
+async function getStoredSiteWeatherRows(siteId: string, dayISO: string): Promise<WeatherHourRow[]> {
+  const rows = await prisma.$queryRawUnsafe<Array<{
+    hour: number;
+    temperatureC: number | null;
+    windSpeedMs: number | null;
+    precipitationMm: number | null;
+  }>>(
+    `SELECT "hour", "temperatureC", "windSpeedMs", "precipitationMm"
+     FROM "SiteWeatherHourly"
+     WHERE "siteId" = $1 AND "weatherDate" = $2::date
+     ORDER BY "hour" ASC`,
+    siteId,
+    dayISO,
+  );
+
+  return rows.map((row) => ({
+    hour: Number(row.hour),
+    temperatureC: row.temperatureC == null ? null : Number(row.temperatureC),
+    windSpeedMs: row.windSpeedMs == null ? null : Number(row.windSpeedMs),
+    precipitationMm: row.precipitationMm == null ? null : Number(row.precipitationMm),
+  }));
+}
+
+function toDayISOFromDate(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function isRecentDay(dayISO: string): boolean {
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const day = new Date(`${dayISO}T00:00:00.000Z`);
+  if (Number.isNaN(day.getTime())) return false;
+  const diffDays = Math.floor((today.getTime() - day.getTime()) / (24 * 60 * 60 * 1000));
+  return diffDays <= 1;
+}
+
+async function getLatestWeatherUpdateAt(siteId: string, dayISO: string): Promise<Date | null> {
+  const rows = await prisma.$queryRawUnsafe<Array<{ updatedAt: Date }>>(
+    `SELECT MAX("updatedAt") AS "updatedAt"
+     FROM "SiteWeatherHourly"
+     WHERE "siteId" = $1 AND "weatherDate" = $2::date`,
+    siteId,
+    dayISO,
+  );
+
+  return rows?.[0]?.updatedAt ? new Date(rows[0].updatedAt) : null;
+}
+
+async function fetchAndStoreSiteWeather(args: {
+  siteId: string;
+  dayISO: string;
+  latitude: number;
+  longitude: number;
+  organizationId?: string | null;
+}): Promise<WeatherHourRow[]> {
+  const { siteId, dayISO, latitude, longitude, organizationId } = args;
+
+  const now = new Date();
+  const todayISO = now.toISOString().slice(0, 10);
+  const isPastOrToday = dayISO <= todayISO;
+  const isForecast = dayISO > todayISO;
+  const baseUrl = isPastOrToday
+    ? "https://archive-api.open-meteo.com/v1/archive"
+    : "https://api.open-meteo.com/v1/forecast";
+
+  const params = new URLSearchParams({
+    latitude: latitude.toString(),
+    longitude: longitude.toString(),
+    start_date: dayISO,
+    end_date: dayISO,
+    timezone: "UTC",
+    hourly: "temperature_2m,wind_speed_10m,precipitation",
+  });
+
+  const response = await fetch(`${baseUrl}?${params.toString()}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Failed to fetch weather from provider.");
+  }
+
+  const payload = await response.json();
+  const hourly = payload?.hourly ?? {};
+  const times: string[] = Array.isArray(hourly.time) ? hourly.time : [];
+  const temperatures: Array<number | null> = Array.isArray(hourly.temperature_2m) ? hourly.temperature_2m : [];
+  const windSpeeds: Array<number | null> = Array.isArray(hourly.wind_speed_10m) ? hourly.wind_speed_10m : [];
+  const precipitation: Array<number | null> = Array.isArray(hourly.precipitation) ? hourly.precipitation : [];
+
+  const results: WeatherHourRow[] = [];
+  for (let i = 0; i < times.length; i += 1) {
+    const timestamp = times[i];
+    if (typeof timestamp !== "string") continue;
+    const hourPart = timestamp.slice(11, 13);
+    const hour = Number(hourPart);
+    if (!Number.isFinite(hour)) continue;
+
+    const temperatureC = temperatures[i] == null ? null : Number(temperatures[i]);
+    const windSpeedMs = windSpeeds[i] == null ? null : Number(windSpeeds[i]);
+    const precipitationMm = precipitation[i] == null ? null : Number(precipitation[i]);
+
+    results.push({ hour, temperatureC, windSpeedMs, precipitationMm });
+  }
+
+  for (const row of results) {
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "SiteWeatherHourly"
+      ("id", "siteId", "organizationId", "weatherDate", "hour", "observedAt", "latitude", "longitude", "temperatureC", "windSpeedMs", "precipitationMm", "provider", "fetchedAt", "sourceUpdatedAt", "isForecast")
+      VALUES ($1, $2, $3, $4::date, $5, $6::timestamp, $7, $8, $9, $10, $11, 'open-meteo', $12::timestamp, $13::timestamp, $14)
+      ON CONFLICT ("siteId", "weatherDate", "hour")
+      DO UPDATE SET
+        "organizationId" = EXCLUDED."organizationId",
+        "observedAt" = EXCLUDED."observedAt",
+        "latitude" = EXCLUDED."latitude",
+        "longitude" = EXCLUDED."longitude",
+        "temperatureC" = EXCLUDED."temperatureC",
+        "windSpeedMs" = EXCLUDED."windSpeedMs",
+        "precipitationMm" = EXCLUDED."precipitationMm",
+        "provider" = EXCLUDED."provider",
+        "fetchedAt" = EXCLUDED."fetchedAt",
+        "sourceUpdatedAt" = EXCLUDED."sourceUpdatedAt",
+        "isForecast" = EXCLUDED."isForecast",
+        "updatedAt" = CURRENT_TIMESTAMP`,
+      crypto.randomUUID(),
+      siteId,
+      organizationId ?? null,
+      dayISO,
+      row.hour,
+      `${dayISO} ${String(row.hour).padStart(2, "0")}:00:00`,
+      latitude,
+      longitude,
+      row.temperatureC,
+      row.windSpeedMs,
+      row.precipitationMm,
+      now,
+      now,
+      isForecast,
+    );
+  }
+
+  return results;
+}
+
+async function ensureWeatherForSiteDay(args: {
+  siteId: string;
+  dayISO: string;
+  forceRefresh?: boolean;
+}): Promise<{
+  dayISO: string;
+  location: { latitude: number; longitude: number };
+  hours: WeatherHourRow[];
+}> {
+  const { siteId } = args;
+  const dayISO = parseDateKey(args.dayISO);
+
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: {
+      geofencePolygon: true,
+      organizationId: true,
+    },
+  });
+  if (!site) throw new Error("Site not found.");
+  if (!site.geofencePolygon) throw new Error("Site geofence polygon is missing.");
+
+  const center = computePolygonCentroid(site.geofencePolygon);
+  if (!center) {
+    throw new Error("Could not determine site coordinates from geofence polygon.");
+  }
+
+  let rows = await getStoredSiteWeatherRows(siteId, dayISO);
+  const latestUpdateAt = rows.length ? await getLatestWeatherUpdateAt(siteId, dayISO) : null;
+  const shouldRefreshRecent =
+    rows.length > 0 &&
+    isRecentDay(dayISO) &&
+    (!latestUpdateAt || Date.now() - latestUpdateAt.getTime() > RECENT_WEATHER_STALE_MS);
+  const shouldFetch = args.forceRefresh || rows.length < 24 || shouldRefreshRecent;
+
+  if (shouldFetch) {
+    rows = await fetchAndStoreSiteWeather({
+      siteId,
+      dayISO,
+      latitude: center.latitude,
+      longitude: center.longitude,
+      organizationId: site.organizationId,
+    });
+  }
+
+  return {
+    dayISO,
+    location: {
+      latitude: center.latitude,
+      longitude: center.longitude,
+    },
+    hours: rows,
+  };
+}
+
+export async function getSiteWeatherAvailability(siteId: string) {
+  if (!siteId) return { hasGeofencePolygon: false };
+  await requireUser();
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { geofencePolygon: true },
+  });
+  return { hasGeofencePolygon: Boolean(site?.geofencePolygon) };
+}
+
+export async function getSiteDayWeather(args: { siteId: string; dayISO: string }) {
+  await requireUser();
+  return ensureWeatherForSiteDay({
+    siteId: args.siteId,
+    dayISO: args.dayISO,
+  });
+}
+
+export async function syncRecentActiveDaysWeather() {
+  const today = new Date();
+  const start = new Date(today);
+  start.setUTCDate(today.getUTCDate() - 1);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(today);
+  end.setUTCHours(23, 59, 59, 999);
+
+  const [records, photos] = await Promise.all([
+    prisma.sitediaryrecords.findMany({
+      where: {
+        siteId: { not: null },
+        Date: { gte: start, lte: end },
+      },
+      select: { siteId: true, Date: true },
+    }),
+    prisma.photos.findMany({
+      where: {
+        siteId: { not: null },
+        Date: { gte: start, lte: end },
+      },
+      select: { siteId: true, Date: true },
+    }),
+  ]);
+
+  const tasks = new Map<string, { siteId: string; dayISO: string }>();
+  for (const row of [...records, ...photos]) {
+    const siteId = row.siteId ?? undefined;
+    const dayISO = toDayISOFromDate(row.Date);
+    if (!siteId || !dayISO) continue;
+    tasks.set(`${siteId}:${dayISO}`, { siteId, dayISO });
+  }
+
+  const outcomes: Array<{ siteId: string; dayISO: string; ok: boolean; error?: string }> = [];
+  for (const task of tasks.values()) {
+    try {
+      await ensureWeatherForSiteDay({
+        siteId: task.siteId,
+        dayISO: task.dayISO,
+        forceRefresh: true,
+      });
+      outcomes.push({ ...task, ok: true });
+    } catch (err: any) {
+      outcomes.push({ ...task, ok: false, error: err?.message ?? "weather_sync_failed" });
+    }
+  }
+
+  return {
+    ok: true,
+    scanned: tasks.size,
+    synced: outcomes.filter((item) => item.ok).length,
+    failed: outcomes.filter((item) => !item.ok).length,
+    outcomes,
+  };
+}
+
 // Site diary records actions
 
 export async function saveSiteDiaryRecord({
@@ -151,6 +492,26 @@ export async function saveSiteDiaryRecord({
   try {
     await prisma.sitediaryrecords.createMany({ data: toInsert });
 
+    if (siteId) {
+      const activeDays = Array.from(
+        new Set(
+          toInsert
+            .map((row) => toDayISOFromDate(row.Date))
+            .filter((day): day is string => Boolean(day)),
+        ),
+      );
+
+      await Promise.all(
+        activeDays.map(async (dayISO) => {
+          try {
+            await ensureWeatherForSiteDay({ siteId, dayISO, forceRefresh: isRecentDay(dayISO) });
+          } catch (weatherErr) {
+            console.warn("Weather prefetch failed after site diary insert:", weatherErr);
+          }
+        }),
+      );
+    }
+
     return { ok: true, count: toInsert.length }; //Multitenant
   } catch (err: any) {
     return { ok: false, message: err.message };
@@ -197,7 +558,27 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
 
   // Bulk insert
   try {
-    const dbResult = await prisma.sitediaryrecords.createMany({ data: toInsert });
+    await prisma.sitediaryrecords.createMany({ data: toInsert });
+
+    if (siteId) {
+      const activeDays = Array.from(
+        new Set(
+          toInsert
+            .map((row) => toDayISOFromDate(row.Date))
+            .filter((day): day is string => Boolean(day)),
+        ),
+      );
+
+      await Promise.all(
+        activeDays.map(async (dayISO) => {
+          try {
+            await ensureWeatherForSiteDay({ siteId, dayISO, forceRefresh: isRecentDay(dayISO) });
+          } catch (weatherErr) {
+            console.warn("Weather prefetch failed after web site diary insert:", weatherErr);
+          }
+        }),
+      );
+    }
   } catch (err: any) {
     return { ok: false, message: err.message };
   }
@@ -1576,6 +1957,16 @@ export async function savePhoto({
 
   try {
     const rec = await prisma.photos.create({ data });
+
+    const activeDay = toDayISOFromDate(data.Date);
+    if (siteId && activeDay) {
+      try {
+        await ensureWeatherForSiteDay({ siteId, dayISO: activeDay, forceRefresh: isRecentDay(activeDay) });
+      } catch (weatherErr) {
+        console.warn("Weather prefetch failed after photo insert:", weatherErr);
+      }
+    }
+
     console.log("Photo saved successfully:", rec);
     return rec;
   } catch (err) {

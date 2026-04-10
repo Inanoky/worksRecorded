@@ -43,6 +43,17 @@ type SiteDiaryListMessages = {
   taskSingular: string;
   taskPlural: string;
   viewPhotosForDay: string;
+  viewWeatherForDay: string;
+  weather: string;
+  weatherFor: string;
+  weatherLoading: string;
+  weatherUnavailableForSite: string;
+  weatherMissingGeofence: string;
+  weatherNoDataForDay: string;
+  weatherHour: string;
+  weatherTemperature: string;
+  weatherWind: string;
+  weatherPrecipitation: string;
   pdfReport: string;
   generating: string;
   openDiary: string;
@@ -376,6 +387,17 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     taskSingular: "task",
     taskPlural: "tasks",
     viewPhotosForDay: "View photos for this day",
+    viewWeatherForDay: "View weather for this day",
+    weather: "Weather",
+    weatherFor: "Weather for",
+    weatherLoading: "Loading weather…",
+    weatherUnavailableForSite: "Weather is available only for sites with geofence polygon.",
+    weatherMissingGeofence: "This site has no geofence polygon, so weather cannot be loaded.",
+    weatherNoDataForDay: "No weather data is available for this day.",
+    weatherHour: "Hour",
+    weatherTemperature: "Temperature (°C)",
+    weatherWind: "Wind (m/s)",
+    weatherPrecipitation: "Precipitation (mm)",
     pdfReport: "PDF report",
     generating: "Generating…",
     openDiary: "Open diary",
@@ -452,6 +474,17 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     taskSingular: "uzdevums",
     taskPlural: "uzdevumi",
     viewPhotosForDay: "Skatīt šīs dienas foto",
+    viewWeatherForDay: "Skatīt šīs dienas laikapstākļus",
+    weather: "Laikapstākļi",
+    weatherFor: "Laikapstākļi datumam",
+    weatherLoading: "Ielādē laikapstākļus...",
+    weatherUnavailableForSite: "Laikapstākļi ir pieejami tikai objektiem ar geofence poligonu.",
+    weatherMissingGeofence: "Šim objektam nav geofence poligona, tāpēc laikapstākļus nevar ielādēt.",
+    weatherNoDataForDay: "Šai dienai nav pieejamu laikapstākļu datu.",
+    weatherHour: "Stunda",
+    weatherTemperature: "Temperatūra (°C)",
+    weatherWind: "Vējš (m/s)",
+    weatherPrecipitation: "Nokrišņi (mm)",
     pdfReport: "PDF atskaite",
     generating: "Ģenerē...",
     openDiary: "Atvērt žurnālu",

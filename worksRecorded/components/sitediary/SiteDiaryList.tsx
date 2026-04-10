@@ -15,8 +15,10 @@ import {
   getBisCaseAvailableMaterials,
   getBisCharacterMeasures,
   getSiteDiaryRecordBisUrl,
+  getSiteDayWeather,
   getFilledDays,
   getPossibleSiteDiaryBisApprovers,
+  getSiteWeatherAvailability,
   getSiteDiaryBisApprovalStatus,
   getSiteGalleryAttachments,
   getSitediaryRecordsBySiteIdForExcel,
@@ -29,6 +31,7 @@ import * as XLSX from "xlsx";
 import {
   CalendarIcon,
   Copy,
+  CloudSun,
   Ellipsis,
   ExternalLink,
   Filter,
@@ -165,6 +168,13 @@ type GalleryAttachmentOption = {
   comment?: string | null;
 };
 
+type WeatherHour = {
+  hour: number;
+  temperatureC: number | null;
+  windSpeedMs: number | null;
+  precipitationMm: number | null;
+};
+
 type BisApprover = {
   memberId: string;
   memberType: string | null;
@@ -223,6 +233,13 @@ export default function SiteDiaryCalendar({
   // Photos dialog
   const [photosDialogOpen, setPhotosDialogOpen] = React.useState(false);
   const [photosDate, setPhotosDate] = React.useState<Date | null>(null);
+  const [weatherDialogOpen, setWeatherDialogOpen] = React.useState(false);
+  const [weatherDate, setWeatherDate] = React.useState<Date | null>(null);
+  const [siteHasGeofencePolygon, setSiteHasGeofencePolygon] = React.useState(false);
+  const [weatherLoading, setWeatherLoading] = React.useState(false);
+  const [weatherError, setWeatherError] = React.useState<string | null>(null);
+  const [weatherHours, setWeatherHours] = React.useState<WeatherHour[]>([]);
+  const [weatherLocation, setWeatherLocation] = React.useState<{ latitude: number; longitude: number } | null>(null);
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = React.useState(today.getMonth());
@@ -398,6 +415,32 @@ export default function SiteDiaryCalendar({
       cancelled = true;
     };
   }, [siteId, currentMonth, currentYear]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function loadWeatherAvailability() {
+      if (!siteId) {
+        setSiteHasGeofencePolygon(false);
+        return;
+      }
+      try {
+        const status = await getSiteWeatherAvailability(siteId);
+        if (!cancelled) {
+          setSiteHasGeofencePolygon(Boolean(status?.hasGeofencePolygon));
+        }
+      } catch {
+        if (!cancelled) {
+          setSiteHasGeofencePolygon(false);
+        }
+      }
+    }
+
+    loadWeatherAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [siteId]);
 
   // Load list rows once
   React.useEffect(() => {
@@ -590,6 +633,27 @@ export default function SiteDiaryCalendar({
   const openPhotos = (date: Date) => {
     setPhotosDate(date);
     setPhotosDialogOpen(true);
+  };
+
+  const openWeather = async (date: Date) => {
+    if (!siteId) return;
+    const dayISO = toLocalDateKey(date);
+    setWeatherDate(date);
+    setWeatherDialogOpen(true);
+    setWeatherLoading(true);
+    setWeatherError(null);
+    setWeatherHours([]);
+
+    try {
+      const weather = await getSiteDayWeather({ siteId, dayISO });
+      setWeatherHours(Array.isArray(weather?.hours) ? weather.hours : []);
+      setWeatherLocation(weather?.location ?? null);
+    } catch (e: any) {
+      setWeatherError(e?.message ?? "Failed to load weather.");
+      setWeatherLocation(null);
+    } finally {
+      setWeatherLoading(false);
+    }
   };
 
   const dayLabel = (d: Date) =>
@@ -1366,6 +1430,27 @@ export default function SiteDiaryCalendar({
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>{t.viewPhotosForDay}</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="rounded-full"
+                                onClick={() => openWeather(group.date)}
+                                disabled={!siteHasGeofencePolygon}
+                              >
+                                <CloudSun className="h-5 w-5" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>
+                                {siteHasGeofencePolygon
+                                  ? t.viewWeatherForDay
+                                  : t.weatherUnavailableForSite}
+                              </p>
                             </TooltipContent>
                           </Tooltip>
 
@@ -2300,6 +2385,72 @@ export default function SiteDiaryCalendar({
               className="h-[70vh]"
               organizationLanguage={organizationLanguage}
             />
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={weatherDialogOpen} onOpenChange={setWeatherDialogOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>
+                {t.weatherFor}{" "}
+                {weatherDate
+                  ? weatherDate.toLocaleDateString(dateLocale, {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : t.noDateSelected}
+              </DialogTitle>
+            </DialogHeader>
+
+            {!siteHasGeofencePolygon ? (
+              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                {t.weatherMissingGeofence}
+              </div>
+            ) : weatherLoading ? (
+              <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t.weatherLoading}
+              </div>
+            ) : weatherError ? (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+                {weatherError}
+              </div>
+            ) : weatherHours.length === 0 ? (
+              <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                {t.weatherNoDataForDay}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {weatherLocation ? (
+                  <p className="text-xs text-muted-foreground">
+                    Lat: {weatherLocation.latitude.toFixed(6)} • Lon: {weatherLocation.longitude.toFixed(6)}
+                  </p>
+                ) : null}
+                <div className="max-h-[420px] overflow-auto rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t.weatherHour}</TableHead>
+                        <TableHead>{t.weatherTemperature}</TableHead>
+                        <TableHead>{t.weatherWind}</TableHead>
+                        <TableHead>{t.weatherPrecipitation}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {weatherHours.map((h) => (
+                        <TableRow key={h.hour}>
+                          <TableCell>{String(h.hour).padStart(2, "0")}:00</TableCell>
+                          <TableCell>{h.temperatureC ?? "—"}</TableCell>
+                          <TableCell>{h.windSpeedMs ?? "—"}</TableCell>
+                          <TableCell>{h.precipitationMm ?? "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
