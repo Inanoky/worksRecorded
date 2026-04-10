@@ -8,7 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { sendManualReminder, updateWorkerOrganizationSettings } from "@/server/actions/settings-actions";
+import {
+  createOrganizationWorker,
+  deleteOrganizationWorker,
+  sendManualReminder,
+  updateWorkerOrganizationSettings,
+} from "@/server/actions/settings-actions";
 
 type WorkerRow = {
   id: string;
@@ -24,6 +29,7 @@ type WorkerRow = {
 type ProjectOption = { id: string; name: string };
 
 type Props = {
+  orgId: string;
   workers: WorkerRow[];
   projects: ProjectOption[];
 };
@@ -35,10 +41,17 @@ function toHHmm(dt: string | Date | null | undefined) {
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-export function WorkersSettingsTable({ workers, projects }: Props) {
+export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
   const router = useRouter();
   const [draft, setDraft] = React.useState<Record<string, Partial<WorkerRow>>>({});
   const [savingId, setSavingId] = React.useState<string | null>(null);
+  const [creating, setCreating] = React.useState(false);
+  const [newWorker, setNewWorker] = React.useState({
+    name: "",
+    surname: "",
+    phone: "",
+    siteId: "none",
+  });
 
   const updateDraft = (id: string, patch: Partial<WorkerRow>) => {
     setDraft((prev) => ({ ...prev, [id]: { ...(prev[id] ?? {}), ...patch } }));
@@ -95,12 +108,87 @@ export function WorkersSettingsTable({ workers, projects }: Props) {
     }
   };
 
+  const createWorker = async () => {
+    if (!newWorker.name.trim()) {
+      toast.error("Worker first name is required");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      await createOrganizationWorker({
+        organizationId: orgId,
+        name: newWorker.name,
+        surname: newWorker.surname || null,
+        phone: newWorker.phone || null,
+        siteId: newWorker.siteId === "none" ? null : newWorker.siteId,
+      });
+      toast.success("Worker created");
+      setNewWorker({ name: "", surname: "", phone: "", siteId: "none" });
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error?.message ?? "Failed to create worker");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const deleteWorker = async (workerId: string) => {
+    setSavingId(workerId);
+    try {
+      await deleteOrganizationWorker(workerId);
+      toast.success("Worker deleted");
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error?.message ?? "Failed to delete worker");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <Card className="mt-6">
       <CardHeader>
-        <CardTitle>Workers & project/reminder settings</CardTitle>
+        <CardTitle>Workers settings</CardTitle>
       </CardHeader>
       <CardContent>
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-5 gap-2">
+          <Input
+            placeholder="First name"
+            value={newWorker.name}
+            onChange={(e) => setNewWorker((prev) => ({ ...prev, name: e.currentTarget.value }))}
+          />
+          <Input
+            placeholder="Last name"
+            value={newWorker.surname}
+            onChange={(e) => setNewWorker((prev) => ({ ...prev, surname: e.currentTarget.value }))}
+          />
+          <Input
+            placeholder="Phone"
+            value={newWorker.phone}
+            onChange={(e) => setNewWorker((prev) => ({ ...prev, phone: e.currentTarget.value }))}
+          />
+          <Select
+            value={newWorker.siteId}
+            onValueChange={(value) => setNewWorker((prev) => ({ ...prev, siteId: value }))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Project" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No project</SelectItem>
+              {projects.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={createWorker} disabled={creating}>
+            {creating ? "Creating..." : "Add worker"}
+          </Button>
+        </div>
+
         <Table>
           <TableHeader>
             <TableRow>
@@ -172,6 +260,13 @@ export function WorkersSettingsTable({ workers, projects }: Props) {
                       </Button>
                       <Button variant="outline" onClick={() => sendNow(worker)} disabled={savingId === worker.id}>
                         Send now
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => deleteWorker(worker.id)}
+                        disabled={savingId === worker.id}
+                      >
+                        Delete
                       </Button>
                     </div>
                   </TableCell>

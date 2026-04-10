@@ -281,6 +281,37 @@ export async function updateWorkerOrganizationSettings(
   return { ok: true };
 }
 
+export async function createOrganizationWorker(data: {
+  organizationId: string;
+  siteId?: string | null;
+  name: string;
+  surname?: string | null;
+  phone?: string | null;
+}) {
+  const created = await prisma.workers.create({
+    data: {
+      organizationId: data.organizationId,
+      siteId: data.siteId ?? null,
+      name: data.name.trim(),
+      surname: data.surname?.trim() || null,
+      phone: data.phone?.trim() || null,
+      remindersEnabled: false,
+      timezone: "Europe/Riga",
+    },
+    select: { id: true },
+  });
+
+  return { ok: true, id: created.id };
+}
+
+export async function deleteOrganizationWorker(workerId: string) {
+  await prisma.workers.delete({
+    where: { id: workerId },
+  });
+
+  return { ok: true };
+}
+
 function normalizePhoneForMeta(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const digits = raw.replace(/\D/g, "");
