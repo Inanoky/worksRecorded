@@ -319,7 +319,6 @@ export async function sendManualReminder(args: {
   targetId: string;
   reminderText?: string | null;
 }) {
-  const fallbackText = "Reminder: please fill in your report.";
   const overrideText = args.reminderText?.trim() || null;
 
   if (args.targetType === "user") {
@@ -331,7 +330,10 @@ export async function sendManualReminder(args: {
     const to = normalizePhoneForMeta(user?.phone);
     if (!to) throw new Error("User does not have a valid phone number");
 
-    await sendMetaWhatsAppText(to, overrideText || user?.reminderText?.trim() || fallbackText);
+    const text = overrideText || user?.reminderText?.trim() || null;
+    if (!text) throw new Error("Reminder text is empty. Please set reminder text first.");
+
+    await sendMetaWhatsAppText(to, text);
     return { ok: true };
   }
 
@@ -343,6 +345,9 @@ export async function sendManualReminder(args: {
   const to = normalizePhoneForMeta(worker?.phone);
   if (!to) throw new Error("Worker does not have a valid phone number");
 
-  await sendMetaWhatsAppText(to, overrideText || worker?.reminderText?.trim() || fallbackText);
+  const text = overrideText || worker?.reminderText?.trim() || null;
+  if (!text) throw new Error("Reminder text is empty. Please set reminder text first.");
+
+  await sendMetaWhatsAppText(to, text);
   return { ok: true };
 }

@@ -93,8 +93,14 @@ export async function GET(req: Request) {
 
     if (!recipient || !targetHHmm || targetHHmm !== nowHHmm) continue;
 
+    const text = user.reminderText?.trim();
+    if (!text) {
+      results.push({ target: user.id, kind: "user", ok: false, error: "missing_reminder_text" });
+      continue;
+    }
+
     try {
-      await sendMetaTextMessage(recipient, user.reminderText?.trim() || "Reminder: please fill in your report.");
+      await sendMetaTextMessage(recipient, text);
       results.push({ target: user.id, kind: "user", ok: true });
     } catch (error: any) {
       results.push({ target: user.id, kind: "user", ok: false, error: error?.message || "send_failed" });
@@ -109,8 +115,14 @@ export async function GET(req: Request) {
 
     if (!recipient || !targetHHmm || targetHHmm !== nowHHmm) continue;
 
+    const text = worker.reminderText?.trim();
+    if (!text) {
+      results.push({ target: worker.id, kind: "worker", ok: false, error: "missing_reminder_text" });
+      continue;
+    }
+
     try {
-      await sendMetaTextMessage(recipient, worker.reminderText?.trim() || "Reminder: please fill in your report.");
+      await sendMetaTextMessage(recipient, text);
       results.push({ target: worker.id, kind: "worker", ok: true });
     } catch (error: any) {
       results.push({ target: worker.id, kind: "worker", ok: false, error: error?.message || "send_failed" });
