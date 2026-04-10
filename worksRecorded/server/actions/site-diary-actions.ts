@@ -90,6 +90,11 @@ function extractGeoPoints(input: unknown): Array<[number, number]> {
 }
 
 function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude: number } | null {
+  console.log("[weather] computePolygonCentroid: start", {
+    inputType: typeof geoJson,
+    isArray: Array.isArray(geoJson),
+  });
+
   const rings: Array<Array<[number, number]>> = [];
 
   const visit = (node: unknown) => {
@@ -120,12 +125,26 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
   };
 
   visit(geoJson);
+  console.log("[weather] computePolygonCentroid: rings extracted", {
+    ringsCount: rings.length,
+    firstRingPoints: rings[0]?.length ?? 0,
+  });
 
   if (!rings.length) {
     const points = extractGeoPoints(geoJson);
-    if (!points.length) return null;
+    console.warn("[weather] computePolygonCentroid: no rings, fallback to points", {
+      pointsCount: points.length,
+    });
+    if (!points.length) {
+      console.error("[weather] computePolygonCentroid: failed - no valid points in geofencePolygon");
+      return null;
+    }
     const lon = points.reduce((s, [x]) => s + x, 0) / points.length;
     const lat = points.reduce((s, [, y]) => s + y, 0) / points.length;
+    console.log("[weather] computePolygonCentroid: fallback centroid", {
+      latitude: lat,
+      longitude: lon,
+    });
     return { latitude: Number(lat.toFixed(6)), longitude: Number(lon.toFixed(6)) };
   }
 
@@ -153,9 +172,15 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
   }
 
   if (!areaSum) {
+    console.warn("[weather] computePolygonCentroid: zero area, fallback to flat point average");
     const points = rings.flat();
     const lon = points.reduce((s, [x]) => s + x, 0) / points.length;
     const lat = points.reduce((s, [, y]) => s + y, 0) / points.length;
+    console.log("[weather] computePolygonCentroid: zero-area fallback centroid", {
+      latitude: lat,
+      longitude: lon,
+      pointsCount: points.length,
+    });
     return { latitude: Number(lat.toFixed(6)), longitude: Number(lon.toFixed(6)) };
   }
 
@@ -171,6 +196,12 @@ function computePolygonCentroid(geoJson: unknown): { latitude: number; longitude
 
   const longitude = cxSum / totalAbsArea;
   const latitude = cySum / totalAbsArea;
+
+  console.log("[weather] computePolygonCentroid: centroid computed", {
+    latitude,
+    longitude,
+    totalAbsArea,
+  });
 
   return {
     latitude: Number(latitude.toFixed(6)),
@@ -389,6 +420,10 @@ export async function getSiteWeatherAvailability(siteId: string) {
 export async function getSiteDayWeather(args: { siteId: string; dayISO: string }) {
   await requireUser();
   const dayISO = parseDateKey(args.dayISO);
+  console.log("[weather] getSiteDayWeather called", {
+    siteId: args.siteId,
+    dayISO,
+  });
   const site = await prisma.site.findUnique({
     where: { id: args.siteId },
     select: { geofencePolygon: true },
@@ -396,13 +431,29 @@ export async function getSiteDayWeather(args: { siteId: string; dayISO: string }
 
   if (!site) throw new Error("Site not found.");
   if (!site.geofencePolygon) {
+    console.warn("[weather] getSiteDayWeather: missing geofencePolygon", {
+      siteId: args.siteId,
+    });
     throw new Error("Please mark site location in Settings (geofence polygon is missing).");
   }
 
+  console.log("[weather] getSiteDayWeather: geofencePolygon snapshot", {
+    siteId: args.siteId,
+    geofenceType: typeof site.geofencePolygon,
+    geofencePreview: JSON.stringify(site.geofencePolygon).slice(0, 800),
+  });
   const center = computePolygonCentroid(site.geofencePolygon);
   if (!center) {
+    console.error("[weather] getSiteDayWeather: centroid calculation failed", {
+      siteId: args.siteId,
+      geofencePolygon: site.geofencePolygon,
+    });
     throw new Error("Could not determine center of the geofence polygon.");
   }
+  console.log("[weather] getSiteDayWeather: centroid", {
+    siteId: args.siteId,
+    center,
+  });
 
   const todayISO = new Date().toISOString().slice(0, 10);
   const baseUrl = dayISO <= todayISO
