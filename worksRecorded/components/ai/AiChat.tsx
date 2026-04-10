@@ -72,6 +72,8 @@ const STREAM_CHUNK_SIZE = 18;
 const STREAM_DELAY_MS = 14;
 const MAX_CONTEXT_MESSAGES = 10;
 const MAX_CONTEXT_CHARS = 4000;
+const DESKTOP_MIN_WIDTH = 380;
+const DESKTOP_MIN_HEIGHT = 460;
 
 type AiWidgetRagProps = {
   siteId?: string;
@@ -204,25 +206,47 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
   useEffect(() => {
     if (!open || isMobile) return;
 
-    function placeBottomRight(w = size.width, h = size.height) {
-      const x = Math.max(pad, window.innerWidth - w - pad);
-      const y = Math.max(pad, window.innerHeight - h - pad);
-      setPos({ x, y });
-    }
-    placeBottomRight();
+    const clampToViewport = (
+      nextSize: { width: number; height: number },
+      nextPos: { x: number; y: number }
+    ) => {
+      const maxWidth = Math.max(DESKTOP_MIN_WIDTH, window.innerWidth - pad * 2);
+      const maxHeight = Math.max(DESKTOP_MIN_HEIGHT, window.innerHeight - pad * 2);
+      const width = Math.min(Math.max(nextSize.width, DESKTOP_MIN_WIDTH), maxWidth);
+      const height = Math.min(Math.max(nextSize.height, DESKTOP_MIN_HEIGHT), maxHeight);
+      const maxX = Math.max(pad, window.innerWidth - width - pad);
+      const maxY = Math.max(pad, window.innerHeight - height - pad);
+      const x = Math.min(Math.max(nextPos.x, pad), maxX);
+      const y = Math.min(Math.max(nextPos.y, pad), maxY);
+      return { size: { width, height }, pos: { x, y } };
+    };
+
+    const initial = clampToViewport(
+      size,
+      {
+        x: Math.max(pad, window.innerWidth - size.width - pad),
+        y: Math.max(pad, window.innerHeight - size.height - pad),
+      }
+    );
+    setSize(initial.size);
+    setPos(initial.pos);
 
     function onResize() {
-      setSize((s) => ({
-        width: Math.max(380, Math.min(s.width, window.innerWidth - pad * 2)),
-        height: Math.max(460, Math.min(s.height, window.innerHeight - pad * 2)),
-      }));
-      placeBottomRight(size.width, size.height);
+      setSize((currSize) => {
+        let nextSize = currSize;
+        setPos((currPos) => {
+          const clamped = clampToViewport(currSize, currPos);
+          nextSize = clamped.size;
+          return clamped.pos;
+        });
+        return nextSize;
+      });
     }
 
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, isMobile]);
+  }, [open, isMobile, pad]);
 
   useEffect(() => {
     if (!open) return;
@@ -780,13 +804,15 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
                 bottomLeft: true,
                 topLeft: true,
               }}
-              onResizeStop={(_, __, ref) => {
+              onResizeStop={(_, __, ref, ___, position) => {
                 const newW = ref.offsetWidth;
                 const newH = ref.offsetHeight;
-                const newX = Math.max(pad, window.innerWidth - newW - pad);
-                const newY = Math.max(pad, window.innerHeight - newH - pad);
+                const maxX = Math.max(pad, window.innerWidth - newW - pad);
+                const maxY = Math.max(pad, window.innerHeight - newH - pad);
+                const clampedX = Math.min(Math.max(position.x, pad), maxX);
+                const clampedY = Math.min(Math.max(position.y, pad), maxY);
                 setSize({ width: newW, height: newH });
-                setPos({ x: newX, y: newY });
+                setPos({ x: clampedX, y: clampedY });
               }}
               resizeHandleStyles={{
                 right: { width: "10px", right: "-4px", cursor: "ew-resize" },
@@ -822,8 +848,8 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
                   cursor: "nwse-resize",
                 },
               }}
-              minWidth={380}
-              minHeight={460}
+              minWidth={DESKTOP_MIN_WIDTH}
+              minHeight={DESKTOP_MIN_HEIGHT}
               className="pointer-events-auto border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl bg-white dark:bg-gray-900 flex flex-col"
             >
               {chatContent}

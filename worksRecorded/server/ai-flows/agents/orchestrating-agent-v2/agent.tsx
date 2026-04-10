@@ -94,18 +94,18 @@ const agentNode = async (state) => {
             .addConditionalEdges("agentNode", shouldContinue, ["tools", END])           
             .addEdge("tools", "agentNode") // <--- loop back to agent!
     
-    // Long-term memory stays in the DB-backed checkpointer thread.
-    // Client context window is still useful to bias relevance for current turn.
+
+
     const checkpointer = PostgresSaver.fromConnString(
         process.env.DATABASE_URL
     );
-    await checkpointer.setup();
 
-    const config = {
-        configurable: {
-            thread_id: `orchestrating-agent-v2:${siteId}:${user.id}`
-        }
-    };
+
+    await checkpointer.setup();
+    const config = {configurable: {thread_id: "orchestrating-agent-v2" + siteId }}; // Unique thread ID per site
+
+
+
 
     const graph = workflow.compile({checkpointer})
 
