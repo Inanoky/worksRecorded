@@ -8,6 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -17,6 +25,7 @@ import {
   updateWorkerOrganizationSettings,
 } from "@/server/actions/settings-actions";
 import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
+import { MoreHorizontal } from "lucide-react";
 
 type WorkerRow = {
   id: string;
@@ -47,6 +56,7 @@ function toHHmm(dt: string | Date | null | undefined) {
 export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
   const router = useRouter();
   const [draft, setDraft] = React.useState<Record<string, Partial<WorkerRow>>>({});
+  const [editRowId, setEditRowId] = React.useState<string | null>(null);
   const [savingId, setSavingId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -87,6 +97,7 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
         delete next[worker.id];
         return next;
       });
+      setEditRowId(null);
       router.refresh();
     } catch (error: any) {
       toast.error(error?.message ?? "Failed to save worker");
@@ -150,6 +161,19 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
     } finally {
       setSavingId(null);
     }
+  };
+
+  const startEdit = (worker: WorkerRow) => {
+    setEditRowId(worker.id);
+    setDraft((prev) => ({
+      ...prev,
+      [worker.id]: {
+        siteId: worker.siteId,
+        reminderTime: toHHmm(worker.reminderTime),
+        remindersEnabled: Boolean(worker.remindersEnabled),
+        reminderText: worker.reminderText ?? "",
+      },
+    }));
   };
 
   return (
@@ -255,71 +279,100 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
           <TableBody>
             {workers.map((worker) => {
               const workerDraft = draft[worker.id] ?? {};
+              const isEditing = editRowId === worker.id;
+              const resolvedSiteId = (workerDraft.siteId ?? worker.siteId ?? "none") as string;
+              const projectName =
+                projects.find((project) => project.id === (worker.siteId ?? ""))?.name ?? "No project";
               return (
                 <TableRow key={worker.id}>
                   <TableCell>{`${worker.name ?? ""} ${worker.surname ?? ""}`.trim() || "Unnamed"}</TableCell>
                   <TableCell>{worker.phone ?? ""}</TableCell>
                   <TableCell>
-                    <Select
-                      value={(workerDraft.siteId ?? worker.siteId ?? "none") as string}
-                      onValueChange={(value) => updateDraft(worker.id, { siteId: value === "none" ? null : value })}
-                    >
-                      <SelectTrigger className="w-[220px]">
-                        <SelectValue placeholder="Select project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No project</SelectItem>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="time"
-                      step={60}
-                      lang="en-GB"
-                      value={(workerDraft.reminderTime as string | undefined) ?? toHHmm(worker.reminderTime)}
-                      onChange={(e) => updateDraft(worker.id, { reminderTime: e.currentTarget.value })}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <input
-                      type="checkbox"
-                      checked={
-                        workerDraft.remindersEnabled !== undefined
-                          ? Boolean(workerDraft.remindersEnabled)
-                          : Boolean(worker.remindersEnabled)
-                      }
-                      onChange={(e) => updateDraft(worker.id, { remindersEnabled: e.currentTarget.checked })}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={(workerDraft.reminderText as string | undefined) ?? worker.reminderText ?? ""}
-                      onChange={(e) => updateDraft(worker.id, { reminderText: e.currentTarget.value })}
-                      placeholder="Reminder text"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button onClick={() => saveRow(worker)} disabled={savingId === worker.id}>
-                        {savingId === worker.id ? "Saving..." : "Save"}
-                      </Button>
-                      <Button variant="outline" onClick={() => sendNow(worker)} disabled={savingId === worker.id}>
-                        Send now
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        onClick={() => deleteWorker(worker.id)}
-                        disabled={savingId === worker.id}
+                    {isEditing ? (
+                      <Select
+                        value={resolvedSiteId}
+                        onValueChange={(value) => updateDraft(worker.id, { siteId: value === "none" ? null : value })}
                       >
-                        Delete
-                      </Button>
-                    </div>
+                        <SelectTrigger className="w-[220px]">
+                          <SelectValue placeholder="Select project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No project</SelectItem>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span>{projectName}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {isEditing ? (
+                      <Input
+                        type="time"
+                        step={60}
+                        lang="en-GB"
+                        value={(workerDraft.reminderTime as string | undefined) ?? toHHmm(worker.reminderTime)}
+                        onChange={(e) => updateDraft(worker.id, { reminderTime: e.currentTarget.value })}
+                      />
+                    ) : (
+                      <span>{toHHmm(worker.reminderTime) || "-"}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {isEditing ? (
+                      <input
+                        type="checkbox"
+                        checked={
+                          workerDraft.remindersEnabled !== undefined
+                            ? Boolean(workerDraft.remindersEnabled)
+                            : Boolean(worker.remindersEnabled)
+                        }
+                        onChange={(e) => updateDraft(worker.id, { remindersEnabled: e.currentTarget.checked })}
+                      />
+                    ) : (
+                      <span>{worker.remindersEnabled ? "Enabled" : "Disabled"}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {isEditing ? (
+                      <Input
+                        value={(workerDraft.reminderText as string | undefined) ?? worker.reminderText ?? ""}
+                        onChange={(e) => updateDraft(worker.id, { reminderText: e.currentTarget.value })}
+                        placeholder="Reminder text"
+                      />
+                    ) : (
+                      <span>{worker.reminderText ?? ""}</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost">
+                          <MoreHorizontal />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {!isEditing ? (
+                          <DropdownMenuItem onClick={() => startEdit(worker)}>Edit</DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => saveRow(worker)}>
+                            {savingId === worker.id ? "Saving..." : "Save"}
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => sendNow(worker)} disabled={savingId === worker.id}>
+                          Send now
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => deleteWorker(worker.id)} className="text-red-600" disabled={savingId === worker.id}>
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               );
