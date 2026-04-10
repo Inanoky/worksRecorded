@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -14,6 +16,7 @@ import {
   sendManualReminder,
   updateWorkerOrganizationSettings,
 } from "@/server/actions/settings-actions";
+import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
 
 type WorkerRow = {
   id: string;
@@ -46,10 +49,12 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
   const [draft, setDraft] = React.useState<Record<string, Partial<WorkerRow>>>({});
   const [savingId, setSavingId] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [newWorker, setNewWorker] = React.useState({
     name: "",
     surname: "",
     phone: "",
+    countryCode: "371",
     siteId: "none",
   });
 
@@ -120,11 +125,12 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
         organizationId: orgId,
         name: newWorker.name,
         surname: newWorker.surname || null,
-        phone: newWorker.phone || null,
+        phone: newWorker.phone ? `${newWorker.countryCode}${newWorker.phone}` : null,
         siteId: newWorker.siteId === "none" ? null : newWorker.siteId,
       });
       toast.success("Worker created");
-      setNewWorker({ name: "", surname: "", phone: "", siteId: "none" });
+      setNewWorker({ name: "", surname: "", phone: "", countryCode: "371", siteId: "none" });
+      setCreateOpen(false);
       router.refresh();
     } catch (error: any) {
       toast.error(error?.message ?? "Failed to create worker");
@@ -149,46 +155,91 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
   return (
     <Card className="mt-6">
       <CardHeader>
-        <CardTitle>Workers settings</CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle>Workers settings</CardTitle>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">Add worker</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add worker</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label>First name</Label>
+                  <Input
+                    placeholder="John"
+                    value={newWorker.name}
+                    onChange={(e) => setNewWorker((prev) => ({ ...prev, name: e.currentTarget.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Last name</Label>
+                  <Input
+                    placeholder="Doe"
+                    value={newWorker.surname}
+                    onChange={(e) => setNewWorker((prev) => ({ ...prev, surname: e.currentTarget.value }))}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Phone</Label>
+                  <div className="flex gap-2">
+                    <Select
+                      value={newWorker.countryCode}
+                      onValueChange={(value) => setNewWorker((prev) => ({ ...prev, countryCode: value }))}
+                    >
+                      <SelectTrigger className="w-[220px]">
+                        <SelectValue placeholder="Country code" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COUNTRY_CALLING_CODES.map((country) => (
+                          <SelectItem key={`${country.iso2}-${country.dialCode}`} value={country.dialCode}>
+                            {country.name} (+{country.dialCode})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="24885690"
+                      value={newWorker.phone}
+                      onChange={(e) => setNewWorker((prev) => ({ ...prev, phone: e.currentTarget.value.replace(/\D/g, "") }))}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label>Project</Label>
+                  <Select
+                    value={newWorker.siteId}
+                    onValueChange={(value) => setNewWorker((prev) => ({ ...prev, siteId: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No project</SelectItem>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={creating}>
+                    Cancel
+                  </Button>
+                  <Button onClick={createWorker} disabled={creating}>
+                    {creating ? "Creating..." : "Add worker"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-4 grid grid-cols-1 md:grid-cols-5 gap-2">
-          <Input
-            placeholder="First name"
-            value={newWorker.name}
-            onChange={(e) => setNewWorker((prev) => ({ ...prev, name: e.currentTarget.value }))}
-          />
-          <Input
-            placeholder="Last name"
-            value={newWorker.surname}
-            onChange={(e) => setNewWorker((prev) => ({ ...prev, surname: e.currentTarget.value }))}
-          />
-          <Input
-            placeholder="Phone"
-            value={newWorker.phone}
-            onChange={(e) => setNewWorker((prev) => ({ ...prev, phone: e.currentTarget.value }))}
-          />
-          <Select
-            value={newWorker.siteId}
-            onValueChange={(value) => setNewWorker((prev) => ({ ...prev, siteId: value }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Project" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">No project</SelectItem>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button onClick={createWorker} disabled={creating}>
-            {creating ? "Creating..." : "Add worker"}
-          </Button>
-        </div>
-
         <Table>
           <TableHeader>
             <TableRow>
