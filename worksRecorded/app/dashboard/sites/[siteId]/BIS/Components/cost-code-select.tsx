@@ -210,7 +210,7 @@ export default function CostCodeSelect({
       </Select>
 
       <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
-        <DialogContent className="flex max-h-[80vh] w-[min(92vw,680px)] flex-col">
+        <DialogContent className="flex h-[80vh] max-h-[80vh] w-[min(92vw,680px)] flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Manage cost codes</DialogTitle>
           </DialogHeader>
@@ -227,7 +227,18 @@ export default function CostCodeSelect({
             />
           </div>
 
-          <ScrollArea className="max-h-[50vh] pr-2">
+          <div className="flex shrink-0 gap-2">
+            <Input
+              value={newCode}
+              onChange={(event) => setNewCode(event.target.value)}
+              placeholder="Add new cost code"
+            />
+            <Button type="button" variant="outline" onClick={appendCode}>
+              Add
+            </Button>
+          </div>
+
+          <ScrollArea className="min-h-0 flex-1 pr-2">
             <div className="space-y-2">
               {!filteredCodes.length ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">
@@ -295,18 +306,7 @@ export default function CostCodeSelect({
             </div>
           </ScrollArea>
 
-          <div className="mt-4 flex gap-2">
-            <Input
-              value={newCode}
-              onChange={(event) => setNewCode(event.target.value)}
-              placeholder="Add new cost code"
-            />
-            <Button type="button" variant="outline" onClick={appendCode}>
-              Add
-            </Button>
-          </div>
-
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t pt-3">
             <Button
               type="button"
               variant="outline"
