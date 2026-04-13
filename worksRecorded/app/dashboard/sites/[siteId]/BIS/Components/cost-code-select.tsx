@@ -43,7 +43,7 @@ export default function CostCodeSelect({
   recordId: string
   value?: string | null
   availableCodes?: string[]
-  onCodesChange?: (codes: string[]) => void
+  onCodesChange?: (codes: string[]) => void | Promise<void>
   disabled?: boolean
   onSave: (
     recordId: string,
@@ -154,9 +154,16 @@ export default function CostCodeSelect({
       return
     }
 
-    onCodesChange?.(deduplicated)
-    setManageDialogOpen(false)
-    toast.success("Cost codes updated")
+    startTransition(async () => {
+      try {
+        await onCodesChange?.(deduplicated)
+        setManageDialogOpen(false)
+        toast.success("Cost codes updated")
+      } catch (error) {
+        console.error(error)
+        toast.error("Failed to update cost codes")
+      }
+    })
   }
 
   const filteredCodes = localCodes

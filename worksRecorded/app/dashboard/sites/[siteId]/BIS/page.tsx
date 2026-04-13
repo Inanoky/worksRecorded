@@ -125,6 +125,16 @@ type WarehouseBisSyncResult = {
   materialTypes: MaterialType[];
 };
 
+function normalizeOrganizationCostCodes(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const normalized = value
+    .map((code) => (typeof code === "string" ? code.trim() : ""))
+    .filter(Boolean);
+
+  return Array.from(new Set(normalized));
+}
+
 type WarehouseMaterialRecord = {
   id: string;
   name: string | null;
@@ -805,6 +815,38 @@ export async function updateCostCode(recordId: string, costCode: string | null) 
   return { success: true };
 }
 
+export async function updateOrganizationCostCodes(siteId: string, costCodes: string[]) {
+  "use server";
+  await requireUser();
+
+  const normalizedCodes = Array.from(
+    new Set(
+      costCodes
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
+
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { organizationId: true },
+  });
+
+  if (!site?.organizationId) {
+    throw new Error("Organization not found for site");
+  }
+
+  await prisma.organization.update({
+    where: { id: site.organizationId },
+    data: {
+      bisCostCodes: normalizedCodes,
+    },
+  });
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+  return { success: true };
+}
+
 export async function updateMaterialDate(recordId: string, materialDate: Date | null) {
   "use server";
 
@@ -1440,6 +1482,20 @@ export default async function MaterialsPage({
     ensureUserBisAccessToken(user.id),
   ]);
 
+  const siteContext = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: {
+      organization: {
+        select: {
+          bisCostCodes: true,
+        },
+      },
+    },
+  });
+  const organizationCostCodes = normalizeOrganizationCostCodes(
+    siteContext?.organization?.bisCostCodes,
+  );
+
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
 
   const [materials, materialConfigurationData] = await Promise.all([
@@ -1497,6 +1553,7 @@ export default async function MaterialsPage({
       <MaterialsTableClient
         siteId={siteId}
         organizationLanguage={organizationLanguage}
+        organizationCostCodes={organizationCostCodes}
         bisEnabled={bisEnabled}
         materials={materialsWithBisState}
         materialConfigurations={materialConfigurationData.materialConfigurations}
@@ -1509,6 +1566,7 @@ export default async function MaterialsPage({
         updateMaterialConfiguration={updateMaterialConfiguration}
         createMaterialConfiguration={createMaterialConfiguration}
         updateCostCode={updateCostCode}
+        updateOrganizationCostCodes={updateOrganizationCostCodes}
         updateMaterialDate={updateMaterialDate}
         updateQuantity={updateQuantity}
         updateMaterialDetails={updateMaterialDetails}

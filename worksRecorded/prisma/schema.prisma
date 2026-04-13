@@ -20,6 +20,7 @@ model Organization {
       id        String   @id @default(uuid())
       name      String
       orgLanguage String? @default("en")
+      bisCostCodes Json?
       createdAt DateTime @default(now())
       users User[]
       sites Site[]
