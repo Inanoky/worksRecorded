@@ -92,8 +92,8 @@ function toHHmm(dt: string | Date | null | undefined) {
   if (!dt) return "";
   const d = new Date(dt);
   if (Number.isNaN(d.getTime())) return "";
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }
 
@@ -371,7 +371,7 @@ export function MembersTable({
             if (patch.role != null) fd.set("role", String(patch.role));
 
             if (patch.reminderTime != null && patch.reminderTime !== "") {
-              fd.set("reminderTime", new Date(`1970-01-01T${patch.reminderTime}:00`).toISOString());
+              fd.set("reminderTime", new Date(`1970-01-01T${patch.reminderTime}:00.000Z`).toISOString());
             }
             if (patch.remindersEnabled != null) {
               fd.set("remindersEnabled", String(!!patch.remindersEnabled));
@@ -437,11 +437,7 @@ export function MembersTable({
                             }
                             return (
                               <TableCell key={cell.id}>
-                                {r.reminderTime
-                                  ? new Date(r.reminderTime as any).toLocaleTimeString([], {
-                                      hour: "2-digit", minute: "2-digit", hour12: false
-                                    })
-                                  : ""}
+                                {toHHmm(r.reminderTime)}
                               </TableCell>
                             );
                           }

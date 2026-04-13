@@ -26,9 +26,13 @@ function getHHmmInTimezone(date: Date, timeZone: string) {
   }).format(date);
 }
 
-function getTargetHHmm(reminderTime: Date | null | undefined, timeZone: string) {
+function getTargetHHmm(reminderTime: Date | null | undefined, _timeZone: string) {
   if (!reminderTime) return null;
-  return getHHmmInTimezone(reminderTime, timeZone);
+  // reminderTime is stored as "1970-01-01THH:mm:00.000Z" (time-only semantics).
+  // We must read HH:mm in UTC to avoid timezone double-shift.
+  const d = new Date(reminderTime);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 async function sendMetaTemplateMessage(to: string, variableText: string) {
