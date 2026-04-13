@@ -236,6 +236,10 @@ type SettingsUiMessages = {
   phoneColumn: string;
   roleColumn: string;
   statusColumn: string;
+  reminderTimeColumn: string;
+  remindersEnabledColumn: string;
+  reminderTextColumn: string;
+  reminderTextPlaceholder: string;
   previous: string;
   next: string;
 };
@@ -779,6 +783,10 @@ const SETTINGS_UI_MESSAGES: Record<OrganizationLanguage, SettingsUiMessages> = {
     phoneColumn: "Phone",
     roleColumn: "Role",
     statusColumn: "Status",
+    reminderTimeColumn: "Reminder time",
+    remindersEnabledColumn: "Reminder enabled",
+    reminderTextColumn: "Reminder text",
+    reminderTextPlaceholder: "e.g. Please submit your report",
     previous: "Previous",
     next: "Next",
   },
@@ -805,6 +813,10 @@ const SETTINGS_UI_MESSAGES: Record<OrganizationLanguage, SettingsUiMessages> = {
     phoneColumn: "Tālrunis",
     roleColumn: "Loma",
     statusColumn: "Statuss",
+    reminderTimeColumn: "Atgādinājuma laiks",
+    remindersEnabledColumn: "Atgādinājums ieslēgts",
+    reminderTextColumn: "Atgādinājuma teksts",
+    reminderTextPlaceholder: "piem. Lūdzu iesniedziet atskaiti",
     previous: "Iepriekšējā",
     next: "Nākamā",
   },
