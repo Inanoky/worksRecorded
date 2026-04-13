@@ -539,7 +539,7 @@ export default function SiteDiaryCalendar({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  // Rows after applying all filters (date, works, floor)
+  // Rows after applying structured filters (date, works, floor)
   const filteredRows: DiaryRow[] = React.useMemo(() => {
     const startMs = dateFrom
       ? new Date(new Date(dateFrom).setHours(0, 0, 0, 0)).getTime()
@@ -547,7 +547,6 @@ export default function SiteDiaryCalendar({
     const endMs = dateTo
       ? new Date(new Date(dateTo).setHours(23, 59, 59, 999)).getTime()
       : null;
-    const normalizedKeyword = keywordFilter.trim().toLowerCase();
 
     return rows.filter((r) => {
       const d = new Date(r.Date);
@@ -564,23 +563,9 @@ export default function SiteDiaryCalendar({
         if (!r.Location || r.Location !== floorFilter) return false;
       }
 
-      if (normalizedKeyword) {
-        const searchableText = [
-          r.Works,
-          r.Location,
-          r.Comments,
-          r.originalUserComment,
-          r.Units,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        if (!searchableText.includes(normalizedKeyword)) return false;
-      }
-
       return true;
     });
-  }, [rows, dateFrom, dateTo, workFilter, floorFilter, keywordFilter]);
+  }, [rows, dateFrom, dateTo, workFilter, floorFilter]);
 
   // Group filtered rows by day
   const dayGroups: DayGroup[] = React.useMemo(() => {
@@ -606,6 +591,31 @@ export default function SiteDiaryCalendar({
     });
     return Object.values(res).sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [filteredRows]);
+
+  // Client-side keyword filtering, scoped to rows (not day buckets)
+  const keywordMatchedDayGroups: DayGroup[] = React.useMemo(() => {
+    const normalizedKeyword = keywordFilter.trim().toLowerCase();
+    if (!normalizedKeyword) return dayGroups;
+
+    return dayGroups
+      .map((group) => ({
+        ...group,
+        rows: group.rows.filter((r) => {
+          const searchableText = [
+            r.Works,
+            r.Location,
+            r.Comments,
+            r.originalUserComment,
+            r.Units,
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          return searchableText.includes(normalizedKeyword);
+        }),
+      }))
+      .filter((group) => group.rows.length > 0);
+  }, [dayGroups, keywordFilter]);
 
   const clearFilters = () => {
     setDateFrom(null);
@@ -1376,7 +1386,7 @@ export default function SiteDiaryCalendar({
               </Card>
             )}
 
-            {!loading && dayGroups.length === 0 && !error && (
+            {!loading && keywordMatchedDayGroups.length === 0 && !error && (
               <Card className="border-dashed">
                 <CardContent className="py-8 text-center text-sm text-muted-foreground">
                   {t.noRecords}
@@ -1387,7 +1397,7 @@ export default function SiteDiaryCalendar({
             {/* List of days */}
             <ScrollArea className="h-[60vh] rounded-md border bg-background sm:h-[70vh]">
               <div className="space-y-3 p-2 sm:p-3">
-                {dayGroups.map((group) => {
+                {keywordMatchedDayGroups.map((group) => {
                   const totalTasks = group.rows.length;
                   const totalHours = group.rows.reduce((sum, r) => {
                     const workers = Number(r.WorkersInvolved ?? 0);
