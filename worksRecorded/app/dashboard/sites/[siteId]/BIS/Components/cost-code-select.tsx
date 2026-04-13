@@ -12,6 +12,7 @@ import {
 import costCodesJson from "@/server/actions/OneTimeScripts/CostCodes.json"
 
 export const NO_COST_CODE_VALUE = "no_cost_code"
+const CUSTOM_COST_CODE_VALUE = "custom_cost_code"
 
 export const costCodes = Object.entries(costCodesJson).map(
   ([code, description]) => ({
@@ -23,11 +24,13 @@ export const costCodes = Object.entries(costCodesJson).map(
 export default function CostCodeSelect({
   recordId,
   value,
+  availableCodes,
   disabled,
   onSave,
 }: {
   recordId: string
   value?: string | null
+  availableCodes?: string[]
   disabled?: boolean
   onSave: (
     recordId: string,
@@ -45,8 +48,28 @@ export default function CostCodeSelect({
       onValueChange={(selectedValue) => {
         startTransition(async () => {
           try {
-            const nextValue =
+            let nextValue =
               selectedValue === NO_COST_CODE_VALUE ? null : selectedValue
+
+            if (selectedValue === CUSTOM_COST_CODE_VALUE) {
+              const createdCode = window.prompt(
+                "Enter new cost code",
+                value ?? "",
+              )
+
+              if (!createdCode) {
+                return
+              }
+
+              const normalizedCode = createdCode.trim()
+
+              if (!normalizedCode) {
+                toast.error("Cost code cannot be empty")
+                return
+              }
+
+              nextValue = normalizedCode
+            }
 
             await onSave(recordId, nextValue)
 
@@ -68,11 +91,14 @@ export default function CostCodeSelect({
       <SelectContent>
         <SelectItem value={NO_COST_CODE_VALUE}>— No cost code —</SelectItem>
 
-        {costCodes.map((item) => (
+        {(availableCodes && availableCodes.length
+          ? availableCodes.map((code) => ({ code, description: "" }))
+          : costCodes).map((item) => (
           <SelectItem key={item.code} value={item.code}>
             {item.code}
           </SelectItem>
         ))}
+        <SelectItem value={CUSTOM_COST_CODE_VALUE}>+ Create custom code…</SelectItem>
       </SelectContent>
     </Select>
   )

@@ -54,7 +54,7 @@ import MaterialConfigSelect, {
   type MaterialCategory,
   NO_MATCH_VALUE,
 } from "./material-config-select"
-import CostCodeSelect from "./cost-code-select"
+import CostCodeSelect, { costCodes as defaultCostCodes } from "./cost-code-select"
 import { toast } from "sonner"
 import { getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 
@@ -312,6 +312,19 @@ export default function MaterialsTableClient({
   React.useEffect(() => {
     setTypes(materialTypes)
   }, [materialTypes])
+
+  const availableCostCodes = React.useMemo(() => {
+    const codes = new Set(defaultCostCodes.map((item) => item.code))
+
+    for (const row of rows) {
+      const normalizedCode = row.costCode?.trim()
+      if (normalizedCode) {
+        codes.add(normalizedCode)
+      }
+    }
+
+    return Array.from(codes).sort((a, b) => a.localeCompare(b))
+  }, [rows])
 
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
@@ -1172,6 +1185,7 @@ export default function MaterialsTableClient({
                         <CostCodeSelect
                           recordId={r.id}
                           value={r.costCode}
+                          availableCodes={availableCostCodes}
                           disabled={isSent}
                           onSave={handleCostCodeChange}
                         />
