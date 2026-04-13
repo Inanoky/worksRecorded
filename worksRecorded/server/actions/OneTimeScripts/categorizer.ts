@@ -29,6 +29,9 @@ function ordinalBatchLabel(i: number) {
 
 function loadCostCodes(): CostCodes {
   const filePath = path.join(__dirname, "CostCodes.json");
+  if (!fs.existsSync(filePath)) {
+    return {};
+  }
   const raw = fs.readFileSync(filePath, "utf8");
   const parsed = JSON.parse(raw);
   return parsed as CostCodes;

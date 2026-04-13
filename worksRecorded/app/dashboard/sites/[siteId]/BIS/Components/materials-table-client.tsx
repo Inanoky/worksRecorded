@@ -54,7 +54,7 @@ import MaterialConfigSelect, {
   type MaterialCategory,
   NO_MATCH_VALUE,
 } from "./material-config-select"
-import CostCodeSelect, { costCodes as defaultCostCodes } from "./cost-code-select"
+import CostCodeSelect from "./cost-code-select"
 import { toast } from "sonner"
 import { getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 
@@ -266,7 +266,7 @@ export default function MaterialsTableClient({
   const [managedCostCodes, setManagedCostCodes] = React.useState<string[]>(
     organizationCostCodes?.length
       ? organizationCostCodes
-      : defaultCostCodes.map((item) => item.code),
+      : [],
   )
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")

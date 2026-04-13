@@ -20,17 +20,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Check, Pencil, Trash2, X } from "lucide-react"
-import costCodesJson from "@/server/actions/OneTimeScripts/CostCodes.json"
 
 export const NO_COST_CODE_VALUE = "no_cost_code"
 const MANAGE_COST_CODES_VALUE = "manage_cost_codes"
-
-export const costCodes = Object.entries(costCodesJson).map(
-  ([code, description]) => ({
-    code,
-    description,
-  })
-)
 
 export default function CostCodeSelect({
   recordId,
@@ -60,9 +52,7 @@ export default function CostCodeSelect({
 
   const selectedValue =
     value && value.trim() ? value : NO_COST_CODE_VALUE
-  const resolvedCodes = (availableCodes && availableCodes.length
-    ? availableCodes
-    : costCodes).map((item) => (typeof item === "string" ? item : item.code))
+  const resolvedCodes = availableCodes ?? []
 
   const openManageDialog = () => {
     setLocalCodes(resolvedCodes)
