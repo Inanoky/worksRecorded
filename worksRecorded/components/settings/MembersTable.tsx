@@ -33,7 +33,7 @@ import { z } from "zod"; // <-- Zod
 import { getSettingsUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 // server actions
-import { editUserData, saveTemporaryUser, inviteUserByEmail } from "@/server/actions/settings-actions";
+import { editUserData, saveTemporaryUser, inviteUserByEmail, sendManualReminder } from "@/server/actions/settings-actions";
 
 type Role = "project manager" | "site manager";
 
@@ -47,6 +47,7 @@ export type Member = {
   status?: string | null;
   reminderTime?: string | Date | null;
   remindersEnabled?: boolean | null;
+  reminderText?: string | null;
 };
 
 type MembersTableProps = {
@@ -71,8 +72,9 @@ function getColumns(t: ReturnType<typeof getSettingsUiMessages>): ColumnDef<Memb
     { accessorKey: "phone", header: t.phoneColumn },
     { accessorKey: "role", header: t.roleColumn },
     { accessorKey: "status", header: t.statusColumn },
-    // { accessorKey: "reminderTime", header: "Whatsapp reminder" },
-    // { accessorKey: "remindersEnabled", header: "Allow reminders" },
+    { accessorKey: "reminderTime", header: t.reminderTimeColumn },
+    { accessorKey: "remindersEnabled", header: t.remindersEnabledColumn },
+    { accessorKey: "reminderText", header: t.reminderTextColumn },
   ];
 }
 
@@ -130,6 +132,7 @@ const PatchSchema = z.object({
   role: z.enum(["project manager","site manager"]).optional(),
   reminderTime: z.string().optional(),        // ISO string
   remindersEnabled: z.boolean().optional(),
+  reminderText: z.string().max(300, "Reminder text is too long").optional(),
 });
 
 export function MembersTable({
@@ -167,6 +170,7 @@ export function MembersTable({
         const v = fd.get("remindersEnabled");
         return v != null ? String(v) === "true" || String(v) === "on" : undefined;
       })(),
+      reminderText: fd.get("reminderText")?.toString(),
     };
 
     let parsed: z.infer<typeof PatchSchema>;
@@ -185,6 +189,7 @@ export function MembersTable({
       ...(parsed.role      !== undefined ? { role:      parsed.role }       : {}),
       ...(parsed.reminderTime !== undefined ? { reminderTime: parsed.reminderTime } : {}),
       ...(parsed.remindersEnabled !== undefined ? { remindersEnabled: parsed.remindersEnabled } : {}),
+      ...(parsed.reminderText !== undefined ? { reminderText: parsed.reminderText } : {}),
     };
 
     try {
@@ -240,6 +245,7 @@ export function MembersTable({
         role:  rowData.role ?? null,
         reminderTime: toHHmm(rowData.reminderTime),
         remindersEnabled: !!rowData.remindersEnabled,
+        reminderText: rowData.reminderText ?? "",
       }
     });
     setAnyChanges(false);
@@ -251,7 +257,7 @@ export function MembersTable({
     setAnyChanges(false);
   };
 
-  type EditableKey = "firstName" | "lastName" | "phone" | "role" | "reminderTime" | "remindersEnabled";
+  type EditableKey = "firstName" | "lastName" | "phone" | "role" | "reminderTime" | "remindersEnabled" | "reminderText";
   const handleChange = (rowId: string, field: EditableKey, value: any) => {
     setAnyChanges(true);
     setDraftById(prev => {
@@ -370,6 +376,9 @@ export function MembersTable({
             if (patch.remindersEnabled != null) {
               fd.set("remindersEnabled", String(!!patch.remindersEnabled));
             }
+            if (patch.reminderText != null) {
+              fd.set("reminderText", String(patch.reminderText));
+            }
             // @ts-expect-error bound server action
             return action(fd);
           }}
@@ -466,6 +475,23 @@ export function MembersTable({
                             );
                           }
 
+                          if (col === "reminderText") {
+                            if (isEditing) {
+                              const value = String(draft.reminderText ?? r.reminderText ?? "");
+                              return (
+                                <TableCell key={cell.id}>
+                                  <Input
+                                    value={value}
+                                    onChange={(e) => handleChange(r.id, "reminderText", e.currentTarget.value)}
+                                    placeholder={t.reminderTextPlaceholder}
+                                  />
+                                </TableCell>
+                              );
+                            }
+
+                            return <TableCell key={cell.id}>{r.reminderText ?? ""}</TableCell>;
+                          }
+
                           // Editable text fields
                           if (isEditing && (col === "firstName" || col === "lastName" || col === "phone")) {
                             if (col === "phone") {
@@ -556,6 +582,23 @@ export function MembersTable({
                                   {t.saveChanges}
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuItem
+                                onClick={async () => {
+                                  try {
+                                    const currentDraft = draftById[r.id] ?? {};
+                                    await sendManualReminder({
+                                      targetType: "user",
+                                      targetId: r.id,
+                                      reminderText: String(currentDraft.reminderText ?? r.reminderText ?? "").trim() || null,
+                                    });
+                                    toast.success("Reminder sent");
+                                  } catch (error: any) {
+                                    toast.error(error?.message ?? "Failed to send reminder");
+                                  }
+                                }}
+                              >
+                                Send reminder now
+                              </DropdownMenuItem>
                               <DropdownMenuItem className="cursor-pointer text-red-600" disabled>
                                 Delete (not implemented)
                               </DropdownMenuItem>
