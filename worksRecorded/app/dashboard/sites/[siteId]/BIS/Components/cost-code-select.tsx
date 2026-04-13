@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import costCodesJson from "@/server/actions/OneTimeScripts/CostCodes.json"
 
 export const NO_COST_CODE_VALUE = "no_cost_code"
@@ -160,28 +161,35 @@ export default function CostCodeSelect({
       </Select>
 
       <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
-        <DialogContent>
+        <DialogContent className="flex max-h-[80vh] w-[min(92vw,680px)] flex-col">
           <DialogHeader>
             <DialogTitle>Manage cost codes</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-2">
-            {localCodes.map((code, index) => (
-              <div className="flex gap-2" key={`${code}-${index}`}>
-                <Input
-                  value={code}
-                  onChange={(event) => updateCode(index, event.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => removeCode(index)}
-                >
-                  Delete
-                </Button>
-              </div>
-            ))}
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Edit, remove, or add cost codes used in this site.
+          </p>
+
+          <ScrollArea className="max-h-[50vh] pr-2">
+            <div className="space-y-2">
+              {localCodes.map((code, index) => (
+                <div className="flex gap-2" key={`${code}-${index}`}>
+                  <Input
+                    value={code}
+                    onChange={(event) => updateCode(index, event.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => removeCode(index)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
 
           <div className="mt-4 flex gap-2">
             <Input
