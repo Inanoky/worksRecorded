@@ -48,6 +48,59 @@ type WeatherHourRow = {
   precipitationMm: number | null;
 };
 
+
+type BisWeatherSummary = {
+  averageTemperatureC: number | null;
+  hadPrecipitation: boolean;
+};
+
+function getWorkingDayHoursForBis(dayISO: string, hours: WeatherHourRow[]): WeatherHourRow[] {
+  const now = new Date();
+  const todayISO = now.toISOString().slice(0, 10);
+  const currentUtcHour = now.getUTCHours();
+  const maxHour = dayISO === todayISO ? Math.min(18, currentUtcHour) : 18;
+
+  if (maxHour < 8) return [];
+
+  return hours.filter((row) => row.hour >= 8 && row.hour <= maxHour);
+}
+
+async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): Promise<BisWeatherSummary | null> {
+  try {
+    const weather = await ensureWeatherForSiteDay({ siteId, dayISO });
+    const workingHours = getWorkingDayHoursForBis(dayISO, weather.hours);
+
+    if (!workingHours.length) {
+      return {
+        averageTemperatureC: null,
+        hadPrecipitation: false,
+      };
+    }
+
+    const temps = workingHours
+      .map((row) => row.temperatureC)
+      .filter((value): value is number => value != null && Number.isFinite(value));
+
+    const averageTemperatureC = temps.length
+      ? Number((temps.reduce((sum, value) => sum + value, 0) / temps.length).toFixed(1))
+      : null;
+
+    const hadPrecipitation = workingHours.some(
+      (row) => row.precipitationMm != null && Number(row.precipitationMm) > 0,
+    );
+
+    return {
+      averageTemperatureC,
+      hadPrecipitation,
+    };
+  } catch (error: any) {
+    if (error?.message === 'Site geofence polygon is missing.') {
+      return null;
+    }
+    throw error;
+  }
+}
+
 const RECENT_WEATHER_STALE_MS = 2 * 60 * 60 * 1000;
 
 function parseDateKey(dayISO: string): string {
@@ -360,8 +413,8 @@ async function fetchAndStoreSiteWeather(args: {
   for (const row of results) {
     await prisma.$executeRawUnsafe(
       `INSERT INTO "SiteWeatherHourly"
-      ("id", "siteId", "organizationId", "weatherDate", "hour", "observedAt", "latitude", "longitude", "temperatureC", "windSpeedMs", "precipitationMm", "provider", "fetchedAt", "sourceUpdatedAt", "isForecast")
-      VALUES ($1, $2, $3, $4::date, $5, $6::timestamp, $7, $8, $9, $10, $11, 'open-meteo', $12::timestamp, $13::timestamp, $14)
+      ("id", "siteId", "organizationId", "weatherDate", "hour", "observedAt", "latitude", "longitude", "temperatureC", "windSpeedMs", "precipitationMm", "provider", "fetchedAt", "sourceUpdatedAt", "isForecast", "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4::date, $5, $6::timestamp, $7, $8, $9, $10, $11, 'open-meteo', $12::timestamp, $13::timestamp, $14, $15::timestamp, $16::timestamp)
       ON CONFLICT ("siteId", "weatherDate", "hour")
       DO UPDATE SET
         "organizationId" = EXCLUDED."organizationId",
@@ -390,6 +443,8 @@ async function fetchAndStoreSiteWeather(args: {
       now,
       now,
       isForecast,
+      now,
+      now,
     );
   }
 
@@ -1395,11 +1450,20 @@ export async function sendSiteDiaryRecordToBis(
   const amountValue = Number(options?.amount ?? diaryRecord.Amounts ?? 1);
   const descriptionOverride = options?.worksDescription?.trim();
 
-  const detailAttributes = {
+  const bisWeather = await getBisWeatherSummaryForSiteDay(recordSite.siteId, eventDate);
+
+  const detailAttributes: Record<string, unknown> = {
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
     quantity: Number.isFinite(amountValue) ? amountValue : 1,
     measurement: Number(options?.measurement ?? process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
   };
+
+  if (bisWeather) {
+    detailAttributes.weather_precipitation = bisWeather.hadPrecipitation;
+    if (bisWeather.averageTemperatureC != null) {
+      detailAttributes.weather_temperature = bisWeather.averageTemperatureC;
+    }
+  }
 
   const attachments: Array<{ type: "shared_attachments"; uuid: string }> = [];
 
