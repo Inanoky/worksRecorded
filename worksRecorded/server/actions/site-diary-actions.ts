@@ -48,6 +48,105 @@ type WeatherHourRow = {
   precipitationMm: number | null;
 };
 
+
+type BisWeatherSummary = {
+  averageTemperatureC: number | null;
+  hadPrecipitation: boolean;
+};
+
+function getWorkingDayHoursForBis(dayISO: string, hours: WeatherHourRow[]): WeatherHourRow[] {
+  const now = new Date();
+  const todayISO = now.toISOString().slice(0, 10);
+  const currentUtcHour = now.getUTCHours();
+  const maxHour = dayISO === todayISO ? Math.min(18, currentUtcHour) : 18;
+
+  if (maxHour < 8) return [];
+
+  return hours.filter((row) => row.hour >= 8 && row.hour <= maxHour);
+}
+
+async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): Promise<BisWeatherSummary | null> {
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { geofencePolygon: true },
+  });
+
+  if (!site?.geofencePolygon) {
+    return null;
+  }
+
+  const center = computePolygonCentroid(site.geofencePolygon);
+  if (!center) {
+    return null;
+  }
+
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const baseUrl = dayISO <= todayISO
+    ? "https://archive-api.open-meteo.com/v1/archive"
+    : "https://api.open-meteo.com/v1/forecast";
+
+  const params = new URLSearchParams({
+    latitude: center.latitude.toString(),
+    longitude: center.longitude.toString(),
+    start_date: dayISO,
+    end_date: dayISO,
+    timezone: "UTC",
+    hourly: "temperature_2m,wind_speed_10m,precipitation",
+  });
+
+  const response = await fetch(`${baseUrl}?${params.toString()}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Failed to fetch weather from provider.");
+  }
+
+  const payload = await response.json();
+  const hourly = payload?.hourly ?? {};
+  const times: string[] = Array.isArray(hourly.time) ? hourly.time : [];
+  const temperatures: Array<number | null> = Array.isArray(hourly.temperature_2m) ? hourly.temperature_2m : [];
+  const precipitation: Array<number | null> = Array.isArray(hourly.precipitation) ? hourly.precipitation : [];
+
+  const hours: WeatherHourRow[] = [];
+  for (let i = 0; i < times.length; i += 1) {
+    const timestamp = times[i];
+    if (typeof timestamp !== "string") continue;
+    const hour = Number(timestamp.slice(11, 13));
+    if (!Number.isFinite(hour)) continue;
+
+    hours.push({
+      hour,
+      temperatureC: temperatures[i] == null ? null : Number(temperatures[i]),
+      windSpeedMs: null,
+      precipitationMm: precipitation[i] == null ? null : Number(precipitation[i]),
+    });
+  }
+
+  const workingHours = getWorkingDayHoursForBis(dayISO, hours);
+
+  if (!workingHours.length) {
+    return {
+      averageTemperatureC: null,
+      hadPrecipitation: false,
+    };
+  }
+
+  const temps = workingHours
+    .map((row) => row.temperatureC)
+    .filter((value): value is number => value != null && Number.isFinite(value));
+
+  const averageTemperatureC = temps.length
+    ? Number((temps.reduce((sum, value) => sum + value, 0) / temps.length).toFixed(1))
+    : null;
+
+  const hadPrecipitation = workingHours.some(
+    (row) => row.precipitationMm != null && Number(row.precipitationMm) > 0,
+  );
+
+  return {
+    averageTemperatureC,
+    hadPrecipitation,
+  };
+}
+
 const RECENT_WEATHER_STALE_MS = 2 * 60 * 60 * 1000;
 
 function parseDateKey(dayISO: string): string {
@@ -1395,11 +1494,20 @@ export async function sendSiteDiaryRecordToBis(
   const amountValue = Number(options?.amount ?? diaryRecord.Amounts ?? 1);
   const descriptionOverride = options?.worksDescription?.trim();
 
-  const detailAttributes = {
+  const bisWeather = await getBisWeatherSummaryForSiteDay(recordSite.siteId, eventDate);
+
+  const detailAttributes: Record<string, unknown> = {
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
     quantity: Number.isFinite(amountValue) ? amountValue : 1,
     measurement: Number(options?.measurement ?? process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
   };
+
+  if (bisWeather) {
+    detailAttributes.weather_precipitation = bisWeather.hadPrecipitation;
+    if (bisWeather.averageTemperatureC != null) {
+      detailAttributes.weather_temperature = bisWeather.averageTemperatureC;
+    }
+  }
 
   const attachments: Array<{ type: "shared_attachments"; uuid: string }> = [];
 
