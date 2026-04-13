@@ -1,34 +1,63 @@
-import Twilio from "twilio";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/utils/db";
 
-const TEMPLATE_SID = "HXa0a9f156fbea11cbf9b046126ca0d2a5";
-const FROM = "whatsapp:+13135131153";
+const DEFAULT_TIMEZONE = "Europe/Riga";
 
-export const REMINDERS = [
-  { toE164: "+37124885690" },
-  { toE164: "+37126714739" },
-   { toE164: "+37129955255" },
+function normalizeRecipientPhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  return digits || null;
+}
 
+function getHHmmInTimezone(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
 
+function getTargetHHmm(reminderTime: Date | null | undefined, timeZone: string) {
+  if (!reminderTime) return null;
+  return getHHmmInTimezone(reminderTime, timeZone);
+}
 
-];
+async function sendMetaTemplateMessage(to: string, variableText: string) {
+  const token = process.env.META_ACCESS_TOKEN;
+  const businessPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
 
-const client = Twilio(
-  process.env.TWILIO_ACCOUNT_SID!,
-  process.env.TWILIO_AUTH_TOKEN!
-);
+  if (!token || !businessPhoneNumberId) {
+    throw new Error("Missing META_ACCESS_TOKEN or META_PHONE_NUMBER_ID");
+  }
 
-async function sendWhatsAppTemplate(toE164: string, var1: string) {
-  const to = toE164.startsWith("whatsapp:") ? toE164 : `whatsapp:${toE164}`;
-
-  return client.messages.create({
-    from: FROM,
-    to,
-    contentSid: TEMPLATE_SID,
-    contentVariables: JSON.stringify({
-      1: var1,
+  const res = await fetch(`https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "template",
+      template: {
+        name: "reminder_custom",
+        language: { code: "en_US" },
+        components: [
+          {
+            type: "body",
+            parameters: [{ type: "text", text: variableText }],
+          },
+        ],
+      },
     }),
   });
+
+  if (!res.ok) {
+    const errorBody = await res.text().catch(() => "");
+    throw new Error(`Meta send failed (${res.status}): ${errorBody}`);
+  }
 }
 
 export async function GET(req: Request) {
@@ -39,21 +68,76 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const text = "Atgādinājums aizpildīt būvdarbu žurnālu 👷‍♂️ ";
-  const results: any[] = [];
+  const now = new Date();
 
-  for (const r of REMINDERS) {
+  const [users, workers] = await Promise.all([
+    prisma.user.findMany({
+      where: { remindersEnabled: true },
+      select: {
+        id: true,
+        phone: true,
+        timezone: true,
+        reminderTime: true,
+        reminderText: true,
+      },
+    }),
+    prisma.workers.findMany({
+      where: { remindersEnabled: true },
+      select: {
+        id: true,
+        phone: true,
+        timezone: true,
+        reminderTime: true,
+        reminderText: true,
+      },
+    }),
+  ]);
+
+  const results: Array<{ target: string; kind: "user" | "worker"; ok: boolean; error?: string }> = [];
+
+  for (const user of users) {
+    const timezone = user.timezone || DEFAULT_TIMEZONE;
+    const nowHHmm = getHHmmInTimezone(now, timezone);
+    const targetHHmm = getTargetHHmm(user.reminderTime, timezone);
+    const recipient = normalizeRecipientPhone(user.phone);
+
+    if (!recipient || !targetHHmm || targetHHmm !== nowHHmm) continue;
+
+    const text = user.reminderText?.trim();
+    if (!text) {
+      results.push({ target: user.id, kind: "user", ok: false, error: "missing_reminder_text" });
+      continue;
+    }
+
     try {
-      await sendWhatsAppTemplate(r.toE164, text);
-      results.push({ to: r.toE164, ok: true });
-    } catch (e: any) {
-      results.push({
-        to: r.toE164,
-        ok: false,
-        error: e?.message || "send_failed",
-      });
+      await sendMetaTemplateMessage(recipient, text);
+      results.push({ target: user.id, kind: "user", ok: true });
+    } catch (error: any) {
+      results.push({ target: user.id, kind: "user", ok: false, error: error?.message || "send_failed" });
     }
   }
 
-  return NextResponse.json({ ok: true, count: REMINDERS.length, results });
+  for (const worker of workers) {
+    const timezone = worker.timezone || DEFAULT_TIMEZONE;
+    const nowHHmm = getHHmmInTimezone(now, timezone);
+    const targetHHmm = getTargetHHmm(worker.reminderTime, timezone);
+    const recipient = normalizeRecipientPhone(worker.phone);
+
+    if (!recipient || !targetHHmm || targetHHmm !== nowHHmm) continue;
+
+    const text = worker.reminderText?.trim();
+    if (!text) {
+      results.push({ target: worker.id, kind: "worker", ok: false, error: "missing_reminder_text" });
+      continue;
+    }
+
+    try {
+      await sendMetaTemplateMessage(recipient, text);
+      results.push({ target: worker.id, kind: "worker", ok: true });
+    } catch (error: any) {
+      results.push({ target: worker.id, kind: "worker", ok: false, error: error?.message || "send_failed" });
+    }
+  }
+
+  return NextResponse.json({ ok: true, checkedUsers: users.length, checkedWorkers: workers.length, results });
 }

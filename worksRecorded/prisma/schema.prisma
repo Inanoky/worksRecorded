@@ -58,6 +58,7 @@ model User {
   reminderTime   DateTime?  // interpreted in user's timezone
   timezone       String?    // e.g. "Europe/Riga"; default on write if missing
   remindersEnabled Boolean   @default(true)
+  reminderText   String?
 
 
 
@@ -300,6 +301,10 @@ model workers {
   sitediaryrecords sitediaryrecords[]
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reminderTime   DateTime?
+  timezone       String?
+  remindersEnabled Boolean @default(false)
+  reminderText   String?
   createdAt       DateTime  @default(now())
 
  
