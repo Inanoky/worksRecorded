@@ -268,7 +268,8 @@ export default function SiteDiaryCalendar({
   const [workFilter, setWorkFilter] = React.useState<string>("__ALL__");
   const [floorFilter, setFloorFilter] = React.useState<string>("__ALL__");
   const [keywordFilter, setKeywordFilter] = React.useState<string>("");
-  const [debouncedKeywordFilter, setDebouncedKeywordFilter] = React.useState<string>("");
+  const keywordInputRef = React.useRef<HTMLInputElement | null>(null);
+  const keywordDebounceRef = React.useRef<number | null>(null);
 
   //----------------------Table---------------------------------------------------
 
@@ -277,13 +278,27 @@ export default function SiteDiaryCalendar({
   const [tableRows, setTableRows] = React.useState<any[]>([]);
   const [screenWidth, setScreenWidth] = React.useState<number>(150);
 
-  React.useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setDebouncedKeywordFilter(keywordFilter);
-    }, 180);
+  const handleKeywordInputChange = React.useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const nextValue = event.target.value;
+      if (keywordDebounceRef.current) {
+        window.clearTimeout(keywordDebounceRef.current);
+      }
+      keywordDebounceRef.current = window.setTimeout(() => {
+        setKeywordFilter(nextValue);
+      }, 120);
+    },
+    [],
+  );
 
-    return () => window.clearTimeout(timeoutId);
-  }, [keywordFilter]);
+  React.useEffect(
+    () => () => {
+      if (keywordDebounceRef.current) {
+        window.clearTimeout(keywordDebounceRef.current);
+      }
+    },
+    [],
+  );
 
   //------------------------map helpers----------------------------------------------
 
@@ -603,7 +618,7 @@ export default function SiteDiaryCalendar({
 
   // Client-side keyword filtering, scoped to rows (not day buckets)
   const keywordMatchedDayGroups: DayGroup[] = React.useMemo(() => {
-    const normalizedKeyword = debouncedKeywordFilter.trim().toLowerCase();
+    const normalizedKeyword = keywordFilter.trim().toLowerCase();
     if (!normalizedKeyword) return dayGroups;
 
     return dayGroups
@@ -624,11 +639,7 @@ export default function SiteDiaryCalendar({
         }),
       }))
       .filter((group) => group.rows.length > 0);
-  }, [dayGroups, debouncedKeywordFilter]);
-
-  const isKeywordFiltering =
-    keywordFilter.trim().toLowerCase() !==
-    debouncedKeywordFilter.trim().toLowerCase();
+  }, [dayGroups, keywordFilter]);
 
   const clearFilters = () => {
     setDateFrom(null);
@@ -636,7 +647,12 @@ export default function SiteDiaryCalendar({
     setWorkFilter("__ALL__");
     setFloorFilter("__ALL__");
     setKeywordFilter("");
-    setDebouncedKeywordFilter("");
+    if (keywordDebounceRef.current) {
+      window.clearTimeout(keywordDebounceRef.current);
+    }
+    if (keywordInputRef.current) {
+      keywordInputRef.current.value = "";
+    }
   };
 
   // Export ONLY currently filtered rows
@@ -1339,8 +1355,8 @@ export default function SiteDiaryCalendar({
                     <div className="relative w-full sm:w-[240px]">
                       <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
-                        value={keywordFilter}
-                        onChange={(event) => setKeywordFilter(event.target.value)}
+                        ref={keywordInputRef}
+                        onChange={handleKeywordInputChange}
                         placeholder={t.keywordSearchPlaceholder}
                         className="h-9 pl-8"
                       />
@@ -1381,12 +1397,6 @@ export default function SiteDiaryCalendar({
                       {t.clearFilters}
                     </Button>
                     {loading && (
-                      <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                        {t.loading}
-                      </div>
-                    )}
-                    {!loading && isKeywordFiltering && (
                       <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         {t.loading}
