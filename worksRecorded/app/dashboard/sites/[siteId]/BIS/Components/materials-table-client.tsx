@@ -251,11 +251,15 @@ export default function MaterialsTableClient({
   attachCertificate,
   deleteRecords,
 }: Props) {
+  const costCodesStorageKey = `bis-cost-codes:${siteId}`
   const t = getWarehouseUiMessages(normalizeOrganizationLanguage(organizationLanguage))
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
   const [types, setTypes] = React.useState<Array<{ id: string; name: string }>>(materialTypes)
+  const [managedCostCodes, setManagedCostCodes] = React.useState<string[]>(
+    defaultCostCodes.map((item) => item.code),
+  )
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
@@ -313,8 +317,39 @@ export default function MaterialsTableClient({
     setTypes(materialTypes)
   }, [materialTypes])
 
+  React.useEffect(() => {
+    try {
+      const rawValue = window.localStorage.getItem(costCodesStorageKey)
+      if (!rawValue) return
+
+      const parsedValue = JSON.parse(rawValue)
+      if (!Array.isArray(parsedValue)) return
+
+      const normalizedCodes = parsedValue
+        .map((code) => (typeof code === "string" ? code.trim() : ""))
+        .filter(Boolean)
+
+      if (normalizedCodes.length) {
+        setManagedCostCodes(normalizedCodes)
+      }
+    } catch (error) {
+      console.error("Failed to read saved BIS cost codes", error)
+    }
+  }, [costCodesStorageKey])
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        costCodesStorageKey,
+        JSON.stringify(managedCostCodes),
+      )
+    } catch (error) {
+      console.error("Failed to save BIS cost codes", error)
+    }
+  }, [costCodesStorageKey, managedCostCodes])
+
   const availableCostCodes = React.useMemo(() => {
-    const codes = new Set(defaultCostCodes.map((item) => item.code))
+    const codes = new Set(managedCostCodes)
 
     for (const row of rows) {
       const normalizedCode = row.costCode?.trim()
@@ -324,7 +359,7 @@ export default function MaterialsTableClient({
     }
 
     return Array.from(codes).sort((a, b) => a.localeCompare(b))
-  }, [rows])
+  }, [managedCostCodes, rows])
 
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
@@ -1186,6 +1221,7 @@ export default function MaterialsTableClient({
                           recordId={r.id}
                           value={r.costCode}
                           availableCodes={availableCostCodes}
+                          onCodesChange={setManagedCostCodes}
                           disabled={isSent}
                           onSave={handleCostCodeChange}
                         />
