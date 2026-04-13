@@ -413,8 +413,8 @@ async function fetchAndStoreSiteWeather(args: {
   for (const row of results) {
     await prisma.$executeRawUnsafe(
       `INSERT INTO "SiteWeatherHourly"
-      ("id", "siteId", "organizationId", "weatherDate", "hour", "observedAt", "latitude", "longitude", "temperatureC", "windSpeedMs", "precipitationMm", "provider", "fetchedAt", "sourceUpdatedAt", "isForecast")
-      VALUES ($1, $2, $3, $4::date, $5, $6::timestamp, $7, $8, $9, $10, $11, 'open-meteo', $12::timestamp, $13::timestamp, $14)
+      ("id", "siteId", "organizationId", "weatherDate", "hour", "observedAt", "latitude", "longitude", "temperatureC", "windSpeedMs", "precipitationMm", "provider", "fetchedAt", "sourceUpdatedAt", "isForecast", "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4::date, $5, $6::timestamp, $7, $8, $9, $10, $11, 'open-meteo', $12::timestamp, $13::timestamp, $14, $15::timestamp, $16::timestamp)
       ON CONFLICT ("siteId", "weatherDate", "hour")
       DO UPDATE SET
         "organizationId" = EXCLUDED."organizationId",
@@ -443,6 +443,8 @@ async function fetchAndStoreSiteWeather(args: {
       now,
       now,
       isForecast,
+      now,
+      now,
     );
   }
 
