@@ -23,7 +23,7 @@ function getTargetHHmm(reminderTime: Date | null | undefined, timeZone: string) 
   return getHHmmInTimezone(reminderTime, timeZone);
 }
 
-async function sendMetaTextMessage(to: string, body: string) {
+async function sendMetaTemplateMessage(to: string, variableText: string) {
   const token = process.env.META_ACCESS_TOKEN;
   const businessPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
 
@@ -40,7 +40,17 @@ async function sendMetaTextMessage(to: string, body: string) {
     body: JSON.stringify({
       messaging_product: "whatsapp",
       to,
-      text: { body },
+      type: "template",
+      template: {
+        name: "reminder_custom",
+        language: { code: "en" },
+        components: [
+          {
+            type: "body",
+            parameters: [{ type: "text", text: variableText }],
+          },
+        ],
+      },
     }),
   });
 
@@ -100,7 +110,7 @@ export async function GET(req: Request) {
     }
 
     try {
-      await sendMetaTextMessage(recipient, text);
+      await sendMetaTemplateMessage(recipient, text);
       results.push({ target: user.id, kind: "user", ok: true });
     } catch (error: any) {
       results.push({ target: user.id, kind: "user", ok: false, error: error?.message || "send_failed" });
@@ -122,7 +132,7 @@ export async function GET(req: Request) {
     }
 
     try {
-      await sendMetaTextMessage(recipient, text);
+      await sendMetaTemplateMessage(recipient, text);
       results.push({ target: worker.id, kind: "worker", ok: true });
     } catch (error: any) {
       results.push({ target: worker.id, kind: "worker", ok: false, error: error?.message || "send_failed" });

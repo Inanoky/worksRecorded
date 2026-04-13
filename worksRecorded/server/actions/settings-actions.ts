@@ -321,7 +321,7 @@ function normalizePhoneForMeta(raw: string | null | undefined): string | null {
   return digits || null;
 }
 
-async function sendMetaWhatsAppText(to: string, body: string) {
+async function sendMetaWhatsAppTemplate(to: string, variableText: string) {
   const token = process.env.META_ACCESS_TOKEN;
   const businessPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
 
@@ -338,7 +338,17 @@ async function sendMetaWhatsAppText(to: string, body: string) {
     body: JSON.stringify({
       messaging_product: "whatsapp",
       to,
-      text: { body },
+      type: "template",
+      template: {
+        name: "reminder_custom",
+        language: { code: "en" },
+        components: [
+          {
+            type: "body",
+            parameters: [{ type: "text", text: variableText }],
+          },
+        ],
+      },
     }),
   });
 
@@ -367,7 +377,7 @@ export async function sendManualReminder(args: {
     const text = overrideText || user?.reminderText?.trim() || null;
     if (!text) throw new Error("Reminder text is empty. Please set reminder text first.");
 
-    await sendMetaWhatsAppText(to, text);
+    await sendMetaWhatsAppTemplate(to, text);
     return { ok: true };
   }
 
@@ -382,6 +392,6 @@ export async function sendManualReminder(args: {
   const text = overrideText || worker?.reminderText?.trim() || null;
   if (!text) throw new Error("Reminder text is empty. Please set reminder text first.");
 
-  await sendMetaWhatsAppText(to, text);
+  await sendMetaWhatsAppTemplate(to, text);
   return { ok: true };
 }

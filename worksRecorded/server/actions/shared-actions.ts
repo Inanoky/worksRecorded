@@ -77,7 +77,7 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
 
     if(!subStatus || subStatus.status !== "active" ){
 
-        if(sites.length < 1){
+        if(sites.length < 5){
             
            await createSite()
 
