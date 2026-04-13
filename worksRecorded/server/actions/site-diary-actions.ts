@@ -66,19 +66,25 @@ function getWorkingDayHoursForBis(dayISO: string, hours: WeatherHourRow[]): Weat
 }
 
 async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): Promise<BisWeatherSummary | null> {
+  console.log("[BIS weather] summary: start", { siteId, dayISO });
+
   const site = await prisma.site.findUnique({
     where: { id: siteId },
     select: { geofencePolygon: true },
   });
 
   if (!site?.geofencePolygon) {
+    console.warn("[BIS weather] summary: geofence missing, skip weather", { siteId });
     return null;
   }
 
   const center = computePolygonCentroid(site.geofencePolygon);
   if (!center) {
+    console.warn("[BIS weather] summary: centroid could not be computed", { siteId });
     return null;
   }
+
+  console.log("[BIS weather] summary: centroid", { siteId, center });
 
   const todayISO = new Date().toISOString().slice(0, 10);
   const baseUrl = dayISO <= todayISO
@@ -94,8 +100,16 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
     hourly: "temperature_2m,wind_speed_10m,precipitation",
   });
 
-  const response = await fetch(`${baseUrl}?${params.toString()}`, { cache: "no-store" });
+  const weatherUrl = `${baseUrl}?${params.toString()}`;
+  console.log("[BIS weather] summary: fetching provider", { siteId, dayISO, weatherUrl });
+  const response = await fetch(weatherUrl, { cache: "no-store" });
   if (!response.ok) {
+    console.error("[BIS weather] summary: provider request failed", {
+      siteId,
+      dayISO,
+      status: response.status,
+      statusText: response.statusText,
+    });
     throw new Error("Failed to fetch weather from provider.");
   }
 
@@ -123,6 +137,11 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
   const workingHours = getWorkingDayHoursForBis(dayISO, hours);
 
   if (!workingHours.length) {
+    console.warn("[BIS weather] summary: no working-hour rows", {
+      siteId,
+      dayISO,
+      totalRows: hours.length,
+    });
     return {
       averageTemperatureC: null,
       hadPrecipitation: false,
@@ -140,6 +159,15 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
   const hadPrecipitation = workingHours.some(
     (row) => row.precipitationMm != null && Number(row.precipitationMm) > 0,
   );
+
+  console.log("[BIS weather] summary: computed", {
+    siteId,
+    dayISO,
+    totalRows: hours.length,
+    workingRows: workingHours.length,
+    averageTemperatureC,
+    hadPrecipitation,
+  });
 
   return {
     averageTemperatureC,
@@ -429,8 +457,16 @@ async function fetchAndStoreSiteWeather(args: {
     hourly: "temperature_2m,wind_speed_10m,precipitation",
   });
 
-  const response = await fetch(`${baseUrl}?${params.toString()}`, { cache: "no-store" });
+  const weatherUrl = `${baseUrl}?${params.toString()}`;
+  console.log("[weather] getSiteDayWeather: fetching provider", { siteId, dayISO, weatherUrl });
+  const response = await fetch(weatherUrl, { cache: "no-store" });
   if (!response.ok) {
+    console.error("[weather] getSiteDayWeather: provider request failed", {
+      siteId,
+      dayISO,
+      status: response.status,
+      statusText: response.statusText,
+    });
     throw new Error("Failed to fetch weather from provider.");
   }
 
@@ -612,8 +648,16 @@ export async function getSiteDayWeather(args: { siteId: string; dayISO: string }
     hourly: "temperature_2m,wind_speed_10m,precipitation",
   });
 
-  const response = await fetch(`${baseUrl}?${params.toString()}`, { cache: "no-store" });
+  const weatherUrl = `${baseUrl}?${params.toString()}`;
+  console.log("[weather] getSiteDayWeather: fetching provider", { siteId: args.siteId, dayISO, weatherUrl });
+  const response = await fetch(weatherUrl, { cache: "no-store" });
   if (!response.ok) {
+    console.error("[weather] getSiteDayWeather: provider request failed", {
+      siteId: args.siteId,
+      dayISO,
+      status: response.status,
+      statusText: response.statusText,
+    });
     throw new Error("Failed to fetch weather from provider.");
   }
 
@@ -1495,6 +1539,12 @@ export async function sendSiteDiaryRecordToBis(
   const descriptionOverride = options?.worksDescription?.trim();
 
   const bisWeather = await getBisWeatherSummaryForSiteDay(recordSite.siteId, eventDate);
+  console.log("[BIS submit] weather summary result", {
+    recordId,
+    siteId: recordSite.siteId,
+    eventDate,
+    bisWeather,
+  });
 
   const detailAttributes: Record<string, unknown> = {
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
@@ -1503,6 +1553,7 @@ export async function sendSiteDiaryRecordToBis(
   };
 
   if (bisWeather) {
+    detailAttributes.weather_conditions = `Auto weather from Open-Meteo (${eventDate}, 08:00-18:00 UTC)`;
     detailAttributes.weather_precipitation = bisWeather.hadPrecipitation;
     if (bisWeather.averageTemperatureC != null) {
       detailAttributes.weather_temperature = bisWeather.averageTemperatureC;
@@ -1540,6 +1591,11 @@ export async function sendSiteDiaryRecordToBis(
     diaryRecord.Location ? `Location: ${diaryRecord.Location}` : null,
     diaryRecord.Comments ? `Comments: ${diaryRecord.Comments}` : null,
   ].filter(Boolean);
+
+  console.log("[BIS submit] prepared detail attributes", {
+    recordId,
+    detailAttributes,
+  });
 
   const payload = {
     data: {
@@ -1593,6 +1649,13 @@ export async function sendSiteDiaryRecordToBis(
   }
 
   if (!res.ok) {
+    console.error("[BIS submit] BIS create performed_work failed", {
+      recordId,
+      status: res.status,
+      statusText: res.statusText,
+      detailAttributes,
+      response: json,
+    });
     throw new Error(
       json?.errors?.[0]?.detail || json?.error || "Failed to send site diary to BIS",
     );
