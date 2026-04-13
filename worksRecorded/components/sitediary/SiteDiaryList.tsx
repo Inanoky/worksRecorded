@@ -37,6 +37,7 @@ import {
   Images,
   Loader2,
   RefreshCw,
+  Search,
   ShieldCheck,
 } from "lucide-react";
 
@@ -266,6 +267,7 @@ export default function SiteDiaryCalendar({
   const [dateTo, setDateTo] = React.useState<Date | null>(null);
   const [workFilter, setWorkFilter] = React.useState<string>("__ALL__");
   const [floorFilter, setFloorFilter] = React.useState<string>("__ALL__");
+  const [keywordFilter, setKeywordFilter] = React.useState<string>("");
 
   //----------------------Table---------------------------------------------------
 
@@ -545,6 +547,7 @@ export default function SiteDiaryCalendar({
     const endMs = dateTo
       ? new Date(new Date(dateTo).setHours(23, 59, 59, 999)).getTime()
       : null;
+    const normalizedKeyword = keywordFilter.trim().toLowerCase();
 
     return rows.filter((r) => {
       const d = new Date(r.Date);
@@ -561,9 +564,23 @@ export default function SiteDiaryCalendar({
         if (!r.Location || r.Location !== floorFilter) return false;
       }
 
+      if (normalizedKeyword) {
+        const searchableText = [
+          r.Works,
+          r.Location,
+          r.Comments,
+          r.originalUserComment,
+          r.Units,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!searchableText.includes(normalizedKeyword)) return false;
+      }
+
       return true;
     });
-  }, [rows, dateFrom, dateTo, workFilter, floorFilter]);
+  }, [rows, dateFrom, dateTo, workFilter, floorFilter, keywordFilter]);
 
   // Group filtered rows by day
   const dayGroups: DayGroup[] = React.useMemo(() => {
@@ -595,6 +612,7 @@ export default function SiteDiaryCalendar({
     setDateTo(null);
     setWorkFilter("__ALL__");
     setFloorFilter("__ALL__");
+    setKeywordFilter("");
   };
 
   // Export ONLY currently filtered rows
@@ -1293,6 +1311,16 @@ export default function SiteDiaryCalendar({
                         ))}
                       </SelectContent>
                     </Select>
+
+                    <div className="relative w-full sm:w-[240px]">
+                      <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={keywordFilter}
+                        onChange={(event) => setKeywordFilter(event.target.value)}
+                        placeholder={t.keywordSearchPlaceholder}
+                        className="h-9 pl-8"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">

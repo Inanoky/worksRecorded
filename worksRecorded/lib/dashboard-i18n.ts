@@ -37,6 +37,7 @@ type SiteDiaryListMessages = {
   allWorks: string;
   filterByFloorLocation: string;
   allFloorsLocations: string;
+  keywordSearchPlaceholder: string;
   clearFilters: string;
   loading: string;
   noRecords: string;
@@ -385,6 +386,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     allWorks: "All works",
     filterByFloorLocation: "Filter by floor/location",
     allFloorsLocations: "All floors / locations",
+    keywordSearchPlaceholder: "Search keyword…",
     clearFilters: "Clear filters",
     loading: "Loading…",
     noRecords: "No site diary records match your filters.",
@@ -472,6 +474,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     allWorks: "Visi darbi",
     filterByFloorLocation: "Filtrēt pēc stāva/lokācijas",
     allFloorsLocations: "Visi stāvi / lokācijas",
+    keywordSearchPlaceholder: "Meklēt pēc atslēgvārda…",
     clearFilters: "Notīrīt filtrus",
     loading: "Ielādē...",
     noRecords: "Neviens būvdarbu žurnāla ieraksts neatbilst izvēlētajiem filtriem.",
