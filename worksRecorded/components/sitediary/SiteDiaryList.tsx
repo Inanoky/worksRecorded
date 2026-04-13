@@ -268,6 +268,7 @@ export default function SiteDiaryCalendar({
   const [workFilter, setWorkFilter] = React.useState<string>("__ALL__");
   const [floorFilter, setFloorFilter] = React.useState<string>("__ALL__");
   const [keywordFilter, setKeywordFilter] = React.useState<string>("");
+  const [debouncedKeywordFilter, setDebouncedKeywordFilter] = React.useState<string>("");
 
   //----------------------Table---------------------------------------------------
 
@@ -275,6 +276,14 @@ export default function SiteDiaryCalendar({
   const [tableHeads, setTableHeads] = React.useState<string[]>([]);
   const [tableRows, setTableRows] = React.useState<any[]>([]);
   const [screenWidth, setScreenWidth] = React.useState<number>(150);
+
+  React.useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedKeywordFilter(keywordFilter);
+    }, 180);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [keywordFilter]);
 
   //------------------------map helpers----------------------------------------------
 
@@ -594,7 +603,7 @@ export default function SiteDiaryCalendar({
 
   // Client-side keyword filtering, scoped to rows (not day buckets)
   const keywordMatchedDayGroups: DayGroup[] = React.useMemo(() => {
-    const normalizedKeyword = keywordFilter.trim().toLowerCase();
+    const normalizedKeyword = debouncedKeywordFilter.trim().toLowerCase();
     if (!normalizedKeyword) return dayGroups;
 
     return dayGroups
@@ -615,7 +624,11 @@ export default function SiteDiaryCalendar({
         }),
       }))
       .filter((group) => group.rows.length > 0);
-  }, [dayGroups, keywordFilter]);
+  }, [dayGroups, debouncedKeywordFilter]);
+
+  const isKeywordFiltering =
+    keywordFilter.trim().toLowerCase() !==
+    debouncedKeywordFilter.trim().toLowerCase();
 
   const clearFilters = () => {
     setDateFrom(null);
@@ -623,6 +636,7 @@ export default function SiteDiaryCalendar({
     setWorkFilter("__ALL__");
     setFloorFilter("__ALL__");
     setKeywordFilter("");
+    setDebouncedKeywordFilter("");
   };
 
   // Export ONLY currently filtered rows
@@ -1367,6 +1381,12 @@ export default function SiteDiaryCalendar({
                       {t.clearFilters}
                     </Button>
                     {loading && (
+                      <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        {t.loading}
+                      </div>
+                    )}
+                    {!loading && isKeywordFiltering && (
                       <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         {t.loading}
