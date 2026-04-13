@@ -90,6 +90,7 @@ type MaterialRow = {
 type Props = {
   siteId: string
   organizationLanguage?: string | null
+  organizationCostCodes?: string[]
   bisEnabled: boolean
   materials: MaterialRow[]
   materialConfigurations: MaterialCategory[]
@@ -156,6 +157,10 @@ type Props = {
   updateCostCode: (
     recordId: string,
     costCode: string | null
+  ) => Promise<{ success: true }>
+  updateOrganizationCostCodes: (
+    siteId: string,
+    costCodes: string[],
   ) => Promise<{ success: true }>
   updateMaterialDate: (
     recordId: string,
@@ -232,6 +237,7 @@ function normalizeBisErrorMessage(message: string) {
 export default function MaterialsTableClient({
   siteId,
   organizationLanguage,
+  organizationCostCodes,
   bisEnabled,
   materials,
   materialConfigurations,
@@ -244,6 +250,7 @@ export default function MaterialsTableClient({
   updateMaterialConfiguration,
   createMaterialConfiguration,
   updateCostCode,
+  updateOrganizationCostCodes,
   updateMaterialDate,
   updateQuantity,
   updateMaterialDetails,
@@ -256,6 +263,11 @@ export default function MaterialsTableClient({
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
   const [types, setTypes] = React.useState<Array<{ id: string; name: string }>>(materialTypes)
+  const [managedCostCodes, setManagedCostCodes] = React.useState<string[]>(
+    organizationCostCodes?.length
+      ? organizationCostCodes
+      : [],
+  )
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
@@ -313,6 +325,25 @@ export default function MaterialsTableClient({
     setTypes(materialTypes)
   }, [materialTypes])
 
+  React.useEffect(() => {
+    if (organizationCostCodes?.length) {
+      setManagedCostCodes(organizationCostCodes)
+    }
+  }, [organizationCostCodes])
+
+  const availableCostCodes = React.useMemo(() => {
+    const codes = new Set(managedCostCodes)
+
+    for (const row of rows) {
+      const normalizedCode = row.costCode?.trim()
+      if (normalizedCode) {
+        codes.add(normalizedCode)
+      }
+    }
+
+    return Array.from(codes).sort((a, b) => a.localeCompare(b))
+  }, [managedCostCodes, rows])
+
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
       `${approver.memberId}:${approver.memberType ?? ""}:${approver.level ?? ""}`,
@@ -358,6 +389,20 @@ export default function MaterialsTableClient({
     } catch (error) {
       console.error(error)
       setRows(previousRows)
+      throw error
+    }
+  }
+
+  const handleOrganizationCostCodesChange = async (nextCostCodes: string[]) => {
+    const previousCostCodes = managedCostCodes
+    setManagedCostCodes(nextCostCodes)
+
+    try {
+      await updateOrganizationCostCodes(siteId, nextCostCodes)
+    } catch (error) {
+      console.error(error)
+      setManagedCostCodes(previousCostCodes)
+      toast.error("Failed to update organization cost codes")
       throw error
     }
   }
@@ -1172,6 +1217,8 @@ export default function MaterialsTableClient({
                         <CostCodeSelect
                           recordId={r.id}
                           value={r.costCode}
+                          availableCodes={availableCostCodes}
+                          onCodesChange={handleOrganizationCostCodesChange}
                           disabled={isSent}
                           onSave={handleCostCodeChange}
                         />
