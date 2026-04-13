@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Check, Pencil, Trash2, X } from "lucide-react"
 import costCodesJson from "@/server/actions/OneTimeScripts/CostCodes.json"
 
 export const NO_COST_CODE_VALUE = "no_cost_code"
@@ -53,6 +54,9 @@ export default function CostCodeSelect({
   const [manageDialogOpen, setManageDialogOpen] = useState(false)
   const [localCodes, setLocalCodes] = useState<string[]>([])
   const [newCode, setNewCode] = useState("")
+  const [search, setSearch] = useState("")
+  const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const [editingValue, setEditingValue] = useState("")
 
   const selectedValue =
     value && value.trim() ? value : NO_COST_CODE_VALUE
@@ -63,6 +67,9 @@ export default function CostCodeSelect({
   const openManageDialog = () => {
     setLocalCodes(resolvedCodes)
     setNewCode("")
+    setSearch("")
+    setEditingIndex(null)
+    setEditingValue("")
     setManageDialogOpen(true)
   }
 
@@ -75,9 +82,45 @@ export default function CostCodeSelect({
   }
 
   const removeCode = (index: number) => {
+    if (editingIndex === index) {
+      cancelEditingCode()
+    }
     setLocalCodes((current) =>
       current.filter((_, currentIndex) => currentIndex !== index),
     )
+  }
+
+  const startEditingCode = (index: number) => {
+    setEditingIndex(index)
+    setEditingValue(localCodes[index] ?? "")
+  }
+
+  const cancelEditingCode = () => {
+    setEditingIndex(null)
+    setEditingValue("")
+  }
+
+  const saveEditedCode = () => {
+    if (editingIndex == null) return
+
+    const normalizedValue = editingValue.trim()
+    if (!normalizedValue) {
+      toast.error("Cost code cannot be empty")
+      return
+    }
+
+    const duplicateExists = localCodes.some((code, index) =>
+      index !== editingIndex &&
+      code.toLowerCase() === normalizedValue.toLowerCase()
+    )
+
+    if (duplicateExists) {
+      toast.error("Cost code already exists")
+      return
+    }
+
+    updateCode(editingIndex, normalizedValue)
+    cancelEditingCode()
   }
 
   const appendCode = () => {
@@ -115,6 +158,12 @@ export default function CostCodeSelect({
     setManageDialogOpen(false)
     toast.success("Cost codes updated")
   }
+
+  const filteredCodes = localCodes
+    .map((code, index) => ({ code, index }))
+    .filter(({ code }) =>
+      code.toLowerCase().includes(search.trim().toLowerCase()),
+    )
 
   return (
     <>
@@ -167,25 +216,80 @@ export default function CostCodeSelect({
           </DialogHeader>
 
           <p className="text-sm text-muted-foreground">
-            Edit, remove, or add cost codes used in this site.
+            {localCodes.length} cost code{localCodes.length === 1 ? "" : "s"} configured for this site.
           </p>
+
+          <div className="flex gap-2">
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search cost codes"
+            />
+          </div>
 
           <ScrollArea className="max-h-[50vh] pr-2">
             <div className="space-y-2">
-              {localCodes.map((code, index) => (
-                <div className="flex gap-2" key={`${code}-${index}`}>
-                  <Input
-                    value={code}
-                    onChange={(event) => updateCode(index, event.target.value)}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={() => removeCode(index)}
-                  >
-                    Delete
-                  </Button>
+              {!filteredCodes.length ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  No cost codes found.
+                </p>
+              ) : null}
+
+              {filteredCodes.map(({ code, index }) => (
+                <div
+                  className="flex items-center justify-between gap-2 rounded-md border p-2"
+                  key={`${code}-${index}`}
+                >
+                  {editingIndex === index ? (
+                    <Input
+                      value={editingValue}
+                      onChange={(event) => setEditingValue(event.target.value)}
+                      className="h-8"
+                    />
+                  ) : (
+                    <p className="truncate text-sm">{code}</p>
+                  )}
+
+                  <div className="flex items-center gap-1">
+                    {editingIndex === index ? (
+                      <>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={saveEditedCode}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={cancelEditingCode}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => startEditingCode(index)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => removeCode(index)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
