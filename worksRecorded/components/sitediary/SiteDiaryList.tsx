@@ -629,9 +629,6 @@ export default function SiteDiaryCalendar({
             r.Works,
             r.Location,
             r.Comments,
-            r.originalUserComment,
-            r.Source,
-            r.source,
             r.Units,
           ]
             .filter(Boolean)
