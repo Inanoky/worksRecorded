@@ -55,7 +55,7 @@ async function sendMetaTemplateMessage(to: string, variableText: string) {
       type: "template",
       template: {
         name: "reminder_custom",
-        language: { code: "en_US" },
+        language: { code: "en" },
         components: [
           {
             type: "body",
