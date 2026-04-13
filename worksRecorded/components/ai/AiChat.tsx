@@ -30,6 +30,7 @@ import {
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_ai_widget_open } from "@/components/joyride/JoyRideSteps";
 import { downloadDataUrl, extractDataUrls } from "@/components/ai/AIchatHelpers";
+import { buildNativeFileContext } from "@/server/ai-flows/agents/orchestrating-agent-v2/fileContext";
 
 type Attachment = {
   id: string;
@@ -39,6 +40,7 @@ type Attachment = {
   kind: "image" | "document";
   downloadUrl?: string;
   textContent?: string;
+  dataUrl?: string;
 };
 
 type BotMessage = {
@@ -107,7 +109,7 @@ function safeFilename(name = "download.bin") {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-function composePrompt(text: string, attachments: Attachment[]) {
+function composePrompt(text: string, attachments: Attachment[], nativeFileContext = "") {
   if (!attachments.length) return text;
 
   const attachmentContext = attachments
@@ -119,7 +121,15 @@ function composePrompt(text: string, attachments: Attachment[]) {
     })
     .join("\n\n");
 
-  return `${text}\n\nAttached files context:\n${attachmentContext}\n\nUse the attached file context in your answer when relevant.`;
+  const nativeContextBlock = nativeFileContext.trim()
+    ? `\n\nNative OpenAI file context:\n${nativeFileContext.trim()}`
+    : "";
+
+  return `${text}\n\nAttached files context:\n${attachmentContext}${nativeContextBlock}\n\nUse the attached file context in your answer when relevant.`;
+}
+
+function stripTransientAttachmentData(attachments: Attachment[]) {
+  return attachments.map(({ dataUrl, ...rest }) => rest);
 }
 
 export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
@@ -256,11 +266,17 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     let textContent: string | undefined;
     let downloadUrl: string | undefined;
 
+    let dataUrl: string | undefined;
+
+    if (file.size <= 8 * 1024 * 1024) {
+      dataUrl = await toDataUrl(file);
+    }
+
     if (isTextLike && file.size < 3 * 1024 * 1024) {
       textContent = (await toText(file)).slice(0, MAX_TEXT_EXTRACT);
-      downloadUrl = await toDataUrl(file);
+      downloadUrl = dataUrl;
     } else if (isImage || file.size < 2 * 1024 * 1024) {
-      downloadUrl = await toDataUrl(file);
+      downloadUrl = dataUrl;
     }
 
     return {
@@ -271,6 +287,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
       kind: isImage ? "image" : "document",
       downloadUrl,
       textContent,
+      dataUrl,
     };
   }
 
@@ -319,11 +336,13 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     const shouldMarkPresetSent = presetPendingMarkRef.current;
     const outgoingText = textToSend || "Please analyze the attached files.";
 
+    const attachmentsForLLM = [...queuedAttachments];
+
     const userMsg: UserMessage = {
       id: toId(),
       sender: "user",
       text: outgoingText,
-      attachments: queuedAttachments,
+      attachments: stripTransientAttachmentData(attachmentsForLLM),
       createdAt: new Date().toISOString(),
     };
 
@@ -347,7 +366,21 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     setQueuedAttachments([]);
 
     try {
-      const prompt = composePrompt(outgoingText, userMsg.attachments ?? []);
+      let nativeFileContext = "";
+      if (attachmentsForLLM.length > 0) {
+        nativeFileContext = await buildNativeFileContext(
+          outgoingText,
+          attachmentsForLLM
+            .filter((item) => item.dataUrl)
+            .map((item) => ({
+              name: item.name,
+              mimeType: item.mimeType,
+              dataUrl: item.dataUrl as string,
+            }))
+        );
+      }
+
+      const prompt = composePrompt(outgoingText, userMsg.attachments ?? [], nativeFileContext);
       const result = await OrchestratingAgentV2(prompt, siteId);
 
       const aiComment = String((result as any) ?? "");
