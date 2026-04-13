@@ -286,7 +286,7 @@ export default function SiteDiaryCalendar({
       }
       keywordDebounceRef.current = window.setTimeout(() => {
         setKeywordFilter(nextValue);
-      }, 120);
+      }, 250);
     },
     [],
   );
@@ -630,6 +630,8 @@ export default function SiteDiaryCalendar({
             r.Location,
             r.Comments,
             r.originalUserComment,
+            r.Source,
+            r.source,
             r.Units,
           ]
             .filter(Boolean)
