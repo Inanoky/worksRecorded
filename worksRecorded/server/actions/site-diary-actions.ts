@@ -52,8 +52,75 @@ type WeatherHourRow = {
 type BisWeatherSummary = {
   averageTemperatureC: number | null;
   hadPrecipitation: boolean;
+  weatherConditionsLv: string;
 };
 
+
+
+type WeatherKind = "clear" | "cloudy" | "fog" | "rain" | "snow" | "storm" | "mixed";
+
+function resolveWeatherKindFromCode(code: number | null, hadPrecipitation: boolean): WeatherKind {
+  if (code == null || !Number.isFinite(code)) {
+    return hadPrecipitation ? "rain" : "mixed";
+  }
+
+  if ([95, 96, 99].includes(code)) return "storm";
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return "snow";
+  if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return "rain";
+  if ([45, 48].includes(code)) return "fog";
+  if ([0, 1].includes(code)) return "clear";
+  if ([2, 3].includes(code)) return "cloudy";
+  return hadPrecipitation ? "rain" : "mixed";
+}
+
+function resolveWindAdjective(avgWindMs: number | null): "viegls" | "mērens" | "stiprs" | null {
+  if (avgWindMs == null || !Number.isFinite(avgWindMs)) return null;
+  if (avgWindMs >= 10) return "stiprs";
+  if (avgWindMs >= 6) return "mērens";
+  if (avgWindMs >= 3) return "viegls";
+  return null;
+}
+
+function resolvePrecipitationAdjective(maxPrecipMm: number): "neliels" | "mērens" | "stiprs" {
+  if (maxPrecipMm >= 4) return "stiprs";
+  if (maxPrecipMm >= 1) return "mērens";
+  return "neliels";
+}
+
+function buildLatvianWeatherConditions(args: {
+  weatherKind: WeatherKind;
+  hadPrecipitation: boolean;
+  avgWindMs: number | null;
+  maxPrecipMm: number;
+}): string {
+  const windAdj = resolveWindAdjective(args.avgWindMs);
+  const precipAdj = resolvePrecipitationAdjective(args.maxPrecipMm);
+
+  switch (args.weatherKind) {
+    case "storm":
+      return windAdj ? `Negaiss un ${windAdj} vējš` : "Negaiss ar nokrišņiem";
+    case "snow":
+      return windAdj ? `Sniegs un ${windAdj} vējš` : "Sniegs un mākoņains";
+    case "rain":
+      return windAdj
+        ? `${precipAdj} lietus, ${windAdj} vējš`
+        : `${precipAdj} lietus, mākoņains`;
+    case "fog":
+      return windAdj ? `Miglains un ${windAdj} vējš` : "Miglains un mākoņains";
+    case "clear":
+      return windAdj ? `Skaidrs un ${windAdj} vējš` : "Skaidrs un bezvējš";
+    case "cloudy":
+      if (args.hadPrecipitation) {
+        return windAdj ? `${precipAdj} lietus, ${windAdj} vējš` : `${precipAdj} lietus, mākoņains`;
+      }
+      return windAdj ? `Mākoņains un ${windAdj} vējš` : "Mākoņains un mierīgs";
+    default:
+      if (args.hadPrecipitation) {
+        return windAdj ? `${precipAdj} lietus, ${windAdj} vējš` : `${precipAdj} lietus, mākoņains`;
+      }
+      return windAdj ? `Mainīgs laiks un ${windAdj} vējš` : "Mainīgs dienas laiks";
+  }
+}
 function getWorkingDayHoursForBis(dayISO: string, hours: WeatherHourRow[]): WeatherHourRow[] {
   const now = new Date();
   const todayISO = now.toISOString().slice(0, 10);
@@ -97,7 +164,7 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
     start_date: dayISO,
     end_date: dayISO,
     timezone: "UTC",
-    hourly: "temperature_2m,wind_speed_10m,precipitation",
+    hourly: "temperature_2m,wind_speed_10m,precipitation,weather_code",
   });
 
   const weatherUrl = `${baseUrl}?${params.toString()}`;
@@ -117,7 +184,9 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
   const hourly = payload?.hourly ?? {};
   const times: string[] = Array.isArray(hourly.time) ? hourly.time : [];
   const temperatures: Array<number | null> = Array.isArray(hourly.temperature_2m) ? hourly.temperature_2m : [];
+  const windSpeeds: Array<number | null> = Array.isArray(hourly.wind_speed_10m) ? hourly.wind_speed_10m : [];
   const precipitation: Array<number | null> = Array.isArray(hourly.precipitation) ? hourly.precipitation : [];
+  const weatherCodes: Array<number | null> = Array.isArray(hourly.weather_code) ? hourly.weather_code : [];
 
   const hours: WeatherHourRow[] = [];
   for (let i = 0; i < times.length; i += 1) {
@@ -129,7 +198,7 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
     hours.push({
       hour,
       temperatureC: temperatures[i] == null ? null : Number(temperatures[i]),
-      windSpeedMs: null,
+      windSpeedMs: windSpeeds[i] == null ? null : Number(windSpeeds[i]),
       precipitationMm: precipitation[i] == null ? null : Number(precipitation[i]),
     });
   }
@@ -145,6 +214,7 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
     return {
       averageTemperatureC: null,
       hadPrecipitation: false,
+      weatherConditionsLv: "Mainīgs dienas laiks",
     };
   }
 
@@ -156,9 +226,35 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
     ? Number((temps.reduce((sum, value) => sum + value, 0) / temps.length).toFixed(1))
     : null;
 
-  const hadPrecipitation = workingHours.some(
-    (row) => row.precipitationMm != null && Number(row.precipitationMm) > 0,
-  );
+  const windValues = workingHours
+    .map((row) => row.windSpeedMs)
+    .filter((value): value is number => value != null && Number.isFinite(value));
+  const avgWindMs = windValues.length
+    ? Number((windValues.reduce((sum, value) => sum + value, 0) / windValues.length).toFixed(1))
+    : null;
+
+  const precipValues = workingHours
+    .map((row) => row.precipitationMm)
+    .filter((value): value is number => value != null && Number.isFinite(value) && value > 0);
+  const maxPrecipMm = precipValues.length ? Math.max(...precipValues) : 0;
+  const hadPrecipitation = maxPrecipMm > 0;
+
+  const codeCounts = new Map<number, number>();
+  for (const code of weatherCodes) {
+    if (code == null || !Number.isFinite(Number(code))) continue;
+    const key = Number(code);
+    codeCounts.set(key, (codeCounts.get(key) ?? 0) + 1);
+  }
+  const dominantWeatherCode = codeCounts.size
+    ? [...codeCounts.entries()].sort((a, b) => b[1] - a[1])[0][0]
+    : null;
+  const weatherKind = resolveWeatherKindFromCode(dominantWeatherCode, hadPrecipitation);
+  const weatherConditionsLv = buildLatvianWeatherConditions({
+    weatherKind,
+    hadPrecipitation,
+    avgWindMs,
+    maxPrecipMm,
+  });
 
   console.log("[BIS weather] summary: computed", {
     siteId,
@@ -167,11 +263,17 @@ async function getBisWeatherSummaryForSiteDay(siteId: string, dayISO: string): P
     workingRows: workingHours.length,
     averageTemperatureC,
     hadPrecipitation,
+    avgWindMs,
+    maxPrecipMm,
+    dominantWeatherCode,
+    weatherKind,
+    weatherConditionsLv,
   });
 
   return {
     averageTemperatureC,
     hadPrecipitation,
+    weatherConditionsLv,
   };
 }
 
@@ -1553,7 +1655,7 @@ export async function sendSiteDiaryRecordToBis(
   };
 
   if (bisWeather) {
-    detailAttributes.weather_conditions = `Auto weather from Open-Meteo (${eventDate}, 08:00-18:00 UTC)`;
+    detailAttributes.weather_conditions = bisWeather.weatherConditionsLv;
     detailAttributes.weather_precipitation = bisWeather.hadPrecipitation;
     if (bisWeather.averageTemperatureC != null) {
       detailAttributes.weather_temperature = bisWeather.averageTemperatureC;
