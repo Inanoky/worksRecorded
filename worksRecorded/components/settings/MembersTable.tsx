@@ -30,6 +30,7 @@ import { useActionState } from "react";
 import { toast } from "sonner";
 import { z } from "zod"; // <-- Zod
 import { getSettingsUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
 
 // server actions
 import { deleteOrganizationUser, editUserData, inviteUserByEmail, sendManualReminder } from "@/server/actions/settings-actions";
@@ -108,6 +109,18 @@ function sanitizePhoneDigits(v: string) {
   return v.replace(/\D/g, "").slice(0, 15);
 }
 
+function splitPhoneForPicker(phone: string | null | undefined) {
+  const digits = sanitizePhoneDigits(phone ?? "");
+  if (!digits) return { countryCode: "371", phone: "" };
+
+  const code = [...COUNTRY_CALLING_CODES]
+    .sort((a, b) => b.dialCode.length - a.dialCode.length)
+    .find((item) => digits.startsWith(item.dialCode));
+
+  if (!code) return { countryCode: "371", phone: digits };
+  return { countryCode: code.dialCode, phone: digits.slice(code.dialCode.length) };
+}
+
 // ---- Zod schema (client-side) ----
 const PatchSchema = z.object({
   firstName: z
@@ -132,7 +145,7 @@ const PatchSchema = z.object({
   role: z.enum(["project manager","site manager"]).optional(),
   reminderTime: z.string().optional(),        // ISO string
   remindersEnabled: z.boolean().optional(),
-  reminderText: z.string().max(300, "Reminder text is too long").optional(),
+  reminderText: z.string().max(300, "Reminder text can be at most 300 characters").optional(),
 });
 
 export function MembersTable({
@@ -263,6 +276,17 @@ export function MembersTable({
       } else {
         (next as any)[field] = value;
       }
+      return { ...prev, [rowId]: next };
+    });
+  };
+
+  const handlePhoneChange = (rowId: string, countryCode: string, phonePart: string) => {
+    setAnyChanges(true);
+    setDraftById(prev => {
+      const next = { ...(prev[rowId] ?? {}) };
+      const cleanCountryCode = sanitizePhoneDigits(countryCode);
+      const cleanPhonePart = sanitizePhoneDigits(phonePart);
+      next.phone = `${cleanCountryCode}${cleanPhonePart}`.slice(0, 15);
       return { ...prev, [rowId]: next };
     });
   };
@@ -481,17 +505,34 @@ export function MembersTable({
                           // Editable text fields
                           if (isEditing && (col === "firstName" || col === "lastName" || col === "phone")) {
                             if (col === "phone") {
-                              const digits = String(draft.phone ?? r.phone ?? "");
+                              const digits = sanitizePhoneDigits(String(draft.phone ?? r.phone ?? ""));
+                              const parsedPhone = splitPhoneForPicker(digits);
                               return (
                                 <TableCell key={cell.id}>
-                                  <Input
-                                    inputMode="tel"
-                                    pattern="\+?\d{1,15}"
-                                    maxLength={16} // '+' + 15 digits
-                                    value={formatPhoneForDisplay(digits)}
-                                    onChange={(e) => handleChange(r.id, "phone", e.currentTarget.value)}
-                                    placeholder="+371xxxxxxxx"
-                                  />
+                                  <div className="flex gap-2">
+                                    <Select
+                                      value={parsedPhone.countryCode}
+                                      onValueChange={(value) => handlePhoneChange(r.id, value, parsedPhone.phone)}
+                                    >
+                                      <SelectTrigger className="w-[220px]">
+                                        <SelectValue placeholder="Country code" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {COUNTRY_CALLING_CODES.map((country) => (
+                                          <SelectItem key={`${country.iso2}-${country.dialCode}`} value={country.dialCode}>
+                                            {country.name} (+{country.dialCode})
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Input
+                                      inputMode="tel"
+                                      maxLength={15}
+                                      value={parsedPhone.phone}
+                                      onChange={(e) => handlePhoneChange(r.id, parsedPhone.countryCode, e.currentTarget.value)}
+                                      placeholder="Phone number"
+                                    />
+                                  </div>
                                 </TableCell>
                               );
                             }

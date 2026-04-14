@@ -225,6 +225,9 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
   }
 
   async function handleDelete(workerId: string) {
+    const confirmed = window.confirm("Delete this worker? This action cannot be undone.");
+    if (!confirmed) return;
+
     const res = await deleteOrganizationWorker(workerId);
     if (res.ok) {
       toast.success("Worker deleted");
