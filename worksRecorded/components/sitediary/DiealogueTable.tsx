@@ -20,7 +20,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
+import { Check, Pencil, Trash2, X } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Dialog,
@@ -1089,7 +1089,7 @@ export function DialogTable({
             </Button>
           </div>
 
-          <ScrollArea className="min-h-0 flex-1 pr-2">
+          <ScrollArea className="min-h-0 flex-1 pr-6">
             <div className="space-y-2">
               {manageOptions
                 .map((option, index) => ({ option, index }))
@@ -1109,23 +1109,42 @@ export function DialogTable({
                         </p>
                       )}
                     </div>
-                    <div className="ml-2 flex shrink-0 items-center gap-1">
+                    <div className="ml-2 flex shrink-0 items-center gap-1 pr-2">
                       {editingIndex === index ? (
                         <>
-                          <Button type="button" size="sm" variant="ghost" onClick={saveEditedManageOption}>Save</Button>
-                          <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingIndex(null); setEditingValue(""); }}>Cancel</Button>
+                          <Button type="button" size="icon" variant="ghost" onClick={saveEditedManageOption} aria-label="Save option">
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => { setEditingIndex(null); setEditingValue(""); }}
+                            aria-label="Cancel editing option"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </>
                       ) : (
-                        <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingIndex(index); setEditingValue(option); }}>
-                          Edit
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => { setEditingIndex(index); setEditingValue(option); }}
+                          aria-label="Edit option"
+                        >
+                          <Pencil className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button type="button" size="sm" variant="ghost" onClick={() => removeManageOption(index)}>
-                        Delete
+                      <Button type="button" size="icon" variant="ghost" onClick={() => removeManageOption(index)} aria-label="Delete option">
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </div>
                 ))}
+              {manageOptions.filter((option) => option.toLowerCase().includes(manageSearch.trim().toLowerCase())).length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">No options found.</p>
+              ) : null}
             </div>
           </ScrollArea>
 
