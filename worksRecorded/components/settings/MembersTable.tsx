@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import * as XLSX from "xlsx";
 import {
   flexRender,
   getCoreRowModel,
@@ -33,7 +32,7 @@ import { z } from "zod"; // <-- Zod
 import { getSettingsUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 // server actions
-import { editUserData, saveTemporaryUser, inviteUserByEmail, sendManualReminder } from "@/server/actions/settings-actions";
+import { deleteOrganizationUser, editUserData, inviteUserByEmail, sendManualReminder } from "@/server/actions/settings-actions";
 
 type Role = "project manager" | "site manager";
 
@@ -53,11 +52,12 @@ export type Member = {
 type MembersTableProps = {
   data: Member[];
   pageSize: number;
-  exportFileName?: string;
   userid?: string;
   orgId?: string;
   organizationLanguage?: string | null;
 };
+
+const emailSchema = z.string().trim().email("Please provide a valid email address");
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "project manager", label: "Project manager" },
@@ -138,8 +138,7 @@ const PatchSchema = z.object({
 export function MembersTable({
   data,
   pageSize,
-  exportFileName = "table_data.xlsx",
-  userid,
+  userid: _userid,
   orgId,
   organizationLanguage,
 }: MembersTableProps) {
@@ -226,14 +225,6 @@ export function MembersTable({
     initialState: { pagination: { pageSize } },
   });
 
-  function exportToExcel() {
-    const rows = table.getFilteredRowModel().rows.map(r => r.original);
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Data");
-    XLSX.writeFile(wb, exportFileName);
-  }
-
   const startEdit = (rowId: string, rowData: Member) => {
     setEditRowId(rowId);
     setDraftById({
@@ -286,10 +277,6 @@ export function MembersTable({
             onChange={e => setGlobalFilter(e.target.value)}
             className="max-w-sm"
           />
-          <Button variant="outline" onClick={exportToExcel} type="button">
-            {t.exportToExcel}
-          </Button>
-
           <Dialog open={openAdd} onOpenChange={setOpenAdd}>
             <DialogTrigger asChild>
               <Button>{t.addUser}</Button>
@@ -301,18 +288,21 @@ export function MembersTable({
 
               <form
                 action={async (formData) => {
-                  formData.set("email", newEmail);
-                  if (!newEmail) {
-                    toast.error(t.emailRequired);
+                  const parsedEmail = emailSchema.safeParse(newEmail);
+                  if (!parsedEmail.success) {
+                    toast.error(parsedEmail.error.issues[0]?.message ?? t.emailRequired);
                     return;
                   }
+
+                  formData.set("email", parsedEmail.data);
+                  formData.set("organizationId", orgId || "");
+
                   const res = await inviteUserByEmail(formData);
-                  await saveTemporaryUser(newEmail, orgId || "");
-                  router.refresh();
                   if (res?.ok) {
                     toast.success(t.invitationSent);
                     setNewEmail("");
                     setOpenAdd(false);
+                    router.refresh();
                   } else {
                     toast.error(res?.message ?? "Failed to send invite");
                   }
@@ -595,8 +585,25 @@ export function MembersTable({
                               >
                                 Send reminder now
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="cursor-pointer text-red-600" disabled>
-                                Delete (not implemented)
+                              <DropdownMenuItem
+                                className="cursor-pointer text-red-600"
+                                onClick={async () => {
+                                  const confirmed = window.confirm(`Delete user ${r.email ?? ""}? This action cannot be undone.`);
+                                  if (!confirmed) return;
+                                  try {
+                                    const result = await deleteOrganizationUser(r.id);
+                                    if (!result.ok) {
+                                      toast.error("Failed to delete user");
+                                      return;
+                                    }
+                                    toast.success("User deleted");
+                                    router.refresh();
+                                  } catch (error: any) {
+                                    toast.error(error?.message ?? "Failed to delete user");
+                                  }
+                                }}
+                              >
+                                Delete user
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

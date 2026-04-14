@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/utils/db";
 import { Resend } from "resend";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
+import { z } from "zod";
 
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
@@ -21,6 +22,7 @@ if (!hasKey) {
 }
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const inviteEmailSchema = z.string().trim().email("Invalid email").transform((value) => value.toLowerCase());
 
 /**
  * Sends an org-scoped Kinde signup link to the given email.
@@ -29,12 +31,19 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function inviteUserByEmail(formData: FormData) {
   try {
     const emailRaw = formData.get("email");
+    const organizationId = String(formData.get("organizationId") || "").trim();
     console.log("[inviteUserByEmail] raw email from formData:", emailRaw);
+    const parsedEmail = inviteEmailSchema.safeParse(String(emailRaw || ""));
+    if (!parsedEmail.success) return { ok: false, message: "Please provide a valid email" };
+    const email = parsedEmail.data;
+    if (!organizationId) return { ok: false, message: "Organization is required" };
 
-    const email = String(emailRaw || "").trim().toLowerCase();
-    if (!email) {
-      console.warn("[inviteUserByEmail] missing email");
-      return { ok: false, message: "Email is required" };
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (existingUser) {
+      return { ok: false, message: "User with this email already exists" };
     }
 
     const link = `https://worksrecorded.com/api/auth/register?org_code=${ORG_CODE}&login_hint=${encodeURIComponent(
@@ -76,6 +85,11 @@ export async function inviteUserByEmail(formData: FormData) {
 
     const messageId = (result as any)?.id ?? "(no id)";
     console.log("[inviteUserByEmail] email queued successfully. id:", messageId);
+
+    const created = await saveTemporaryUser(email, organizationId);
+    if (!created.ok) {
+      return { ok: false, message: created.message ?? "Invitation was sent, but saving user failed" };
+    }
 
     return { ok: true };
   } catch (err: any) {
@@ -147,11 +161,24 @@ export async function saveTemporaryUser(email: string, organizationId: string) {
   console.log("[saveTemporaryUser] called with:", { email, organizationId });
 
   try {
+    const parsedEmail = inviteEmailSchema.safeParse(email);
+    if (!parsedEmail.success) {
+      return { ok: false, message: "Please provide a valid email" };
+    }
+
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: parsedEmail.data, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (existingUser) {
+      return { ok: false, message: "User with this email already exists" };
+    }
+
     await prisma.user.create({
       data: {
 
         id: crypto.randomUUID(),       
-        email: email,
+        email: parsedEmail.data,
         firstName: "",           // placeholder
         lastName: "",            // placeholder
         profileImage: "",        // placeholder
@@ -310,6 +337,14 @@ export async function createOrganizationWorker(data: {
 export async function deleteOrganizationWorker(workerId: string) {
   await prisma.workers.delete({
     where: { id: workerId },
+  });
+
+  return { ok: true };
+}
+
+export async function deleteOrganizationUser(userId: string) {
+  await prisma.user.delete({
+    where: { id: userId },
   });
 
   return { ok: true };
