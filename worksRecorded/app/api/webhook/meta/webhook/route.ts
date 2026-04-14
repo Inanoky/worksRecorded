@@ -24,6 +24,12 @@ import { sendToGpt } from "@/server/actions/META/RoutingHandlers/metaImageHandle
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
 const LOCK_TTL_MS = 90_000;
+const PROCESSED_MESSAGE_TTL_MS = 10 * 60_000;
+const processedMetaMessages =
+  (globalThis as any).__processedMetaMessages ||
+  new Map<string, number>();
+
+(globalThis as any).__processedMetaMessages = processedMetaMessages;
 
 function isUniqueViolation(e: any) {
   return e?.code === "P2002";
@@ -62,6 +68,20 @@ async function releaseTextLock(phone: string) {
   await prisma.whatsappTextLock.deleteMany({
     where: { phone },
   });
+}
+
+function hasProcessedMetaMessage(messageId: string): boolean {
+  const now = Date.now();
+
+  for (const [id, expiresAt] of processedMetaMessages.entries()) {
+    if (expiresAt <= now) processedMetaMessages.delete(id);
+  }
+
+  const existing = processedMetaMessages.get(messageId);
+  if (existing && existing > now) return true;
+
+  processedMetaMessages.set(messageId, now + PROCESSED_MESSAGE_TTL_MS);
+  return false;
 }
 
 function mustGetEnv(name: string, value: string | undefined): string {
@@ -296,6 +316,10 @@ export async function POST(req: Request): Promise<Response> {
       body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
 
     if (message && business_phone_number_id) {
+      if (message.id && hasProcessedMetaMessage(message.id)) {
+        return new Response("OK", { status: 200 });
+      }
+
       if (message.id && (message.type === "text" || message.type === "image" || message.type === "audio")) {
         await sendMetaTypingIndicator(business_phone_number_id, message.id, message.from);
       }

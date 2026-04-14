@@ -84,7 +84,9 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
     );
 
     await checkpointer.setup();
-    const config = { configurable: { thread_id: `siteManager${siteId}`} };
+    const config = {
+      configurable: { thread_id: `siteManager:${siteId}:${userId}` },
+    };
 
 
 
