@@ -237,9 +237,9 @@ export async function CreateSubscription(){
 
 export async function updateSiteAction(formData: FormData) {
   const siteId = formData.get("siteId") as string;
-  const name = formData.get("name") as string;
-  const description = formData.get("description") as string;
-  const subdirectory = formData.get("subdirectory") as string;
+  const name = (formData.get("name") as string)?.trim();
+  const description = (formData.get("description") as string)?.trim();
+  const subdirectory = (formData.get("subdirectory") as string)?.trim();
   const geofencePolygonRaw = (formData.get("geofencePolygon") as string) || "";
   const geofenceMapLink = (formData.get("geofenceMapLink") as string) || "";
 
@@ -254,6 +254,18 @@ export async function updateSiteAction(formData: FormData) {
 
   if (!siteId || !name || !description || !subdirectory) {
     return { success: false, message: "Missing required fields" };
+  }
+
+  if (name.length > 50) {
+    return { success: false, message: "Name must be 50 characters or fewer." };
+  }
+
+  if (description.length > 100) {
+    return { success: false, message: "Description must be 100 characters or fewer." };
+  }
+
+  if (subdirectory.length > 100) {
+    return { success: false, message: "Subdirectory must be 100 characters or fewer." };
   }
 
   let geofencePolygon: unknown = null;

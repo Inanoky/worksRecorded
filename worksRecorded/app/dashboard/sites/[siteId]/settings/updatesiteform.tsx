@@ -40,7 +40,11 @@ export function UpdateSiteForm({
   async function formAction(formData: FormData) {
     startTransition(async () => {
       try {
-        await updateSiteAction(formData);
+        const result = await updateSiteAction(formData);
+        if (!result.success) {
+          toast.error(result.message || t.cancel);
+          return;
+        }
         toast.success(t.saveChanges);
       } catch (error) {
         console.error("Failed to update site", error);
@@ -72,6 +76,7 @@ export function UpdateSiteForm({
               id="name"
               type="text"
               required
+              maxLength={50}
               defaultValue={site.name}
               disabled={isPending}
             />
@@ -90,6 +95,7 @@ export function UpdateSiteForm({
               id="description"
               type="text"
               required
+              maxLength={100}
               defaultValue={site.description}
               disabled={isPending}
             />
@@ -108,6 +114,7 @@ export function UpdateSiteForm({
               id="subdirectory"
               type="text"
               required
+              maxLength={100}
               defaultValue={site.subdirectory}
               disabled={isPending}
             />

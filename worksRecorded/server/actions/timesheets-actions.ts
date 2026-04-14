@@ -3,6 +3,12 @@ import {prisma} from "@/lib/utils/db";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/utils/requireUser";
 
+const MAX_WORK_NOTES_LENGTH = 100;
+
+function normalizeWorkNotes(value?: string) {
+  if (typeof value !== "string") return undefined;
+  return value.slice(0, MAX_WORK_NOTES_LENGTH);
+}
 
 export async function createTeamMember(formData: {
   name: string;
@@ -260,7 +266,7 @@ export async function editTimeRecord(_prev: unknown, formData: FormData) {
     const data: any = {};
     if (workerId !== undefined) data.workerId = workerId;
     if (wocation !== undefined) data.wocation = wocation;
-    if (works !== undefined) data.works = works;
+    if (works !== undefined) data.works = normalizeWorkNotes(works);
     if (parsedDate && !Number.isNaN(parsedDate.getTime())) data.date = parsedDate;
     if (parsedClockIn && !Number.isNaN(parsedClockIn.getTime())) data.clockIn = parsedClockIn;
     if (parsedClockOut && !Number.isNaN(parsedClockOut.getTime())) data.clockOut = parsedClockOut;
@@ -321,7 +327,7 @@ export async function updateTimeRecord(formData: {
         clockOut:
           parsedClockOut && !Number.isNaN(parsedClockOut.getTime()) ? parsedClockOut : undefined,
         wocation: formData.location,
-        works: formData.works,
+        works: normalizeWorkNotes(formData.works),
       },
     });
 

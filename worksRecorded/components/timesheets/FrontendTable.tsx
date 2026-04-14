@@ -146,7 +146,7 @@ const RowSchema = z.object({
   clockIn: z.string().min(1, "Clock-in time is required."),
   clockOut: z.string().optional(),
   location: z.string().optional(),
-  works: z.string().max(200, "Comments must be 200 characters or fewer.").optional(),
+  works: z.string().max(100, "Work notes must be 100 characters or fewer.").optional(),
 });
 
 type FrontendTableProps = {
@@ -237,11 +237,6 @@ export function FrontendTable({
     globalFilterFn: defaultGlobalFilterFn,
     initialState: { pagination: { pageSize } },
   });
-
-  const totalHours = React.useMemo(
-    () => localData.reduce((sum, row) => sum + (typeof row.timeWorked === "number" ? row.timeWorked : Number(row.timeWorked) || 0), 0),
-    [localData],
-  );
 
   function exportToExcel() {
     const rows = table.getFilteredRowModel().rows.map((row) => row.original);
@@ -400,21 +395,6 @@ export function FrontendTable({
   return (
     <>
       <div className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.visibleRecords}</p>
-            <p className="mt-2 text-2xl font-semibold">{table.getFilteredRowModel().rows.length}</p>
-          </div>
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.workersListed}</p>
-            <p className="mt-2 text-2xl font-semibold">{workers.length}</p>
-          </div>
-          <div className="rounded-lg border bg-muted/30 p-4">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t.trackedHours}</p>
-            <p className="mt-2 text-2xl font-semibold">{totalHours.toFixed(2)}</p>
-          </div>
-        </div>
-
         <div className="w-full overflow-hidden rounded-md border border-muted/60 bg-background">
           <div className="flex flex-col gap-2 border-b bg-muted/40 px-3 py-3 md:flex-row md:items-center md:justify-between">
             <div className="flex w-full flex-1 flex-col gap-2 md:flex-row md:items-center">
@@ -633,8 +613,19 @@ export function FrontendTable({
                   rows={5}
                   placeholder={t.workNotesPlaceholder}
                   value={editDraft.works}
-                  onChange={(e) => setEditDraft((prev) => (prev ? { ...prev, works: e.target.value } : prev))}
+                  maxLength={100}
+                  onChange={(e) =>
+                    setEditDraft((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            works: e.target.value.slice(0, 100),
+                          }
+                        : prev,
+                    )
+                  }
                 />
+                <p className="text-right text-xs text-muted-foreground">{editDraft.works.length}/100</p>
               </div>
             </div>
           )}
