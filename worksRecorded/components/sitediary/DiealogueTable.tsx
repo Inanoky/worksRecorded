@@ -1066,7 +1066,7 @@ export function DialogTable({
       )}
 
       <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
-        <DialogContent className="flex h-[75vh] max-h-[75vh] w-[min(92vw,680px)] flex-col overflow-hidden">
+        <DialogContent className="flex h-[75vh] max-h-[75vh] w-[min(96vw,860px)] flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Manage {manageField?.startsWith("Location") ? "locations" : "works"}</DialogTitle>
           </DialogHeader>
