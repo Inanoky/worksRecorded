@@ -8,6 +8,7 @@ import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types
 import { getOrganizationIdByUserId } from "./shared-actions";
 import { getOrganizationIdByWorkerId, orgCheck } from "./shared-actions";
 import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 
 
 //nothing
@@ -59,11 +60,7 @@ export async function updateSiteDiaryDropdownOptions(args: {
   const currentMap =
     site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
       ? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
-      : {};
-
-  if (!currentMap[args.fieldKey]) {
-    throw new Error("Field not found in site diary config");
-  }
+      : structuredClone(defaultConfig as Record<string, any>);
 
   const normalizedOptions = Array.from(
     new Set(args.options.map((option) => option.trim()).filter(Boolean)),
@@ -73,8 +70,13 @@ export async function updateSiteDiaryDropdownOptions(args: {
     normalizedOptions.map((option) => [option, option]),
   );
 
+  const fallbackFieldConfig = (defaultConfig as Record<string, any>)?.[args.fieldKey] ?? {
+    Type: "dropdown",
+    DisplayName: args.fieldKey,
+  };
+
   currentMap[args.fieldKey] = {
-    ...currentMap[args.fieldKey],
+    ...(currentMap[args.fieldKey] ?? fallbackFieldConfig),
     DropDownOptions: nextDropdownOptions,
   };
 

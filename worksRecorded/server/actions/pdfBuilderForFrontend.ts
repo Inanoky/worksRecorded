@@ -435,6 +435,31 @@ export async function generateSiteDiaryPdf(args: {
       }
     }
 
+    weatherHours.forEach((hour: any, index: number) => {
+      if (index % 2 !== 0) return;
+      const x = pointX(index);
+      if (typeof hour.temperatureC === "number") {
+        const yTemp = pointYTemp(hour.temperatureC);
+        page.drawText(`${hour.temperatureC.toFixed(1)}°C`, {
+          x: x - 10,
+          y: yTemp + 4,
+          size: 6,
+          font,
+          color: rgb(0.88, 0.24, 0.24),
+        });
+      }
+      if (typeof hour.windSpeedMs === "number") {
+        const yWind = pointYWind(hour.windSpeedMs);
+        page.drawText(`${hour.windSpeedMs.toFixed(1)} m/s`, {
+          x: x - 12,
+          y: yWind - 8,
+          size: 6,
+          font,
+          color: rgb(0.2, 0.42, 0.86),
+        });
+      }
+    });
+
     page.drawText("Temperature (°C)", {
       x: chartX + 10,
       y: chartY + chartH - 12,

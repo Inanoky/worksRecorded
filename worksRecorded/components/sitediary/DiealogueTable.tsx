@@ -108,7 +108,7 @@ const isUUID = (id: unknown) =>
 const showZodErrorToast = (err: z.ZodError) => {
   const first = err.errors[0];
   const path = first?.path?.length ? first.path.join(".") : "row";
-  toast.error(`${path}: ${first.message}`);
+  toast.error(`Validation error in "${path}": ${first.message}`);
 };
 
 /**
@@ -364,14 +364,17 @@ export function DialogTable({
 
   const handleDeleteRow = async (idOrTemp: string | undefined, tempId?: string) => {
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
+    const confirmed = window.confirm("Delete this diary row? This action cannot be undone.");
+    if (!confirmed) return;
 
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
 
-      toast.success(t.recordDeleted);
+      toast.success("Diary row deleted successfully.");
       onSaved?.();
     } else {
       setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
+      toast.success("Unsaved row removed.");
     }
   };
 
@@ -433,6 +436,9 @@ export function DialogTable({
     };
 
 
+    let updatedCount = 0;
+    let createdCount = 0;
+
     // Here we actually update existing rows 
     for (const r of existingRows) {
 
@@ -455,8 +461,9 @@ export function DialogTable({
       try {
 
         await updateSiteDiaryRecord(payload);
+        updatedCount += 1;
       } catch (err: any) {
-        toast.error(`Failed to update row ${r.id}: ${err?.message ?? "Unknown error"}`);
+        toast.error(`Could not update existing diary row (${r.id}). ${err?.message ?? "Unknown error"}`);
         return;
       }
     }
@@ -484,14 +491,14 @@ export function DialogTable({
           rows: rowsToCreate,
           siteId,
         });
+        createdCount = rowsToCreate.length;
       } catch (err: any) {
-        toast.error(`Failed to create rows: ${err?.message ?? "Unknown error"}`);
+        toast.error(`Could not create new diary rows. ${err?.message ?? "Unknown error"}`);
         return;
       }
     }
 
-
-    toast.success(t.recordsSaved);
+    toast.success(`Diary saved: ${updatedCount} updated, ${createdCount} created.`);
     onSaved?.();
   };
 

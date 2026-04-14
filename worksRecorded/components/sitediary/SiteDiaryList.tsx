@@ -1655,7 +1655,7 @@ export default function SiteDiaryCalendar({
                                         {t.copyToDate}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => handleDeleteRecord(r)} disabled={!r.id}>
-                                        {t.delete}
+                                        Delete
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => handleOpenRecordInBis(r)} disabled={!r.BISId}>
                                         <ExternalLink className="mr-2 h-3 w-3" />
@@ -1954,7 +1954,7 @@ export default function SiteDiaryCalendar({
                                               onClick={() => handleDeleteRecord(group.rows[i] ?? row)}
                                               disabled={!row.id}
                                             >
-                                              {t.delete}
+                                              Delete
                                             </DropdownMenuItem>
                                             {bisUiEnabled ? (
                                               <DropdownMenuItem
