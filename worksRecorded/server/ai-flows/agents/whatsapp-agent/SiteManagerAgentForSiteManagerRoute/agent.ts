@@ -31,21 +31,40 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
     const shouldContinue = (state) => {
         const { messages } = state;
-        const lastMessage = messages[messages.length - 1];
+        const lastMessage = messages[messages.length - 1] as any;
         console.log("shouldContinue - lastMessage:", lastMessage);
 
-        if (lastMessage && "tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls.length) {
-            for (const toolCall of lastMessage.tool_calls) {
-                if (toolCall.function?.name === "save_to_database" && toolCall.function.arguments) {
-                    try {
-                        const args = JSON.parse(toolCall.function.arguments);
-                        args.originalUserComment = sourceComment;
-                        toolCall.function.arguments = JSON.stringify(args);
-                    } catch (e) {
-                        console.error("Error modifying arguments for save_to_database:", e);
+        const toolCalls = Array.isArray(lastMessage?.tool_calls) ? lastMessage.tool_calls : [];
+
+        if (toolCalls.length) {
+            const dedupedToolCalls = [];
+            let hasSaveToDatabaseCall = false;
+
+            for (const toolCall of toolCalls) {
+                const toolName = toolCall?.function?.name;
+
+                if (toolName === "save_to_database") {
+                    if (hasSaveToDatabaseCall) {
+                        console.warn("Duplicate save_to_database tool call detected. Dropping extra call.");
+                        continue;
+                    }
+                    hasSaveToDatabaseCall = true;
+
+                    if (toolCall.function?.arguments) {
+                        try {
+                            const args = JSON.parse(toolCall.function.arguments);
+                            args.originalUserComment = sourceComment;
+                            toolCall.function.arguments = JSON.stringify(args);
+                        } catch (e) {
+                            console.error("Error modifying arguments for save_to_database:", e);
+                        }
                     }
                 }
+
+                dedupedToolCalls.push(toolCall);
             }
+
+            lastMessage.tool_calls = dedupedToolCalls;
 
             console.log("shouldContinue: Detected tool_calls, going to 'tools'");
             return "tools";
@@ -77,7 +96,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         .addNode("tools", toolNode)
         .addEdge(START, "agent")
         .addConditionalEdges("agent", shouldContinue, ["tools", END])
-        .addEdge("tools", "agent") // <--- loop back to agent!
+        .addConditionalEdges("tools", () => END, [END])
 
     const checkpointer = PostgresSaver.fromConnString(
         process.env.DATABASE_URL
