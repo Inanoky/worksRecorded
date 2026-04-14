@@ -5,6 +5,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import {
   getSiteDiaryRecord,
   getPhotosByDate,
+  getSiteDayWeather,
 } from "@/server/actions/site-diary-actions";
 
 /* ------------------------------------------------------------------ */
@@ -127,6 +128,9 @@ export async function generateSiteDiaryPdf(args: {
   // 2) Load photos for that day
   const { startISO, endISO } = toDayRangeISO(date);
   const photos = await getPhotosByDate({ siteId, startISO, endISO });
+  const dayISO = date.toISOString().slice(0, 10);
+  const weather = await getSiteDayWeather({ siteId, dayISO }).catch(() => null);
+  const weatherHours = (weather?.hours ?? []).filter((h: any) => h.hour >= 8 && h.hour <= 18);
 
   // 3) Create PDF
   const pdfDoc = await PDFDocument.create();
@@ -356,6 +360,98 @@ export async function generateSiteDiaryPdf(args: {
   }
 
   /* --------------------------- Photos section ------------------------- */
+
+  if (weatherHours.length > 0) {
+    if (y < 300) y = 300;
+    y -= 20;
+
+    page.drawText("Weather diagram (08:00-18:00 UTC)", {
+      x: margin,
+      y,
+      size: 12,
+      font: fontBold,
+      color: rgb(0, 0, 0),
+    });
+    y -= 8;
+
+    const chartX = margin;
+    const chartY = y - 120;
+    const chartW = tableWidth;
+    const chartH = 110;
+    const chartInnerPad = 16;
+    const chartInnerW = chartW - chartInnerPad * 2;
+    const chartInnerH = chartH - chartInnerPad * 2;
+
+    page.drawRectangle({
+      x: chartX,
+      y: chartY,
+      width: chartW,
+      height: chartH,
+      color: rgb(0.98, 0.98, 0.99),
+      borderColor: rgb(0.84, 0.84, 0.88),
+      borderWidth: 0.8,
+    });
+
+    const temps = weatherHours
+      .map((h: any) => h.temperatureC)
+      .filter((v: any): v is number => typeof v === "number" && Number.isFinite(v));
+    const winds = weatherHours
+      .map((h: any) => h.windSpeedMs)
+      .filter((v: any): v is number => typeof v === "number" && Number.isFinite(v));
+
+    const minTemp = temps.length ? Math.min(...temps) : 0;
+    const maxTemp = temps.length ? Math.max(...temps) : 1;
+    const minWind = winds.length ? Math.min(...winds) : 0;
+    const maxWind = winds.length ? Math.max(...winds) : 1;
+
+    const spanTemp = Math.max(maxTemp - minTemp, 1);
+    const spanWind = Math.max(maxWind - minWind, 1);
+
+    const pointX = (index: number) =>
+      chartX + chartInnerPad + (index / Math.max(weatherHours.length - 1, 1)) * chartInnerW;
+    const pointYTemp = (value: number) =>
+      chartY + chartInnerPad + ((value - minTemp) / spanTemp) * chartInnerH;
+    const pointYWind = (value: number) =>
+      chartY + chartInnerPad + ((value - minWind) / spanWind) * chartInnerH;
+
+    for (let i = 1; i < weatherHours.length; i += 1) {
+      const prev = weatherHours[i - 1];
+      const curr = weatherHours[i];
+      if (typeof prev.temperatureC === "number" && typeof curr.temperatureC === "number") {
+        page.drawLine({
+          start: { x: pointX(i - 1), y: pointYTemp(prev.temperatureC) },
+          end: { x: pointX(i), y: pointYTemp(curr.temperatureC) },
+          thickness: 1.5,
+          color: rgb(0.88, 0.24, 0.24),
+        });
+      }
+      if (typeof prev.windSpeedMs === "number" && typeof curr.windSpeedMs === "number") {
+        page.drawLine({
+          start: { x: pointX(i - 1), y: pointYWind(prev.windSpeedMs) },
+          end: { x: pointX(i), y: pointYWind(curr.windSpeedMs) },
+          thickness: 1.5,
+          color: rgb(0.2, 0.42, 0.86),
+        });
+      }
+    }
+
+    page.drawText("Temperature (°C)", {
+      x: chartX + 10,
+      y: chartY + chartH - 12,
+      size: 7,
+      font,
+      color: rgb(0.88, 0.24, 0.24),
+    });
+    page.drawText("Wind (m/s)", {
+      x: chartX + 100,
+      y: chartY + chartH - 12,
+      size: 7,
+      font,
+      color: rgb(0.2, 0.42, 0.86),
+    });
+
+    y = chartY - 10;
+  }
 
   if (photos && photos.length > 0) {
     if (y < 200) y = 200;

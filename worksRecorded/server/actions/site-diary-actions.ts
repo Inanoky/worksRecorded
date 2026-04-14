@@ -41,6 +41,51 @@ export async function getConfig(siteId: string) {
   return clientConfig?.siteDiaryRecordsMap ?? null;
 }
 
+export async function updateSiteDiaryDropdownOptions(args: {
+  siteId: string;
+  fieldKey: string;
+  options: string[];
+}) {
+  const user = await requireUser();
+  await orgCheck(user.id, args.siteId);
+
+  const site = await prisma.site.findUnique({
+    where: { id: args.siteId },
+    select: { siteDiaryRecordsMap: true },
+  });
+
+  if (!site) throw new Error("Site not found");
+
+  const currentMap =
+    site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
+      ? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
+      : {};
+
+  if (!currentMap[args.fieldKey]) {
+    throw new Error("Field not found in site diary config");
+  }
+
+  const normalizedOptions = Array.from(
+    new Set(args.options.map((option) => option.trim()).filter(Boolean)),
+  );
+
+  const nextDropdownOptions = Object.fromEntries(
+    normalizedOptions.map((option) => [option, option]),
+  );
+
+  currentMap[args.fieldKey] = {
+    ...currentMap[args.fieldKey],
+    DropDownOptions: nextDropdownOptions,
+  };
+
+  await prisma.site.update({
+    where: { id: args.siteId },
+    data: { siteDiaryRecordsMap: currentMap },
+  });
+
+  return { ok: true, options: normalizedOptions };
+}
+
 type WeatherHourRow = {
   hour: number;
   temperatureC: number | null;

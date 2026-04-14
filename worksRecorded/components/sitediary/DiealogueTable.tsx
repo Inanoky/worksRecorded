@@ -23,12 +23,20 @@ import {
 import { Trash2 } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   getSiteDiaryRecord,
   getSiteDiarySchema,
   saveSiteDiaryRecordFromWeb,
   deleteSiteDiaryRecord,
   updateSiteDiaryRecord,
   getConfig,
+  updateSiteDiaryDropdownOptions,
 } from "@/server/actions/site-diary-actions";
 import { toast } from "sonner";
 import { useMediaQuery } from "./Use-media-querty";
@@ -57,6 +65,7 @@ const OTHER_OPTION = { value: "__other__", label: "Other Works" }
 
 const ADD_NEW_LOCATION = "__add_new_location__";
 const ADD_NEW_WORK = "__add_new_work__";
+const MANAGE_DROPDOWN_OPTIONS = "__manage_dropdown_options__";
 
 export const allowedUnits = [
   "m",
@@ -259,6 +268,94 @@ export function DialogTable({
   });
 
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
+  const [manageDialogOpen, setManageDialogOpen] = useState(false);
+  const [manageField, setManageField] = useState<string | null>(null);
+  const [manageOptions, setManageOptions] = useState<string[]>([]);
+  const [manageSearch, setManageSearch] = useState("");
+  const [newManageOption, setNewManageOption] = useState("");
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState("");
+
+  const isManageableDropdownField = (field: string) =>
+    field.startsWith("Location") || field.startsWith("Works");
+
+  const openManageDialog = (field: string, currentOptions: string[]) => {
+    setManageField(field);
+    setManageOptions(currentOptions);
+    setManageSearch("");
+    setNewManageOption("");
+    setEditingIndex(null);
+    setEditingValue("");
+    setManageDialogOpen(true);
+  };
+
+  const appendManageOption = () => {
+    const value = newManageOption.trim();
+    if (!value) {
+      toast.error("Option cannot be empty");
+      return;
+    }
+    if (manageOptions.some((option) => option.toLowerCase() === value.toLowerCase())) {
+      toast.error("Option already exists");
+      return;
+    }
+    setManageOptions((prev) => [...prev, value]);
+    setNewManageOption("");
+  };
+
+  const removeManageOption = (index: number) => {
+    setManageOptions((prev) => prev.filter((_, optionIndex) => optionIndex !== index));
+  };
+
+  const saveEditedManageOption = () => {
+    if (editingIndex == null) return;
+    const value = editingValue.trim();
+    if (!value) {
+      toast.error("Option cannot be empty");
+      return;
+    }
+    if (
+      manageOptions.some(
+        (option, optionIndex) =>
+          optionIndex !== editingIndex && option.toLowerCase() === value.toLowerCase(),
+      )
+    ) {
+      toast.error("Option already exists");
+      return;
+    }
+    setManageOptions((prev) =>
+      prev.map((option, optionIndex) => (optionIndex === editingIndex ? value : option)),
+    );
+    setEditingIndex(null);
+    setEditingValue("");
+  };
+
+  const saveManagedDropdownOptions = async () => {
+    if (!siteId || !manageField) return;
+    const normalized = Array.from(new Set(manageOptions.map((item) => item.trim()).filter(Boolean)));
+    if (!normalized.length) {
+      toast.error("At least one option is required");
+      return;
+    }
+    try {
+      await updateSiteDiaryDropdownOptions({
+        siteId,
+        fieldKey: manageField,
+        options: normalized,
+      });
+      setMap((prev) => ({
+        ...prev,
+        [manageField]: {
+          ...(prev?.[manageField] ?? {}),
+          DropDownOptions: Object.fromEntries(normalized.map((option) => [option, option])),
+        },
+      }));
+      setManageDialogOpen(false);
+      toast.success("Dropdown options updated");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Failed to update dropdown options");
+    }
+  };
 
   const handleAddRow = () => {
 
@@ -603,6 +700,7 @@ export function DialogTable({
       }));
 
       const currentValue = String(row[field] ?? "");
+      const optionsList = options.map((opt) => opt.label);
 
       if (
         currentValue &&
@@ -618,7 +716,13 @@ export function DialogTable({
       return (
         <Select
           value={currentValue}
-          onValueChange={(val) => handleChange(rowKey, field, val)}
+          onValueChange={(val) => {
+            if (val === MANAGE_DROPDOWN_OPTIONS) {
+              openManageDialog(field, optionsList);
+              return;
+            }
+            handleChange(rowKey, field, val);
+          }}
         >
           <SelectTrigger
 
@@ -628,6 +732,9 @@ export function DialogTable({
             <SelectValue placeholder={String(row[field] ?? t.select)} />
           </SelectTrigger>
           <SelectContent>
+            {isManageableDropdownField(field) ? (
+              <SelectItem value={MANAGE_DROPDOWN_OPTIONS}>⚙ Manage options…</SelectItem>
+            ) : null}
             {options.map((opt) => (
               <SelectItem key={opt.value} value={opt.label}>
                 {opt.label}
@@ -937,6 +1044,73 @@ export function DialogTable({
           <ScrollBar orientation="vertical" />
         </ScrollArea>
       )}
+
+      <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
+        <DialogContent className="flex h-[75vh] max-h-[75vh] w-[min(92vw,680px)] flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Manage {manageField?.startsWith("Location") ? "locations" : "works"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex gap-2">
+            <Input
+              value={manageSearch}
+              onChange={(event) => setManageSearch(event.target.value)}
+              placeholder="Search option"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={newManageOption}
+              onChange={(event) => setNewManageOption(event.target.value)}
+              placeholder="Add new option"
+            />
+            <Button type="button" variant="outline" onClick={appendManageOption}>
+              Add
+            </Button>
+          </div>
+
+          <ScrollArea className="min-h-0 flex-1 pr-2">
+            <div className="space-y-2">
+              {manageOptions
+                .map((option, index) => ({ option, index }))
+                .filter(({ option }) => option.toLowerCase().includes(manageSearch.trim().toLowerCase()))
+                .map(({ option, index }) => (
+                  <div key={`${option}-${index}`} className="flex items-center justify-between gap-2 rounded-md border p-2">
+                    {editingIndex === index ? (
+                      <Input value={editingValue} onChange={(event) => setEditingValue(event.target.value)} className="h-8" />
+                    ) : (
+                      <p className="truncate text-sm">{option}</p>
+                    )}
+                    <div className="flex items-center gap-1">
+                      {editingIndex === index ? (
+                        <>
+                          <Button type="button" size="sm" variant="ghost" onClick={saveEditedManageOption}>Save</Button>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingIndex(null); setEditingValue(""); }}>Cancel</Button>
+                        </>
+                      ) : (
+                        <Button type="button" size="sm" variant="ghost" onClick={() => { setEditingIndex(index); setEditingValue(option); }}>
+                          Edit
+                        </Button>
+                      )}
+                      <Button type="button" size="sm" variant="ghost" onClick={() => removeManageOption(index)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="border-t pt-3">
+            <Button type="button" variant="outline" onClick={() => setManageDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={saveManagedDropdownOptions}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   );
 }

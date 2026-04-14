@@ -3,6 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -60,6 +61,29 @@ type WorkerFormState = {
 
 const DEFAULT_COUNTRY_CODE = "371";
 const normalizePhonePart = (raw: string) => (raw || "").replace(/\D/g, "");
+const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
+const HHMM_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+const workerValidationSchema = z.object({
+  id: z.string().optional(),
+  name: z
+    .string()
+    .trim()
+    .min(2, "First name must be at least 2 characters")
+    .max(50, "First name must be at most 50 characters")
+    .regex(NAME_REGEX, "First name contains invalid characters"),
+  surname: z
+    .string()
+    .trim()
+    .min(2, "Last name must be at least 2 characters")
+    .max(50, "Last name must be at most 50 characters")
+    .regex(NAME_REGEX, "Last name contains invalid characters"),
+  countryCode: z.string().min(1, "Country code is required"),
+  phone: z.string().optional(),
+  siteId: z.string().optional(),
+  reminderTime: z.string().optional(),
+  reminderText: z.string().max(300, "Reminder text must be at most 300 characters").optional(),
+});
 
 function splitPhone(phone: string | null | undefined) {
   const digits = normalizePhonePart(phone || "");
@@ -102,6 +126,30 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
 
   const [editWorker, setEditWorker] = React.useState<WorkerFormState>(newWorker);
 
+  function validateWorkerInput(worker: WorkerFormState, mode: "create" | "edit") {
+    const parsed = workerValidationSchema.safeParse(worker);
+    if (!parsed.success) return parsed.error.issues[0]?.message ?? "Validation failed";
+
+    if (mode === "edit" && !worker.id) {
+      return "Missing worker id";
+    }
+
+    const normalizedPhone = normalizePhonePart(worker.phone);
+    if (normalizedPhone && (normalizedPhone.length < 7 || normalizedPhone.length > 15)) {
+      return "Phone number must contain 7 to 15 digits";
+    }
+
+    if (worker.reminderTime && !HHMM_REGEX.test(worker.reminderTime)) {
+      return "Reminder time must be in HH:mm format";
+    }
+
+    if (worker.siteId !== "none" && worker.siteId && !projects.some((project) => project.id === worker.siteId)) {
+      return "Please select a valid project";
+    }
+
+    return null;
+  }
+
   function openEdit(worker: WorkerRow) {
     const parsedPhone = splitPhone(worker.phone);
     setEditWorker({
@@ -120,8 +168,9 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
 
   function handleAddSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!newWorker.name.trim() || !newWorker.surname.trim()) {
-      toast.error("Name and surname are required");
+    const validationError = validateWorkerInput(newWorker, "create");
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
@@ -147,8 +196,9 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
 
   function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!editWorker.id || !editWorker.name.trim() || !editWorker.surname.trim()) {
-      toast.error("Name and surname are required");
+    const validationError = validateWorkerInput(editWorker, "edit");
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
@@ -175,6 +225,9 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
   }
 
   async function handleDelete(workerId: string) {
+    const confirmed = window.confirm("Delete this worker? This action cannot be undone.");
+    if (!confirmed) return;
+
     const res = await deleteOrganizationWorker(workerId);
     if (res.ok) {
       toast.success("Worker deleted");
