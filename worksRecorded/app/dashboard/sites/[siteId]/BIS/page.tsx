@@ -861,6 +861,10 @@ export async function updateMaterialDate(recordId: string, materialDate: Date | 
 export async function updateQuantity(recordId: string, quantity: number | null) {
   "use server";
 
+  if (quantity !== null && (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1_000_000)) {
+    throw new Error("Quantity must be a number between 0 and 1000000.");
+  }
+
   await prisma.bISmaterialRecords.update({
     where: { id: recordId },
     data: { quantity },
@@ -882,6 +886,30 @@ export async function updateMaterialDetails(
 ) {
   "use server";
 
+  const trimmedName = payload.name?.trim() ?? null;
+  const trimmedCostCode = payload.costCode?.trim() ?? null;
+  const trimmedMeasurementUnit = payload.measurementUnit?.trim() ?? null;
+
+  if (trimmedName !== null && trimmedName.length === 0) {
+    throw new Error("Material name is required.");
+  }
+
+  if (trimmedName !== null && trimmedName.length > 120) {
+    throw new Error("Material name must be 120 characters or fewer.");
+  }
+
+  if (payload.cost != null && (!Number.isFinite(payload.cost) || payload.cost < 0 || payload.cost > 10_000_000)) {
+    throw new Error("Cost must be a number between 0 and 10000000.");
+  }
+
+  if (trimmedCostCode !== null && trimmedCostCode.length > 50) {
+    throw new Error("Cost code must be 50 characters or fewer.");
+  }
+
+  if (trimmedMeasurementUnit !== null && trimmedMeasurementUnit.length > 20) {
+    throw new Error("Units must be 20 characters or fewer.");
+  }
+
   const data: {
     name?: string | null;
     cost?: number | null;
@@ -891,11 +919,11 @@ export async function updateMaterialDetails(
     invoiceDate?: Date | null;
   } = {};
 
-  if ("name" in payload) data.name = payload.name ?? null;
+  if ("name" in payload) data.name = trimmedName;
   if ("cost" in payload) data.cost = payload.cost ?? null;
   if ("materialDate" in payload) data.materialDate = payload.materialDate ?? null;
-  if ("costCode" in payload) data.costCode = payload.costCode ?? null;
-  if ("measurementUnit" in payload) data.measurementUnit = payload.measurementUnit ?? null;
+  if ("costCode" in payload) data.costCode = trimmedCostCode;
+  if ("measurementUnit" in payload) data.measurementUnit = trimmedMeasurementUnit;
   if ("invoiceDate" in payload) data.invoiceDate = payload.invoiceDate ?? null;
 
   await prisma.bISmaterialRecords.update({

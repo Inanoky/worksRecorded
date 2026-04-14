@@ -58,6 +58,12 @@ import CostCodeSelect from "./cost-code-select"
 import { toast } from "sonner"
 import { getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 
+const MAX_MATERIAL_NAME_LENGTH = 120
+const MAX_COST_CODE_LENGTH = 50
+const MAX_MEASUREMENT_UNIT_LENGTH = 20
+const MAX_QUANTITY = 1_000_000
+const MAX_COST = 10_000_000
+
 type BisApprover = {
   memberId: string
   memberType: string | null
@@ -616,16 +622,49 @@ export default function MaterialsTableClient({
 
   const saveEditModal = async () => {
     if (!editDraft) return
+    const trimmedName = editNameRef.current.trim()
+    const trimmedCostCode = editCostCodeRef.current.trim()
+    const trimmedMeasurementUnit = editUnitRef.current.trim()
     const quantity = editQuantityRef.current.trim() === "" ? null : Number(editQuantityRef.current)
     const cost = editCostRef.current.trim() === "" ? null : Number(editCostRef.current)
 
+    if (trimmedName.length === 0) {
+      toast.error("Material name is required.")
+      return
+    }
+
+    if (trimmedName.length > MAX_MATERIAL_NAME_LENGTH) {
+      toast.error(`Material name must be ${MAX_MATERIAL_NAME_LENGTH} characters or fewer.`)
+      return
+    }
+
+    if (quantity !== null && (Number.isNaN(quantity) || quantity <= 0 || quantity > MAX_QUANTITY)) {
+      toast.error(`Quantity must be a number between 0 and ${MAX_QUANTITY}.`)
+      return
+    }
+
+    if (cost !== null && (Number.isNaN(cost) || cost < 0 || cost > MAX_COST)) {
+      toast.error(`Cost must be a number between 0 and ${MAX_COST}.`)
+      return
+    }
+
+    if (trimmedCostCode.length > MAX_COST_CODE_LENGTH) {
+      toast.error(`Cost code must be ${MAX_COST_CODE_LENGTH} characters or fewer.`)
+      return
+    }
+
+    if (trimmedMeasurementUnit.length > MAX_MEASUREMENT_UNIT_LENGTH) {
+      toast.error(`Units must be ${MAX_MEASUREMENT_UNIT_LENGTH} characters or fewer.`)
+      return
+    }
+
     try {
       await updateMaterialDetails(editDraft.id, {
-        name: editNameRef.current.trim() || null,
+        name: trimmedName,
         cost: Number.isNaN(cost as number) ? null : cost,
         materialDate: editDraft.materialDate,
-        costCode: editCostCodeRef.current.trim() || null,
-        measurementUnit: editUnitRef.current.trim() || null,
+        costCode: trimmedCostCode || null,
+        measurementUnit: trimmedMeasurementUnit || null,
         invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
       })
       await updateQuantity(editDraft.id, Number.isNaN(quantity as number) ? null : quantity)
@@ -639,11 +678,11 @@ export default function MaterialsTableClient({
           row.id === editDraft.id
             ? {
                 ...row,
-                name: editNameRef.current,
+                name: trimmedName,
                 quantity: Number.isNaN(quantity as number) ? null : quantity,
                 cost: Number.isNaN(cost as number) ? null : cost,
-                costCode: editCostCodeRef.current.trim() || null,
-                measurementUnit: editUnitRef.current.trim() || null,
+                costCode: trimmedCostCode || null,
+                measurementUnit: trimmedMeasurementUnit || null,
                 invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
                 materialDate: editDraft.materialDate,
                 declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
@@ -1444,15 +1483,21 @@ export default function MaterialsTableClient({
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">{t.materialName}</label>
-                <Input key={`name-${editDraft.id}`} defaultValue={editDraft.name} onChange={(event) => { editNameRef.current = event.target.value }} placeholder={t.materialName} />
+                <Input
+                  key={`name-${editDraft.id}`}
+                  defaultValue={editDraft.name}
+                  onChange={(event) => { editNameRef.current = event.target.value }}
+                  placeholder={t.materialName}
+                  maxLength={MAX_MATERIAL_NAME_LENGTH}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Input key={`qty-${editDraft.id}`} defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder={t.qty} />
-                <Input key={`cost-${editDraft.id}`} defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder={t.cost} />
+                <Input key={`qty-${editDraft.id}`} type="number" min="0.01" step="0.01" defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder={t.qty} />
+                <Input key={`cost-${editDraft.id}`} type="number" min="0" step="0.01" defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder={t.cost} />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Input key={`costcode-${editDraft.id}`} defaultValue={editDraft.costCode} onChange={(event) => { editCostCodeRef.current = event.target.value }} placeholder={t.costCode} />
-                <Input key={`unit-${editDraft.id}`} defaultValue={editDraft.measurementUnit} onChange={(event) => { editUnitRef.current = event.target.value }} placeholder={t.units} />
+                <Input key={`costcode-${editDraft.id}`} defaultValue={editDraft.costCode} onChange={(event) => { editCostCodeRef.current = event.target.value }} placeholder={t.costCode} maxLength={MAX_COST_CODE_LENGTH} />
+                <Input key={`unit-${editDraft.id}`} defaultValue={editDraft.measurementUnit} onChange={(event) => { editUnitRef.current = event.target.value }} placeholder={t.units} maxLength={MAX_MEASUREMENT_UNIT_LENGTH} />
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
