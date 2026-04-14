@@ -86,6 +86,7 @@ export const allowedUnits = [
 
 const MAX_FREE_TEXT = 100;
 const MAX_NUM = 1_000_000_000;
+const MAX_MANAGE_OPTION_LENGTH = 50;
 
 const coerceOptionalFloat = (v: unknown) => {
   if (v === "" || v === undefined || v === null) return undefined;
@@ -299,6 +300,10 @@ export function DialogTable({
       toast.error("Option already exists");
       return;
     }
+    if (value.length > MAX_MANAGE_OPTION_LENGTH) {
+      toast.error(`Option cannot exceed ${MAX_MANAGE_OPTION_LENGTH} characters`);
+      return;
+    }
     setManageOptions((prev) => [...prev, value]);
     setNewManageOption("");
   };
@@ -323,6 +328,10 @@ export function DialogTable({
       toast.error("Option already exists");
       return;
     }
+    if (value.length > MAX_MANAGE_OPTION_LENGTH) {
+      toast.error(`Option cannot exceed ${MAX_MANAGE_OPTION_LENGTH} characters`);
+      return;
+    }
     setManageOptions((prev) =>
       prev.map((option, optionIndex) => (optionIndex === editingIndex ? value : option)),
     );
@@ -335,6 +344,10 @@ export function DialogTable({
     const normalized = Array.from(new Set(manageOptions.map((item) => item.trim()).filter(Boolean)));
     if (!normalized.length) {
       toast.error("At least one option is required");
+      return;
+    }
+    if (normalized.some((item) => item.length > MAX_MANAGE_OPTION_LENGTH)) {
+      toast.error(`Each option must be ${MAX_MANAGE_OPTION_LENGTH} characters or less`);
       return;
     }
     try {

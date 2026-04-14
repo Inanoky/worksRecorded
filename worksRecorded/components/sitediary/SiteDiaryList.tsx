@@ -1651,7 +1651,6 @@ export default function SiteDiaryCalendar({
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                       <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
-                                        <Copy className="mr-2 h-3 w-3" />
                                         {t.copyToDate}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => handleDeleteRecord(r)} disabled={!r.id}>
@@ -1947,7 +1946,6 @@ export default function SiteDiaryCalendar({
                                               onClick={() => openCopyDialog(group.rows[i] ?? row)}
                                               disabled={!row.id}
                                             >
-                                              <Copy className="mr-2 h-3.5 w-3.5" />
                                               {t.copy}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
