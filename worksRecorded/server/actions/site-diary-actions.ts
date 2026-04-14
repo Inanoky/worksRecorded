@@ -8,6 +8,7 @@ import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types
 import { getOrganizationIdByUserId } from "./shared-actions";
 import { getOrganizationIdByWorkerId, orgCheck } from "./shared-actions";
 import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 
 
 //nothing
@@ -39,6 +40,55 @@ export async function getConfig(siteId: string) {
   });
 
   return clientConfig?.siteDiaryRecordsMap ?? null;
+}
+
+export async function updateSiteDiaryDropdownOptions(args: {
+  siteId: string;
+  fieldKey: string;
+  options: string[];
+}) {
+  const user = await requireUser();
+  await orgCheck(user.id, args.siteId);
+
+  const site = await prisma.site.findUnique({
+    where: { id: args.siteId },
+    select: { siteDiaryRecordsMap: true },
+  });
+
+  if (!site) throw new Error("Site not found");
+
+  const currentMap =
+    site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
+      ? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
+      : structuredClone(defaultConfig as Record<string, any>);
+
+  const normalizedOptions = Array.from(
+    new Set(args.options.map((option) => option.trim()).filter(Boolean)),
+  );
+  if (normalizedOptions.some((option) => option.length > 50)) {
+    throw new Error("Each option must be 50 characters or less");
+  }
+
+  const nextDropdownOptions = Object.fromEntries(
+    normalizedOptions.map((option) => [option, option]),
+  );
+
+  const fallbackFieldConfig = (defaultConfig as Record<string, any>)?.[args.fieldKey] ?? {
+    Type: "dropdown",
+    DisplayName: args.fieldKey,
+  };
+
+  currentMap[args.fieldKey] = {
+    ...(currentMap[args.fieldKey] ?? fallbackFieldConfig),
+    DropDownOptions: nextDropdownOptions,
+  };
+
+  await prisma.site.update({
+    where: { id: args.siteId },
+    data: { siteDiaryRecordsMap: currentMap },
+  });
+
+  return { ok: true, options: normalizedOptions };
 }
 
 type WeatherHourRow = {

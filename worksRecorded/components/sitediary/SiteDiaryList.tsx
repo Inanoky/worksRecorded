@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import {
   copySiteDiaryRecordToDate,
+  deleteSiteDiaryRecord,
   getBisCaseAvailableMaterials,
   getBisCharacterMeasures,
   getSiteDiaryRecordBisUrl,
@@ -942,6 +943,21 @@ export default function SiteDiaryCalendar({
     }
   };
 
+  const handleDeleteRecord = async (row: DiaryRow) => {
+    if (!row.id) return;
+    const confirmed = window.confirm("Delete this site diary record? This action cannot be undone.");
+    if (!confirmed) return;
+
+    try {
+      await deleteSiteDiaryRecord({ id: row.id });
+      await refreshRowsWithBisSync({ skipSync: true });
+      reloadFilledDays();
+      toast.success("Record deleted");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to delete record.");
+    }
+  };
+
   const handleSyncBisRecords = async () => {
     if (!siteId) {
       toast.error("Missing site id.");
@@ -1635,8 +1651,10 @@ export default function SiteDiaryCalendar({
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                       <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
-                                        <Copy className="mr-2 h-3 w-3" />
                                         {t.copyToDate}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleDeleteRecord(r)} disabled={!r.id}>
+                                        Delete
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => handleOpenRecordInBis(r)} disabled={!r.BISId}>
                                         <ExternalLink className="mr-2 h-3 w-3" />
@@ -1928,8 +1946,13 @@ export default function SiteDiaryCalendar({
                                               onClick={() => openCopyDialog(group.rows[i] ?? row)}
                                               disabled={!row.id}
                                             >
-                                              <Copy className="mr-2 h-3.5 w-3.5" />
                                               {t.copy}
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={() => handleDeleteRecord(group.rows[i] ?? row)}
+                                              disabled={!row.id}
+                                            >
+                                              Delete
                                             </DropdownMenuItem>
                                             {bisUiEnabled ? (
                                               <DropdownMenuItem

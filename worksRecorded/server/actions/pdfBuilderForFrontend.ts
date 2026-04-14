@@ -5,6 +5,7 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import {
   getSiteDiaryRecord,
   getPhotosByDate,
+  getSiteDayWeather,
 } from "@/server/actions/site-diary-actions";
 
 /* ------------------------------------------------------------------ */
@@ -127,6 +128,11 @@ export async function generateSiteDiaryPdf(args: {
   // 2) Load photos for that day
   const { startISO, endISO } = toDayRangeISO(date);
   const photos = await getPhotosByDate({ siteId, startISO, endISO });
+  const dayISO = date.toISOString().slice(0, 10);
+  const weather = await getSiteDayWeather({ siteId, dayISO }).catch(() => null);
+  const weatherRows = [...(weather?.hours ?? [])]
+    .filter((h: any) => Number.isFinite(h?.hour))
+    .sort((a: any, b: any) => Number(a.hour) - Number(b.hour));
 
   // 3) Create PDF
   const pdfDoc = await PDFDocument.create();
@@ -357,6 +363,8 @@ export async function generateSiteDiaryPdf(args: {
 
   /* --------------------------- Photos section ------------------------- */
 
+  // Weather details are rendered on a dedicated page below.
+
   if (photos && photos.length > 0) {
     if (y < 200) y = 200;
     y -= 24;
@@ -417,6 +425,204 @@ export async function generateSiteDiaryPdf(args: {
       } catch {
         // ignore single photo failure
       }
+    }
+  }
+
+  if (weatherRows.length > 0) {
+    const weatherPage = pdfDoc.addPage([595, 842]);
+    const weatherMargin = 40;
+    const weatherPageWidth = 595;
+    let weatherY = 800;
+
+    weatherPage.drawText("Weather for this day", {
+      x: weatherMargin,
+      y: weatherY,
+      size: 18,
+      font: fontBold,
+      color: rgb(0, 0, 0),
+    });
+    weatherY -= 24;
+
+    weatherPage.drawText(
+      sanitizeForWinAnsi(
+        date.toLocaleDateString("en-GB", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          weekday: "short",
+        }),
+      ),
+      {
+        x: weatherMargin,
+        y: weatherY,
+        size: 10,
+        font,
+      },
+    );
+    weatherY -= 18;
+
+    const chartX = weatherMargin;
+    const chartY = weatherY - 220;
+    const chartW = weatherPageWidth - weatherMargin * 2;
+    const chartH = 200;
+    const chartInnerPad = 28;
+    const chartInnerW = chartW - chartInnerPad * 2;
+    const chartInnerH = chartH - chartInnerPad * 2;
+
+    weatherPage.drawRectangle({
+      x: chartX,
+      y: chartY,
+      width: chartW,
+      height: chartH,
+      color: rgb(0.98, 0.98, 0.99),
+      borderColor: rgb(0.85, 0.85, 0.9),
+      borderWidth: 1,
+    });
+
+    const temps = weatherRows
+      .map((h: any) => h.temperatureC)
+      .filter((v: any): v is number => typeof v === "number" && Number.isFinite(v));
+    const winds = weatherRows
+      .map((h: any) => h.windSpeedMs)
+      .filter((v: any): v is number => typeof v === "number" && Number.isFinite(v));
+    const minTemp = temps.length ? Math.min(...temps) : 0;
+    const maxTemp = temps.length ? Math.max(...temps) : 1;
+    const minWind = winds.length ? Math.min(...winds) : 0;
+    const maxWind = winds.length ? Math.max(...winds) : 1;
+    const spanTemp = Math.max(maxTemp - minTemp, 1);
+    const spanWind = Math.max(maxWind - minWind, 1);
+
+    const pointX = (index: number) =>
+      chartX + chartInnerPad + (index / Math.max(weatherRows.length - 1, 1)) * chartInnerW;
+    const pointYTemp = (value: number) =>
+      chartY + chartInnerPad + ((value - minTemp) / spanTemp) * chartInnerH;
+    const pointYWind = (value: number) =>
+      chartY + chartInnerPad + ((value - minWind) / spanWind) * chartInnerH;
+
+    for (let i = 0; i <= 4; i += 1) {
+      const yy = chartY + chartInnerPad + (i / 4) * chartInnerH;
+      weatherPage.drawLine({
+        start: { x: chartX + chartInnerPad, y: yy },
+        end: { x: chartX + chartW - chartInnerPad, y: yy },
+        thickness: 0.5,
+        color: rgb(0.86, 0.86, 0.9),
+      });
+    }
+
+    for (let i = 0; i < weatherRows.length; i += 3) {
+      const xTick = pointX(i);
+      weatherPage.drawLine({
+        start: { x: xTick, y: chartY + chartInnerPad },
+        end: { x: xTick, y: chartY + chartH - chartInnerPad },
+        thickness: 0.4,
+        color: rgb(0.86, 0.86, 0.9),
+      });
+      weatherPage.drawText(`${String(weatherRows[i].hour).padStart(2, "0")}:00`, {
+        x: xTick - 10,
+        y: chartY + 8,
+        size: 6,
+        font,
+      });
+    }
+
+    for (let i = 1; i < weatherRows.length; i += 1) {
+      const prev = weatherRows[i - 1];
+      const curr = weatherRows[i];
+      if (typeof prev.temperatureC === "number" && typeof curr.temperatureC === "number") {
+        weatherPage.drawLine({
+          start: { x: pointX(i - 1), y: pointYTemp(prev.temperatureC) },
+          end: { x: pointX(i), y: pointYTemp(curr.temperatureC) },
+          thickness: 1.4,
+          color: rgb(0.88, 0.24, 0.24),
+        });
+      }
+      if (typeof prev.windSpeedMs === "number" && typeof curr.windSpeedMs === "number") {
+        weatherPage.drawLine({
+          start: { x: pointX(i - 1), y: pointYWind(prev.windSpeedMs) },
+          end: { x: pointX(i), y: pointYWind(curr.windSpeedMs) },
+          thickness: 1.4,
+          color: rgb(0.2, 0.42, 0.86),
+        });
+      }
+    }
+
+    weatherPage.drawText("Temperature (°C)", {
+      x: chartX + 10,
+      y: chartY + chartH - 14,
+      size: 7,
+      font,
+      color: rgb(0.88, 0.24, 0.24),
+    });
+    weatherPage.drawText("Wind (m/s)", {
+      x: chartX + 110,
+      y: chartY + chartH - 14,
+      size: 7,
+      font,
+      color: rgb(0.2, 0.42, 0.86),
+    });
+
+    weatherY = chartY - 16;
+
+    const tableX = weatherMargin;
+    const tableW = weatherPageWidth - weatherMargin * 2;
+    const rowHeight = 16;
+    const headerY = weatherY;
+    const colX = [tableX + 8, tableX + 90, tableX + 210, tableX + 320];
+
+    weatherPage.drawRectangle({
+      x: tableX,
+      y: headerY - rowHeight + 2,
+      width: tableW,
+      height: rowHeight,
+      color: rgb(0.94, 0.94, 0.95),
+    });
+    weatherPage.drawText("Hour", { x: colX[0], y: headerY - 10, size: 8, font: fontBold });
+    weatherPage.drawText("Temperature (°C)", { x: colX[1], y: headerY - 10, size: 8, font: fontBold });
+    weatherPage.drawText("Wind (m/s)", { x: colX[2], y: headerY - 10, size: 8, font: fontBold });
+    weatherPage.drawText("Precipitation (mm)", { x: colX[3], y: headerY - 10, size: 8, font: fontBold });
+
+    let rowY = headerY - rowHeight;
+    for (const row of weatherRows.slice(0, 24)) {
+      rowY -= rowHeight;
+      weatherPage.drawLine({
+        start: { x: tableX, y: rowY + 2 },
+        end: { x: tableX + tableW, y: rowY + 2 },
+        thickness: 0.4,
+        color: rgb(0.85, 0.85, 0.88),
+      });
+      weatherPage.drawText(`${String(row.hour).padStart(2, "0")}:00`, {
+        x: colX[0],
+        y: rowY + 6,
+        size: 7,
+        font,
+      });
+      weatherPage.drawText(
+        row.temperatureC == null ? "—" : String(Number(row.temperatureC).toFixed(1)),
+        {
+          x: colX[1],
+          y: rowY + 6,
+          size: 7,
+          font,
+        },
+      );
+      weatherPage.drawText(
+        row.windSpeedMs == null ? "—" : String(Number(row.windSpeedMs).toFixed(1)),
+        {
+          x: colX[2],
+          y: rowY + 6,
+          size: 7,
+          font,
+        },
+      );
+      weatherPage.drawText(
+        row.precipitationMm == null ? "0" : String(Number(row.precipitationMm).toFixed(1)),
+        {
+          x: colX[3],
+          y: rowY + 6,
+          size: 7,
+          font,
+        },
+      );
     }
   }
 
