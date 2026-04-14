@@ -64,7 +64,8 @@ export async  function systemPromptFunction(siteId, userId){
 
 
          const prompt_20_03_206 = `You will receive message from ${userName} (Call user by his name) about construction ` +
-    ` activities on site. If it is greeting, greet and adress him by his name. Your job extract all information you can gather from user message and save it calling the save_to_database tool `
+    ` activities on site. If it is greeting, greet and adress him by his name. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
+    correct date (for example if user reports yesterdays actvities save accordingly yesterdays date) `
      +
     `siteId : ${siteId}
     userId : ${userId}
