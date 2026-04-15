@@ -20,9 +20,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 
 export const NO_MATCH_VALUE = "no_match"
 const CREATE_VALUE = "__create_material_configuration__"
+const MAX_MATERIAL_KIND_LENGTH = 200
 
 export type MaterialCategory = {
   id: string
@@ -48,6 +50,7 @@ export default function MaterialConfigSelect({
   categories,
   measurements,
   materialTypes,
+  organizationLanguage,
 }: {
   siteId: string
   recordId: string
@@ -82,6 +85,7 @@ export default function MaterialConfigSelect({
   categories: MaterialCategory[]
   measurements: Array<{ id: string; name: string }>
   materialTypes: MaterialTypeOption[]
+  organizationLanguage?: string | null
 }) {
   const [pending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -91,6 +95,26 @@ export default function MaterialConfigSelect({
   const [measurement, setMeasurement] = React.useState("")
   const [files, setFiles] = React.useState<File[]>([])
   const [categorySearch, setCategorySearch] = React.useState("")
+  const language = normalizeOrganizationLanguage(organizationLanguage)
+  const tr = React.useMemo(
+    () =>
+      language === "lv"
+        ? {
+            createDialogTitle: "Izvēlēties BIS materiālus un pielikumus",
+            createDialogDescription:
+              "Izveidojiet jaunu BIS konfigurāciju. Pielikumi nav obligāti — ierakstu var nosūtīt uz BIS arī bez tiem.",
+            materialKind: "Darbu apraksts",
+            materialKindHint: "Maksimums 200 rakstzīmes",
+          }
+        : {
+            createDialogTitle: "Select BIS materials and attachments",
+            createDialogDescription:
+              "Create a new BIS configuration. Attachments are optional — records can be sent to BIS without them.",
+            materialKind: "Work description",
+            materialKindHint: "Maximum 200 characters",
+          },
+    [language],
+  )
 
   const selectedValue =
     value && value !== NO_MATCH_VALUE ? value : NO_MATCH_VALUE
@@ -116,7 +140,15 @@ export default function MaterialConfigSelect({
     startTransition(async () => {
       try {
         if (!materialKind.trim()) {
-          toast.error("Material kind is required")
+          toast.error(language === "lv" ? "Darbu apraksts ir obligāts" : "Work description is required")
+          return
+        }
+        if (materialKind.trim().length > MAX_MATERIAL_KIND_LENGTH) {
+          toast.error(
+            language === "lv"
+              ? "Darbu apraksts nedrīkst pārsniegt 200 rakstzīmes"
+              : "Work description must be 200 characters or less",
+          )
           return
         }
         if (!measurement) {
@@ -211,7 +243,7 @@ export default function MaterialConfigSelect({
         }}
         disabled={disabled || pending}
       >
-        <SelectTrigger className="w-full min-w-0">
+        <SelectTrigger className="w-full min-w-0 rounded-md border-slate-300 bg-white">
           <SelectValue placeholder="Select configuration" />
         </SelectTrigger>
 
@@ -235,22 +267,29 @@ export default function MaterialConfigSelect({
       </Select>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>Create BIS material configuration</DialogTitle>
+            <DialogTitle>{tr.createDialogTitle}</DialogTitle>
             <DialogDescription>
-              Create a new configuration and attach supporting files before sending it to BIS.
+              {tr.createDialogDescription}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3">
+          <div className="space-y-4 rounded-lg border bg-slate-50/60 p-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Material kind</label>
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-sm font-medium">{tr.materialKind}</label>
+                <span className="text-xs text-muted-foreground">
+                  {materialKind.length}/{MAX_MATERIAL_KIND_LENGTH}
+                </span>
+              </div>
               <Input
                 value={materialKind}
                 onChange={(event) => setMaterialKind(event.target.value)}
                 placeholder="E.g. Concrete C30/37"
+                maxLength={MAX_MATERIAL_KIND_LENGTH}
               />
+              <p className="text-xs text-muted-foreground">{tr.materialKindHint}</p>
             </div>
 
             <div className="space-y-2">

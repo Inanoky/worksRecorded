@@ -1242,6 +1242,7 @@ export default function MaterialsTableClient({
                             siteId={siteId}
                             recordId={r.id}
                             value={hasValidConfiguration ? r.categoryId : null}
+                            organizationLanguage={organizationLanguage}
                             disabled={isSent}
                             onSave={handleConfigChange}
                             onCreate={handleCreateMaterialConfiguration}
