@@ -40,6 +40,7 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 
 
@@ -400,6 +401,8 @@ export default function SiteDiaryCalendar({
   const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
   const [galleryAttachmentPage, setGalleryAttachmentPage] = React.useState(1);
   const [showBisUi, setShowBisUi] = React.useState(true);
+  const [selectedRecordIds, setSelectedRecordIds] = React.useState<Set<string>>(new Set());
+  const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const bisUiEnabled = bisEnabled && showBisUi;
 
   const reloadFilledDays = React.useCallback(() => {
@@ -640,6 +643,117 @@ export default function SiteDiaryCalendar({
       }))
       .filter((group) => group.rows.length > 0);
   }, [dayGroups, keywordFilter]);
+
+  const visibleRecordIds = React.useMemo(
+    () =>
+      keywordMatchedDayGroups.flatMap((group) =>
+        group.rows
+          .map((row) => row.id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    [keywordMatchedDayGroups],
+  );
+
+  const selectedVisibleCount = React.useMemo(
+    () => visibleRecordIds.filter((id) => selectedRecordIds.has(id)).length,
+    [selectedRecordIds, visibleRecordIds],
+  );
+
+  const allVisibleSelected =
+    visibleRecordIds.length > 0 && selectedVisibleCount === visibleRecordIds.length;
+
+  React.useEffect(() => {
+    const knownIds = new Set(rows.map((row) => row.id).filter((id): id is string => Boolean(id)));
+    setSelectedRecordIds((prev) => {
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (knownIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [rows]);
+
+  const sourcePopoverClassName =
+    "w-[calc(100vw-2rem)] max-w-xl max-h-[70vh] overflow-y-auto whitespace-pre-wrap break-words text-sm";
+
+  const toggleRecordSelection = (recordId: string, checked: boolean) => {
+    setSelectedRecordIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(recordId);
+      } else {
+        next.delete(recordId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAllVisible = (checked: boolean) => {
+    setSelectedRecordIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        visibleRecordIds.forEach((id) => next.add(id));
+      } else {
+        visibleRecordIds.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDeleteRecords = async () => {
+    if (selectedRecordIds.size === 0) {
+      toast.error("No records selected.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete ${selectedRecordIds.size} selected site diary record(s)? This action cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      setBulkDeleteLoading(true);
+      const recordIds = Array.from(selectedRecordIds);
+      const results = await Promise.allSettled(
+        recordIds.map((id) => deleteSiteDiaryRecord({ id })),
+      );
+      const deletedIds = recordIds.filter((_, index) => results[index].status === "fulfilled");
+      const failedCount = results.length - deletedIds.length;
+
+      if (deletedIds.length > 0) {
+        setSelectedRecordIds((prev) => {
+          const next = new Set(prev);
+          deletedIds.forEach((id) => next.delete(id));
+          return next;
+        });
+        setBisSentRowIds((prev) => {
+          const next = new Set(prev);
+          deletedIds.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+
+      await refreshRowsWithBisSync();
+      reloadFilledDays();
+
+      if (deletedIds.length > 0 && failedCount === 0) {
+        toast.success(`Deleted ${deletedIds.length} record(s).`);
+      } else if (deletedIds.length > 0) {
+        toast.warning(`Deleted ${deletedIds.length} record(s), ${failedCount} failed.`);
+      } else {
+        toast.error("Failed to delete selected records.");
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Failed to delete selected records.");
+    } finally {
+      setBulkDeleteLoading(false);
+    }
+  };
 
   const clearFilters = () => {
     setDateFrom(null);
@@ -1379,6 +1493,38 @@ export default function SiteDiaryCalendar({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    {keywordMatchedDayGroups.length > 0 ? (
+                      <div className="inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs sm:text-sm">
+                        <Checkbox
+                          checked={allVisibleSelected}
+                          onCheckedChange={(checked) =>
+                            handleToggleSelectAllVisible(checked === true)
+                          }
+                          aria-label="Select all visible records"
+                        />
+                        <span className="text-muted-foreground">
+                          {selectedVisibleCount}/{visibleRecordIds.length}
+                        </span>
+                      </div>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={bulkDeleteLoading || selectedRecordIds.size === 0}
+                      onClick={handleBulkDeleteRecords}
+                    >
+                      {bulkDeleteLoading ? (
+                        <>
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="mr-1 h-3.5 w-3.5" />
+                          Delete selected ({selectedRecordIds.size})
+                        </>
+                      )}
+                    </Button>
                     {bisEnabled ? (
                       <button
                         type="button"
@@ -1543,12 +1689,23 @@ export default function SiteDiaryCalendar({
 
                       <CardContent className="px-2 pb-3 sm:px-4">
                         {/* MOBILE: stacked record cards */}
-                        <div className="space-y-2 sm:hidden">
+                        <div className="space-y-2 lg:hidden">
                           {group.rows.map((r, idx) => (
                             <div
                               key={r.id ?? `${group.key}-${idx}`}
                               className="rounded-md border bg-muted/40 p-2 text-[11px]"
                             >
+                              {r.id ? (
+                                <div className="mb-2 flex justify-end">
+                                  <Checkbox
+                                    checked={selectedRecordIds.has(r.id)}
+                                    onCheckedChange={(checked) =>
+                                      toggleRecordSelection(r.id as string, checked === true)
+                                    }
+                                    aria-label={`Select record ${r.id}`}
+                                  />
+                                </div>
+                              ) : null}
                               <div className="flex flex-wrap items-baseline justify-between gap-1">
                                 <span className="font-medium">
                                   {r.Location || t.noLocation}
@@ -1689,7 +1846,7 @@ export default function SiteDiaryCalendar({
                                         ?
                                       </button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="max-w-sm whitespace-pre-wrap break-words text-sm">
+                                    <PopoverContent className={sourcePopoverClassName}>
                                       {r.originalUserComment}
                                     </PopoverContent>
                                   </Popover>
@@ -1700,7 +1857,7 @@ export default function SiteDiaryCalendar({
                         </div>
 
                         {/* DESKTOP: table view */}
-                        <div className="hidden sm:block overflow-x-auto">
+                        <div className="hidden lg:block overflow-x-auto">
                           {(() => {
                             const formattedGroupRows = group.rows.map((r) => ({
                               id: r.id ?? undefined,
@@ -1718,6 +1875,18 @@ export default function SiteDiaryCalendar({
                                 {/* HEADER */}
                                 <TableHeader>
                                   <TableRow>
+                                    <TableHead
+                                      className="text-center"
+                                      style={{ width: 52 }}
+                                    >
+                                      <Checkbox
+                                        checked={allVisibleSelected}
+                                        onCheckedChange={(checked) =>
+                                          handleToggleSelectAllVisible(checked === true)
+                                        }
+                                        aria-label="Select all visible records"
+                                      />
+                                    </TableHead>
                                     {tableHeads.map((head) => {
                                       if (head === "createdAt") {
                                         return (
@@ -1786,6 +1955,20 @@ export default function SiteDiaryCalendar({
                                 <TableBody>
                                   {formattedGroupRows.map((row, i) => (
                                     <TableRow key={row.id ?? `${group.key}-${i}`}>
+                                      <TableCell
+                                        className="align-top px-3 py-3 text-center"
+                                        style={{ width: 52 }}
+                                      >
+                                        {row.id ? (
+                                          <Checkbox
+                                            checked={selectedRecordIds.has(row.id)}
+                                            onCheckedChange={(checked) =>
+                                              toggleRecordSelection(row.id as string, checked === true)
+                                            }
+                                            aria-label={`Select record ${row.id}`}
+                                          />
+                                        ) : null}
+                                      </TableCell>
                                       {tableHeads.map((field) => {
                                         if (field === "createdAt") {
                                           return (
@@ -1981,7 +2164,7 @@ export default function SiteDiaryCalendar({
   ?
 </button>
                                             </PopoverTrigger>
-                                            <PopoverContent className="max-w-sm whitespace-pre-wrap break-words text-sm">
+                                            <PopoverContent className={sourcePopoverClassName}>
                                               {row.originalUserComment}
                                             </PopoverContent>
                                           </Popover>
