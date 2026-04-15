@@ -516,7 +516,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     sending: "Sūta...",
     sendToBis: "Sūtīt uz BIS",
     approved: "Apstiprināts",
-    sentForApproval: "Nosūtīts apstiprināšanai",
+    sentForApproval: "Apstiprināšana",
     sendForApproval: "Sūtīt apstiprināšanai",
     copyToDate: "Kopēt uz datumu",
     openInBis: "Atvērt BIS",
@@ -772,7 +772,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     save: "Saglabāt",
     cancel: "Atcelt",
     approved: "Apstiprināts",
-    sentForApproval: "Nosūtīts apstiprināšanai",
+    sentForApproval: "Apstiprināšana",
   },
 };
 

@@ -471,7 +471,7 @@ export async function POST(req: Request): Promise<Response> {
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           to: message.from,
-          text: { body: `Form is Submitted` },
+          text: { body: `Form is submitted, thank you!` },
         });
 
         if (formName === "material_form") {
