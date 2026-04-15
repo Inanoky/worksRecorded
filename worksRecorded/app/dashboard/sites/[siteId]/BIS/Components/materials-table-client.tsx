@@ -1101,8 +1101,8 @@ export default function MaterialsTableClient({
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-        <div className="w-full overflow-hidden">
-          <Table className="w-full table-fixed text-sm">
+        <div className="w-full overflow-x-auto">
+          <Table className="min-w-[1320px] text-sm">
             <TableHeader>
               <TableRow className="bg-muted/40 [&_th]:px-3 [&_th]:py-3">
                 <TableHead className="w-12">
@@ -1248,6 +1248,7 @@ export default function MaterialsTableClient({
                             categories={configurations}
                             measurements={measures}
                             materialTypes={types}
+                            selectConfigurationLabel={t.selectConfiguration}
                           />
                         </TableCell>
                       ) : null}
@@ -1346,6 +1347,8 @@ export default function MaterialsTableClient({
                                 materialDate={r.materialDate}
                                 onAttachCertificate={attachCertificate}
                                 action={handleSendToBis}
+                                sendLabel={t.sendToBis}
+                                selectConfigurationLabel={t.selectConfiguration}
                               />
                             ) : showBisControls && !isApproved && !isAwaitingApproval ? (
                               <Button

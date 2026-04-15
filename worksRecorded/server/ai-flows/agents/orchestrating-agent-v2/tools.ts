@@ -2,6 +2,7 @@ import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
+import { prisma } from "@/lib/utils/db";
 
 import SiteDiaryAgent from "@/server/ai-flows/agents/sitediary-agent/agent";
 import TimesheetsAgent from "@/server/ai-flows/agents/timeshets-agent/agent";
@@ -51,6 +52,74 @@ export const timeSheetsAgent = new DynamicStructuredTool({
     // console.log("[general_sql_agent] Tool returned:", result);
     return result;
 
+  },
+});
+
+export const bisMaterialRecordsTool = new DynamicStructuredTool({
+  name: "bisMaterialRecordsTool",
+  description:
+    "Read-only access to BIS material records from the warehouse table for a site. Use for material names, quantities, costs, BIS status, invoice dates and related metadata.",
+  schema: z.object({
+    prompt: z.string(),
+    siteId: z.string(),
+    limit: z.number().int().min(1).max(200).optional(),
+  }),
+  async func({ prompt, siteId, limit }) {
+    const maxRows = limit ?? 50;
+    const query = prompt.trim().toLowerCase();
+
+    const records = await prisma.BISmaterialRecords.findMany({
+      where: {
+        siteId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: maxRows,
+      select: {
+        id: true,
+        name: true,
+        quantity: true,
+        categoryName: true,
+        measurementUnit: true,
+        cost: true,
+        costCode: true,
+        invoiceNr: true,
+        invoiceDate: true,
+        materialDate: true,
+        BISId: true,
+        bisStatus: true,
+        createdAt: true,
+      },
+    });
+
+    const filtered = query
+      ? records.filter((record) =>
+          [
+            record.id,
+            record.name,
+            record.categoryName,
+            record.measurementUnit,
+            record.costCode,
+            record.invoiceNr,
+            record.BISId,
+            record.bisStatus,
+          ]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query)),
+        )
+      : records;
+
+    return JSON.stringify(
+      {
+        siteId,
+        totalFetched: records.length,
+        totalMatched: filtered.length,
+        rows: filtered,
+      },
+      null,
+      2,
+    );
   },
 });
 
@@ -215,6 +284,7 @@ export const tools = [
 
   siteDiaryRecordsTool,
   timeSheetsAgent,
+  bisMaterialRecordsTool,
    siteDiaryToDatabaseTool,
    webSearchTool,
    thePythonTool

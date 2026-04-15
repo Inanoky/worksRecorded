@@ -48,6 +48,7 @@ export default function MaterialConfigSelect({
   categories,
   measurements,
   materialTypes,
+  selectConfigurationLabel = "Select configuration",
 }: {
   siteId: string
   recordId: string
@@ -82,6 +83,7 @@ export default function MaterialConfigSelect({
   categories: MaterialCategory[]
   measurements: Array<{ id: string; name: string }>
   materialTypes: MaterialTypeOption[]
+  selectConfigurationLabel?: string
 }) {
   const [pending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -212,7 +214,7 @@ export default function MaterialConfigSelect({
         disabled={disabled || pending}
       >
         <SelectTrigger className="w-full min-w-0">
-          <SelectValue placeholder="Select configuration" />
+          <SelectValue placeholder={selectConfigurationLabel} />
         </SelectTrigger>
 
         <SelectContent>

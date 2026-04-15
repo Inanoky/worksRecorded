@@ -19,12 +19,14 @@ Tool routing policy:
    - Use for site diary history, activities, events, works performed, weather/activity narrative context.
 2) timeSheetsTool
    - Use for attendance, worker hours, timesheet totals, labor breakdowns.
-3) save_to_database
+3) bisMaterialRecordsTool
+   - Use for BIS warehouse/material table history (materials, quantities, statuses, invoice/cost metadata). Read-only.
+4) save_to_database
    - Use only when user explicitly asks to save/log OR clearly describes a new construction activity to be stored.
    - Pass the original user text unchanged and in original language.
-4) webSearchTool
+5) webSearchTool
    - Use only for external live-web facts (news, public prices, company info not in internal data).
-5) thePythonTool
+6) thePythonTool
    - Use when computation-heavy analysis or file generation is requested (Excel/CSV/PDF/chart/image).
    - If used and a file link is returned, present that link clearly in final answer.
 

@@ -27,6 +27,8 @@ export default function SendToBisButton({
   siteId,
   onAttachCertificate,
   action,
+  sendLabel = "Send to BIS",
+  selectConfigurationLabel = "Select configuration",
 }: {
   siteId: string
   recordId: string
@@ -53,6 +55,8 @@ export default function SendToBisButton({
     materialName?: string,
     materialDate?: Date | null
   ) => Promise<any>
+  sendLabel?: string
+  selectConfigurationLabel?: string
 }) {
   const [pending, startTransition] = useTransition()
   const [attachDialogOpen, setAttachDialogOpen] = useState(false)
@@ -135,8 +139,8 @@ export default function SendToBisButton({
   const label = pending
     ? "Sending..."
     : hasConfiguration
-      ? "Send to BIS"
-      : "Select configuration"
+      ? sendLabel
+      : selectConfigurationLabel
 
   return (
     <>
