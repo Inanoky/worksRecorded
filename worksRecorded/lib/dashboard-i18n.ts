@@ -79,10 +79,13 @@ type SiteDiaryListMessages = {
   action: string;
   source: string;
   copy: string;
+  selectBisMaterialsDialogTitle: string;
+  selectBisMaterialsDialogDescription: string;
   performedWorkDetails: string;
   bisEventDate: string;
   pickBisEventDate: string;
   worksDescription: string;
+  worksDescriptionLimit: string;
   bisMeasurementUnit: string;
   attachments: string;
   materialsFromCurrentBisCase: string;
@@ -97,6 +100,7 @@ type SiteDiaryListMessages = {
   noAttachmentsSelected: string;
   targetDate: string;
   noGalleryPhotos: string;
+  selectAttachmentsFromGalleryTitle: string;
   previous: string;
   next: string;
   done: string;
@@ -428,10 +432,14 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     action: "Action",
     source: "Source",
     copy: "Copy",
+    selectBisMaterialsDialogTitle: "Select BIS materials and attachments",
+    selectBisMaterialsDialogDescription:
+      "Select approved materials, adjust diary data to send, and optionally attach gallery images.",
     performedWorkDetails: "Performed work details",
     bisEventDate: "BIS event date",
     pickBisEventDate: "Pick BIS event date",
     worksDescription: "Works description",
+    worksDescriptionLimit: "Max 200 characters",
     bisMeasurementUnit: "BIS measurement unit",
     attachments: "Attachments",
     materialsFromCurrentBisCase: "Materials from current BIS case",
@@ -446,6 +454,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     noAttachmentsSelected: "No attachments selected. This is optional.",
     targetDate: "Target date",
     noGalleryPhotos: "No gallery photos available for this site.",
+    selectAttachmentsFromGalleryTitle: "Select attachments from gallery",
     previous: "Previous",
     next: "Next",
     done: "Done",
@@ -516,10 +525,14 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     action: "Darbība",
     source: "Avots",
     copy: "Kopēt",
+    selectBisMaterialsDialogTitle: "Atlasiet BIS materiālus un pielikumus",
+    selectBisMaterialsDialogDescription:
+      "Atlasiet apstiprinātos materiālus, pielāgojiet nosūtāmos žurnāla datus un pēc izvēles pievienojiet galerijas attēlus.",
     performedWorkDetails: "Veikto darbu informācija",
     bisEventDate: "BIS notikuma datums",
     pickBisEventDate: "Izvēlieties BIS notikuma datumu",
     worksDescription: "Darbu apraksts",
+    worksDescriptionLimit: "Maks. 200 rakstzīmes",
     bisMeasurementUnit: "BIS mērvienība",
     attachments: "Pielikumi",
     materialsFromCurrentBisCase: "Materiāli no pašreizējās BIS lietas",
@@ -534,6 +547,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     noAttachmentsSelected: "Nav atlasītu pielikumu. Tas nav obligāti.",
     targetDate: "Mērķa datums",
     noGalleryPhotos: "Šim objektam nav galerijas foto.",
+    selectAttachmentsFromGalleryTitle: "Atlasiet pielikumus no galerijas",
     previous: "Iepriekšējā",
     next: "Nākamā",
     done: "Gatavs",

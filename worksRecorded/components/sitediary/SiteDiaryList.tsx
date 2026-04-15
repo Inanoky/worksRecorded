@@ -2239,9 +2239,9 @@ export default function SiteDiaryCalendar({
         <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
           <DialogContent className="w-[99vw] max-w-[99vw] sm:max-w-[96vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[84vw] max-h-[96vh] overflow-y-auto p-6">
             <DialogHeader>
-              <DialogTitle>Select BIS materials and attachments</DialogTitle>
+              <DialogTitle>{t.selectBisMaterialsDialogTitle}</DialogTitle>
               <p className="text-xs text-muted-foreground">
-                Select approved materials, adjust diary data to send, and optionally attach gallery images.
+                {t.selectBisMaterialsDialogDescription}
               </p>
             </DialogHeader>
 
@@ -2292,12 +2292,18 @@ export default function SiteDiaryCalendar({
                       key={`works-${bisInputResetKey}`}
                       defaultValue={bisSubmitWorksRef.current}
                       onChange={(event) => {
-                        bisSubmitWorksRef.current = event.target.value;
+                        const truncatedValue = event.target.value.slice(0, 200);
+                        if (event.target.value !== truncatedValue) {
+                          event.target.value = truncatedValue;
+                        }
+                        bisSubmitWorksRef.current = truncatedValue;
                       }}
                       placeholder="Describe works sent to BIS"
                       rows={3}
+                      maxLength={200}
                       className="min-h-[84px]"
                     />
+                    <p className="text-[11px] text-muted-foreground">{t.worksDescriptionLimit}</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-foreground">
@@ -2557,7 +2563,7 @@ export default function SiteDiaryCalendar({
         <Dialog open={attachmentGalleryOpen} onOpenChange={setAttachmentGalleryOpen}>
           <DialogContent className="w-[98vw] max-w-[98vw] lg:max-w-7xl max-h-[94vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Select attachments from gallery</DialogTitle>
+              <DialogTitle>{t.selectAttachmentsFromGalleryTitle}</DialogTitle>
             </DialogHeader>
 
             {galleryAttachmentOptions.length === 0 ? (
