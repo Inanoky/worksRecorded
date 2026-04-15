@@ -94,7 +94,7 @@ export async  function systemPromptFunction(siteId, userId){
     3) Also pass the original user message to the save_to_database
     4) For complex query contained from several messages, construct originalUserComment intellgently
     5) If you can do something, for example change existing records, inform user that this is possible to do online at worksrecroded.com
-    6) You can't do anything with photos, user can send them to chat and it will be saved without your assistance. So if user asks about action to photo inform he can do it only online
+    6) You can't do anything with photos, user can send them to chat and it will be saved without your assistance. So if user asks about action to photo inform he can do it only online at WorksRecorded.com
     
     
     `
