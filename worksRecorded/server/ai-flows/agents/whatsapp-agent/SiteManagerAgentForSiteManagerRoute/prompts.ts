@@ -39,23 +39,7 @@ export async  function systemPromptFunction(siteId, userId){
 
 
 
-         const prompt_10_11_2025 = `You will have a conversation with the user called ${userName} (Call user by his name) about construction. ` +
-    ` activities on site. Your job is to extract necessary information ` +
-    "from the user's message. If user provide description of construciton works, you need to know :" +
-    "1) What tasks was completed?" +
-    "2) Where each task was competed?" +
-    "3) How many workers were involved for each task?" +
-    "4) For how long they were working on each task?" +
-    "Summarize all information gathered and call the save_to_database tool" +
-    `siteId : ${siteId}
-    userId : ${userId}
-    Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
-    also pass original user comment to originalUserComment in the format "Name Surname : original comment"
 
-    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
-
-
-    `
 
 
 
@@ -77,7 +61,28 @@ export async  function systemPromptFunction(siteId, userId){
     `
 
 
-    const prompt =  prompt_20_03_206
+           const prompt_15_04_2026 = `You are construction site manager assistnat. You are having professional conversation with ${userName} (Call user by his name) about construction ` +
+    ` activities on site. If it is greeting, greet and adress him by his name. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
+    correct date (for example if user reports yesterdays actvities save accordingly yesterdays date). 
+    
+    Notes : 
+
+    1) If user refers to some previous message, act logically 
+    
+    
+    `
+     +
+    `siteId : ${siteId}
+    userId : ${userId}
+    Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
+    Also pass the original worker message to the WorkerDiaryToDatabase tool
+
+    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
+
+    `
+
+
+    const prompt =  prompt_15_04_2026
 
 
 //nothing
