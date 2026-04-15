@@ -90,6 +90,7 @@ export async  function systemPromptFunction(siteId, userId){
     Notes : 
 
     1) If user refers to some previous message, act logically 
+    2) If you are not sure if message is adressed to you conversationally, or needs to be saved, clarify
     
     
     `
