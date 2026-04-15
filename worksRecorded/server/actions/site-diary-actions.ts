@@ -1688,7 +1688,7 @@ export async function sendSiteDiaryRecordToBis(
     : (diaryRecord.Date ?? new Date()).toISOString().slice(0, 10);
   const eventTimeFrom = new Date().toTimeString().slice(0, 5);
   const amountValue = Number(options?.amount ?? diaryRecord.Amounts ?? 1);
-  const descriptionOverride = options?.worksDescription?.trim();
+  const descriptionOverride = options?.worksDescription?.trim().slice(0, 200);
 
   const bisWeather = await getBisWeatherSummaryForSiteDay(recordSite.siteId, eventDate);
   console.log("[BIS submit] weather summary result", {
@@ -1749,6 +1749,27 @@ export async function sendSiteDiaryRecordToBis(
     detailAttributes,
   });
 
+  const relationships: Record<string, unknown> = {
+    detail: {
+      data: {
+        type: "performed_work",
+        attributes: detailAttributes,
+      },
+    },
+  };
+
+  if (attachments.length > 0) {
+    relationships.attachments = {
+      data: attachments,
+    };
+  }
+
+  if (logbookUsedConstructionMaterials.length > 0) {
+    relationships.logbook_used_construction_materials = {
+      data: logbookUsedConstructionMaterials,
+    };
+  }
+
   const payload = {
     data: {
       type: "performed_work",
@@ -1761,20 +1782,7 @@ export async function sendSiteDiaryRecordToBis(
         description:
           descriptionParts.join("; ") || "Site diary entry sent from worksRecorded",
       },
-      relationships: {
-        detail: {
-          data: {
-            type: "performed_work",
-            attributes: detailAttributes,
-          },
-        },
-        attachments: {
-          data: attachments,
-        },
-        logbook_used_construction_materials: {
-          data: logbookUsedConstructionMaterials,
-        },
-      },
+      relationships,
     },
   };
 

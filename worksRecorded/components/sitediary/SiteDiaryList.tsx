@@ -395,6 +395,7 @@ export default function SiteDiaryCalendar({
   const [bisSubmitDate, setBisSubmitDate] = React.useState<Date | null>(null);
   const bisSubmitWorksRef = React.useRef("");
   const bisSubmitAmountRef = React.useRef<string>("1");
+  const [bisSubmitAmountInput, setBisSubmitAmountInput] = React.useState<string>("1");
   const [bisInputResetKey, setBisInputResetKey] = React.useState(0);
   const [bisSubmitMeasurement, setBisSubmitMeasurement] = React.useState<string>("12");
   const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
@@ -850,7 +851,9 @@ export default function SiteDiaryCalendar({
     setSelectedRowForBis(row);
     setBisSubmitDate(row.Date ? new Date(row.Date) : new Date());
     bisSubmitWorksRef.current = String(row.Works ?? "");
-    bisSubmitAmountRef.current = String(row.Amounts ?? 1);
+    const initialAmount = String(row.Amounts ?? 1);
+    bisSubmitAmountRef.current = initialAmount;
+    setBisSubmitAmountInput(initialAmount);
     setBisInputResetKey((value) => value + 1);
     setBisPickerOpen(true);
     setBisPickerLoading(true);
@@ -979,6 +982,11 @@ export default function SiteDiaryCalendar({
       setGalleryAttachmentPage(galleryTotalPages);
     }
   }, [galleryAttachmentPage, galleryTotalPages]);
+
+  const bisAmountValue = Number.parseFloat(
+    String(bisSubmitAmountInput || "").replace(",", "."),
+  );
+  const canSendToBisByAmount = Number.isFinite(bisAmountValue) && bisAmountValue > 0;
 
   const openApprovalDialog = async (row: DiaryRow) => {
     if (!row.id || !row.BISId) {
@@ -1137,21 +1145,22 @@ export default function SiteDiaryCalendar({
       })
       .filter((material) => material.quantity > 0);
 
-    if (selectedMaterials.length === 0) {
-      toast.error("Please select at least one material.");
-      return;
-    }
-
     try {
       setBisSendingRowId(selectedRowForBis.id);
 
-      const parsedAmount = Number(bisSubmitAmountRef.current);
+      const parsedAmount = Number.parseFloat(
+        String(bisSubmitAmountRef.current ?? "").replace(",", "."),
+      );
+      if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+        toast.error("Amount must be greater than 0.");
+        return;
+      }
       await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
         materials: selectedMaterials,
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
         eventDate: bisSubmitDate ? bisSubmitDate.toISOString() : undefined,
         worksDescription: bisSubmitWorksRef.current,
-        amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
+        amount: parsedAmount,
         measurement: bisSubmitMeasurement,
       });
 
@@ -2239,9 +2248,9 @@ export default function SiteDiaryCalendar({
         <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
           <DialogContent className="w-[99vw] max-w-[99vw] sm:max-w-[96vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[84vw] max-h-[96vh] overflow-y-auto p-6">
             <DialogHeader>
-              <DialogTitle>Select BIS materials and attachments</DialogTitle>
+              <DialogTitle>{t.selectBisMaterialsDialogTitle}</DialogTitle>
               <p className="text-xs text-muted-foreground">
-                Select approved materials, adjust diary data to send, and optionally attach gallery images.
+                {t.selectBisMaterialsDialogDescription}
               </p>
             </DialogHeader>
 
@@ -2292,12 +2301,18 @@ export default function SiteDiaryCalendar({
                       key={`works-${bisInputResetKey}`}
                       defaultValue={bisSubmitWorksRef.current}
                       onChange={(event) => {
-                        bisSubmitWorksRef.current = event.target.value;
+                        const truncatedValue = event.target.value.slice(0, 200);
+                        if (event.target.value !== truncatedValue) {
+                          event.target.value = truncatedValue;
+                        }
+                        bisSubmitWorksRef.current = truncatedValue;
                       }}
                       placeholder="Describe works sent to BIS"
                       rows={3}
+                      maxLength={200}
                       className="min-h-[84px]"
                     />
+                    <p className="text-[11px] text-muted-foreground">{t.worksDescriptionLimit}</p>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-foreground">
@@ -2310,6 +2325,7 @@ export default function SiteDiaryCalendar({
                       defaultValue={bisSubmitAmountRef.current}
                       onChange={(event) => {
                         bisSubmitAmountRef.current = event.target.value;
+                        setBisSubmitAmountInput(event.target.value);
                       }}
                       placeholder="Enter amount"
                     />
@@ -2433,7 +2449,7 @@ export default function SiteDiaryCalendar({
                     onClick={handleSendRowToBis}
                     disabled={
                       Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
-                      Object.values(materialQuantitiesRef.current).every((qty) => (Number.parseFloat(qty || "") || 0) <= 0)
+                      !canSendToBisByAmount
                     }
                   >
                     {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
@@ -2557,7 +2573,7 @@ export default function SiteDiaryCalendar({
         <Dialog open={attachmentGalleryOpen} onOpenChange={setAttachmentGalleryOpen}>
           <DialogContent className="w-[98vw] max-w-[98vw] lg:max-w-7xl max-h-[94vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Select attachments from gallery</DialogTitle>
+              <DialogTitle>{t.selectAttachmentsFromGalleryTitle}</DialogTitle>
             </DialogHeader>
 
             {galleryAttachmentOptions.length === 0 ? (
