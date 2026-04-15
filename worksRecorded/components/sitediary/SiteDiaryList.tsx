@@ -679,7 +679,7 @@ export default function SiteDiaryCalendar({
   }, [rows]);
 
   const sourcePopoverClassName =
-    "w-[calc(100vw-2rem)] max-w-xl max-h-[70vh] overflow-y-auto whitespace-pre-wrap break-words text-sm";
+    "w-[calc(100vw-1.5rem)] max-w-lg max-h-[70vh] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed sm:text-sm";
 
   const toggleRecordSelection = (recordId: string, checked: boolean) => {
     setSelectedRecordIds((prev) => {
@@ -700,6 +700,18 @@ export default function SiteDiaryCalendar({
         visibleRecordIds.forEach((id) => next.add(id));
       } else {
         visibleRecordIds.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectForDay = (recordIds: string[], checked: boolean) => {
+    setSelectedRecordIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        recordIds.forEach((id) => next.add(id));
+      } else {
+        recordIds.forEach((id) => next.delete(id));
       }
       return next;
     });
@@ -1507,24 +1519,26 @@ export default function SiteDiaryCalendar({
                         </span>
                       </div>
                     ) : null}
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={bulkDeleteLoading || selectedRecordIds.size === 0}
-                      onClick={handleBulkDeleteRecords}
-                    >
-                      {bulkDeleteLoading ? (
-                        <>
-                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                          Deleting...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="mr-1 h-3.5 w-3.5" />
-                          Delete selected ({selectedRecordIds.size})
-                        </>
-                      )}
-                    </Button>
+                    {selectedRecordIds.size > 0 ? (
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        disabled={bulkDeleteLoading}
+                        onClick={handleBulkDeleteRecords}
+                      >
+                        {bulkDeleteLoading ? (
+                          <>
+                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
+                            Delete selected ({selectedRecordIds.size})
+                          </>
+                        )}
+                      </Button>
+                    ) : null}
                     {bisEnabled ? (
                       <button
                         type="button"
@@ -1859,6 +1873,15 @@ export default function SiteDiaryCalendar({
                         {/* DESKTOP: table view */}
                         <div className="hidden lg:block overflow-x-auto">
                           {(() => {
+                            const dayRecordIds = group.rows
+                              .map((r) => r.id)
+                              .filter((id): id is string => Boolean(id));
+                            const selectedDayCount = dayRecordIds.filter((id) =>
+                              selectedRecordIds.has(id),
+                            ).length;
+                            const allDaySelected =
+                              dayRecordIds.length > 0 && selectedDayCount === dayRecordIds.length;
+
                             const formattedGroupRows = group.rows.map((r) => ({
                               id: r.id ?? undefined,
                               originalUserComment: r.originalUserComment ?? "",
@@ -1880,11 +1903,11 @@ export default function SiteDiaryCalendar({
                                       style={{ width: 52 }}
                                     >
                                       <Checkbox
-                                        checked={allVisibleSelected}
+                                        checked={allDaySelected}
                                         onCheckedChange={(checked) =>
-                                          handleToggleSelectAllVisible(checked === true)
+                                          handleToggleSelectForDay(dayRecordIds, checked === true)
                                         }
-                                        aria-label="Select all visible records"
+                                        aria-label={`Select all records for ${dayLabel(group.date)}`}
                                       />
                                     </TableHead>
                                     {tableHeads.map((head) => {
