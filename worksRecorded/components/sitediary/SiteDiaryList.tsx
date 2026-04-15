@@ -394,7 +394,7 @@ export default function SiteDiaryCalendar({
   const [copyLoading, setCopyLoading] = React.useState(false);
   const [bisSubmitDate, setBisSubmitDate] = React.useState<Date | null>(null);
   const bisSubmitWorksRef = React.useRef("");
-  const bisSubmitAmountRef = React.useRef<string>("1");
+  const [bisSubmitAmount, setBisSubmitAmount] = React.useState<string>("1");
   const [bisInputResetKey, setBisInputResetKey] = React.useState(0);
   const [bisSubmitMeasurement, setBisSubmitMeasurement] = React.useState<string>("12");
   const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
@@ -850,7 +850,7 @@ export default function SiteDiaryCalendar({
     setSelectedRowForBis(row);
     setBisSubmitDate(row.Date ? new Date(row.Date) : new Date());
     bisSubmitWorksRef.current = String(row.Works ?? "");
-    bisSubmitAmountRef.current = String(row.Amounts ?? 1);
+    setBisSubmitAmount(String(row.Amounts ?? 1));
     setBisInputResetKey((value) => value + 1);
     setBisPickerOpen(true);
     setBisPickerLoading(true);
@@ -1137,15 +1137,10 @@ export default function SiteDiaryCalendar({
       })
       .filter((material) => material.quantity > 0);
 
-    if (selectedMaterials.length === 0) {
-      toast.error("Please select at least one material.");
-      return;
-    }
-
     try {
       setBisSendingRowId(selectedRowForBis.id);
 
-      const parsedAmount = Number(bisSubmitAmountRef.current);
+      const parsedAmount = Number(bisSubmitAmount);
       await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
         materials: selectedMaterials,
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
@@ -2313,9 +2308,9 @@ export default function SiteDiaryCalendar({
                       key={`amount-${bisInputResetKey}`}
                       type="text"
                       inputMode="decimal"
-                      defaultValue={bisSubmitAmountRef.current}
+                      value={bisSubmitAmount}
                       onChange={(event) => {
-                        bisSubmitAmountRef.current = event.target.value;
+                        setBisSubmitAmount(event.target.value);
                       }}
                       placeholder="Enter amount"
                     />
@@ -2439,7 +2434,7 @@ export default function SiteDiaryCalendar({
                     onClick={handleSendRowToBis}
                     disabled={
                       Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
-                      Object.values(materialQuantitiesRef.current).every((qty) => (Number.parseFloat(qty || "") || 0) <= 0)
+                      (Number.parseFloat(bisSubmitAmount || "") || 0) <= 0
                     }
                   >
                     {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
