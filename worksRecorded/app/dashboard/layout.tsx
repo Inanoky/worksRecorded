@@ -136,7 +136,7 @@ export default async function DashboardLayout({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md rounded-xl border bg-background shadow-lg">
+          <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-xl border bg-background shadow-lg">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <div className="font-semibold">Contact us</div>
               <a
@@ -148,8 +148,8 @@ export default async function DashboardLayout({
               </a>
             </div>
 
-            <div className="px-4 py-4 space-y-3">
-              <div className="text-sm text-muted-foreground">
+            <div className="space-y-3 px-4 py-4 sm:px-5">
+              <div className="text-sm leading-relaxed text-muted-foreground">
                 Contact us any time if you have any questions or problems.
               </div>
 
@@ -157,7 +157,7 @@ export default async function DashboardLayout({
                 <div className="text-sm">
                   <div className="text-muted-foreground">Email</div>
                   <a
-                    className="font-medium underline underline-offset-4"
+                    className="block max-w-full break-all text-sm font-medium underline underline-offset-4 sm:break-words"
                     href="mailto:vjaceslavs.gromatovics@buvconsult.com"
                   >
                     vjaceslavs.gromatovics@buvconsult.com
@@ -175,15 +175,15 @@ export default async function DashboardLayout({
                 </div>
               </div>
 
-              <div className="pt-2 flex gap-2 justify-end">
+              <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
                 <a href="#" className="inline-flex">
-                  <Button variant="secondary">Close</Button>
+                  <Button variant="secondary" className="w-full sm:w-auto">Close</Button>
                 </a>
                 <a
                   href="mailto:vjaceslavs.gromatovics@buvconsult.com"
                   className="inline-flex"
                 >
-                  <Button>Email us</Button>
+                  <Button className="w-full sm:w-auto">Email us</Button>
                 </a>
               </div>
             </div>
