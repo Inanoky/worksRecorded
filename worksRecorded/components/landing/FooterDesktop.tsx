@@ -5,7 +5,6 @@ import {
   CardFooter,
   CardTitle,
   CardDescription,
-  CardAction,
   CardContent,
 } from "@/components/ui/card";
 import { useLocale } from "next-intl";
@@ -15,8 +14,8 @@ export default function FooterDesktop() {
 
   return (
     <>
-      <div className="grid grid-cols-4 p-15 gap-5">
-        <div className="space-y-6 mt-6 text-base leading-snug">
+      <div className="grid grid-cols-1 gap-6 p-6 sm:grid-cols-2 sm:p-10 lg:grid-cols-4">
+        <div className="mt-2 space-y-6 text-base leading-snug sm:mt-6">
           <p>WorksRecorded</p>
 
           <div className="text-muted-foreground space-y-2">
@@ -31,7 +30,7 @@ export default function FooterDesktop() {
           </div>
         </div>
 
-        <div className="space-y-4 mt-6 text-base leading-snug">
+        <div className="mt-2 space-y-4 text-base leading-snug sm:mt-6">
           <h1>Data</h1>
 
           <p>
@@ -52,7 +51,7 @@ export default function FooterDesktop() {
           </p>
         </div>
 
-        <div className="space-y-4 mt-6 text-base leading-snug">
+        <div className="mt-2 space-y-4 text-base leading-snug sm:mt-6">
           <p>Features</p>
           <div className="space-y-4 text-muted-foreground">
             <p>
@@ -79,24 +78,34 @@ export default function FooterDesktop() {
         </div>
 
         <div className="justify-center">
-          <Card className="h-full">
-            <CardHeader>
+          <Card className="h-full min-w-0">
+            <CardHeader className="space-y-2">
               <CardTitle>Contact</CardTitle>
               <CardDescription>
-                <h4 className="text-3xl">
+                <h4 className="text-2xl sm:text-3xl">
                   Works<span className="text-primary">Recorded</span>
                 </h4>
               </CardDescription>
-              <CardAction>Contact us anytime!</CardAction>
+              <p className="text-sm leading-snug text-muted-foreground">Contact us anytime!</p>
             </CardHeader>
             <CardContent>
-              <p>
-                <a href="tel:+37124885690">tel. +371 24885690</a>
+              <p className="min-w-0">
+                <a
+                  href="tel:+37124885690"
+                  className="inline-block max-w-full break-words underline underline-offset-4"
+                >
+                  tel. +371 24885690
+                </a>
               </p>
             </CardContent>
             <CardFooter>
-              <p>
-                <a href="mailto:vjaceslavs@worksrecorded.com">vjaceslavs@worksrecorded.com</a>
+              <p className="min-w-0">
+                <a
+                  href="mailto:vjaceslavs@worksrecorded.com"
+                  className="inline-block max-w-full break-all text-sm underline underline-offset-4 sm:text-base"
+                >
+                  vjaceslavs@worksrecorded.com
+                </a>
               </p>
             </CardFooter>
           </Card>

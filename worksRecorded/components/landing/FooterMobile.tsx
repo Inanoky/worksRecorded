@@ -7,7 +7,6 @@ import {
   CardFooter,
   CardTitle,
   CardDescription,
-  CardAction,
   CardContent,
 } from "@/components/ui/card";
 import { useLocale } from "next-intl";
@@ -63,7 +62,7 @@ export default function FooterMobile() {
           </div>
 
           <div>
-            <Card className="h-full">
+            <Card className="h-full min-w-0">
               <CardHeader className="pb-2">
                 <CardTitle>Contact</CardTitle>
                 <CardDescription>
@@ -71,18 +70,26 @@ export default function FooterMobile() {
                     Works<span className="text-primary">Recorded</span>
                   </h4>
                 </CardDescription>
-                <CardAction>Contact us anytime!</CardAction>
+                <p className="text-sm leading-snug text-muted-foreground">Contact us anytime!</p>
               </CardHeader>
               <CardContent className="pt-2 text-sm sm:text-base">
-                <p>
-                  <a href="tel:+37124885690" className="underline underline-offset-4">
+                <p className="min-w-0">
+                  <a
+                    href="tel:+37124885690"
+                    className="inline-block max-w-full break-words underline underline-offset-4"
+                  >
                     tel. +371 24885690
                   </a>
                 </p>
               </CardContent>
               <CardFooter className="text-sm sm:text-base">
-                <p>
-                  <a href="mailto:vjaceslavs@worksrecorded.com">vjaceslavs@worksrecorded.com</a>
+                <p className="min-w-0">
+                  <a
+                    href="mailto:vjaceslavs@worksrecorded.com"
+                    className="inline-block max-w-full break-all underline underline-offset-4"
+                  >
+                    vjaceslavs@worksrecorded.com
+                  </a>
                 </p>
               </CardFooter>
             </Card>
