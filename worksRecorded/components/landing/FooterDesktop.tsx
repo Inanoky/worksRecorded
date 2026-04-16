@@ -79,7 +79,7 @@ export default function FooterDesktop() {
         </div>
 
         <div className="justify-center">
-          <Card className="h-full">
+          <Card className="h-full min-w-0">
             <CardHeader>
               <CardTitle>Contact</CardTitle>
               <CardDescription>
@@ -87,16 +87,26 @@ export default function FooterDesktop() {
                   Works<span className="text-primary">Recorded</span>
                 </h4>
               </CardDescription>
-              <CardAction>Contact us anytime!</CardAction>
+              <CardAction className="text-sm leading-snug">Contact us anytime!</CardAction>
             </CardHeader>
             <CardContent>
-              <p>
-                <a href="tel:+37124885690">tel. +371 24885690</a>
+              <p className="min-w-0">
+                <a
+                  href="tel:+37124885690"
+                  className="inline-block max-w-full break-words underline underline-offset-4"
+                >
+                  tel. +371 24885690
+                </a>
               </p>
             </CardContent>
             <CardFooter>
-              <p>
-                <a href="mailto:vjaceslavs@worksrecorded.com">vjaceslavs@worksrecorded.com</a>
+              <p className="min-w-0">
+                <a
+                  href="mailto:vjaceslavs@worksrecorded.com"
+                  className="inline-block max-w-full break-all text-sm sm:text-base underline underline-offset-4"
+                >
+                  vjaceslavs@worksrecorded.com
+                </a>
               </p>
             </CardFooter>
           </Card>
