@@ -7,7 +7,6 @@ import {
   CardFooter,
   CardTitle,
   CardDescription,
-  CardAction,
   CardContent,
 } from "@/components/ui/card";
 import { useLocale } from "next-intl";
@@ -71,7 +70,7 @@ export default function FooterMobile() {
                     Works<span className="text-primary">Recorded</span>
                   </h4>
                 </CardDescription>
-                <CardAction className="text-sm leading-snug">Contact us anytime!</CardAction>
+                <p className="text-sm leading-snug text-muted-foreground">Contact us anytime!</p>
               </CardHeader>
               <CardContent className="pt-2 text-sm sm:text-base">
                 <p className="min-w-0">
