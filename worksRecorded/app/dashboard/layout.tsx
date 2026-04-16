@@ -152,7 +152,6 @@ export default async function DashboardLayout({
               <div className="text-sm text-muted-foreground">
                 Contact us any time if you have any questions or problems.
               </div>
-
               <div className="space-y-2">
                 <div className="text-sm">
                   <div className="text-muted-foreground">Email</div>

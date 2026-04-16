@@ -26,8 +26,8 @@ export default function DepromCaseStudy() {
 
       <div className="relative mt-8 aspect-[16/9] overflow-hidden rounded-2xl bg-muted">
         <Image
-          src="/pictures/Ufix.jpg"
-          alt="Deprom case study cover"
+          src="/pictures/ufix.jpg"
+          alt="U-fix project"
           fill
           className="object-cover"
         />
