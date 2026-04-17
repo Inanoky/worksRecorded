@@ -1,11 +1,11 @@
 import {getRequestConfig} from "next-intl/server";
 
-const locales = ["en", "lv"] as const;
+const locales = ["lv", "en"] as const;
 type Locale = (typeof locales)[number];
 
 export default getRequestConfig(async ({requestLocale}) => {
   const candidate = await requestLocale; // string | undefined
-  const locale: Locale = locales.includes(candidate as Locale) ? (candidate as Locale) : "en";
+  const locale: Locale = locales.includes(candidate as Locale) ? (candidate as Locale) : "lv";
 
   return {
     locale,
