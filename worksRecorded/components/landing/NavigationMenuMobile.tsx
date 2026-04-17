@@ -18,6 +18,17 @@ export function NavigationMenuMobile() {
   const pathname = usePathname();
   const locale = useLocale();
   const t = useTranslations("Navigation");
+  const menuLinks = locale === "lv"
+    ? [
+        ...COMBINED_LINKS,
+        {
+          id: "BISIntegration",
+          href: "/Landing/BIS-integracija",
+          titleKey: "data.bisIntegration.title",
+          descriptionKey: "data.bisIntegration.description",
+        } as const,
+      ]
+    : COMBINED_LINKS;
 
   const withLocale = (href: string) => {
     if (/^https?:\/\//.test(href)) return href;
@@ -34,7 +45,7 @@ export function NavigationMenuMobile() {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="start">
-        {COMBINED_LINKS.map((item) => {
+        {menuLinks.map((item) => {
           const href = withLocale(item.href);
           const active =
             pathname === href || pathname.startsWith(href + "/");

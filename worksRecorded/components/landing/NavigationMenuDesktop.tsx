@@ -21,6 +21,17 @@ export function NavigationMenuDesktop() {
   const isMobile = useIsMobile();
   const locale = useLocale();
   const t = useTranslations("Navigation");
+  const featureLinks = locale === "lv"
+    ? [
+        ...DATA_LINKS,
+        {
+          id: "BISIntegration",
+          href: "/Landing/BIS-integracija",
+          titleKey: "data.bisIntegration.title",
+          descriptionKey: "data.bisIntegration.description",
+        } as const,
+      ]
+    : DATA_LINKS;
 
   const withLocale = (href: string) => {
     if (/^https?:\/\//.test(href)) return href;
@@ -38,7 +49,7 @@ export function NavigationMenuDesktop() {
 
           <NavigationMenuContent className="md:-translate-x-60 md:-translate-y-1">
             <ul className="grid gap-2 md:w-[400px] lg:w-[550px]">
-              {DATA_LINKS.map(({ id, href, titleKey, descriptionKey }) => (
+              {featureLinks.map(({ id, href, titleKey, descriptionKey }) => (
                 <ListItem
                   key={id}
                   href={withLocale(href)}

@@ -250,6 +250,10 @@
       "analytics": {
         "title": "Analītika",
         "description": "Tiešsaistes pielāgota analītika"
+      },
+      "bisIntegration": {
+        "title": "BIS integrācija",
+        "description": "BIS automatizācija no WhatsApp ziņām un balss"
       }
     },
 
