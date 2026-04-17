@@ -7,6 +7,7 @@ import { systemPromptFunction} from "@/server/ai-flows/agents/whatsapp-agent/Sit
 import {toolNode, tools} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
 import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSiteManagerRouteModelModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
+import { repairInterruptedToolCalls } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 
 
 
@@ -56,6 +57,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
     const agent = async (state) => {
         const { messages } = state;
+        const safeMessages = repairInterruptedToolCalls(messages as any[]);
 
         const llm = new ChatOpenAI({
             temperature: siteManagerAgentForSiteManagerRouteModelModelTemperature,
@@ -63,7 +65,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
             reasoning: { effort: "minimal" },
         }).bindTools(tools);
 
-        const response = await llm.invoke(messages);
+        const response = await llm.invoke(safeMessages);
 
 
 
@@ -118,7 +120,8 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
     if (finalState && finalState.messages && finalState.messages.length > 0) {
 
-        return finalState.messages[0].content;
+        const lastContentMsg = finalState.messages.findLast((msg: BaseMessage) => typeof msg.content === "string" && msg.content.length > 0);
+        return lastContentMsg ? lastContentMsg.content : "Completed action with no response.";
     } else {
 
         return null;
