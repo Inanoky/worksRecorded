@@ -8,6 +8,7 @@ import { CLOCK_IN_CARD_SENT_TOKEN, toolNode, tools } from "@/server/ai-flows/age
 import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/server/actions/timesheets-actions";
 import { clickInAgentForWorkersModel, clockInAgentForWorkersModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getWorkerFullNameById } from "@/server/actions/whatsapp-actions";
+import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 
 
 export default async function talkToClockInAgent(question, workerId) {
@@ -88,14 +89,23 @@ export default async function talkToClockInAgent(question, workerId) {
 
     const agent = async (state) => {
         const { messages } = state;
-        console.log("agent node - messages to model:", messages);
+        const sanitized = sanitizeCheckpointHistory(messages as any[]);
+        const safeMessages = sanitized.messages;
+        if (safeMessages.length !== messages.length) {
+            console.warn("agent node - sanitized checkpoint history before model call", {
+                before: messages.length,
+                after: safeMessages.length,
+                ...sanitized.stats,
+            });
+        }
+        console.log("agent node - messages to model:", safeMessages);
 
         const llm = new ChatOpenAI({
             temperature: clockInAgentForWorkersModelTemperature,
             model: clickInAgentForWorkersModel,
         }).bindTools(tools);
 
-        const response = await llm.invoke(messages);
+        const response = await llm.invoke(safeMessages);
 
         console.log("agent node - LLM response:", response);
 
