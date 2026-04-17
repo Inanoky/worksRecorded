@@ -25,7 +25,8 @@
         { "title": "Sorted by cost codes and locations" },
         { "title": "24/7 live technical support" },
    
-        { "title": "Intelligent sorting set up according to your trade specifics" }
+        { "title": "Intelligent sorting set up according to your trade specifics" },
+        { "title": "Built to reduce admin time for site teams and managers" }
       ]
     },
 
@@ -55,6 +56,10 @@
         {
           "title": "Everything in one project log",
           "desc": "No more digging through WhatsApp, folders, or emails to find what happened."
+        },
+        {
+          "title": "Save up to one hour per day",
+          "desc": "Less paperwork and more time on site."
         }
       ]
     },
