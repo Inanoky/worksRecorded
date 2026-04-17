@@ -7,7 +7,7 @@ import { systemPromptFunction} from "@/server/ai-flows/agents/whatsapp-agent/Sit
 import {toolNode, tools} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
 import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSiteManagerRouteModelModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
-import { repairInterruptedToolCalls } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
+import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 
 
 
@@ -57,7 +57,15 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
     const agent = async (state) => {
         const { messages } = state;
-        const safeMessages = repairInterruptedToolCalls(messages as any[]);
+        const sanitized = sanitizeCheckpointHistory(messages as any[]);
+        const safeMessages = sanitized.messages;
+        if (safeMessages.length !== messages.length) {
+            console.warn("site-manager agent - sanitized checkpoint history before model call", {
+                before: messages.length,
+                after: safeMessages.length,
+                ...sanitized.stats,
+            });
+        }
 
         const llm = new ChatOpenAI({
             temperature: siteManagerAgentForSiteManagerRouteModelModelTemperature,
