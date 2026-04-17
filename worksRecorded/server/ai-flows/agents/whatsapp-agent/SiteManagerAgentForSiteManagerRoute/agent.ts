@@ -1,13 +1,20 @@
 "use server"
 import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
+import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/prompts"
 import {toolNode, tools} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
 import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSiteManagerRouteModelModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
 import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
+
+function isInvalidToolResultsError(error: unknown): boolean {
+    const maybeError = error as any;
+    if (maybeError?.lc_error_code === "INVALID_TOOL_RESULTS") return true;
+    const message = typeof maybeError?.message === "string" ? maybeError.message : "";
+    return message.includes("INVALID_TOOL_RESULTS") || message.includes("tool_call_id");
+}
 
 
 
@@ -73,13 +80,21 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
             reasoning: { effort: "minimal" },
         }).bindTools(tools);
 
-        const response = await llm.invoke(safeMessages);
+        try {
+            const response = await llm.invoke(safeMessages);
 
-
-
-        return {
-            messages: [response]
-        };
+            return {
+                messages: [response]
+            };
+        } catch (error) {
+            console.error("site-manager agent - model invocation failed", error);
+            if (isInvalidToolResultsError(error)) {
+                return {
+                    messages: [new AIMessage({ content: "WorkRecorded: Sorry, there was a temporary issue while processing your message. Please send it once more." })],
+                };
+            }
+            throw error;
+        }
     };
 
     const workflow = new StateGraph(state)
