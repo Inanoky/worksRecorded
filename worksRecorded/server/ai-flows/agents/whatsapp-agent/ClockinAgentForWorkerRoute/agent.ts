@@ -1,13 +1,21 @@
 "use server"
 import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
+import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/prompts";
 import { CLOCK_IN_CARD_SENT_TOKEN, toolNode, tools } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/tools"
 import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/server/actions/timesheets-actions";
 import { clickInAgentForWorkersModel, clockInAgentForWorkersModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getWorkerFullNameById } from "@/server/actions/whatsapp-actions";
+import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
+
+function isInvalidToolResultsError(error: unknown): boolean {
+    const maybeError = error as any;
+    if (maybeError?.lc_error_code === "INVALID_TOOL_RESULTS") return true;
+    const message = typeof maybeError?.message === "string" ? maybeError.message : "";
+    return message.includes("INVALID_TOOL_RESULTS") || message.includes("tool_call_id");
+}
 
 
 export default async function talkToClockInAgent(question, workerId) {
@@ -88,20 +96,39 @@ export default async function talkToClockInAgent(question, workerId) {
 
     const agent = async (state) => {
         const { messages } = state;
-        console.log("agent node - messages to model:", messages);
+        const sanitized = sanitizeCheckpointHistory(messages as any[]);
+        const safeMessages = sanitized.messages;
+        if (safeMessages.length !== messages.length) {
+            console.warn("agent node - sanitized checkpoint history before model call", {
+                before: messages.length,
+                after: safeMessages.length,
+                ...sanitized.stats,
+            });
+        }
+        console.log("agent node - messages to model:", safeMessages);
 
         const llm = new ChatOpenAI({
             temperature: clockInAgentForWorkersModelTemperature,
             model: clickInAgentForWorkersModel,
         }).bindTools(tools);
 
-        const response = await llm.invoke(messages);
+        try {
+            const response = await llm.invoke(safeMessages);
 
-        console.log("agent node - LLM response:", response);
+            console.log("agent node - LLM response:", response);
 
-        return {
-            messages: [response]
-        };
+            return {
+                messages: [response]
+            };
+        } catch (error) {
+            console.error("agent node - model invocation failed", error);
+            if (isInvalidToolResultsError(error)) {
+                return {
+                    messages: [new AIMessage({ content: "WorkRecorded: Sorry, there was a temporary issue while saving your update. Please send it once more." })],
+                };
+            }
+            throw error;
+        }
     };
 
     const shouldContinueAfterTools = (state) => {

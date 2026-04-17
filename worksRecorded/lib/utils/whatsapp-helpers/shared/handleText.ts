@@ -11,6 +11,11 @@ export async function handleText(args: {
   agent: AgentFn; // <- inject agent here
 }) {
   const { body, user, to, agent } = args;
-  const reply = await agent(body, user.lastSelectedSiteIdforWhatsapp, user.id);
-  await sendMessage(to, reply);
+  try {
+    const reply = await agent(body, user.lastSelectedSiteIdforWhatsapp, user.id);
+    await sendMessage(to, reply);
+  } catch (error) {
+    console.error("[handleText] agent invocation failed", error);
+    await sendMessage(to, "WorkRecorded: Sorry, there was a temporary issue. Please send your message one more time.");
+  }
 }

@@ -153,6 +153,6 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
 
   } catch (error) {
     console.error("Worker workflow error:", error);
-    await sendMessage(from, "Error processing message.");
+    await sendMessage(from, "WorkRecorded: Sorry, there was a temporary issue. Please send your message one more time.");
   }
 }
