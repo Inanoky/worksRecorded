@@ -110,20 +110,23 @@
 
     "block1": {
       "title": "Kā tas darbojas",
-      "text": "Darbinieki izmanto WhatsApp saraksti ar WorksRecorded, lai reģistrētu darba sākumu un beigas. Pirms darba beigām AI viņiem palūdz aprakstīt, kas dienas laikā tika paveikts. Informācija tiek strukturēta un automātiski saglabāta datubāzē."
+      "text": "Darbinieki izmanto WhatsApp saraksti ar WorksRecorded, lai reģistrētu darba sākumu un beigas. Pirms darba beigām AI viņiem palūdz aprakstīt, kas dienas laikā tika paveikts. Informācija tiek strukturēta un automātiski saglabāta datubāzē. Pieejama arī geofence funkcionalitāte — objekta vadītājs atzīmē objekta teritoriju kartē, un iereģistrēšanās ir iespējama tikai atrodoties šajā zonā."
     },
 
     "block2": {
       "title": "Kāds ir ieguvums",
       "li1": "Katru darba stundu var uzskaitīt.",
       "li2": "Nākamajā projektā darba izmaksas var precīzi iecenot.",
-      "li3": "Iespējams identificēt izšķērdēšanu, uzstādīt mērķus un mērīt darba KPI."
+      "li3": "Iespējams identificēt izšķērdēšanu, uzstādīt mērķus un mērīt darba KPI.",
+      "li4": "Geofence kontrole nodrošina, ka clock-in ir iespējams tikai objektā."
     },
 
     "images": {
       "dashboardAlt": "Darba laika uzskaites panelis",
       "whatsappAlt": "WhatsApp",
-      "analyticsAlt": "Darba laika analītika"
+      "analyticsAlt": "Darba laika analītika",
+      "geofenceClockInAlt": "Clock-in apstiprinājums WhatsApp ar lokācijas pārbaudi",
+      "geofenceAreaAlt": "Objekta teritorijas geofence iestatīšana kartē"
     }
   },
 

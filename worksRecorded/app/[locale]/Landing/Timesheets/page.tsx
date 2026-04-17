@@ -91,6 +91,7 @@ export default function Page() {
               <li>{t("block2.li1")}</li>
               <li>{t("block2.li2")}</li>
               <li>{t("block2.li3")}</li>
+              <li>{t("block2.li4")}</li>
             </ul>
           </div>
 
@@ -102,6 +103,9 @@ export default function Page() {
             className="md:col-span-2 w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/20"
           />
         </div>
+
+      
+        
       </div>
     </section>
   );
