@@ -17,55 +17,60 @@
 
   "LandingText": {
     "whatDoWeDo": {
-      "heading": "Mēs palīdzam apakšuzņēmējiem ar:",
+      "heading": "Mēs risinām būvdarbu un darba laika uzskaites problēmas mazajiem un vidējiem būvniecības apakšuzņēmējiem:",
       "items": [
-        { "title": "Vienkārša un ātra būvdarbu pierakstīšana" },
-        { "title": "Automātiska strukturēšana" },
-        { "title": "Iespēja rediģēt ierakstus tīmeklī, ja nepieciešams" },
-        { "title": "WhatsApp darba laika uzskaite – pievienojiet darbiniekus, reģistrējiet laikus, darbinieki var pievienot piezīmes un bildes" },
-        { "title": "Būvdarbu žurnāls – analītika, papildu darbu un kavējumu uzskaite" },
-        { "title": "Bildes – sistemātiski uzglabāti." }
+        { "title": "Grūti saņemt kvalitatīvas atskaites no būvobjekta komandas?" },
+        { "title": "Darba stundu pārtēriņš, bet neviens nevar paskaidrot, kur stundas pazūd?" },
+        { "title": "Vēlaties kārtību, lai uzkrātu zināšanas, nevis katru projektu sāktu no jauna?" },
+        { "title": "Haoss darbinieku laika uzskaitē un nav pārliecības par datu patiesumu?" },
+        { "title": "Grūti veikt objekta analīzi un pieņemt savlaicīgus lēmumus?" },
+        { "title": "Darba vadītājs pavada pārāk daudz laika birojā, nevis objektā?" },
+        { "title": "BIS aizpildīšanai nepieciešami papildu resursi?" }
       ]
     },
 
     "howDoWeDoThat": {
-      "heading": "Kā worksRecorded palīdz apakšuzņēmējiem",
+      "heading": "Risinājums — moderns, inteliģents būvdarbu žurnāls ar BIS integrāciju un iebūvētu MI, pielāgots Latvijas vajadzībām",
       "items": [
         {
-          "title": "Būvdarbu žurnāls no WhatsApp",
-          "desc": "Sūtiet ziņas, bildes vai balss piezīmes — AI pārvērš tās skaidros ikdienas ierakstos."
+          "title": "Darba vadītājs ar balss ziņu izstāsta, kas notiek objektā, un pievieno foto",
+          "desc": "Nav jāaizpilda sarežģītas formas — pietiek ar ierasto WhatsApp saziņu."
         },
         {
-          "title": "Pierādījumi",
-          "desc": "Izpildītie darbi, kavējumi un norādījumi tiek automātiski fiksēti un ir gatavi izmantošanai."
+          "title": "MI sakārto un saglabā informāciju datubāzē",
+          "desc": "Ziņas tiek strukturētas pēc dienas, darbiem, cilvēkiem un lokācijas."
         },
         {
-          "title": "Ikdienas veiktspējas pārskats",
-          "desc": "Atklājiet problēmas savlaicīgi, nevis pēc vairākām nedēļām."
+          "title": "Automātiski aizpilda ikdienas darbu ierakstus BIS",
+          "desc": "Mazāk manuāla darba un kļūdu."
         },
         {
-          "title": "Reāla darbu vēsture",
-          "desc": "Katrs ieraksts, bilde un atjauninājums tiek saglabāts pēc dienas, vietas un aktivitātes."
+          "title": "Automātiski aizpilda saņemtos materiālus un būvizstrādājumus no pavadzīmju foto",
+          "desc": "Dokumentēšana notiek bez dubultas ievades."
         },
         {
-          "title": "Vienkārša izmaiņu uzskaite",
-          "desc": "Izmaiņas, problēmas un piezīmes tiek glabātas sakārtoti vienuviet."
+          "title": "Darba stundu atskaite ar GPS koordinātu pārbaudēm",
+          "desc": "Vairāk uzticības datiem un precīzāka uzskaite."
         },
         {
-          "title": "Viss vienā projekta žurnālā",
-          "desc": "Vairs nav jāmeklē WhatsApp ziņās, mapēs vai e-pastos, lai saprastu, kas notika."
+          "title": "Objekta darbu gaita tiek glabāta datubāzē un sasaistīta ar jaunākajiem LLM modeļiem",
+          "desc": "Varat uzdot jautājumus par savu projektu un ātri iegūt atbildes."
+        },
+        {
+          "title": "Laika ekonomija līdz 1 stundai dienā administratīvajiem darbiem",
+          "desc": "Komanda vairāk laika pavada objektā, nevis pie dokumentiem."
         }
       ]
     },
 
     "why": {
-      "heading": "Kāpēc worksRecorded ir atšķirīgs",
-      "description": "Lai sāktu lietot, nepieciešams tikai WhatsApp. Nav papildu sloga būvlaukuma vadībai",
+      "heading": "Kāpēc WorksRecorded?",
+      "description": "Praktisks risinājums būvniecībai Latvijā, kas samazina administratīvo slogu un dubulto darbu.",
       "bullets": [
-        "Lielākajai daļai rīku nepieciešamas formas un manuāla ievade. Būvlaukuma komandām tam nav laika.",
-        "WorksRecorded strādā ar kanāliem, kurus jūs jau izmantojat: WhatsApp, e-pastu un bildes.",
-        "WorksRecorded fonā uztur konsekventu, strukturētu būvdienasgrāmatu.",
-        "Kad nepieciešams pamatot izmaiņas, pieprasīt kavējumu izmaksas vai izskaidrot lēmumu, visi pierādījumi jau ir sakārtoti."
+        "Vienīgais digitālais būvdarbu žurnāls ar BIS integrāciju, lai minimizētu dubulto darbu.",
+        "Praktiska sistēma objekta gaitas uzraudzībai, datu glabāšanai un analīzei.",
+        "Arī bez integrācijām — balss ziņas un foto var sūtīt tieši caur WhatsApp.",
+        "Risinājums ir pielāgots tieši būvniecības nozarei."
       ]
     }
   },
@@ -105,20 +110,23 @@
 
     "block1": {
       "title": "Kā tas darbojas",
-      "text": "Darbinieki izmanto WhatsApp saraksti ar WorksRecorded, lai reģistrētu darba sākumu un beigas. Pirms darba beigām AI viņiem palūdz aprakstīt, kas dienas laikā tika paveikts. Informācija tiek strukturēta un automātiski saglabāta datubāzē."
+      "text": "Darbinieki izmanto WhatsApp saraksti ar WorksRecorded, lai reģistrētu darba sākumu un beigas. Pirms darba beigām AI viņiem palūdz aprakstīt, kas dienas laikā tika paveikts. Informācija tiek strukturēta un automātiski saglabāta datubāzē. Pieejama arī geofence funkcionalitāte — objekta vadītājs atzīmē objekta teritoriju kartē, un iereģistrēšanās ir iespējama tikai atrodoties šajā zonā."
     },
 
     "block2": {
       "title": "Kāds ir ieguvums",
       "li1": "Katru darba stundu var uzskaitīt.",
       "li2": "Nākamajā projektā darba izmaksas var precīzi iecenot.",
-      "li3": "Iespējams identificēt izšķērdēšanu, uzstādīt mērķus un mērīt darba KPI."
+      "li3": "Iespējams identificēt izšķērdēšanu, uzstādīt mērķus un mērīt darba KPI.",
+      "li4": "Geofence kontrole nodrošina, ka clock-in ir iespējams tikai objektā."
     },
 
     "images": {
       "dashboardAlt": "Darba laika uzskaites panelis",
       "whatsappAlt": "WhatsApp",
-      "analyticsAlt": "Darba laika analītika"
+      "analyticsAlt": "Darba laika analītika",
+      "geofenceClockInAlt": "Clock-in apstiprinājums WhatsApp ar lokācijas pārbaudi",
+      "geofenceAreaAlt": "Objekta teritorijas geofence iestatīšana kartē"
     }
   },
 
@@ -245,6 +253,10 @@
       "analytics": {
         "title": "Analītika",
         "description": "Tiešsaistes pielāgota analītika"
+      },
+      "bisIntegration": {
+        "title": "BIS integrācija",
+        "description": "BIS automatizācija no WhatsApp ziņām un balss"
       }
     },
 

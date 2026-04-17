@@ -25,7 +25,8 @@
         { "title": "Sorted by cost codes and locations" },
         { "title": "24/7 live technical support" },
    
-        { "title": "Intelligent sorting set up according to your trade specifics" }
+        { "title": "Intelligent sorting set up according to your trade specifics" },
+        { "title": "Built to reduce admin time for site teams and managers" }
       ]
     },
 
@@ -55,6 +56,10 @@
         {
           "title": "Everything in one project log",
           "desc": "No more digging through WhatsApp, folders, or emails to find what happened."
+        },
+        {
+          "title": "Save up to one hour per day",
+          "desc": "Less paperwork and more time on site."
         }
       ]
     },
@@ -106,20 +111,23 @@
 
     "block1": {
       "title": "How do we do that",
-      "text": "Workers use WhatsApp to chat with WorksRecorded to clock in and out of work. Before clocking out, the AI asks them to describe what was achieved during the day. The information is structured and stored in the database automatically."
+      "text": "Workers use WhatsApp to chat with WorksRecorded to clock in and out of work. Before clocking out, the AI asks them to describe what was achieved during the day. The information is structured and stored in the database automatically. Geofence functionality is also included — the site manager marks the site area on a map, and workers can only clock in when they are physically inside that area."
     },
 
     "block2": {
       "title": "What is your benefit",
       "li1": "Get every work hour accounted for.",
       "li2": "Bid labor precisely on the next project.",
-      "li3": "Identify waste, set targets, and measure KPIs for labor."
+      "li3": "Identify waste, set targets, and measure KPIs for labor.",
+      "li4": "Geofence control ensures workers can clock in only on-site."
     },
 
     "images": {
       "dashboardAlt": "Timesheets dashboard",
       "whatsappAlt": "WhatsApp",
-      "analyticsAlt": "Timesheet analytics"
+      "analyticsAlt": "Timesheet analytics",
+      "geofenceClockInAlt": "WhatsApp clock-in confirmation with location check",
+      "geofenceAreaAlt": "Site area geofence setup on map"
     }
   },
 

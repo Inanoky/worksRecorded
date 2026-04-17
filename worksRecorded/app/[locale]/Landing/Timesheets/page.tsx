@@ -91,6 +91,7 @@ export default function Page() {
               <li>{t("block2.li1")}</li>
               <li>{t("block2.li2")}</li>
               <li>{t("block2.li3")}</li>
+              <li>{t("block2.li4")}</li>
             </ul>
           </div>
 
@@ -100,6 +101,24 @@ export default function Page() {
             priority
             quality={100}
             className="md:col-span-2 w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/20"
+          />
+        </div>
+
+        {/* Block 3 - Geofence visuals */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 items-start w-full py-10 mx-auto mt-6 md:mt-12">
+          <Image
+            src={TimesheetsWhatsapp}
+            alt={t("images.geofenceClockInAlt")}
+            priority
+            quality={100}
+            className="w-full object-contain border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/20 bg-black/5"
+          />
+          <Image
+            src={Timesheets1}
+            alt={t("images.geofenceAreaAlt")}
+            priority
+            quality={100}
+            className="w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/20"
           />
         </div>
       </div>

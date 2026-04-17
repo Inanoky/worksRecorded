@@ -25,8 +25,8 @@ const dashboardMiddleware = withAuth(
 );
 
 const intlMiddleware = createIntlMiddleware({
-  locales: ["en", "lv"],
-  defaultLocale: "en",
+  locales: ["lv", "en"],
+  defaultLocale: "lv",
 });
 
 export default function middleware(req: NextRequest) {
@@ -52,7 +52,7 @@ export default function middleware(req: NextRequest) {
       return NextResponse.redirect(callbackUrl);
     }
 
-    return NextResponse.redirect(new URL("/en", req.url));
+    return NextResponse.redirect(new URL("/lv", req.url));
   }
 
     return intlMiddleware(req);
