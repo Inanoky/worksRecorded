@@ -104,23 +104,8 @@ export default function Page() {
           />
         </div>
 
-        {/* Block 3 - Geofence visuals */}
-        <div className="grid grid-cols-1 gap-6 lg:gap-8 items-start w-full py-10 mx-auto mt-6 md:mt-12">
-          <Image
-            src={TimesheetsWhatsapp}
-            alt={t("images.geofenceClockInAlt")}
-            priority
-            quality={100}
-            className="w-full object-contain border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/20 bg-black/5"
-          />
-          <Image
-            src={Timesheets1}
-            alt={t("images.geofenceAreaAlt")}
-            priority
-            quality={100}
-            className="w-full object-cover border rounded-xl lg:rounded-2xl shadow-2xl shadow-black/20"
-          />
-        </div>
+      
+        
       </div>
     </section>
   );
