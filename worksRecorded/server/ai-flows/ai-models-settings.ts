@@ -21,7 +21,7 @@ export const siteDiaryAgentModel = "gpt-5-mini" //done
 
 export const timeSheetsAgentModel = "gpt-5-mini" //done
 
-export const clickInAgentForWorkersModel = "gpt-4.1"
+export const clickInAgentForWorkersModel = "gpt-5.4"
 export const clockInAgentForWorkersModelTemperature = 0.5
 
 export const siteManagerAgentForSiteManagerRouteModelModel = "gpt-5.4"
