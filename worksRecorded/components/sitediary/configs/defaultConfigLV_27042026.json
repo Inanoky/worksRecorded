@@ -1,0 +1,291 @@
+{
+  "Date": {
+    "Type": "fixed",
+    "DisplayName": "Date",
+    "customSettings": {
+      "renderAs": "Day",
+      "order": 1,
+      "cellWidth": 150,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Date_Custom_1",
+    "customSettings": {
+      "order": 2,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Date_Custom_2",
+    "customSettings": {
+      "order": 3,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+"Location": {
+  "Type": "dropdown",
+  "DisplayName": "Location",
+  "DropDownOptions": {
+    "Location_1": "1. stāvs",
+    "Location_2": "2. stāvs"
+
+  },
+  "customSettings": {
+    "order": 2,
+    "cellWidth": 150,
+    "displayinSiteList": "yes",
+    "displayinSiteListOrder": 1,
+    "displayinSiteListWidth": 150,
+    "displayinSiteListTextAlignment": "left"
+  }
+},
+
+  "Location_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_1",
+    "DropDownOptions": {
+      "Location_Custom_1_1": "Location_Custom_1_1",
+      "Location_Custom_1_2": "Location_Custom_1_2"
+    },
+    "customSettings": {
+      "order": 5,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Location_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_2",
+    "DropDownOptions": {
+      "Location_Custom_2_1": "Location_Custom_2_1",
+      "Location_Custom_2_2": "Location_Custom_2_2"
+    },
+    "customSettings": {
+      "order": 6,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+ "Works": {
+  "Type": "dropdown",
+  "DisplayName": "Works",
+  "DropDownOptions": {
+    "Works_1": "Betonēšanas darbi",
+    "Works_2": "Stiegrošanas darbi",
+    "Works_3": "Veidņu montāža",
+    "Works_4": "Saliekamo elementu montāža",
+    "Works_5": "Mūrēšanas darbi",
+    "Works_6": "Tērauda konstrukciju montāža",
+    "Works_7": "Balkonu montāža",
+    "Works_8": "Kāpņu montāža",
+    "Works_9": "Sienu izbūve",
+    "Works_10": "Pārsegumu montāža",
+
+    "Works_11": "Santehnikas montāža",
+    "Works_12": "Drenāžas izbūve",
+    "Works_13": "Apkures sistēmu montāža",
+    "Works_14": "Ventilācijas montāža",
+    "Works_15": "Gaisa kondicionēšanas montāža",
+    "Works_16": "Elektroinstalācijas izbūve",
+    "Works_17": "Apgaismojuma montāža",
+    "Works_18": "Sadales paneļu montāža",
+
+    "Works_19": "Ugunsdzēsības cauruļvadu montāža",
+    "Works_20": "Sprinkleru montāža",
+    "Works_21": "Ugunsgrēka signalizācijas montāža",
+    "Works_22": "Dūmu detektoru montāža",
+    "Works_23": "Ugunsdrošā blīvēšana",
+
+    "Works_24": "Rakšanas darbi",
+    "Works_25": "Tranšeju rakšana",
+    "Works_26": "Atbēršanas darbi",
+    "Works_27": "Inženierkomunikāciju cauruļu ieklāšana",
+    "Works_28": "Kabeļu kanālu montāža",
+
+    "Works_29": "Iekārtu montāža",
+
+    "Works_33": "Testēšana un nodošana ekspluatācijā",
+    "Works_34": "Inspekcija",
+    "Works_35": "Uzturēšanas darbi",
+    "Works_36": "Remonta darbi",
+
+    "Works_37": "Materiālu piegāde",
+    "Works_38": "Iekārtu piegāde",
+    "Works_39": "Kavējums",
+    "Works_40": "Papildu darbi",
+    "Works_41": "Piezīmes",
+    "Works_42": "Krāsošanas darbi",
+    "Works_43": "Tīrīšana",
+    "Works_44": "Apdares darbi"
+  },
+  "customSettings": {
+    "order": 3,
+    "cellWidth": 150,
+    "displayinSiteList": "yes",
+    "displayinSiteListOrder": 2,
+    "displayinSiteListWidth": 180,
+    "displayinSiteListTextAlignment": "left"
+  }
+},
+  "Works_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_1",
+    "DropDownOptions": {
+      "Works_Custom_1_1": "Works_Custom_1_1",
+      "Works_Custom_1_2": "Works_Custom_1_2"
+    },
+    "customSettings": {
+      "order": 8,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_2",
+    "DropDownOptions": {
+      "Works_Custom_2_1": "Works_Custom_2_1",
+      "Works_Custom_2_2": "Works_Custom_2_2"
+    },
+    "customSettings": {
+      "order": 9,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments": {
+    "Type": "textInput",
+    "DisplayName": "Comments",
+    "customSettings": {
+      "order": 10,
+      "cellWidth": 450,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 7,
+      "displayinSiteListWidth": 350,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "textInput",
+    "customSettings": {
+      "order": 11,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "textInput",
+    "customSettings": {
+      "order": 12,
+      "cellWidth": 250,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 250,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Units": {
+    "Type": "dropdown",
+    "DisplayName": "Units",
+    "DropDownOptions": {
+      "m": "m",
+      "m2": "m2",
+      "m3": "m3",
+      "tn": "tn",
+      "kg": "kg",
+      "pcs": "pcs",
+      "package": "package",
+      "project": "project",
+      "hour": "hour",
+      "set": "set",
+      "minute": "minute",
+      "lifts": "lifts"
+    },
+    "customSettings": {
+      "order": 4,
+      "cellWidth": 80,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 3,
+      "displayinSiteListWidth": 50,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "Amounts": {
+    "Type": "float",
+    "DisplayName": "Amounts",
+    "customSettings": {
+      "order": 5,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 4,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "WorkersInvolved": {
+    "Type": "float",
+    "DisplayName": "Workers",
+    "customSettings": {
+      "integer": true,
+      "order": 6,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 5,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "TimeInvolved": {
+    "Type": "float",
+    "DisplayName": "Hours",
+    "customSettings": {
+      "integer": true,
+      "order": 6,
+      "cellWidth": 65,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 6,
+      "displayinSiteListWidth": 70,
+      "displayinSiteListTextAlignment": "center"
+    }
+  },
+  "AIpromptToUse": {
+    "Type": "noRender",
+    "Client": "DEPROM"
+   
+  },
+  "otherSettings" : {
+    "Type": "noRender",
+    "displaySiteListWidth" : 115
+  }
+}
