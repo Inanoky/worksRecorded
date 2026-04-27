@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/utils/db";
 import { requireBisAccessTokenForSite, getBisBaseUrl } from "@/server/actions/BIS/service";
 import { requireUser } from "@/lib/utils/requireUser";
+import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 
 import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
@@ -1323,7 +1324,8 @@ async function fetchBisPagedList(
 
   while (true) {
     const separator = urlBase.includes("?") ? "&" : "?";
-    const res = await fetch(
+    const res = await bisFetch(
+      urlBase,
       `${urlBase}${separator}page[number]=${page}&page[size]=${pageSize}`,
       {
         headers: {
@@ -1373,7 +1375,7 @@ async function fetchBisRelatedResource(
     ? relatedUrl
     : `${baseUrl}${relatedUrl.startsWith("/") ? relatedUrl : `/${relatedUrl}`}`;
 
-  const res = await fetch(url, {
+  const res = await bisFetch(baseUrl, url, {
     headers: {
       Accept: "application/vnd.api+json",
       Authorization: `Bearer ${accessToken}`,
@@ -1403,7 +1405,8 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
   let caseConstructionRoundId: string | null = null;
 
   try {
-    const caseResponse = await fetch(
+    const caseResponse = await bisFetch(
+      baseUrl,
       `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}`,
       {
         headers: {
@@ -1783,7 +1786,8 @@ export async function sendSiteDiaryRecordToBis(
     },
   };
 
-  const res = await fetch(
+  const res = await bisFetch(
+    baseUrl,
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/performed_works`,
     {
       method: "POST",
@@ -1912,7 +1916,8 @@ export async function getPossibleSiteDiaryBisApprovers(recordId: string) {
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
 
-  const res = await fetch(
+  const res = await bisFetch(
+    baseUrl,
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/possible_approvers`,
     {
       headers: {
@@ -1969,7 +1974,8 @@ export async function getSiteDiaryBisApprovalStatus(recordId: string) {
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
 
-  const res = await fetch(
+  const res = await bisFetch(
+    baseUrl,
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}`,
     {
       headers: {
@@ -2034,7 +2040,8 @@ export async function submitSiteDiaryRecordToBisApproval(
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
 
-  const res = await fetch(
+  const res = await bisFetch(
+    baseUrl,
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/submit_to_approve`,
     {
       method: "PATCH",
@@ -2190,7 +2197,8 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
     const bisId = String(record.BISId ?? "");
     if (!bisId) continue;
 
-    const res = await fetch(
+    const res = await bisFetch(
+      baseUrl,
       `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${bisId}`,
       {
         headers: {
@@ -2294,7 +2302,8 @@ async function uploadLogbookAttachmentToBis({
   form.append("upload[file]", blob, "attachment.jpg");
   form.append("upload[obj_id]", crypto.randomUUID());
 
-  const uploadResponse = await fetch(
+  const uploadResponse = await bisFetch(
+    baseUrl,
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/${attachmentPath}`,
     {
       method: "POST",
