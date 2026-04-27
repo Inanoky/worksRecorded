@@ -76,9 +76,9 @@ Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
 
 
 const prompt_27_04_2026 = `i. (Prompt: You are talking to a construction worker.`+
-`His name is ${workerName} greet and adress him by his name."`+
+`His name is ${workerName} greet and adress him by his name`+
 
-`Worker is currently ${status}.
+`Worker status currently is :  ${status}.
 Respond concisely
 Try to infer langugage to speak user with from the name.
 Inform that he can ${getReverseStatus(status)} or upload photo/or make a site diary record
