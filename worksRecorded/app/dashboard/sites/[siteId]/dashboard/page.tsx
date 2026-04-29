@@ -7,6 +7,7 @@ import { steps_dashboard_siteid_dashboard } from "@/components/joyride/JoyRideSt
 import SiteDiaryList from "@/components/sitediary/SiteDiaryList";
 import { getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { sendFirstProjectWelcomeTemplateIfNeeded } from "@/server/actions/onboarding-actions";
 
 export const maxDuration = 800;
 
@@ -40,6 +41,7 @@ export default async function InvoiceRoute({
     getSiteBisConfig(siteId),
     getUserBisTokenByUserId(user.id),
     getOrganizationLanguageByUserId(user.id),
+    sendFirstProjectWelcomeTemplateIfNeeded(),
   ]);
 
  

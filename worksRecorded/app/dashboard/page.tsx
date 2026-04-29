@@ -11,6 +11,7 @@ import Link from "next/link";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import { PlusCircle } from "lucide-react";
 import { getOrganizationIdByUserId, getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { redirect } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
 import { steps_dashboard_sites_open_project } from "@/components/joyride/JoyRideSteps";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
@@ -32,6 +33,14 @@ async function getData(orgId: string | null, isSuperUser: boolean) {
 
 export default async function DashboardIndexPage() {
   const user = await requireUser();
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { phone: true, userTour: true },
+  });
+  const tour = (dbUser?.userTour && typeof dbUser.userTour === "object" ? dbUser.userTour : {}) as Record<string, unknown>;;
+  if (!dbUser?.phone) redirect("/dashboard/welcome");
+  if (!tour.onboardingLanguageSelected) redirect("/dashboard/welcome/language");
 
   const isSuperUser = SUPER_USER_IDS.has(user.id);
 

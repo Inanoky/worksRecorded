@@ -54,6 +54,14 @@ export default async function Welcome() {
 
   const needsPhone = !dbUser?.phone;
 
+  const hasSelectedOnboardingLanguage = Boolean((tour as Record<string, unknown> | null)?.onboardingLanguageSelected);
+
+  if (!needsPhone) {
+    if (!hasSelectedOnboardingLanguage) {
+      redirect("/dashboard/welcome/language");
+    }
+  }
+
   const orgId = await getOrganizationIdByUserId(user.id);
   const { sites } = await getData(orgId);
 
