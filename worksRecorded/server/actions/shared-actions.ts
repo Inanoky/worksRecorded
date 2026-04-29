@@ -9,7 +9,8 @@ import { SiteCreationSchema} from "@/lib/utils/zodSchemas";
 import {prisma} from "@/lib/utils/db";
 import {requireUser} from "@/lib/utils/requireUser";
 import {stripe} from "@/lib/utils/stripe";
-import { defaultProgram } from "@/lib/utils/DefaultProgram";
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import defaultConfigLV27042026 from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
 
 
 
@@ -54,7 +55,7 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
     const user = await requireUser();    
     const org = await getOrganizationIdByUserId(user.id)
 
-    const [subStatus, sites] = await Promise.all([
+    const [subStatus, sites, organization] = await Promise.all([
 
         prisma.subscription.findUnique({
             where:{
@@ -70,7 +71,11 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
             where: {
                 userId: user.id,
             }
-        })
+        }),
+        prisma.organization.findUnique({
+          where: { id: org ?? "" },
+          select: { orgLanguage: true },
+        }),
     ])
 
 
@@ -103,7 +108,21 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
         return submission.reply();
     }
 
-    await prisma.site.create({
+    const isLatvianOrg = organization?.orgLanguage === "lv";
+    const siteDiarySchema = JSON.stringify(
+      isLatvianOrg ? defaultConfigLV27042026 : defaultConfig
+    );
+
+    console.log("[CreateSiteAction] preparing site diary schema", {
+      userId: user.id,
+      organizationId: org,
+      organizationLanguage: organization?.orgLanguage ?? null,
+      isLatvianOrg,
+      schemaLength: siteDiarySchema.length,
+      schemaPreview: siteDiarySchema.slice(0, 140),
+    });
+
+    const createdSite = await prisma.site.create({
 
         data : {
             description: submission.value.description,
@@ -115,13 +134,27 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
             create: {
             userId: user.id,
             organizationId: org,
-            // schema column is String? → store stringified JSON
-            schema: JSON.stringify(defaultProgram),
+            // Always initialize with language-specific default config
+            schema: siteDiarySchema,
             // fileUrl can remain null for now
           },
         },
         }
 
+    });
+
+
+    const createdSettings = await prisma.sitediarysettings.findUnique({
+      where: { siteId: createdSite.id },
+      select: { id: true, siteId: true, schema: true },
+    });
+
+    console.log("[CreateSiteAction] created site + settings", {
+      siteId: createdSite.id,
+      settingsId: createdSettings?.id ?? null,
+      hasSchema: Boolean(createdSettings?.schema),
+      storedSchemaLength: createdSettings?.schema?.length ?? 0,
+      storedSchemaPreview: createdSettings?.schema?.slice(0, 140) ?? null,
     });
 
 
