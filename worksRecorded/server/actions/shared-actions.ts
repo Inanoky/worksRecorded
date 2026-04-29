@@ -10,6 +10,8 @@ import {prisma} from "@/lib/utils/db";
 import {requireUser} from "@/lib/utils/requireUser";
 import {stripe} from "@/lib/utils/stripe";
 import { defaultProgram } from "@/lib/utils/DefaultProgram";
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import defaultConfigLV from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
 
 
 
@@ -103,6 +105,18 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
         return submission.reply();
     }
 
+    const orgData = org
+      ? await prisma.organization.findUnique({
+          where: { id: org },
+          select: { orgLanguage: true },
+        })
+      : null;
+
+    const siteDiaryRecordsMap =
+      orgData?.orgLanguage === "lv"
+        ? structuredClone(defaultConfigLV)
+        : structuredClone(defaultConfig);
+
     await prisma.site.create({
 
         data : {
@@ -111,6 +125,7 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
             subdirectory:submission.value.subdirectory,
             userId: user.id,
             organizationId: org,
+            siteDiaryRecordsMap,
             sitediarysettings: {
             create: {
             userId: user.id,
