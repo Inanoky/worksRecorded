@@ -1,9 +1,10 @@
 // C:\...\components\joyride\TourRunner.tsx
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Joyride, { CallBackProps, STATUS } from "react-joyride";
 import { hasCompletedTour, markTourCompleted } from "@/components/joyride/user-tour-action";
+import { getTourCopy, resolveTourLang } from "@/components/joyride/i18n";
 
 type Props = {
   steps: { target: string; content: string; disableBeacon?: boolean }[];
@@ -14,6 +15,7 @@ type Props = {
 export default function TourRunner({ steps, stepName, onFinished }: Props) {
   const [shouldRun, setShouldRun] = useState<boolean>(false);
   const [checked, setChecked] = useState<boolean>(false);
+  const [lang, setLang] = useState("en");
 
   useEffect(() => {
     let cancelled = false;
@@ -29,6 +31,16 @@ export default function TourRunner({ steps, stepName, onFinished }: Props) {
     };
   }, [stepName]);
 
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const documentLang = document.documentElement.lang;
+      const browserLang = typeof navigator !== "undefined" ? navigator.language : undefined;
+      setLang(resolveTourLang(documentLang || browserLang));
+    }
+  }, []);
+
+  const joyrideLocale = useMemo(() => getTourCopy(lang).joyrideLocale, [lang]);
   const onCallback = useCallback(
     async (data: CallBackProps) => {
       const { status } = data;
@@ -53,7 +65,7 @@ export default function TourRunner({ steps, stepName, onFinished }: Props) {
       spotlightClicks={false}
       scrollToFirstStep
       callback={onCallback}
-      locale={{ last: "Ok" }}
+      locale={joyrideLocale}
       styles={{
         options: {
           primaryColor: "#2563eb",
