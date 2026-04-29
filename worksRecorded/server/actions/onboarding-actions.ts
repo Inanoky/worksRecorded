@@ -69,7 +69,7 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded(args: { siteId: st
       type: "template",
       template: {
         name: "onboarding_template_lv",
-        language: { code: "lv" },
+        language: { code: "en" },
         components: [{
           type: "body",
           parameters: [
