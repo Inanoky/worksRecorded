@@ -47,12 +47,13 @@ export default async function Welcome() {
   const isFirstTime =
     !tour || (typeof tour === "object" && Object.keys(tour).length === 0);
 
-  // if this is NOT first time, immediately redirect to dashboard
-  if (!isFirstTime) {
+  const needsPhone = !dbUser?.phone;
+
+  // Only return users with a completed onboarding step to dashboard.
+  // If phone is still missing, stay on welcome to show the phone-required dialog.
+  if (!needsPhone && !isFirstTime) {
     redirect("/dashboard");
   }
-
-  const needsPhone = !dbUser?.phone;
 
   const hasSelectedOnboardingLanguage = Boolean((tour as Record<string, unknown> | null)?.onboardingLanguageSelected);
 
