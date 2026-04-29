@@ -25,9 +25,11 @@ export default async function InvoiceRoute({
 
   const isSuperAdmin = user.id === process.env.SUPERADMIN;
 
+  let onboardingProjectName = "";
   if (!isSuperAdmin) {
     const site = await orgCheck(user.id, siteId);
     if (!site) notFound();
+    onboardingProjectName = site.name;
   }
 
   // --- Group 1: Data fetch (can stay as-is) ---
@@ -41,7 +43,7 @@ export default async function InvoiceRoute({
     getSiteBisConfig(siteId),
     getUserBisTokenByUserId(user.id),
     getOrganizationLanguageByUserId(user.id),
-    sendFirstProjectWelcomeTemplateIfNeeded(),
+    sendFirstProjectWelcomeTemplateIfNeeded({ siteId, projectName: onboardingProjectName }),
   ]);
 
  

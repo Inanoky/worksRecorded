@@ -34,7 +34,7 @@ export async function completeOnboardingLanguage(language: "en" | "lv") {
   return { ok: true };
 }
 
-export async function sendFirstProjectWelcomeTemplateIfNeeded() {
+export async function sendFirstProjectWelcomeTemplateIfNeeded(args: { siteId: string; projectName: string }) {
   const user = await requireUser();
 
   const dbUser = await prisma.user.findUnique({
@@ -45,12 +45,16 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded() {
   const current = readTourFlags(dbUser?.userTour);
   if (current.whatsappWelcomeSent) return { ok: true, skipped: true };
 
+  if (!args.projectName?.trim()) return { ok: false, skipped: true, reason: "missing-project-name" };
+
   const to = dbUser?.phone?.replace(/\D/g, "") ?? "";
   if (!to) return { ok: false, skipped: true, reason: "missing-phone" };
 
   const token = process.env.META_ACCESS_TOKEN;
   const businessPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
   if (!token || !businessPhoneNumberId) return { ok: false, skipped: true, reason: "missing-meta-env" };
+
+  const onboardingText = "Jūs varat sākt šajā čatā ar balsi stāstīt, kas notika būvobjektā, un ziņas tiks saglabātas jūsu projektā :";
 
   const res = await fetch(`https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`, {
     method: "POST",
@@ -64,9 +68,15 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded() {
       to,
       type: "template",
       template: {
-        name: "reminder_custom",
-        language: { code: "en" },
-        components: [{ type: "body", parameters: [{ type: "text", text: "Welcome to WorksRecorded!" }] }],
+        name: "onboarding_template_lv",
+        language: { code: "lv" },
+        components: [{
+          type: "body",
+          parameters: [
+            { type: "text", text: onboardingText },
+            { type: "text", text: args.projectName },
+          ],
+        }],
       },
     }),
   });
@@ -74,7 +84,10 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded() {
   if (res.ok) {
     await prisma.user.update({
       where: { id: user.id },
-      data: { userTour: { ...current, whatsappWelcomeSent: true } },
+      data: {
+        userTour: { ...current, whatsappWelcomeSent: true },
+        lastSelectedSiteIdforWhatsapp: args.siteId,
+      },
     });
   }
 
