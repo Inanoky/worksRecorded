@@ -39,7 +39,11 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded(args: { siteId: st
 
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { phone: true, userTour: true },
+    select: {
+      phone: true,
+      userTour: true,
+      organization: { select: { orgLanguage: true } },
+    },
   });
 
   const current = readTourFlags(dbUser?.userTour);
@@ -54,7 +58,14 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded(args: { siteId: st
   const businessPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
   if (!token || !businessPhoneNumberId) return { ok: false, skipped: true, reason: "missing-meta-env" };
 
-  const onboardingText = "Jūs varat sākt šajā čatā ar balsi stāstīt, kas notika būvobjektā, un ziņas tiks saglabātas jūsu projektā :";
+  const orgLanguage = dbUser?.organization?.orgLanguage === "lv" ? "lv" : "en";
+
+  const onboardingText =
+    orgLanguage === "lv"
+      ? "Jūs varat sākt šajā čatā ar balsi stāstīt, kas notika būvobjektā, un ziņas tiks saglabātas jūsu projektā :"
+      : "You can start in this chat by voice-telling what happened on the construction site, and messages will be saved in your project:";
+
+  const templateName = orgLanguage === "lv" ? "onboarding_template_lv" : "onboarding_template_en";
 
   const res = await fetch(`https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`, {
     method: "POST",
@@ -68,8 +79,8 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded(args: { siteId: st
       to,
       type: "template",
       template: {
-        name: "onboarding_template_lv",
-        language: { code: "lv" },
+        name: templateName,
+        language: { code: orgLanguage },
         components: [{
           type: "body",
           parameters: [
