@@ -9,7 +9,7 @@ import { SiteCreationSchema} from "@/lib/utils/zodSchemas";
 import {prisma} from "@/lib/utils/db";
 import {requireUser} from "@/lib/utils/requireUser";
 import {stripe} from "@/lib/utils/stripe";
-import { defaultProgram } from "@/lib/utils/DefaultProgram";
+import defaultConfigLV27042026 from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
 
 
 
@@ -54,7 +54,7 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
     const user = await requireUser();    
     const org = await getOrganizationIdByUserId(user.id)
 
-    const [subStatus, sites] = await Promise.all([
+    const [subStatus, sites, organization] = await Promise.all([
 
         prisma.subscription.findUnique({
             where:{
@@ -70,7 +70,11 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
             where: {
                 userId: user.id,
             }
-        })
+        }),
+        prisma.organization.findUnique({
+          where: { id: org ?? "" },
+          select: { orgLanguage: true },
+        }),
     ])
 
 
@@ -103,6 +107,9 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
         return submission.reply();
     }
 
+    const isLatvianOrg = organization?.orgLanguage === "lv";
+    const siteDiarySchema = isLatvianOrg ? JSON.stringify(defaultConfigLV27042026) : null;
+
     await prisma.site.create({
 
         data : {
@@ -115,8 +122,8 @@ export async function CreateSiteAction(prevState: unknown,formData: FormData){
             create: {
             userId: user.id,
             organizationId: org,
-            // schema column is String? → store stringified JSON
-            schema: JSON.stringify(defaultProgram),
+            // Keep schema empty for EN orgs; initialize LV orgs with LV config
+            schema: siteDiarySchema,
             // fileUrl can remain null for now
           },
         },
