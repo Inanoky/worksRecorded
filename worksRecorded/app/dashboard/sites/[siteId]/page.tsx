@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 
-export default function Page() {
-  redirect("http://localhost:3000/dashboard/sites");
-  // You can optionally return null or nothing.
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ siteId: string }>;
+}) {
+  const { siteId } = await params;
+  redirect(`/dashboard/sites/${siteId}/dashboard`);
   return null;
 }
