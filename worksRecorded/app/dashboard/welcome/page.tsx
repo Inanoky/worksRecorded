@@ -14,11 +14,12 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import OpenProjectButton from "@/components/providers/ButtonClient";
 import { PlusCircle } from "lucide-react";
-import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
+import { getOrganizationIdByUserId, getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { redirect } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard } from "@/components/joyride/JoyRideSteps";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { PhoneRequiredDialog } from "@/components/dashboard/PhoneRequiredDialog";
+import { getDashboardMessages } from "@/lib/dashboard-i18n";
 
 async function getData(orgId: string) {
   const [sites] = await Promise.all([
@@ -64,6 +65,8 @@ export default async function Welcome() {
   }
 
   const orgId = await getOrganizationIdByUserId(user.id);
+  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const t = getDashboardMessages(organizationLanguage);
   const { sites } = await getData(orgId);
 
   return (
@@ -73,19 +76,19 @@ export default async function Welcome() {
 
       {/* Tour only runs after phone is set */}
       {!needsPhone && (
-        <TourRunner steps={steps_dashboard} stepName="steps_dashboard" />
+        <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_dashboard} stepName="steps_dashboard" />
       )}
 
       <div className="flex w-full justify-end">
         <Button asChild>
           <Link href={"/dashboard/sites/new"} data-tour="create-project">
-            <PlusCircle className="mr-2 size-4" /> Create Project
+            <PlusCircle className="mr-2 size-4" /> {t.createProject}
           </Link>
         </Button>
       </div>
 
       <div>
-        <h1 className="mb-5 text-2xl font-semibold">Your Sites</h1>
+        <h1 className="mb-5 text-2xl font-semibold">{t.yourSites}</h1>
 
         {sites.length > 0 ? (
           <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -120,10 +123,10 @@ export default async function Welcome() {
           </div>
         ) : (
           <EmptyState
-            title="You dont have any Projects created"
-            description="You currently dont have any Projects. Please create some so that you can see them right here."
+            title={t.emptyTitle}
+            description={t.emptyDescription}
             href="/dashboard/sites/new"
-            buttonText="Create Project"
+            buttonText={t.createProject}
           />
         )}
       </div>

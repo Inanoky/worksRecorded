@@ -37,6 +37,8 @@ import {
 } from "@/server/actions/BIS/service";
 import { UpdateSiteForm } from "./updatesiteform";
 import { getSiteSettingsMessages } from "@/lib/dashboard-i18n";
+import TourRunner from "@/components/joyride/TourRunner";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 
 export default async function SettingsSiteRoute({
   params,
@@ -208,6 +210,7 @@ export default async function SettingsSiteRoute({
 
   return (
     <>
+      <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_siteid_settings} stepName="steps_siteid_settings" />
       <div className="flex items-center gap-x-2 mb-6">
         <Button variant="outline" size="icon" asChild>
           <Link href={`/dashboard/sites/${siteId}/analytics`}>
@@ -217,9 +220,9 @@ export default async function SettingsSiteRoute({
         <h3 className="text-xl font-semibold">{t.goBack}</h3>
       </div>
 
-      <UploadImageForm siteId={siteId} />
+      <div data-tour="settings-image"><UploadImageForm siteId={siteId} /></div>
 
-      <BisIntegrationCard
+      <div data-tour="settings-bis"><BisIntegrationCard
         organizationLanguage={organizationLanguage}
         siteId={siteId}
         isConnected={isBisConnected}
@@ -234,9 +237,9 @@ export default async function SettingsSiteRoute({
         hasManualAuthorizationCode={Boolean(
           process.env.BIS_AUTHORIZATION_CODE
         )}
-      />
+      /></div>
 
-      <UpdateSiteForm
+      <div data-tour="settings-site-info"><UpdateSiteForm
         organizationLanguage={organizationLanguage}
         siteId={siteId}
         site={{
@@ -246,9 +249,9 @@ export default async function SettingsSiteRoute({
           geofenceMapLink: site?.geofenceMapLink ?? "",
         }}
         parsedPolygon={parsedPolygon}
-      />
+      /></div>
 
-      <Card className="border-red-500 bg-red-500/10">
+      <Card data-tour="settings-danger-zone" className="border-red-500 bg-red-500/10">
         <CardHeader>
           <CardTitle className="text-red-500">{t.danger}</CardTitle>
           <CardDescription>
