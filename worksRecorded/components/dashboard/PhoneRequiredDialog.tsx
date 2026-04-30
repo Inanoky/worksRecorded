@@ -54,8 +54,9 @@ export function PhoneRequiredDialog({ needsPhone }: Props) {
               }
             });
           }}
-          className="mt-4 space-y-4"
+          className="mt-4 space-y-4" aria-busy={pending}
         >
+          <fieldset disabled={pending} className="space-y-4">
           <PhoneInput
             disabled={pending}
             country={"lv"} // default Latvia
@@ -74,9 +75,10 @@ export function PhoneRequiredDialog({ needsPhone }: Props) {
             <p className="text-sm text-destructive">{error}</p>
           )}
 
-          <Button type="submit" className="w-full" disabled={pending}>
+          <Button type="submit" className="w-full" disabled={pending} aria-disabled={pending}>
             {pending ? (<span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Saving...</span>) : "Continue"}
           </Button>
+          </fieldset>
         </form>
       </DialogContent>
     </Dialog>
