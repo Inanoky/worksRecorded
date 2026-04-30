@@ -52,7 +52,10 @@ export default async function DashboardIndexPage() {
 
   return (
     <>
-      <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_dashboard_sites_open_project} stepName="steps_dashboard_sites_open_project" />
+      <TourRunner
+        steps={sites.length > 0 ? getJoyRideSteps(organizationLanguage).steps_dashboard_sites_open_project : getJoyRideSteps(organizationLanguage).steps_dashboard_create_project_cta}
+        stepName={sites.length > 0 ? "steps_dashboard_sites_open_project" : "steps_dashboard_create_project_cta"}
+      />
 
       <div className="flex w-full justify-end">
         <Button asChild>
