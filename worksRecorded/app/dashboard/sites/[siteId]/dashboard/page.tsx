@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard_siteid_dashboard } from "@/components/joyride/JoyRideSteps";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import SiteDiaryList from "@/components/sitediary/SiteDiaryList";
 import { getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
@@ -55,7 +55,7 @@ export default async function InvoiceRoute({
     <>
       <div data-tour="key-metrics">
         <TourRunner
-          steps={steps_dashboard_siteid_dashboard}
+          steps={getJoyRideSteps(organizationLanguage).steps_dashboard_siteid_dashboard}
           stepName="steps_dashboard_siteid_dashboard"
         />
       </div>

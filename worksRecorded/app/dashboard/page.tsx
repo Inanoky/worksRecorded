@@ -13,7 +13,7 @@ import { PlusCircle } from "lucide-react";
 import { getOrganizationIdByUserId, getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { redirect } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard_sites_open_project } from "@/components/joyride/JoyRideSteps";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 
 const SUPER_USER_IDS = new Set([
@@ -52,11 +52,11 @@ export default async function DashboardIndexPage() {
 
   return (
     <>
-      <TourRunner steps={steps_dashboard_sites_open_project} stepName="steps_dashboard_sites_open_project" />
+      <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_dashboard_sites_open_project} stepName="steps_dashboard_sites_open_project" />
 
       <div className="flex w-full justify-end">
         <Button asChild>
-          <Link href={"/dashboard/sites/new"}>
+          <Link href={"/dashboard/sites/new"} data-tour="create-project">
             <PlusCircle className="mr-2 size-4" /> {t.createProject}
           </Link>
         </Button>

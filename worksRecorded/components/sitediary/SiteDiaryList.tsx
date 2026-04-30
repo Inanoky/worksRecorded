@@ -347,8 +347,19 @@ export default function SiteDiaryCalendar({
   }
 
   function getDisplayNameByKey(key) {
+    if (Object.prototype.hasOwnProperty.call(localizedHeaderMap, key)) return localizedHeaderMap[key as keyof typeof localizedHeaderMap];
     return defaultMap[key]?.DisplayName ?? key;
   }
+
+
+  const localizedHeaderMap = language === "lv" ? {
+    Works: "Darbi",
+    Location: "Lokācija",
+    Comments: "Komentāri",
+    NumberOfWorkers: "Darbinieku skaits",
+    Hours: "Stundas",
+    CreatedBy: "Izveidoja",
+  } : {};
 
   function getCellWidthByKey(
     key: string,

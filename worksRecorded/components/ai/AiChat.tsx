@@ -28,7 +28,7 @@ import {
   markTourCompleted,
 } from "@/components/joyride/user-tour-action";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_ai_widget_open } from "@/components/joyride/JoyRideSteps";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { downloadDataUrl, extractDataUrls } from "@/components/ai/AIchatHelpers";
 import { buildNativeFileContext } from "@/server/ai-flows/agents/orchestrating-agent-v2/fileContext";
 
@@ -746,7 +746,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
   return (
     <>
-      {open && <TourRunner steps={steps_ai_widget_open} stepName="steps_ai_widget_open" />}
+      {open && <TourRunner steps={getJoyRideSteps("en").steps_ai_widget_open} stepName="steps_ai_widget_open" />}
 
       {!open &&
         mounted &&

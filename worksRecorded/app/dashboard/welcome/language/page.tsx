@@ -1,7 +1,13 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { completeOnboardingLanguage } from "@/server/actions/onboarding-actions";
 import { redirect } from "next/navigation";
+import LanguageButtons from "./LanguageButtons";
 
 async function setLanguage(formData: FormData) {
   "use server";
@@ -13,18 +19,19 @@ async function setLanguage(formData: FormData) {
 
 export default function WelcomeLanguagePage() {
   return (
-    <div className="mx-auto max-w-xl">
-      <Card>
-        <CardHeader>
-          <CardTitle>Choose your organization language</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form action={setLanguage} className="flex gap-3">
-            <Button type="submit" name="language" value="en">English</Button>
-            <Button type="submit" name="language" value="lv" variant="outline">Latviešu</Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <Dialog open={true}>
+      <DialogContent className="sm:max-w-md [&>button]:hidden">
+        <DialogHeader>
+          <DialogTitle>Choose your organization language</DialogTitle>
+          <DialogDescription>
+            Pick one language for shared organization UI across your team.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form action={setLanguage} className="mt-4 grid gap-3">
+          <LanguageButtons />
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

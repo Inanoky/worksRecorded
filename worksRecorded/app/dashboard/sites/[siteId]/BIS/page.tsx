@@ -8,6 +8,8 @@ import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTo
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { getWarehousePageMessages } from "@/lib/dashboard-i18n";
+import TourRunner from "@/components/joyride/TourRunner";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 
 type BisApprover = {
   memberId: string;
@@ -1570,7 +1572,8 @@ export default async function MaterialsPage({
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <div>
+      <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_siteid_warehouse} stepName="steps_siteid_warehouse" />
+      <div data-tour="warehouse-header">
         <h1 className="text-2xl font-semibold tracking-tight">{t.title}</h1>
         <p className="text-sm text-muted-foreground">
           {t.description}
@@ -1578,7 +1581,7 @@ export default async function MaterialsPage({
       </div>
 
 
-      <MaterialsTableClient
+      <div data-tour="warehouse-table"><MaterialsTableClient
         siteId={siteId}
         organizationLanguage={organizationLanguage}
         organizationCostCodes={organizationCostCodes}
@@ -1601,7 +1604,7 @@ export default async function MaterialsPage({
         updateMaterialAttachments={updateMaterialAttachments}
         attachCertificate={attachCertificateToMaterialConfiguration}
         deleteRecords={deleteWarehouseRecords}
-      />
+      /></div>
       <AiWidgetRag siteId={siteId} />
     </div>
   );
