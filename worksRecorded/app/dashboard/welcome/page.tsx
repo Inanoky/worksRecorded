@@ -17,7 +17,7 @@ import { PlusCircle } from "lucide-react";
 import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 import { redirect } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard } from "@/components/joyride/JoyRideSteps";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { PhoneRequiredDialog } from "@/components/dashboard/PhoneRequiredDialog";
 
 async function getData(orgId: string) {
@@ -73,7 +73,7 @@ export default async function Welcome() {
 
       {/* Tour only runs after phone is set */}
       {!needsPhone && (
-        <TourRunner steps={steps_dashboard} stepName="steps_dashboard" />
+        <TourRunner steps={getJoyRideSteps("en").steps_dashboard} stepName="steps_dashboard" />
       )}
 
       <div className="flex w-full justify-end">

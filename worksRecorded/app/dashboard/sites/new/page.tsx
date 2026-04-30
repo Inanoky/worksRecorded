@@ -19,12 +19,16 @@ import {useForm} from "@conform-to/react";
 import {parseWithZod} from "@conform-to/zod";
 import {siteSchema} from "@/lib/utils/zodSchemas";
 import {SubmitButton} from "@/components/dashboard/SubmitButtons";
-import { steps_dashboard_sites_new } from "@/components/joyride/JoyRideSteps";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import TourRunner from "@/components/joyride/TourRunner";
+import { getDashboardMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 
 
 export default function NewSiteRoute(){
+    const lang = typeof window === "undefined" ? "en" : normalizeOrganizationLanguage(window.localStorage?.getItem("organizationLanguage") ?? "en");
+    const t = getDashboardMessages(lang);
+    const joyrideSteps = getJoyRideSteps(lang);
 
     const [lastResult, action] = useActionState(CreateSiteAction, undefined)
     const [form,fields] = useForm({
@@ -42,52 +46,52 @@ export default function NewSiteRoute(){
     return(
 
         <div className="flex flex-col flex-1 items-center justify-center">
-            <TourRunner steps={steps_dashboard_sites_new} />
+            <TourRunner steps={joyrideSteps.steps_dashboard_sites_new} />
             <Card 
             className="max-w-[450px]"
             data-tour="sites/new/card"
             
             >
               <CardHeader>
-                    <CardTitle>New Project</CardTitle>
-                    <CardDescription>Enter project information</CardDescription>
+                    <CardTitle>{t.createProject}</CardTitle>
+                    <CardDescription>{lang === "lv" ? "Ievadiet projekta informāciju" : "Enter project information"}</CardDescription>
               </CardHeader>
               <form id={form.id} onSubmit={form.onSubmit} action={action}>
                   <CardContent>
                   <div className="flex flex-col gap-y-6">
                       <div className="grid gap-2">
-                          <Label>Project name</Label>
+                          <Label>{lang === "lv" ? "Projekta nosaukums" : "Project name"}</Label>
                           <Input
                               name={fields.name.name}
                               key={fields.name.key}
                               defaultValue={fields.name.initialValue}
-                              placeholder="Project name"/>
+                              placeholder={lang === "lv" ? "Projekta nosaukums" : "Project name"}/>
                           <p className="text-red-500 text-small">{fields.name.errors}</p>
                       </div>
                       <div className="grid gap-2">
-                          <Label>Project address</Label>
+                          <Label>{lang === "lv" ? "Projekta adrese" : "Project address"}</Label>
                           <Input
                               name={fields.subdirectory.name}
                               key={fields.subdirectory.key}
                               defaultValue={fields.subdirectory.initialValue}
-                              placeholder="Adress"/>
+                              placeholder={lang === "lv" ? "Adrese" : "Address"}/>
                           <p className="text-red-500 text-small"> {fields.subdirectory.errors}</p>
 
                       </div>
                       <div className="grid gap-2">
-                          <Label>Description</Label>
+                          <Label>{lang === "lv" ? "Apraksts" : "Description"}</Label>
                           <Textarea
                               name={fields.description.name}
                               key={fields.description.key}
                               defaultValue={fields.description.initialValue}
-                              placeholder="Small Description for your site"/>
+                              placeholder={lang === "lv" ? "Īss projekta apraksts" : "Small description for your site"}/>
                           <p className="text-red-500 text-sm">{fields.description.errors}</p>
 
                       </div>
                   </div>
               </CardContent>
                 <CardFooter>
-                    <SubmitButton text="Create Project"/>
+                    <SubmitButton text={t.createProject}/>
                 </CardFooter>
 
               </form>

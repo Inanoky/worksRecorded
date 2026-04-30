@@ -6,7 +6,7 @@ import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 
 import TourRunner from "@/components/joyride/TourRunner";
-import { steps_dashboard_siteid_site_diary} from "@/components/joyride/JoyRideSteps";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 
 
@@ -31,7 +31,7 @@ export default async function Home({
     <>
     <div  
 >
-         <TourRunner steps={steps_dashboard_siteid_site_diary} stepName="steps_dashboard_siteid_site_diary"/>
+         <TourRunner steps={getJoyRideSteps("en").steps_dashboard_siteid_site_diary} stepName="steps_dashboard_siteid_site_diary"/>
    
               
       <SiteDiaryCalendar siteId={siteId} 

@@ -1,90 +1,47 @@
-// C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\components\joyride\JoyRideSteps.tsx
+import { normalizeOrganizationLanguage, type OrganizationLanguage } from "@/lib/dashboard-i18n";
 
-/*
- * If your steps are not dynamic you can use a simple array.
- * Otherwise you can set it as a state inside your component.
- */
+type JoyrideStep = { target: string; content: string; disableBeacon?: boolean };
 
+type JoyrideStepsBundle = {
+  steps_dashboard: JoyrideStep[];
+  steps_dashboard_sites_new: JoyrideStep[];
+  steps_dashboard_sites_open_project: JoyrideStep[];
+  steps_dashboard_siteid_dashboard: JoyrideStep[];
+  steps_dashboard_siteid_site_diary: JoyrideStep[];
+  steps_ai_widget_open: JoyrideStep[];
+};
 
-// Step 1
-export const steps_dashboard = [
-  {
-    target: '[data-tour="create-project"]',
-    content: 'Welcome to WorksRecorded site records! Start by crearting a new project',
-    disableBeacon: true
+const JOYRIDE_STEPS: Record<OrganizationLanguage, JoyrideStepsBundle> = {
+  en: {
+    steps_dashboard: [{ target: '[data-tour="create-project"]', content: 'Welcome to WorksRecorded site records! Start by creating a new project', disableBeacon: true }],
+    steps_dashboard_sites_new: [{ target: '[data-tour="sites/new/card"]', content: 'Type in your project information', disableBeacon: true }],
+    steps_dashboard_sites_open_project: [{ target: '[data-tour="dashboard/page"]', content: 'Open your project', disableBeacon: true }],
+    steps_dashboard_siteid_dashboard: [
+      { target: '[data-tour="calendar"]', content: 'Start reporting works from WhatsApp', disableBeacon: true },
+      { target: '[data-tour="AI-widget"]', content: 'You can also report from assistant or directly in the diary', disableBeacon: true },
+    ],
+    steps_dashboard_siteid_site_diary: [
+      { target: '[data-tour="calendar"]', content: 'Start reporting works from WhatsApp', disableBeacon: true },
+      { target: '[data-tour="AI-widget"]', content: 'Open AI assistant and report what has been completed today.', disableBeacon: true },
+    ],
+    steps_ai_widget_open: [{ target: '[data-tour="AI-widget-open"]', content: 'Start typing to tell the AI what was completed today. You can say: Today 5 workers cast 10m3, and 3 workers did steel fixing for 5 hours.', disableBeacon: true }],
   },
-  
-]
-
-
-
-// Step 2
-export const steps_dashboard_sites_new = [
-  {
-    target: '[data-tour="sites/new/card"]',
-    content: 'Type in your project information',
-    disableBeacon: true
+  lv: {
+    steps_dashboard: [{ target: '[data-tour="create-project"]', content: 'Laipni lūdzam WorksRecorded! Sāciet ar jauna projekta izveidi.', disableBeacon: true }],
+    steps_dashboard_sites_new: [{ target: '[data-tour="sites/new/card"]', content: 'Ievadiet projekta informāciju', disableBeacon: true }],
+    steps_dashboard_sites_open_project: [{ target: '[data-tour="dashboard/page"]', content: 'Atveriet savu projektu', disableBeacon: true }],
+    steps_dashboard_siteid_dashboard: [
+      { target: '[data-tour="calendar"]', content: 'Sāciet darbu uzskaiti no WhatsApp', disableBeacon: true },
+      { target: '[data-tour="AI-widget"]', content: 'Varat uzskaitīt arī ar asistentu vai tieši žurnālā', disableBeacon: true },
+    ],
+    steps_dashboard_siteid_site_diary: [
+      { target: '[data-tour="calendar"]', content: 'Sāciet darbu uzskaiti no WhatsApp', disableBeacon: true },
+      { target: '[data-tour="AI-widget"]', content: 'Atveriet AI asistentu un aprakstiet, kas šodien paveikts.', disableBeacon: true },
+    ],
+    steps_ai_widget_open: [{ target: '[data-tour="AI-widget-open"]', content: 'Sāciet rakstīt AI asistentam, kas šodien tika paveikts.', disableBeacon: true }],
   },
-  
-]
+};
 
-//Step 3
-export const steps_dashboard_sites_open_project = [
-  {
-    target: '[data-tour="dashboard/page"]',
-    content: 'Open your project',
-    disableBeacon: true
-  },
-  
-]
-
-
-//Step 4
-export const steps_dashboard_siteid_dashboard = [
-  {
-    target: '[data-tour="calendar"]',
-    content: `Start reporting works from whatsapp `,
-    disableBeacon: true
-  },
-    {
-    target: '[data-tour="AI-widget"]',
-    content: `You can also report from assistant or directly on the diary`,
-    disableBeacon: true
-  },
-   
-   
-  
-]
-
-
-
-
-
-//Step 5. This will point to the the AI widget button.
-
-export const steps_dashboard_siteid_site_diary = [
-  {
-    target: '[data-tour="calendar"]',
-    content: `Start reporting works from whatsapp `,
-    disableBeacon: true
-  },
-    {
-    target: '[data-tour="AI-widget"]',
-    content: `Open AI assistant and report what has been completed today.`,
-    disableBeacon: true
-  },
- 
-  ]
-
-
-//Step 6. This should point to the the textarea inside the opened AI widget.
-
-export const steps_ai_widget_open = [
-  {
-    target: '[data-tour="AI-widget-open"]',
-    content: "Start typing to tell the AI what was completed today.\n" + 
-    "You can say something like : Today we 5 workers casted 10m3, and 3 workers we doing steel fixing for 5 hours additional work, delivery of timber was delayed",
-    disableBeacon: true,
-  },
-];
-
+export function getJoyRideSteps(language?: string | null): JoyrideStepsBundle {
+  return JOYRIDE_STEPS[normalizeOrganizationLanguage(language)];
+}
