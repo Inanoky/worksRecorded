@@ -11,6 +11,8 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { getOrganizationLanguageByUserId, orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 import { getTimesheetsPageMessages } from "@/lib/dashboard-i18n";
+import TourRunner from "@/components/joyride/TourRunner";
+import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 
 export const maxDuration = 800;
 
@@ -51,6 +53,7 @@ export default async function AddWorkerPage({
 
 
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6">
+        <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_siteid_timesheets} stepName="steps_siteid_timesheets" />
         {/* Header */}
         <header className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
           <div>
@@ -61,7 +64,7 @@ export default async function AddWorkerPage({
           </div>
         </header>
 
-        <section>
+        <section data-tour="timesheets-workers">
           <Card className="border-muted/60 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-base md:text-lg">Workers on this project</CardTitle>
