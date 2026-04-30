@@ -13,7 +13,7 @@ async function sendMetaFirstContact() {
   const token = must("META_ACCESS_TOKEN", process.env.META_ACCESS_TOKEN);
   const businessPhoneNumberId = must("META_PHONE_NUMBER_ID", process.env.META_PHONE_NUMBER_ID);
 
-  const to = normalizeToMetaDigits(process.env.TARGET_PHONE || "+37120579225");
+  const to = normalizeToMetaDigits(process.env.TARGET_PHONE || "+37124885690");
   const templateName = process.env.META_TEMPLATE_NAME || "reminder_custom";
   const languageCode = process.env.META_TEMPLATE_LANGUAGE || "en";
 
