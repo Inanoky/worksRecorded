@@ -20,11 +20,7 @@ async function setLanguage(formData: FormData) {
 export default function WelcomeLanguagePage() {
   return (
     <Dialog open={true}>
-      <DialogContent
-        className="sm:max-w-md [&>button]:hidden"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
+      <DialogContent className="sm:max-w-md [&>button]:hidden">
         <DialogHeader>
           <DialogTitle>Choose your organization language</DialogTitle>
           <DialogDescription>
