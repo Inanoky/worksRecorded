@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import { saveUserPhone } from "@/server/actions/shared-actions";
+import { Loader2 } from "lucide-react";
 
 
 type Props = {
@@ -56,6 +57,7 @@ export function PhoneRequiredDialog({ needsPhone }: Props) {
           className="mt-4 space-y-4"
         >
           <PhoneInput
+            disabled={pending}
             country={"lv"} // default Latvia
             value={phone}
             onChange={(value) => setPhone(value)} // value = "37120000000"
@@ -73,7 +75,7 @@ export function PhoneRequiredDialog({ needsPhone }: Props) {
           )}
 
           <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? "Saving..." : "Continue"}
+            {pending ? (<span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Saving...</span>) : "Continue"}
           </Button>
         </form>
       </DialogContent>

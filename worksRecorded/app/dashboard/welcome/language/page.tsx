@@ -5,9 +5,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { completeOnboardingLanguage } from "@/server/actions/onboarding-actions";
 import { redirect } from "next/navigation";
+import LanguageButtons from "./LanguageButtons";
 
 async function setLanguage(formData: FormData) {
   "use server";
@@ -29,14 +29,7 @@ export default function WelcomeLanguagePage() {
         </DialogHeader>
 
         <form action={setLanguage} className="mt-4 grid gap-3">
-          <Button type="submit" name="language" value="en" className="justify-start gap-2">
-            <span aria-hidden>🇬🇧</span>
-            <span>English</span>
-          </Button>
-          <Button type="submit" name="language" value="lv" variant="outline" className="justify-start gap-2">
-            <span aria-hidden>🇱🇻</span>
-            <span>Latviešu</span>
-          </Button>
+          <LanguageButtons />
         </form>
       </DialogContent>
     </Dialog>
