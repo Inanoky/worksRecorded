@@ -70,7 +70,7 @@ const JOYRIDE_STEPS: Record<OrganizationLanguage, JoyrideStepsBundle> = {
       { target: '[data-tour="settings-danger-zone"]', content: 'Bīstamā zona: objekta dzēšana neatgriezeniski dzēsīs datus.', disableBeacon: true },
     ],
     steps_siteid_warehouse: [
-      { target: '[data-tour="warehouse-header"]', content: 'Noliktavā redzami visi šī objekta materiālu ieraksti.', disableBeacon: true },
+      { target: '[data-tour="warehouse-header"]', content: 'Noliktavā redzami visi šī objekta materiālu ieraksti. Pavadzīmes var pievienot WhatsAppā, rakstot “action”.', disableBeacon: true },
       { target: '[data-tour="warehouse-table"]', content: 'Izmantojiet tabulu filtrēšanai, rediģēšanai un BIS sinhronizācijai.', disableBeacon: true },
       { target: '[data-tour="AI-widget"]', content: 'AI asistents palīdz ātri apkopot materiālu aktivitāti.', disableBeacon: true },
     ],

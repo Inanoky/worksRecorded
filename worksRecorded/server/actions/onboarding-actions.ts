@@ -61,10 +61,9 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded(args: { siteId: st
   const orgLanguage = dbUser?.organization?.orgLanguage === "lv" ? "lv" : "en";
 
   const onboardingText =
-    orgLanguage === "lv"
-      ? "Jūs varat sākt šajā čatā ar balsi stāstīt, kas notika būvobjektā, un ziņas tiks saglabātas jūsu projektā :"
-      : "You can start in this chat by voice-telling what happened on the construction site, and messages will be saved in your project:";
-
+  orgLanguage === "lv"
+    ? "Šajā čatā ar balsi pastāstiet, kas notika būvobjektā — ziņas saglabāsies jūsu projektā.\nLai mainītu projektu, rakstiet “Change”. Lai pievienotu pavadzīmes, rakstiet “Action”."
+    : "In this chat, you can describe what happened on the construction site by voice — messages will be saved in your project.\nTo change the project, type “Change”. To add delivery notes, type “Action”.";
   const templateName = orgLanguage === "lv" ? "onboarding_template_lv" : "onboarding_template_en";
 
   const res = await fetch(`https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`, {
