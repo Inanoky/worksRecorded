@@ -804,6 +804,64 @@ export async function deleteWarehouseRecords(siteId: string, recordIds: string[]
   return { deletedIds: Array.from(rowsById.keys()) };
 }
 
+export async function copyWarehouseRecord(siteId: string, recordId: string) {
+  await requireUser();
+
+  const source = await prisma.bISmaterialRecords.findFirst({
+    where: { id: recordId, siteId },
+    select: {
+      name: true,
+      quantity: true,
+      categoryId: true,
+      categoryName: true,
+      measurementUnitId: true,
+      measurementUnit: true,
+      cost: true,
+      invoiceNr: true,
+      invoiceDate: true,
+      materialDate: true,
+      costCode: true,
+      sourcePhoto: true,
+      declarationAttachment: true,
+      agreementAttachment: true,
+    },
+  });
+
+  if (!source) {
+    throw new Error("Warehouse record not found.");
+  }
+
+  const copied = await prisma.bISmaterialRecords.create({
+    data: {
+      siteId,
+      ...source,
+      BISId: null,
+      bisStatus: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      categoryId: true,
+      categoryName: true,
+      measurementUnitId: true,
+      measurementUnit: true,
+      cost: true,
+      invoiceNr: true,
+      invoiceDate: true,
+      materialDate: true,
+      costCode: true,
+      sourcePhoto: true,
+      declarationAttachment: true,
+      agreementAttachment: true,
+      BISId: true,
+      bisStatus: true,
+    },
+  });
+
+  return withoutWarehouseBisState(copied);
+}
+
 export async function updateCostCode(recordId: string, costCode: string | null) {
   "use server";
 
@@ -1604,6 +1662,7 @@ export default async function MaterialsPage({
         updateMaterialAttachments={updateMaterialAttachments}
         attachCertificate={attachCertificateToMaterialConfiguration}
         deleteRecords={deleteWarehouseRecords}
+        copyRecord={copyWarehouseRecord}
       /></div>
       <AiWidgetRag siteId={siteId} />
     </div>
