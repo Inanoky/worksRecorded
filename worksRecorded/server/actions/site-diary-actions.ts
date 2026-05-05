@@ -1324,7 +1324,12 @@ async function fetchBisPagedList(
 
   while (true) {
     const separator = urlBase.includes("?") ? "&" : "?";
-    const res = await bisFetch(
+    console.log("[BIS submit] payload description debug", {
+    recordId,
+    payloadDescription: payload.data.attributes.description,
+  });
+
+  const res = await bisFetch(
       urlBase,
       `${urlBase}${separator}page[number]=${page}&page[size]=${pageSize}`,
       {
@@ -1741,11 +1746,15 @@ export async function sendSiteDiaryRecordToBis(
       },
     }));
 
-  const descriptionParts = [
-    (descriptionOverride || diaryRecord.Works) ? `Works: ${descriptionOverride || diaryRecord.Works}` : null,
-    diaryRecord.Location ? `Location: ${diaryRecord.Location}` : null,
-    diaryRecord.Comments ? `Comments: ${diaryRecord.Comments}` : null,
-  ].filter(Boolean);
+  const commentsDescription = (descriptionOverride || diaryRecord.Comments || "").trim().replace(/^(?:Works|Comments)\s*:\s*/i, "");
+
+  console.log("[BIS submit] description source debug", {
+    recordId,
+    descriptionOverrideRaw: options?.worksDescription,
+    diaryWorksRaw: diaryRecord.Works,
+    diaryCommentsRaw: diaryRecord.Comments,
+    commentsDescriptionPrepared: commentsDescription,
+  });
 
   console.log("[BIS submit] prepared detail attributes", {
     recordId,
@@ -1780,11 +1789,16 @@ export async function sendSiteDiaryRecordToBis(
         responsible_person_id: 2759822,
         responsible_person_type: "construction_member",
         description:
-          descriptionParts.join("; ") || "Site diary entry sent from worksRecorded",
+          commentsDescription || "Site diary entry sent from worksRecorded",
       },
       relationships,
     },
   };
+
+  console.log("[BIS submit] payload description debug", {
+    recordId,
+    payloadDescription: payload.data.attributes.description,
+  });
 
   const res = await bisFetch(
     baseUrl,
@@ -1916,6 +1930,11 @@ export async function getPossibleSiteDiaryBisApprovers(recordId: string) {
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
 
+  console.log("[BIS submit] payload description debug", {
+    recordId,
+    payloadDescription: payload.data.attributes.description,
+  });
+
   const res = await bisFetch(
     baseUrl,
     `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/possible_approvers`,
@@ -1973,6 +1992,11 @@ export async function getSiteDiaryBisApprovalStatus(recordId: string) {
 
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
+
+  console.log("[BIS submit] payload description debug", {
+    recordId,
+    payloadDescription: payload.data.attributes.description,
+  });
 
   const res = await bisFetch(
     baseUrl,
@@ -2039,6 +2063,11 @@ export async function submitSiteDiaryRecordToBisApproval(
 
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
+
+  console.log("[BIS submit] payload description debug", {
+    recordId,
+    payloadDescription: payload.data.attributes.description,
+  });
 
   const res = await bisFetch(
     baseUrl,
@@ -2197,7 +2226,12 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
     const bisId = String(record.BISId ?? "");
     if (!bisId) continue;
 
-    const res = await bisFetch(
+    console.log("[BIS submit] payload description debug", {
+    recordId,
+    payloadDescription: payload.data.attributes.description,
+  });
+
+  const res = await bisFetch(
       baseUrl,
       `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${bisId}`,
       {
