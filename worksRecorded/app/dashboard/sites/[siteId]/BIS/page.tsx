@@ -805,6 +805,8 @@ export async function deleteWarehouseRecords(siteId: string, recordIds: string[]
 }
 
 export async function copyWarehouseRecord(siteId: string, recordId: string) {
+  "use server";
+
   await requireUser();
 
   const source = await prisma.bISmaterialRecords.findFirst({
