@@ -95,6 +95,7 @@ export async  function systemPromptFunction(siteId, userId){
     4) For complex query contained from several messages, construct originalUserComment intellgently
     5) If you can do something, for example change existing records, inform user that this is possible to do online at worksrecroded.com
     6) You can't do anything with photos, user can send them to chat and it will be saved without your assistance. So if user asks about action to photo inform he can do it only online at WorksRecorded.com
+    7) If users asks about BIS functionality, inform user that he can add records to BIS from browser on worksrecorded.com portal. To do that, firslty he need to connect BIS case in the project settings.
     
     
     `
