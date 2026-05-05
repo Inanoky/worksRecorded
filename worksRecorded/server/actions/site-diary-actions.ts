@@ -1741,11 +1741,7 @@ export async function sendSiteDiaryRecordToBis(
       },
     }));
 
-  const descriptionParts = [
-    (descriptionOverride || diaryRecord.Works) ? `Works: ${descriptionOverride || diaryRecord.Works}` : null,
-    diaryRecord.Location ? `Location: ${diaryRecord.Location}` : null,
-    diaryRecord.Comments ? `Comments: ${diaryRecord.Comments}` : null,
-  ].filter(Boolean);
+  const commentsDescription = (descriptionOverride || diaryRecord.Comments || "").trim();
 
   console.log("[BIS submit] prepared detail attributes", {
     recordId,
@@ -1780,7 +1776,7 @@ export async function sendSiteDiaryRecordToBis(
         responsible_person_id: 2759822,
         responsible_person_type: "construction_member",
         description:
-          descriptionParts.join("; ") || "Site diary entry sent from worksRecorded",
+          commentsDescription || "Site diary entry sent from worksRecorded",
       },
       relationships,
     },
