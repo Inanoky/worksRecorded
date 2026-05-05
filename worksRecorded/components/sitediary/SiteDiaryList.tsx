@@ -860,7 +860,7 @@ export default function SiteDiaryCalendar({
 
     setSelectedRowForBis(row);
     setBisSubmitDate(row.Date ? new Date(row.Date) : new Date());
-    bisSubmitWorksRef.current = String(row.Works ?? "");
+    bisSubmitWorksRef.current = String(row.Comments ?? "");
     setBisSubmitAmount(String(row.Amounts ?? 1));
     setBisInputResetKey((value) => value + 1);
     setBisPickerOpen(true);
