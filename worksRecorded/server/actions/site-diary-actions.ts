@@ -1741,7 +1741,7 @@ export async function sendSiteDiaryRecordToBis(
       },
     }));
 
-  const commentsDescription = (descriptionOverride || diaryRecord.Comments || "").trim();
+  const commentsDescription = (descriptionOverride || diaryRecord.Comments || "").trim().replace(/^(?:Works|Comments)\s*:\s*/i, "");
 
   console.log("[BIS submit] prepared detail attributes", {
     recordId,
