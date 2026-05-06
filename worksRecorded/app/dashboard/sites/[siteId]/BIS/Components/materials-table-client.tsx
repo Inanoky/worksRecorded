@@ -197,6 +197,7 @@ type Props = {
       code?: "compliance" | "agreement"
     },
   ) => Promise<{ success: true }>
+  copyMaterialRecord: (siteId: string, recordId: string) => Promise<{ success: true; material: MaterialRow }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
 
@@ -262,6 +263,7 @@ export default function MaterialsTableClient({
   updateMaterialDetails,
   updateMaterialAttachments,
   attachCertificate,
+  copyMaterialRecord,
   deleteRecords,
 }: Props) {
   const t = getWarehouseUiMessages(normalizeOrganizationLanguage(organizationLanguage))
@@ -288,6 +290,7 @@ export default function MaterialsTableClient({
   const [syncLoading, setSyncLoading] = React.useState(false)
   const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
   const [deleteLoading, setDeleteLoading] = React.useState(false)
+  const [copyingRecordId, setCopyingRecordId] = React.useState<string | null>(null)
   const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
   const [pendingEdits, setPendingEdits] = React.useState<Record<string, {
     name?: string | null
@@ -706,6 +709,31 @@ export default function MaterialsTableClient({
         ? Array.from(new Set([...current, ...visibleIds]))
         : current.filter((id) => !visibleIds.includes(id)),
     )
+  }
+
+  const copyMaterial = async (row: MaterialRow) => {
+    if (copyingRecordId) return
+
+    setCopyingRecordId(row.id)
+    try {
+      const result = await copyMaterialRecord(siteId, row.id)
+      setRows((current) => {
+        const sourceIndex = current.findIndex((item) => item.id === row.id)
+        if (sourceIndex === -1) return [result.material, ...current]
+
+        return [
+          ...current.slice(0, sourceIndex + 1),
+          result.material,
+          ...current.slice(sourceIndex + 1),
+        ]
+      })
+      toast.success(t.copied)
+    } catch (error) {
+      console.error("[Warehouse BIS] Copy material failed", { siteId, recordId: row.id, error })
+      toast.error(error instanceof Error ? error.message : t.copyFailed)
+    } finally {
+      setCopyingRecordId(null)
+    }
   }
 
   const deleteSelectedRows = async () => {
@@ -1388,6 +1416,12 @@ export default function MaterialsTableClient({
                                     Open in BIS
                                   </DropdownMenuItem>
                                 ) : null}
+                                <DropdownMenuItem
+                                  onClick={() => copyMaterial(r)}
+                                  disabled={copyingRecordId !== null}
+                                >
+                                  {copyingRecordId === r.id ? t.copying : t.copy}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openEditModal(r)}>
                                   {t.edit}
                                 </DropdownMenuItem>

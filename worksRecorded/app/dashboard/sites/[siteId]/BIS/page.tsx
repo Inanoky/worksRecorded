@@ -712,6 +712,76 @@ export async function createMaterialConfiguration(
   return { success: true as const, category };
 }
 
+export async function copyWarehouseRecord(siteId: string, recordId: string) {
+  "use server";
+
+  await requireUser();
+
+  const source = await prisma.bISmaterialRecords.findFirst({
+    where: {
+      id: recordId,
+      siteId,
+    },
+    select: {
+      name: true,
+      quantity: true,
+      categoryId: true,
+      categoryName: true,
+      measurementUnitId: true,
+      measurementUnit: true,
+      cost: true,
+      invoiceNr: true,
+      invoiceDate: true,
+      materialDate: true,
+      costCode: true,
+      sourcePhoto: true,
+      declarationAttachment: true,
+      agreementAttachment: true,
+      userId: true,
+      orgId: true,
+    },
+  });
+
+  if (!source) {
+    throw new Error("Material record not found");
+  }
+
+  const copiedMaterial = await prisma.bISmaterialRecords.create({
+    data: {
+      ...source,
+      siteId,
+      BISId: null,
+      bisStatus: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      categoryId: true,
+      categoryName: true,
+      measurementUnitId: true,
+      measurementUnit: true,
+      cost: true,
+      invoiceNr: true,
+      invoiceDate: true,
+      materialDate: true,
+      costCode: true,
+      sourcePhoto: true,
+      declarationAttachment: true,
+      agreementAttachment: true,
+      BISId: true,
+      bisStatus: true,
+    },
+  });
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+
+  return {
+    success: true as const,
+    material: withoutWarehouseBisState(copiedMaterial),
+  };
+}
+
 export async function deleteWarehouseRecords(siteId: string, recordIds: string[]) {
   "use server";
 
@@ -1603,6 +1673,7 @@ export default async function MaterialsPage({
         updateMaterialDetails={updateMaterialDetails}
         updateMaterialAttachments={updateMaterialAttachments}
         attachCertificate={attachCertificateToMaterialConfiguration}
+        copyMaterialRecord={copyWarehouseRecord}
         deleteRecords={deleteWarehouseRecords}
       /></div>
       <AiWidgetRag siteId={siteId} />

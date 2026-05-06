@@ -248,6 +248,10 @@ type WarehouseUiMessages = {
   cancel: string;
   approved: string;
   sentForApproval: string;
+  copy: string;
+  copying: string;
+  copied: string;
+  copyFailed: string;
   materialConfigSelect: WarehouseMaterialConfigSelectMessages;
 };
 
@@ -760,6 +764,10 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     cancel: "Cancel",
     approved: "Approved",
     sentForApproval: "Sent for approval",
+    copy: "Copy",
+    copying: "Copying...",
+    copied: "Material copied",
+    copyFailed: "Failed to copy material",
     materialConfigSelect: {
       materialKindRequired: "Material kind is required",
       measurementRequired: "Measurement is required",
@@ -839,6 +847,10 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     cancel: "Atcelt",
     approved: "Apstiprināts",
     sentForApproval: "Apstiprināšana",
+    copy: "Kopēt",
+    copying: "Kopē...",
+    copied: "Materiāls nokopēts",
+    copyFailed: "Neizdevās kopēt materiālu",
     materialConfigSelect: {
       materialKindRequired: "Materiāla veids ir obligāts",
       measurementRequired: "Mērvienība ir obligāta",
