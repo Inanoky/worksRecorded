@@ -24,6 +24,67 @@ import {
 export const NO_MATCH_VALUE = "no_match"
 const CREATE_VALUE = "__create_material_configuration__"
 
+export type MaterialConfigSelectMessages = {
+  materialKindRequired: string
+  measurementRequired: string
+  materialTypeRequired: string
+  manufacturerRequired: string
+  createdAndSelected: string
+  cleared: string
+  updated: string
+  updateFailed: string
+  createFailed: string
+  searchMaterialPlaceholder: string
+  noConfiguration: string
+  createConfigurationOption: string
+  createDialogTitle: string
+  createDialogDescription: string
+  materialKind: string
+  materialKindPlaceholder: string
+  measurement: string
+  selectMeasurement: string
+  materialType: string
+  selectMaterialType: string
+  manufacturer: string
+  manufacturerPlaceholder: string
+  declaration: string
+  filesSelected: (count: number) => string
+  cancel: string
+  create: string
+  creating: string
+}
+
+const DEFAULT_MESSAGES: MaterialConfigSelectMessages = {
+  materialKindRequired: "Material kind is required",
+  measurementRequired: "Measurement is required",
+  materialTypeRequired: "Material type is required",
+  manufacturerRequired: "Manufacturer is required",
+  createdAndSelected: "Material configuration created and selected",
+  cleared: "BIS material configuration cleared",
+  updated: "BIS material configuration updated",
+  updateFailed: "Failed to update BIS material configuration",
+  createFailed: "Failed to create material configuration",
+  searchMaterialPlaceholder: "Search material...",
+  noConfiguration: "— No configuration —",
+  createConfigurationOption: "+ Create material configuration",
+  createDialogTitle: "Create BIS material configuration",
+  createDialogDescription:
+    "Create a new configuration and attach supporting files before sending it to BIS.",
+  materialKind: "Material kind",
+  materialKindPlaceholder: "E.g. Concrete C30/37",
+  measurement: "Measurement",
+  selectMeasurement: "Select measurement",
+  materialType: "Material type",
+  selectMaterialType: "Select material type",
+  manufacturer: "Manufacturer",
+  manufacturerPlaceholder: "Enter manufacturer",
+  declaration: "Declaration",
+  filesSelected: (count) => `${count} file(s) selected`,
+  cancel: "Cancel",
+  create: "Create",
+  creating: "Creating...",
+}
+
 export type MaterialCategory = {
   id: string
   material_kind: string
@@ -49,6 +110,7 @@ export default function MaterialConfigSelect({
   measurements,
   materialTypes,
   selectConfigurationLabel = "Select configuration",
+  messages = DEFAULT_MESSAGES,
 }: {
   siteId: string
   recordId: string
@@ -84,6 +146,7 @@ export default function MaterialConfigSelect({
   measurements: Array<{ id: string; name: string }>
   materialTypes: MaterialTypeOption[]
   selectConfigurationLabel?: string
+  messages?: MaterialConfigSelectMessages
 }) {
   const [pending, startTransition] = useTransition()
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -118,19 +181,19 @@ export default function MaterialConfigSelect({
     startTransition(async () => {
       try {
         if (!materialKind.trim()) {
-          toast.error("Material kind is required")
+          toast.error(messages.materialKindRequired)
           return
         }
         if (!measurement) {
-          toast.error("Measurement is required")
+          toast.error(messages.measurementRequired)
           return
         }
         if (!materialType) {
-          toast.error("Material type is required")
+          toast.error(messages.materialTypeRequired)
           return
         }
         if (!manufacturer.trim()) {
-          toast.error("Manufacturer is required")
+          toast.error(messages.manufacturerRequired)
           return
         }
 
@@ -157,7 +220,7 @@ export default function MaterialConfigSelect({
           measurementUnit: result.category.measurement_unit ?? "",
         })
 
-        toast.success("Material configuration created and selected")
+        toast.success(messages.createdAndSelected)
         setDialogOpen(false)
         setMaterialKind("")
         setMaterialType("")
@@ -166,7 +229,7 @@ export default function MaterialConfigSelect({
         setFiles([])
       } catch (error) {
         console.error(error)
-        toast.error(error instanceof Error ? error.message : "Failed to create material configuration")
+        toast.error(error instanceof Error ? error.message : messages.createFailed)
       }
     })
   }
@@ -190,7 +253,7 @@ export default function MaterialConfigSelect({
                   measurementUnitId: "",
                   measurementUnit: "",
                 })
-                toast.success("BIS material configuration cleared")
+                toast.success(messages.cleared)
                 return
               }
 
@@ -204,10 +267,10 @@ export default function MaterialConfigSelect({
                 measurementUnit: selected.measurement_unit ?? "",
               })
 
-              toast.success("BIS material configuration updated")
+              toast.success(messages.updated)
             } catch (error) {
               console.error(error)
-              toast.error("Failed to update BIS material configuration")
+              toast.error(messages.updateFailed)
             }
           })
         }}
@@ -222,11 +285,11 @@ export default function MaterialConfigSelect({
             <Input
               value={categorySearch}
               onChange={(event) => setCategorySearch(event.target.value)}
-              placeholder="Search material..."
+              placeholder={messages.searchMaterialPlaceholder}
             />
           </div>
-          <SelectItem value={NO_MATCH_VALUE}>— No configuration —</SelectItem>
-          <SelectItem value={CREATE_VALUE}>+ Create material configuration</SelectItem>
+          <SelectItem value={NO_MATCH_VALUE}>{messages.noConfiguration}</SelectItem>
+          <SelectItem value={CREATE_VALUE}>{messages.createConfigurationOption}</SelectItem>
 
           {filteredCategories.map((config) => (
             <SelectItem key={config.id} value={config.id}>
@@ -239,27 +302,27 @@ export default function MaterialConfigSelect({
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create BIS material configuration</DialogTitle>
+            <DialogTitle>{messages.createDialogTitle}</DialogTitle>
             <DialogDescription>
-              Create a new configuration and attach supporting files before sending it to BIS.
+              {messages.createDialogDescription}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Material kind</label>
+              <label className="text-sm font-medium">{messages.materialKind}</label>
               <Input
                 value={materialKind}
                 onChange={(event) => setMaterialKind(event.target.value)}
-                placeholder="E.g. Concrete C30/37"
+                placeholder={messages.materialKindPlaceholder}
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Measurement</label>
+              <label className="text-sm font-medium">{messages.measurement}</label>
               <Select value={measurement} onValueChange={setMeasurement}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select measurement" />
+                  <SelectValue placeholder={messages.selectMeasurement} />
                 </SelectTrigger>
                 <SelectContent>
                   {measurements.map((item) => (
@@ -272,10 +335,10 @@ export default function MaterialConfigSelect({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Material type</label>
+              <label className="text-sm font-medium">{messages.materialType}</label>
               <Select value={materialType} onValueChange={setMaterialType}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select material type" />
+                  <SelectValue placeholder={messages.selectMaterialType} />
                 </SelectTrigger>
                 <SelectContent>
                   {materialTypes.map((item) => (
@@ -290,33 +353,33 @@ export default function MaterialConfigSelect({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Manufacturer (Ražotājs)</label>
+              <label className="text-sm font-medium">{messages.manufacturer}</label>
               <Input
                 value={manufacturer}
                 onChange={(event) => setManufacturer(event.target.value)}
-                placeholder="Enter manufacturer"
+                placeholder={messages.manufacturerPlaceholder}
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Declaration</label>
+              <label className="text-sm font-medium">{messages.declaration}</label>
               <Input
                 type="file"
                 multiple
                 onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
               />
               {files.length ? (
-                <p className="text-xs text-muted-foreground">{files.length} file(s) selected</p>
+                <p className="text-xs text-muted-foreground">{messages.filesSelected(files.length)}</p>
               ) : null}
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              Cancel
+              {messages.cancel}
             </Button>
             <Button onClick={handleCreate} disabled={pending}>
-              {pending ? "Creating..." : "Create"}
+              {pending ? messages.creating : messages.create}
             </Button>
           </DialogFooter>
         </DialogContent>

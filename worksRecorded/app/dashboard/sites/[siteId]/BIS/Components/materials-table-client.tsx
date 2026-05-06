@@ -1249,6 +1249,7 @@ export default function MaterialsTableClient({
                             measurements={measures}
                             materialTypes={types}
                             selectConfigurationLabel={t.selectConfiguration}
+                            messages={t.materialConfigSelect}
                           />
                         </TableCell>
                       ) : null}
