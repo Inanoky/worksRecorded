@@ -127,16 +127,6 @@ type WarehouseBisSyncResult = {
   materialTypes: MaterialType[];
 };
 
-function normalizeOrganizationCostCodes(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-
-  const normalized = value
-    .map((code) => (typeof code === "string" ? code.trim() : ""))
-    .filter(Boolean);
-
-  return Array.from(new Set(normalized));
-}
-
 type WarehouseMaterialRecord = {
   id: string;
   name: string | null;
@@ -1582,20 +1572,6 @@ export default async function MaterialsPage({
     ensureUserBisAccessToken(user.id),
   ]);
 
-  const siteContext = await prisma.site.findUnique({
-    where: { id: siteId },
-    select: {
-      organization: {
-        select: {
-          bisCostCodes: true,
-        },
-      },
-    },
-  });
-  const organizationCostCodes = normalizeOrganizationCostCodes(
-    siteContext?.organization?.bisCostCodes,
-  );
-
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
 
   const [materials, materialConfigurationData] = await Promise.all([
@@ -1654,7 +1630,6 @@ export default async function MaterialsPage({
       <div data-tour="warehouse-table"><MaterialsTableClient
         siteId={siteId}
         organizationLanguage={organizationLanguage}
-        organizationCostCodes={organizationCostCodes}
         bisEnabled={bisEnabled}
         materials={materialsWithBisState}
         materialConfigurations={materialConfigurationData.materialConfigurations}
@@ -1666,8 +1641,6 @@ export default async function MaterialsPage({
         syncBisRecords={syncWarehouseBisRecords}
         updateMaterialConfiguration={updateMaterialConfiguration}
         createMaterialConfiguration={createMaterialConfiguration}
-        updateCostCode={updateCostCode}
-        updateOrganizationCostCodes={updateOrganizationCostCodes}
         updateMaterialDate={updateMaterialDate}
         updateQuantity={updateQuantity}
         updateMaterialDetails={updateMaterialDetails}
