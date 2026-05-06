@@ -169,6 +169,36 @@ type WorkersUiMessages = {
   cancel: string;
 };
 
+type WarehouseMaterialConfigSelectMessages = {
+  materialKindRequired: string;
+  measurementRequired: string;
+  materialTypeRequired: string;
+  manufacturerRequired: string;
+  createdAndSelected: string;
+  cleared: string;
+  updated: string;
+  updateFailed: string;
+  createFailed: string;
+  searchMaterialPlaceholder: string;
+  noConfiguration: string;
+  createConfigurationOption: string;
+  createDialogTitle: string;
+  createDialogDescription: string;
+  materialKind: string;
+  materialKindPlaceholder: string;
+  measurement: string;
+  selectMeasurement: string;
+  materialType: string;
+  selectMaterialType: string;
+  manufacturer: string;
+  manufacturerPlaceholder: string;
+  declaration: string;
+  filesSelected: (count: number) => string;
+  cancel: string;
+  create: string;
+  creating: string;
+};
+
 type WarehouseUiMessages = {
   searchMaterials: string;
   totalCost: string;
@@ -218,6 +248,11 @@ type WarehouseUiMessages = {
   cancel: string;
   approved: string;
   sentForApproval: string;
+  copy: string;
+  copying: string;
+  copied: string;
+  copyFailed: string;
+  materialConfigSelect: WarehouseMaterialConfigSelectMessages;
 };
 
 type SettingsUiMessages = {
@@ -729,6 +764,39 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     cancel: "Cancel",
     approved: "Approved",
     sentForApproval: "Sent for approval",
+    copy: "Copy",
+    copying: "Copying...",
+    copied: "Material copied",
+    copyFailed: "Failed to copy material",
+    materialConfigSelect: {
+      materialKindRequired: "Material kind is required",
+      measurementRequired: "Measurement is required",
+      materialTypeRequired: "Material type is required",
+      manufacturerRequired: "Manufacturer is required",
+      createdAndSelected: "Material configuration created and selected",
+      cleared: "BIS material configuration cleared",
+      updated: "BIS material configuration updated",
+      updateFailed: "Failed to update BIS material configuration",
+      createFailed: "Failed to create material configuration",
+      searchMaterialPlaceholder: "Search material...",
+      noConfiguration: "— No configuration —",
+      createConfigurationOption: "+ Create material configuration",
+      createDialogTitle: "Create BIS material configuration",
+      createDialogDescription: "Create a new configuration and attach supporting files before sending it to BIS.",
+      materialKind: "Material kind",
+      materialKindPlaceholder: "E.g. Concrete C30/37",
+      measurement: "Measurement",
+      selectMeasurement: "Select measurement",
+      materialType: "Material type",
+      selectMaterialType: "Select material type",
+      manufacturer: "Manufacturer",
+      manufacturerPlaceholder: "Enter manufacturer",
+      declaration: "Declaration",
+      filesSelected: (count) => `${count} file(s) selected`,
+      cancel: "Cancel",
+      create: "Create",
+      creating: "Creating...",
+    },
   },
   lv: {
     searchMaterials: "Meklēt materiālus...",
@@ -779,6 +847,39 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     cancel: "Atcelt",
     approved: "Apstiprināts",
     sentForApproval: "Apstiprināšana",
+    copy: "Kopēt",
+    copying: "Kopē...",
+    copied: "Materiāls nokopēts",
+    copyFailed: "Neizdevās kopēt materiālu",
+    materialConfigSelect: {
+      materialKindRequired: "Materiāla veids ir obligāts",
+      measurementRequired: "Mērvienība ir obligāta",
+      materialTypeRequired: "Materiāla tips ir obligāts",
+      manufacturerRequired: "Ražotājs ir obligāts",
+      createdAndSelected: "Materiāla konfigurācija izveidota un izvēlēta",
+      cleared: "BIS materiāla konfigurācija notīrīta",
+      updated: "BIS materiāla konfigurācija atjaunināta",
+      updateFailed: "Neizdevās atjaunināt BIS materiāla konfigurāciju",
+      createFailed: "Neizdevās izveidot materiāla konfigurāciju",
+      searchMaterialPlaceholder: "Meklēt materiālu...",
+      noConfiguration: "— Nav konfigurācijas —",
+      createConfigurationOption: "+ Izveidot materiāla konfigurāciju",
+      createDialogTitle: "Izveidot BIS materiāla konfigurāciju",
+      createDialogDescription: "Izveidojiet jaunu konfigurāciju un pievienojiet apliecinošos failus pirms nosūtīšanas uz BIS.",
+      materialKind: "Materiāla veids",
+      materialKindPlaceholder: "Piem., Betons C30/37",
+      measurement: "Mērvienība",
+      selectMeasurement: "Izvēlieties mērvienību",
+      materialType: "Materiāla tips",
+      selectMaterialType: "Izvēlieties materiāla tipu",
+      manufacturer: "Ražotājs",
+      manufacturerPlaceholder: "Ievadiet ražotāju",
+      declaration: "Deklarācija",
+      filesSelected: (count) => `Izvēlēti faili: ${count}`,
+      cancel: "Atcelt",
+      create: "Izveidot",
+      creating: "Izveido...",
+    },
   },
 };
 

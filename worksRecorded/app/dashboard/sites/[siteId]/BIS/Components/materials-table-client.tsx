@@ -54,12 +54,10 @@ import MaterialConfigSelect, {
   type MaterialCategory,
   NO_MATCH_VALUE,
 } from "./material-config-select"
-import CostCodeSelect from "./cost-code-select"
 import { toast } from "sonner"
 import { getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
-const MAX_COST_CODE_LENGTH = 50
 const MAX_MEASUREMENT_UNIT_LENGTH = 20
 const MAX_QUANTITY = 1_000_000
 const MAX_COST = 10_000_000
@@ -84,7 +82,6 @@ type MaterialRow = {
   invoiceNr: string | null
   invoiceDate: Date | null
   materialDate: Date | null
-  costCode: string | null
   sourcePhoto: string | null
   declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
   agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
@@ -96,7 +93,6 @@ type MaterialRow = {
 type Props = {
   siteId: string
   organizationLanguage?: string | null
-  organizationCostCodes?: string[]
   bisEnabled: boolean
   materials: MaterialRow[]
   materialConfigurations: MaterialCategory[]
@@ -160,14 +156,6 @@ type Props = {
     success: true
     category: MaterialCategory
   }>
-  updateCostCode: (
-    recordId: string,
-    costCode: string | null
-  ) => Promise<{ success: true }>
-  updateOrganizationCostCodes: (
-    siteId: string,
-    costCodes: string[],
-  ) => Promise<{ success: true }>
   updateMaterialDate: (
     recordId: string,
     materialDate: Date | null
@@ -182,7 +170,6 @@ type Props = {
       name?: string | null
       cost?: number | null
       materialDate?: Date | null
-      costCode?: string | null
       measurementUnit?: string | null
       invoiceDate?: Date | null
     },
@@ -197,6 +184,7 @@ type Props = {
       code?: "compliance" | "agreement"
     },
   ) => Promise<{ success: true }>
+  copyMaterialRecord: (siteId: string, recordId: string) => Promise<{ success: true; material: MaterialRow }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
 
@@ -243,7 +231,6 @@ function normalizeBisErrorMessage(message: string) {
 export default function MaterialsTableClient({
   siteId,
   organizationLanguage,
-  organizationCostCodes,
   bisEnabled,
   materials,
   materialConfigurations,
@@ -255,13 +242,12 @@ export default function MaterialsTableClient({
   syncBisRecords,
   updateMaterialConfiguration,
   createMaterialConfiguration,
-  updateCostCode,
-  updateOrganizationCostCodes,
   updateMaterialDate,
   updateQuantity,
   updateMaterialDetails,
   updateMaterialAttachments,
   attachCertificate,
+  copyMaterialRecord,
   deleteRecords,
 }: Props) {
   const t = getWarehouseUiMessages(normalizeOrganizationLanguage(organizationLanguage))
@@ -269,11 +255,6 @@ export default function MaterialsTableClient({
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
   const [types, setTypes] = React.useState<Array<{ id: string; name: string }>>(materialTypes)
-  const [managedCostCodes, setManagedCostCodes] = React.useState<string[]>(
-    organizationCostCodes?.length
-      ? organizationCostCodes
-      : [],
-  )
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
@@ -288,6 +269,7 @@ export default function MaterialsTableClient({
   const [syncLoading, setSyncLoading] = React.useState(false)
   const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
   const [deleteLoading, setDeleteLoading] = React.useState(false)
+  const [copyingRecordId, setCopyingRecordId] = React.useState<string | null>(null)
   const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
   const [pendingEdits, setPendingEdits] = React.useState<Record<string, {
     name?: string | null
@@ -299,7 +281,6 @@ export default function MaterialsTableClient({
   const editNameRef = React.useRef("")
   const editQuantityRef = React.useRef("")
   const editCostRef = React.useRef("")
-  const editCostCodeRef = React.useRef("")
   const editUnitRef = React.useRef("")
   const editInvoiceDateRef = React.useRef("")
   const [editDraft, setEditDraft] = React.useState<{
@@ -307,7 +288,6 @@ export default function MaterialsTableClient({
     name: string
     quantity: string
     cost: string
-    costCode: string
     measurementUnit: string
     invoiceDate: Date | null
     materialDate: Date | null
@@ -331,25 +311,6 @@ export default function MaterialsTableClient({
     setTypes(materialTypes)
   }, [materialTypes])
 
-  React.useEffect(() => {
-    if (organizationCostCodes?.length) {
-      setManagedCostCodes(organizationCostCodes)
-    }
-  }, [organizationCostCodes])
-
-  const availableCostCodes = React.useMemo(() => {
-    const codes = new Set(managedCostCodes)
-
-    for (const row of rows) {
-      const normalizedCode = row.costCode?.trim()
-      if (normalizedCode) {
-        codes.add(normalizedCode)
-      }
-    }
-
-    return Array.from(codes).sort((a, b) => a.localeCompare(b))
-  }, [managedCostCodes, rows])
-
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
       `${approver.memberId}:${approver.memberType ?? ""}:${approver.level ?? ""}`,
@@ -371,47 +332,6 @@ export default function MaterialsTableClient({
     },
     [approverKey],
   )
-
-  const handleCostCodeChange = async (
-    recordId: string,
-    costCode: string | null,
-  ) => {
-    const previousRows = rows
-
-    setRows((current) =>
-      current.map((row) =>
-        row.id === recordId
-          ? {
-              ...row,
-              costCode,
-            }
-          : row,
-      ),
-    )
-
-    try {
-      await updateCostCode(recordId, costCode)
-      return { success: true as const }
-    } catch (error) {
-      console.error(error)
-      setRows(previousRows)
-      throw error
-    }
-  }
-
-  const handleOrganizationCostCodesChange = async (nextCostCodes: string[]) => {
-    const previousCostCodes = managedCostCodes
-    setManagedCostCodes(nextCostCodes)
-
-    try {
-      await updateOrganizationCostCodes(siteId, nextCostCodes)
-    } catch (error) {
-      console.error(error)
-      setManagedCostCodes(previousCostCodes)
-      toast.error("Failed to update organization cost codes")
-      throw error
-    }
-  }
 
   const handleConfigChange = async (
     recordId: string,
@@ -591,7 +511,6 @@ export default function MaterialsTableClient({
     editNameRef.current = row.name ?? ""
     editQuantityRef.current = row.quantity == null ? "" : String(row.quantity)
     editCostRef.current = row.cost == null ? "" : String(row.cost)
-    editCostCodeRef.current = row.costCode ?? ""
     editUnitRef.current = row.measurementUnit ?? ""
     editInvoiceDateRef.current = row.invoiceDate ? toLocalDateInputValue(row.invoiceDate) : ""
     setEditDraft({
@@ -599,7 +518,6 @@ export default function MaterialsTableClient({
       name: row.name ?? "",
       quantity: row.quantity == null ? "" : String(row.quantity),
       cost: row.cost == null ? "" : String(row.cost),
-      costCode: row.costCode ?? "",
       measurementUnit: row.measurementUnit ?? "",
       invoiceDate: row.invoiceDate ? new Date(row.invoiceDate) : null,
       materialDate: row.materialDate ? new Date(row.materialDate) : null,
@@ -623,7 +541,6 @@ export default function MaterialsTableClient({
   const saveEditModal = async () => {
     if (!editDraft) return
     const trimmedName = editNameRef.current.trim()
-    const trimmedCostCode = editCostCodeRef.current.trim()
     const trimmedMeasurementUnit = editUnitRef.current.trim()
     const quantity = editQuantityRef.current.trim() === "" ? null : Number(editQuantityRef.current)
     const cost = editCostRef.current.trim() === "" ? null : Number(editCostRef.current)
@@ -648,11 +565,6 @@ export default function MaterialsTableClient({
       return
     }
 
-    if (trimmedCostCode.length > MAX_COST_CODE_LENGTH) {
-      toast.error(`Cost code must be ${MAX_COST_CODE_LENGTH} characters or fewer.`)
-      return
-    }
-
     if (trimmedMeasurementUnit.length > MAX_MEASUREMENT_UNIT_LENGTH) {
       toast.error(`Units must be ${MAX_MEASUREMENT_UNIT_LENGTH} characters or fewer.`)
       return
@@ -663,7 +575,6 @@ export default function MaterialsTableClient({
         name: trimmedName,
         cost: Number.isNaN(cost as number) ? null : cost,
         materialDate: editDraft.materialDate,
-        costCode: trimmedCostCode || null,
         measurementUnit: trimmedMeasurementUnit || null,
         invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
       })
@@ -681,7 +592,6 @@ export default function MaterialsTableClient({
                 name: trimmedName,
                 quantity: Number.isNaN(quantity as number) ? null : quantity,
                 cost: Number.isNaN(cost as number) ? null : cost,
-                costCode: trimmedCostCode || null,
                 measurementUnit: trimmedMeasurementUnit || null,
                 invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
                 materialDate: editDraft.materialDate,
@@ -706,6 +616,31 @@ export default function MaterialsTableClient({
         ? Array.from(new Set([...current, ...visibleIds]))
         : current.filter((id) => !visibleIds.includes(id)),
     )
+  }
+
+  const copyMaterial = async (row: MaterialRow) => {
+    if (copyingRecordId) return
+
+    setCopyingRecordId(row.id)
+    try {
+      const result = await copyMaterialRecord(siteId, row.id)
+      setRows((current) => {
+        const sourceIndex = current.findIndex((item) => item.id === row.id)
+        if (sourceIndex === -1) return [result.material, ...current]
+
+        return [
+          ...current.slice(0, sourceIndex + 1),
+          result.material,
+          ...current.slice(sourceIndex + 1),
+        ]
+      })
+      toast.success(t.copied)
+    } catch (error) {
+      console.error("[Warehouse BIS] Copy material failed", { siteId, recordId: row.id, error })
+      toast.error(error instanceof Error ? error.message : t.copyFailed)
+    } finally {
+      setCopyingRecordId(null)
+    }
   }
 
   const deleteSelectedRows = async () => {
@@ -921,7 +856,6 @@ export default function MaterialsTableClient({
           m.categoryName,
           m.measurementUnit,
           m.invoiceNr,
-          m.costCode,
           m.BISId,
           m.bisStatus,
         ]
@@ -1102,7 +1036,7 @@ export default function MaterialsTableClient({
 
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
         <div className="w-full overflow-x-auto">
-          <Table className="min-w-[1320px] text-sm">
+          <Table className="min-w-[1220px] text-sm">
             <TableHeader>
               <TableRow className="bg-muted/40 [&_th]:px-3 [&_th]:py-3">
                 <TableHead className="w-12">
@@ -1116,7 +1050,6 @@ export default function MaterialsTableClient({
                 <TableHead className="w-[20%]">{t.material}</TableHead>
                 <TableHead className="w-[9%]">{t.status}</TableHead>
                 {showBisControls ? <TableHead className="w-[16%]">{t.bisMaterialConfiguration}</TableHead> : null}
-                <TableHead className="w-[10%]">{t.costCode}</TableHead>
                 <TableHead className="w-[11%]">{t.deliveryDate}</TableHead>
                 <TableHead className="w-[6%]">{t.qty}</TableHead>
                 <TableHead className="w-[5%]">{t.unit}</TableHead>
@@ -1130,7 +1063,7 @@ export default function MaterialsTableClient({
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} className="py-12 text-center">
+                  <TableCell colSpan={showBisControls ? 12 : 11} className="py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-medium">{t.noRows}</p>
                       <p className="text-sm text-muted-foreground">
@@ -1249,20 +1182,11 @@ export default function MaterialsTableClient({
                             measurements={measures}
                             materialTypes={types}
                             selectConfigurationLabel={t.selectConfiguration}
+                            messages={t.materialConfigSelect}
                           />
                         </TableCell>
                       ) : null}
 
-                      <TableCell className="min-w-0">
-                        <CostCodeSelect
-                          recordId={r.id}
-                          value={r.costCode}
-                          availableCodes={availableCostCodes}
-                          onCodesChange={handleOrganizationCostCodesChange}
-                          disabled={isSent}
-                          onSave={handleCostCodeChange}
-                        />
-                      </TableCell>
                       <TableCell>
                         <Popover>
                           <PopoverTrigger asChild>
@@ -1387,6 +1311,12 @@ export default function MaterialsTableClient({
                                     Open in BIS
                                   </DropdownMenuItem>
                                 ) : null}
+                                <DropdownMenuItem
+                                  onClick={() => copyMaterial(r)}
+                                  disabled={copyingRecordId !== null}
+                                >
+                                  {copyingRecordId === r.id ? t.copying : t.copy}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openEditModal(r)}>
                                   {t.edit}
                                 </DropdownMenuItem>
@@ -1498,10 +1428,13 @@ export default function MaterialsTableClient({
                 <Input key={`qty-${editDraft.id}`} type="number" min="0.01" step="0.01" defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder={t.qty} />
                 <Input key={`cost-${editDraft.id}`} type="number" min="0" step="0.01" defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder={t.cost} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Input key={`costcode-${editDraft.id}`} defaultValue={editDraft.costCode} onChange={(event) => { editCostCodeRef.current = event.target.value }} placeholder={t.costCode} maxLength={MAX_COST_CODE_LENGTH} />
-                <Input key={`unit-${editDraft.id}`} defaultValue={editDraft.measurementUnit} onChange={(event) => { editUnitRef.current = event.target.value }} placeholder={t.units} maxLength={MAX_MEASUREMENT_UNIT_LENGTH} />
-              </div>
+              <Input
+                key={`unit-${editDraft.id}`}
+                defaultValue={editDraft.measurementUnit}
+                onChange={(event) => { editUnitRef.current = event.target.value }}
+                placeholder={t.units}
+                maxLength={MAX_MEASUREMENT_UNIT_LENGTH}
+              />
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">{t.deliveryDate}</label>

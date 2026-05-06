@@ -127,16 +127,6 @@ type WarehouseBisSyncResult = {
   materialTypes: MaterialType[];
 };
 
-function normalizeOrganizationCostCodes(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-
-  const normalized = value
-    .map((code) => (typeof code === "string" ? code.trim() : ""))
-    .filter(Boolean);
-
-  return Array.from(new Set(normalized));
-}
-
 type WarehouseMaterialRecord = {
   id: string;
   name: string | null;
@@ -710,6 +700,76 @@ export async function createMaterialConfiguration(
 
   revalidatePath(`/dashboard/sites/${siteId}/BIS`);
   return { success: true as const, category };
+}
+
+export async function copyWarehouseRecord(siteId: string, recordId: string) {
+  "use server";
+
+  await requireUser();
+
+  const source = await prisma.bISmaterialRecords.findFirst({
+    where: {
+      id: recordId,
+      siteId,
+    },
+    select: {
+      name: true,
+      quantity: true,
+      categoryId: true,
+      categoryName: true,
+      measurementUnitId: true,
+      measurementUnit: true,
+      cost: true,
+      invoiceNr: true,
+      invoiceDate: true,
+      materialDate: true,
+      costCode: true,
+      sourcePhoto: true,
+      declarationAttachment: true,
+      agreementAttachment: true,
+      userId: true,
+      orgId: true,
+    },
+  });
+
+  if (!source) {
+    throw new Error("Material record not found");
+  }
+
+  const copiedMaterial = await prisma.bISmaterialRecords.create({
+    data: {
+      ...source,
+      siteId,
+      BISId: null,
+      bisStatus: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      categoryId: true,
+      categoryName: true,
+      measurementUnitId: true,
+      measurementUnit: true,
+      cost: true,
+      invoiceNr: true,
+      invoiceDate: true,
+      materialDate: true,
+      costCode: true,
+      sourcePhoto: true,
+      declarationAttachment: true,
+      agreementAttachment: true,
+      BISId: true,
+      bisStatus: true,
+    },
+  });
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+
+  return {
+    success: true as const,
+    material: withoutWarehouseBisState(copiedMaterial),
+  };
 }
 
 export async function deleteWarehouseRecords(siteId: string, recordIds: string[]) {
@@ -1512,20 +1572,6 @@ export default async function MaterialsPage({
     ensureUserBisAccessToken(user.id),
   ]);
 
-  const siteContext = await prisma.site.findUnique({
-    where: { id: siteId },
-    select: {
-      organization: {
-        select: {
-          bisCostCodes: true,
-        },
-      },
-    },
-  });
-  const organizationCostCodes = normalizeOrganizationCostCodes(
-    siteContext?.organization?.bisCostCodes,
-  );
-
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
 
   const [materials, materialConfigurationData] = await Promise.all([
@@ -1584,7 +1630,6 @@ export default async function MaterialsPage({
       <div data-tour="warehouse-table"><MaterialsTableClient
         siteId={siteId}
         organizationLanguage={organizationLanguage}
-        organizationCostCodes={organizationCostCodes}
         bisEnabled={bisEnabled}
         materials={materialsWithBisState}
         materialConfigurations={materialConfigurationData.materialConfigurations}
@@ -1596,13 +1641,12 @@ export default async function MaterialsPage({
         syncBisRecords={syncWarehouseBisRecords}
         updateMaterialConfiguration={updateMaterialConfiguration}
         createMaterialConfiguration={createMaterialConfiguration}
-        updateCostCode={updateCostCode}
-        updateOrganizationCostCodes={updateOrganizationCostCodes}
         updateMaterialDate={updateMaterialDate}
         updateQuantity={updateQuantity}
         updateMaterialDetails={updateMaterialDetails}
         updateMaterialAttachments={updateMaterialAttachments}
         attachCertificate={attachCertificateToMaterialConfiguration}
+        copyMaterialRecord={copyWarehouseRecord}
         deleteRecords={deleteWarehouseRecords}
       /></div>
       <AiWidgetRag siteId={siteId} />
