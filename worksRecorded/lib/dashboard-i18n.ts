@@ -198,6 +198,8 @@ type WarehouseMaterialConfigSelectMessages = {
   organizationTemplateSourceLabel: string;
   templateCreatedAndSelected: string;
   templateCreateFailed: string;
+  chooseOrganizationTemplate: string;
+  selectOrganizationTemplate: string;
   cancel: string;
   create: string;
   creating: string;
@@ -801,6 +803,8 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
       organizationTemplateSourceLabel: "Organization template",
       templateCreatedAndSelected: "Organization template created in BIS and selected",
       templateCreateFailed: "Failed to create BIS configuration from organization template",
+      chooseOrganizationTemplate: "Organization template",
+      selectOrganizationTemplate: "Select organization template",
       cancel: "Cancel",
       create: "Create",
       creating: "Creating...",
@@ -888,6 +892,8 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
       organizationTemplateSourceLabel: "Organizācijas veidne",
       templateCreatedAndSelected: "Organizācijas veidne izveidota BIS un izvēlēta",
       templateCreateFailed: "Neizdevās izveidot BIS konfigurāciju no organizācijas veidnes",
+      chooseOrganizationTemplate: "Organizācijas veidne",
+      selectOrganizationTemplate: "Izvēlieties organizācijas veidni",
       cancel: "Atcelt",
       create: "Izveidot",
       creating: "Izveido...",
