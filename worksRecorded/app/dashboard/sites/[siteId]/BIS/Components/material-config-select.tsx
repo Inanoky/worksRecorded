@@ -49,6 +49,12 @@ export type MaterialConfigSelectMessages = {
   manufacturerPlaceholder: string
   declaration: string
   filesSelected: (count: number) => string
+  bisSourceLabel: string
+  organizationTemplateSourceLabel: string
+  templateCreatedAndSelected: string
+  templateCreateFailed: string
+  chooseOrganizationTemplate: string
+  selectOrganizationTemplate: string
   cancel: string
   create: string
   creating: string
@@ -80,6 +86,12 @@ const DEFAULT_MESSAGES: MaterialConfigSelectMessages = {
   manufacturerPlaceholder: "Enter manufacturer",
   declaration: "Declaration",
   filesSelected: (count) => `${count} file(s) selected`,
+  bisSourceLabel: "BIS",
+  organizationTemplateSourceLabel: "Organization template",
+  templateCreatedAndSelected: "Organization template created in BIS and selected",
+  templateCreateFailed: "Failed to create BIS configuration from organization template",
+  chooseOrganizationTemplate: "Organization template",
+  selectOrganizationTemplate: "Select organization template",
   cancel: "Cancel",
   create: "Create",
   creating: "Creating...",
@@ -90,6 +102,14 @@ export type MaterialCategory = {
   material_kind: string
   measurement: string | null
   measurement_unit: string | null
+  source?: "bis" | "organization_template"
+  materialType?: string | null
+  manufacturer?: string | null
+  attachments?: Array<{
+    name: string
+    mimeType: string
+    base64Data: string
+  }>
 }
 
 type MaterialTypeOption = {
@@ -107,6 +127,7 @@ export default function MaterialConfigSelect({
   onSave,
   onCreate,
   categories,
+  organizationTemplates = [],
   measurements,
   materialTypes,
   selectConfigurationLabel = "Select configuration",
@@ -143,6 +164,7 @@ export default function MaterialConfigSelect({
     category: MaterialCategory
   }>
   categories: MaterialCategory[]
+  organizationTemplates?: MaterialCategory[]
   measurements: Array<{ id: string; name: string }>
   materialTypes: MaterialTypeOption[]
   selectConfigurationLabel?: string
@@ -155,6 +177,8 @@ export default function MaterialConfigSelect({
   const [manufacturer, setManufacturer] = React.useState("")
   const [measurement, setMeasurement] = React.useState("")
   const [files, setFiles] = React.useState<File[]>([])
+  const [templateAttachments, setTemplateAttachments] = React.useState<NonNullable<MaterialCategory["attachments"]>>([])
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState("")
   const [categorySearch, setCategorySearch] = React.useState("")
 
   const selectedValue =
@@ -163,7 +187,14 @@ export default function MaterialConfigSelect({
     const query = categorySearch.trim().toLowerCase()
     if (!query) return categories
     return categories.filter((category) =>
-      category.material_kind.toLowerCase().includes(query),
+      [
+        category.material_kind,
+        category.measurement_unit,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
     )
   }, [categories, categorySearch])
 
@@ -197,13 +228,16 @@ export default function MaterialConfigSelect({
           return
         }
 
-        const attachments = await Promise.all(
-          files.map(async (file) => ({
-            name: file.name,
-            mimeType: file.type || "application/octet-stream",
-            base64Data: await toBase64(file),
-          })),
-        )
+        const attachments = [
+          ...templateAttachments,
+          ...(await Promise.all(
+            files.map(async (file) => ({
+              name: file.name,
+              mimeType: file.type || "application/octet-stream",
+              base64Data: await toBase64(file),
+            })),
+          )),
+        ]
 
         const result = await onCreate(siteId, {
           materialKind: materialKind.trim(),
@@ -227,6 +261,8 @@ export default function MaterialConfigSelect({
         setManufacturer("")
         setMeasurement("")
         setFiles([])
+        setTemplateAttachments([])
+        setSelectedTemplateId("")
       } catch (error) {
         console.error(error)
         toast.error(error instanceof Error ? error.message : messages.createFailed)
@@ -309,6 +345,37 @@ export default function MaterialConfigSelect({
           </DialogHeader>
 
           <div className="space-y-3">
+            {organizationTemplates.length > 0 ? (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">{messages.chooseOrganizationTemplate}</label>
+                <Select
+                  value={selectedTemplateId}
+                  onValueChange={(templateId) => {
+                    setSelectedTemplateId(templateId)
+                    const template = organizationTemplates.find((item) => item.id === templateId)
+                    if (!template) return
+
+                    setMaterialKind(template.material_kind)
+                    setMaterialType(template.materialType ?? "")
+                    setManufacturer(template.manufacturer ?? "")
+                    setMeasurement(template.measurement ?? "")
+                    setTemplateAttachments(template.attachments ?? [])
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={messages.selectOrganizationTemplate} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizationTemplates.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        {template.material_kind}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+
             <div className="space-y-2">
               <label className="text-sm font-medium">{messages.materialKind}</label>
               <Input
@@ -368,8 +435,10 @@ export default function MaterialConfigSelect({
                 multiple
                 onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
               />
-              {files.length ? (
-                <p className="text-xs text-muted-foreground">{messages.filesSelected(files.length)}</p>
+              {templateAttachments.length + files.length ? (
+                <p className="text-xs text-muted-foreground">
+                  {messages.filesSelected(templateAttachments.length + files.length)}
+                </p>
               ) : null}
             </div>
           </div>

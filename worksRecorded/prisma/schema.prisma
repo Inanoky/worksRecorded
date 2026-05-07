@@ -21,6 +21,7 @@ model Organization {
       name      String
       orgLanguage String? @default("en")
       bisCostCodes Json?
+      bisMaterialConfigurationTemplates Json?
       createdAt DateTime @default(now())
       users User[]
       sites Site[]

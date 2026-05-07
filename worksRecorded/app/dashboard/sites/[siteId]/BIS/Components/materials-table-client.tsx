@@ -295,6 +295,15 @@ export default function MaterialsTableClient({
     agreementAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
   } | null>(null)
 
+  const bisConfigurations = React.useMemo(
+    () => configurations.filter((configuration) => configuration.source !== "organization_template"),
+    [configurations],
+  )
+  const organizationTemplateConfigurations = React.useMemo(
+    () => configurations.filter((configuration) => configuration.source === "organization_template"),
+    [configurations],
+  )
+
   React.useEffect(() => {
     setRows(materials)
   }, [materials])
@@ -951,7 +960,7 @@ export default function MaterialsTableClient({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t.allConfigurations}</SelectItem>
-              {configurations.map((config) => (
+              {bisConfigurations.map((config) => (
                 <SelectItem key={config.id} value={config.id}>
                   {config.material_kind}
                 </SelectItem>
@@ -1178,7 +1187,8 @@ export default function MaterialsTableClient({
                             disabled={isSent}
                             onSave={handleConfigChange}
                             onCreate={handleCreateMaterialConfiguration}
-                            categories={configurations}
+                            categories={bisConfigurations}
+                            organizationTemplates={organizationTemplateConfigurations}
                             measurements={measures}
                             materialTypes={types}
                             selectConfigurationLabel={t.selectConfiguration}
