@@ -76,9 +76,8 @@ File: `app/api/webhook/meta/webhook/route.ts`
    - `entry[0].changes[0].value.metadata.phone_number_id` for business number id
 2. Send Meta typing indicator early for `text`, `image`, `audio` messages (`status: read` + `typing_indicator` payload).
 3. Keep existing Meta-specific flows:
-   - `"action"` text triggers a WhatsApp Flow interactive message
    - booking session flow (`book`, then service/date/time steps)
-   - `interactive.nfm_reply` handling and `material_form` pipeline (`sendToGpt`)
+   - site-manager image messages are uploaded, classified with OpenAI, and either extracted into material records or saved as normal site photos
 4. Run role-based WhatsApp routing (`runWhatsappRoutingForMeta`) for supported message types.
 5. Mark message as read (read receipt call).
 
@@ -101,7 +100,7 @@ For image messages, Meta route first resolves media metadata (`/{media-id}`) to 
 - `MediaContentType0`
 - `MediaProvider0 = "meta"` (so shared media downloader uses Meta bearer auth)
 
-This allows shared image handlers to store the photo and send the usual ✅ confirmation reply.
+This allows shared image handlers to upload the photo once. Site-manager images are then classified: material documents are extracted into material records, while regular photos continue to be stored with the usual ✅ confirmation reply.
 
 ### 3.4 DB lock behavior in Meta route
 

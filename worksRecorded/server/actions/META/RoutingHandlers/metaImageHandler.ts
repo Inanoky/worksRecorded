@@ -5,6 +5,10 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
 import { prisma } from "@/lib/utils/db";
+import {
+  metaMaterialImageClassifierModel,
+  metaMaterialImageClassifierTemperature,
+} from "@/server/ai-flows/ai-models-settings";
 
 
 //-------------------------------------Utilities--------------------------------
@@ -18,8 +22,8 @@ const client = new OpenAI({
 
 const utapi = new UTApi();
 
-//This we use for just when we have no acess to IP. 
-const mockupCategories = [
+//This we use for just when we have no acess to IP.
+export const mockupCategories = [
   {
     id: '2195',
     material_kind: 'Flīzes',
@@ -92,7 +96,7 @@ export async function downloadMetaMedia(mediaId: string) {
 
     const publicUrl = first.data.ufsUrl ?? first.data.url; //Get Upload URL
 
-    
+
     console.log(publicUrl)
 
     return { publicUrl, file }
@@ -174,7 +178,7 @@ export async function getBisCategories_12I7_075() {
     }))
 
 
-    //Here I think we also need to convert measurement to something readable. 
+    //Here I think we also need to convert measurement to something readable.
 
 
     // We create a Map
@@ -184,7 +188,7 @@ export async function getBisCategories_12I7_075() {
 
     const measurements = await getBISMeasurments_12I7_061()
 
-    //Creata map 
+    //Creata map
 
     for (const item of measurements) {
 
@@ -202,7 +206,7 @@ export async function getBisCategories_12I7_075() {
 
 
         ...category, //we leave as it is what we don't care
-        measurement_unit: map.get(category.measurement) //so we enrich this category 
+        measurement_unit: map.get(category.measurement) //so we enrich this category
 
 
 
@@ -260,48 +264,76 @@ async function resolveMetaMaterialContext(senderPhone?: string | null): Promise<
   }
 }
 
+
+const materialImageClassificationSchema = z.object({
+  isMaterialDocument: z.boolean(),
+  confidence: z.number().min(0).max(1),
+  reason: z.string(),
+});
+
+export async function classifyMaterialDocumentImage(publicUrl: string) {
+  const response = await client.responses.create({
+    model: metaMaterialImageClassifierModel,
+    temperature: metaMaterialImageClassifierTemperature,
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_image",
+            image_url: publicUrl,
+          },
+          {
+            type: "input_text",
+            text: `Classify this WhatsApp image for a construction site diary workflow.
+
+Return isMaterialDocument=true only when the image is a readable document, receipt, delivery note, invoice, label, or table that lists construction materials/products/quantities/costs.
+
+Return false for normal progress photos, selfies, site photos, equipment photos, drawings without material line items, or blurry/unreadable images.
+
+Be conservative: if you cannot see material line items or document-like text, return false.`,
+          },
+        ],
+      },
+    ],
+    text: {
+      format: zodTextFormat(materialImageClassificationSchema, "material_image_classification"),
+    },
+  });
+
+  return materialImageClassificationSchema.parse(JSON.parse(response.output_text));
+}
+
+export async function processMaterialDocumentImageFromPublicUrl(args: {
+  publicUrl: string;
+  senderPhone?: string | null;
+}) {
+  const classification = await classifyMaterialDocumentImage(args.publicUrl);
+
+  console.log("Meta material image classification", classification);
+
+  if (!classification.isMaterialDocument || classification.confidence < 0.65) {
+    return false;
+  }
+
+  await extractAndSaveBISMaterialsFromPublicUrl(args.publicUrl, args.senderPhone);
+  return true;
+}
+
 export async function sendToGpt(mediaId: string, senderPhone?: string) {
 
     const { publicUrl, file } = await downloadMetaMedia(mediaId)
     void file
 
-    
+    return extractAndSaveBISMaterialsFromPublicUrl(publicUrl, senderPhone);
+}
+
+export async function extractAndSaveBISMaterialsFromPublicUrl(publicUrl: string, senderPhone?: string | null) {
 
     // const categories = await getBisCategories_12I7_075() <---- uncomment when have access to IP
 
 
-    const categories = [
-  {
-    id: '2195',
-    material_kind: 'Flīzes',
-    measurement: '12',
-    measurement_unit: 'gab.'
-  },
-  {
-    id: '2204',
-    material_kind: 'Mūras bloki',
-    measurement: '12',
-    measurement_unit: 'gab.'
-  },
-  {
-    id: '2230',
-    material_kind: 'stiegrojums',
-    measurement: '42',
-    measurement_unit: 't'
-  },
-  {
-    id: '2231',
-    material_kind: 'Transportbetons',
-    measurement: '25',
-    measurement_unit: 'm3'
-  },
-  {
-    id: '2232',
-    material_kind: 'Concrete grout',
-    measurement: '62',
-    measurement_unit: 'kg'
-  }
-]
+    const categories = mockupCategories
 
     // Create map of categories by id
         const categoryMap = new Map(
@@ -325,7 +357,7 @@ export async function sendToGpt(mediaId: string, senderPhone?: string) {
             invoiceDate : z.coerce.date().nullable().optional(),
             costCode: z.string(),
             quantity: z.number().describe(`Extract quantity for every invoice line. When category matched convert to measurement_unit; when no_match keep the original invoice quantity`),
-            construction_material_id: z.enum(ids)
+            construction_material_id: z.enum(ids as [string, ...string[]])
         }))
 
 
@@ -361,7 +393,7 @@ Return:
 - invoice Nr
 - invoice Nr
 - cost code (just make it up)
-- cost 
+- cost
 - construction_material_id
 
 Available categories:
@@ -384,9 +416,9 @@ Important:
 Packaging size is often written in the product name.
 
 Examples:
-"25kg grout bag" → 25 kg per bag  
-"5kg plaster pack" → 5 kg per pack  
-"1m3 concrete" → 1 m3  
+"25kg grout bag" → 25 kg per bag
+"5kg plaster pack" → 5 kg per pack
+"1m3 concrete" → 1 m3
 
 If invoice says:
 80 bags × 25 kg → quantity = 2000 kg
@@ -424,9 +456,9 @@ Always output the converted quantity.
         }
         })
 
-    
 
-    //Here we need to enrich this payload with 
+
+    //Here we need to enrich this payload with
 
     console.log(`THis is GPT output : ${gptDocumentResponse.output_text}`)
     console.log(`And this are categories : ${categories}`)

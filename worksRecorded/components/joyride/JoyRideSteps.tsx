@@ -42,7 +42,7 @@ const JOYRIDE_STEPS: Record<OrganizationLanguage, JoyrideStepsBundle> = {
       { target: '[data-tour="settings-danger-zone"]', content: 'Danger zone: deleting a project permanently removes related data.', disableBeacon: true },
     ],
     steps_siteid_warehouse: [
-      { target: '[data-tour="warehouse-header"]', content: 'Warehouse keeps all material records for this project. You can add maaterials by writing "action" in WhatsApp', disableBeacon: true },
+      { target: '[data-tour="warehouse-header"]', content: 'Warehouse keeps all material records for this project. Send a material document photo in WhatsApp to extract materials automatically', disableBeacon: true },
       { target: '[data-tour="warehouse-table"]', content: 'Use this table to filter, edit, and sync materials with BIS.', disableBeacon: true },
       { target: '[data-tour="AI-widget"]', content: 'Use AI assistant to summarize material activity when needed.', disableBeacon: true },
     ],
@@ -73,7 +73,7 @@ const JOYRIDE_STEPS: Record<OrganizationLanguage, JoyrideStepsBundle> = {
       { target: '[data-tour="settings-danger-zone"]', content: 'Bīstamā zona: objekta dzēšana neatgriezeniski dzēsīs datus.', disableBeacon: true },
     ],
     steps_siteid_warehouse: [
-      { target: '[data-tour="warehouse-header"]', content: 'Noliktavā redzami visi šī objekta materiālu ieraksti. Pavadzīmes var pievienot WhatsAppā, rakstot “action”.', disableBeacon: true },
+      { target: '[data-tour="warehouse-header"]', content: 'Noliktavā redzami visi šī objekta materiālu ieraksti. Pavadzīmes var pievienot WhatsAppā kā foto, un materiāli tiks atpazīti automātiski.', disableBeacon: true },
       { target: '[data-tour="warehouse-table"]', content: 'Izmantojiet tabulu filtrēšanai, rediģēšanai un BIS sinhronizācijai.', disableBeacon: true },
       { target: '[data-tour="AI-widget"]', content: 'AI asistents palīdz ātri apkopot materiālu aktivitāti.', disableBeacon: true },
     ],

@@ -2,8 +2,6 @@
 // Next.js App Router webhook endpoint (GET verify + POST events)
 export const maxDuration = 60;
 
-import { randomUUID } from "crypto";
-
 import { prisma } from "@/lib/utils/db";
 import {
   getString,
@@ -19,7 +17,6 @@ import {
   updateSession,
   deleteSession,
 } from "@/app/api/webhook/meta/webhook/helperes";
-import { sendToGpt } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
@@ -279,10 +276,6 @@ async function runWhatsappRoutingForMeta(args: {
       return;
     }
 
-    const role = (user.role || "").trim().toLowerCase();
-
-    
-
     await handleSiteManagerRoute({ from, formData, user });
   } catch (err) {
     console.error("runWhatsappRoutingForMeta error", err);
@@ -322,51 +315,6 @@ export async function POST(req: Request): Promise<Response> {
 
       if (message.id && (message.type === "text" || message.type === "image" || message.type === "audio")) {
         await sendMetaTypingIndicator(business_phone_number_id, message.id, message.from);
-      }
-
-      // 1) If user sends "action" -> send a Flow message
-      if (
-        message.type === "text" &&
-        typeof message.text?.body === "string" &&
-        message.text.body.toLowerCase().includes("action")
-      ) {
-        const flowId = "1267728872124719";
-
-        const flowToken = randomUUID();
-
-        await graphSendMessage(business_phone_number_id, {
-          messaging_product: "whatsapp",
-          to: message.from,
-          type: "interactive",
-          interactive: {
-            type: "flow",
-            header: { type: "text", text: "WorksRecorded form" },
-            body: {
-              text: "Construction",
-            },
-            footer: { text: "Click the button below to proceed" },
-            action: {
-              name: "flow",
-              parameters: {
-                flow_id: flowId,
-                flow_message_version: "3",
-                flow_token: flowToken,
-                flow_cta: "Complete form",
-                flow_action: "navigate",
-              },
-            },
-          },
-        });
-
-        if (message.id) {
-          await graphSendMessage(business_phone_number_id, {
-            messaging_product: "whatsapp",
-            status: "read",
-            message_id: message.id,
-          });
-        }
-
-        return new Response("OK", { status: 200 });
       }
 
       //-----------------BOOKING APPOINTMENT BOT (PRISMA)-----------------------
@@ -450,46 +398,7 @@ export async function POST(req: Request): Promise<Response> {
         }
       }
 
-      // 2) Handle Flow response
-      if (
-        message.type === "interactive" &&
-        message.interactive?.type === "nfm_reply"
-      ) {
-        const responseJsonStr = message.interactive.nfm_reply.response_json;
-
-        let payload: any;
-
-        try {
-          payload = JSON.parse(responseJsonStr);
-        } catch (e) {
-          console.error("Invalid response_json:", responseJsonStr);
-          return new Response("OK", { status: 200 });
-        }
-
-        const formName = payload.formName;
-
-        await graphSendMessage(business_phone_number_id, {
-          messaging_product: "whatsapp",
-          to: message.from,
-          text: { body: `Form is submitted, thank you!` },
-        });
-
-        if (formName === "material_form") {
-          const mediaId = payload?.photo?.[0]?.id?.toString();
-
-          console.log(`material_form_triggered ${mediaId}`);
-
-          await sendToGpt(mediaId, message.from);
-
-          // future pipeline
-          // 1 download image
-          // 2 AI extraction
-          // 3 store database
-          // 4 show dashboard
-        }
-      }
-
-      // 2.5) Run the same role-based WhatsApp routing used by Twilio webhook.
+      // 2) Run the same role-based WhatsApp routing used by Twilio webhook.
       if (message.type === "text" || message.type === "image" || message.type === "audio") {
         await runWithMetaReplyContext(
           { businessPhoneNumberId: business_phone_number_id },

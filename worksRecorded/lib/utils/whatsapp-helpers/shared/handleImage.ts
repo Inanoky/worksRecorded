@@ -5,6 +5,14 @@ import { getString, fetchTwilioMediaAsBuffer } from "@/lib/utils/whatsapp-helper
 import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 import { AgentFn } from "./types";
 
+export type UploadedImageContext = {
+  publicUrl: string;
+  contentType: string;
+  body: string;
+  to: string | null;
+  formData: FormData;
+};
+
 const utapi = new UTApi();
 
 /**
@@ -22,8 +30,9 @@ export async function handleImage(args: {
   body: string;
   photographerName?: string | null;
   agent: AgentFn;
+  onUploadedImage?: (context: UploadedImageContext) => Promise<boolean>;
 }): Promise<boolean> {
-  const { formData, numMedia, workerId, siteId, to, body, userId, photographerName } = args;
+  const { formData, numMedia, workerId, siteId, to, body, userId, photographerName, onUploadedImage } = args;
 
   const idx = findFirstImageIndex(formData, numMedia);
   if (idx < 0) return false;
@@ -48,6 +57,18 @@ export async function handleImage(args: {
     }
 
     const publicUrl = first.data.ufsUrl ?? first.data.url;
+
+    if (onUploadedImage) {
+      const wasHandled = await onUploadedImage({
+        publicUrl,
+        contentType,
+        body,
+        to,
+        formData,
+      });
+
+      if (wasHandled) return true;
+    }
 
     const trimmedBody = body.trim();
     const trimmedPhotographerName = photographerName?.trim() ?? "";
