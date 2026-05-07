@@ -78,7 +78,7 @@ export async function handleSiteManagerRoute(args: {
             return true;
           }
         } catch (error) {
-          console.error("Material document detection failed, saving as regular photo", error);
+          console.error("Materiālu dokumenta atpazīšana neizdevās, saglabāju kā parastu fotoattēlu.", error);
         }
 
         return false;
