@@ -1,3 +1,9 @@
+export type MaterialConfigurationTemplateAttachment = {
+  name: string;
+  mimeType: string;
+  base64Data: string;
+};
+
 export type OrganizationMaterialConfigurationTemplate = {
   id: string;
   materialKind: string;
@@ -5,10 +11,36 @@ export type OrganizationMaterialConfigurationTemplate = {
   manufacturer: string;
   measurement: string;
   measurementUnit: string | null;
+  attachments: MaterialConfigurationTemplateAttachment[];
 };
 
 function readString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeAttachments(value: unknown): MaterialConfigurationTemplateAttachment[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const record = item as Record<string, unknown>;
+      const name = readString(record.name);
+      const mimeType = readString(record.mimeType) || "application/octet-stream";
+      const base64Data = readString(record.base64Data);
+
+      if (!name || !base64Data) {
+        return null;
+      }
+
+      return { name, mimeType, base64Data };
+    })
+    .filter((item): item is MaterialConfigurationTemplateAttachment => Boolean(item));
 }
 
 export function normalizeMaterialConfigurationTemplates(value: unknown): OrganizationMaterialConfigurationTemplate[] {
@@ -43,16 +75,15 @@ export function normalizeMaterialConfigurationTemplates(value: unknown): Organiz
         return null;
       }
 
-      const template: OrganizationMaterialConfigurationTemplate = {
+      return {
         id,
         materialKind,
         materialType,
         manufacturer,
         measurement,
         measurementUnit,
+        attachments: normalizeAttachments(record.attachments),
       };
-
-      return template;
     })
     .filter((item): item is OrganizationMaterialConfigurationTemplate => Boolean(item))
     .filter((item) => {
@@ -76,6 +107,7 @@ export function serializeMaterialConfigurationTemplates(
     manufacturer: template.manufacturer,
     measurement: template.measurement,
     measurementUnit: template.measurementUnit,
+    attachments: template.attachments,
   }));
 }
 

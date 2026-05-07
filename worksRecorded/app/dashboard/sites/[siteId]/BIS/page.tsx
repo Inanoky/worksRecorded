@@ -110,6 +110,11 @@ type MaterialCategory = {
   source?: "bis" | "organization_template";
   materialType?: string | null;
   manufacturer?: string | null;
+  attachments?: Array<{
+    name: string;
+    mimeType: string;
+    base64Data: string;
+  }>;
 };
 
 type MaterialMeasure = {
@@ -297,6 +302,7 @@ async function fetchOrganizationMaterialConfigurationTemplatesForSite(siteId: st
     source: "organization_template" as const,
     materialType: template.materialType,
     manufacturer: template.manufacturer,
+    attachments: template.attachments,
   }));
 }
 

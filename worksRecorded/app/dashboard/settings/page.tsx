@@ -8,7 +8,10 @@ import {
   getOrganizationLanguageByUserId,
 } from "@/server/actions/shared-actions";
 import { getOrganizationWorkers, getUserData } from "@/server/actions/settings-actions";
-import { getOrganizationMaterialConfigurationTemplates } from "@/server/actions/material-configuration-template-actions";
+import {
+  getOrganizationMaterialConfigurationTemplateOptions,
+  getOrganizationMaterialConfigurationTemplates,
+} from "@/server/actions/material-configuration-template-actions";
 
 export default async function SettingsSiteRoute() {
   const user = await requireUser();
@@ -18,6 +21,9 @@ export default async function SettingsSiteRoute() {
   const materialConfigurationTemplates = orgId
     ? await getOrganizationMaterialConfigurationTemplates(orgId)
     : [];
+  const materialConfigurationTemplateOptions = orgId
+    ? await getOrganizationMaterialConfigurationTemplateOptions(orgId)
+    : { materialMeasures: [], materialTypes: [] };
   const currentLanguage = await getOrganizationLanguageByUserId(user.id);
 
   return (
@@ -26,6 +32,8 @@ export default async function SettingsSiteRoute() {
       <MaterialConfigurationTemplatesSettings
         orgId={orgId || ""}
         templates={materialConfigurationTemplates}
+        materialMeasures={materialConfigurationTemplateOptions.materialMeasures}
+        materialTypes={materialConfigurationTemplateOptions.materialTypes}
         organizationLanguage={currentLanguage}
       />
       <MembersTable

@@ -3,21 +3,48 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { updateOrganizationMaterialConfigurationTemplates } from "@/server/actions/material-configuration-template-actions";
-import type { OrganizationMaterialConfigurationTemplate } from "@/lib/bis/material-configuration-templates";
+import type {
+  MaterialConfigurationTemplateAttachment,
+  OrganizationMaterialConfigurationTemplate,
+} from "@/lib/bis/material-configuration-templates";
+
+type MaterialTypeOption = {
+  id: string;
+  name: string;
+  categoryName?: string | null;
+  isHeader?: boolean;
+};
 
 type Props = {
   orgId: string;
   templates: OrganizationMaterialConfigurationTemplate[];
+  materialMeasures: Array<{ id: string; name: string }>;
+  materialTypes: MaterialTypeOption[];
   organizationLanguage?: string | null;
 };
 
-type DraftTemplate = OrganizationMaterialConfigurationTemplate;
+type TemplateDraft = OrganizationMaterialConfigurationTemplate;
 
 function createTemplateId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -25,16 +52,19 @@ function createTemplateId() {
     : `template-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-const emptyTemplate = (): DraftTemplate => ({
-  id: createTemplateId(),
-  materialKind: "",
-  materialType: "",
-  manufacturer: "",
-  measurement: "",
-  measurementUnit: "",
-});
+function emptyTemplate(): TemplateDraft {
+  return {
+    id: createTemplateId(),
+    materialKind: "",
+    materialType: "",
+    manufacturer: "",
+    measurement: "",
+    measurementUnit: "",
+    attachments: [],
+  };
+}
 
-function copyTemplate(template: OrganizationMaterialConfigurationTemplate): DraftTemplate {
+function copyTemplate(template: OrganizationMaterialConfigurationTemplate): TemplateDraft {
   return {
     id: template.id,
     materialKind: template.materialKind,
@@ -42,17 +72,36 @@ function copyTemplate(template: OrganizationMaterialConfigurationTemplate): Draf
     manufacturer: template.manufacturer,
     measurement: template.measurement,
     measurementUnit: template.measurementUnit ?? "",
+    attachments: template.attachments ?? [],
   };
+}
+
+async function fileToBase64(file: File) {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += 1) {
+    binary += String.fromCharCode(bytes[index]!);
+  }
+
+  return btoa(binary);
 }
 
 export function MaterialConfigurationTemplatesSettings({
   orgId,
   templates,
+  materialMeasures,
+  materialTypes,
   organizationLanguage,
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = React.useTransition();
-  const [drafts, setDrafts] = React.useState<DraftTemplate[]>(() => templates.map(copyTemplate));
+  const [drafts, setDrafts] = React.useState<TemplateDraft[]>(() => templates.map(copyTemplate));
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [formDraft, setFormDraft] = React.useState<TemplateDraft>(() => emptyTemplate());
+  const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
   const isLatvian = organizationLanguage === "lv";
 
   React.useEffect(() => {
@@ -62,62 +111,130 @@ export function MaterialConfigurationTemplatesSettings({
   const text = {
     title: isLatvian ? "BIS materiālu konfigurāciju veidnes" : "BIS material configuration templates",
     description: isLatvian
-      ? "Saglabājiet organizācijas līmeņa konfigurāciju veidnes, kuras var izmantot visos projektos. Izvēloties veidni noliktavā, WorksRecorded izveidos atbilstošu BIS konfigurāciju konkrētajā projektā."
-      : "Save organization-wide configuration templates that can be reused across projects. When selected in the warehouse, WorksRecorded creates the matching BIS configuration for that project.",
-    add: isLatvian ? "Pievienot veidni" : "Add template",
-    save: isLatvian ? "Saglabāt veidnes" : "Save templates",
+      ? "Izveidojiet organizācijas līmeņa veidnes ar tādiem pašiem laukiem kā noliktavas dialogā “Izveidot BIS materiāla konfigurāciju”. Veidnes pēc tam ir pieejamas visos projektos."
+      : "Create organization-level templates with the same fields as the warehouse “Create BIS material configuration” dialog. Templates are then available across projects.",
+    add: isLatvian ? "Izveidot materiāla konfigurācijas veidni" : "Create material configuration template",
+    edit: isLatvian ? "Rediģēt" : "Edit",
+    remove: isLatvian ? "Dzēst" : "Delete",
+    saveAll: isLatvian ? "Saglabāt veidnes" : "Save templates",
     saving: isLatvian ? "Saglabā..." : "Saving...",
     saved: isLatvian ? "Veidnes saglabātas" : "Templates saved",
     saveFailed: isLatvian ? "Neizdevās saglabāt veidnes" : "Failed to save templates",
+    dialogTitle: isLatvian ? "Izveidot BIS materiāla konfigurācijas veidni" : "Create BIS material configuration template",
+    editDialogTitle: isLatvian ? "Rediģēt BIS materiāla konfigurācijas veidni" : "Edit BIS material configuration template",
+    dialogDescription: isLatvian
+      ? "Aizpildiet tos pašus laukus, ko izmantojat noliktavā, veidojot BIS materiāla konfigurāciju."
+      : "Fill the same fields used in the warehouse when creating a BIS material configuration.",
+    materialKindRequired: isLatvian ? "Materiāla veids ir obligāts" : "Material kind is required",
+    measurementRequired: isLatvian ? "Mērvienība ir obligāta" : "Measurement is required",
+    materialTypeRequired: isLatvian ? "Materiāla tips ir obligāts" : "Material type is required",
+    manufacturerRequired: isLatvian ? "Ražotājs ir obligāts" : "Manufacturer is required",
     materialKind: isLatvian ? "Materiāla veids" : "Material kind",
-    materialType: isLatvian ? "BIS materiāla tipa kods" : "BIS material type code",
+    materialKindPlaceholder: isLatvian ? "Piem., Betons C30/37" : "E.g. Concrete C30/37",
+    measurement: isLatvian ? "Mērvienība" : "Measurement",
+    selectMeasurement: isLatvian ? "Izvēlieties mērvienību" : "Select measurement",
+    materialType: isLatvian ? "Materiāla tips" : "Material type",
+    selectMaterialType: isLatvian ? "Izvēlieties materiāla tipu" : "Select material type",
     manufacturer: isLatvian ? "Ražotājs" : "Manufacturer",
-    measurement: isLatvian ? "BIS mērvienības kods" : "BIS measurement code",
-    measurementUnit: isLatvian ? "Mērvienības nosaukums" : "Measurement label",
-    remove: isLatvian ? "Dzēst veidni" : "Remove template",
-    required: isLatvian
-      ? "Aizpildiet materiāla veidu, BIS materiāla tipu, ražotāju un BIS mērvienības kodu."
-      : "Fill material kind, BIS material type, manufacturer, and BIS measurement code.",
+    manufacturerPlaceholder: isLatvian ? "Ievadiet ražotāju" : "Enter manufacturer",
+    declaration: isLatvian ? "Deklarācija" : "Declaration",
+    filesSelected: (count: number) => (isLatvian ? `Izvēlēti faili: ${count}` : `${count} file(s) selected`),
+    storedFiles: (count: number) => (isLatvian ? `Saglabāti faili: ${count}` : `${count} saved file(s)`),
+    cancel: isLatvian ? "Atcelt" : "Cancel",
+    saveTemplate: isLatvian ? "Saglabāt veidni" : "Save template",
     empty: isLatvian
-      ? "Nav saglabātu veidņu. Pievienojiet pirmo organizācijas veidni."
-      : "No templates saved. Add the first organization template.",
+      ? "Nav saglabātu veidņu. Izveidojiet pirmo organizācijas veidni."
+      : "No templates saved. Create the first organization template.",
+    noBisOptions: isLatvian
+      ? "BIS klasifikatori nav pieejami. Pieslēdziet BIS, lai izmantotu izvēlnes."
+      : "BIS classifiers are unavailable. Connect BIS to use dropdown options.",
   };
 
-  const updateDraft = (id: string, field: keyof DraftTemplate, value: string) => {
-    setDrafts((current) =>
-      current.map((draft) => (draft.id === id ? { ...draft, [field]: value } : draft)),
-    );
+  const openCreateDialog = () => {
+    setEditingId(null);
+    setFormDraft(emptyTemplate());
+    setSelectedFiles([]);
+    setDialogOpen(true);
   };
 
-  const removeDraft = (id: string) => {
-    setDrafts((current) => current.filter((draft) => draft.id !== id));
+  const openEditDialog = (template: TemplateDraft) => {
+    setEditingId(template.id);
+    setFormDraft(copyTemplate(template));
+    setSelectedFiles([]);
+    setDialogOpen(true);
   };
 
-  const saveTemplates = () => {
-    const normalizedDrafts = drafts.map((draft) => ({
-      ...draft,
-      materialKind: draft.materialKind.trim(),
-      materialType: draft.materialType.trim(),
-      manufacturer: draft.manufacturer.trim(),
-      measurement: draft.measurement.trim(),
-      measurementUnit: draft.measurementUnit?.trim() || null,
-    }));
+  const updateFormDraft = (field: keyof TemplateDraft, value: string) => {
+    setFormDraft((current) => ({ ...current, [field]: value }));
+  };
 
-    const hasInvalidDraft = normalizedDrafts.some(
-      (draft) => !draft.materialKind || !draft.materialType || !draft.manufacturer || !draft.measurement,
-    );
+  const persistTemplates = async (nextTemplates: TemplateDraft[]) => {
+    const result = await updateOrganizationMaterialConfigurationTemplates(orgId, nextTemplates);
+    setDrafts(result.templates.map(copyTemplate));
+    toast.success(text.saved);
+    router.refresh();
+  };
 
-    if (hasInvalidDraft) {
-      toast.error(text.required);
-      return;
-    }
+  const saveFormDraft = () => {
+    startTransition(async () => {
+      const normalizedDraft: TemplateDraft = {
+        ...formDraft,
+        materialKind: formDraft.materialKind.trim(),
+        materialType: formDraft.materialType.trim(),
+        manufacturer: formDraft.manufacturer.trim(),
+        measurement: formDraft.measurement.trim(),
+        measurementUnit:
+          materialMeasures.find((item) => item.id === formDraft.measurement)?.name ??
+          formDraft.measurementUnit?.trim() ??
+          null,
+        attachments: [
+          ...(formDraft.attachments ?? []),
+          ...(await Promise.all(
+            selectedFiles.map(async (file): Promise<MaterialConfigurationTemplateAttachment> => ({
+              name: file.name,
+              mimeType: file.type || "application/octet-stream",
+              base64Data: await fileToBase64(file),
+            })),
+          )),
+        ],
+      };
 
+      if (!normalizedDraft.materialKind) {
+        toast.error(text.materialKindRequired);
+        return;
+      }
+      if (!normalizedDraft.measurement) {
+        toast.error(text.measurementRequired);
+        return;
+      }
+      if (!normalizedDraft.materialType) {
+        toast.error(text.materialTypeRequired);
+        return;
+      }
+      if (!normalizedDraft.manufacturer) {
+        toast.error(text.manufacturerRequired);
+        return;
+      }
+
+      try {
+        const nextTemplates = editingId
+          ? drafts.map((draft) => (draft.id === editingId ? normalizedDraft : draft))
+          : [...drafts, normalizedDraft];
+
+        await persistTemplates(nextTemplates);
+        setDialogOpen(false);
+        setSelectedFiles([]);
+      } catch (error) {
+        console.error(error);
+        toast.error(error instanceof Error ? error.message : text.saveFailed);
+      }
+    });
+  };
+
+  const removeTemplate = (id: string) => {
     startTransition(async () => {
       try {
-        const result = await updateOrganizationMaterialConfigurationTemplates(orgId, normalizedDrafts);
-        setDrafts(result.templates.map(copyTemplate));
-        toast.success(text.saved);
-        router.refresh();
+        await persistTemplates(drafts.filter((draft) => draft.id !== id));
       } catch (error) {
         console.error(error);
         toast.error(error instanceof Error ? error.message : text.saveFailed);
@@ -134,73 +251,128 @@ export function MaterialConfigurationTemplatesSettings({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!materialMeasures.length || !materialTypes.length ? (
+          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {text.noBisOptions}
+          </p>
+        ) : null}
+
         {drafts.length === 0 ? <p className="text-sm text-muted-foreground">{text.empty}</p> : null}
 
-        {drafts.map((draft, index) => (
-          <div key={draft.id} className="rounded-lg border p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="text-sm font-medium">#{index + 1}</div>
-              <Button type="button" variant="ghost" size="sm" onClick={() => removeDraft(draft.id)}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                {text.remove}
-              </Button>
+        <div className="space-y-2">
+          {drafts.map((draft) => (
+            <div key={draft.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+              <div className="min-w-0">
+                <div className="font-medium">{draft.materialKind}</div>
+                <div className="text-sm text-muted-foreground">
+                  {draft.manufacturer} • {draft.measurementUnit || draft.measurement} • {draft.materialType}
+                  {draft.attachments.length ? ` • ${text.storedFiles(draft.attachments.length)}` : ""}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => openEditDialog(draft)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  {text.edit}
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeTemplate(draft.id)} disabled={isPending}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {text.remove}
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Button type="button" variant="outline" onClick={openCreateDialog}>
+          <Plus className="mr-2 h-4 w-4" />
+          {text.add}
+        </Button>
+      </CardContent>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingId ? text.editDialogTitle : text.dialogTitle}</DialogTitle>
+            <DialogDescription>{text.dialogDescription}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label>{text.materialKind}</Label>
+              <Input
+                value={formDraft.materialKind}
+                onChange={(event) => updateFormDraft("materialKind", event.target.value)}
+                placeholder={text.materialKindPlaceholder}
+              />
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-              <div className="space-y-2 lg:col-span-2">
-                <Label>{text.materialKind}</Label>
-                <Input
-                  value={draft.materialKind}
-                  onChange={(event) => updateDraft(draft.id, "materialKind", event.target.value)}
-                  placeholder="Betons C30/37"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{text.materialType}</Label>
-                <Input
-                  value={draft.materialType}
-                  onChange={(event) => updateDraft(draft.id, "materialType", event.target.value)}
-                  placeholder="101"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{text.manufacturer}</Label>
-                <Input
-                  value={draft.manufacturer}
-                  onChange={(event) => updateDraft(draft.id, "manufacturer", event.target.value)}
-                  placeholder="Ražotājs"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{text.measurement}</Label>
-                <Input
-                  value={draft.measurement}
-                  onChange={(event) => updateDraft(draft.id, "measurement", event.target.value)}
-                  placeholder="12"
-                />
-              </div>
-              <div className="space-y-2 lg:col-span-2">
-                <Label>{text.measurementUnit}</Label>
-                <Input
-                  value={draft.measurementUnit ?? ""}
-                  onChange={(event) => updateDraft(draft.id, "measurementUnit", event.target.value)}
-                  placeholder="m3"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>{text.measurement}</Label>
+              <Select value={formDraft.measurement} onValueChange={(value) => updateFormDraft("measurement", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={text.selectMeasurement} />
+                </SelectTrigger>
+                <SelectContent>
+                  {materialMeasures.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{text.materialType}</Label>
+              <Select value={formDraft.materialType} onValueChange={(value) => updateFormDraft("materialType", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder={text.selectMaterialType} />
+                </SelectTrigger>
+                <SelectContent>
+                  {materialTypes.map((item) => (
+                    <SelectItem key={item.id} value={item.id} disabled={item.isHeader}>
+                      {item.categoryName ? `${item.categoryName} — ${item.name}` : item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{text.manufacturer}</Label>
+              <Input
+                value={formDraft.manufacturer}
+                onChange={(event) => updateFormDraft("manufacturer", event.target.value)}
+                placeholder={text.manufacturerPlaceholder}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>{text.declaration}</Label>
+              <Input
+                type="file"
+                multiple
+                onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))}
+              />
+              {formDraft.attachments.length ? (
+                <p className="text-xs text-muted-foreground">{text.storedFiles(formDraft.attachments.length)}</p>
+              ) : null}
+              {selectedFiles.length ? (
+                <p className="text-xs text-muted-foreground">{text.filesSelected(selectedFiles.length)}</p>
+              ) : null}
             </div>
           </div>
-        ))}
 
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={() => setDrafts((current) => [...current, emptyTemplate()])}>
-            <Plus className="mr-2 h-4 w-4" />
-            {text.add}
-          </Button>
-          <Button type="button" onClick={saveTemplates} disabled={isPending}>
-            {isPending ? text.saving : text.save}
-          </Button>
-        </div>
-      </CardContent>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              {text.cancel}
+            </Button>
+            <Button onClick={saveFormDraft} disabled={isPending}>
+              {isPending ? text.saving : text.saveTemplate}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

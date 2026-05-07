@@ -101,6 +101,11 @@ export type MaterialCategory = {
   source?: "bis" | "organization_template"
   materialType?: string | null
   manufacturer?: string | null
+  attachments?: Array<{
+    name: string
+    mimeType: string
+    base64Data: string
+  }>
 }
 
 type MaterialTypeOption = {
@@ -286,7 +291,7 @@ export default function MaterialConfigSelect({
                     materialType: selected.materialType ?? "",
                     manufacturer: selected.manufacturer ?? "",
                     measurement: selected.measurement ?? "",
-                    attachments: [],
+                    attachments: selected.attachments ?? [],
                   })
 
                   await onSave(recordId, {
