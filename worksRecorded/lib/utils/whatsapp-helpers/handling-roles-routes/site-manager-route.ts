@@ -9,6 +9,7 @@ import talkToWhatsappAgent from "@/server/ai-flows/agents/whatsapp-agent/SiteMan
 import { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
 import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
+import { processMaterialDocumentImageFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 
 const currentAgent: AgentFn = (input, siteId, userId) =>
   talkToWhatsappAgent(input, siteId, userId);
@@ -62,6 +63,26 @@ export async function handleSiteManagerRoute(args: {
       body,
       photographerName: [user.firstName, user.lastName].filter(Boolean).join(" "),
       agent: currentAgent,
+      onUploadedImage: async ({ publicUrl }) => {
+        try {
+          const handledAsMaterialDocument = await processMaterialDocumentImageFromPublicUrl({
+            publicUrl,
+            senderPhone: user.phone ?? from,
+          });
+
+          if (handledAsMaterialDocument) {
+            await sendMessage(
+              from,
+              "✅ Material document received. Materials were extracted and saved."
+            );
+            return true;
+          }
+        } catch (error) {
+          console.error("Material document detection failed, saving as regular photo", error);
+        }
+
+        return false;
+      },
     });
     if (img) return;
 
