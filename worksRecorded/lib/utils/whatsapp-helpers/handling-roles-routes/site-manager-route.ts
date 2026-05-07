@@ -73,7 +73,7 @@ export async function handleSiteManagerRoute(args: {
           if (handledAsMaterialDocument) {
             await sendMessage(
               from,
-              "✅ Material document received. Materials were extracted and saved."
+              "✅ Materiālu dokuments saņemts. Materiāli tika izvilkti un saglabāti."
             );
             return true;
           }
