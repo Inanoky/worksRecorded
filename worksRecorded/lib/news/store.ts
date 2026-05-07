@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/utils/db";
 import type { GeneratedNewsArticle } from "@/lib/news/generate";
+import { ensureWorksRecordedPromotion } from "@/lib/news/worksRecordedPromotion";
 
 export type StoredNewsArticle = GeneratedNewsArticle & {
   id: number;
@@ -106,7 +107,7 @@ function normalizeArticleRow(row: {
     topicKey: row.topic_key || createTopicKey(sourceTitle),
     headline: row.headline,
     summary: row.summary,
-    fullArticle: row.full_article || row.summary,
+    fullArticle: ensureWorksRecordedPromotion(row.full_article || row.summary),
     seoTitle: row.seo_title || row.headline,
     seoDescription: row.seo_description || row.summary,
     seoKeywords: parseStringArray(row.seo_keywords).length
