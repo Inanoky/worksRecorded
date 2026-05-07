@@ -8,6 +8,7 @@ import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTo
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { getWarehousePageMessages } from "@/lib/dashboard-i18n";
+import { normalizeMaterialConfigurationTemplates } from "@/lib/bis/material-configuration-templates";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 
@@ -106,6 +107,9 @@ type MaterialCategory = {
   material_kind: string;
   measurement: string | null;
   measurement_unit: string | null;
+  source?: "bis" | "organization_template";
+  materialType?: string | null;
+  manufacturer?: string | null;
 };
 
 type MaterialMeasure = {
@@ -275,6 +279,27 @@ async function loadWarehouseBisState(
   }
 }
 
+async function fetchOrganizationMaterialConfigurationTemplatesForSite(siteId: string): Promise<MaterialCategory[]> {
+  const rows = await prisma.$queryRawUnsafe<Array<{ bisMaterialConfigurationTemplates: unknown }>>(
+    `SELECT o."bisMaterialConfigurationTemplates"
+     FROM "Site" s
+     INNER JOIN "Organization" o ON o.id = s."organizationId"
+     WHERE s.id = $1
+     LIMIT 1`,
+    siteId,
+  );
+
+  return normalizeMaterialConfigurationTemplates(rows[0]?.bisMaterialConfigurationTemplates).map((template) => ({
+    id: `org-template:${template.id}`,
+    material_kind: template.materialKind,
+    measurement: template.measurement,
+    measurement_unit: template.measurementUnit,
+    source: "organization_template" as const,
+    materialType: template.materialType,
+    manufacturer: template.manufacturer,
+  }));
+}
+
 async function fetchBisPagedData(pathname: string, accessToken: string) {
   const results: any[] = [];
   let page = 1;
@@ -336,7 +361,7 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
     }
   }
 
-  const materialConfigurations = materialsData
+  const bisMaterialConfigurations = materialsData
     .map((item: any) => ({
       id: String(item?.id ?? ""),
       material_kind: String(item?.attributes?.material_kind ?? item?.attributes?.name ?? ""),
@@ -345,9 +370,14 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
         item?.attributes?.measurement_unit == null
           ? measurementMap.get(String(item?.attributes?.measurement ?? "")) ?? null
           : String(item.attributes.measurement_unit),
+      source: "bis" as const,
     }))
-    .filter((item: MaterialCategory) => item.id && item.material_kind)
-    .sort((a, b) => a.material_kind.localeCompare(b.material_kind));
+    .filter((item: MaterialCategory) => item.id && item.material_kind);
+
+  const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId);
+  const materialConfigurations = [...organizationTemplates, ...bisMaterialConfigurations].sort((a, b) =>
+    a.material_kind.localeCompare(b.material_kind),
+  );
 
   const allowedMeasurementNames = new Set([
     "cm",
@@ -1176,10 +1206,11 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
 
   const [syncedMaterials, materialConfigurationData] = await Promise.all([
     Promise.all(materials.map((material) => resolveWarehouseBisState(material, accessToken, bisCaseId))),
-    fetchWarehouseMaterialConfigurationData(siteId).catch((error) => {
+    fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
       console.error("Failed to refresh BIS material configurations", error);
+      const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).catch(() => []);
       return {
-        materialConfigurations: [] as MaterialCategory[],
+        materialConfigurations: organizationTemplates,
         materialMeasures: [] as MaterialMeasure[],
         materialTypes: [] as MaterialType[],
       };
@@ -1598,18 +1629,19 @@ export default async function MaterialsPage({
         bisStatus: true,
       },
     }),
-    bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch((error) => {
+    bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
       console.error("Failed to load BIS material configurations", error);
+      const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).catch(() => []);
       return {
-        materialConfigurations: [] as MaterialCategory[],
+        materialConfigurations: organizationTemplates,
         materialMeasures: [] as MaterialMeasure[],
         materialTypes: [] as MaterialType[],
       };
-    }) : Promise.resolve({
-      materialConfigurations: [] as MaterialCategory[],
+    }) : fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).then((organizationTemplates) => ({
+      materialConfigurations: organizationTemplates,
       materialMeasures: [] as MaterialMeasure[],
       materialTypes: [] as MaterialType[],
-    }),
+    })),
   ]);
 
   // Keep initial page render fast by using stored DB state only.

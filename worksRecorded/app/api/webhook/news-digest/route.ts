@@ -21,12 +21,57 @@ type PexelsResult = {
   status: string;
 };
 
+const FALLBACK_IMAGE_URLS = [
+  "/default.png",
+  "/hero.png",
+  "/pictures/article_1.jpg",
+  "/pictures/Article_2.jpg",
+  "/pictures/ufix.jpg",
+  "/pictures/deprom.jpeg",
+];
+
+function normalizeImageKey(imageUrl: string | undefined) {
+  if (!imageUrl) {
+    return "";
+  }
+
+  const trimmed = imageUrl.trim();
+
+  try {
+    const parsed = new URL(trimmed, "https://worksrecorded.local");
+    const pexelsPhotoId = parsed.pathname.match(/(?:pexels-photo-|photos\/)(\d+)/i)?.[1];
+
+    if (pexelsPhotoId) {
+      return `pexels:${pexelsPhotoId}`;
+    }
+
+    return `${parsed.hostname}${parsed.pathname}`.toLowerCase();
+  } catch {
+    return trimmed.split("?")[0].toLowerCase();
+  }
+}
+
+function chooseUnusedFallbackImage(title: string, usedImageKeys: Set<string>) {
+  const unusedFallbacks = FALLBACK_IMAGE_URLS.filter(
+    (url) => !usedImageKeys.has(normalizeImageKey(url))
+  );
+
+  if (!unusedFallbacks.length) {
+    return null;
+  }
+
+  const titleScore = [...title].reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return unusedFallbacks[titleScore % unusedFallbacks.length];
+}
+
 async function queryPexels(
   apiKey: string,
   query: string,
-  usedImages: Set<string>
+  usedImageKeys: Set<string>
 ): Promise<PexelsResult> {
-  const endpoint = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&orientation=landscape&size=large&per_page=40&page=1`;
+  const endpoint = `https://api.pexels.com/v1/search?query=${encodeURIComponent(
+    query
+  )}&orientation=landscape&size=large&per_page=40&page=1`;
 
   const response = await fetch(endpoint, {
     headers: {
@@ -51,8 +96,9 @@ async function queryPexels(
     .map((photo) => photo.src?.landscape || photo.src?.large2x || photo.src?.large || photo.src?.original)
     .filter((url): url is string => Boolean(url));
 
-  const unused = candidates.find((url) => !usedImages.has(url));
+  const unused = candidates.find((url) => !usedImageKeys.has(normalizeImageKey(url)));
   if (unused) {
+    usedImageKeys.add(normalizeImageKey(unused));
     return {
       imageUrl: unused,
       status: "ok_unused",
@@ -61,8 +107,8 @@ async function queryPexels(
 
   if (candidates[0]) {
     return {
-      imageUrl: candidates[0],
-      status: "ok_reused",
+      imageUrl: null,
+      status: "ok_all_candidates_used",
     };
   }
 
@@ -72,7 +118,7 @@ async function queryPexels(
   };
 }
 
-async function fetchPexelsPlaceholder(title: string, usedImages: Set<string>): Promise<PexelsResult> {
+async function fetchPexelsPlaceholder(title: string, usedImageKeys: Set<string>): Promise<PexelsResult> {
   const apiKey =
     process.env.PEXELS_API_KEY || process.env.PEXELS_API || process.env.PEXELS_API_TOKEN;
 
@@ -91,11 +137,11 @@ async function fetchPexelsPlaceholder(title: string, usedImages: Set<string>): P
     .slice(0, 100);
 
   try {
-    const firstTry = await queryPexels(apiKey, keywordQuery, usedImages);
+    const firstTry = await queryPexels(apiKey, keywordQuery, usedImageKeys);
     if (firstTry.imageUrl) return firstTry;
 
     if (titleQuery) {
-      const secondTry = await queryPexels(apiKey, titleQuery, usedImages);
+      const secondTry = await queryPexels(apiKey, titleQuery, usedImageKeys);
       if (secondTry.imageUrl) return secondTry;
       return {
         imageUrl: null,
@@ -115,9 +161,12 @@ async function fetchPexelsPlaceholder(title: string, usedImages: Set<string>): P
 async function buildTopicRelevantImageUrl(
   sourceImageUrl: string | undefined,
   title: string,
-  usedImages: Set<string>
+  usedImageKeys: Set<string>
 ): Promise<{ imageUrl: string; provider: "source" | "pexels" | "default"; pexelsStatus: string }> {
-  if (sourceImageUrl && !usedImages.has(sourceImageUrl)) {
+  const sourceImageKey = normalizeImageKey(sourceImageUrl);
+
+  if (sourceImageUrl && sourceImageKey && !usedImageKeys.has(sourceImageKey)) {
+    usedImageKeys.add(sourceImageKey);
     return {
       imageUrl: sourceImageUrl,
       provider: "source",
@@ -125,7 +174,7 @@ async function buildTopicRelevantImageUrl(
     };
   }
 
-  const pexelsResult = await fetchPexelsPlaceholder(title, usedImages);
+  const pexelsResult = await fetchPexelsPlaceholder(title, usedImageKeys);
   if (pexelsResult.imageUrl) {
     return {
       imageUrl: pexelsResult.imageUrl,
@@ -134,8 +183,11 @@ async function buildTopicRelevantImageUrl(
     };
   }
 
+  const fallbackImage = chooseUnusedFallbackImage(title, usedImageKeys) || "/default.png";
+  usedImageKeys.add(normalizeImageKey(fallbackImage));
+
   return {
-    imageUrl: "/default.png",
+    imageUrl: fallbackImage,
     provider: "default",
     pexelsStatus: pexelsResult.status,
   };
@@ -162,10 +214,13 @@ export async function GET(request: Request) {
   }
 
   const topicKey = createTopicKey(selected.title);
+  const usedImageKeys = new Set(
+    [...existing.imageUrls].map((imageUrl) => normalizeImageKey(imageUrl)).filter(Boolean)
+  );
   const imageSelection = await buildTopicRelevantImageUrl(
     selected.imageUrl,
     selected.title,
-    existing.imageUrls
+    usedImageKeys
   );
 
   const article = await generateNewsArticleFromTopic(selected, imageSelection.imageUrl);

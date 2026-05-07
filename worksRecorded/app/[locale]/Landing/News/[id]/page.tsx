@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getNewsArticleById } from "@/lib/news/store";
+import { WORKSRECORDED_LANDING_LINK_TOKEN } from "@/lib/news/worksRecordedPromotion";
 
 type PageProps = {
   params: Promise<{ locale: string; id: string }>;
@@ -35,7 +36,35 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-function renderFormattedArticle(content: string) {
+function renderInlineLinks(text: string, locale: string) {
+  const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g).filter(Boolean);
+
+  return parts.map((part, index) => {
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+
+    if (!linkMatch) {
+      return part;
+    }
+
+    const [, label, href] = linkMatch;
+    const resolvedHref = href === WORKSRECORDED_LANDING_LINK_TOKEN ? `/${locale}/Landing` : href;
+    const isExternal = /^https?:\/\//i.test(resolvedHref);
+
+    return (
+      <Link
+        key={`${label}-${index}`}
+        href={resolvedHref}
+        target={isExternal ? "_blank" : undefined}
+        rel={isExternal ? "noreferrer" : undefined}
+        className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+      >
+        {label}
+      </Link>
+    );
+  });
+}
+
+function renderFormattedArticle(content: string, locale: string) {
   const blocks = content
     .split(/\n{2,}/)
     .map((chunk) => chunk.trim())
@@ -56,7 +85,7 @@ function renderFormattedArticle(content: string) {
           key={index}
           className="border-l-4 border-primary/70 bg-muted/40 px-4 py-3 text-lg italic text-muted-foreground"
         >
-          {block.replace(/^>\s+/, "")}
+          {renderInlineLinks(block.replace(/^>\s+/, ""), locale)}
         </blockquote>
       );
     }
@@ -71,7 +100,7 @@ function renderFormattedArticle(content: string) {
       return (
         <ul key={index} className="list-disc space-y-2 pl-6 text-base leading-7 marker:text-primary">
           {items.map((item) => (
-            <li key={item}>{item}</li>
+            <li key={item}>{renderInlineLinks(item, locale)}</li>
           ))}
         </ul>
       );
@@ -79,7 +108,7 @@ function renderFormattedArticle(content: string) {
 
     return (
       <p key={index} className="text-base leading-7 text-foreground/90">
-        {block}
+        {renderInlineLinks(block, locale)}
       </p>
     );
   });
@@ -129,7 +158,7 @@ export default async function NewsPostPage({ params }: PageProps) {
         referrerPolicy="no-referrer"
       />
 
-      <div className="mt-8 space-y-5">{renderFormattedArticle(article.fullArticle)}</div>
+      <div className="mt-8 space-y-5">{renderFormattedArticle(article.fullArticle, locale)}</div>
 
       <div className="mt-8 rounded-xl border p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Original source</h2>

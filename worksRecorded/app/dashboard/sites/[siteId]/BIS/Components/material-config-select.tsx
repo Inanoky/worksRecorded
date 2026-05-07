@@ -49,6 +49,10 @@ export type MaterialConfigSelectMessages = {
   manufacturerPlaceholder: string
   declaration: string
   filesSelected: (count: number) => string
+  bisSourceLabel: string
+  organizationTemplateSourceLabel: string
+  templateCreatedAndSelected: string
+  templateCreateFailed: string
   cancel: string
   create: string
   creating: string
@@ -80,6 +84,10 @@ const DEFAULT_MESSAGES: MaterialConfigSelectMessages = {
   manufacturerPlaceholder: "Enter manufacturer",
   declaration: "Declaration",
   filesSelected: (count) => `${count} file(s) selected`,
+  bisSourceLabel: "BIS",
+  organizationTemplateSourceLabel: "Organization template",
+  templateCreatedAndSelected: "Organization template created in BIS and selected",
+  templateCreateFailed: "Failed to create BIS configuration from organization template",
   cancel: "Cancel",
   create: "Create",
   creating: "Creating...",
@@ -90,6 +98,9 @@ export type MaterialCategory = {
   material_kind: string
   measurement: string | null
   measurement_unit: string | null
+  source?: "bis" | "organization_template"
+  materialType?: string | null
+  manufacturer?: string | null
 }
 
 type MaterialTypeOption = {
@@ -163,9 +174,17 @@ export default function MaterialConfigSelect({
     const query = categorySearch.trim().toLowerCase()
     if (!query) return categories
     return categories.filter((category) =>
-      category.material_kind.toLowerCase().includes(query),
+      [
+        category.material_kind,
+        category.measurement_unit,
+        category.source === "organization_template" ? messages.organizationTemplateSourceLabel : messages.bisSourceLabel,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(query),
     )
-  }, [categories, categorySearch])
+  }, [categories, categorySearch, messages.bisSourceLabel, messages.organizationTemplateSourceLabel])
 
   const toBase64 = async (file: File) => {
     const buffer = await file.arrayBuffer()
@@ -260,6 +279,32 @@ export default function MaterialConfigSelect({
               const selected = categories.find((c) => c.id === selectedId)
               if (!selected) return
 
+              if (selected.source === "organization_template") {
+                try {
+                  const result = await onCreate(siteId, {
+                    materialKind: selected.material_kind,
+                    materialType: selected.materialType ?? "",
+                    manufacturer: selected.manufacturer ?? "",
+                    measurement: selected.measurement ?? "",
+                    attachments: [],
+                  })
+
+                  await onSave(recordId, {
+                    categoryId: result.category.id,
+                    categoryName: result.category.material_kind,
+                    measurementUnitId: result.category.measurement ?? "",
+                    measurementUnit: result.category.measurement_unit ?? "",
+                  })
+
+                  toast.success(messages.templateCreatedAndSelected)
+                  return
+                } catch (error) {
+                  console.error(error)
+                  toast.error(error instanceof Error ? error.message : messages.templateCreateFailed)
+                  return
+                }
+              }
+
               await onSave(recordId, {
                 categoryId: selected.id,
                 categoryName: selected.material_kind,
@@ -293,7 +338,20 @@ export default function MaterialConfigSelect({
 
           {filteredCategories.map((config) => (
             <SelectItem key={config.id} value={config.id}>
-              {config.material_kind}
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate">{config.material_kind}</span>
+                <span
+                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                    config.source === "organization_template"
+                      ? "border-amber-200 bg-amber-50 text-amber-700"
+                      : "border-blue-200 bg-blue-50 text-blue-700"
+                  }`}
+                >
+                  {config.source === "organization_template"
+                    ? messages.organizationTemplateSourceLabel
+                    : messages.bisSourceLabel}
+                </span>
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

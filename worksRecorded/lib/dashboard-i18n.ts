@@ -194,6 +194,10 @@ type WarehouseMaterialConfigSelectMessages = {
   manufacturerPlaceholder: string;
   declaration: string;
   filesSelected: (count: number) => string;
+  bisSourceLabel: string;
+  organizationTemplateSourceLabel: string;
+  templateCreatedAndSelected: string;
+  templateCreateFailed: string;
   cancel: string;
   create: string;
   creating: string;
@@ -793,6 +797,10 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
       manufacturerPlaceholder: "Enter manufacturer",
       declaration: "Declaration",
       filesSelected: (count) => `${count} file(s) selected`,
+      bisSourceLabel: "BIS",
+      organizationTemplateSourceLabel: "Organization template",
+      templateCreatedAndSelected: "Organization template created in BIS and selected",
+      templateCreateFailed: "Failed to create BIS configuration from organization template",
       cancel: "Cancel",
       create: "Create",
       creating: "Creating...",
@@ -876,6 +884,10 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
       manufacturerPlaceholder: "Ievadiet ražotāju",
       declaration: "Deklarācija",
       filesSelected: (count) => `Izvēlēti faili: ${count}`,
+      bisSourceLabel: "BIS",
+      organizationTemplateSourceLabel: "Organizācijas veidne",
+      templateCreatedAndSelected: "Organizācijas veidne izveidota BIS un izvēlēta",
+      templateCreateFailed: "Neizdevās izveidot BIS konfigurāciju no organizācijas veidnes",
       cancel: "Atcelt",
       create: "Izveidot",
       creating: "Izveido...",
