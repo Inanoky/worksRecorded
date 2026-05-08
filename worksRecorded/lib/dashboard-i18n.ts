@@ -79,6 +79,7 @@ type SiteDiaryListMessages = {
   action: string;
   source: string;
   copy: string;
+  edit: string;
   selectBisMaterialsDialogTitle: string;
   selectBisMaterialsDialogDescription: string;
   performedWorkDetails: string;
@@ -475,6 +476,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     action: "Action",
     source: "Source",
     copy: "Copy",
+    edit: "Edit",
     selectBisMaterialsDialogTitle: "Select BIS materials and attachments",
     selectBisMaterialsDialogDescription:
       "Select approved materials, adjust diary data to send, and optionally attach gallery images.",
@@ -568,6 +570,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     action: "Darbība",
     source: "Avots",
     copy: "Kopēt",
+    edit: "Rediģēt",
     selectBisMaterialsDialogTitle: "Atlasiet BIS materiālus un pielikumus",
     selectBisMaterialsDialogDescription:
       "Atlasiet apstiprinātos materiālus, pielāgojiet nosūtāmos žurnāla datus un pēc izvēles pievienojiet galerijas attēlus.",
