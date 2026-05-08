@@ -1827,6 +1827,9 @@ export default function SiteDiaryCalendar({
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => openDayDialog(group.date)}>
+                                        {t.edit}
+                                      </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
                                         {t.copyToDate}
                                       </DropdownMenuItem>
@@ -2154,6 +2157,9 @@ export default function SiteDiaryCalendar({
                                             </Button>
                                           </DropdownMenuTrigger>
                                           <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => openDayDialog(group.date)}>
+                                              {t.edit}
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem
                                               onClick={() => openCopyDialog(group.rows[i] ?? row)}
                                               disabled={!row.id}
