@@ -531,6 +531,10 @@ export function DialogTable({
 
 
   function getDisplayNameByKey(key) {
+    if (key === "Units" && normalizeOrganizationLanguage(organizationLanguage) === "lv") {
+      return "Vienības";
+    }
+
     return defaultMap[key]?.DisplayName ?? key;
   }
 
@@ -720,6 +724,8 @@ export function DialogTable({
       }));
 
       const currentValue = String(row[field] ?? "");
+      const getDropdownOptionLabel = (label: string) =>
+        field === "Units" ? (t.unitLabels[label] ?? label) : label;
       const optionsList = options.map((opt) => opt.label);
 
       if (
@@ -757,7 +763,7 @@ export function DialogTable({
             ) : null}
             {options.map((opt) => (
               <SelectItem key={opt.value} value={opt.label}>
-                {opt.label}
+                {getDropdownOptionLabel(opt.label)}
               </SelectItem>
             ))}
           </SelectContent>

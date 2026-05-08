@@ -398,6 +398,7 @@ type SiteDiaryDialogMessages = {
   eachOptionMaxLength: (maxLength: number) => string;
   dropdownOptionsUpdated: string;
   failedUpdateDropdownOptions: string;
+  unitLabels: Record<string, string>;
 };
 
 export function normalizeOrganizationLanguage(language?: string | null): OrganizationLanguage {
@@ -1161,6 +1162,20 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     eachOptionMaxLength: (maxLength) => `Each option must be ${maxLength} characters or less`,
     dropdownOptionsUpdated: "Dropdown options updated",
     failedUpdateDropdownOptions: "Failed to update dropdown options",
+    unitLabels: {
+      m: "m",
+      m2: "m2",
+      m3: "m3",
+      tn: "tn",
+      kg: "kg",
+      pcs: "pcs",
+      package: "package",
+      project: "project",
+      hour: "hour",
+      set: "set",
+      minute: "minute",
+      lifts: "lifts",
+    },
   },
   lv: {
     additionalWorks: "Papildu darbi",
@@ -1210,6 +1225,20 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     eachOptionMaxLength: (maxLength) => `Katrai opcijai jābūt ${maxLength} rakstzīmēm vai mazāk`,
     dropdownOptionsUpdated: "Nolaižamās izvēlnes opcijas atjauninātas",
     failedUpdateDropdownOptions: "Neizdevās atjaunināt nolaižamās izvēlnes opcijas",
+    unitLabels: {
+      m: "m",
+      m2: "m²",
+      m3: "m³",
+      tn: "tn",
+      kg: "kg",
+      pcs: "gab.",
+      package: "iepakojums",
+      project: "projekts",
+      hour: "stunda",
+      set: "komplekts",
+      minute: "minūte",
+      lifts: "pacēlieni",
+    },
   },
 };
 
