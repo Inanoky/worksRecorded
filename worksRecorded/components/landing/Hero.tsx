@@ -4,11 +4,13 @@
 import Image from "next/image";
 import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "next-intl";
 import Dashboard from '@/public/frontend/pages/Home/Dashboard.png'
 import Dashboard2 from '@/public/frontend/pages/Home/Dashboard2.png'
 
 
 export function Hero() {
+    const authT = useTranslations("AuthButtons");
 
     return (
 
@@ -38,13 +40,13 @@ export function Hero() {
                         <div className="flex items-center gap-x-5 w-full justify-center mt-5">
                             <LoginLink>
 
-                                <Button variant="secondary">Sign in</Button>
+                                <Button variant="secondary">{authT("signIn")}</Button>
 
 
                             </LoginLink>
                             <RegisterLink>
 
-                                <Button>Try for free</Button>
+                                <Button>{authT("tryForFree")}</Button>
                             </RegisterLink>
 
                         </div>

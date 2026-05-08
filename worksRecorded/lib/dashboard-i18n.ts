@@ -7,6 +7,7 @@ type DashboardMessages = {
   yourSites: string;
   emptyTitle: string;
   emptyDescription: string;
+  logOut: string;
 };
 
 type WarehousePageMessages = { title: string; description: string };
@@ -403,6 +404,7 @@ const DASHBOARD_MESSAGES: Record<OrganizationLanguage, DashboardMessages> = {
     yourSites: "Your Sites",
     emptyTitle: "You don't have any projects created",
     emptyDescription: "You currently don't have any projects. Please create one so you can see it here.",
+    logOut: "Log out",
   },
   lv: {
     createProject: "Izveidot projektu",
@@ -411,6 +413,7 @@ const DASHBOARD_MESSAGES: Record<OrganizationLanguage, DashboardMessages> = {
     yourSites: "Jūsu projekti",
     emptyTitle: "Jums vēl nav izveidotu projektu",
     emptyDescription: "Pašlaik jums nav projektu. Lūdzu, izveidojiet projektu, lai tas tiktu parādīts šeit.",
+    logOut: "Izrakstīties",
   },
 };
 
