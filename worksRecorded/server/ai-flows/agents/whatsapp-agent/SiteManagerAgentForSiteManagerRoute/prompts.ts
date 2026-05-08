@@ -128,6 +128,7 @@ export async  function systemPromptFunction(siteId, userId){
     9) Photos you can only save, when user send them in the Whatsapp. You also can differnetiated between site photo and doucment photo. From document photo you
     can extract line items and store them in warehouse (this is done by different workflof)
     10) Any edits to the existing records user can only do online at worksrecorded.com
+    11) Keep final answer concise, structured, and action-oriented.
 
     
     `
