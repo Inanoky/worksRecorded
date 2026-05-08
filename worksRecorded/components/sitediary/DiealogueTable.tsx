@@ -293,15 +293,15 @@ export function DialogTable({
   const appendManageOption = () => {
     const value = newManageOption.trim();
     if (!value) {
-      toast.error("Option cannot be empty");
+      toast.error(t.optionCannotBeEmpty);
       return;
     }
     if (manageOptions.some((option) => option.toLowerCase() === value.toLowerCase())) {
-      toast.error("Option already exists");
+      toast.error(t.optionAlreadyExists);
       return;
     }
     if (value.length > MAX_MANAGE_OPTION_LENGTH) {
-      toast.error(`Option cannot exceed ${MAX_MANAGE_OPTION_LENGTH} characters`);
+      toast.error(t.optionMaxLength(MAX_MANAGE_OPTION_LENGTH));
       return;
     }
     setManageOptions((prev) => [...prev, value]);
@@ -316,7 +316,7 @@ export function DialogTable({
     if (editingIndex == null) return;
     const value = editingValue.trim();
     if (!value) {
-      toast.error("Option cannot be empty");
+      toast.error(t.optionCannotBeEmpty);
       return;
     }
     if (
@@ -325,11 +325,11 @@ export function DialogTable({
           optionIndex !== editingIndex && option.toLowerCase() === value.toLowerCase(),
       )
     ) {
-      toast.error("Option already exists");
+      toast.error(t.optionAlreadyExists);
       return;
     }
     if (value.length > MAX_MANAGE_OPTION_LENGTH) {
-      toast.error(`Option cannot exceed ${MAX_MANAGE_OPTION_LENGTH} characters`);
+      toast.error(t.optionMaxLength(MAX_MANAGE_OPTION_LENGTH));
       return;
     }
     setManageOptions((prev) =>
@@ -343,11 +343,11 @@ export function DialogTable({
     if (!siteId || !manageField) return;
     const normalized = Array.from(new Set(manageOptions.map((item) => item.trim()).filter(Boolean)));
     if (!normalized.length) {
-      toast.error("At least one option is required");
+      toast.error(t.atLeastOneOptionRequired);
       return;
     }
     if (normalized.some((item) => item.length > MAX_MANAGE_OPTION_LENGTH)) {
-      toast.error(`Each option must be ${MAX_MANAGE_OPTION_LENGTH} characters or less`);
+      toast.error(t.eachOptionMaxLength(MAX_MANAGE_OPTION_LENGTH));
       return;
     }
     try {
@@ -364,9 +364,9 @@ export function DialogTable({
         },
       }));
       setManageDialogOpen(false);
-      toast.success("Dropdown options updated");
+      toast.success(t.dropdownOptionsUpdated);
     } catch (error: any) {
-      toast.error(error?.message ?? "Failed to update dropdown options");
+      toast.error(error?.message ?? t.failedUpdateDropdownOptions);
     }
   };
 
@@ -753,7 +753,7 @@ export function DialogTable({
           </SelectTrigger>
           <SelectContent>
             {isManageableDropdownField(field) ? (
-              <SelectItem value={MANAGE_DROPDOWN_OPTIONS}>⚙ Manage options…</SelectItem>
+              <SelectItem value={MANAGE_DROPDOWN_OPTIONS}>⚙ {t.manageOptions}</SelectItem>
             ) : null}
             {options.map((opt) => (
               <SelectItem key={opt.value} value={opt.label}>
@@ -1068,24 +1068,24 @@ export function DialogTable({
       <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
         <DialogContent className="flex h-[75vh] max-h-[75vh] w-[96vw] max-w-[860px] sm:max-w-[860px] flex-col overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Manage {manageField?.startsWith("Location") ? "locations" : "works"}</DialogTitle>
+            <DialogTitle>{manageField?.startsWith("Location") ? t.manageLocationsTitle : t.manageWorksTitle}</DialogTitle>
           </DialogHeader>
 
           <div className="flex gap-2">
             <Input
               value={manageSearch}
               onChange={(event) => setManageSearch(event.target.value)}
-              placeholder="Search option"
+              placeholder={t.searchOption}
             />
           </div>
           <div className="flex gap-2">
             <Input
               value={newManageOption}
               onChange={(event) => setNewManageOption(event.target.value)}
-              placeholder="Add new option"
+              placeholder={t.addNewOption}
             />
             <Button type="button" variant="outline" onClick={appendManageOption}>
-              Add
+              {t.add}
             </Button>
           </div>
 
@@ -1112,7 +1112,7 @@ export function DialogTable({
                     <div className="ml-2 flex shrink-0 items-center gap-1 pr-2">
                       {editingIndex === index ? (
                         <>
-                          <Button type="button" size="icon" variant="ghost" onClick={saveEditedManageOption} aria-label="Save option">
+                          <Button type="button" size="icon" variant="ghost" onClick={saveEditedManageOption} aria-label={t.saveOption}>
                             <Check className="h-4 w-4" />
                           </Button>
                           <Button
@@ -1120,7 +1120,7 @@ export function DialogTable({
                             size="icon"
                             variant="ghost"
                             onClick={() => { setEditingIndex(null); setEditingValue(""); }}
-                            aria-label="Cancel editing option"
+                            aria-label={t.cancelEditingOption}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -1131,29 +1131,29 @@ export function DialogTable({
                           size="icon"
                           variant="ghost"
                           onClick={() => { setEditingIndex(index); setEditingValue(option); }}
-                          aria-label="Edit option"
+                          aria-label={t.editOption}
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button type="button" size="icon" variant="ghost" onClick={() => removeManageOption(index)} aria-label="Delete option">
+                      <Button type="button" size="icon" variant="ghost" onClick={() => removeManageOption(index)} aria-label={t.deleteOption}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </div>
                 ))}
               {manageOptions.filter((option) => option.toLowerCase().includes(manageSearch.trim().toLowerCase())).length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No options found.</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">{t.noOptionsFound}</p>
               ) : null}
             </div>
           </ScrollArea>
 
           <DialogFooter className="border-t pt-3">
             <Button type="button" variant="outline" onClick={() => setManageDialogOpen(false)}>
-              Cancel
+              {t.cancel}
             </Button>
             <Button type="button" onClick={saveManagedDropdownOptions}>
-              Save
+              {t.save}
             </Button>
           </DialogFooter>
         </DialogContent>
