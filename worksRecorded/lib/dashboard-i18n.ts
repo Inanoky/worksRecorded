@@ -79,6 +79,7 @@ type SiteDiaryListMessages = {
   action: string;
   source: string;
   copy: string;
+  edit: string;
   selectBisMaterialsDialogTitle: string;
   selectBisMaterialsDialogDescription: string;
   performedWorkDetails: string;
@@ -368,6 +369,26 @@ type SiteDiaryDialogMessages = {
   deletePhoto: string;
   previous: string;
   next: string;
+  manageOptions: string;
+  manageLocationsTitle: string;
+  manageWorksTitle: string;
+  searchOption: string;
+  addNewOption: string;
+  add: string;
+  save: string;
+  cancel: string;
+  saveOption: string;
+  cancelEditingOption: string;
+  editOption: string;
+  deleteOption: string;
+  noOptionsFound: string;
+  optionCannotBeEmpty: string;
+  optionAlreadyExists: string;
+  optionMaxLength: (maxLength: number) => string;
+  atLeastOneOptionRequired: string;
+  eachOptionMaxLength: (maxLength: number) => string;
+  dropdownOptionsUpdated: string;
+  failedUpdateDropdownOptions: string;
 };
 
 export function normalizeOrganizationLanguage(language?: string | null): OrganizationLanguage {
@@ -475,6 +496,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     action: "Action",
     source: "Source",
     copy: "Copy",
+    edit: "Edit",
     selectBisMaterialsDialogTitle: "Select BIS materials and attachments",
     selectBisMaterialsDialogDescription:
       "Select approved materials, adjust diary data to send, and optionally attach gallery images.",
@@ -568,6 +590,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     action: "Darbība",
     source: "Avots",
     copy: "Kopēt",
+    edit: "Rediģēt",
     selectBisMaterialsDialogTitle: "Atlasiet BIS materiālus un pielikumus",
     selectBisMaterialsDialogDescription:
       "Atlasiet apstiprinātos materiālus, pielāgojiet nosūtāmos žurnāla datus un pēc izvēles pievienojiet galerijas attēlus.",
@@ -1091,6 +1114,26 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     deletePhoto: "Delete photo",
     previous: "Previous",
     next: "Next",
+    manageOptions: "Manage options…",
+    manageLocationsTitle: "Manage locations",
+    manageWorksTitle: "Manage works",
+    searchOption: "Search option",
+    addNewOption: "Add new option",
+    add: "Add",
+    save: "Save",
+    cancel: "Cancel",
+    saveOption: "Save option",
+    cancelEditingOption: "Cancel editing option",
+    editOption: "Edit option",
+    deleteOption: "Delete option",
+    noOptionsFound: "No options found.",
+    optionCannotBeEmpty: "Option cannot be empty",
+    optionAlreadyExists: "Option already exists",
+    optionMaxLength: (maxLength) => `Option cannot exceed ${maxLength} characters`,
+    atLeastOneOptionRequired: "At least one option is required",
+    eachOptionMaxLength: (maxLength) => `Each option must be ${maxLength} characters or less`,
+    dropdownOptionsUpdated: "Dropdown options updated",
+    failedUpdateDropdownOptions: "Failed to update dropdown options",
   },
   lv: {
     additionalWorks: "Papildu darbi",
@@ -1120,6 +1163,26 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     deletePhoto: "Dzēst foto",
     previous: "Iepriekšējā",
     next: "Nākamā",
+    manageOptions: "Pārvaldīt opcijas…",
+    manageLocationsTitle: "Pārvaldīt lokācijas",
+    manageWorksTitle: "Pārvaldīt darbus",
+    searchOption: "Meklēt opciju",
+    addNewOption: "Pievienot jaunu opciju",
+    add: "Pievienot",
+    save: "Saglabāt",
+    cancel: "Atcelt",
+    saveOption: "Saglabāt opciju",
+    cancelEditingOption: "Atcelt opcijas rediģēšanu",
+    editOption: "Rediģēt opciju",
+    deleteOption: "Dzēst opciju",
+    noOptionsFound: "Opcijas nav atrastas.",
+    optionCannotBeEmpty: "Opcija nedrīkst būt tukša",
+    optionAlreadyExists: "Opcija jau pastāv",
+    optionMaxLength: (maxLength) => `Opcija nedrīkst pārsniegt ${maxLength} rakstzīmes`,
+    atLeastOneOptionRequired: "Nepieciešama vismaz viena opcija",
+    eachOptionMaxLength: (maxLength) => `Katrai opcijai jābūt ${maxLength} rakstzīmēm vai mazāk`,
+    dropdownOptionsUpdated: "Nolaižamās izvēlnes opcijas atjauninātas",
+    failedUpdateDropdownOptions: "Neizdevās atjaunināt nolaižamās izvēlnes opcijas",
   },
 };
 
