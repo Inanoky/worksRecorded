@@ -708,13 +708,13 @@ export default function MaterialsTableClient({
         ),
       )
 
-      toast.success("Record sent for approval")
+      toast.success(t.recordSentForApproval)
       setApproverDialogOpen(false)
       setApproverDialogRow(null)
       setPossibleApprovers([])
       setSelectedApproverKeys([])
     } catch (error) {
-      const message = error instanceof Error ? normalizeBisErrorMessage(error.message) : "Failed to send record for approval"
+      const message = error instanceof Error ? normalizeBisErrorMessage(error.message) : t.failedToSendRecordForApproval
       console.error("[Warehouse BIS] Send for approval failed", {
         siteId,
         bisId: approverDialogRow.BISId,
@@ -1356,16 +1356,16 @@ export default function MaterialsTableClient({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send record for approval</DialogTitle>
+            <DialogTitle>{t.sendRecordForApprovalTitle}</DialogTitle>
             <DialogDescription>
-              Select one or more approvers for this warehouse record before sending it into the BIS approval flow.
+              {t.selectApproversForApprovalDescription}
             </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
             {possibleApprovers.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No BIS approvers were returned for this record.
+                {t.noBisApprovers}
               </p>
             ) : (
               possibleApprovers.map((approver) => {
@@ -1386,11 +1386,11 @@ export default function MaterialsTableClient({
                     />
                     <div className="space-y-1">
                       <div className="font-medium">
-                        {approver.name || `Member ${approver.memberId}`}
+                        {approver.name || `${t.member} ${approver.memberId}`}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {approver.memberType || t.unknownType}
-                        {approver.level != null ? ` • Level ${approver.level}` : ""}
+                        {approver.level != null ? ` • ${t.level} ${approver.level}` : ""}
                       </div>
                     </div>
                   </label>
@@ -1401,7 +1401,7 @@ export default function MaterialsTableClient({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setApproverDialogOpen(false)}>
-              Cancel
+              {t.cancel}
             </Button>
             <Button
               onClick={submitApproval}

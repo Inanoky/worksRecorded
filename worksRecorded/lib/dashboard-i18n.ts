@@ -257,6 +257,13 @@ type WarehouseUiMessages = {
   approved: string;
   sentForApproval: string;
   sendForApproval: string;
+  sendRecordForApprovalTitle: string;
+  selectApproversForApprovalDescription: string;
+  noBisApprovers: string;
+  member: string;
+  level: string;
+  recordSentForApproval: string;
+  failedToSendRecordForApproval: string;
   copy: string;
   copying: string;
   copied: string;
@@ -798,6 +805,13 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     approved: "Approved",
     sentForApproval: "Sent for approval",
     sendForApproval: "Send for approval",
+    sendRecordForApprovalTitle: "Send record for approval",
+    selectApproversForApprovalDescription: "Select one or more approvers for this warehouse record before sending it into the BIS approval flow.",
+    noBisApprovers: "No BIS approvers were returned for this record.",
+    member: "Member",
+    level: "Level",
+    recordSentForApproval: "Record sent for approval",
+    failedToSendRecordForApproval: "Failed to send record for approval",
     copy: "Copy",
     copying: "Copying...",
     copied: "Material copied",
@@ -888,6 +902,13 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     approved: "Apstiprināts",
     sentForApproval: "Apstiprināšana",
     sendForApproval: "Sūtīt apstiprināšanai",
+    sendRecordForApprovalTitle: "Sūtīt ierakstu apstiprināšanai",
+    selectApproversForApprovalDescription: "Izvēlieties vienu vai vairākus apstiprinātājus šim noliktavas ierakstam pirms nosūtīšanas BIS apstiprināšanas plūsmā.",
+    noBisApprovers: "Šim ierakstam BIS apstiprinātāji netika atrasti.",
+    member: "Dalībnieks",
+    level: "Līmenis",
+    recordSentForApproval: "Ieraksts nosūtīts apstiprināšanai",
+    failedToSendRecordForApproval: "Neizdevās nosūtīt ierakstu apstiprināšanai",
     copy: "Kopēt",
     copying: "Kopē...",
     copied: "Materiāls nokopēts",
