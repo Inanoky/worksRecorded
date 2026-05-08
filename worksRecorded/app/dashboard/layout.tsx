@@ -18,6 +18,7 @@ import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
+import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { getOrganizationLanguageByUserId, getUserEmailByUserId } from "@/server/actions/shared-actions";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 
@@ -32,6 +33,7 @@ export default async function DashboardLayout({
     getUserEmailByUserId(user.id),
     getOrganizationLanguageByUserId(user.id),
   ]);
+  const t = getDashboardMessages(organizationLanguage);
 
   return (
     <ProjectProvider userId={userId}>
@@ -93,7 +95,7 @@ export default async function DashboardLayout({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem asChild>
-                  <LogoutLink>Log out</LogoutLink>
+                  <LogoutLink>{t.logOut}</LogoutLink>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -1290,7 +1290,7 @@ export default function MaterialsTableClient({
                                 onClick={() => openApproverDialog(r)}
                                 className="bg-blue-600 text-white hover:bg-blue-700"
                               >
-                                Send for approval
+                                {t.sendForApproval}
                               </Button>
                             ) : showBisControls ? (
                               <Button
@@ -1408,7 +1408,7 @@ export default function MaterialsTableClient({
               disabled={approvalLoading || selectedApproverKeys.length === 0}
               className="bg-blue-600 text-white hover:bg-blue-700"
             >
-              {approvalLoading ? t.submitting : "Send for approval"}
+              {approvalLoading ? t.submitting : t.sendForApproval}
             </Button>
           </DialogFooter>
         </DialogContent>

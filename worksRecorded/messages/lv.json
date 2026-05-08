@@ -272,8 +272,11 @@
     "combined": {
       "generic": "Tiešsaistes pielāgota analītika"
     }
+  },
+
+  "AuthButtons": {
+    "signIn": "Pierakstīties",
+    "signUp": "Reģistrēties",
+    "tryForFree": "Izmēģināt bez maksas"
   }
-
-
-
 }
