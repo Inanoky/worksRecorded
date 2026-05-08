@@ -38,7 +38,7 @@
   },
 "Location": {
   "Type": "dropdown",
-  "DisplayName": "Location",
+  "DisplayName": "Lokācija",
   "DropDownOptions": {
     "Location_1": "1. stāvs",
     "Location_2": "2. stāvs"
@@ -88,7 +88,7 @@
   },
  "Works": {
   "Type": "dropdown",
-  "DisplayName": "Works",
+  "DisplayName": "Darbi",
   "DropDownOptions": {
     "Works_1": "Betonēšanas darbi",
     "Works_2": "Stiegrošanas darbi",
