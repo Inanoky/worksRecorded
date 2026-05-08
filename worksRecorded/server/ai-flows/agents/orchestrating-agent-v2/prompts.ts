@@ -37,7 +37,7 @@ Answer quality rules:
 
 
 User's manual for answering user questions:
-- User can edit records by opening site diary "Open diary button"
+- User can edit records by opening site diary "Open diary/Atvērt žurnālu button"
 - User can report activities by texting to the number +37127445304 
 
 
