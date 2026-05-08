@@ -23,10 +23,6 @@ import { Rnd } from "react-rnd";
 import { Textarea } from "@/components/ui/textarea";
 import remarkGfm from "remark-gfm";
 import OrchestratingAgentV2 from "@/server/ai-flows/agents/orchestrating-agent-v2/agent";
-import {
-  hasCompletedTour,
-  markTourCompleted,
-} from "@/components/joyride/user-tour-action";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { downloadDataUrl, extractDataUrls } from "@/components/ai/AIchatHelpers";
@@ -148,7 +144,6 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
   const [open, setOpen] = useState(false);
   const [expandedData, setExpandedData] = useState<any>(null);
   const [showDiaryUpdatedTour, setShowDiaryUpdatedTour] = useState(false);
-  const [tutorialLocked, setTutorialLocked] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -159,8 +154,6 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const presetPendingMarkRef = useRef(false);
 
   const canSend = useMemo(
     () => (!loading && !!input.trim()) || (!loading && queuedAttachments.length > 0),
@@ -201,25 +194,6 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isMobile]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    (async () => {
-      const done = await hasCompletedTour("steps_ai_widget_open");
-
-      if (!done) {
-        const preset =
-          "Today we 5 workers casted 10m3, and 3 workers we doing steel fixing for 5 hours additional work, delivery of timber was delayed";
-        setInput(preset);
-        setTutorialLocked(true);
-        presetPendingMarkRef.current = true;
-      } else {
-        setTutorialLocked(false);
-        presetPendingMarkRef.current = false;
-      }
-    })();
-  }, [open]);
 
   useEffect(() => {
     try {
@@ -333,7 +307,6 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     const textToSend = input.trim();
     if (!textToSend && queuedAttachments.length === 0) return;
 
-    const shouldMarkPresetSent = presetPendingMarkRef.current;
     const outgoingText = textToSend || "Please analyze the attached files.";
 
     const attachmentsForLLM = [...queuedAttachments];
@@ -402,11 +375,6 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
       );
 
       setShowDiaryUpdatedTour(true);
-
-      if (shouldMarkPresetSent) {
-        await markTourCompleted("steps_ai_widget_open");
-        presetPendingMarkRef.current = false;
-      }
     } catch {
       setMessages((m) =>
         m.map((msg) =>
@@ -423,7 +391,6 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     }
 
     setLoading(false);
-    setTutorialLocked(false);
     inputRef.current?.focus();
   };
 
@@ -720,11 +687,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
             placeholder="Type your message… (Shift+Enter for new line)"
             value={input}
             disabled={loading}
-            readOnly={tutorialLocked}
-            onChange={(e) => {
-              if (tutorialLocked) return;
-              setInput(e.target.value);
-            }}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             className="flex-1 min-w-0 min-h-[56px] max-h-48 bg-white dark:bg-gray-800 dark:text-gray-100"
             data-tour="AI-widget-open"

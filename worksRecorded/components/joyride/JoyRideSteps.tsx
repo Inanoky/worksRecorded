@@ -29,7 +29,7 @@ const JOYRIDE_STEPS: Record<OrganizationLanguage, JoyrideStepsBundle> = {
       { target: '[data-tour="calendar"]', content: 'Start reporting works from WhatsApp', disableBeacon: true },
       { target: '[data-tour="AI-widget"]', content: 'Open AI assistant and report what has been completed today.', disableBeacon: true },
     ],
-    steps_ai_widget_open: [{ target: '[data-tour="AI-widget-open"]', content: 'Start typing to tell the AI what was completed today. You can say: Today 5 workers cast 10m3, and 3 workers did steel fixing for 5 hours.', disableBeacon: true }],
+    steps_ai_widget_open: [{ target: '[data-tour="AI-widget-open"]', content: 'Start typing to tell the AI what was completed today.', disableBeacon: true }],
     steps_siteid_timesheets: [
       { target: '[data-tour="timesheets-workers"]', content: 'Check who is assigned to this project before reviewing logs.', disableBeacon: true },
       { target: '[data-tour="timesheets"]', content: 'Review, search, and edit time records in this section.', disableBeacon: true },
