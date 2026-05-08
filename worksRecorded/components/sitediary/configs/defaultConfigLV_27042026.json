@@ -243,7 +243,7 @@
   },
   "Amounts": {
     "Type": "float",
-    "DisplayName": "Amounts",
+    "DisplayName": "Daudzums",
     "customSettings": {
       "order": 5,
       "cellWidth": 65,
@@ -255,7 +255,7 @@
   },
   "WorkersInvolved": {
     "Type": "float",
-    "DisplayName": "Workers",
+    "DisplayName": "Strādnieki",
     "customSettings": {
       "integer": true,
       "order": 6,
@@ -268,7 +268,7 @@
   },
   "TimeInvolved": {
     "Type": "float",
-    "DisplayName": "Hours",
+    "DisplayName": "Stundas",
     "customSettings": {
       "integer": true,
       "order": 6,
