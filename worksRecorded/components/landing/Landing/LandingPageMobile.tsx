@@ -1,9 +1,9 @@
 // app/(marketing)/page.tsx — Mobile-first, responsive landing page
 
-import Link from "next/link";
 import Image from "next/image";
 import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "next-intl";
 import Dashboard from "@/public/frontend/pages/Home/Dashboard.png";
 import Dashboard2 from "@/public/frontend/pages/Home/Dashboard2.png";
 import { Features } from "@/components/landing/Features";
@@ -16,6 +16,9 @@ import {
 } from "@/components/landing/Landing/Text";
 
 export default function LandingPageMobile() {
+  const t = useTranslations("LandingPageDesktop");
+  const authT = useTranslations("AuthButtons");
+
   return (
     <>
       <section className="relative flex items-center justify-center">
@@ -23,30 +26,29 @@ export default function LandingPageMobile() {
           {/* Hero */}
           <div className="text-center">
             <span className="inline-block text-xs sm:text-sm text-primary font-medium tracking-tight bg-primary/10 px-3 sm:px-4 py-1.5 rounded-full">
-              Construction project management solution
+              {t("topPill")}
             </span>
 
             <h1 className="mt-6 sm:mt-8 text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold leading-tight sm:leading-none">
-              {Header()}
-              <span className="block text-primary">{Header2()}</span>
+              {t("heroTitle")}
             </h1>
 
             <p className="max-w-2xl mx-auto mt-4 sm:mt-6 text-sm sm:text-base lg:text-lg font-light text-muted-foreground tracking-tight">
-              {SmallDescription()}
+              {t("smallDescription")}
             </p>
 
             <p className="max-w-xl mx-auto mt-3 text-xs sm:text-sm text-muted-foreground">
-              {NoIntegration}
+              {t("noCardNote")}
             </p>
 
             <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto justify-center">
               <LoginLink>
                 <Button variant="secondary" className="w-full sm:w-auto">
-                  Sign in
+                  {authT("signIn")}
                 </Button>
               </LoginLink>
               <RegisterLink>
-                <Button className="w-full sm:w-auto">Try for free</Button>
+                <Button className="w-full sm:w-auto">{t("startFreeTrial")}</Button>
               </RegisterLink>
             </div>
           </div>

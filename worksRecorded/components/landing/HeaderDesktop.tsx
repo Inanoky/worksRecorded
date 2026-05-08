@@ -1,3 +1,4 @@
+"use client";
   
 import * as React from "react"
 import Link from "next/link"
@@ -8,6 +9,7 @@ import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components
 import { Button } from "@/components/ui/button"
 import { NavigationMenuDesktop } from "@/components/landing/NavigationMenuDesktop"
 import LanguageSwitcher from "../ui/LanguageSwitcher"
+import { useTranslations } from "next-intl"
 
 
 
@@ -15,7 +17,9 @@ import LanguageSwitcher from "../ui/LanguageSwitcher"
 
 
 
-    return (    
+    
+    const t = useTranslations("AuthButtons")
+return (    
   
   <>
   
@@ -43,12 +47,12 @@ import LanguageSwitcher from "../ui/LanguageSwitcher"
                                     <ThemeToggle />
                                     <LoginLink>
                                         <Button variant="secondary">
-                                            Sign in
+                                            {t("signIn")}
                                         </Button>
                                     </LoginLink>
                                     <RegisterLink>
                                         <Button>
-                                            Sign up
+                                            {t("signUp")}
                                         </Button>
                                     </RegisterLink>
                                 </div>

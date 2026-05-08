@@ -274,5 +274,12 @@
     "combined": {
       "generic": "Get live custom analytics"
     }
+  },
+
+  "AuthButtons": {
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "tryForFree": "Try for free"
   }
+
 }
