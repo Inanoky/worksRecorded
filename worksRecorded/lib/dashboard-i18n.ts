@@ -211,6 +211,7 @@ type WarehouseUiMessages = {
   searchMaterials: string;
   totalCost: string;
   refresh: string;
+  exportToExcel: string;
   status: string;
   all: string;
   sent: string;
@@ -760,6 +761,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     searchMaterials: "Search materials...",
     totalCost: "Total cost",
     refresh: "Refresh",
+    exportToExcel: "Export to Excel",
     status: "Status",
     all: "All",
     sent: "Sent",
@@ -857,6 +859,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     searchMaterials: "Meklēt materiālus...",
     totalCost: "Kopējās izmaksas",
     refresh: "Atjaunot",
+    exportToExcel: "Eksportēt uz Excel",
     status: "Statuss",
     all: "Visi",
     sent: "Nosūtīti",

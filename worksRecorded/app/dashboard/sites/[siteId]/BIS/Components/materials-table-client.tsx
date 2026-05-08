@@ -2,12 +2,14 @@
 
 import * as React from "react"
 import Image from "next/image"
+import * as XLSX from "xlsx"
 import {
   Search,
   Filter,
   RefreshCw,
   MoreHorizontal,
   CalendarIcon,
+  Download,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -226,6 +228,28 @@ function normalizeBisErrorMessage(message: string) {
   }
 
   return message
+}
+
+function getExportStatusLabel(row: MaterialRow) {
+  const normalizedStatus = (row.bisStatus ?? "").toLowerCase()
+
+  if (!normalizedStatus) return "WorksRecorded"
+  if (normalizedStatus === "draft") return "BIS draft"
+  if (normalizedStatus === "approved") return "BIS approved"
+
+  if ([
+    "approving",
+    "submitted_to_approve",
+    "submitted",
+    "pending",
+    "pending_approval",
+    "on_approval",
+    "approval_in_progress",
+  ].includes(normalizedStatus)) {
+    return "BIS pending"
+  }
+
+  return row.bisStatus ? `BIS ${row.bisStatus}` : "WorksRecorded"
 }
 
 export default function MaterialsTableClient({
@@ -921,6 +945,56 @@ export default function MaterialsTableClient({
 
   const showBisControls = bisEnabled
 
+  const exportMaterialsToExcel = () => {
+    const worksheetData = [
+      [
+        t.material,
+        t.status,
+        t.bisMaterialConfiguration,
+        t.deliveryDate,
+        t.qty,
+        t.unit,
+        t.cost,
+        t.invoice,
+        t.invoiceDate,
+        "BIS ID",
+        t.photo,
+      ],
+      ...filteredMaterials.map((material) => [
+        material.name || t.unnamedMaterial,
+        getExportStatusLabel(material),
+        material.categoryName || "—",
+        formatDate(material.materialDate),
+        material.quantity ?? "",
+        material.measurementUnit || "—",
+        material.cost ?? "",
+        material.invoiceNr || "—",
+        formatDate(material.invoiceDate),
+        material.BISId || "—",
+        material.sourcePhoto || "—",
+      ]),
+    ]
+
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
+    worksheet["!cols"] = [
+      { wch: 36 },
+      { wch: 18 },
+      { wch: 32 },
+      { wch: 16 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 40 },
+    ]
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Materials")
+    XLSX.writeFile(workbook, `WarehouseMaterials-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
@@ -1007,11 +1081,22 @@ export default function MaterialsTableClient({
               size="sm"
               onClick={deleteSelectedRows}
               disabled={deleteLoading}
-              className={showBisControls ? "" : "ml-auto"}
             >
               {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
             </Button>
           ) : null}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={exportMaterialsToExcel}
+            disabled={filteredMaterials.length === 0}
+            className="ml-auto"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {t.exportToExcel}
+          </Button>
 
           {showBisControls ? (
             <Button
@@ -1020,7 +1105,6 @@ export default function MaterialsTableClient({
               size="sm"
               onClick={syncRowsFromBis}
               disabled={syncLoading}
-              className="ml-auto"
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${syncLoading ? "animate-spin" : ""}`} />
               {syncLoading ? "..." : t.refresh}
