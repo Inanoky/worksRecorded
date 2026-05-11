@@ -217,20 +217,20 @@
   },
   "Units": {
     "Type": "dropdown",
-    "DisplayName": "Units",
+    "DisplayName": "Mērv.",
     "DropDownOptions": {
       "m": "m",
       "m2": "m2",
       "m3": "m3",
       "tn": "tn",
       "kg": "kg",
-      "pcs": "pcs",
-      "package": "package",
-      "project": "project",
-      "hour": "hour",
+      "pcs": "gab.",
+      "package": "gab.",
+      "project": "projekts",
+      "hour": "stunda",
       "set": "set",
       "minute": "minute",
-      "lifts": "lifts"
+      "lifts": "pacelšana"
     },
     "customSettings": {
       "order": 4,
