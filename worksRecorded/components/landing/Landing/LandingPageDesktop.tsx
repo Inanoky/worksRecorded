@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { WhatsAppIcon } from "@/components/ui/whatsappIcon";
 
 import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
@@ -16,6 +16,11 @@ import { WhatDoWeDo, HowDoWeDoThat, Why } from "@/components/landing/Landing/Tex
 
 export default function LandingPage() {
   const t = useTranslations("LandingPageDesktop");
+  const locale = useLocale();
+  const videoSrc =
+    locale === "lv"
+      ? "https://www.youtube-nocookie.com/embed/lzRHv2wR_sM?rel=0&modestbranding=1&playsinline=1"
+      : "https://www.youtube-nocookie.com/embed/agwUZ3InxYk?rel=0&modestbranding=1&playsinline=1";
 
   return (
     <>
@@ -66,7 +71,7 @@ export default function LandingPage() {
             <div className="relative w-full aspect-video">
               <iframe
                 className="absolute inset-0 h-full w-full"
-                src="https://www.youtube-nocookie.com/embed/agwUZ3InxYk?rel=0&modestbranding=1&playsinline=1"
+                src={videoSrc}
                 title="WorksRecorded demo"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
