@@ -238,6 +238,7 @@ type WarehouseUiMessages = {
   invoiceDate: string;
   action: string;
   sendToBis: string;
+  openInBis: string;
   selectConfiguration: string;
   pickDate: string;
   unnamedMaterial: string;
@@ -788,6 +789,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     invoiceDate: "Invoice date",
     action: "Action",
     sendToBis: "Send to BIS",
+    openInBis: "Open in BIS",
     selectConfiguration: "Select configuration",
     pickDate: "Pick date",
     unnamedMaterial: "Unnamed material",
@@ -886,6 +888,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     invoiceDate: "Rēķina datums",
     action: "Darbība",
     sendToBis: "Sūtīt uz BIS",
+    openInBis: "Atvērt BIS",
     selectConfiguration: "Izvēlēties konfigurāciju",
     pickDate: "Izvēlēties datumu",
     unnamedMaterial: "Nenorādīts materiāls",
