@@ -1669,6 +1669,7 @@ export default async function MaterialsPage({
         siteId={siteId}
         organizationLanguage={organizationLanguage}
         bisEnabled={bisEnabled}
+        bisBaseUrl={getBisBaseUrl()}
         materials={materialsWithBisState}
         materialConfigurations={materialConfigurationData.materialConfigurations}
         materialMeasures={materialConfigurationData.materialMeasures}

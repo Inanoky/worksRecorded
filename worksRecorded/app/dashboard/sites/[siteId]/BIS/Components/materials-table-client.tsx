@@ -96,6 +96,7 @@ type Props = {
   siteId: string
   organizationLanguage?: string | null
   bisEnabled: boolean
+  bisBaseUrl: string
   materials: MaterialRow[]
   materialConfigurations: MaterialCategory[]
   materialMeasures: Array<{ id: string; name: string }>
@@ -256,6 +257,7 @@ export default function MaterialsTableClient({
   siteId,
   organizationLanguage,
   bisEnabled,
+  bisBaseUrl,
   materials,
   materialConfigurations,
   materialMeasures,
@@ -521,7 +523,8 @@ export default function MaterialsTableClient({
 
   const openWarehouseRecordInBis = (bisId: string | null | undefined) => {
     if (!bisId) return
-    const url = `https://test.bis.gov.lv/bisp/lv/portal/logbooks/received_construction_products/${bisId}/edit`
+    const normalizedBisBaseUrl = bisBaseUrl.replace(/\/+$/, "")
+    const url = `${normalizedBisBaseUrl}/bisp/lv/portal/logbooks/received_construction_products/${bisId}/edit`
     window.open(url, "_blank", "noopener,noreferrer")
   }
 
@@ -1402,7 +1405,7 @@ export default function MaterialsTableClient({
                                     onClick={() => openWarehouseRecordInBis(r.BISId)}
                                     disabled={!r.BISId}
                                   >
-                                    Open in BIS
+                                    {t.openInBis}
                                   </DropdownMenuItem>
                                 ) : null}
                                 <DropdownMenuItem
