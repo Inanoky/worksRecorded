@@ -231,12 +231,12 @@ function normalizeBisErrorMessage(message: string) {
   return message
 }
 
-function getExportStatusLabel(row: MaterialRow) {
+function getExportStatusLabel(row: MaterialRow, messages: ReturnType<typeof getWarehouseUiMessages>) {
   const normalizedStatus = (row.bisStatus ?? "").toLowerCase()
 
-  if (!normalizedStatus) return "WorksRecorded"
-  if (normalizedStatus === "draft") return "BIS draft"
-  if (normalizedStatus === "approved") return "BIS approved"
+  if (!normalizedStatus) return messages.statusWorksRecorded
+  if (normalizedStatus === "draft") return messages.statusBisDraft
+  if (normalizedStatus === "approved") return messages.statusBisApproved
 
   if ([
     "approving",
@@ -247,10 +247,10 @@ function getExportStatusLabel(row: MaterialRow) {
     "on_approval",
     "approval_in_progress",
   ].includes(normalizedStatus)) {
-    return "BIS pending"
+    return messages.statusBisPending
   }
 
-  return row.bisStatus ? `BIS ${row.bisStatus}` : "WorksRecorded"
+  return row.bisStatus ? `BIS ${row.bisStatus}` : messages.statusWorksRecorded
 }
 
 export default function MaterialsTableClient({
@@ -965,7 +965,7 @@ export default function MaterialsTableClient({
       ],
       ...filteredMaterials.map((material) => [
         material.name || t.unnamedMaterial,
-        getExportStatusLabel(material),
+        getExportStatusLabel(material, t),
         material.categoryName || "—",
         formatDate(material.materialDate),
         material.quantity ?? "",
@@ -1244,23 +1244,23 @@ export default function MaterialsTableClient({
                       <TableCell>
                         {!normalizedStatus ? (
                           <Badge className="rounded-full border border-slate-200 bg-slate-50 text-slate-700">
-                            WorksRecorded
+                            {t.statusWorksRecorded}
                           </Badge>
                         ) : isDraft ? (
                           <Badge className="rounded-full border border-blue-200 bg-blue-50 text-blue-700">
-                            BIS draft
+                            {t.statusBisDraft}
                           </Badge>
                         ) : isApproved ? (
                           <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700">
-                            BIS approved
+                            {t.statusBisApproved}
                           </Badge>
                         ) : isAwaitingApproval ? (
                           <Badge className="rounded-full border border-sky-200 bg-sky-50 text-sky-700">
-                            BIS pending
+                            {t.statusBisPending}
                           </Badge>
                         ) : (
                           <Badge className="rounded-full border border-blue-200 bg-blue-50 text-blue-700">
-                            BIS draft
+                            {t.statusBisDraft}
                           </Badge>
                         )}
                       </TableCell>

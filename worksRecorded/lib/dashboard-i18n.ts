@@ -239,6 +239,10 @@ type WarehouseUiMessages = {
   action: string;
   sendToBis: string;
   openInBis: string;
+  statusWorksRecorded: string;
+  statusBisDraft: string;
+  statusBisApproved: string;
+  statusBisPending: string;
   selectConfiguration: string;
   pickDate: string;
   unnamedMaterial: string;
@@ -790,6 +794,10 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     action: "Action",
     sendToBis: "Send to BIS",
     openInBis: "Open in BIS",
+    statusWorksRecorded: "WorksRecorded",
+    statusBisDraft: "BIS draft",
+    statusBisApproved: "BIS approved",
+    statusBisPending: "BIS pending",
     selectConfiguration: "Select configuration",
     pickDate: "Pick date",
     unnamedMaterial: "Unnamed material",
@@ -889,6 +897,10 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     action: "Darbība",
     sendToBis: "Sūtīt uz BIS",
     openInBis: "Atvērt BIS",
+    statusWorksRecorded: "WorksRecorded",
+    statusBisDraft: "BIS melnraksts",
+    statusBisApproved: "BIS apstiprināts",
+    statusBisPending: "BIS gaida apstiprinājumu",
     selectConfiguration: "Izvēlēties konfigurāciju",
     pickDate: "Izvēlēties datumu",
     unnamedMaterial: "Nenorādīts materiāls",
