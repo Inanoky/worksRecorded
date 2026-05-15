@@ -1,63 +1,259 @@
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
-<!--  created with Free Online Sitemap Generator www.xml-sitemaps.com  -->
-<url>
-<loc>https://www.worksrecorded.com/en/Landing</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>1.00</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/CaseStudies</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.80</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/Custom</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.80</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/Pricing</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.80</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/About</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.80</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/ContactForm</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.80</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/SiteDiary</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.80</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/Timesheets</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.80</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/Analytics</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.80</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/CaseStudies/Deprom</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.64</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/CaseStudies/U-fix</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.64</priority>
-</url>
-<url>
-<loc>https://www.worksrecorded.com/en/Landing/CaseStudies/Article_1</loc>
-<lastmod>2026-02-10T13:21:32+00:00</lastmod>
-<priority>0.64</priority>
-</url>
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>1.00</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/BIS-integracija</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/BIS-integracija" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/BIS-integracija" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/BIS-integracija" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.90</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/SiteDiary</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/SiteDiary" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/SiteDiary" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/SiteDiary" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/Timesheets</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Timesheets" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Timesheets" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Timesheets" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/Analytics</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Analytics" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Analytics" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Analytics" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/CaseStudies</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.75</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/Custom</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Custom" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Custom" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Custom" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.75</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/Pricing</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Pricing" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Pricing" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Pricing" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.75</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/About</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/About" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/About" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/About" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/News</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/News" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/News" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/News" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/ContactForm</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/ContactForm" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/ContactForm" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/ContactForm" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.65</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/CaseStudies/Deprom</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Deprom" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies/Deprom" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Deprom" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.55</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/CaseStudies/U-fix</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/U-fix" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies/U-fix" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/U-fix" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.55</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_1</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_1" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies/Article_1" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_1" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.50</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_2_AI_construction</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_2_AI_construction" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies/Article_2_AI_construction" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_2_AI_construction" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.50</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/lv/Landing/Privacy</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Privacy" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Privacy" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.30</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>1.00</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/BIS-integracija</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/BIS-integracija" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/BIS-integracija" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/BIS-integracija" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.90</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/SiteDiary</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/SiteDiary" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/SiteDiary" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/SiteDiary" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/Timesheets</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Timesheets" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Timesheets" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Timesheets" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/Analytics</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Analytics" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Analytics" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Analytics" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/CaseStudies</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.75</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/Custom</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Custom" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Custom" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Custom" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.75</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/Pricing</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Pricing" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Pricing" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Pricing" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.75</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/About</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/About" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/About" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/About" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/News</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/News" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/News" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/News" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.70</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/ContactForm</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/ContactForm" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/ContactForm" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/ContactForm" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.65</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/CaseStudies/Deprom</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Deprom" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies/Deprom" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Deprom" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.55</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/CaseStudies/U-fix</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/U-fix" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies/U-fix" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/U-fix" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.55</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/CaseStudies/Article_1</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_1" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies/Article_1" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_1" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.50</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/CaseStudies/Article_2_AI_construction</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_2_AI_construction" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/CaseStudies/Article_2_AI_construction" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/CaseStudies/Article_2_AI_construction" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.50</priority>
+  </url>
+  <url>
+    <loc>https://www.worksrecorded.com/en/Landing/Privacy</loc>
+    <xhtml:link rel="alternate" hreflang="lv-LV" href="https://www.worksrecorded.com/lv/Landing/Privacy" />
+    <xhtml:link rel="alternate" hreflang="en-US" href="https://www.worksrecorded.com/en/Landing/Privacy" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://www.worksrecorded.com/lv/Landing/Privacy" />
+    <lastmod>2026-05-15</lastmod>
+    <priority>0.30</priority>
+  </url>
 </urlset>

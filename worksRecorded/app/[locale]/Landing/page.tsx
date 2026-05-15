@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import LandingPageDesktop from "@/components/landing/Landing/LandingPageDesktop";
-import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+import {
+  buildLandingJsonLd,
+  buildLandingMetadata,
+} from "@/lib/seo/landingMetadata";
 import PrefetchNewsRoute from "./News/PrefetchNewsRoute";
 
 type PageProps = {
@@ -30,6 +33,13 @@ export default async function LandingPage({ params }: PageProps) {
   const { locale } = await params;
   return (
     <>
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(buildLandingJsonLd(locale)),
+        }}
+      />
       <PrefetchNewsRoute locale={locale} />
       <LandingPageDesktop />
     </>
