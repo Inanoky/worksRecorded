@@ -53,27 +53,29 @@ export default function LandingPageMobile() {
               </RegisterLink>
             </div>
 
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+            <div className="mt-6 flex flex-col items-center justify-center gap-3 text-xs text-muted-foreground">
               <span className="font-medium text-foreground/80">{t("logoStripLabel")}</span>
-              <div className="flex items-center gap-2 rounded-full border bg-background/80 px-4 py-2 shadow-sm">
-                <Image
-                  src="/logos/WhatsApp_logo.png"
-                  alt={t("whatsappLogoAlt")}
-                  width={28}
-                  height={28}
-                  className="size-7"
-                />
-                <span>WhatsApp</span>
-              </div>
-              <div className="flex items-center gap-2 rounded-full border bg-background/80 px-4 py-2 shadow-sm">
-                <Image
-                  src="/logos/bislogo.png"
-                  alt={t("bisLogoAlt")}
-                  width={64}
-                  height={24}
-                  className="h-6 w-auto"
-                />
-                <span>{t("bisLogoLabel")}</span>
+              <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
+                <div className="flex items-center gap-2">
+                  <Image
+                    src="/logos/WhatsApp_logo.png"
+                    alt={t("whatsappLogoAlt")}
+                    width={32}
+                    height={32}
+                    className="size-8"
+                  />
+                  <span>WhatsApp</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Image
+                    src="/logos/bislogo.png"
+                    alt={t("bisLogoAlt")}
+                    width={88}
+                    height={33}
+                    className="h-8 w-auto"
+                  />
+                  <span>{t("bisLogoLabel")}</span>
+                </div>
               </div>
             </div>
           </div>
