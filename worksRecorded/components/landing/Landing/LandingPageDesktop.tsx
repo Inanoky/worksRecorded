@@ -15,6 +15,7 @@ export default function LandingPage() {
   const t = useTranslations("LandingPageDesktop");
   const locale = useLocale();
   const calendlyDemoUrl = "https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
+  const noCardNote = t("noCardNote");
   const videoSrc =
     locale === "lv"
       ? "https://www.youtube-nocookie.com/embed/lzRHv2wR_sM?rel=0&modestbranding=1&playsinline=1"
@@ -39,44 +40,42 @@ export default function LandingPage() {
 
           <div className="mt-6 flex flex-wrap justify-center items-center gap-3">
             <Link href={calendlyDemoUrl} target="_blank" rel="noopener noreferrer">
-              <Button size="lg" variant="outline">
+              <Button
+                size="lg"
+                className="h-12 rounded-xl border border-yellow-500 bg-yellow-400 px-8 text-base font-semibold text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-300"
+              >
                 {t("bookDemo")}
               </Button>
             </Link>
 
             <RegisterLink>
-              <Button size="lg">{t("startFreeTrial")}</Button>
+              <Button size="lg" className="h-12 rounded-xl px-8 text-base font-semibold">
+                {t("startFreeTrial")}
+              </Button>
             </RegisterLink>
 
-            <span className="basis-full text-xs text-muted-foreground">
-              {t("noCardNote")}
-            </span>
+            {noCardNote ? (
+              <span className="basis-full text-xs text-muted-foreground">
+                {noCardNote}
+              </span>
+            ) : null}
           </div>
 
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground/80">{t("logoStripLabel")}</span>
-            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/logos/WhatsApp_logo.png"
-                  alt={t("whatsappLogoAlt")}
-                  width={32}
-                  height={32}
-                  className="size-8"
-                />
-                <span>WhatsApp</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/logos/bislogo.png"
-                  alt={t("bisLogoAlt")}
-                  width={96}
-                  height={36}
-                  className="h-9 w-auto"
-                />
-                <span>{t("bisLogoLabel")}</span>
-              </div>
-            </div>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
+            <Image
+              src="/logos/WhatsApp_logo.png"
+              alt={t("whatsappLogoAlt")}
+              width={40}
+              height={40}
+              className="size-10"
+            />
+            <Image
+              src="/logos/bislogo.png"
+              alt={t("bisLogoAlt")}
+              width={128}
+              height={48}
+              className="h-12 w-auto"
+            />
           </div>
         </div>
       </section>
