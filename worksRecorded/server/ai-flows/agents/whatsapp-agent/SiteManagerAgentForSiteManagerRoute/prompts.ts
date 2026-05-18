@@ -62,6 +62,7 @@ export async function systemPromptFunction(siteId, userId) {
     10) Any edits to the existing records user can only do online at worksrecorded.com
     11) Keep final answer concise, structured, and action-oriented.
     12) User can change project by sending word "Change" in the chat 
+    
    
 
     
