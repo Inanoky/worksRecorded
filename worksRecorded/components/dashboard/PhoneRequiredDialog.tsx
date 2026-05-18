@@ -34,9 +34,17 @@ export function PhoneRequiredDialog({ needsPhone }: Props) {
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Add your phone number</DialogTitle>
+          <DialogTitle>
+            <span className="block">Add your phone number</span>
+            <span className="block">Pievienojiet savu tālruņa numuru</span>
+          </DialogTitle>
           <DialogDescription>
-            Required for WhatsApp timesheets and notifications.
+            <span className="block">
+              Required for WhatsApp timesheets and notifications.
+            </span>
+            <span className="block">
+              Nepieciešams WhatsApp darba laika uzskaitēm un paziņojumiem.
+            </span>
           </DialogDescription>
         </DialogHeader>
 
@@ -50,34 +58,45 @@ export function PhoneRequiredDialog({ needsPhone }: Props) {
                 await saveUserPhone(fd);
                 window.location.reload();
               } catch (err: any) {
-                setError(err?.message || "Something went wrong");
+                setError(err?.message || "Something went wrong / Radās kļūda");
               }
             });
           }}
-          className="mt-4 space-y-4" aria-busy={pending}
+          className="mt-4 space-y-4"
+          aria-busy={pending}
         >
           <fieldset disabled={pending} className="space-y-4">
-          <PhoneInput
-            disabled={pending}
-            country={"lv"} // default Latvia
-            value={phone}
-            onChange={(value) => setPhone(value)} // value = "37120000000"
-            inputProps={{
-              name: "phone",
-              required: true,
-            }}
-            inputClass="!w-full !h-11 !text-sm"
-            buttonClass="!h-11"
-            containerClass="!w-full"
-          />
+            <PhoneInput
+              disabled={pending}
+              country={"lv"} // default Latvia
+              value={phone}
+              onChange={(value) => setPhone(value)} // value = "37120000000"
+              inputProps={{
+                name: "phone",
+                required: true,
+              }}
+              inputClass="!w-full !h-11 !text-sm"
+              buttonClass="!h-11"
+              containerClass="!w-full"
+            />
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
 
-          <Button type="submit" className="w-full" disabled={pending} aria-disabled={pending}>
-            {pending ? (<span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Saving...</span>) : "Continue"}
-          </Button>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={pending}
+              aria-disabled={pending}
+            >
+              {pending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Saving... /
+                  Saglabā...
+                </span>
+              ) : (
+                "Continue / Turpināt"
+              )}
+            </Button>
           </fieldset>
         </form>
       </DialogContent>

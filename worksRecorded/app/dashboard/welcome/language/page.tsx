@@ -22,9 +22,18 @@ export default function WelcomeLanguagePage() {
     <Dialog open={true}>
       <DialogContent className="sm:max-w-md [&>button]:hidden">
         <DialogHeader>
-          <DialogTitle>Choose your organization language</DialogTitle>
+          <DialogTitle>
+            <span className="block">Choose your organization language</span>
+            <span className="block">Izvēlieties organizācijas valodu</span>
+          </DialogTitle>
           <DialogDescription>
-            Pick one language for shared organization UI across your team.
+            <span className="block">
+              Pick one language for shared organization UI across your team.
+            </span>
+            <span className="block">
+              Izvēlieties vienu valodu kopīgajai organizācijas saskarnei visai
+              komandai.
+            </span>
           </DialogDescription>
         </DialogHeader>
 
