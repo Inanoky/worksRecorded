@@ -58,3 +58,7 @@ node_modules/
 
 # WhatsApp encryption keys
 whatsapp-keys/
+
+# Public logo binaries are provided separately; keep code referencing their public paths.
+/public/logos/WhatsApp_logo.png
+/public/logos/bislogo.png

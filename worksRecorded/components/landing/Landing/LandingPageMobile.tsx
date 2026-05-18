@@ -1,7 +1,8 @@
 // app/(marketing)/page.tsx — Mobile-first, responsive landing page
 
 import Image from "next/image";
-import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import Link from "next/link";
+import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
 import Dashboard from "@/public/frontend/pages/Home/Dashboard.png";
@@ -17,7 +18,7 @@ import {
 
 export default function LandingPageMobile() {
   const t = useTranslations("LandingPageDesktop");
-  const authT = useTranslations("AuthButtons");
+  const calendlyDemoUrl = "https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
 
   return (
     <>
@@ -42,14 +43,38 @@ export default function LandingPageMobile() {
             </p>
 
             <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto justify-center">
-              <LoginLink>
-                <Button variant="secondary" className="w-full sm:w-auto">
-                  {authT("signIn")}
+              <Link href={calendlyDemoUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="outline" className="w-full sm:w-auto">
+                  {t("bookDemo")}
                 </Button>
-              </LoginLink>
+              </Link>
               <RegisterLink>
                 <Button className="w-full sm:w-auto">{t("startFreeTrial")}</Button>
               </RegisterLink>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground/80">{t("logoStripLabel")}</span>
+              <div className="flex items-center gap-2 rounded-full border bg-background/80 px-4 py-2 shadow-sm">
+                <Image
+                  src="/logos/WhatsApp_logo.png"
+                  alt={t("whatsappLogoAlt")}
+                  width={28}
+                  height={28}
+                  className="size-7"
+                />
+                <span>WhatsApp</span>
+              </div>
+              <div className="flex items-center gap-2 rounded-full border bg-background/80 px-4 py-2 shadow-sm">
+                <Image
+                  src="/logos/bislogo.png"
+                  alt={t("bisLogoAlt")}
+                  width={64}
+                  height={24}
+                  className="h-6 w-auto"
+                />
+                <span>{t("bisLogoLabel")}</span>
+              </div>
             </div>
           </div>
 

@@ -1,7 +1,7 @@
 {
   "LandingPageDesktop": {
     "topPill": "Izstrādāts būvniecības apakšuzņēmējiem",
-    "heroTitle": "Būvdarbu žurnāls caur WhatsApp ar BIS integrāciju",
+    "heroTitle": "Digitālais būvdarbu žurnāls ar BIS integrāciju",
     "smallDescription": "WorksRecorded pārvērš WhatsApp ziņas, balss ziņas, bildes, pavadzīmes un e-pastus par sakārtotiem būvdienasgrāmatas ierakstiem, nemainot veidu, kā jūsu komanda komunicē.",
     "startFreeTrial": "Pamēģināt bezmaksas",
     "signIn": "Uzdot jautājumu",
@@ -9,10 +9,15 @@
     "heroImageAlt": "worksRecorded galvenais priekšskatījums",
 
     "section2Pill": "Būvlaukuma pieraksti, kas patiešām tiek veikti",
-    "section2Title": "Ko var sasniegt ar worksRecorded",
+    "section2Title": "Sūti balss ziņas caur WhatsApp — MI sakārto",
     "section2Description": "Atvieglojiet vadītājiem un meistariem reģistrēt to, kas patiesībā notika būvlaukumā — bez papildu lietotnēm, formām vai vēla vakara dokumentēšanas.",
     "section2ImageAlt": "Būvdienasgrāmata un projekta pieraksti worksRecorded",
-    "section2Caption": "WhatsApp piezīmes kļūst par strukturētiem ikdienas ierakstiem — ar darbiniekiem, vietām, darbiem un fotoattēliem vienuviet."
+    "section2Caption": "WhatsApp piezīmes kļūst par strukturētiem ikdienas ierakstiem — ar darbiniekiem, vietām, darbiem un fotoattēliem vienuviet.",
+    "bookDemo": "Rezervēt demo",
+    "logoStripLabel": "Darbojas ar",
+    "whatsappLogoAlt": "WhatsApp logo",
+    "bisLogoAlt": "BIS logo",
+    "bisLogoLabel": "BIS integrācija"
   },
 
   "LandingText": {

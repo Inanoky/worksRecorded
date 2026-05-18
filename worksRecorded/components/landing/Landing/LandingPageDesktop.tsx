@@ -4,19 +4,17 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";
 import { useLocale, useTranslations } from "next-intl";
-import { WhatsAppIcon } from "@/components/ui/whatsappIcon";
-
 import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
-
 
 import { WhatDoWeDo, HowDoWeDoThat, Why } from "@/components/landing/Landing/Text";
 
 export default function LandingPage() {
   const t = useTranslations("LandingPageDesktop");
   const locale = useLocale();
+  const calendlyDemoUrl = "https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
   const videoSrc =
     locale === "lv"
       ? "https://www.youtube-nocookie.com/embed/lzRHv2wR_sM?rel=0&modestbranding=1&playsinline=1"
@@ -40,22 +38,43 @@ export default function LandingPage() {
           </p>
 
           <div className="mt-6 flex flex-wrap justify-center items-center gap-3">
+            <Link href={calendlyDemoUrl} target="_blank" rel="noopener noreferrer">
+              <Button size="lg" variant="outline">
+                {t("bookDemo")}
+              </Button>
+            </Link>
+
             <RegisterLink>
               <Button size="lg">{t("startFreeTrial")}</Button>
             </RegisterLink>
 
-            <Link
-  href="https://wa.me/37124885690"
-  target="_blank"
-  rel="noopener noreferrer"
->
-<Button size="lg" variant="outline">
-  <WhatsAppIcon className="w-7 h-7 mr-2" />
-  {t("signIn")}
-</Button>
-</Link>
+            <span className="basis-full text-xs text-muted-foreground">
+              {t("noCardNote")}
+            </span>
+          </div>
 
-            <span className="text-xs text-muted-foreground">{t("noCardNote")}</span>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground/80">{t("logoStripLabel")}</span>
+            <div className="flex items-center gap-2 rounded-full border bg-background/80 px-4 py-2 shadow-sm">
+              <Image
+                src="/logos/WhatsApp_logo.png"
+                alt={t("whatsappLogoAlt")}
+                width={28}
+                height={28}
+                className="size-7"
+              />
+              <span>WhatsApp</span>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border bg-background/80 px-4 py-2 shadow-sm">
+              <Image
+                src="/logos/bislogo.png"
+                alt={t("bisLogoAlt")}
+                width={64}
+                height={24}
+                className="h-6 w-auto"
+              />
+              <span>{t("bisLogoLabel")}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -86,8 +105,6 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
-
- 
 
       {/* SECTION 2 – What you capture every day */}
       <section className="bg-background">
@@ -138,7 +155,7 @@ export default function LandingPage() {
       {/* SECTION 3 – How we help + why different */}
       <section className="bg-slate-50/60 dark:bg-slate-950 ">
         <div className="w-full max-w-6xl mx-auto px-4 lg:px-6 py-12 lg:py-16 grid gap-12 lg:grid-cols-2">
-        
+
           <div>
             <Why />
           </div>
