@@ -34,16 +34,26 @@ export function PhoneRequiredDialog({ needsPhone }: Props) {
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="space-y-1 leading-tight">
             <span className="block">Add your phone number</span>
-            <span className="block">Pievienojiet savu tālruņa numuru</span>
-          </DialogTitle>
-          <DialogDescription>
-            <span className="block">
-              Required for WhatsApp timesheets and notifications.
+            <span className="block text-base font-medium text-muted-foreground">
+              Pievienojiet savu tālruņa numuru
             </span>
-            <span className="block">
-              Nepieciešams WhatsApp darba laika uzskaitēm un paziņojumiem.
+          </DialogTitle>
+          <DialogDescription className="space-y-2 pt-1 text-left">
+            <span className="flex items-start gap-2">
+              <span className="mt-0.5 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                EN
+              </span>
+              <span>Required for WhatsApp timesheets and notifications.</span>
+            </span>
+            <span className="flex items-start gap-2">
+              <span className="mt-0.5 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                LV
+              </span>
+              <span>
+                Nepieciešams WhatsApp darba laika uzskaitēm un paziņojumiem.
+              </span>
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -84,17 +94,27 @@ export function PhoneRequiredDialog({ needsPhone }: Props) {
 
             <Button
               type="submit"
-              className="w-full"
+              className="h-auto w-full py-3"
               disabled={pending}
               aria-disabled={pending}
             >
               {pending ? (
                 <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Saving... /
-                  Saglabā...
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="flex flex-col leading-tight">
+                    <span>Saving...</span>
+                    <span className="text-xs font-normal opacity-80">
+                      Saglabā...
+                    </span>
+                  </span>
                 </span>
               ) : (
-                "Continue / Turpināt"
+                <span className="flex flex-col leading-tight">
+                  <span>Continue</span>
+                  <span className="text-xs font-normal opacity-80">
+                    Turpināt
+                  </span>
+                </span>
               )}
             </Button>
           </fieldset>
