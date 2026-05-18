@@ -1,7 +1,8 @@
 // app/(marketing)/page.tsx — Mobile-first, responsive landing page
 
 import Image from "next/image";
-import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import Link from "next/link";
+import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
 import Dashboard from "@/public/frontend/pages/Home/Dashboard.png";
@@ -17,7 +18,8 @@ import {
 
 export default function LandingPageMobile() {
   const t = useTranslations("LandingPageDesktop");
-  const authT = useTranslations("AuthButtons");
+  const calendlyDemoUrl = "https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
+  const noCardNote = t("noCardNote");
 
   return (
     <>
@@ -37,18 +39,22 @@ export default function LandingPageMobile() {
               {t("smallDescription")}
             </p>
 
-            <p className="max-w-xl mx-auto mt-3 text-xs sm:text-sm text-muted-foreground">
-              {t("noCardNote")}
-            </p>
+            {noCardNote ? (
+              <p className="max-w-xl mx-auto mt-3 text-xs sm:text-sm text-muted-foreground">
+                {noCardNote}
+              </p>
+            ) : null}
 
             <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto justify-center">
-              <LoginLink>
-                <Button variant="secondary" className="w-full sm:w-auto">
-                  {authT("signIn")}
+              <Link href={calendlyDemoUrl} target="_blank" rel="noopener noreferrer">
+                <Button className="h-12 w-full rounded-xl border border-yellow-500 bg-yellow-400 px-8 text-base font-semibold text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-300 sm:w-56">
+                  {t("bookDemo")}
                 </Button>
-              </LoginLink>
+              </Link>
               <RegisterLink>
-                <Button className="w-full sm:w-auto">{t("startFreeTrial")}</Button>
+                <Button className="h-12 w-full rounded-xl px-8 text-base font-semibold sm:w-56">
+                  {t("startFreeTrial")}
+                </Button>
               </RegisterLink>
             </div>
           </div>

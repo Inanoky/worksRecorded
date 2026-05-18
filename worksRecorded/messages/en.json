@@ -1,7 +1,7 @@
 {
   "LandingPageDesktop": {
     "topPill": "Built for trade contractors & site managers",
-    "heroTitle": "Construction site records with WhatsApp",
+    "heroTitle": "Digital construction site diary with BIS integration",
     "smallDescription": "Site managers record updates by voice and photos, automatically sorted and stored online.            Any language format",
     "startFreeTrial": "Try now",
     "signIn": "Talk to a live person",
@@ -9,10 +9,15 @@
     "heroImageAlt": "worksRecorded hero preview",
 
     "section2Pill": "For building contractors, MEP, energy and utilities",
-    "section2Title": "Simple yet powerful record keeping solution",
+    "section2Title": "Send voice notes through WhatsApp — AI organizes them",
     "section2Description": "No more excuses, there is always time for a voice message",
     "section2ImageAlt": "Site diary and project records in worksRecorded",
-    "section2Caption": "WhatsApp notes become structured daily records – with workers, locations, works, and photos in one place."
+    "section2Caption": "WhatsApp notes become structured daily records – with workers, locations, works, and photos in one place.",
+    "bookDemo": "Book a demo",
+    "logoStripLabel": "Works with",
+    "whatsappLogoAlt": "WhatsApp logo",
+    "bisLogoAlt": "BIS logo",
+    "bisLogoLabel": "BIS integration"
   },
 
   "LandingText": {

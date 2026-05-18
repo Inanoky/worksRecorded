@@ -4,19 +4,18 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import { RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { Button } from "@/components/ui/button";
 import { useLocale, useTranslations } from "next-intl";
-import { WhatsAppIcon } from "@/components/ui/whatsappIcon";
-
 import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
-
 
 import { WhatDoWeDo, HowDoWeDoThat, Why } from "@/components/landing/Landing/Text";
 
 export default function LandingPage() {
   const t = useTranslations("LandingPageDesktop");
   const locale = useLocale();
+  const calendlyDemoUrl = "https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
+  const noCardNote = t("noCardNote");
   const videoSrc =
     locale === "lv"
       ? "https://www.youtube-nocookie.com/embed/lzRHv2wR_sM?rel=0&modestbranding=1&playsinline=1"
@@ -40,22 +39,26 @@ export default function LandingPage() {
           </p>
 
           <div className="mt-6 flex flex-wrap justify-center items-center gap-3">
+            <Link href={calendlyDemoUrl} target="_blank" rel="noopener noreferrer">
+              <Button
+                size="lg"
+                className="h-12 w-56 rounded-xl border border-yellow-500 bg-yellow-400 px-8 text-base font-semibold text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-300"
+              >
+                {t("bookDemo")}
+              </Button>
+            </Link>
+
             <RegisterLink>
-              <Button size="lg">{t("startFreeTrial")}</Button>
+              <Button size="lg" className="h-12 w-56 rounded-xl px-8 text-base font-semibold">
+                {t("startFreeTrial")}
+              </Button>
             </RegisterLink>
 
-            <Link
-  href="https://wa.me/37124885690"
-  target="_blank"
-  rel="noopener noreferrer"
->
-<Button size="lg" variant="outline">
-  <WhatsAppIcon className="w-7 h-7 mr-2" />
-  {t("signIn")}
-</Button>
-</Link>
-
-            <span className="text-xs text-muted-foreground">{t("noCardNote")}</span>
+            {noCardNote ? (
+              <span className="basis-full text-xs text-muted-foreground">
+                {noCardNote}
+              </span>
+            ) : null}
           </div>
         </div>
       </section>
@@ -86,8 +89,6 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
-
- 
 
       {/* SECTION 2 – What you capture every day */}
       <section className="bg-background">
@@ -138,7 +139,7 @@ export default function LandingPage() {
       {/* SECTION 3 – How we help + why different */}
       <section className="bg-slate-50/60 dark:bg-slate-950 ">
         <div className="w-full max-w-6xl mx-auto px-4 lg:px-6 py-12 lg:py-16 grid gap-12 lg:grid-cols-2">
-        
+
           <div>
             <Why />
           </div>
