@@ -53,7 +53,8 @@
     "Location_11": "10.stāvs",
     "Location_12": "11.stāvs",
     "Location_13": "12.stāvs",
-    "Location_14": "13.stāvs"
+    "Location_14": "13.stāvs",
+    "Location_15": "14.stāvs"
   },
   "customSettings": {
     "order": 2,
@@ -195,7 +196,7 @@
   },
   "Units": {
     "Type": "dropdown",
-    "DisplayName": "Units",
+    "DisplayName": "Mērv.",
     "DropDownOptions": {
       "m": "m",
       "m2": "m2",

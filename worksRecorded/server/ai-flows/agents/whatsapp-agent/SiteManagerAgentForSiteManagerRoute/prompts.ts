@@ -9,7 +9,7 @@ import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents
 
 
 
-export async  function systemPromptFunction(siteId, userId){
+export async function systemPromptFunction(siteId, userId) {
 
   const userName = await getUserFirstNameById(userId);
 
@@ -19,9 +19,9 @@ export async  function systemPromptFunction(siteId, userId){
 
   const config = await getConfig(siteId)
 
-  if (config?.AIpromptToUse?.Client === "NoSorting"){
+  if (config?.AIpromptToUse?.Client === "NoSorting") {
 
-      const NoSorting = `Store users comments without changes
+    const NoSorting = `Store users comments without changes
 
    siteId : ${siteId}
     userId : ${userId}
@@ -42,78 +42,10 @@ export async  function systemPromptFunction(siteId, userId){
 
 
 
-
-
-
-
-
-         const prompt_20_03_206 = `You will receive message from ${userName} (Call user by his name) about construction ` +
-    ` activities on site. If it is greeting, greet and adress him by his name. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
-    correct date (for example if user reports yesterdays actvities save accordingly yesterdays date) `
-     +
-    `siteId : ${siteId}
-    userId : ${userId}
-    Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
-    Also pass the original worker message to the WorkerDiaryToDatabase tool
-
-    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
-
-    `
-
-
-           const prompt_15_04_2026 = `You are construction site manager assistnat. You are having professional conversation with ${userName} (Call user by his name) about construction ` +
-    ` activities on site. If it is greeting, greet and adress him by his name. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
-    correct date (for example if user reports yesterdays actvities save accordingly yesterdays date). 
-    
-    Notes : 
-
-    1) If user refers to some previous message, act logically 
-    
-    
-    `
-     +
-    `siteId : ${siteId}
-    userId : ${userId}
-    Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
-    Also pass the original worker message to the WorkerDiaryToDatabase tool
-
-    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
-
-    `
-
-    
-
-           const prompt_16_04_2026 = `You are construction site manager assistnat. You are having professional conversation with ${userName} (Call user by his name) about construction ` +
+  const prompt_08_05_2026 = `You are construction site manager assistnat. You are having professional conversation with ${userName} (Call user by his name) about construction ` +
     ` activities on site through the WhatsApp channel. If it is greeting, greet and adress him by his name, but do not save greetings or questions asked specifically to you. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
     correct date (for example if user reports yesterdays actvities save accordingly yesterdays date). 
-    
-    Notes : 
-
-    1) If user refers to some previous message, act logically 
-    2) If you are not sure if message is adressed to you conversationally, or needs to be saved, clarify
-    3) Also pass the original user message to the save_to_database
-    4) For complex query contained from several messages, construct originalUserComment intellgently
-    5) If you can do something, for example change existing records, inform user that this is possible to do online at worksrecroded.com
-    6) You can't do anything with photos, user can send them to chat and it will be saved without your assistance. So if user asks about action to photo inform he can do it only online at WorksRecorded.com
-    7) If users asks about BIS functionality, inform user that he can add records to BIS from browser on worksrecorded.com portal. To do that, firslty he need to connect BIS case in the project settings.
-    8) If User asking about ho
-    
-    `
-     +
-    `siteId : ${siteId}
-    userId : ${userId}
-    Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
-   
-
-    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
-
-    `
-
-
-    
-           const prompt_08_05_2026 = `You are construction site manager assistnat. You are having professional conversation with ${userName} (Call user by his name) about construction ` +
-    ` activities on site through the WhatsApp channel. If it is greeting, greet and adress him by his name, but do not save greetings or questions asked specifically to you. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
-    correct date (for example if user reports yesterdays actvities save accordingly yesterdays date). 
+    Answer user in the language he speaks, but you can only answer in English, Russian or Latvian. If user speaks for example Spanish, or any other langauge not listed, you answer in english.
     
     Notes : 
 
@@ -130,10 +62,11 @@ export async  function systemPromptFunction(siteId, userId){
     10) Any edits to the existing records user can only do online at worksrecorded.com
     11) Keep final answer concise, structured, and action-oriented.
     12) User can change project by sending word "Change" in the chat 
+   
 
     
     `
-     +
+    +
     `siteId : ${siteId}
     userId : ${userId}
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
@@ -144,21 +77,24 @@ export async  function systemPromptFunction(siteId, userId){
     `
 
 
-
-    const prompt =  prompt_08_05_2026
-
-
-//nothing
+    
 
 
-   return prompt
+
+  const prompt = prompt_08_05_2026
+
+
+  //nothing
+
+
+  return prompt
 }
 
 
-  export async function systemPromptSaveToDatabaseFunction( userId, client){
+export async function systemPromptSaveToDatabaseFunction(userId, client) {
 
 
- const language = await getOrganizationLanguageByUserId(userId)
+  const language = await getOrganizationLanguageByUserId(userId)
 
 
 
@@ -175,10 +111,10 @@ export async  function systemPromptFunction(siteId, userId){
 
 
 
-const glossary =
+  const glossary =
 
 
-`
+    `
 # Glossary and Mapping Instructions
 
 This document provides instructions to improve mapping accuracy.
@@ -220,10 +156,10 @@ When mapping, try to select the most suitable work category from the provided Zo
 `;
 
 
-const glossary_08_05_2026 =
+  const glossary_08_05_2026 =
 
 
-`
+    `
 # Glossary and Mapping Instructions
 
 This document provides instructions to improve mapping accuracy.
@@ -274,19 +210,15 @@ When mapping, try to select the most suitable work category from the provided Zo
   `
 
 
-const NoSorting =
+  const NoSorting =
 
 
-`
+    `
 # Glossary and Mapping Instructions
 
 This document provides instructions to improve mapping accuracy.
 
 Please follow the guidelines below:
-
-
-
-
 
 Store message as it is without changes. Do not extract locations, mark records as note. Do not split the message.
 
@@ -295,7 +227,7 @@ Store message as it is without changes. Do not extract locations, mark records a
 
 
 
-const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map according to the zod schema you are given
+  const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
   For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)`
@@ -303,10 +235,10 @@ const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of
 
 
 
-const GMCIRL_glossary =
+  const GMCIRL_glossary =
 
 
-`
+    `
 # Glossary and Mapping Instructions
 
 This document provides instructions to improve mapping accuracy. Begin with a concise checklist (3–7 bullets) of the steps you will take before mapping, to ensure clarity and completeness.
@@ -339,27 +271,27 @@ When mapping, try to select the most suitable work category from the provided Zo
 
 
 
-let systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${glossary_08_05_2026}`
+  let systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${glossary_08_05_2026}`
 
 
 
-if (client === "GMCIRL"){
+  if (client === "GMCIRL") {
 
 
-  systemPromptSaveToDatabase = `${GMCIRL_systemPromptSaveToDatabase_02_01_2026}\n ${GMCIRL_glossary}`
+    systemPromptSaveToDatabase = `${GMCIRL_systemPromptSaveToDatabase_02_01_2026}\n ${GMCIRL_glossary}`
 
-}
+  }
 
-if (client === "NoSorting"){
-
-
-  systemPromptSaveToDatabase = `${NoSortingPromptSaveToDatabase_02_01_2026}\n ${NoSorting}`
-
-}
+  if (client === "NoSorting") {
 
 
+    systemPromptSaveToDatabase = `${NoSortingPromptSaveToDatabase_02_01_2026}\n ${NoSorting}`
+
+  }
 
 
- return systemPromptSaveToDatabase
+
+
+  return systemPromptSaveToDatabase
 
 }

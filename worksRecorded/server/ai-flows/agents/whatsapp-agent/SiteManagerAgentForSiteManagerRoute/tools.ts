@@ -4,7 +4,6 @@ import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import {ChatOpenAI} from "@langchain/openai";
 
-import {getSiteDiarySchema} from "@/server/actions/site-diary-actions";
 import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 import {HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
 import { systemPromptSaveToDatabaseFunction } from "./prompts";
