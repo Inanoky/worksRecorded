@@ -47,32 +47,15 @@ export default function LandingPageMobile() {
 
             <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto justify-center">
               <Link href={calendlyDemoUrl} target="_blank" rel="noopener noreferrer">
-                <Button className="h-12 w-full rounded-xl border border-yellow-500 bg-yellow-400 px-8 text-base font-semibold text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-300 sm:w-auto">
+                <Button className="h-12 w-full rounded-xl border border-yellow-500 bg-yellow-400 px-8 text-base font-semibold text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-300 sm:w-56">
                   {t("bookDemo")}
                 </Button>
               </Link>
               <RegisterLink>
-                <Button className="h-12 w-full rounded-xl px-8 text-base font-semibold sm:w-auto">
+                <Button className="h-12 w-full rounded-xl px-8 text-base font-semibold sm:w-56">
                   {t("startFreeTrial")}
                 </Button>
               </RegisterLink>
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-8 gap-y-4">
-              <Image
-                src="/logos/WhatsApp_logo.png"
-                alt={t("whatsappLogoAlt")}
-                width={40}
-                height={40}
-                className="size-10"
-              />
-              <Image
-                src="/logos/bislogo.png"
-                alt={t("bisLogoAlt")}
-                width={112}
-                height={42}
-                className="h-10 w-auto"
-              />
             </div>
           </div>
 

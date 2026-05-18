@@ -42,14 +42,14 @@ export default function LandingPage() {
             <Link href={calendlyDemoUrl} target="_blank" rel="noopener noreferrer">
               <Button
                 size="lg"
-                className="h-12 rounded-xl border border-yellow-500 bg-yellow-400 px-8 text-base font-semibold text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-300"
+                className="h-12 w-56 rounded-xl border border-yellow-500 bg-yellow-400 px-8 text-base font-semibold text-slate-950 shadow-lg shadow-yellow-500/20 hover:bg-yellow-300"
               >
                 {t("bookDemo")}
               </Button>
             </Link>
 
             <RegisterLink>
-              <Button size="lg" className="h-12 rounded-xl px-8 text-base font-semibold">
+              <Button size="lg" className="h-12 w-56 rounded-xl px-8 text-base font-semibold">
                 {t("startFreeTrial")}
               </Button>
             </RegisterLink>
@@ -59,23 +59,6 @@ export default function LandingPage() {
                 {noCardNote}
               </span>
             ) : null}
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
-            <Image
-              src="/logos/WhatsApp_logo.png"
-              alt={t("whatsappLogoAlt")}
-              width={40}
-              height={40}
-              className="size-10"
-            />
-            <Image
-              src="/logos/bislogo.png"
-              alt={t("bisLogoAlt")}
-              width={128}
-              height={48}
-              className="h-12 w-auto"
-            />
           </div>
         </div>
       </section>
