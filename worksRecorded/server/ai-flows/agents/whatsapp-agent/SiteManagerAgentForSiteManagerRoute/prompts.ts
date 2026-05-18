@@ -3,6 +3,20 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions"
 import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents/getTodayDDMMYYY"
 
+type OrganizationLanguage = "en" | "lv";
+
+function normalizeOrganizationLanguage(language?: string | null): OrganizationLanguage {
+  return language === "lv" ? "lv" : "en";
+}
+
+function getOrganizationLanguageLabel(language: OrganizationLanguage) {
+  return language === "lv" ? "Latvian (lv)" : "English (en)";
+}
+
+function buildOrganizationLanguageInstruction(language: OrganizationLanguage) {
+  return `Organization language: ${getOrganizationLanguageLabel(language)}. Use this as the default language for all assistant replies and all generated diary text. Preserve the user's original wording only when passing originalUserComment to tools. If the user writes in another language, understand it, but answer in the organization language unless the user explicitly asks for another language.`;
+}
+
 
 
 
@@ -12,6 +26,8 @@ import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents
 export async  function systemPromptFunction(siteId, userId){
 
   const userName = await getUserFirstNameById(userId);
+  const organizationLanguage = normalizeOrganizationLanguage(await getOrganizationLanguageByUserId(userId));
+  const organizationLanguageInstruction = buildOrganizationLanguageInstruction(organizationLanguage);
 
 
 
@@ -22,6 +38,8 @@ export async  function systemPromptFunction(siteId, userId){
   if (config?.AIpromptToUse?.Client === "NoSorting"){
 
       const NoSorting = `Store users comments without changes
+
+    ${organizationLanguageInstruction}
 
    siteId : ${siteId}
     userId : ${userId}
@@ -130,6 +148,7 @@ export async  function systemPromptFunction(siteId, userId){
     10) Any edits to the existing records user can only do online at worksrecorded.com
     11) Keep final answer concise, structured, and action-oriented.
     12) User can change project by sending word "Change" in the chat 
+    13) ${organizationLanguageInstruction}
 
     
     `
@@ -158,7 +177,8 @@ export async  function systemPromptFunction(siteId, userId){
   export async function systemPromptSaveToDatabaseFunction( userId, client){
 
 
- const language = await getOrganizationLanguageByUserId(userId)
+ const language = normalizeOrganizationLanguage(await getOrganizationLanguageByUserId(userId))
+ const organizationLanguageLabel = getOrganizationLanguageLabel(language)
 
 
 
@@ -170,7 +190,7 @@ export async  function systemPromptFunction(siteId, userId){
   according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  For comments describe what was completed, where and with what labor in ${language} `
+  For comments describe what was completed, where and with what labor in ${organizationLanguageLabel}. Do not write generated Comments in any other language. `
 
 
 
@@ -298,7 +318,7 @@ Store message as it is without changes. Do not extract locations, mark records a
 const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)`
+  For comments describe what was completed, where and with what labor in ${organizationLanguageLabel}, and then include original log in brackets (without change)`
 
 
 
