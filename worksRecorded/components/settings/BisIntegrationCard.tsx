@@ -47,6 +47,7 @@ export function BisIntegrationCard({
   const showManualAuthorizationInput = process.env.NODE_ENV !== "production";
   const router = useRouter();
   const [showAuthorizationGuide, setShowAuthorizationGuide] = useState(false);
+  const [selectedBisCaseId, setSelectedBisCaseId] = useState("");
 
   const startAuthorization = () => {
     if (useHostedAuthorization) {
@@ -56,6 +57,8 @@ export function BisIntegrationCard({
 
     window.open(manualAuthorizeHref, "_blank", "noopener,noreferrer");
   };
+
+  const selectedBisCase = availableCases.find((item) => item.id === selectedBisCaseId) ?? null;
 
   return (
     <Card className="mb-6">
@@ -191,24 +194,14 @@ export function BisIntegrationCard({
             </div>
           ) : isConnected ? (
             availableCases.length > 0 ? (
-              <form
-                action={async (formData) => {
-                  "use server";
-                  const selectedId = String(formData.get("bisCaseId") ?? "");
-                  const selected = availableCases.find((item) => item.id === selectedId);
-                  formData.set("bisCaseNumber", selected?.caseNumber ?? "");
-                  formData.set("bisCaseName", selected?.constructionName ?? "");
-                  formData.set("bisCaseStage", selected?.stageName ?? "");
-                  await assignBisCaseToSiteAction(formData);
-                }}
-                className="mt-3 space-y-3"
-              >
+              <form action={assignBisCaseToSiteAction} className="mt-3 space-y-3">
                 <input type="hidden" name="siteId" value={siteId} />
                 <select
                   name="bisCaseId"
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                   required
-                  defaultValue=""
+                  value={selectedBisCaseId}
+                  onChange={(event) => setSelectedBisCaseId(event.target.value)}
                 >
                   <option value="" disabled>
                     {t.selectBisCase}
@@ -221,9 +214,9 @@ export function BisIntegrationCard({
                   ))}
                 </select>
 
-                <input type="hidden" name="bisCaseNumber" value="" />
-                <input type="hidden" name="bisCaseName" value="" />
-                <input type="hidden" name="bisCaseStage" value="" />
+                <input type="hidden" name="bisCaseNumber" value={selectedBisCase?.caseNumber ?? ""} />
+                <input type="hidden" name="bisCaseName" value={selectedBisCase?.constructionName ?? ""} />
+                <input type="hidden" name="bisCaseStage" value={selectedBisCase?.stageName ?? ""} />
 
                 <SubmitButton text={t.saveBisCase} className="w-fit" />
               </form>
