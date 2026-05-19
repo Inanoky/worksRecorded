@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { getBisAuthorizeUrl, isBisHostedAuthorizationEnabled } from "@/server/actions/BIS/service";
 import { assignBisCaseToSiteAction, completeBisManualAuthorizationAction, disconnectBisAction } from "@/server/actions/bis-settings-actions";
 import { getSiteSettingsMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { BisConnectionTutorialDialog } from "@/components/settings/BisConnectionTutorialDialog";
 
 type BisCaseOption = {
   id: string;
@@ -69,9 +68,13 @@ export function BisIntegrationCard({
             {!isConnected ? (
               useHostedAuthorization ? (
                 <div className="space-y-3">
-                  <Button asChild>
-                    <Link href={hostedAuthorizeHref}>{t.connectBis}</Link>
-                  </Button>
+                  <BisConnectionTutorialDialog
+                    connectHref={hostedAuthorizeHref}
+                    triggerLabel={t.connectBis}
+                    title={t.bisTutorialTitle}
+                    description={t.bisTutorialDescription}
+                    continueLabel={t.continue}
+                  />
 
                   <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
                     <p className="font-medium text-foreground">Hosted BIS connection</p>
@@ -84,9 +87,14 @@ export function BisIntegrationCard({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <Button asChild>
-                    <Link href={manualAuthorizeHref} target="_blank" rel="noreferrer">Open BIS authorization</Link>
-                  </Button>
+                  <BisConnectionTutorialDialog
+                    connectHref={manualAuthorizeHref}
+                    triggerLabel={t.openBisAuthorization}
+                    title={t.bisTutorialTitle}
+                    description={t.bisTutorialDescription}
+                    continueLabel={t.continue}
+                    openInNewTab
+                  />
 
                   <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
                     <p className="font-medium text-foreground">{t.manualBisConnection}</p>
