@@ -59,106 +59,100 @@ export function BisIntegrationCard({
         ) : null}
 
         <div className="rounded-lg border p-4">
-          <div className="text-sm font-medium">{t.connectionStatus}</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isConnected
-              ? t.connected
-              : t.disconnected}
-          </p>
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+            <div>
+              <div className="text-sm font-medium">{t.connectionStatus}</div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {isConnected ? t.connected : t.disconnected}
+              </p>
 
-          <div className="mt-4 flex flex-wrap gap-3">
-            {!isConnected ? (
-              useHostedAuthorization ? (
-                <div className="space-y-3">
-                  <Button asChild>
-                    <Link href={hostedAuthorizeHref}>{t.connectBis}</Link>
-                  </Button>
+              <div className="mt-4 flex flex-wrap gap-3">
+                {!isConnected ? (
+                  useHostedAuthorization ? (
+                    <div className="space-y-3">
+                      <Button asChild>
+                        <Link href={hostedAuthorizeHref}>{t.connectBis}</Link>
+                      </Button>
 
-                  <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground">Hosted BIS connection</p>
-                    <ol className="mt-2 list-decimal space-y-1 pl-4">
-                      <li>Click <span className="font-medium text-foreground">Connect BIS</span>.</li>
-                      <li>Complete BIS authorization and consent.</li>
-                      <li>BIS redirects back to WorksRecorded callback route, and the app exchanges the authorization code automatically.</li>
-                    </ol>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <Button asChild>
-                    <Link href={manualAuthorizeHref} target="_blank" rel="noreferrer">Open BIS authorization</Link>
-                  </Button>
+                      <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground">Hosted BIS connection</p>
+                        <ol className="mt-2 list-decimal space-y-1 pl-4">
+                          <li>Click <span className="font-medium text-foreground">Connect BIS</span>.</li>
+                          <li>Complete BIS authorization and consent.</li>
+                          <li>BIS redirects back to WorksRecorded callback route, and the app exchanges the authorization code automatically.</li>
+                        </ol>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Button asChild>
+                        <Link href={manualAuthorizeHref} target="_blank" rel="noreferrer">Open BIS authorization</Link>
+                      </Button>
 
-                  <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                    <p className="font-medium text-foreground">{t.manualBisConnection}</p>
-                    <ol className="mt-2 list-decimal space-y-1 pl-4">
-                      <li>{t.openBisAuthorizationStep}</li>
-                      <li>{t.copyCodeStep}</li>
-                      {showManualAuthorizationInput ? (
-                        <li>{t.pasteCodeStep}</li>
-                      ) : (
-                        <li>{t.setEnvCodeStep}</li>
-                      )}
-                      <li>{t.exchangeCodeStep}</li>
-                    </ol>
-                  </div>
+                      <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground">{t.manualBisConnection}</p>
+                        <ol className="mt-2 list-decimal space-y-1 pl-4">
+                          <li>{t.openBisAuthorizationStep}</li>
+                          <li>{t.copyCodeStep}</li>
+                          {showManualAuthorizationInput ? (
+                            <li>{t.pasteCodeStep}</li>
+                          ) : (
+                            <li>{t.setEnvCodeStep}</li>
+                          )}
+                          <li>{t.exchangeCodeStep}</li>
+                        </ol>
+                      </div>
 
-                  <form action={completeBisManualAuthorizationAction} className="space-y-2 max-w-2xl">
-                    <input type="hidden" name="siteId" value={siteId} />
-                    {showManualAuthorizationInput ? (
-                      <>
-                        <label className="block text-xs font-medium text-foreground" htmlFor="bis-manual-authorization-code">
-                          Authorization code (optional if environment variable is set)
-                        </label>
-                        <input
-                          id="bis-manual-authorization-code"
-                          name="authorizationCode"
-                          type="text"
-                          className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                          placeholder="Paste BIS authorization code"
+                      <form action={completeBisManualAuthorizationAction} className="space-y-2 max-w-2xl">
+                        <input type="hidden" name="siteId" value={siteId} />
+                        {showManualAuthorizationInput ? (
+                          <>
+                            <label className="block text-xs font-medium text-foreground" htmlFor="bis-manual-authorization-code">
+                              Authorization code (optional if environment variable is set)
+                            </label>
+                            <input
+                              id="bis-manual-authorization-code"
+                              name="authorizationCode"
+                              type="text"
+                              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                              placeholder="Paste BIS authorization code"
+                            />
+                          </>
+                        ) : null}
+                        <SubmitButton
+                          text="Complete BIS connection"
+                          variant="secondary"
+                          className="w-fit"
                         />
-                      </>
-                    ) : null}
-                    <SubmitButton
-                      text="Complete BIS connection"
-                      variant="secondary"
-                      className="w-fit"
-                    />
+                      </form>
+
+                      {!hasManualAuthorizationCode && showManualAuthorizationInput ? (
+                        <p className="text-xs text-muted-foreground">Paste an authorization code above, or set <code>BIS_AUTHORIZATION_CODE</code> in the environment before completing the connection.</p>
+                      ) : null}
+                    </div>
+                  )
+                ) : (
+                  <form action={disconnectBisAction}>
+                    <input type="hidden" name="siteId" value={siteId} />
+                    <SubmitButton text={t.disconnectBis} variant="destructive" className="w-fit" />
                   </form>
+                )}
+              </div>
+            </div>
 
-                  {!hasManualAuthorizationCode && showManualAuthorizationInput ? (
-                    <p className="text-xs text-muted-foreground">Paste an authorization code above, or set <code>BIS_AUTHORIZATION_CODE</code> in the environment before completing the connection.</p>
-                  ) : null}
-                </div>
-              )
-            ) : (
-              <form action={disconnectBisAction}>
-                <input type="hidden" name="siteId" value={siteId} />
-                <SubmitButton text={t.disconnectBis} variant="destructive" className="w-fit" />
-              </form>
-            )}
+            <div className="rounded-md border p-2">
+              <Image
+                src="/frontend/pages/Settings/ExplanationBisConnection.png"
+                alt="BIS rights and case selection guide"
+                width={768}
+                height={772}
+                className="h-auto w-full rounded-md"
+                priority
+              />
+            </div>
           </div>
         </div>
 
-
-
-        <div className="rounded-lg border p-4">
-          <div className="text-sm font-medium">BIS permissions guide</div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Use this example screenshot when configuring BIS interface rights and selecting the BIS cases to manage in WorksRecorded.
-          </p>
-
-          <div className="mt-3">
-            <Image
-              src="/frontend/pages/Settings/ExplanationBisConnection.png"
-              alt="BIS rights and case selection guide"
-              width={768}
-              height={772}
-              className="h-auto w-full max-w-5xl rounded-md border"
-              priority
-            />
-          </div>
-        </div>
 
         <div className="rounded-lg border p-4">
           <div className="text-sm font-medium">{t.bisCaseForSite}</div>
