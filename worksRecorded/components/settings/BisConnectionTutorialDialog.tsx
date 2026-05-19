@@ -15,17 +15,21 @@ import {
 
 type BisConnectionTutorialDialogProps = {
   connectHref: string;
-  connectLabel: string;
+  triggerLabel: string;
+  continueLabel?: string;
+  openInNewTab?: boolean;
 };
 
 export function BisConnectionTutorialDialog({
   connectHref,
-  connectLabel,
+  triggerLabel,
+  continueLabel = "Continue",
+  openInNewTab = false,
 }: BisConnectionTutorialDialogProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button>{connectLabel}</Button>
+        <Button type="button">{triggerLabel}</Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
@@ -48,7 +52,13 @@ export function BisConnectionTutorialDialog({
 
         <DialogFooter>
           <Button asChild>
-            <Link href={connectHref}>{connectLabel}</Link>
+            <Link
+              href={connectHref}
+              target={openInNewTab ? "_blank" : undefined}
+              rel={openInNewTab ? "noreferrer" : undefined}
+            >
+              {continueLabel}
+            </Link>
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { getBisAuthorizeUrl, isBisHostedAuthorizationEnabled } from "@/server/actions/BIS/service";
 import { assignBisCaseToSiteAction, completeBisManualAuthorizationAction, disconnectBisAction } from "@/server/actions/bis-settings-actions";
@@ -72,7 +70,8 @@ export function BisIntegrationCard({
                 <div className="space-y-3">
                   <BisConnectionTutorialDialog
                     connectHref={hostedAuthorizeHref}
-                    connectLabel={t.connectBis}
+                    triggerLabel={t.connectBis}
+                    continueLabel="Continue"
                   />
 
                   <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -86,9 +85,12 @@ export function BisIntegrationCard({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <Button asChild>
-                    <Link href={manualAuthorizeHref} target="_blank" rel="noreferrer">Open BIS authorization</Link>
-                  </Button>
+                  <BisConnectionTutorialDialog
+                    connectHref={manualAuthorizeHref}
+                    triggerLabel="Open BIS authorization"
+                    continueLabel="Continue"
+                    openInNewTab
+                  />
 
                   <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
                     <p className="font-medium text-foreground">{t.manualBisConnection}</p>
