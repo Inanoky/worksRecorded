@@ -1,8 +1,12 @@
-import Link from "next/link";
+"use client";
+
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getBisAuthorizeUrl, isBisHostedAuthorizationEnabled } from "@/server/actions/BIS/service";
 import { assignBisCaseToSiteAction, completeBisManualAuthorizationAction, disconnectBisAction } from "@/server/actions/bis-settings-actions";
 import { getSiteSettingsMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -41,6 +45,17 @@ export function BisIntegrationCard({
   const hostedAuthorizeHref = `/api/bis/connect?siteId=${encodeURIComponent(siteId)}&returnTo=${encodeURIComponent(`/dashboard/sites/${siteId}/settings`)}`;
   const useHostedAuthorization = isBisHostedAuthorizationEnabled();
   const showManualAuthorizationInput = process.env.NODE_ENV !== "production";
+  const router = useRouter();
+  const [showAuthorizationGuide, setShowAuthorizationGuide] = useState(false);
+
+  const startAuthorization = () => {
+    if (useHostedAuthorization) {
+      router.push(hostedAuthorizeHref);
+      return;
+    }
+
+    window.open(manualAuthorizeHref, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <Card className="mb-6">
@@ -70,8 +85,8 @@ export function BisIntegrationCard({
                 {!isConnected ? (
                   useHostedAuthorization ? (
                     <div className="space-y-3">
-                      <Button asChild>
-                        <Link href={hostedAuthorizeHref}>{t.connectBis}</Link>
+                      <Button type="button" onClick={() => setShowAuthorizationGuide(true)}>
+                        {t.connectBis}
                       </Button>
 
                       <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -85,8 +100,8 @@ export function BisIntegrationCard({
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <Button asChild>
-                        <Link href={manualAuthorizeHref} target="_blank" rel="noreferrer">Open BIS authorization</Link>
+                      <Button type="button" onClick={() => setShowAuthorizationGuide(true)}>
+                        Open BIS authorization
                       </Button>
 
                       <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -228,6 +243,27 @@ export function BisIntegrationCard({
       <CardFooter className="text-xs text-muted-foreground">
         {t.disconnectNote}
       </CardFooter>
+
+      <Dialog open={showAuthorizationGuide} onOpenChange={setShowAuthorizationGuide}>
+        <DialogContent className="w-[95vw] max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>BIS authorization guide</DialogTitle>
+          </DialogHeader>
+          <Image
+            src="/frontend/pages/Settings/ExplanationBisConnection.png"
+            alt="BIS rights and case selection guide"
+            width={768}
+            height={772}
+            className="h-auto w-full rounded-md border"
+            priority
+          />
+          <DialogFooter>
+            <Button type="button" onClick={startAuthorization}>
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
