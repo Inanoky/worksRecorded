@@ -13,6 +13,9 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 
 
 //nothing
+function logBisJsonRequest(label: string, url: string, body: unknown) {
+  console.log(`[BIS request] ${label}`, { url, body });
+}
 
 function formatOriginalUserComment(originalUserComment?: string, fullName?: string | null) {
   const normalizedComment = originalUserComment?.trim();
@@ -1903,9 +1906,11 @@ export async function sendSiteDiaryRecordToBis(
     },
   };
 
+  const performedWorksUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/performed_works`;
+  logBisJsonRequest("create performed_work", performedWorksUrl, payload);
   const res = await bisFetch(
     baseUrl,
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/performed_works`,
+    performedWorksUrl,
     {
       method: "POST",
       headers: {
@@ -2157,9 +2162,28 @@ export async function submitSiteDiaryRecordToBisApproval(
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
 
+  const submitToApproveUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/submit_to_approve`;
+  const submitToApprovePayload = {
+    data: {
+      type: "performed_work",
+      relationships: {
+        approvers: {
+          data: approvers.map((approver) => ({
+            type: "approver",
+            attributes: {
+              member_id: Number(approver.memberId),
+              member_type: approver.memberType,
+              level: approver.level,
+            },
+          })),
+        },
+      },
+    },
+  };
+  logBisJsonRequest("submit performed_work to approve", submitToApproveUrl, submitToApprovePayload);
   const res = await bisFetch(
     baseUrl,
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/submit_to_approve`,
+    submitToApproveUrl,
     {
       method: "PATCH",
       headers: {
@@ -2167,23 +2191,7 @@ export async function submitSiteDiaryRecordToBisApproval(
         "Content-Type": "application/vnd.api+json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({
-        data: {
-          type: "performed_work",
-          relationships: {
-            approvers: {
-              data: approvers.map((approver) => ({
-                type: "approver",
-                attributes: {
-                  member_id: Number(approver.memberId),
-                  member_type: approver.memberType,
-                  level: approver.level,
-                },
-              })),
-            },
-          },
-        },
-      }),
+      body: JSON.stringify(submitToApprovePayload),
       cache: "no-store",
     },
   );
@@ -2419,9 +2427,19 @@ async function uploadLogbookAttachmentToBis({
   form.append("upload[file]", blob, "attachment.jpg");
   form.append("upload[obj_id]", crypto.randomUUID());
 
+  const uploadUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/${attachmentPath}`;
+  console.log("[BIS request] upload logbook attachment", {
+    url: uploadUrl,
+    body: {
+      formDataKeys: ["upload[file]", "upload[obj_id]"],
+      fileName: "attachment.jpg",
+      objId: form.get("upload[obj_id]"),
+      attachmentPath,
+    },
+  });
   const uploadResponse = await bisFetch(
     baseUrl,
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/${attachmentPath}`,
+    uploadUrl,
     {
       method: "POST",
       headers: {

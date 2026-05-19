@@ -2535,9 +2535,9 @@ export default function SiteDiaryCalendar({
         >
           <DialogContent className="max-w-xl">
             <DialogHeader>
-              <DialogTitle>Send site diary record for approval</DialogTitle>
+              <DialogTitle>{t.sendSiteDiaryForApprovalTitle}</DialogTitle>
               <p className="text-sm text-muted-foreground">
-                Select one or more approvers before submitting this BIS record for approval.
+                {t.sendSiteDiaryForApprovalDescription}
               </p>
             </DialogHeader>
 
