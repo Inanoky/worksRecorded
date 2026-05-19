@@ -4,6 +4,7 @@ import { prisma } from "@/lib/utils/db";
 import { requireBisAccessTokenForSite, getBisBaseUrl } from "@/server/actions/BIS/service";
 import { requireUser } from "@/lib/utils/requireUser";
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
+import { inspect } from "node:util";
 
 import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
@@ -31,11 +32,13 @@ function extractBisUrlDebug(url: string) {
 
 function logBisRequest(label: string, method: string, url: string, body?: unknown) {
   const urlDebug = extractBisUrlDebug(url);
-  console.log(`[BIS request] ${label}`, {
+  const requestLog = {
     method,
     ...urlDebug,
     body: body ?? null,
-  });
+  };
+
+  console.log(`[BIS request] ${label} ${inspect(requestLog, { depth: null, colors: false, compact: false })}`);
 }
 
 function logBisJsonRequest(label: string, method: "POST" | "PATCH", url: string, body: unknown) {
