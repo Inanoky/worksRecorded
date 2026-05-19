@@ -14,11 +14,25 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 
 //nothing
 function logBisJsonRequest(label: string, url: string, body: unknown) {
-  console.log(`[BIS request] ${label}`, { url, body });
+  let queryParams: Record<string, string> = {};
+  try {
+    const parsed = new URL(url);
+    queryParams = Object.fromEntries(parsed.searchParams.entries());
+  } catch {
+    queryParams = {};
+  }
+  console.log(`[BIS request] ${label}`, { method: "JSON", url, queryParams, body });
 }
 
 function logBisGetRequest(label: string, url: string) {
-  console.log(`[BIS request] ${label}`, { method: "GET", url });
+  let queryParams: Record<string, string> = {};
+  try {
+    const parsed = new URL(url);
+    queryParams = Object.fromEntries(parsed.searchParams.entries());
+  } catch {
+    queryParams = {};
+  }
+  console.log(`[BIS request] ${label}`, { method: "GET", url, queryParams });
 }
 
 function formatOriginalUserComment(originalUserComment?: string, fullName?: string | null) {
@@ -1947,6 +1961,10 @@ export async function sendSiteDiaryRecordToBis(
   if (!res.ok) {
     console.error("[BIS submit] BIS create performed_work failed", {
       recordId,
+      request: {
+        url: performedWorksUrl,
+        payload,
+      },
       status: res.status,
       statusText: res.statusText,
       detailAttributes,
@@ -2222,6 +2240,16 @@ export async function submitSiteDiaryRecordToBisApproval(
   }
 
   if (!res.ok) {
+    console.error("[BIS submit] submit_to_approve failed", {
+      recordId,
+      request: {
+        url: submitToApproveUrl,
+        payload: submitToApprovePayload,
+      },
+      status: res.status,
+      statusText: res.statusText,
+      response: json,
+    });
     throw new Error(
       json?.errors?.[0]?.detail || json?.error || "Failed to submit site diary record for BIS approval",
     );
