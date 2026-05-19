@@ -1643,6 +1643,116 @@ export async function getSiteGalleryAttachments(siteId: string) {
     .filter((photo) => Boolean(photo.url));
 }
 
+export async function getBisAvailableResponsiblePersons(siteId: string) {
+  if (!siteId) return [];
+
+  const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(siteId);
+  const baseUrl = getBisBaseUrl();
+  const res = await bisFetch(
+    baseUrl,
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_responsible_persons`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      json?.errors?.[0]?.detail || json?.error || "Failed to fetch available BIS responsible persons",
+    );
+  }
+
+  const rows = Array.isArray(json?.data) ? json.data : [];
+  return rows
+    .map((item: any) => ({
+      id: String(item?.id ?? ""),
+      personId: item?.attributes?.person_id == null ? null : Number(item.attributes.person_id),
+      fullName: item?.attributes?.person_full_name == null ? null : String(item.attributes.person_full_name),
+      role: item?.attributes?.role == null ? null : String(item.attributes.role),
+      responsiblePersonId:
+        item?.attributes?.responsible_person_id == null
+          ? null
+          : Number(item.attributes.responsible_person_id),
+      responsiblePersonType:
+        item?.attributes?.responsible_person_type == null
+          ? null
+          : String(item.attributes.responsible_person_type),
+    }))
+    .filter((item: any) => item.responsiblePersonId != null && item.responsiblePersonType != null);
+}
+
+async function resolveBisResponsiblePersonForCase(
+  baseUrl: string,
+  bisCase: string,
+  accessToken: string,
+) {
+  const res = await bisFetch(
+    baseUrl,
+    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_responsible_persons`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+
+  if (!res.ok) {
+    throw new Error(
+      json?.errors?.[0]?.detail || json?.error || "Failed to load BIS responsible persons",
+    );
+  }
+
+  const people = Array.isArray(json?.data) ? json.data : [];
+  if (!people.length) {
+    throw new Error("No available responsible persons found in BIS case");
+  }
+
+  const preferredRoles = new Set([
+    "responsible_construction_manager",
+    "responsible_construction_manager_substitute",
+    "construction_manager",
+    "contract_construction_manager",
+    "construction_performer",
+  ]);
+
+  const byRole = people.find((item: any) => preferredRoles.has(String(item?.attributes?.role ?? "")));
+  const fallback = people[0];
+  const selected = byRole ?? fallback;
+  const responsiblePersonId = selected?.attributes?.responsible_person_id;
+  const responsiblePersonType = selected?.attributes?.responsible_person_type;
+
+  if (responsiblePersonId == null || responsiblePersonType == null) {
+    throw new Error("BIS responsible person entry is missing id or type");
+  }
+
+  return {
+    responsiblePersonId: Number(responsiblePersonId),
+    responsiblePersonType: String(responsiblePersonType),
+  };
+}
+
 export async function sendSiteDiaryRecordToBis(
   recordId: string,
   options?: {
@@ -1652,6 +1762,8 @@ export async function sendSiteDiaryRecordToBis(
     worksDescription?: string;
     amount?: number;
     measurement?: string;
+    responsiblePersonId?: number;
+    responsiblePersonType?: string;
   },
 ) {
   if (!recordId) throw new Error("Missing site diary record id");
@@ -1685,6 +1797,15 @@ export async function sendSiteDiaryRecordToBis(
   }
 
   const baseUrl = getBisBaseUrl();
+  const selectedResponsiblePersonId = options?.responsiblePersonId;
+  const selectedResponsiblePersonType = options?.responsiblePersonType;
+  const resolvedResponsiblePerson =
+    selectedResponsiblePersonId != null && selectedResponsiblePersonType
+      ? {
+          responsiblePersonId: Number(selectedResponsiblePersonId),
+          responsiblePersonType: String(selectedResponsiblePersonType),
+        }
+      : await resolveBisResponsiblePersonForCase(baseUrl, bisCase, accessToken);
 
   const eventDate = options?.eventDate
     ? new Date(options.eventDate).toISOString().slice(0, 10)
@@ -1773,8 +1894,8 @@ export async function sendSiteDiaryRecordToBis(
         event_date: eventDate,
         event_time_from: eventTimeFrom,
         case_construction_round_id: null,
-        responsible_person_id: 2759822,
-        responsible_person_type: "construction_member",
+        responsible_person_id: resolvedResponsiblePerson.responsiblePersonId,
+        responsible_person_type: resolvedResponsiblePerson.responsiblePersonType,
         description:
           commentsDescription || "Site diary entry sent from worksRecorded",
       },

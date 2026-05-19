@@ -15,6 +15,7 @@ import {
   deleteSiteDiaryRecord,
   getBisCaseAvailableMaterials,
   getBisCharacterMeasures,
+  getBisAvailableResponsiblePersons,
   getSiteDiaryRecordBisUrl,
   getSiteDayWeather,
   getFilledDays,
@@ -177,6 +178,14 @@ type GalleryAttachmentOption = {
   url: string;
   date?: Date | null;
   comment?: string | null;
+};
+type BisResponsiblePersonOption = {
+  id: string;
+  personId: number | null;
+  fullName: string | null;
+  role: string | null;
+  responsiblePersonId: number | null;
+  responsiblePersonType: string | null;
 };
 
 type WeatherHour = {
@@ -409,6 +418,8 @@ export default function SiteDiaryCalendar({
   const [bisInputResetKey, setBisInputResetKey] = React.useState(0);
   const [bisSubmitMeasurement, setBisSubmitMeasurement] = React.useState<string>("12");
   const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
+  const [bisResponsiblePersonOptions, setBisResponsiblePersonOptions] = React.useState<BisResponsiblePersonOption[]>([]);
+  const [selectedBisResponsiblePersonKey, setSelectedBisResponsiblePersonKey] = React.useState<string>("");
   const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
   const [galleryAttachmentPage, setGalleryAttachmentPage] = React.useState(1);
   const [showBisUi, setShowBisUi] = React.useState(true);
@@ -867,10 +878,11 @@ export default function SiteDiaryCalendar({
     setBisPickerLoading(true);
 
     try {
-      const [materials, attachments, measurements] = await Promise.all([
+      const [materials, attachments, measurements, responsiblePeople] = await Promise.all([
         getBisCaseAvailableMaterials(siteId),
         getSiteGalleryAttachments(siteId),
         getBisCharacterMeasures(siteId),
+        getBisAvailableResponsiblePersons(siteId),
       ]);
 
       setBisMaterialOptions(materials);
@@ -879,6 +891,13 @@ export default function SiteDiaryCalendar({
       setSelectedAttachmentUrls([]);
       materialQuantitiesRef.current = Object.fromEntries(materials.map((material) => [material.id, ""]));
       setBisMeasurementOptions(measurements);
+      setBisResponsiblePersonOptions(responsiblePeople);
+      const defaultResponsible = responsiblePeople[0];
+      setSelectedBisResponsiblePersonKey(
+        defaultResponsible
+          ? `${defaultResponsible.responsiblePersonId}:${defaultResponsible.responsiblePersonType}`
+          : "",
+      );
       if (measurements.length > 0) {
         const current = measurements.find((item) => item.id === bisSubmitMeasurement);
         setBisSubmitMeasurement(current?.id ?? measurements[0]?.id ?? "12");
@@ -1148,6 +1167,15 @@ export default function SiteDiaryCalendar({
       })
       .filter((material) => material.quantity > 0);
 
+    const selectedResponsiblePerson = bisResponsiblePersonOptions.find(
+      (item) =>
+        `${item.responsiblePersonId}:${item.responsiblePersonType}` === selectedBisResponsiblePersonKey,
+    );
+    if (!selectedResponsiblePerson?.responsiblePersonId || !selectedResponsiblePerson?.responsiblePersonType) {
+      toast.error("Please select a responsible person for BIS submission.");
+      return;
+    }
+
     try {
       setBisSendingRowId(selectedRowForBis.id);
 
@@ -1159,6 +1187,8 @@ export default function SiteDiaryCalendar({
         worksDescription: bisSubmitWorksRef.current,
         amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
         measurement: bisSubmitMeasurement,
+        responsiblePersonId: selectedResponsiblePerson.responsiblePersonId,
+        responsiblePersonType: selectedResponsiblePerson.responsiblePersonType,
       });
 
       const bisStatus = selectedRowForBis.id ? bisApprovalStatusByRowId[selectedRowForBis.id] : null;
@@ -2344,6 +2374,28 @@ export default function SiteDiaryCalendar({
                             {option.name}
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1 xl:col-span-2">
+                    <label className="text-xs font-medium text-foreground">Responsible person</label>
+                    <Select
+                      value={selectedBisResponsiblePersonKey}
+                      onValueChange={setSelectedBisResponsiblePersonKey}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select responsible person" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {bisResponsiblePersonOptions.map((person) => {
+                          const key = `${person.responsiblePersonId}:${person.responsiblePersonType}`;
+                          const roleLabel = person.role ? ` (${person.role})` : "";
+                          return (
+                            <SelectItem key={key} value={key}>
+                              {(person.fullName || `Person #${person.personId ?? "?"}`) + roleLabel}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
