@@ -71,7 +71,9 @@ export function BisIntegrationCard({
                   <BisConnectionTutorialDialog
                     connectHref={hostedAuthorizeHref}
                     triggerLabel={t.connectBis}
-                    continueLabel="Continue"
+                    title={t.bisTutorialTitle}
+                    description={t.bisTutorialDescription}
+                    continueLabel={t.continue}
                   />
 
                   <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -88,7 +90,9 @@ export function BisIntegrationCard({
                   <BisConnectionTutorialDialog
                     connectHref={manualAuthorizeHref}
                     triggerLabel="Open BIS authorization"
-                    continueLabel="Continue"
+                    title={t.bisTutorialTitle}
+                    description={t.bisTutorialDescription}
+                    continueLabel={t.continue}
                     openInNewTab
                   />
 

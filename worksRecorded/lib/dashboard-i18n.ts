@@ -356,6 +356,9 @@ type SiteSettingsMessages = {
   pasteCodeStep: string;
   setEnvCodeStep: string;
   exchangeCodeStep: string;
+  bisTutorialTitle: string;
+  bisTutorialDescription: string;
+  continue: string;
 };
 
 type SiteDiaryDialogMessages = {
@@ -1098,6 +1101,9 @@ const SITE_SETTINGS_MESSAGES: Record<OrganizationLanguage, SiteSettingsMessages>
     pasteCodeStep: "Either paste that code in the field below or set BIS_AUTHORIZATION_CODE in your environment.",
     setEnvCodeStep: "Set BIS_AUTHORIZATION_CODE in your environment.",
     exchangeCodeStep: "Click the button below to exchange the authorization code for BIS tokens for your current user.",
+    bisTutorialTitle: "BIS authentication tutorial",
+    bisTutorialDescription: "Please review the tutorial before continuing to BIS authentication.",
+    continue: "Continue",
   },
   lv: {
     goBack: "Atpakaļ",
@@ -1136,6 +1142,9 @@ const SITE_SETTINGS_MESSAGES: Record<OrganizationLanguage, SiteSettingsMessages>
     pasteCodeStep: "Ielīmējiet šo kodu zemāk esošajā laukā vai iestatiet BIS_AUTHORIZATION_CODE savā vidē.",
     setEnvCodeStep: "Iestatiet BIS_AUTHORIZATION_CODE savā vidē.",
     exchangeCodeStep: "Noklikšķiniet uz zemāk esošās pogas, lai apmainītu autorizācijas kodu pret BIS tokeniem jūsu lietotājam.",
+    bisTutorialTitle: "BIS autentifikācijas pamācība",
+    bisTutorialDescription: "Pirms turpināt BIS autentifikāciju, lūdzu, apskatiet pamācību.",
+    continue: "Turpināt",
   },
 };
 

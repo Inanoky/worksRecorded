@@ -16,6 +16,8 @@ import {
 type BisConnectionTutorialDialogProps = {
   connectHref: string;
   triggerLabel: string;
+  title: string;
+  description: string;
   continueLabel?: string;
   openInNewTab?: boolean;
 };
@@ -23,6 +25,8 @@ type BisConnectionTutorialDialogProps = {
 export function BisConnectionTutorialDialog({
   connectHref,
   triggerLabel,
+  title,
+  description,
   continueLabel = "Continue",
   openInNewTab = false,
 }: BisConnectionTutorialDialogProps) {
@@ -31,15 +35,13 @@ export function BisConnectionTutorialDialog({
       <DialogTrigger asChild>
         <Button type="button">{triggerLabel}</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-6xl w-[96vw]">
         <DialogHeader>
-          <DialogTitle>BIS authentication tutorial</DialogTitle>
-          <DialogDescription>
-            Please review the tutorial before continuing to BIS authentication.
-          </DialogDescription>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-hidden rounded-md border">
+        <div className="overflow-auto rounded-md border max-h-[75vh]">
           <Image
             src="/frontend/pages/Settings/ExplanationBisConnection.png"
             alt="BIS connection tutorial"
