@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,6 +30,10 @@ export function BisConnectionTutorialDialog({
   continueLabel = "Continue",
   openInNewTab = false,
 }: BisConnectionTutorialDialogProps) {
+  const [tutorialImageSrc, setTutorialImageSrc] = useState(
+    "/frontend/pages/Settings/ExplanationBisConnection.png"
+  );
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -42,13 +46,15 @@ export function BisConnectionTutorialDialog({
         </DialogHeader>
 
         <div className="overflow-auto rounded-md border max-h-[75vh]">
-          <Image
-            src="/frontend/pages/Settings/ExplanationBisConnection.png"
+          <img
+            src={tutorialImageSrc}
             alt="BIS connection tutorial"
-            width={1200}
-            height={800}
             className="h-auto w-full"
-            priority
+            onError={() => {
+              if (tutorialImageSrc !== "/logos/bislogo.png") {
+                setTutorialImageSrc("/logos/bislogo.png");
+              }
+            }}
           />
         </div>
 
