@@ -237,7 +237,8 @@ export default async function SettingsSiteRoute({
         hasManualAuthorizationCode={Boolean(
           process.env.BIS_AUTHORIZATION_CODE
         )}
-      /></div>
+      />
+      </div>
 
       <div data-tour="settings-site-info"><UpdateSiteForm
         organizationLanguage={organizationLanguage}
