@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
@@ -136,6 +137,26 @@ export function BisIntegrationCard({
                 <SubmitButton text={t.disconnectBis} variant="destructive" className="w-fit" />
               </form>
             )}
+          </div>
+        </div>
+
+
+
+        <div className="rounded-lg border p-4">
+          <div className="text-sm font-medium">BIS permissions guide</div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Use this example screenshot when configuring BIS interface rights and selecting the BIS cases to manage in WorksRecorded.
+          </p>
+
+          <div className="mt-3">
+            <Image
+              src="/frontend/pages/Settings/ExplanationBisConnection.png"
+              alt="BIS rights and case selection guide"
+              width={768}
+              height={772}
+              className="h-auto w-full max-w-5xl rounded-md border"
+              priority
+            />
           </div>
         </div>
 
