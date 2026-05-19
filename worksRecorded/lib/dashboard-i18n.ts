@@ -111,6 +111,8 @@ type SiteDiaryListMessages = {
   addManageAttachments: string;
   remove: string;
   cancel: string;
+  sendSiteDiaryForApprovalTitle: string;
+  sendSiteDiaryForApprovalDescription: string;
 };
 
 type TimesheetsUiMessages = {
@@ -546,6 +548,9 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     addManageAttachments: "Add / manage attachments",
     remove: "Remove",
     cancel: "Cancel",
+    sendSiteDiaryForApprovalTitle: "Send site diary record for approval",
+    sendSiteDiaryForApprovalDescription:
+      "Select one or more approvers before submitting this BIS record for approval.",
   },
   lv: {
     daysOfWeek: ["Sv", "Pr", "Ot", "Tr", "Ce", "Pk", "Se"],
@@ -640,6 +645,9 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     addManageAttachments: "Pievienot / pārvaldīt pielikumus",
     remove: "Noņemt",
     cancel: "Atcelt",
+    sendSiteDiaryForApprovalTitle: "Sūtīt būvdarbu žurnāla ierakstu apstiprināšanai",
+    sendSiteDiaryForApprovalDescription:
+      "Atlasiet vienu vai vairākus apstiprinātājus, pirms iesniedzat šo BIS ierakstu apstiprināšanai.",
   },
 };
 
