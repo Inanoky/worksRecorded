@@ -5,6 +5,7 @@ import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { getBisAuthorizeUrl, isBisHostedAuthorizationEnabled } from "@/server/actions/BIS/service";
 import { assignBisCaseToSiteAction, completeBisManualAuthorizationAction, disconnectBisAction } from "@/server/actions/bis-settings-actions";
 import { getSiteSettingsMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { BisConnectionTutorialDialog } from "@/components/settings/BisConnectionTutorialDialog";
 
 type BisCaseOption = {
   id: string;
@@ -69,9 +70,10 @@ export function BisIntegrationCard({
             {!isConnected ? (
               useHostedAuthorization ? (
                 <div className="space-y-3">
-                  <Button asChild>
-                    <Link href={hostedAuthorizeHref}>{t.connectBis}</Link>
-                  </Button>
+                  <BisConnectionTutorialDialog
+                    connectHref={hostedAuthorizeHref}
+                    connectLabel={t.connectBis}
+                  />
 
                   <div className="max-w-2xl rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
                     <p className="font-medium text-foreground">Hosted BIS connection</p>
