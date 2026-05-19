@@ -17,6 +17,10 @@ function logBisJsonRequest(label: string, url: string, body: unknown) {
   console.log(`[BIS request] ${label}`, { url, body });
 }
 
+function logBisGetRequest(label: string, url: string) {
+  console.log(`[BIS request] ${label}`, { method: "GET", url });
+}
+
 function formatOriginalUserComment(originalUserComment?: string, fullName?: string | null) {
   const normalizedComment = originalUserComment?.trim();
   const normalizedFullName = fullName?.trim();
@@ -1327,9 +1331,11 @@ async function fetchBisPagedList(
 
   while (true) {
     const separator = urlBase.includes("?") ? "&" : "?";
+    const pagedUrl = `${urlBase}${separator}page[number]=${page}&page[size]=${pageSize}`;
+    logBisGetRequest("fetch paged list", pagedUrl);
     const res = await bisFetch(
       urlBase,
-      `${urlBase}${separator}page[number]=${page}&page[size]=${pageSize}`,
+      pagedUrl,
       {
         headers: {
           Accept: "application/vnd.api+json",
@@ -1377,6 +1383,7 @@ async function fetchBisRelatedResource(
   const url = relatedUrl.startsWith("http")
     ? relatedUrl
     : `${baseUrl}${relatedUrl.startsWith("/") ? relatedUrl : `/${relatedUrl}`}`;
+  logBisGetRequest("fetch related resource", url);
 
   const res = await bisFetch(baseUrl, url, {
     headers: {
@@ -1408,9 +1415,11 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
   let caseConstructionRoundId: string | null = null;
 
   try {
+    const caseUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}`;
+    logBisGetRequest("fetch BIS case", caseUrl);
     const caseResponse = await bisFetch(
       baseUrl,
-      `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}`,
+      caseUrl,
       {
         headers: {
           Accept: "application/vnd.api+json",
@@ -1651,9 +1660,11 @@ export async function getBisAvailableResponsiblePersons(siteId: string) {
 
   const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(siteId);
   const baseUrl = getBisBaseUrl();
+  const responsiblePersonsUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_responsible_persons`;
+  logBisGetRequest("fetch available responsible persons", responsiblePersonsUrl);
   const res = await bisFetch(
     baseUrl,
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_responsible_persons`,
+    responsiblePersonsUrl,
     {
       headers: {
         Accept: "application/vnd.api+json",
@@ -1701,9 +1712,11 @@ async function resolveBisResponsiblePersonForCase(
   bisCase: string,
   accessToken: string,
 ) {
+  const responsiblePersonsUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_responsible_persons`;
+  logBisGetRequest("resolve responsible persons", responsiblePersonsUrl);
   const res = await bisFetch(
     baseUrl,
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_responsible_persons`,
+    responsiblePersonsUrl,
     {
       headers: {
         Accept: "application/vnd.api+json",
@@ -2037,10 +2050,12 @@ export async function getPossibleSiteDiaryBisApprovers(recordId: string) {
 
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
+  const approversUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/possible_approvers`;
+  logBisGetRequest("fetch possible approvers", approversUrl);
 
   const res = await bisFetch(
     baseUrl,
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}/possible_approvers`,
+    approversUrl,
     {
       headers: {
         Accept: "application/vnd.api+json",
@@ -2095,10 +2110,12 @@ export async function getSiteDiaryBisApprovalStatus(recordId: string) {
 
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(record.siteId);
   const baseUrl = getBisBaseUrl();
+  const approvalStatusUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}`;
+  logBisGetRequest("fetch performed_work status", approvalStatusUrl);
 
   const res = await bisFetch(
     baseUrl,
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${record.BISId}`,
+    approvalStatusUrl,
     {
       headers: {
         Accept: "application/vnd.api+json",
@@ -2321,10 +2338,12 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
   for (const record of records) {
     const bisId = String(record.BISId ?? "");
     if (!bisId) continue;
+    const performedWorkUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${bisId}`;
+    logBisGetRequest("sync performed_work existence", performedWorkUrl);
 
     const res = await bisFetch(
       baseUrl,
-      `${baseUrl}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/performed_works/${bisId}`,
+      performedWorkUrl,
       {
         headers: {
           Accept: "application/vnd.api+json",
