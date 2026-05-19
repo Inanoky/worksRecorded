@@ -74,7 +74,8 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     console.log("🤖 Calling LLM...");
 
     const response = await structuredLlm.invoke([
-      new HumanMessage(`${question} Date is : ${date}`),
+      // Always parse the actual user-provided message, not the static tool question label.
+      new HumanMessage(`${originalUserComment} Date is : ${date}`),
       new SystemMessage(
         `${await systemPromptSaveToDatabaseFunction(userId, client)}\n` +
         `today is : ${date}\n` +
@@ -107,6 +108,10 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     });
 
     console.log("✅ Save result:", result);
+
+    if (!result?.ok) {
+      return `Failed to save site diary entry: ${result?.message ?? "Unknown error"}`;
+    }
 
     console.log("🏁 TOOL END");
 
