@@ -4,6 +4,7 @@
 import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Card,
   CardDescription,
@@ -237,7 +238,26 @@ export default async function SettingsSiteRoute({
         hasManualAuthorizationCode={Boolean(
           process.env.BIS_AUTHORIZATION_CODE
         )}
-      /></div>
+      />
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>BIS permissions guide</CardTitle>
+            <CardDescription>
+              Use this example screenshot when configuring BIS interface rights and selecting the BIS cases to manage in WorksRecorded.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Image
+              src="/frontend/pages/Settings/ExplanationBisConnection.png"
+              alt="BIS rights and case selection guide"
+              width={768}
+              height={772}
+              className="h-auto w-full max-w-3xl rounded-md border"
+              priority
+            />
+          </CardFooter>
+        </Card>
+      </div>
 
       <div data-tour="settings-site-info"><UpdateSiteForm
         organizationLanguage={organizationLanguage}
