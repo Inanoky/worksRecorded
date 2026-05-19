@@ -12,27 +12,38 @@ import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 
 
-//nothing
-function logBisJsonRequest(label: string, url: string, body: unknown) {
-  let queryParams: Record<string, string> = {};
+function extractBisUrlDebug(url: string) {
   try {
     const parsed = new URL(url);
-    queryParams = Object.fromEntries(parsed.searchParams.entries());
+    return {
+      fullUrl: parsed.toString(),
+      path: parsed.pathname,
+      queryParams: Object.fromEntries(parsed.searchParams.entries()),
+    };
   } catch {
-    queryParams = {};
+    return {
+      fullUrl: url,
+      path: null,
+      queryParams: {},
+    };
   }
-  console.log(`[BIS request] ${label}`, { method: "JSON", url, queryParams, body });
+}
+
+function logBisRequest(label: string, method: string, url: string, body?: unknown) {
+  const urlDebug = extractBisUrlDebug(url);
+  console.log(`[BIS request] ${label}`, {
+    method,
+    ...urlDebug,
+    body: body ?? null,
+  });
+}
+
+function logBisJsonRequest(label: string, method: "POST" | "PATCH", url: string, body: unknown) {
+  logBisRequest(label, method, url, body);
 }
 
 function logBisGetRequest(label: string, url: string) {
-  let queryParams: Record<string, string> = {};
-  try {
-    const parsed = new URL(url);
-    queryParams = Object.fromEntries(parsed.searchParams.entries());
-  } catch {
-    queryParams = {};
-  }
-  console.log(`[BIS request] ${label}`, { method: "GET", url, queryParams });
+  logBisRequest(label, "GET", url);
 }
 
 function formatOriginalUserComment(originalUserComment?: string, fullName?: string | null) {
@@ -1934,7 +1945,7 @@ export async function sendSiteDiaryRecordToBis(
   };
 
   const performedWorksUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/performed_works`;
-  logBisJsonRequest("create performed_work", performedWorksUrl, payload);
+  logBisJsonRequest("create performed_work", "POST", performedWorksUrl, payload);
   const res = await bisFetch(
     baseUrl,
     performedWorksUrl,
@@ -2215,7 +2226,7 @@ export async function submitSiteDiaryRecordToBisApproval(
       },
     },
   };
-  logBisJsonRequest("submit performed_work to approve", submitToApproveUrl, submitToApprovePayload);
+  logBisJsonRequest("submit performed_work to approve", "PATCH", submitToApproveUrl, submitToApprovePayload);
   const res = await bisFetch(
     baseUrl,
     submitToApproveUrl,
@@ -2475,14 +2486,11 @@ async function uploadLogbookAttachmentToBis({
   form.append("upload[obj_id]", crypto.randomUUID());
 
   const uploadUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/${attachmentPath}`;
-  console.log("[BIS request] upload logbook attachment", {
-    url: uploadUrl,
-    body: {
-      formDataKeys: ["upload[file]", "upload[obj_id]"],
-      fileName: "attachment.jpg",
-      objId: form.get("upload[obj_id]"),
-      attachmentPath,
-    },
+  logBisRequest("upload logbook attachment", "POST", uploadUrl, {
+    formDataKeys: ["upload[file]", "upload[obj_id]"],
+    fileName: "attachment.jpg",
+    objId: form.get("upload[obj_id]"),
+    attachmentPath,
   });
   const uploadResponse = await bisFetch(
     baseUrl,
