@@ -35,7 +35,7 @@ export function BisConnectionTutorialDialog({
       <DialogTrigger asChild>
         <Button type="button">{triggerLabel}</Button>
       </DialogTrigger>
-      <DialogContent className="max-w-6xl w-[96vw]">
+      <DialogContent className="max-w-none w-[70vw]">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

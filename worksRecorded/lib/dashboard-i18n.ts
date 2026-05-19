@@ -329,6 +329,7 @@ type SiteSettingsMessages = {
   connected: string;
   disconnected: string;
   connectBis: string;
+  openBisAuthorization: string;
   disconnectBis: string;
   bisCaseForSite: string;
   selectBisCase: string;
@@ -1074,6 +1075,7 @@ const SITE_SETTINGS_MESSAGES: Record<OrganizationLanguage, SiteSettingsMessages>
     connected: "BIS is connected for your user account.",
     disconnected: "BIS is not connected. BIS actions stay hidden until you connect and assign a case.",
     connectBis: "Connect BIS",
+    openBisAuthorization: "Open BIS authorization",
     disconnectBis: "Disconnect BIS",
     bisCaseForSite: "BIS case for this site",
     selectBisCase: "Select a BIS case",
@@ -1115,6 +1117,7 @@ const SITE_SETTINGS_MESSAGES: Record<OrganizationLanguage, SiteSettingsMessages>
     connected: "BIS ir pieslēgts jūsu lietotāja kontam.",
     disconnected: "BIS nav pieslēgts. BIS darbības būs paslēptas līdz savienojuma izveidei un lietas piesaistei.",
     connectBis: "Pieslēgt BIS",
+    openBisAuthorization: "Atvērt BIS autorizāciju",
     disconnectBis: "Atvienot BIS",
     bisCaseForSite: "BIS lieta šim objektam",
     selectBisCase: "Izvēlieties BIS lietu",

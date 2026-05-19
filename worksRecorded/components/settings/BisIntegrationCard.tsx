@@ -89,7 +89,7 @@ export function BisIntegrationCard({
                 <div className="space-y-3">
                   <BisConnectionTutorialDialog
                     connectHref={manualAuthorizeHref}
-                    triggerLabel="Open BIS authorization"
+                    triggerLabel={t.openBisAuthorization}
                     title={t.bisTutorialTitle}
                     description={t.bisTutorialDescription}
                     continueLabel={t.continue}
