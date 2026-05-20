@@ -1594,6 +1594,53 @@ export async function sendToBis(
   return json;
 }
 
+export async function updateSentReceivedMaterialInBis(
+  siteId: string,
+  bisId: string,
+  payload: {
+    quantity: number
+    constructionMaterialId: string
+    materialName?: string | null
+    materialDate?: Date | null
+  },
+) {
+  "use server";
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const eventDate = payload.materialDate
+    ? new Date(payload.materialDate).toISOString().slice(0, 10)
+    : new Date().toISOString().slice(0, 10);
+
+  return fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${bisId}`,
+    accessToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        data: {
+          type: "received_construction_product",
+          attributes: {
+            event_date: eventDate,
+            event_time_from: new Date().toTimeString().slice(0, 5),
+          },
+          relationships: {
+            detail: {
+              data: {
+                type: "received_construction_product",
+                attributes: {
+                  quantity: payload.quantity,
+                  construction_material_id: payload.constructionMaterialId,
+                  identification_number: payload.materialName?.trim() || null,
+                  unknown_identification_number: false,
+                },
+              },
+            },
+          },
+        },
+      }),
+    },
+  );
+}
+
 export default async function MaterialsPage({
   params,
 }: {
@@ -1675,6 +1722,7 @@ export default async function MaterialsPage({
         materialMeasures={materialConfigurationData.materialMeasures}
         materialTypes={materialConfigurationData.materialTypes}
         sendToBis={sendToBis}
+        updateSentRecordInBis={updateSentReceivedMaterialInBis}
         getPossibleApprovers={getPossibleWarehouseBisApprovers}
         submitToApproval={submitWarehouseRecordToBisApproval}
         syncBisRecords={syncWarehouseBisRecords}

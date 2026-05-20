@@ -110,6 +110,16 @@ type Props = {
     materialName?: string,
     materialDate?: Date | null
   ) => Promise<any>
+  updateSentRecordInBis: (
+    siteId: string,
+    bisId: string,
+    payload: {
+      quantity: number
+      constructionMaterialId: string
+      materialName?: string | null
+      materialDate?: Date | null
+    }
+  ) => Promise<any>
   getPossibleApprovers: (siteId: string, bisId: string) => Promise<BisApprover[]>
   submitToApproval: (
     siteId: string,
@@ -263,6 +273,7 @@ export default function MaterialsTableClient({
   materialMeasures,
   materialTypes,
   sendToBis,
+  updateSentRecordInBis,
   getPossibleApprovers,
   submitToApproval,
   syncBisRecords,
@@ -619,6 +630,15 @@ export default function MaterialsTableClient({
         declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
         agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
       })
+      const existingRow = rows.find((row) => row.id === editDraft.id)
+      if (existingRow?.BISId && existingRow?.categoryId && quantity != null && !Number.isNaN(quantity)) {
+        await updateSentRecordInBis(siteId, existingRow.BISId, {
+          quantity,
+          constructionMaterialId: existingRow.categoryId,
+          materialName: trimmedName,
+          materialDate: editDraft.materialDate,
+        })
+      }
 
       setRows((current) =>
         current.map((row) =>
@@ -1522,16 +1542,34 @@ export default function MaterialsTableClient({
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Input key={`qty-${editDraft.id}`} type="number" min="0.01" step="0.01" defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder={t.qty} />
-                <Input key={`cost-${editDraft.id}`} type="number" min="0" step="0.01" defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder={t.cost} />
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">{t.qty}</label>
+                  <Input key={`qty-${editDraft.id}`} type="number" min="0.01" step="0.01" defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder={t.qty} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">{t.cost}</label>
+                  <Input key={`cost-${editDraft.id}`} type="number" min="0" step="0.01" defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder={t.cost} />
+                </div>
               </div>
-              <Input
-                key={`unit-${editDraft.id}`}
-                defaultValue={editDraft.measurementUnit}
-                onChange={(event) => { editUnitRef.current = event.target.value }}
-                placeholder={t.units}
-                maxLength={MAX_MEASUREMENT_UNIT_LENGTH}
-              />
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">{t.units}</label>
+                <Select
+                  key={`unit-${editDraft.id}`}
+                  defaultValue={editDraft.measurementUnit || undefined}
+                  onValueChange={(value) => { editUnitRef.current = value }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t.units} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {measures.map((measure) => (
+                      <SelectItem key={measure.id} value={measure.name}>
+                        {measure.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">{t.deliveryDate}</label>

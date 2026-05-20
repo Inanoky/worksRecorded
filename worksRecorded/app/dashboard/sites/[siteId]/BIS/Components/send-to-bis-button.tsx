@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { NO_MATCH_VALUE } from "./material-config-select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 
 function normalizeBisErrorMessage(message: string) {
   if (
@@ -60,8 +61,12 @@ export default function SendToBisButton({
 }) {
   const [pending, startTransition] = useTransition()
   const [attachDialogOpen, setAttachDialogOpen] = useState(false)
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [certificateFile, setCertificateFile] = useState<File | null>(null)
   const [attachPending, startAttachTransition] = useTransition()
+  const [draftName, setDraftName] = useState(materialName ?? "")
+  const [draftQuantity, setDraftQuantity] = useState(String(quantity))
+  const [includeSourcePhoto, setIncludeSourcePhoto] = useState(Boolean(sourcePhoto))
 
   const hasConfiguration =
     !!categoryId?.trim() && categoryId !== NO_MATCH_VALUE
@@ -82,10 +87,24 @@ export default function SendToBisButton({
 
   const handleClick = () => {
     if (isDisabled) return
+    setDraftName(materialName ?? "")
+    setDraftQuantity(String(quantity))
+    setIncludeSourcePhoto(Boolean(sourcePhoto))
+    setConfirmDialogOpen(true)
+  }
 
+  const handleConfirmSend = () => {
     startTransition(async () => {
       try {
-        const result = await action(recordId, quantity, categoryId, sourcePhoto, materialName, materialDate)
+        const parsedQuantity = Number(draftQuantity)
+        const result = await action(
+          recordId,
+          Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : quantity,
+          categoryId,
+          includeSourcePhoto ? sourcePhoto : undefined,
+          draftName?.trim() || materialName,
+          materialDate,
+        )
 
         if (result?.errors) {
           const detail = result.errors?.[0]?.detail || "Failed to send to BIS"
@@ -98,6 +117,7 @@ export default function SendToBisButton({
         }
 
         toast.success("Sent successfully")
+        setConfirmDialogOpen(false)
       } catch (error) {
         console.error(error)
         const message = error instanceof Error ? error.message : "Failed to send to BIS"
@@ -176,6 +196,32 @@ export default function SendToBisButton({
             <Button onClick={handleAttachCertificate} disabled={attachPending}>
               {attachPending ? "Attaching..." : "Attach"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Apstiprināt</DialogTitle>
+            <DialogDescription>Pirms nosūtīšanas uz BIS, pārskatiet un precizējiet materiāla datus.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Materiāla nosaukums</label>
+              <Input value={draftName} onChange={(event) => setDraftName(event.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Daudzums</label>
+              <Input type="number" min="0.01" step="0.01" value={draftQuantity} onChange={(event) => setDraftQuantity(event.target.value)} />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={includeSourcePhoto} onCheckedChange={(value) => setIncludeSourcePhoto(Boolean(value))} />
+              Pievienot pavadzīmes fotoattēlu
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDialogOpen(false)}>Atcelt</Button>
+            <Button onClick={handleConfirmSend} disabled={pending}>{pending ? "Sūta..." : "Apstiprināt un sūtīt"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
