@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   CalendarIcon,
   Download,
+  X,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -1707,15 +1708,16 @@ export default function MaterialsTableClient({
                         ...editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })),
                         ...editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })),
                       ].map((file) => (
-                        <div key={`${file.kind}-${file.id}`} className="group rounded-md border p-2">
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <Badge variant="outline" className="text-[10px]">
+                        <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
+                          <div className="absolute left-1 top-1 z-10">
+                            <Badge variant="outline" className="bg-background/90 text-[10px]">
                               {file.kind === "declaration" ? t.declarationDocument : file.kind === "agreement" ? t.agreement : "Pavadzīme"}
                             </Badge>
-                            <Button
+                          </div>
+                          <Button
                               size="icon"
                               variant="ghost"
-                              className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
+                              className="absolute right-1 top-1 z-10 hidden h-6 w-6 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity hover:bg-black/80 md:flex md:group-hover:opacity-100"
                               onClick={() => {
                                 if (file.kind === "sourcePhoto") {
                                   setModalSourcePhoto(null)
@@ -1734,34 +1736,35 @@ export default function MaterialsTableClient({
                                   agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id),
                                 })
                               }}
+                              title={t.delete}
+                              aria-label={t.delete}
                             >
-                              ✕
-                            </Button>
-                          </div>
+                              <X className="h-4 w-4" />
+                          </Button>
                           {file.kind === "sourcePhoto" && modalSourcePhoto ? (
                             <img
                               src={modalSourcePhoto}
                               alt={file.name}
-                              className="h-24 w-full rounded object-cover"
+                              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                             />
                           ) : isPreviewableImage(file) ? (
                             <img
                               src={toAttachmentDataUrl(file)}
                               alt={file.name}
-                              className="h-24 w-full rounded object-cover"
+                              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                             />
                           ) : (
-                            <div className="flex h-24 items-center justify-center rounded bg-muted px-2 text-center text-xs text-muted-foreground">
+                            <div className="flex h-full w-full items-center justify-center bg-muted px-2 text-center text-xs text-muted-foreground">
                               {file.name}
                             </div>
                           )}
-                          <div className="mt-2 truncate text-xs text-muted-foreground">{file.name}</div>
+                          <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
                           {file.kind === "sourcePhoto" && modalSourcePhoto ? (
                             <a
                               href={modalSourcePhoto}
                               target="_blank"
                               rel="noreferrer"
-                              className="mt-1 inline-block text-xs text-blue-600 hover:underline"
+                              className="absolute bottom-1 right-1 z-10 rounded bg-background/90 px-1 py-0.5 text-[11px] text-blue-600 hover:underline"
                             >
                               Atvērt
                             </a>
@@ -1769,7 +1772,7 @@ export default function MaterialsTableClient({
                             <a
                               href={toAttachmentDataUrl(file)}
                               download={file.name}
-                              className="mt-1 inline-block text-xs text-blue-600 hover:underline"
+                              className="absolute bottom-1 right-1 z-10 rounded bg-background/90 px-1 py-0.5 text-[11px] text-blue-600 hover:underline"
                             >
                               Atvērt / lejupielādēt
                             </a>
