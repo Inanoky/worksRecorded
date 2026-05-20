@@ -1764,12 +1764,12 @@ export default function MaterialsTableClient({
                   ) : null}
                   <div className="space-y-4">
                       <div className="space-y-2 rounded-lg border bg-background p-3">
-                        <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
+                        <div className="text-xs font-medium text-muted-foreground">Pielikums</div>
                         <div className="flex flex-wrap gap-2">
                           <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
                             <UploadButton endpoint="imageUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const url=res?.[0]?.url; if(url){setModalSourcePhoto(url); setIncludeDeliveryNotePhoto(true)}}} />
                           </div>
-                          {modalSourcePhoto ? ([{ id: "source-photo", name: "Pavadzīmes fotoattēls", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }]).map((file) => (
+                          {modalSourcePhoto ? ([{ id: "source-photo", name: "Pielikums", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }]).map((file) => (
                             <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
                               <Button
                                 size="icon"
