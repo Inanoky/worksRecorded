@@ -73,6 +73,17 @@ type BisApprover = {
   status: string | null
 }
 
+type MaterialAttachment = {
+  name: string
+  mimeType: string
+  base64Data?: string
+  fileUrl?: string
+}
+
+type DraftMaterialAttachment = MaterialAttachment & {
+  id: string
+}
+
 type MaterialRow = {
   id: string
   name: string | null
@@ -86,8 +97,8 @@ type MaterialRow = {
   invoiceDate: Date | null
   materialDate: Date | null
   sourcePhoto: string | null
-  declarationAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>
-  agreementAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>
+  declarationAttachment?: MaterialAttachment[]
+  agreementAttachment?: MaterialAttachment[]
   BISId: string | null
   bisStatus: string | null
   bisApprovers: BisApprover[]
@@ -149,8 +160,8 @@ type Props = {
   updateMaterialAttachments: (
     recordId: string,
     payload: {
-      declarationAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>
-      agreementAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>
+      declarationAttachment?: MaterialAttachment[]
+      agreementAttachment?: MaterialAttachment[]
       sourcePhoto?: string | null
     },
   ) => Promise<{ success: true }>
@@ -354,8 +365,8 @@ export default function MaterialsTableClient({
     measurementUnit: string
     invoiceDate: Date | null
     materialDate: Date | null
-    declarationAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
-    agreementAttachment: Array<{ id: string; name: string; mimeType: string; base64Data: string }>
+    declarationAttachment: DraftMaterialAttachment[]
+    agreementAttachment: DraftMaterialAttachment[]
   } | null>(null)
 
   const bisConfigurations = React.useMemo(
@@ -1665,7 +1676,7 @@ export default function MaterialsTableClient({
                   <div className="space-y-4">
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
                             <UploadButton endpoint="imageUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const url=res?.[0]?.url; if(url){setModalSourcePhoto(url); setIncludeDeliveryNotePhoto(true)}}} />
                           </div>
@@ -1697,9 +1708,9 @@ export default function MaterialsTableClient({
 
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</div>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
-                            <UploadButton endpoint="documentsUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; if(file?.url){setEditDraft({...editDraft,declarationAttachment:[...editDraft.declarationAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:file.type||"application/pdf",fileUrl:file.url}]})}}} />
+                            <UploadButton endpoint="imageUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; if(file?.url){setEditDraft({...editDraft,declarationAttachment:[...editDraft.declarationAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:file.type||"image/jpeg",fileUrl:file.url}]})}}} />
                           </div>
                           {editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })).map((file) => (
                             <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
@@ -1735,57 +1746,42 @@ export default function MaterialsTableClient({
 
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.agreement}</div>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
-                            <UploadButton endpoint="documentsUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; if(file?.url){setEditDraft({...editDraft,agreementAttachment:[...editDraft.agreementAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:file.type||"application/pdf",fileUrl:file.url}]})}}} />
+                            <UploadButton endpoint="imageUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; if(file?.url){setEditDraft({...editDraft,agreementAttachment:[...editDraft.agreementAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:file.type||"image/jpeg",fileUrl:file.url}]})}}} />
                           </div>
                           {editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })).map((file) => (
-                        <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
-                          <Button
-                              size="icon"
-                              variant="ghost"
-                              className="absolute right-1 top-1 z-10 hidden h-6 w-6 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity hover:bg-black/80 md:flex md:group-hover:opacity-100"
-                              onClick={() => {
-                                if (file.kind === "sourcePhoto") {
-                                  setModalSourcePhoto(null)
-                                  setIncludeDeliveryNotePhoto(false)
-                                  return
-                                }
-                                if (file.kind === "declaration") {
-                                  setEditDraft({
-                                    ...editDraft,
-                                    declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id),
-                                  })
-                                  return
-                                }
-                                setEditDraft({
+                            <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="absolute right-1 top-1 z-10 hidden h-6 w-6 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity hover:bg-black/80 md:flex md:group-hover:opacity-100"
+                                onClick={() => setEditDraft({
                                   ...editDraft,
                                   agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id),
-                                })
-                              }}
-                              title={t.delete}
-                              aria-label={t.delete}
-                            >
-                              <X className="h-4 w-4" />
-                          </Button>
-                          {isPreviewableImage(file) ? (
-                            <img
-                              src={toAttachmentDataUrl(file)}
-                              alt={file.name}
-                              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-muted px-2 text-center text-xs text-muted-foreground">
-                              {file.name}
+                                })}
+                                title={t.delete}
+                                aria-label={t.delete}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                              {isPreviewableImage(file) ? (
+                                <img
+                                  src={toAttachmentDataUrl(file)}
+                                  alt={file.name}
+                                  className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-muted px-2 text-center text-xs text-muted-foreground">
+                                  {file.name}
+                                </div>
+                              )}
+                              <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
                             </div>
-                          )}
-                          <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
-                        </div>
                           ))}
                         </div>
                       </div>
                     </div>
-                  
                 </>
               ) : null}
             </div>
