@@ -336,18 +336,15 @@ async function fetchBisPagedData(pathname: string, accessToken: string) {
   return results;
 }
 
-async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<{
-  materialConfigurations: MaterialCategory[];
+
+type MaterialClassifierOptions = {
   materialMeasures: MaterialMeasure[];
   materialTypes: MaterialType[];
-}> {
-  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  measurementMap: Map<string, string>;
+};
 
-  const [materialsData, measuresData, materialTypesData] = await Promise.all([
-    fetchBisPagedData(
-      `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
-      accessToken,
-    ),
+async function fetchWarehouseMaterialClassifierOptions(accessToken: string): Promise<MaterialClassifierOptions> {
+  const [measuresResult, materialTypesResult] = await Promise.allSettled([
     fetchBisPagedData(
       `/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
       accessToken,
@@ -358,6 +355,16 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
     ),
   ]);
 
+  if (measuresResult.status === "rejected") {
+    console.error("Failed to load BIS material measurement classifiers", measuresResult.reason);
+  }
+  if (materialTypesResult.status === "rejected") {
+    console.error("Failed to load BIS material type classifiers", materialTypesResult.reason);
+  }
+
+  const measuresData = measuresResult.status === "fulfilled" ? measuresResult.value : [];
+  const materialTypesData = materialTypesResult.status === "fulfilled" ? materialTypesResult.value : [];
+
   const measurementMap = new Map<string, string>();
   for (const item of measuresData) {
     const code = item?.attributes?.code == null ? null : String(item.attributes.code);
@@ -366,24 +373,6 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
       measurementMap.set(code, name);
     }
   }
-
-  const bisMaterialConfigurations = materialsData
-    .map((item: any) => ({
-      id: String(item?.id ?? ""),
-      material_kind: String(item?.attributes?.material_kind ?? item?.attributes?.name ?? ""),
-      measurement: item?.attributes?.measurement == null ? null : String(item.attributes.measurement),
-      measurement_unit:
-        item?.attributes?.measurement_unit == null
-          ? measurementMap.get(String(item?.attributes?.measurement ?? "")) ?? null
-          : String(item.attributes.measurement_unit),
-      source: "bis" as const,
-    }))
-    .filter((item: MaterialCategory) => item.id && item.material_kind);
-
-  const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId);
-  const materialConfigurations = [...organizationTemplates, ...bisMaterialConfigurations].sort((a, b) =>
-    a.material_kind.localeCompare(b.material_kind),
-  );
 
   const allowedMeasurementNames = new Set([
     "cm",
@@ -427,6 +416,48 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
     }))
     .filter((item: MaterialType) => item.id && item.name)
     .sort((a, b) => a.id.localeCompare(b.id));
+
+  return { materialMeasures, materialTypes, measurementMap };
+}
+
+async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<{
+  materialConfigurations: MaterialCategory[];
+  materialMeasures: MaterialMeasure[];
+  materialTypes: MaterialType[];
+}> {
+  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+
+  const [materialsResult, classifierOptions] = await Promise.all([
+    fetchBisPagedData(
+      `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
+      accessToken,
+    ).catch((error) => {
+      console.error("Failed to load BIS material configurations", error);
+      return [];
+    }),
+    fetchWarehouseMaterialClassifierOptions(accessToken),
+  ]);
+
+  const materialsData = materialsResult;
+  const { materialMeasures, materialTypes, measurementMap } = classifierOptions;
+
+  const bisMaterialConfigurations = materialsData
+    .map((item: any) => ({
+      id: String(item?.id ?? ""),
+      material_kind: String(item?.attributes?.material_kind ?? item?.attributes?.name ?? ""),
+      measurement: item?.attributes?.measurement == null ? null : String(item.attributes.measurement),
+      measurement_unit:
+        item?.attributes?.measurement_unit == null
+          ? measurementMap.get(String(item?.attributes?.measurement ?? "")) ?? null
+          : String(item.attributes.measurement_unit),
+      source: "bis" as const,
+    }))
+    .filter((item: MaterialCategory) => item.id && item.material_kind);
+
+  const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId);
+  const materialConfigurations = [...organizationTemplates, ...bisMaterialConfigurations].sort((a, b) =>
+    a.material_kind.localeCompare(b.material_kind),
+  );
 
   return { materialConfigurations, materialMeasures, materialTypes };
 }
