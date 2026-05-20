@@ -240,6 +240,13 @@ function normalizeBisErrorMessage(message: string) {
   return message
 }
 
+function isPreviewableImage(file: { mimeType: string; name: string }) {
+  const normalizedMime = (file.mimeType || "").toLowerCase()
+  if (normalizedMime.startsWith("image/")) return true
+  const normalizedName = (file.name || "").toLowerCase()
+  return [".png", ".jpg", ".jpeg", ".webp", ".gif"].some((ext) => normalizedName.endsWith(ext))
+}
+
 function getExportStatusLabel(row: MaterialRow, messages: ReturnType<typeof getWarehouseUiMessages>) {
   const normalizedStatus = (row.bisStatus ?? "").toLowerCase()
 
@@ -1667,6 +1674,51 @@ export default function MaterialsTableClient({
                         <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}> {t.delete}</Button>
                       </div>
                     ))}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Pielikumu galerija</div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {[...editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })), ...editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const }))].map((file) => (
+                        <div key={`${file.kind}-${file.id}`} className="rounded-md border p-2">
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <Badge variant="outline" className="text-[10px]">
+                              {file.kind === "declaration" ? t.declarationDocument : t.agreement}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                if (file.kind === "declaration") {
+                                  setEditDraft({
+                                    ...editDraft,
+                                    declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id),
+                                  })
+                                  return
+                                }
+                                setEditDraft({
+                                  ...editDraft,
+                                  agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id),
+                                })
+                              }}
+                            >
+                              {t.delete}
+                            </Button>
+                          </div>
+                          {isPreviewableImage(file) ? (
+                            <img
+                              src={`data:${file.mimeType || "image/png"};base64,${file.base64Data}`}
+                              alt={file.name}
+                              className="h-24 w-full rounded object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-24 items-center justify-center rounded bg-muted px-2 text-center text-xs text-muted-foreground">
+                              {file.name}
+                            </div>
+                          )}
+                          <div className="mt-2 truncate text-xs text-muted-foreground">{file.name}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </>
               ) : null}
