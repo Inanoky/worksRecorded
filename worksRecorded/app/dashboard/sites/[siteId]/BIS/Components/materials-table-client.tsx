@@ -247,6 +247,10 @@ function isPreviewableImage(file: { mimeType: string; name: string }) {
   return [".png", ".jpg", ".jpeg", ".webp", ".gif"].some((ext) => normalizedName.endsWith(ext))
 }
 
+function toAttachmentDataUrl(file: { mimeType: string; base64Data: string }) {
+  return `data:${file.mimeType || "application/octet-stream"};base64,${file.base64Data}`
+}
+
 function getExportStatusLabel(row: MaterialRow, messages: ReturnType<typeof getWarehouseUiMessages>) {
   const normalizedStatus = (row.bisStatus ?? "").toLowerCase()
 
@@ -1638,45 +1642,35 @@ export default function MaterialsTableClient({
                     </label>
                   ) : null}
                   <div className="space-y-2">
-                    <div className="text-sm font-medium">{t.declarationDocument}</div>
-                    <Input type="file" onChange={async (event) => {
-                      const file = event.target.files?.[0]
-                      if (!file) return
-                      const base64Data = await fileToBase64(file)
-                      setEditDraft({
-                        ...editDraft,
-                        declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                      })
-                      event.currentTarget.value = ""
-                    }} />
-                    {editDraft.declarationAttachment.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between text-sm">
-                        <span>{file.name}</span>
-                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id) })}> {t.delete}</Button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">{t.agreement}</div>
-                    <Input type="file" onChange={async (event) => {
-                      const file = event.target.files?.[0]
-                      if (!file) return
-                      const base64Data = await fileToBase64(file)
-                      setEditDraft({
-                        ...editDraft,
-                        agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                      })
-                      event.currentTarget.value = ""
-                    }} />
-                    {editDraft.agreementAttachment.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between text-sm">
-                        <span>{file.name}</span>
-                        <Button size="sm" variant="ghost" onClick={() => setEditDraft({ ...editDraft, agreementAttachment: editDraft.agreementAttachment.filter((item) => item.id !== file.id) })}> {t.delete}</Button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="space-y-2">
                     <div className="text-sm font-medium">Pielikumu galerija</div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</label>
+                        <Input type="file" onChange={async (event) => {
+                          const file = event.target.files?.[0]
+                          if (!file) return
+                          const base64Data = await fileToBase64(file)
+                          setEditDraft({
+                            ...editDraft,
+                            declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                          })
+                          event.currentTarget.value = ""
+                        }} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">{t.agreement}</label>
+                        <Input type="file" onChange={async (event) => {
+                          const file = event.target.files?.[0]
+                          if (!file) return
+                          const base64Data = await fileToBase64(file)
+                          setEditDraft({
+                            ...editDraft,
+                            agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                          })
+                          event.currentTarget.value = ""
+                        }} />
+                      </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                       {[...editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })), ...editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const }))].map((file) => (
                         <div key={`${file.kind}-${file.id}`} className="rounded-md border p-2">
@@ -1706,7 +1700,7 @@ export default function MaterialsTableClient({
                           </div>
                           {isPreviewableImage(file) ? (
                             <img
-                              src={`data:${file.mimeType || "image/png"};base64,${file.base64Data}`}
+                              src={toAttachmentDataUrl(file)}
                               alt={file.name}
                               className="h-24 w-full rounded object-cover"
                             />
@@ -1716,6 +1710,13 @@ export default function MaterialsTableClient({
                             </div>
                           )}
                           <div className="mt-2 truncate text-xs text-muted-foreground">{file.name}</div>
+                          <a
+                            href={toAttachmentDataUrl(file)}
+                            download={file.name}
+                            className="mt-1 inline-block text-xs text-blue-600 hover:underline"
+                          >
+                            Atvērt / lejupielādēt
+                          </a>
                         </div>
                       ))}
                     </div>
