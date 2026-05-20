@@ -1705,7 +1705,7 @@ export default function MaterialsTableClient({
                         }} />
                       </div>
                     </div>
-                    <div className="grid gap-4 lg:grid-cols-3">
+                    <div className="space-y-4">
                       <div className="space-y-2">
                         <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
                         <div className="grid grid-cols-2 gap-3">
