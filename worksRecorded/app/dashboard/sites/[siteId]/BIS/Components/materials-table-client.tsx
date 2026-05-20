@@ -149,6 +149,7 @@ type Props = {
     payload: {
       declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
       agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
+      sourcePhoto?: string | null
     },
   ) => Promise<{ success: true }>
   createMaterialConfiguration: (
@@ -645,6 +646,7 @@ export default function MaterialsTableClient({
       await updateMaterialAttachments(editDraft.id, {
         declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
         agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
+        sourcePhoto: modalSourcePhoto,
       })
       const existingRow = rows.find((row) => row.id === editDraft.id)
       if (editModalMode === "confirm-send" && existingRow?.categoryId && quantity != null && !Number.isNaN(quantity)) {
@@ -682,6 +684,7 @@ export default function MaterialsTableClient({
                 materialDate: editDraft.materialDate,
                 declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
                 agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
+                sourcePhoto: modalSourcePhoto,
               }
             : row,
         ),

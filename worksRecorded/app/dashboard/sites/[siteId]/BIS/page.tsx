@@ -1037,6 +1037,7 @@ export async function updateMaterialAttachments(
   payload: {
     declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>;
     agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>;
+    sourcePhoto?: string | null;
   },
 ) {
   "use server";
@@ -1046,6 +1047,7 @@ export async function updateMaterialAttachments(
     data: {
       declarationAttachment: payload.declarationAttachment ?? [],
       agreementAttachment: payload.agreementAttachment ?? [],
+      sourcePhoto: payload.sourcePhoto ?? null,
     },
   });
 
