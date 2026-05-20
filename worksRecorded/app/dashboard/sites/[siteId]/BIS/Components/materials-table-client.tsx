@@ -353,6 +353,7 @@ export default function MaterialsTableClient({
   }>>({})
   const [editModalOpen, setEditModalOpen] = React.useState(false)
   const [editModalMode, setEditModalMode] = React.useState<"edit" | "confirm-send">("edit")
+  const [editSaveLoading, setEditSaveLoading] = React.useState(false)
   const [includeDeliveryNotePhoto, setIncludeDeliveryNotePhoto] = React.useState(true)
   const [modalSourcePhoto, setModalSourcePhoto] = React.useState<string | null>(null)
   const editNameRef = React.useRef("")
@@ -446,6 +447,8 @@ export default function MaterialsTableClient({
           : row,
       ),
     )
+
+    setEditSaveLoading(true)
 
     try {
       await updateMaterialConfiguration(recordId, config)
@@ -780,6 +783,8 @@ export default function MaterialsTableClient({
     } catch (error) {
       console.error(error)
       toast.error("Failed to save material")
+    } finally {
+      setEditSaveLoading(false)
     }
   }
 
@@ -1871,8 +1876,19 @@ export default function MaterialsTableClient({
             </div>
           ) : null}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditModalOpen(false)}>{t.cancel}</Button>
-            <Button onClick={saveEditModal}> {editModalMode === "confirm-send" ? "Apstiprināt un sūtīt" : t.save}</Button>
+            <Button variant="outline" onClick={() => setEditModalOpen(false)} disabled={editSaveLoading}>
+              {t.cancel}
+            </Button>
+            <Button onClick={saveEditModal} disabled={editSaveLoading}>
+              {editSaveLoading ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  {editModalMode === "confirm-send" ? "Sūta..." : "..."}
+                </>
+              ) : (
+                editModalMode === "confirm-send" ? "Apstiprināt un sūtīt" : t.save
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
