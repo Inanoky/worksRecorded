@@ -1660,26 +1660,28 @@ export default function MaterialsTableClient({
                       Pievienot pavadzīmes fotoattēlu
                     </label>
                   ) : null}
-                  <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
-                    <div className="text-sm font-medium">Pielikumu galerija</div>
-                    <div className="space-y-4">
+                  <div className="space-y-4">
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={async (event) => {
-                            const file = event.target.files?.[0]
-                            if (!file) return
-                            const dataUrl = await fileToDataUrl(file)
-                            setModalSourcePhoto(dataUrl)
-                            setIncludeDeliveryNotePhoto(true)
-                            event.currentTarget.value = ""
-                          }}
-                        />
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
+                          <label className="relative aspect-square cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="sr-only"
+                              onChange={async (event) => {
+                                const file = event.target.files?.[0]
+                                if (!file) return
+                                const dataUrl = await fileToDataUrl(file)
+                                setModalSourcePhoto(dataUrl)
+                                setIncludeDeliveryNotePhoto(true)
+                                event.currentTarget.value = ""
+                              }}
+                            />
+                            <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">+ Augšupielādēt</div>
+                          </label>
                           {modalSourcePhoto ? ([{ id: "source-photo", name: "Pavadzīmes fotoattēls", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }]).map((file) => (
-                            <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
+                            <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background max-w-[90px]">
                               <Button
                                 size="icon"
                                 variant="ghost"
@@ -1700,27 +1702,28 @@ export default function MaterialsTableClient({
                               />
                               <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
                             </div>
-                          )) : (
-                            <div className="col-span-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">Nav pievienots</div>
-                          )}
+                          )) : null}
                         </div>
                       </div>
 
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</div>
-                        <Input type="file" onChange={async (event) => {
-                          const file = event.target.files?.[0]
-                          if (!file) return
-                          const base64Data = await fileToBase64(file)
-                          setEditDraft({
-                            ...editDraft,
-                            declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                          })
-                          event.currentTarget.value = ""
-                        }} />
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
+                          <label className="relative aspect-square cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
+                            <input type="file" className="sr-only" onChange={async (event) => {
+                              const file = event.target.files?.[0]
+                              if (!file) return
+                              const base64Data = await fileToBase64(file)
+                              setEditDraft({
+                                ...editDraft,
+                                declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                              })
+                              event.currentTarget.value = ""
+                            }} />
+                            <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">+ Augšupielādēt</div>
+                          </label>
                           {editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })).map((file) => (
-                            <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
+                            <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background max-w-[90px]">
                               <Button
                                 size="icon"
                                 variant="ghost"
@@ -1748,27 +1751,27 @@ export default function MaterialsTableClient({
                               <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
                             </div>
                           ))}
-                          {editDraft.declarationAttachment.length === 0 ? (
-                            <div className="col-span-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">Nav pievienots</div>
-                          ) : null}
                         </div>
                       </div>
 
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.agreement}</div>
-                        <Input type="file" onChange={async (event) => {
-                          const file = event.target.files?.[0]
-                          if (!file) return
-                          const base64Data = await fileToBase64(file)
-                          setEditDraft({
-                            ...editDraft,
-                            agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                          })
-                          event.currentTarget.value = ""
-                        }} />
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-3 gap-3">
+                          <label className="relative aspect-square cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
+                            <input type="file" className="sr-only" onChange={async (event) => {
+                              const file = event.target.files?.[0]
+                              if (!file) return
+                              const base64Data = await fileToBase64(file)
+                              setEditDraft({
+                                ...editDraft,
+                                agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                              })
+                              event.currentTarget.value = ""
+                            }} />
+                            <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">+ Augšupielādēt</div>
+                          </label>
                           {editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })).map((file) => (
-                        <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
+                        <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background max-w-[90px]">
                           <Button
                               size="icon"
                               variant="ghost"
@@ -1810,9 +1813,6 @@ export default function MaterialsTableClient({
                           <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
                         </div>
                           ))}
-                          {editDraft.agreementAttachment.length === 0 ? (
-                            <div className="col-span-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">Nav pievienots</div>
-                          ) : null}
                         </div>
                       </div>
                     </div>
