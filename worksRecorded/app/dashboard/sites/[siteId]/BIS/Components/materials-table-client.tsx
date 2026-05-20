@@ -1705,12 +1705,80 @@ export default function MaterialsTableClient({
                         }} />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {[
-                        ...(modalSourcePhoto ? [{ id: "source-photo", name: "Pavadzīmes fotoattēls", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }] : []),
-                        ...editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })),
-                        ...editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })),
-                      ].map((file) => (
+                    <div className="grid gap-4 lg:grid-cols-3">
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {modalSourcePhoto ? ([{ id: "source-photo", name: "Pavadzīmes fotoattēls", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }]).map((file) => (
+                            <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="absolute right-1 top-1 z-10 hidden h-6 w-6 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity hover:bg-black/80 md:flex md:group-hover:opacity-100"
+                                onClick={() => {
+                                  setModalSourcePhoto(null)
+                                  setIncludeDeliveryNotePhoto(false)
+                                }}
+                                title={t.delete}
+                                aria-label={t.delete}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                              <img
+                                src={modalSourcePhoto}
+                                alt={file.name}
+                                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                              />
+                              <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
+                            </div>
+                          )) : (
+                            <div className="col-span-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">Nav pievienots</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })).map((file) => (
+                            <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="absolute right-1 top-1 z-10 hidden h-6 w-6 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity hover:bg-black/80 md:flex md:group-hover:opacity-100"
+                                onClick={() => setEditDraft({
+                                  ...editDraft,
+                                  declarationAttachment: editDraft.declarationAttachment.filter((item) => item.id !== file.id),
+                                })}
+                                title={t.delete}
+                                aria-label={t.delete}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                              {isPreviewableImage(file) ? (
+                                <img
+                                  src={toAttachmentDataUrl(file)}
+                                  alt={file.name}
+                                  className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-muted px-2 text-center text-xs text-muted-foreground">
+                                  {file.name}
+                                </div>
+                              )}
+                              <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
+                            </div>
+                          ))}
+                          {editDraft.declarationAttachment.length === 0 ? (
+                            <div className="col-span-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">Nav pievienots</div>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">{t.agreement}</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })).map((file) => (
                         <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
                           <Button
                               size="icon"
@@ -1739,13 +1807,7 @@ export default function MaterialsTableClient({
                             >
                               <X className="h-4 w-4" />
                           </Button>
-                          {file.kind === "sourcePhoto" && modalSourcePhoto ? (
-                            <img
-                              src={modalSourcePhoto}
-                              alt={file.name}
-                              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                            />
-                          ) : isPreviewableImage(file) ? (
+                          {isPreviewableImage(file) ? (
                             <img
                               src={toAttachmentDataUrl(file)}
                               alt={file.name}
@@ -1757,26 +1819,13 @@ export default function MaterialsTableClient({
                             </div>
                           )}
                           <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-1">{file.name}</div>
-                          {file.kind === "sourcePhoto" && modalSourcePhoto ? (
-                            <a
-                              href={modalSourcePhoto}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="absolute bottom-1 right-1 z-10 rounded bg-background/90 px-1 py-0.5 text-[11px] text-blue-600 hover:underline"
-                            >
-                              Atvērt
-                            </a>
-                          ) : (
-                            <a
-                              href={toAttachmentDataUrl(file)}
-                              download={file.name}
-                              className="absolute bottom-1 right-1 z-10 rounded bg-background/90 px-1 py-0.5 text-[11px] text-blue-600 hover:underline"
-                            >
-                              Atvērt / lejupielādēt
-                            </a>
-                          )}
                         </div>
-                      ))}
+                          ))}
+                          {editDraft.agreementAttachment.length === 0 ? (
+                            <div className="col-span-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">Nav pievienots</div>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </>
