@@ -58,6 +58,7 @@ import MaterialConfigSelect, {
 } from "./material-config-select"
 import { toast } from "sonner"
 import { getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
+import { UploadButton } from "@/lib/utils/UploadthingsComponents"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
 const MAX_MEASUREMENT_UNIT_LENGTH = 20
@@ -85,8 +86,8 @@ type MaterialRow = {
   invoiceDate: Date | null
   materialDate: Date | null
   sourcePhoto: string | null
-  declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
-  agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
+  declarationAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>
+  agreementAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>
   BISId: string | null
   bisStatus: string | null
   bisApprovers: BisApprover[]
@@ -148,8 +149,8 @@ type Props = {
   updateMaterialAttachments: (
     recordId: string,
     payload: {
-      declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
-      agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>
+      declarationAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>
+      agreementAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>
       sourcePhoto?: string | null
     },
   ) => Promise<{ success: true }>
@@ -249,8 +250,9 @@ function isPreviewableImage(file: { mimeType: string; name: string }) {
   return [".png", ".jpg", ".jpeg", ".webp", ".gif"].some((ext) => normalizedName.endsWith(ext))
 }
 
-function toAttachmentDataUrl(file: { mimeType: string; base64Data: string }) {
-  return `data:${file.mimeType || "application/octet-stream"};base64,${file.base64Data}`
+function toAttachmentDataUrl(file: { mimeType: string; base64Data?: string; fileUrl?: string }) {
+  if (file.fileUrl) return file.fileUrl
+  return `data:${file.mimeType || "application/octet-stream"};base64,${file.base64Data || ""}`
 }
 
 function fileToDataUrl(file: File) {
@@ -1061,7 +1063,7 @@ export default function MaterialsTableClient({
   }
 
   return (
-    <div className="space-y-4">
+                    <div className="space-y-3">
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
         <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-muted-foreground">
@@ -1663,23 +1665,10 @@ export default function MaterialsTableClient({
                   <div className="space-y-4">
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <label className="relative h-[135px] w-[135px] cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="sr-only"
-                              onChange={async (event) => {
-                                const file = event.target.files?.[0]
-                                if (!file) return
-                                const dataUrl = await fileToDataUrl(file)
-                                setModalSourcePhoto(dataUrl)
-                                setIncludeDeliveryNotePhoto(true)
-                                event.currentTarget.value = ""
-                              }}
-                            />
-                            <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">+ Augšupielādēt</div>
-                          </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
+                            <UploadButton endpoint="imageUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const url=res?.[0]?.url; if(url){setModalSourcePhoto(url); setIncludeDeliveryNotePhoto(true)}}} />
+                          </div>
                           {modalSourcePhoto ? ([{ id: "source-photo", name: "Pavadzīmes fotoattēls", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }]).map((file) => (
                             <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
                               <Button
@@ -1708,20 +1697,10 @@ export default function MaterialsTableClient({
 
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <label className="relative h-[135px] w-[135px] cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
-                            <input type="file" className="sr-only" onChange={async (event) => {
-                              const file = event.target.files?.[0]
-                              if (!file) return
-                              const base64Data = await fileToBase64(file)
-                              setEditDraft({
-                                ...editDraft,
-                                declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                              })
-                              event.currentTarget.value = ""
-                            }} />
-                            <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">+ Augšupielādēt</div>
-                          </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
+                            <UploadButton endpoint="documentsUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; if(file?.url){setEditDraft({...editDraft,declarationAttachment:[...editDraft.declarationAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:file.type||"application/pdf",fileUrl:file.url}]})}}} />
+                          </div>
                           {editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })).map((file) => (
                             <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
                               <Button
@@ -1756,20 +1735,10 @@ export default function MaterialsTableClient({
 
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.agreement}</div>
-                        <div className="grid grid-cols-3 gap-3">
-                          <label className="relative h-[135px] w-[135px] cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
-                            <input type="file" className="sr-only" onChange={async (event) => {
-                              const file = event.target.files?.[0]
-                              if (!file) return
-                              const base64Data = await fileToBase64(file)
-                              setEditDraft({
-                                ...editDraft,
-                                agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                              })
-                              event.currentTarget.value = ""
-                            }} />
-                            <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">+ Augšupielādēt</div>
-                          </label>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
+                            <UploadButton endpoint="documentsUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; if(file?.url){setEditDraft({...editDraft,agreementAttachment:[...editDraft.agreementAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:file.type||"application/pdf",fileUrl:file.url}]})}}} />
+                          </div>
                           {editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })).map((file) => (
                         <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
                           <Button
