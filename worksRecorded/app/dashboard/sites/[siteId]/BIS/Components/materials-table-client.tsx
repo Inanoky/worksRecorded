@@ -1816,7 +1816,7 @@ export default function MaterialsTableClient({
                         </div>
                       </div>
                     </div>
-                  </div>
+                  
                 </>
               ) : null}
             </div>
