@@ -8,6 +8,7 @@ import {
   Filter,
   RefreshCw,
   MoreHorizontal,
+  AlertTriangle,
   CalendarIcon,
   Download,
 } from "lucide-react"
@@ -31,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Popover,
   PopoverContent,
@@ -101,6 +103,8 @@ type Props = {
   materialConfigurations: MaterialCategory[]
   materialMeasures: Array<{ id: string; name: string }>
   materialTypes: Array<{ id: string; name: string }>
+  configurationWarning?: string | null
+  bisBaseUrl: string
   sendToBis: (
     siteId: string,
     recordId: string,
@@ -262,6 +266,8 @@ export default function MaterialsTableClient({
   materialConfigurations,
   materialMeasures,
   materialTypes,
+  configurationWarning,
+  bisBaseUrl,
   sendToBis,
   getPossibleApprovers,
   submitToApproval,
@@ -1000,6 +1006,16 @@ export default function MaterialsTableClient({
 
   return (
     <div className="space-y-4">
+      {configurationWarning ? (
+        <Alert className="border-amber-200 bg-amber-50 text-amber-900">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>BIS material configurations are not available</AlertTitle>
+          <AlertDescription>
+            {configurationWarning}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
         <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-muted-foreground">

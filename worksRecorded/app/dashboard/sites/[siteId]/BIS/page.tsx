@@ -129,11 +129,15 @@ type MaterialType = {
   isHeader?: boolean;
 };
 
-type WarehouseBisSyncResult = {
-  rows: Array<WarehouseMaterialRecord & { bisStatus: string | null; bisApprovers: BisApprover[] }>;
+type WarehouseMaterialConfigurationData = {
   materialConfigurations: MaterialCategory[];
   materialMeasures: MaterialMeasure[];
   materialTypes: MaterialType[];
+  configurationWarning: string | null;
+};
+
+type WarehouseBisSyncResult = WarehouseMaterialConfigurationData & {
+  rows: Array<WarehouseMaterialRecord & { bisStatus: string | null; bisApprovers: BisApprover[] }>;
 };
 
 type WarehouseMaterialRecord = {
@@ -336,18 +340,23 @@ async function fetchBisPagedData(pathname: string, accessToken: string) {
   return results;
 }
 
-async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<{
-  materialConfigurations: MaterialCategory[];
-  materialMeasures: MaterialMeasure[];
-  materialTypes: MaterialType[];
-}> {
+function getBisErrorStatus(error: unknown) {
+  return typeof error === "object" && error && "status" in error
+    ? Number((error as { status?: number }).status)
+    : null;
+}
+
+const BIS_MATERIAL_CONFIGURATION_DELEGATION_WARNING =
+  "BIS returned 403 while loading material configurations for this case. Warehouse stays available with organization templates, but sending materials to BIS requires the production BIS system user's delegation to allow logbook construction material configuration access.";
+
+async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<WarehouseMaterialConfigurationData> {
   const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
 
-  const [materialsData, measuresData, materialTypesData] = await Promise.all([
+  const [materialsResult, measuresData, materialTypesData] = await Promise.all([
     fetchBisPagedData(
       `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
       accessToken,
-    ),
+    ).then((data) => ({ data, error: null as unknown })).catch((error) => ({ data: [] as any[], error })),
     fetchBisPagedData(
       `/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
       accessToken,
@@ -357,6 +366,26 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
       accessToken,
     ),
   ]);
+
+  const materialConfigurationStatus = getBisErrorStatus(materialsResult.error);
+  if (materialsResult.error && materialConfigurationStatus !== 403) {
+    throw materialsResult.error;
+  }
+
+  const materialsData = materialsResult.data;
+  const configurationWarning = materialConfigurationStatus === 403
+    ? BIS_MATERIAL_CONFIGURATION_DELEGATION_WARNING
+    : null;
+
+  if (configurationWarning) {
+    console.warn("[Warehouse BIS] Material configurations unavailable due to BIS delegation", {
+      siteId,
+      bisCaseId,
+      bisBaseUrl: getBisBaseUrl(),
+      status: materialConfigurationStatus,
+      error: materialsResult.error instanceof Error ? materialsResult.error.message : materialsResult.error,
+    });
+  }
 
   const measurementMap = new Map<string, string>();
   for (const item of measuresData) {
@@ -428,7 +457,7 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
     .filter((item: MaterialType) => item.id && item.name)
     .sort((a, b) => a.id.localeCompare(b.id));
 
-  return { materialConfigurations, materialMeasures, materialTypes };
+  return { materialConfigurations, materialMeasures, materialTypes, configurationWarning };
 }
 
 async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId: string) {
@@ -1219,6 +1248,7 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
         materialConfigurations: organizationTemplates,
         materialMeasures: [] as MaterialMeasure[],
         materialTypes: [] as MaterialType[],
+        configurationWarning: error instanceof Error ? error.message : "Failed to refresh BIS material configurations",
       };
     }),
   ]);
@@ -1642,11 +1672,13 @@ export default async function MaterialsPage({
         materialConfigurations: organizationTemplates,
         materialMeasures: [] as MaterialMeasure[],
         materialTypes: [] as MaterialType[],
+        configurationWarning: error instanceof Error ? error.message : "Failed to load BIS material configurations",
       };
     }) : fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).then((organizationTemplates) => ({
       materialConfigurations: organizationTemplates,
       materialMeasures: [] as MaterialMeasure[],
       materialTypes: [] as MaterialType[],
+      configurationWarning: null,
     })),
   ]);
 
@@ -1674,6 +1706,8 @@ export default async function MaterialsPage({
         materialConfigurations={materialConfigurationData.materialConfigurations}
         materialMeasures={materialConfigurationData.materialMeasures}
         materialTypes={materialConfigurationData.materialTypes}
+        configurationWarning={materialConfigurationData.configurationWarning}
+        bisBaseUrl={getBisBaseUrl()}
         sendToBis={sendToBis}
         getPossibleApprovers={getPossibleWarehouseBisApprovers}
         submitToApproval={submitWarehouseRecordToBisApproval}
