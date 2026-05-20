@@ -1662,9 +1662,9 @@ export default function MaterialsTableClient({
                   ) : null}
                   <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
                     <div className="text-sm font-medium">Pielikumu galerija</div>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</label>
+                    <div className="space-y-4">
+                      <div className="space-y-2 rounded-lg border bg-background p-3">
+                        <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
                         <Input
                           type="file"
                           accept="image/*"
@@ -1677,37 +1677,6 @@ export default function MaterialsTableClient({
                             event.currentTarget.value = ""
                           }}
                         />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</label>
-                        <Input type="file" onChange={async (event) => {
-                          const file = event.target.files?.[0]
-                          if (!file) return
-                          const base64Data = await fileToBase64(file)
-                          setEditDraft({
-                            ...editDraft,
-                            declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                          })
-                          event.currentTarget.value = ""
-                        }} />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-muted-foreground">{t.agreement}</label>
-                        <Input type="file" onChange={async (event) => {
-                          const file = event.target.files?.[0]
-                          if (!file) return
-                          const base64Data = await fileToBase64(file)
-                          setEditDraft({
-                            ...editDraft,
-                            agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
-                          })
-                          event.currentTarget.value = ""
-                        }} />
-                      </div>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="space-y-2 rounded-lg border bg-background p-3">
-                        <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
                         <div className="grid grid-cols-2 gap-3">
                           {modalSourcePhoto ? ([{ id: "source-photo", name: "Pavadzīmes fotoattēls", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }]).map((file) => (
                             <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
@@ -1739,6 +1708,16 @@ export default function MaterialsTableClient({
 
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</div>
+                        <Input type="file" onChange={async (event) => {
+                          const file = event.target.files?.[0]
+                          if (!file) return
+                          const base64Data = await fileToBase64(file)
+                          setEditDraft({
+                            ...editDraft,
+                            declarationAttachment: [...editDraft.declarationAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                          })
+                          event.currentTarget.value = ""
+                        }} />
                         <div className="grid grid-cols-2 gap-3">
                           {editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })).map((file) => (
                             <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
@@ -1777,6 +1756,16 @@ export default function MaterialsTableClient({
 
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.agreement}</div>
+                        <Input type="file" onChange={async (event) => {
+                          const file = event.target.files?.[0]
+                          if (!file) return
+                          const base64Data = await fileToBase64(file)
+                          setEditDraft({
+                            ...editDraft,
+                            agreementAttachment: [...editDraft.agreementAttachment, { id: crypto.randomUUID(), name: file.name, mimeType: file.type || "application/octet-stream", base64Data }],
+                          })
+                          event.currentTarget.value = ""
+                        }} />
                         <div className="grid grid-cols-2 gap-3">
                           {editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })).map((file) => (
                         <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
