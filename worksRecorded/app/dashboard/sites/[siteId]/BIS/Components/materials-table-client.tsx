@@ -1709,11 +1709,6 @@ export default function MaterialsTableClient({
                         ...editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })),
                       ].map((file) => (
                         <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background">
-                          <div className="absolute left-1 top-1 z-10">
-                            <Badge variant="outline" className="bg-background/90 text-[10px]">
-                              {file.kind === "declaration" ? t.declarationDocument : file.kind === "agreement" ? t.agreement : "Pavadzīme"}
-                            </Badge>
-                          </div>
                           <Button
                               size="icon"
                               variant="ghost"
