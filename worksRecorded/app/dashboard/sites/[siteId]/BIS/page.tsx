@@ -1035,8 +1035,8 @@ export async function updateMaterialDetails(
 export async function updateMaterialAttachments(
   recordId: string,
   payload: {
-    declarationAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>;
-    agreementAttachment?: Array<{ name: string; mimeType: string; base64Data: string }>;
+    declarationAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>;
+    agreementAttachment?: Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>;
     sourcePhoto?: string | null;
   },
 ) {
@@ -1426,10 +1426,10 @@ export async function sendToBis(
 
   const declarationAttachments = (Array.isArray(materialRecord?.declarationAttachment)
     ? materialRecord?.declarationAttachment
-    : []) as Array<{ name: string; mimeType: string; base64Data: string }>;
+    : []) as Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>;
   const agreementAttachments = (Array.isArray(materialRecord?.agreementAttachment)
     ? materialRecord?.agreementAttachment
-    : []) as Array<{ name: string; mimeType: string; base64Data: string }>;
+    : []) as Array<{ name: string; mimeType: string; base64Data?: string; fileUrl?: string }>;
   const storedAttachments = [
     ...declarationAttachments.map((file) => ({ ...file, code: "compliance" as const })),
     ...agreementAttachments.map((file) => ({ ...file, code: "agreement" as const })),
@@ -1446,10 +1446,17 @@ export async function sendToBis(
   const configurationAttachedDocuments: Array<{ attributes: { uuid: string; code: "compliance" | "agreement" } }> = [];
 
   for (const file of storedAttachments) {
-    const bytes = Buffer.from(file.base64Data, "base64");
-    const blob = new Blob([bytes], {
-      type: file.mimeType || "application/octet-stream",
-    });
+    let blob: Blob
+    if (file.base64Data) {
+      const bytes = Buffer.from(file.base64Data, "base64");
+      blob = new Blob([bytes], { type: file.mimeType || "application/octet-stream" });
+    } else if (file.fileUrl) {
+      const downloaded = await fetch(file.fileUrl, { cache: "no-store" });
+      const arrayBuffer = await downloaded.arrayBuffer();
+      blob = new Blob([arrayBuffer], { type: file.mimeType || downloaded.headers.get("content-type") || "application/octet-stream" });
+    } else {
+      continue
+    }
     const form = new FormData();
     form.append("upload[file]", blob, file.name || "attachment");
     form.append("upload[obj_id]", crypto.randomUUID());
