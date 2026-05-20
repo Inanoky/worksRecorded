@@ -20,6 +20,13 @@ type BisApprover = {
   status: string | null;
 };
 
+type WarehouseMaterialAttachment = {
+  name: string;
+  mimeType: string;
+  base64Data?: string;
+  fileUrl?: string;
+};
+
 const BIS_RECEIVED_MATERIAL_DELETE_JUSTIFICATION = "Deleted from WorksRecorded warehouse bulk deletion.";
 
 async function fetchBisJson(path: string, accessToken: string, init?: RequestInit, allowRefresh = true) {
@@ -467,6 +474,116 @@ async function uploadPhotoToBis(photoUrl: string, accessToken: string, bisCaseId
   return json?.data?.attributes?.temp_uuid as string | undefined;
 }
 
+async function uploadSharedDocumentToBis(
+  file: WarehouseMaterialAttachment,
+  accessToken: string,
+  bisCaseId: string,
+) {
+  let blob: Blob;
+
+  if (file.base64Data) {
+    const bytes = Buffer.from(file.base64Data, "base64");
+    blob = new Blob([bytes], {
+      type: file.mimeType || "application/octet-stream",
+    });
+  } else if (file.fileUrl) {
+    const downloaded = await fetch(file.fileUrl, { cache: "no-store" });
+    if (!downloaded.ok) {
+      throw new Error(`Failed to download attachment before BIS sync: ${file.name}`);
+    }
+    const arrayBuffer = await downloaded.arrayBuffer();
+    blob = new Blob([arrayBuffer], {
+      type: file.mimeType || downloaded.headers.get("content-type") || "application/octet-stream",
+    });
+  } else {
+    return null;
+  }
+
+  const form = new FormData();
+  form.append("upload[file]", blob, file.name || "attachment");
+  form.append("upload[obj_id]", crypto.randomUUID());
+
+  const uploadResponse = await bisFetch(
+    getBisBaseUrl(),
+    `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${bisCaseId}/logbook/shared_attached_document_attachments`,
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: form,
+      cache: "no-store",
+    },
+  );
+
+  if (!uploadResponse.ok) {
+    const text = await uploadResponse.text();
+    throw new Error(`Failed to upload attachment to BIS: ${text || uploadResponse.status}`);
+  }
+
+  const uploaded = await uploadResponse.json();
+  return uploaded?.data?.attributes?.temp_uuid
+    ? String(uploaded.data.attributes.temp_uuid)
+    : null;
+}
+
+async function syncConstructionMaterialAttachmentsToBis(
+  siteId: string,
+  recordId: string,
+  constructionMaterialId: string,
+  accessToken: string,
+  bisCaseId: string,
+  declarationAttachment: WarehouseMaterialAttachment[],
+  agreementAttachment: WarehouseMaterialAttachment[],
+) {
+  const attachedDocuments: Array<{ attributes: { uuid: string; code: "compliance" | "agreement" } }> = [];
+  const files = [
+    ...declarationAttachment.map((file) => ({ ...file, code: "compliance" as const })),
+    ...agreementAttachment.map((file) => ({ ...file, code: "agreement" as const })),
+  ];
+
+  for (const file of files) {
+    const tempUuid = await uploadSharedDocumentToBis(file, accessToken, bisCaseId);
+    if (!tempUuid) continue;
+
+    attachedDocuments.push({
+      attributes: {
+        uuid: tempUuid,
+        code: file.code,
+      },
+    });
+  }
+
+  console.log("[Warehouse BIS] Syncing construction material attachments", {
+    siteId,
+    recordId,
+    constructionMaterialId,
+    declarationCount: declarationAttachment.length,
+    agreementCount: agreementAttachment.length,
+    syncedDocumentCount: attachedDocuments.length,
+  });
+
+  await fetchBisJson(
+    `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials/${constructionMaterialId}`,
+    accessToken,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        data: {
+          id: constructionMaterialId,
+          type: "construction_material",
+          relationships: {
+            attached_documents: {
+              data: attachedDocuments,
+            },
+          },
+        },
+      }),
+    },
+  );
+}
+
 export async function updateMaterialConfiguration(
   recordId: string,
   config: {
@@ -778,6 +895,8 @@ export async function copyWarehouseRecord(siteId: string, recordId: string) {
       siteId,
       BISId: null,
       bisStatus: null,
+      declarationAttachment: Array.isArray(source.declarationAttachment) ? source.declarationAttachment : [],
+      agreementAttachment: Array.isArray(source.agreementAttachment) ? source.agreementAttachment : [],
     },
     select: {
       id: true,
@@ -1611,6 +1730,9 @@ export async function updateSentReceivedMaterialInBis(
     constructionMaterialId: string
     materialName?: string | null
     materialDate?: Date | null
+    sourcePhoto?: string | null
+    declarationAttachment?: WarehouseMaterialAttachment[]
+    agreementAttachment?: WarehouseMaterialAttachment[]
   },
 ) {
   "use server";
@@ -1618,6 +1740,49 @@ export async function updateSentReceivedMaterialInBis(
   const eventDate = payload.materialDate
     ? new Date(payload.materialDate).toISOString().slice(0, 10)
     : new Date().toISOString().slice(0, 10);
+  const relationships: Record<string, unknown> = {
+    detail: {
+      data: {
+        type: "received_construction_product",
+        attributes: {
+          quantity: payload.quantity,
+          construction_material_id: payload.constructionMaterialId,
+          identification_number: payload.materialName?.trim() || null,
+          unknown_identification_number: false,
+        },
+      },
+    },
+  };
+
+  if ("sourcePhoto" in payload) {
+    const attachments: Array<{ type: string; uuid: string }> = [];
+
+    if (payload.sourcePhoto) {
+      const tempUuid = await uploadPhotoToBis(payload.sourcePhoto, accessToken, bisCaseId);
+      if (tempUuid) {
+        attachments.push({
+          type: "shared_attachments",
+          uuid: tempUuid,
+        });
+      }
+    }
+
+    relationships.attachments = {
+      data: attachments,
+    };
+  }
+
+  if ("declarationAttachment" in payload || "agreementAttachment" in payload) {
+    await syncConstructionMaterialAttachmentsToBis(
+      siteId,
+      bisId,
+      payload.constructionMaterialId,
+      accessToken,
+      bisCaseId,
+      payload.declarationAttachment ?? [],
+      payload.agreementAttachment ?? [],
+    );
+  }
 
   return fetchBisJson(
     `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/received_construction_products/${bisId}`,
@@ -1631,19 +1796,7 @@ export async function updateSentReceivedMaterialInBis(
             event_date: eventDate,
             event_time_from: new Date().toTimeString().slice(0, 5),
           },
-          relationships: {
-            detail: {
-              data: {
-                type: "received_construction_product",
-                attributes: {
-                  quantity: payload.quantity,
-                  construction_material_id: payload.constructionMaterialId,
-                  identification_number: payload.materialName?.trim() || null,
-                  unknown_identification_number: false,
-                },
-              },
-            },
-          },
+          relationships,
         },
       }),
     },

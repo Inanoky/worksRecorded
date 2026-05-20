@@ -130,6 +130,9 @@ type Props = {
       constructionMaterialId: string
       materialName?: string | null
       materialDate?: Date | null
+      sourcePhoto?: string | null
+      declarationAttachment?: MaterialAttachment[]
+      agreementAttachment?: MaterialAttachment[]
     }
   ) => Promise<any>
   getPossibleApprovers: (siteId: string, bisId: string) => Promise<BisApprover[]>
@@ -156,7 +159,7 @@ type Props = {
       measurementUnitId: string
       measurementUnit: string
     }
-  ) => Promise<{ success: true }>
+  ) => Promise<{ success: boolean }>
   updateMaterialAttachments: (
     recordId: string,
     payload: {
@@ -164,7 +167,7 @@ type Props = {
       agreementAttachment?: MaterialAttachment[]
       sourcePhoto?: string | null
     },
-  ) => Promise<{ success: true }>
+  ) => Promise<{ success: boolean }>
   createMaterialConfiguration: (
     siteId: string,
     payload: {
@@ -185,11 +188,11 @@ type Props = {
   updateMaterialDate: (
     recordId: string,
     materialDate: Date | null
-  ) => Promise<{ success: true }>
+  ) => Promise<{ success: boolean }>
   updateQuantity: (
     recordId: string,
     quantity: number | null,
-  ) => Promise<{ success: true }>
+  ) => Promise<{ success: boolean }>
   updateMaterialDetails: (
     recordId: string,
     payload: {
@@ -199,7 +202,7 @@ type Props = {
       measurementUnit?: string | null
       invoiceDate?: Date | null
     },
-  ) => Promise<{ success: true }>
+  ) => Promise<{ success: boolean }>
   attachCertificate: (
     siteId: string,
     materialConfigurationId: string,
@@ -209,7 +212,7 @@ type Props = {
       base64Data: string
       code?: "compliance" | "agreement"
     },
-  ) => Promise<{ success: true }>
+  ) => Promise<{ success: boolean }>
   copyMaterialRecord: (siteId: string, recordId: string) => Promise<{ success: true; material: MaterialRow }>
   deleteRecords: (siteId: string, recordIds: string[]) => Promise<{ deletedIds: string[] }>
 }
@@ -363,6 +366,9 @@ export default function MaterialsTableClient({
     quantity: string
     cost: string
     measurementUnit: string
+    categoryId: string | null
+    categoryName: string | null
+    measurementUnitId: string | null
     invoiceDate: Date | null
     materialDate: Date | null
     declarationAttachment: DraftMaterialAttachment[]
@@ -449,6 +455,30 @@ export default function MaterialsTableClient({
       setRows(previousRows)
       throw error
     }
+  }
+
+  const handleEditDraftConfigChange = async (
+    _recordId: string,
+    config: {
+      categoryId: string
+      categoryName: string
+      measurementUnitId: string
+      measurementUnit: string
+    },
+  ) => {
+    setEditDraft((current) =>
+      current
+        ? {
+            ...current,
+            categoryId: config.categoryId,
+            categoryName: config.categoryName || null,
+            measurementUnitId: config.measurementUnitId || null,
+            measurementUnit: config.measurementUnit || current.measurementUnit,
+          }
+        : current,
+    )
+    editUnitRef.current = config.measurementUnit || editUnitRef.current
+    return { success: true as const }
   }
 
   const handleCreateMaterialConfiguration = async (
@@ -603,6 +633,9 @@ export default function MaterialsTableClient({
       quantity: row.quantity == null ? "" : String(row.quantity),
       cost: row.cost == null ? "" : String(row.cost),
       measurementUnit: row.measurementUnit ?? "",
+      categoryId: row.categoryId,
+      categoryName: row.categoryName,
+      measurementUnitId: row.measurementUnitId,
       invoiceDate: row.invoiceDate ? new Date(row.invoiceDate) : null,
       materialDate: row.materialDate ? new Date(row.materialDate) : null,
       declarationAttachment: (row.declarationAttachment ?? []).map((file, index) => ({ id: `d-${index}-${file.name}`, ...file })),
@@ -657,6 +690,21 @@ export default function MaterialsTableClient({
       return
     }
 
+    const existingRow = rows.find((row) => row.id === editDraft.id)
+    const hasValidDraftConfiguration = Boolean(editDraft.categoryId && editDraft.categoryId !== NO_MATCH_VALUE)
+    const savedDeclarationAttachment = editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest)
+    const savedAgreementAttachment = editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest)
+
+    if ((editModalMode === "confirm-send" || existingRow?.BISId) && !hasValidDraftConfiguration) {
+      toast.error(t.selectConfiguration)
+      return
+    }
+
+    if ((editModalMode === "confirm-send" || existingRow?.BISId) && quantity == null) {
+      toast.error(`${t.qty} is required.`)
+      return
+    }
+
     try {
       await updateMaterialDetails(editDraft.id, {
         name: trimmedName,
@@ -667,16 +715,25 @@ export default function MaterialsTableClient({
       })
       await updateQuantity(editDraft.id, Number.isNaN(quantity as number) ? null : quantity)
       await updateMaterialAttachments(editDraft.id, {
-        declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
-        agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
+        declarationAttachment: savedDeclarationAttachment,
+        agreementAttachment: savedAgreementAttachment,
         sourcePhoto: modalSourcePhoto,
       })
-      const existingRow = rows.find((row) => row.id === editDraft.id)
-      if (editModalMode === "confirm-send" && existingRow?.categoryId && quantity != null && !Number.isNaN(quantity)) {
+
+      if (editDraft.categoryId !== existingRow?.categoryId) {
+        await updateMaterialConfiguration(editDraft.id, {
+          categoryId: editDraft.categoryId ?? NO_MATCH_VALUE,
+          categoryName: editDraft.categoryName ?? "",
+          measurementUnitId: editDraft.measurementUnitId ?? "",
+          measurementUnit: trimmedMeasurementUnit || editDraft.measurementUnit || "",
+        })
+      }
+
+      if (editModalMode === "confirm-send" && hasValidDraftConfiguration && quantity != null && !Number.isNaN(quantity)) {
         const sendResult = await handleSendToBis(
           editDraft.id,
           quantity,
-          existingRow.categoryId,
+          editDraft.categoryId!,
           includeDeliveryNotePhoto ? modalSourcePhoto ?? undefined : undefined,
           trimmedName,
           editDraft.materialDate,
@@ -685,12 +742,15 @@ export default function MaterialsTableClient({
           throw new Error(String(sendResult.errors?.[0]?.detail || "Failed to send to BIS"))
         }
       }
-      if (existingRow?.BISId && existingRow?.categoryId && quantity != null && !Number.isNaN(quantity)) {
+      if (existingRow?.BISId && hasValidDraftConfiguration && quantity != null && !Number.isNaN(quantity)) {
         await updateSentRecordInBis(siteId, existingRow.BISId, {
           quantity,
-          constructionMaterialId: existingRow.categoryId,
+          constructionMaterialId: editDraft.categoryId!,
           materialName: trimmedName,
           materialDate: editDraft.materialDate,
+          sourcePhoto: includeDeliveryNotePhoto ? modalSourcePhoto : null,
+          declarationAttachment: savedDeclarationAttachment,
+          agreementAttachment: savedAgreementAttachment,
         })
       }
 
@@ -702,11 +762,14 @@ export default function MaterialsTableClient({
                 name: trimmedName,
                 quantity: Number.isNaN(quantity as number) ? null : quantity,
                 cost: Number.isNaN(cost as number) ? null : cost,
+                categoryId: editDraft.categoryId,
+                categoryName: editDraft.categoryName,
+                measurementUnitId: editDraft.measurementUnitId,
                 measurementUnit: trimmedMeasurementUnit || null,
                 invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
                 materialDate: editDraft.materialDate,
-                declarationAttachment: editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest),
-                agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
+                declarationAttachment: savedDeclarationAttachment,
+                agreementAttachment: savedAgreementAttachment,
                 sourcePhoto: modalSourcePhoto,
               }
             : row,
@@ -1593,6 +1656,24 @@ export default function MaterialsTableClient({
                   maxLength={MAX_MATERIAL_NAME_LENGTH}
                 />
               </div>
+              {showBisControls ? (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">{t.selectConfiguration}</label>
+                  <MaterialConfigSelect
+                    siteId={siteId}
+                    recordId={editDraft.id}
+                    value={editDraft.categoryId && editDraft.categoryId !== NO_MATCH_VALUE ? editDraft.categoryId : null}
+                    onSave={handleEditDraftConfigChange}
+                    onCreate={handleCreateMaterialConfiguration}
+                    categories={bisConfigurations}
+                    organizationTemplates={organizationTemplateConfigurations}
+                    measurements={measures}
+                    materialTypes={types}
+                    selectConfigurationLabel={t.selectConfiguration}
+                    messages={t.materialConfigSelect}
+                  />
+                </div>
+              ) : null}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">{t.qty}</label>
@@ -1607,8 +1688,11 @@ export default function MaterialsTableClient({
                 <label className="text-xs font-medium text-muted-foreground">{t.units}</label>
                 <Select
                   key={`unit-${editDraft.id}`}
-                  defaultValue={editDraft.measurementUnit || undefined}
-                  onValueChange={(value) => { editUnitRef.current = value }}
+                  value={editDraft.measurementUnit || undefined}
+                  onValueChange={(value) => {
+                    editUnitRef.current = value
+                    setEditDraft({ ...editDraft, measurementUnit: value })
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder={t.units} />
