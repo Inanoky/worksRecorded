@@ -252,6 +252,15 @@ function toAttachmentDataUrl(file: { mimeType: string; base64Data: string }) {
   return `data:${file.mimeType || "application/octet-stream"};base64,${file.base64Data}`
 }
 
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result ?? ""))
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
 function getExportStatusLabel(row: MaterialRow, messages: ReturnType<typeof getWarehouseUiMessages>) {
   const normalizedStatus = (row.bisStatus ?? "").toLowerCase()
 
@@ -1649,7 +1658,22 @@ export default function MaterialsTableClient({
                   ) : null}
                   <div className="space-y-2">
                     <div className="text-sm font-medium">Pielikumu galerija</div>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</label>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (event) => {
+                            const file = event.target.files?.[0]
+                            if (!file) return
+                            const dataUrl = await fileToDataUrl(file)
+                            setModalSourcePhoto(dataUrl)
+                            setIncludeDeliveryNotePhoto(true)
+                            event.currentTarget.value = ""
+                          }}
+                        />
+                      </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</label>
                         <Input type="file" onChange={async (event) => {
