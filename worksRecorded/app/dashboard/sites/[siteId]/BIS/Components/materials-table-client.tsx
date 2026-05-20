@@ -51,7 +51,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import SendToBisButton from "./send-to-bis-button"
 import MaterialConfigSelect, {
   type MaterialCategory,
   NO_MATCH_VALUE,
@@ -315,6 +314,8 @@ export default function MaterialsTableClient({
     quantity?: number | null
   }>>({})
   const [editModalOpen, setEditModalOpen] = React.useState(false)
+  const [editModalMode, setEditModalMode] = React.useState<"edit" | "confirm-send">("edit")
+  const [includeDeliveryNotePhoto, setIncludeDeliveryNotePhoto] = React.useState(true)
   const editNameRef = React.useRef("")
   const editQuantityRef = React.useRef("")
   const editCostRef = React.useRef("")
@@ -554,7 +555,7 @@ export default function MaterialsTableClient({
     )
   }
 
-  const openEditModal = (row: MaterialRow) => {
+  const openEditModal = (row: MaterialRow, mode: "edit" | "confirm-send" = "edit") => {
     editNameRef.current = row.name ?? ""
     editQuantityRef.current = row.quantity == null ? "" : String(row.quantity)
     editCostRef.current = row.cost == null ? "" : String(row.cost)
@@ -571,6 +572,8 @@ export default function MaterialsTableClient({
       declarationAttachment: (row.declarationAttachment ?? []).map((file, index) => ({ id: `d-${index}-${file.name}`, ...file })),
       agreementAttachment: (row.agreementAttachment ?? []).map((file, index) => ({ id: `a-${index}-${file.name}`, ...file })),
     })
+    setEditModalMode(mode)
+    setIncludeDeliveryNotePhoto(Boolean(row.sourcePhoto))
     setEditModalOpen(true)
   }
 
@@ -631,6 +634,19 @@ export default function MaterialsTableClient({
         agreementAttachment: editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest),
       })
       const existingRow = rows.find((row) => row.id === editDraft.id)
+      if (editModalMode === "confirm-send" && existingRow?.categoryId && quantity != null && !Number.isNaN(quantity)) {
+        const sendResult = await handleSendToBis(
+          editDraft.id,
+          quantity,
+          existingRow.categoryId,
+          includeDeliveryNotePhoto ? existingRow.sourcePhoto ?? undefined : undefined,
+          trimmedName,
+          editDraft.materialDate,
+        )
+        if (sendResult?.errors) {
+          throw new Error(String(sendResult.errors?.[0]?.detail || "Failed to send to BIS"))
+        }
+      }
       if (existingRow?.BISId && existingRow?.categoryId && quantity != null && !Number.isNaN(quantity)) {
         await updateSentRecordInBis(siteId, existingRow.BISId, {
           quantity,
@@ -658,7 +674,7 @@ export default function MaterialsTableClient({
         ),
       )
       setEditModalOpen(false)
-      toast.success("Material updated")
+      toast.success(editModalMode === "confirm-send" ? "Material confirmed and sent to BIS" : "Material updated")
     } catch (error) {
       console.error(error)
       toast.error("Failed to save material")
@@ -1378,19 +1394,14 @@ export default function MaterialsTableClient({
                       <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             {showBisControls && !isSent ? (
-                              <SendToBisButton
-                                siteId={siteId}
-                                recordId={r.id}
-                                quantity={r.quantity ?? 0}
-                                categoryId={hasValidConfiguration ? r.categoryId ?? "" : ""}
-                                sourcePhoto={r.sourcePhoto ?? ""}
-                                materialName={r.name ?? ""}
-                                materialDate={r.materialDate}
-                                onAttachCertificate={attachCertificate}
-                                action={handleSendToBis}
-                                sendLabel={t.sendToBis}
-                                selectConfigurationLabel={t.selectConfiguration}
-                              />
+                              <Button
+                                size="sm"
+                                onClick={() => openEditModal(r, "confirm-send")}
+                                disabled={!hasValidConfiguration}
+                                title={!hasValidConfiguration ? t.selectConfiguration : ""}
+                              >
+                                {t.sendToBis}
+                              </Button>
                             ) : showBisControls && !isApproved && !isAwaitingApproval ? (
                               <Button
                                 size="sm"
@@ -1524,9 +1535,9 @@ export default function MaterialsTableClient({
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t.editMaterial}</DialogTitle>
+            <DialogTitle>{editModalMode === "confirm-send" ? "Apstiprināt" : t.editMaterial}</DialogTitle>
             <DialogDescription>
-              Update material details and attachments.
+              {editModalMode === "confirm-send" ? "Pirms sūtīšanas uz BIS pārskatiet materiāla datus un pielikumus." : "Update material details and attachments."}
             </DialogDescription>
           </DialogHeader>
           {editDraft ? (
@@ -1610,6 +1621,15 @@ export default function MaterialsTableClient({
               </div>
               {showBisControls ? (
                 <>
+                  {editModalMode === "confirm-send" ? (
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={includeDeliveryNotePhoto}
+                        onCheckedChange={(value) => setIncludeDeliveryNotePhoto(Boolean(value))}
+                      />
+                      Pievienot pavadzīmes fotoattēlu
+                    </label>
+                  ) : null}
                   <div className="space-y-2">
                     <div className="text-sm font-medium">{t.declarationDocument}</div>
                     <Input type="file" onChange={async (event) => {
@@ -1654,7 +1674,7 @@ export default function MaterialsTableClient({
           ) : null}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditModalOpen(false)}>{t.cancel}</Button>
-            <Button onClick={saveEditModal}> {t.save}</Button>
+            <Button onClick={saveEditModal}> {editModalMode === "confirm-send" ? "Apstiprināt un sūtīt" : t.save}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
