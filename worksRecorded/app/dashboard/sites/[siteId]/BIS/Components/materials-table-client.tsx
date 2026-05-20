@@ -1664,7 +1664,7 @@ export default function MaterialsTableClient({
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
                         <div className="grid grid-cols-3 gap-3">
-                          <label className="relative aspect-square cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
+                          <label className="relative h-[135px] w-[135px] cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
                             <input
                               type="file"
                               accept="image/*"
@@ -1681,7 +1681,7 @@ export default function MaterialsTableClient({
                             <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">+ Augšupielādēt</div>
                           </label>
                           {modalSourcePhoto ? ([{ id: "source-photo", name: "Pavadzīmes fotoattēls", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }]).map((file) => (
-                            <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background max-w-[90px]">
+                            <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
                               <Button
                                 size="icon"
                                 variant="ghost"
@@ -1709,7 +1709,7 @@ export default function MaterialsTableClient({
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</div>
                         <div className="grid grid-cols-3 gap-3">
-                          <label className="relative aspect-square cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
+                          <label className="relative h-[135px] w-[135px] cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
                             <input type="file" className="sr-only" onChange={async (event) => {
                               const file = event.target.files?.[0]
                               if (!file) return
@@ -1723,7 +1723,7 @@ export default function MaterialsTableClient({
                             <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">+ Augšupielādēt</div>
                           </label>
                           {editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })).map((file) => (
-                            <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background max-w-[90px]">
+                            <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
                               <Button
                                 size="icon"
                                 variant="ghost"
@@ -1757,7 +1757,7 @@ export default function MaterialsTableClient({
                       <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.agreement}</div>
                         <div className="grid grid-cols-3 gap-3">
-                          <label className="relative aspect-square cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
+                          <label className="relative h-[135px] w-[135px] cursor-pointer overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 hover:bg-muted/60">
                             <input type="file" className="sr-only" onChange={async (event) => {
                               const file = event.target.files?.[0]
                               if (!file) return
@@ -1771,7 +1771,7 @@ export default function MaterialsTableClient({
                             <div className="flex h-full w-full items-center justify-center text-center text-xs text-muted-foreground">+ Augšupielādēt</div>
                           </label>
                           {editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })).map((file) => (
-                        <div key={`${file.kind}-${file.id}`} className="group relative aspect-square overflow-hidden rounded-md border border-muted bg-background max-w-[90px]">
+                        <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
                           <Button
                               size="icon"
                               variant="ghost"
