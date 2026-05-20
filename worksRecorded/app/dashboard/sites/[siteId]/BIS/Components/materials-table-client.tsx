@@ -1706,7 +1706,7 @@ export default function MaterialsTableClient({
                       </div>
                     </div>
                     <div className="space-y-4">
-                      <div className="space-y-2">
+                      <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</div>
                         <div className="grid grid-cols-2 gap-3">
                           {modalSourcePhoto ? ([{ id: "source-photo", name: "Pavadzīmes fotoattēls", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }]).map((file) => (
@@ -1737,7 +1737,7 @@ export default function MaterialsTableClient({
                         </div>
                       </div>
 
-                      <div className="space-y-2">
+                      <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</div>
                         <div className="grid grid-cols-2 gap-3">
                           {editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })).map((file) => (
@@ -1775,7 +1775,7 @@ export default function MaterialsTableClient({
                         </div>
                       </div>
 
-                      <div className="space-y-2">
+                      <div className="space-y-2 rounded-lg border bg-background p-3">
                         <div className="text-xs font-medium text-muted-foreground">{t.agreement}</div>
                         <div className="grid grid-cols-2 gap-3">
                           {editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })).map((file) => (
