@@ -1559,7 +1559,7 @@ export default function MaterialsTableClient({
       </Dialog>
 
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editModalMode === "confirm-send" ? "Apstiprināt" : t.editMaterial}</DialogTitle>
             <DialogDescription>
@@ -1567,8 +1567,10 @@ export default function MaterialsTableClient({
             </DialogDescription>
           </DialogHeader>
           {editDraft ? (
-            <div className="space-y-4">
-              <div className="space-y-1">
+            <div className="space-y-5">
+              <div className="space-y-4 rounded-lg border bg-muted/20 p-4">
+                <div className="text-sm font-medium">{t.materialName}</div>
+                <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">{t.materialName}</label>
                 <Input
                   key={`name-${editDraft.id}`}
@@ -1578,7 +1580,7 @@ export default function MaterialsTableClient({
                   maxLength={MAX_MATERIAL_NAME_LENGTH}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">{t.qty}</label>
                   <Input key={`qty-${editDraft.id}`} type="number" min="0.01" step="0.01" defaultValue={editDraft.quantity} onChange={(event) => { editQuantityRef.current = event.target.value }} placeholder={t.qty} />
@@ -1588,7 +1590,7 @@ export default function MaterialsTableClient({
                   <Input key={`cost-${editDraft.id}`} type="number" min="0" step="0.01" defaultValue={editDraft.cost} onChange={(event) => { editCostRef.current = event.target.value }} placeholder={t.cost} />
                 </div>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 max-w-xs">
                 <label className="text-xs font-medium text-muted-foreground">{t.units}</label>
                 <Select
                   key={`unit-${editDraft.id}`}
@@ -1607,7 +1609,8 @@ export default function MaterialsTableClient({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              </div>
+              <div className="grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">{t.deliveryDate}</label>
                   <Popover>
@@ -1657,9 +1660,9 @@ export default function MaterialsTableClient({
                       Pievienot pavadzīmes fotoattēlu
                     </label>
                   ) : null}
-                  <div className="space-y-2">
+                  <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
                     <div className="text-sm font-medium">Pielikumu galerija</div>
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">Pavadzīmes fotoattēls</label>
                         <Input
