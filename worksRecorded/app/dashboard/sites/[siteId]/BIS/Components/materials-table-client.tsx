@@ -327,6 +327,7 @@ export default function MaterialsTableClient({
   const [editModalOpen, setEditModalOpen] = React.useState(false)
   const [editModalMode, setEditModalMode] = React.useState<"edit" | "confirm-send">("edit")
   const [includeDeliveryNotePhoto, setIncludeDeliveryNotePhoto] = React.useState(true)
+  const [modalSourcePhoto, setModalSourcePhoto] = React.useState<string | null>(null)
   const editNameRef = React.useRef("")
   const editQuantityRef = React.useRef("")
   const editCostRef = React.useRef("")
@@ -585,6 +586,7 @@ export default function MaterialsTableClient({
     })
     setEditModalMode(mode)
     setIncludeDeliveryNotePhoto(Boolean(row.sourcePhoto))
+    setModalSourcePhoto(row.sourcePhoto ?? null)
     setEditModalOpen(true)
   }
 
@@ -650,7 +652,7 @@ export default function MaterialsTableClient({
           editDraft.id,
           quantity,
           existingRow.categoryId,
-          includeDeliveryNotePhoto ? existingRow.sourcePhoto ?? undefined : undefined,
+          includeDeliveryNotePhoto ? modalSourcePhoto ?? undefined : undefined,
           trimmedName,
           editDraft.materialDate,
         )
@@ -1635,7 +1637,8 @@ export default function MaterialsTableClient({
                   {editModalMode === "confirm-send" ? (
                     <label className="flex items-center gap-2 text-sm">
                       <Checkbox
-                        checked={includeDeliveryNotePhoto}
+                        checked={includeDeliveryNotePhoto && Boolean(modalSourcePhoto)}
+                        disabled={!modalSourcePhoto}
                         onCheckedChange={(value) => setIncludeDeliveryNotePhoto(Boolean(value))}
                       />
                       Pievienot pavadzīmes fotoattēlu
@@ -1672,16 +1675,26 @@ export default function MaterialsTableClient({
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {[...editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })), ...editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const }))].map((file) => (
-                        <div key={`${file.kind}-${file.id}`} className="rounded-md border p-2">
+                      {[
+                        ...(modalSourcePhoto ? [{ id: "source-photo", name: "Pavadzīmes fotoattēls", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }] : []),
+                        ...editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })),
+                        ...editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })),
+                      ].map((file) => (
+                        <div key={`${file.kind}-${file.id}`} className="group rounded-md border p-2">
                           <div className="mb-2 flex items-center justify-between gap-2">
                             <Badge variant="outline" className="text-[10px]">
-                              {file.kind === "declaration" ? t.declarationDocument : t.agreement}
+                              {file.kind === "declaration" ? t.declarationDocument : file.kind === "agreement" ? t.agreement : "Pavadzīme"}
                             </Badge>
                             <Button
-                              size="sm"
+                              size="icon"
                               variant="ghost"
+                              className="h-6 w-6 opacity-0 transition-opacity group-hover:opacity-100"
                               onClick={() => {
+                                if (file.kind === "sourcePhoto") {
+                                  setModalSourcePhoto(null)
+                                  setIncludeDeliveryNotePhoto(false)
+                                  return
+                                }
                                 if (file.kind === "declaration") {
                                   setEditDraft({
                                     ...editDraft,
@@ -1695,10 +1708,16 @@ export default function MaterialsTableClient({
                                 })
                               }}
                             >
-                              {t.delete}
+                              ✕
                             </Button>
                           </div>
-                          {isPreviewableImage(file) ? (
+                          {file.kind === "sourcePhoto" && modalSourcePhoto ? (
+                            <img
+                              src={modalSourcePhoto}
+                              alt={file.name}
+                              className="h-24 w-full rounded object-cover"
+                            />
+                          ) : isPreviewableImage(file) ? (
                             <img
                               src={toAttachmentDataUrl(file)}
                               alt={file.name}
@@ -1710,13 +1729,24 @@ export default function MaterialsTableClient({
                             </div>
                           )}
                           <div className="mt-2 truncate text-xs text-muted-foreground">{file.name}</div>
-                          <a
-                            href={toAttachmentDataUrl(file)}
-                            download={file.name}
-                            className="mt-1 inline-block text-xs text-blue-600 hover:underline"
-                          >
-                            Atvērt / lejupielādēt
-                          </a>
+                          {file.kind === "sourcePhoto" && modalSourcePhoto ? (
+                            <a
+                              href={modalSourcePhoto}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 inline-block text-xs text-blue-600 hover:underline"
+                            >
+                              Atvērt
+                            </a>
+                          ) : (
+                            <a
+                              href={toAttachmentDataUrl(file)}
+                              download={file.name}
+                              className="mt-1 inline-block text-xs text-blue-600 hover:underline"
+                            >
+                              Atvērt / lejupielādēt
+                            </a>
+                          )}
                         </div>
                       ))}
                     </div>
