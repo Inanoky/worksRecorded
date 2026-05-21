@@ -71,6 +71,45 @@ export const ourFileRouter = {
       // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
       return { uploadedBy: metadata.userId };
     }),
+    materialAttachmentUploader: f({
+      image: {
+        /**
+         * For full list of options and defaults, see the File Route API reference
+         * @see https://docs.uploadthing.com/file-routes#route-config
+         */
+        maxFileSize: "4MB",
+        maxFileCount: 1,
+      },
+      pdf: {
+        /**
+         * For full list of options and defaults, see the File Route API reference
+         * @see https://docs.uploadthing.com/file-routes#route-config
+         */
+        maxFileSize: "4MB",
+        maxFileCount: 1,
+      },
+    })
+    // Set permissions and file types for this FileRoute
+    .middleware(async ({ req }) => {
+      // This code runs on your server before upload
+        const { getUser } = getKindeServerSession()
+        const user = await getUser()
+
+      // If you throw, the user will not be able to upload
+      if (!user) throw new UploadThingError("Unauthorized");
+
+      // Whatever is returned here is accessible in onUploadComplete as `metadata`
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      // This code RUNS ON YOUR SERVER after upload
+      console.log("Material attachment upload complete for userId:", metadata.userId);
+
+      console.log("file url", file.ufsUrl);
+
+      // !!! Whatever is returned here is sent to the clientside `onClientUploadComplete` callback
+      return { uploadedBy: metadata.userId };
+    }),
     documentsUploader: f({
     pdf: {
       /**

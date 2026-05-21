@@ -85,6 +85,12 @@ export default function SendToBisButton({
       reader.readAsDataURL(file)
     })
 
+  const getAttachmentMimeType = (file: File) => {
+    if (file.type) return file.type
+    if (file.name.toLowerCase().endsWith(".pdf")) return "application/pdf"
+    return "application/octet-stream"
+  }
+
   const handleClick = () => {
     if (isDisabled) return
     setDraftName(materialName ?? "")
@@ -141,7 +147,7 @@ export default function SendToBisButton({
         const base64Data = await toBase64(certificateFile)
         await onAttachCertificate(siteId, categoryId, {
           name: certificateFile.name,
-          mimeType: certificateFile.type || "application/octet-stream",
+          mimeType: getAttachmentMimeType(certificateFile),
           base64Data,
           code: "compliance",
         })
