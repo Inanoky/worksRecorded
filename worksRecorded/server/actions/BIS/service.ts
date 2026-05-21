@@ -34,6 +34,37 @@ const BIS_SCOPES = process.env.BIS_SCOPES ?? "bis_case_documents:manage logbooks
 const BIS_ACCESS_TOKEN_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 const WORKS_RECORDED_PRODUCTION_URL = "https://www.worksrecorded.com";
 
+function shouldLogFullBisTokens() {
+  return process.env.BIS_LOG_FULL_TOKENS === "true" || process.env.BIS_LOG_FULL_ACCESS_TOKEN === "true";
+}
+
+function maskBisToken(token: string | null | undefined) {
+  if (!token) return null;
+
+  if (shouldLogFullBisTokens()) {
+    return token;
+  }
+
+  if (token.length <= 16) {
+    return `${token.slice(0, 4)}...${token.slice(-4)}`;
+  }
+
+  return `${token.slice(0, 8)}...${token.slice(-8)}`;
+}
+
+function logBisTokenPair(
+  label: string,
+  token: { accessToken?: string | null; refreshToken?: string | null },
+  context: Record<string, unknown> = {},
+) {
+  console.log(label, {
+    ...context,
+    accessToken: maskBisToken(token.accessToken),
+    refreshToken: maskBisToken(token.refreshToken),
+    fullTokensLogged: shouldLogFullBisTokens(),
+  });
+}
+
 function getRequiredEnv(name: string) {
   const value = process.env[name];
   if (!value) {
@@ -120,6 +151,12 @@ function isBisAccessTokenStale(token: UserBisTokenRow) {
 }
 
 export async function refreshBisAccessToken(userId: string, refreshToken: string) {
+  console.log("[BIS API] Refresh token used", {
+    userId,
+    refreshToken: maskBisToken(refreshToken),
+    fullTokensLogged: shouldLogFullBisTokens(),
+  });
+
   const body = new URLSearchParams({
     grant_type: "refresh_token",
     refresh_token: refreshToken,
@@ -157,6 +194,11 @@ export async function refreshBisAccessToken(userId: string, refreshToken: string
   const nextRefreshToken = json?.refresh_token || refreshToken;
   await upsertUserBisToken(userId, json.access_token, nextRefreshToken);
 
+  logBisTokenPair("[BIS API] Refreshed token pair", {
+    accessToken: String(json.access_token),
+    refreshToken: String(nextRefreshToken),
+  }, { userId });
+
   return {
     accessToken: String(json.access_token),
     refreshToken: String(nextRefreshToken),
@@ -174,6 +216,7 @@ export async function ensureUserBisAccessToken(userId: string) {
     if (!token.accessToken || isBisAccessTokenStale(token)) {
       return null;
     }
+    logBisTokenPair("[BIS API] Stored token pair selected", token, { userId, hasRefreshToken: false });
     return token;
   }
 
@@ -197,6 +240,7 @@ export async function ensureUserBisAccessToken(userId: string) {
     }
   }
 
+  logBisTokenPair("[BIS API] Stored token pair selected", token, { userId, hasRefreshToken: true });
   return token;
 }
 
@@ -254,6 +298,12 @@ export async function requireBisAccessTokenForSite(siteId: string) {
   if (!siteRecord?.bisCaseId) {
     throw new Error("BIS case is not selected for this site");
   }
+
+  logBisTokenPair("[BIS API] Token pair selected for site workflow", token, {
+    userId: user.id,
+    siteId,
+    bisCaseId: siteRecord.bisCaseId,
+  });
 
   return {
     accessToken: token.accessToken,

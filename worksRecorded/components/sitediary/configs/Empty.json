@@ -38,7 +38,7 @@
   },
 "Location": {
   "Type": "dropdown",
-  "DisplayName": "Lokācija",
+  "DisplayName": "Elements",
   "DropDownOptions": {
  "Location_1": "Pagrabstāvs",
     "Location_2": "1.stāvs",
@@ -101,7 +101,7 @@
   },
  "Works": {
   "Type": "dropdown",
-  "DisplayName": "Darbi",
+  "DisplayName": "Darbs",
   "DropDownOptions": {
    "Works_1": "Pārseguma paneļu montāža - HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums)",
       "Works_2": "Pārseguma paneļu stiegrošāna - HCS 220",
@@ -222,7 +222,7 @@
   },
   "Amounts": {
     "Type": "float",
-    "DisplayName": "Daudzums",
+    "DisplayName": "This is test",
     "customSettings": {
       "order": 5,
       "cellWidth": 65,
