@@ -62,7 +62,8 @@ export async function systemPromptFunction(siteId, userId) {
     10) Any edits to the existing records user can only do online at worksrecorded.com
     11) Keep final answer concise, structured, and action-oriented.
     12) User can change project by sending word "Change" in the chat 
-    
+    13) Create new projects user can only online at worksrecorded.com
+
    
 
     
@@ -107,7 +108,11 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  For comments describe what was completed, where and with what labor in ${language} `
+  For comments describe what was completed, where and with what labor in ${language} if information present. 
+  
+  Make comment concise, don't add from yourself additional information or explain your decision.
+  
+  `
 
 
 
