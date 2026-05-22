@@ -120,7 +120,8 @@ type MaterialCategory = {
   attachments?: Array<{
     name: string;
     mimeType: string;
-    base64Data: string;
+    base64Data?: string;
+    fileUrl?: string;
   }>;
 };
 
@@ -618,7 +619,8 @@ export async function createMaterialConfiguration(
     attachments: Array<{
       name: string;
       mimeType: string;
-      base64Data: string;
+      base64Data?: string;
+      fileUrl?: string;
     }>;
   },
 ) {
@@ -714,10 +716,27 @@ export async function createMaterialConfiguration(
   }
 
   for (const file of payload.attachments) {
-    const bytes = Buffer.from(file.base64Data, "base64");
-    const blob = new Blob([bytes], {
-      type: file.mimeType || "application/octet-stream",
-    });
+    let blob: Blob;
+
+    if (file.base64Data) {
+      const bytes = Buffer.from(file.base64Data, "base64");
+      blob = new Blob([bytes], {
+        type: file.mimeType || "application/octet-stream",
+      });
+    } else if (file.fileUrl) {
+      const downloaded = await fetch(file.fileUrl, { cache: "no-store" });
+      if (!downloaded.ok) {
+        throw new Error(`Failed to download attachment before BIS sync: ${file.name}`);
+      }
+
+      const arrayBuffer = await downloaded.arrayBuffer();
+      blob = new Blob([arrayBuffer], {
+        type: file.mimeType || downloaded.headers.get("content-type") || "application/octet-stream",
+      });
+    } else {
+      continue;
+    }
+
     const form = new FormData();
     form.append("upload[file]", blob, file.name || "attachment");
     form.append("upload[obj_id]", crypto.randomUUID());

@@ -1,7 +1,8 @@
 export type MaterialConfigurationTemplateAttachment = {
   name: string;
   mimeType: string;
-  base64Data: string;
+  base64Data?: string;
+  fileUrl?: string;
 };
 
 export type OrganizationMaterialConfigurationTemplate = {
@@ -33,12 +34,18 @@ function normalizeAttachments(value: unknown): MaterialConfigurationTemplateAtta
       const name = readString(record.name);
       const mimeType = readString(record.mimeType) || "application/octet-stream";
       const base64Data = readString(record.base64Data);
+      const fileUrl = readString(record.fileUrl);
 
-      if (!name || !base64Data) {
+      if (!name || (!base64Data && !fileUrl)) {
         return null;
       }
 
-      return { name, mimeType, base64Data };
+      return {
+        name,
+        mimeType,
+        ...(base64Data ? { base64Data } : {}),
+        ...(fileUrl ? { fileUrl } : {}),
+      };
     })
     .filter((item): item is MaterialConfigurationTemplateAttachment => Boolean(item));
 }

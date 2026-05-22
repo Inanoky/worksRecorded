@@ -178,7 +178,8 @@ type Props = {
       attachments: Array<{
         name: string
         mimeType: string
-        base64Data: string
+        base64Data?: string
+        fileUrl?: string
       }>
     },
   ) => Promise<{
@@ -500,7 +501,8 @@ export default function MaterialsTableClient({
       attachments: Array<{
         name: string
         mimeType: string
-        base64Data: string
+        base64Data?: string
+        fileUrl?: string
       }>
     },
   ) => {

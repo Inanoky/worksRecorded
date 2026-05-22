@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { UploadButton } from "@/lib/utils/UploadthingsComponents"
 
 export const NO_MATCH_VALUE = "no_match"
 const CREATE_VALUE = "__create_material_configuration__"
@@ -108,7 +109,8 @@ export type MaterialCategory = {
   attachments?: Array<{
     name: string
     mimeType: string
-    base64Data: string
+    base64Data?: string
+    fileUrl?: string
   }>
 }
 
@@ -156,7 +158,8 @@ export default function MaterialConfigSelect({
       attachments: Array<{
         name: string
         mimeType: string
-        base64Data: string
+        base64Data?: string
+        fileUrl?: string
       }>
     }
   ) => Promise<{
@@ -176,7 +179,7 @@ export default function MaterialConfigSelect({
   const [materialType, setMaterialType] = React.useState("")
   const [manufacturer, setManufacturer] = React.useState("")
   const [measurement, setMeasurement] = React.useState("")
-  const [files, setFiles] = React.useState<File[]>([])
+  const [uploadedAttachments, setUploadedAttachments] = React.useState<NonNullable<MaterialCategory["attachments"]>>([])
   const [templateAttachments, setTemplateAttachments] = React.useState<NonNullable<MaterialCategory["attachments"]>>([])
   const [selectedTemplateId, setSelectedTemplateId] = React.useState("")
   const [categorySearch, setCategorySearch] = React.useState("")
@@ -198,14 +201,20 @@ export default function MaterialConfigSelect({
     )
   }, [categories, categorySearch])
 
-  const toBase64 = async (file: File) => {
-    const buffer = await file.arrayBuffer()
-    const bytes = new Uint8Array(buffer)
-    let binary = ""
-    for (let i = 0; i < bytes.length; i += 1) {
-      binary += String.fromCharCode(bytes[i]!)
-    }
-    return btoa(binary)
+  const getAttachmentMimeType = (file: { type?: string; name?: string }) => {
+    if (file.type) return file.type
+    if ((file.name || "").toLowerCase().endsWith(".pdf")) return "application/pdf"
+    return "application/octet-stream"
+  }
+
+  const resetCreateDialog = () => {
+    setMaterialKind("")
+    setMaterialType("")
+    setManufacturer("")
+    setMeasurement("")
+    setUploadedAttachments([])
+    setTemplateAttachments([])
+    setSelectedTemplateId("")
   }
 
   const handleCreate = () => {
@@ -230,13 +239,7 @@ export default function MaterialConfigSelect({
 
         const attachments = [
           ...templateAttachments,
-          ...(await Promise.all(
-            files.map(async (file) => ({
-              name: file.name,
-              mimeType: file.type || "application/octet-stream",
-              base64Data: await toBase64(file),
-            })),
-          )),
+          ...uploadedAttachments,
         ]
 
         const result = await onCreate(siteId, {
@@ -256,13 +259,7 @@ export default function MaterialConfigSelect({
 
         toast.success(messages.createdAndSelected)
         setDialogOpen(false)
-        setMaterialKind("")
-        setMaterialType("")
-        setManufacturer("")
-        setMeasurement("")
-        setFiles([])
-        setTemplateAttachments([])
-        setSelectedTemplateId("")
+        resetCreateDialog()
       } catch (error) {
         console.error(error)
         toast.error(error instanceof Error ? error.message : messages.createFailed)
@@ -335,7 +332,13 @@ export default function MaterialConfigSelect({
         </SelectContent>
       </Select>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open)
+          if (!open) resetCreateDialog()
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{messages.createDialogTitle}</DialogTitle>
@@ -430,14 +433,28 @@ export default function MaterialConfigSelect({
 
             <div className="space-y-2">
               <label className="text-sm font-medium">{messages.declaration}</label>
-              <Input
-                type="file"
-                multiple
-                onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
-              />
-              {templateAttachments.length + files.length ? (
+              <div className="rounded-md border border-dashed bg-muted/40 p-3">
+                <UploadButton
+                  endpoint="materialAttachmentUploader"
+                  appearance={{ button: "w-full text-xs" }}
+                  content={{ button: messages.declaration }}
+                  onClientUploadComplete={(res) => {
+                    const uploaded = res
+                      .filter((file) => file?.url)
+                      .map((file) => ({
+                        name: file.name,
+                        mimeType: getAttachmentMimeType(file),
+                        fileUrl: file.url,
+                      }))
+
+                    if (!uploaded.length) return
+                    setUploadedAttachments((current) => [...current, ...uploaded])
+                  }}
+                />
+              </div>
+              {templateAttachments.length + uploadedAttachments.length ? (
                 <p className="text-xs text-muted-foreground">
-                  {messages.filesSelected(templateAttachments.length + files.length)}
+                  {messages.filesSelected(templateAttachments.length + uploadedAttachments.length)}
                 </p>
               ) : null}
             </div>

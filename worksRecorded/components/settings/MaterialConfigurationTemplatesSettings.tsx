@@ -28,6 +28,7 @@ import type {
   MaterialConfigurationTemplateAttachment,
   OrganizationMaterialConfigurationTemplate,
 } from "@/lib/bis/material-configuration-templates";
+import { UploadButton } from "@/lib/utils/UploadthingsComponents";
 
 type MaterialTypeOption = {
   id: string;
@@ -76,16 +77,10 @@ function copyTemplate(template: OrganizationMaterialConfigurationTemplate): Temp
   };
 }
 
-async function fileToBase64(file: File) {
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index]!);
-  }
-
-  return btoa(binary);
+function getAttachmentMimeType(file: { type?: string; name?: string }) {
+  if (file.type) return file.type;
+  if ((file.name || "").toLowerCase().endsWith(".pdf")) return "application/pdf";
+  return "application/octet-stream";
 }
 
 export function MaterialConfigurationTemplatesSettings({
@@ -101,7 +96,6 @@ export function MaterialConfigurationTemplatesSettings({
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [formDraft, setFormDraft] = React.useState<TemplateDraft>(() => emptyTemplate());
-  const [selectedFiles, setSelectedFiles] = React.useState<File[]>([]);
   const isLatvian = organizationLanguage === "lv";
 
   React.useEffect(() => {
@@ -153,14 +147,12 @@ export function MaterialConfigurationTemplatesSettings({
   const openCreateDialog = () => {
     setEditingId(null);
     setFormDraft(emptyTemplate());
-    setSelectedFiles([]);
     setDialogOpen(true);
   };
 
   const openEditDialog = (template: TemplateDraft) => {
     setEditingId(template.id);
     setFormDraft(copyTemplate(template));
-    setSelectedFiles([]);
     setDialogOpen(true);
   };
 
@@ -187,16 +179,7 @@ export function MaterialConfigurationTemplatesSettings({
           materialMeasures.find((item) => item.id === formDraft.measurement)?.name ??
           formDraft.measurementUnit?.trim() ??
           null,
-        attachments: [
-          ...(formDraft.attachments ?? []),
-          ...(await Promise.all(
-            selectedFiles.map(async (file): Promise<MaterialConfigurationTemplateAttachment> => ({
-              name: file.name,
-              mimeType: file.type || "application/octet-stream",
-              base64Data: await fileToBase64(file),
-            })),
-          )),
-        ],
+        attachments: formDraft.attachments ?? [],
       };
 
       if (!normalizedDraft.materialKind) {
@@ -223,7 +206,6 @@ export function MaterialConfigurationTemplatesSettings({
 
         await persistTemplates(nextTemplates);
         setDialogOpen(false);
-        setSelectedFiles([]);
       } catch (error) {
         console.error(error);
         toast.error(error instanceof Error ? error.message : text.saveFailed);
@@ -349,16 +331,31 @@ export function MaterialConfigurationTemplatesSettings({
 
             <div className="space-y-2">
               <Label>{text.declaration}</Label>
-              <Input
-                type="file"
-                multiple
-                onChange={(event) => setSelectedFiles(Array.from(event.target.files ?? []))}
-              />
+              <div className="rounded-md border border-dashed bg-muted/40 p-3">
+                <UploadButton
+                  endpoint="materialAttachmentUploader"
+                  appearance={{ button: "w-full text-xs" }}
+                  content={{ button: text.declaration }}
+                  onClientUploadComplete={(res) => {
+                    const uploaded = res
+                      .filter((file) => file?.url)
+                      .map((file): MaterialConfigurationTemplateAttachment => ({
+                        name: file.name,
+                        mimeType: getAttachmentMimeType(file),
+                        fileUrl: file.url,
+                      }));
+
+                    if (!uploaded.length) return;
+
+                    setFormDraft((current) => ({
+                      ...current,
+                      attachments: [...current.attachments, ...uploaded],
+                    }));
+                  }}
+                />
+              </div>
               {formDraft.attachments.length ? (
                 <p className="text-xs text-muted-foreground">{text.storedFiles(formDraft.attachments.length)}</p>
-              ) : null}
-              {selectedFiles.length ? (
-                <p className="text-xs text-muted-foreground">{text.filesSelected(selectedFiles.length)}</p>
               ) : null}
             </div>
           </div>
