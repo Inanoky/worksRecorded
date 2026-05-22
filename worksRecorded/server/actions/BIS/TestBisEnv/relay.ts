@@ -129,17 +129,58 @@ function serializeBodyForLog(body: BodyInit | null | undefined) {
   return `[${body.constructor?.name || "unserializable body"}]`;
 }
 
-function logBisRequest(url: string, init?: RequestInit) {
+function parseResponseBodyForLog(text: string, contentType: string | null) {
+  if (!text) return null;
+
+  if (contentType?.toLowerCase().includes("json")) {
+    try {
+      return sanitizeBodyForLog(JSON.parse(text));
+    } catch {
+      return text;
+    }
+  }
+
+  try {
+    return sanitizeBodyForLog(JSON.parse(text));
+  } catch {
+    return text;
+  }
+}
+
+function createBisRequestLogPayload(url: string, init?: RequestInit) {
   const authorization = getHeaderValue(init?.headers, "Authorization");
   const match = authorization?.match(/^Bearer\s+(.+)$/i);
 
-  console.log("[BIS API] Request", JSON.stringify({
+  return {
     method: init?.method ?? "GET",
     url,
     headers: serializeHeadersForLog(init?.headers),
     body: serializeBodyForLog(init?.body),
     accessToken: match?.[1] ? maskAccessToken(match[1]) : null,
     fullTokensLogged: shouldLogFullBisTokens(),
+  };
+}
+
+async function logBisResponse(requestId: string, response: Response, startedAt: number) {
+  const contentType = response.headers.get("content-type");
+  let responseBody: unknown = null;
+
+  try {
+    responseBody = parseResponseBodyForLog(await response.clone().text(), contentType);
+  } catch (error) {
+    responseBody = {
+      logError: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  console.log("[BIS API] Response", JSON.stringify({
+    requestId,
+    status: response.status,
+    statusText: response.statusText,
+    ok: response.ok,
+    durationMs: Date.now() - startedAt,
+    headers: serializeHeadersForLog(response.headers),
+    body: responseBody,
   }, null, 2));
 }
 
@@ -161,10 +202,30 @@ export function getBisRelayBaseUrl() {
 }
 
 export async function bisFetch(baseUrl: string, url: string, init?: RequestInit) {
-  logBisRequest(url, init);
+  const requestId = crypto.randomUUID();
+  const startedAt = Date.now();
+
+  console.log("[BIS API] Request", JSON.stringify({
+    requestId,
+    ...createBisRequestLogPayload(url, init),
+  }, null, 2));
+
+  let response: Response;
 
   if (!shouldUseBisRelay(baseUrl)) {
-    return fetch(url, init);
+    try {
+      response = await fetch(url, init);
+    } catch (error) {
+      console.error("[BIS API] Network error", JSON.stringify({
+        requestId,
+        durationMs: Date.now() - startedAt,
+        error: error instanceof Error ? error.message : String(error),
+      }, null, 2));
+      throw error;
+    }
+
+    await logBisResponse(requestId, response, startedAt);
+    return response;
   }
 
   const relayUrl = new URL(`${getBisRelayBaseUrl()}/api/TestBisEnv/proxy`);
@@ -176,9 +237,22 @@ export async function bisFetch(baseUrl: string, url: string, init?: RequestInit)
     headers.set("x-bis-relay-secret", relaySecret);
   }
 
-  return fetch(relayUrl, {
-    ...init,
-    headers,
-    cache: "no-store",
-  });
+  try {
+    response = await fetch(relayUrl, {
+      ...init,
+      headers,
+      cache: "no-store",
+    });
+  } catch (error) {
+    console.error("[BIS API] Network error", JSON.stringify({
+      requestId,
+      relayUrl: relayUrl.toString(),
+      durationMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : String(error),
+    }, null, 2));
+    throw error;
+  }
+
+  await logBisResponse(requestId, response, startedAt);
+  return response;
 }
