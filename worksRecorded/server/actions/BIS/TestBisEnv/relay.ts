@@ -38,18 +38,109 @@ function maskAccessToken(token: string) {
   return `${token.slice(0, 8)}...${token.slice(-8)}`;
 }
 
-function logBisAccessTokenUsed(url: string, init?: RequestInit) {
+function maskAuthorizationHeader(value: string | null) {
+  if (!value) return null;
+  const bearerMatch = value.match(/^Bearer\s+(.+)$/i);
+  if (bearerMatch?.[1]) return `Bearer ${maskAccessToken(bearerMatch[1])}`;
+  if (/^Basic\s+/i.test(value)) return "Basic <redacted>";
+  return "<redacted>";
+}
+
+function serializeHeadersForLog(headers: HeadersInit | undefined) {
+  if (!headers) return {};
+  const normalized = new Headers(headers);
+  const result: Record<string, string> = {};
+
+  normalized.forEach((value, key) => {
+    result[key] = key.toLowerCase() === "authorization"
+      ? maskAuthorizationHeader(value) ?? "<redacted>"
+      : value;
+  });
+
+  return result;
+}
+
+function sanitizeBodyForLog(value: unknown, key = ""): unknown {
+  if (typeof value === "string") {
+    const normalizedKey = key.toLowerCase();
+    if (
+      !shouldLogFullBisTokens() &&
+      (normalizedKey.includes("token") || normalizedKey.includes("secret"))
+    ) {
+      return maskAccessToken(value);
+    }
+
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeBodyForLog(item));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => [
+        entryKey,
+        sanitizeBodyForLog(entryValue, entryKey),
+      ]),
+    );
+  }
+
+  return value;
+}
+
+function serializeBodyForLog(body: BodyInit | null | undefined) {
+  if (!body) return null;
+
+  if (typeof body === "string") {
+    try {
+      return sanitizeBodyForLog(JSON.parse(body));
+    } catch {
+      return body;
+    }
+  }
+
+  if (body instanceof URLSearchParams) {
+    return sanitizeBodyForLog(Object.fromEntries(body.entries()));
+  }
+
+  if (body instanceof FormData) {
+    return Array.from(body.entries()).map(([name, value]) => {
+      if (typeof value === "string") {
+        return { name, value };
+      }
+
+      return {
+        name,
+        fileName: value.name || "blob",
+        type: value.type || "application/octet-stream",
+        size: value.size,
+      };
+    });
+  }
+
+  if (body instanceof Blob) {
+    return {
+      type: body.type || "application/octet-stream",
+      size: body.size,
+    };
+  }
+
+  return `[${body.constructor?.name || "unserializable body"}]`;
+}
+
+function logBisRequest(url: string, init?: RequestInit) {
   const authorization = getHeaderValue(init?.headers, "Authorization");
   const match = authorization?.match(/^Bearer\s+(.+)$/i);
 
-  if (!match?.[1]) return;
-
-  console.log("[BIS API] Access token used", {
+  console.log("[BIS API] Request", JSON.stringify({
     method: init?.method ?? "GET",
     url,
-    accessToken: maskAccessToken(match[1]),
+    headers: serializeHeadersForLog(init?.headers),
+    body: serializeBodyForLog(init?.body),
+    accessToken: match?.[1] ? maskAccessToken(match[1]) : null,
     fullTokensLogged: shouldLogFullBisTokens(),
-  });
+  }, null, 2));
 }
 
 export function shouldUseBisRelay(baseUrl: string) {
@@ -70,7 +161,7 @@ export function getBisRelayBaseUrl() {
 }
 
 export async function bisFetch(baseUrl: string, url: string, init?: RequestInit) {
-  logBisAccessTokenUsed(url, init);
+  logBisRequest(url, init);
 
   if (!shouldUseBisRelay(baseUrl)) {
     return fetch(url, init);

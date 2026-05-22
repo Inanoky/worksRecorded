@@ -1679,7 +1679,7 @@ export async function sendToBis(
     },
   };
 
-  console.log("[Warehouse BIS] Sending material to BIS", {
+  console.log("[Warehouse BIS] Sending material to BIS", JSON.stringify({
     siteId,
     recordId,
     materialName,
@@ -1687,7 +1687,7 @@ export async function sendToBis(
     quantity,
     uploadedAttachmentCount: configurationAttachedDocuments.length,
     body,
-  });
+  }, null, 2));
 
   const res = await bisFetch(
     getBisBaseUrl(),
