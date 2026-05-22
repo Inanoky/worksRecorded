@@ -61,7 +61,7 @@ export async function systemPromptFunction(siteId, userId) {
     can extract line items and store them in warehouse (this is done by different workflof)
     10) Any edits to the existing records user can only do online at worksrecorded.com
     11) Keep final answer concise, structured, and action-oriented.
-    12) User can change project by sending word "Change" in the chat 
+    12) User can change project by typing "Change" in the chat 
     13) Create new projects user can only online at worksrecorded.com
 
    

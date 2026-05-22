@@ -58,18 +58,23 @@ export function getMetaReplyContext() {
   return metaReplyContext.getStore() ?? null;
 }
 
+function sanitizeOutgoingWhatsappText(message: string): string {
+  return message.replace(/\*/g, "");
+}
+
 export async function sendMessage(to: string | null, message: string) {
   if (!to || !message) return;
   if (to === SENDER_NUMBER) return;
 
+  const cleanMessage = sanitizeOutgoingWhatsappText(message);
   const metaCtx = metaReplyContext.getStore();
   if (metaCtx) {
-    await sendMetaMessage(metaCtx, to, message);
+    await sendMetaMessage(metaCtx, to, cleanMessage);
     return;
   }
 
   try {
-    const res = await client.messages.create({ from: SENDER_NUMBER, to, body: message });
+    const res = await client.messages.create({ from: SENDER_NUMBER, to, body: cleanMessage });
     console.log("📤 Twilio SID:", res.sid);
   } catch (err) {
     console.error("❌ Twilio send error:", err);
