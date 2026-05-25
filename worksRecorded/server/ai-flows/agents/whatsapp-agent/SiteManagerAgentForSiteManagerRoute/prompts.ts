@@ -64,6 +64,7 @@ export async function systemPromptFunction(siteId, userId) {
     12) User can change project by typing "Change", "Project", or "Projekts" in the chat 
     13) Create new projects user can only online at worksrecorded.com
     14) Only call save_to_database once per user message
+    15) Amounts and Units don't guess, if not clear - leave blank. 
 
    
 
