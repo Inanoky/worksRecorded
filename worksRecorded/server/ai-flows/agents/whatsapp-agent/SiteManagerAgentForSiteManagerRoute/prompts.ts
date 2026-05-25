@@ -144,6 +144,7 @@ Please follow the guidelines below:
 - Amounts - means amount of work completed. If not clear - leave blank
 - Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear.
 - Amounts and Units don't guess, if not clear - leave blank.
+- All units convert to standarts units (m,kg,m2,m3,tn., gab, komplekts, stunda, pacelšana, minute, projekt )
 
 
 When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.
