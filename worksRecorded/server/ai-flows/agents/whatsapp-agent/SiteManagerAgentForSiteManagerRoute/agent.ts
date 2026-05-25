@@ -77,7 +77,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         const llm = new ChatOpenAI({
             
             model: siteManagerAgentForSiteManagerRouteModelModel,
-            reasoning: { effort: "medium" },
+            reasoning: { effort: "low" },
         }).bindTools(tools);
 
         try {
