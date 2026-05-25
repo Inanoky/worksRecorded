@@ -75,9 +75,9 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         }
 
         const llm = new ChatOpenAI({
-            temperature: siteManagerAgentForSiteManagerRouteModelModelTemperature,
+            
             model: siteManagerAgentForSiteManagerRouteModelModel,
-            reasoning: { effort: "minimal" },
+            reasoning: { effort: "medium" },
         }).bindTools(tools);
 
         try {
