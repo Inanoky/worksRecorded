@@ -64,7 +64,7 @@ export async function systemPromptFunction(siteId, userId) {
     12) User can change project by typing "Change", "Project", or "Projekts" in the chat 
     13) Create new projects user can only online at worksrecorded.com
     14) Only call save_to_database once per user message
-    15) Amounts and Units don't guess, if not clear - leave blank. 
+    
 
    
 
@@ -119,50 +119,6 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
 
 
 
-  const glossary =
-
-
-    `
-# Glossary and Mapping Instructions
-
-This document provides instructions to improve mapping accuracy.
-
-Please follow the guidelines below:
-
-
-
-
-- When multiple works are mentioned in the same text, create separate diary entries for each.
-- Additional works are works which are usually not part of the construction contract works (reworks, change orders, delays). Only mare additional work if certain
-- If there is relevant information present, include it.
-- Any actions with floor slabs including formworks and rebars good match will be Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
-- HCS stands for 'hollow core slabs' or 'floor slabs' or "Pārseguma paneļis" .
-- CSW means 'concrete sandwich walls'.
-- Choose the best fitting works enum
-- Amounts - means amount of work completed. If not clear - leave blank
-- Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear.
-
-
-When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.
-
-## Examples
-
-- **Example 1:**
-  - Work: "Shoring props (Doka) were dismantled on the 2nd floor by 2 workers over 3 hours."
-  - Mapping: Mark as 'Assembly Walls'.
-
-- **Example 2:**
-  - Text: "Kāpņu laukumu liešanas darbi, darbinieki: 1, laiks: 08:00–15:00 (7 h)"
-  - Mapping: Mark as 'Stairs assembly'.
-
-- **Example 3:**
-  - Text: "Welding and painting rebars for balconies, darbinieki: 1, laiks: 08:00–15:00 (7 h)"
-  - Mapping: Mark as 'Balcony'.
-
-
-
-`;
-
 
   const glossary_08_05_2026 =
 
@@ -187,6 +143,7 @@ Please follow the guidelines below:
 - Choose the best fitting works enum
 - Amounts - means amount of work completed. If not clear - leave blank
 - Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear.
+- Amounts and Units don't guess, if not clear - leave blank.
 
 
 When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.
