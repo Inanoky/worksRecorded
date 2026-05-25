@@ -24,7 +24,7 @@ export const timeSheetsAgentModel = "gpt-5-mini" //done
 export const clickInAgentForWorkersModel = "gpt-5.4"
 export const clockInAgentForWorkersModelTemperature = 0.5
 
-export const siteManagerAgentForSiteManagerRouteModelModel = "gpt-5.4"
+export const siteManagerAgentForSiteManagerRouteModelModel = "gpt-5.5"
 export const siteManagerAgentForSiteManagerRouteModelModelTemperature = 0
 export const metaMaterialImageClassifierModel = "gpt-4.1-mini"
 export const metaMaterialImageClassifierTemperature = 0
