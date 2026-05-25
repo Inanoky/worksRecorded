@@ -34,7 +34,7 @@ export async function handleSiteManagerRoute(args: {
   if (!user.lastSelectedSiteIdforWhatsapp) {
     await sendMessage(
       from,
-      `Hello ${userName}! Please first select a project. Type 'Change' to see the project list.`
+      `Hello ${userName}! Please first select a project. Type "Change", "Project", or "Projekts" to see the project list.`
     );
     return;
   }

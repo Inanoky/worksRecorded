@@ -3,6 +3,8 @@
 import { prisma } from "@/lib/utils/db";
 import { sendMessage } from "./twillio";
 
+const PROJECT_SELECTION_COMMANDS = new Set(["change", "project", "projekts"]);
+
 /**
  * Reusable "project selection" flow for WhatsApp routes.
  * - If user sends "change" → clears selection and sends the project list.
@@ -32,8 +34,8 @@ export async function handleProjectSelector(args: {
     siteCount:  user?.organization?.sites.length ?? 0,
   });
 
-  // 1) Explicit change command
-  if (text === "change") {
+  // 1) Explicit project selection command
+  if (PROJECT_SELECTION_COMMANDS.has(text)) {
     console.log("🔄 User requested to change project selection.");
     await prisma.user.update({
       where: { id: user.id },
@@ -66,7 +68,7 @@ export async function handleProjectSelector(args: {
         data: { lastSelectedSiteIdforWhatsapp: selected.id },
       });
 
-      const msg = `${userName}, You are now talking to project "${selected.name}". To change the project, type "Change".`;
+      const msg = `${userName}, You are now talking to project "${selected.name}". To change the project, type "Change", "Project", or "Projekts".`;
       console.log("📤 Sending confirmation:", msg);
       await sendMessage(to, msg);
       return true;
