@@ -1528,7 +1528,7 @@ export async function sendToBis(
 ) {
   "use server";
 
-  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const { accessToken, bisCaseId, site } = await requireBisAccessTokenForSite(siteId);
   const baseUrl = getBisBaseUrl();
   const attachments: Array<{ type: string; uuid: string }> = [];
   const materialRecord = await prisma.bISmaterialRecords.findUnique({
@@ -1662,6 +1662,7 @@ export async function sendToBis(
     data: {
       type: "received_construction_product",
       attributes: {
+        case_construction_round_id: site.bisConstructionRoundId,
         event_date: eventDate,
         event_time_from: new Date().toTimeString().slice(0, 5),
       },
@@ -1670,7 +1671,7 @@ export async function sendToBis(
           data: {
             type: "received_construction_product",
             attributes: {
-              quantity,
+              quantity: String(quantity),
               construction_material_id,
               identification_number: materialName?.trim() || null,
               unknown_identification_number: false,
