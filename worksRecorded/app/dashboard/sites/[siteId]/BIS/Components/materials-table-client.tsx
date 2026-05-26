@@ -670,7 +670,11 @@ export default function MaterialsTableClient({
     })
 
   const saveEditModal = async () => {
+    if (editSaveLoading) return
     if (!editDraft) return
+
+    setEditSaveLoading(true)
+
     const trimmedName = editNameRef.current.trim()
     const trimmedMeasurementUnit = editUnitRef.current.trim()
     const quantity = editQuantityRef.current.trim() === "" ? null : Number(editQuantityRef.current)
@@ -678,26 +682,31 @@ export default function MaterialsTableClient({
 
     if (trimmedName.length === 0) {
       toast.error("Material name is required.")
+      setEditSaveLoading(false)
       return
     }
 
     if (trimmedName.length > MAX_MATERIAL_NAME_LENGTH) {
       toast.error(`Material name must be ${MAX_MATERIAL_NAME_LENGTH} characters or fewer.`)
+      setEditSaveLoading(false)
       return
     }
 
     if (quantity !== null && (Number.isNaN(quantity) || quantity <= 0 || quantity > MAX_QUANTITY)) {
       toast.error(`Quantity must be a number between 0 and ${MAX_QUANTITY}.`)
+      setEditSaveLoading(false)
       return
     }
 
     if (cost !== null && (Number.isNaN(cost) || cost < 0 || cost > MAX_COST)) {
       toast.error(`Cost must be a number between 0 and ${MAX_COST}.`)
+      setEditSaveLoading(false)
       return
     }
 
     if (trimmedMeasurementUnit.length > MAX_MEASUREMENT_UNIT_LENGTH) {
       toast.error(`Units must be ${MAX_MEASUREMENT_UNIT_LENGTH} characters or fewer.`)
+      setEditSaveLoading(false)
       return
     }
 
@@ -708,11 +717,13 @@ export default function MaterialsTableClient({
 
     if ((editModalMode === "confirm-send" || existingRow?.BISId) && !hasValidDraftConfiguration) {
       toast.error(t.selectConfiguration)
+      setEditSaveLoading(false)
       return
     }
 
     if ((editModalMode === "confirm-send" || existingRow?.BISId) && quantity == null) {
       toast.error(`${t.qty} is required.`)
+      setEditSaveLoading(false)
       return
     }
 
@@ -1887,7 +1898,7 @@ export default function MaterialsTableClient({
             <Button variant="outline" onClick={() => setEditModalOpen(false)} disabled={editSaveLoading}>
               {t.cancel}
             </Button>
-            <Button onClick={saveEditModal} disabled={editSaveLoading}>
+            <Button onClick={saveEditModal} disabled={editSaveLoading} aria-busy={editSaveLoading}>
               {editSaveLoading ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
