@@ -69,10 +69,6 @@ function formatOriginalUserComment(originalUserComment?: string, fullName?: stri
 //-------Loading config------------------------------
 
 export async function getConfig(siteId: string) {
-  if (siteId === ZTC_SITE_ID) {
-    return ztcSiteDiaryRecordsMap;
-  }
-
   const clientConfig = await prisma.site.findUnique({
     where: {
       id: siteId,
@@ -81,6 +77,32 @@ export async function getConfig(siteId: string) {
       siteDiaryRecordsMap: true,
     },
   });
+
+  if (siteId === ZTC_SITE_ID) {
+    const baseMap = structuredClone(ztcSiteDiaryRecordsMap as Record<string, any>);
+    const savedMap =
+      clientConfig?.siteDiaryRecordsMap && typeof clientConfig.siteDiaryRecordsMap === "object"
+        ? (clientConfig.siteDiaryRecordsMap as Record<string, any>)
+        : null;
+
+    if (!savedMap) return baseMap;
+
+    for (const [fieldKey, fieldConfig] of Object.entries(savedMap)) {
+      if (
+        fieldConfig &&
+        typeof fieldConfig === "object" &&
+        "DropDownOptions" in fieldConfig &&
+        baseMap[fieldKey]
+      ) {
+        baseMap[fieldKey] = {
+          ...baseMap[fieldKey],
+          DropDownOptions: (fieldConfig as Record<string, any>).DropDownOptions,
+        };
+      }
+    }
+
+    return baseMap;
+  }
 
   return clientConfig?.siteDiaryRecordsMap ?? null;
 }
@@ -100,10 +122,15 @@ export async function updateSiteDiaryDropdownOptions(args: {
 
   if (!site) throw new Error("Site not found");
 
+  const fallbackMap =
+    args.siteId === ZTC_SITE_ID
+      ? ztcSiteDiaryRecordsMap
+      : defaultConfig;
+
   const currentMap =
     site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
       ? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
-      : structuredClone(defaultConfig as Record<string, any>);
+      : structuredClone(fallbackMap as Record<string, any>);
 
   const normalizedOptions = Array.from(
     new Set(args.options.map((option) => option.trim()).filter(Boolean)),
@@ -116,7 +143,7 @@ export async function updateSiteDiaryDropdownOptions(args: {
     normalizedOptions.map((option) => [option, option]),
   );
 
-  const fallbackFieldConfig = (defaultConfig as Record<string, any>)?.[args.fieldKey] ?? {
+  const fallbackFieldConfig = (fallbackMap as Record<string, any>)?.[args.fieldKey] ?? {
     Type: "dropdown",
     DisplayName: args.fieldKey,
   };
