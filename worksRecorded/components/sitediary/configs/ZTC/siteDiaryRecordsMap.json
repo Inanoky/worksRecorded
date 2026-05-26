@@ -1,0 +1,221 @@
+{
+  "Date": {
+    "Type": "fixed",
+    "DisplayName": "Start time",
+    "customSettings": {
+      "renderAs": "Time",
+      "order": 1,
+      "cellWidth": 140,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 120,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_1": {
+    "Type": "fixed",
+    "DisplayName": "Drawing received",
+    "customSettings": {
+      "renderAs": "Time",
+      "order": 2,
+      "cellWidth": 150,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 2,
+      "displayinSiteListWidth": 140,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_2": {
+    "Type": "fixed",
+    "DisplayName": "Finish time",
+    "customSettings": {
+      "renderAs": "Time",
+      "order": 3,
+      "cellWidth": 140,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 2,
+      "displayinSiteListWidth": 120,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Location": {
+    "Type": "textInput",
+    "DisplayName": "Project",
+    "customSettings": {
+      "order": 4,
+      "cellWidth": 180,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 3,
+      "displayinSiteListWidth": 180,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Location_Custom_1": {
+    "Type": "textInput",
+    "DisplayName": "Element",
+    "customSettings": {
+      "order": 5,
+      "cellWidth": 180,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 4,
+      "displayinSiteListWidth": 180,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Location_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Location_Custom_2",
+    "customSettings": {
+      "order": 6,
+      "cellWidth": 180,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 5,
+      "displayinSiteListWidth": 180,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works": {
+    "Type": "textInput",
+    "DisplayName": "Activity",
+    "customSettings": {
+      "order": 7,
+      "cellWidth": 240,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 5,
+      "displayinSiteListWidth": 240,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_1",
+    "customSettings": {
+      "order": 8,
+      "cellWidth": 180,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 6,
+      "displayinSiteListWidth": 180,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Works_Custom_2",
+    "customSettings": {
+      "order": 9,
+      "cellWidth": 180,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 7,
+      "displayinSiteListWidth": 180,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments": {
+    "Type": "textInput",
+    "DisplayName": "Description",
+    "customSettings": {
+      "order": 10,
+      "cellWidth": 420,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 6,
+      "displayinSiteListWidth": 360,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_1": {
+    "Type": "noRender",
+    "DisplayName": "Comments_Custom_1",
+    "customSettings": {
+      "order": 11,
+      "cellWidth": 200,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 8,
+      "displayinSiteListWidth": 200,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Comments_Custom_2": {
+    "Type": "noRender",
+    "DisplayName": "Comments_Custom_2",
+    "customSettings": {
+      "order": 12,
+      "cellWidth": 200,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 9,
+      "displayinSiteListWidth": 200,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Units": {
+    "Type": "noRender",
+    "DisplayName": "Units",
+    "customSettings": {
+      "order": 13,
+      "cellWidth": 120,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 10,
+      "displayinSiteListWidth": 120,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Amounts": {
+    "Type": "noRender",
+    "DisplayName": "Amount",
+    "customSettings": {
+      "order": 14,
+      "cellWidth": 120,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 11,
+      "displayinSiteListWidth": 120,
+      "displayinSiteListTextAlignment": "right"
+    }
+  },
+  "WorkersInvolved": {
+    "Type": "noRender",
+    "DisplayName": "Workers",
+    "customSettings": {
+      "order": 15,
+      "cellWidth": 120,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 12,
+      "displayinSiteListWidth": 120,
+      "displayinSiteListTextAlignment": "right"
+    }
+  },
+  "TimeInvolved": {
+    "Type": "numberInput",
+    "DisplayName": "Hours",
+    "customSettings": {
+      "order": 16,
+      "cellWidth": 100,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 7,
+      "displayinSiteListWidth": 100,
+      "displayinSiteListTextAlignment": "right"
+    }
+  },
+  "Photos": {
+    "Type": "fixed",
+    "DisplayName": "Photos",
+    "customSettings": {
+      "order": 17,
+      "cellWidth": 180,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 8,
+      "displayinSiteListWidth": 140,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "originalUserComment": {
+    "Type": "textInput",
+    "DisplayName": "Original message",
+    "customSettings": {
+      "order": 18,
+      "cellWidth": 300,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 9,
+      "displayinSiteListWidth": 260,
+      "displayinSiteListTextAlignment": "left"
+    }
+  }
+}

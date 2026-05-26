@@ -17,6 +17,10 @@ import {
   updateSession,
   deleteSession,
 } from "@/app/api/webhook/meta/webhook/helperes";
+import {
+  handleZtcWorkerRoute,
+  ZTC_ORGANIZATION_ID,
+} from "@/app/api/webhook/meta/webhook/ZTC/ztc-workflow";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
@@ -250,6 +254,11 @@ async function runWhatsappRoutingForMeta(args: {
     });
 
     if (worker) {
+      if (worker.organizationId === ZTC_ORGANIZATION_ID) {
+        await handleZtcWorkerRoute({ worker, formData });
+        return;
+      }
+
       await handleWorkerRoute({ phone, formData });
       return;
     }
