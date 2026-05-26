@@ -1,6 +1,6 @@
 {
   "otherSettings": {
-    "displaySiteListWidth": 96,
+    "displaySiteListWidth": 130,
     "hideCreatedAtInSiteList": true,
     "preferConfigDisplayNames": true
   },
@@ -29,8 +29,17 @@
     }
   },
   "Works": {
-    "Type": "textInput",
+    "Type": "dropdown",
     "DisplayName": "Darbi",
+    "DropDownOptions": {
+      "timber_frame": "Koka karkasa montāža",
+      "nailing": "Naglošana / stiprināšana",
+      "insulation": "Siltināšana",
+      "sheathing": "Apšuvuma montāža",
+      "assembly": "Elementa montāža",
+      "quality_check": "Kvalitātes pārbaude",
+      "other": "Cits"
+    },
     "customSettings": {
       "order": 3,
       "cellWidth": 165,
@@ -132,10 +141,10 @@
     "DisplayName": "Komentāri",
     "customSettings": {
       "order": 11,
-      "cellWidth": 170,
+      "cellWidth": 260,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 10,
-      "displayinSiteListWidth": 170,
+      "displayinSiteListWidth": 260,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -168,10 +177,10 @@
     "DisplayName": "Mērv.",
     "customSettings": {
       "order": 14,
-      "cellWidth": 75,
+      "cellWidth": 55,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 7,
-      "displayinSiteListWidth": 75,
+      "displayinSiteListWidth": 55,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -180,10 +189,10 @@
     "DisplayName": "Daudz.",
     "customSettings": {
       "order": 15,
-      "cellWidth": 70,
+      "cellWidth": 55,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 8,
-      "displayinSiteListWidth": 70,
+      "displayinSiteListWidth": 55,
       "displayinSiteListTextAlignment": "right"
     }
   },

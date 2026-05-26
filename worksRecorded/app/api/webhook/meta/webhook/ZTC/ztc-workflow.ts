@@ -220,8 +220,9 @@ async function completeSession(args: {
   worker: ZtcWorker;
   to: string | null;
   completedWork?: WorkExtraction | null;
+  completedText?: string | null;
 }) {
-  const { session, worker, to, completedWork } = args;
+  const { session, to, completedWork, completedText } = args;
   const now = new Date();
   const timeInvolved = calculateHours(session.Date, now);
   const amountCompleted =
@@ -229,6 +230,7 @@ async function completeSession(args: {
       ? completedWork.amountCompleted
       : session.Amounts;
   const units = completedWork?.units?.trim() || session.Units || null;
+  const finalWorkerComment = completedText?.trim() || session.Comments || "";
 
   await prisma.sitediaryrecords.update({
     where: { id: session.id },
@@ -238,17 +240,7 @@ async function completeSession(args: {
       Amounts: amountCompleted ?? undefined,
       Units: units ?? undefined,
       Comments_Custom_1: null,
-      Comments: [
-        `Darbinieks: ${workerFullName(worker)}`,
-        `Projekts: ${session.Location ?? ""}`,
-        `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
-        `Darbs pabeigts: ${session.Works}`,
-        amountCompleted != null
-          ? `Pabeigtais daudzums: ${amountCompleted}${units ? ` ${units}` : ""}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      Comments: finalWorkerComment,
     },
   });
 
@@ -390,7 +382,13 @@ async function handleWorkText(args: {
       return;
     }
 
-    await completeSession({ session, worker, to, completedWork: work });
+    await completeSession({
+      session,
+      worker,
+      to,
+      completedWork: work,
+      completedText: text,
+    });
     return;
   }
 
@@ -451,6 +449,11 @@ async function handleFinishedPhoto(args: {
   });
 
   if (session.Comments_Custom_1?.startsWith("__ZTC_FINISH_PENDING__")) {
+    const completedText = session.Comments_Custom_1.replace(
+      "__ZTC_FINISH_PENDING__",
+      "",
+    ).trim();
+
     await completeSession({
       session: {
         ...session,
@@ -458,6 +461,7 @@ async function handleFinishedPhoto(args: {
       },
       worker,
       to,
+      completedText,
     });
     return;
   }
