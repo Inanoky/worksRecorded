@@ -240,7 +240,7 @@ export function BisIntegrationCard({
 
           {selectedCase.id ? (
             <div className="mt-5 border-t pt-4">
-              <div className="text-sm font-medium">Construction round</div>
+              <div className="text-sm font-medium">{t.constructionRound}</div>
               {availableConstructionRounds.length > 0 ? (
                 <form action={setBisConstructionRoundForSiteAction} className="mt-3 space-y-3">
                   <input type="hidden" name="siteId" value={siteId} />
@@ -251,7 +251,7 @@ export function BisIntegrationCard({
                     required
                   >
                     <option value="" disabled>
-                      Select construction round
+                      {t.selectConstructionRound}
                     </option>
                     {availableConstructionRounds.map((round) => (
                       <option key={round.id} value={round.id}>
@@ -261,7 +261,7 @@ export function BisIntegrationCard({
                   </select>
                   {selectedConstructionRound.id ? (
                     <p className="text-xs text-muted-foreground">
-                      Selected:{" "}
+                      {t.selectedConstructionRound}:{" "}
                       {selectedConstructionRound.roundNumber != null
                         ? `${selectedConstructionRound.roundNumber}. `
                         : ""}
@@ -270,14 +270,14 @@ export function BisIntegrationCard({
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      BIS records will not include a construction round until one is selected.
+                      {t.constructionRoundMissing}
                     </p>
                   )}
-                  <SubmitButton text="Save construction round" className="w-fit" />
+                  <SubmitButton text={t.saveConstructionRound} className="w-fit" />
                 </form>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  No construction rounds were returned for this BIS case.
+                  {t.noConstructionRounds}
                 </p>
               )}
             </div>

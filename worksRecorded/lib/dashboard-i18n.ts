@@ -334,6 +334,13 @@ type SiteSettingsMessages = {
   bisCaseForSite: string;
   selectBisCase: string;
   saveBisCase: string;
+  constructionRound: string;
+  selectConstructionRound: string;
+  saveConstructionRound: string;
+  constructionRoundSaved: string;
+  selectedConstructionRound: string;
+  noConstructionRounds: string;
+  constructionRoundMissing: string;
   noCases: string;
   connectFirst: string;
   disconnectNote: string;
@@ -1080,6 +1087,13 @@ const SITE_SETTINGS_MESSAGES: Record<OrganizationLanguage, SiteSettingsMessages>
     bisCaseForSite: "BIS case for this site",
     selectBisCase: "Select a BIS case",
     saveBisCase: "Save BIS case",
+    constructionRound: "Construction round",
+    selectConstructionRound: "Select construction round",
+    saveConstructionRound: "Save construction round",
+    constructionRoundSaved: "BIS construction round saved.",
+    selectedConstructionRound: "Selected",
+    noConstructionRounds: "No construction rounds were returned for this BIS case.",
+    constructionRoundMissing: "BIS records will not include a construction round until one is selected.",
     noCases: "BIS is connected, but no authorized BIS cases were returned for this user.",
     connectFirst: "Connect BIS first to load cases for this site.",
     disconnectNote: "Disconnecting BIS only removes access tokens. Existing site diary and material records remain in the database.",
@@ -1122,6 +1136,13 @@ const SITE_SETTINGS_MESSAGES: Record<OrganizationLanguage, SiteSettingsMessages>
     bisCaseForSite: "BIS lieta šim objektam",
     selectBisCase: "Izvēlieties BIS lietu",
     saveBisCase: "Saglabāt BIS lietu",
+    constructionRound: "Būvniecības kārta",
+    selectConstructionRound: "Izvēlieties būvniecības kārtu",
+    saveConstructionRound: "Saglabāt būvniecības kārtu",
+    constructionRoundSaved: "BIS būvniecības kārta saglabāta.",
+    selectedConstructionRound: "Izvēlēts",
+    noConstructionRounds: "Šai BIS lietai netika atgrieztas būvniecības kārtas.",
+    constructionRoundMissing: "BIS ieraksti netiks piesaistīti būvniecības kārtai, kamēr tā nav izvēlēta.",
     noCases: "BIS ir pieslēgts, bet šim lietotājam netika atrastas autorizētas BIS lietas.",
     connectFirst: "Vispirms pieslēdziet BIS, lai ielādētu šī objekta lietas.",
     disconnectNote: "BIS atvienošana noņem tikai piekļuves tokenus. Esošie žurnāla un materiālu ieraksti datubāzē paliek.",

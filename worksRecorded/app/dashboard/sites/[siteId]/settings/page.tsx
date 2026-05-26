@@ -225,7 +225,7 @@ export default async function SettingsSiteRoute({
     connected: `${t.bisIntegration}: OK`,
     disconnected: t.disconnectNote,
     "case-selected": t.saveBisCase,
-    "round-selected": "BIS construction round saved.",
+    "round-selected": t.constructionRoundSaved,
     error: bisMessage
       ? `BIS connection failed: ${bisMessage}`
       : "BIS connection failed.",
