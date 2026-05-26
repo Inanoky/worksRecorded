@@ -39,7 +39,7 @@ type WorkExtraction = {
 const utapi = new UTApi();
 
 function workerFullName(worker: ZtcWorker) {
-  return [worker.name, worker.surname].filter(Boolean).join(" ").trim() || "Worker";
+  return [worker.name, worker.surname].filter(Boolean).join(" ").trim() || "Darbinieks";
 }
 
 function findFirstMediaIndex(formData: FormData, numMedia: number, prefix: string) {
@@ -225,17 +225,46 @@ async function completeSession(args: {
       TimeInvolved: timeInvolved,
       Comments_Custom_1: null,
       Comments: [
-        `Worker: ${workerFullName(worker)}`,
-        `Project: ${session.Location ?? ""}`,
-        `Element: ${session.Location_Custom_1 ?? ""}`,
-        `Work finished: ${session.Works}`,
+        `Darbinieks: ${workerFullName(worker)}`,
+        `Projekts: ${session.Location ?? ""}`,
+        `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
+        `Darbs pabeigts: ${session.Works}`,
       ]
         .filter(Boolean)
         .join("\n"),
     },
   });
 
-  await sendMessage(to, `Work finished and saved. Time recorded: ${timeInvolved ?? 0} hours.`);
+  await sendMessage(to, `Darbs pabeigts un saglabāts. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.`);
+}
+
+async function saveCompletedWorkPhoto(args: {
+  worker: ZtcWorker;
+  publicUrl: string;
+  session: NonNullable<Awaited<ReturnType<typeof getOpenZtcSession>>>;
+}) {
+  const { worker, publicUrl, session } = args;
+
+  await prisma.photos.create({
+    data: {
+      Date: new Date(),
+      URL: publicUrl,
+      fileUrl: publicUrl,
+      Comment: [
+        `ZTC pabeigtā darba foto`,
+        `Darbinieks: ${workerFullName(worker)}`,
+        `Projekts: ${session.Location ?? ""}`,
+        `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
+        `Darbi: ${session.Works ?? ""}`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      Location: session.Location ?? null,
+      workerId: worker.id,
+      siteId: ZTC_SITE_ID,
+      organizationId: ZTC_ORGANIZATION_ID,
+    },
+  });
 }
 
 async function handleDrawingPhoto(args: {
@@ -248,10 +277,7 @@ async function handleDrawingPhoto(args: {
 
   const existing = await getOpenZtcSession(worker.id);
   if (existing?.Works) {
-    await sendMessage(
-      to,
-      "You already have an active ZTC work session. Please finish it before starting a new drawing.",
-    );
+    await sendMessage(to, "Jums jau ir aktīva ZTC darba sesija. Lūdzu pabeidziet to pirms jauna rasējuma sūtīšanas.");
     return;
   }
 
@@ -268,9 +294,7 @@ async function handleDrawingPhoto(args: {
   ) {
     await sendMessage(
       to,
-      `Please send a clear photo of the construction drawing where project name and element name are readable. ${
-        extraction.issue || ""
-      }`.trim(),
+      "Lūdzu atsūtiet skaidru būvniecības rasējuma foto, kur redzams projekta nosaukums un elementa numurs.",
     );
     return;
   }
@@ -282,7 +306,7 @@ async function handleDrawingPhoto(args: {
         Date_Custom_1: new Date(),
         Location: extraction.projectName,
         Location_Custom_1: extraction.elementName,
-        Comments: "ZTC drawing received. Waiting for work start voice message.",
+        Comments: "ZTC rasējums saņemts. Gaidām balss ziņu par darba sākšanu.",
         Photos: [image.publicUrl],
       },
     });
@@ -295,8 +319,8 @@ async function handleDrawingPhoto(args: {
         Date_Custom_1: new Date(),
         Location: extraction.projectName,
         Location_Custom_1: extraction.elementName,
-        Comments: "ZTC drawing received. Waiting for work start voice message.",
-        originalUserComment: `${workerFullName(worker)} : drawing photo`,
+        Comments: "ZTC rasējums saņemts. Gaidām balss ziņu par darba sākšanu.",
+        originalUserComment: `${workerFullName(worker)} : rasējuma foto`,
         Photos: [image.publicUrl],
       },
     });
@@ -304,7 +328,7 @@ async function handleDrawingPhoto(args: {
 
   await sendMessage(
     to,
-    `Drawing accepted.\nProject: ${extraction.projectName}\nElement: ${extraction.elementName}\nNow send a voice message with the work you are starting.`,
+    `Rasējums pieņemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nTagad atsūtiet balss ziņu ar darbu, ko sākat darīt.`,
   );
 }
 
@@ -317,13 +341,13 @@ async function handleWorkText(args: {
   const session = await getOpenZtcSession(worker.id);
 
   if (!session) {
-    await sendMessage(to, "Please start by sending a clear photo of the construction drawing.");
+    await sendMessage(to, "Lūdzu sāciet ar skaidru būvniecības rasējuma foto.");
     return;
   }
 
   const work = await extractWorkInfo(text);
   if (work.isGibberish) {
-    await sendMessage(to, `I could not understand that voice message. ${work.issue || "Please try again."}`.trim());
+    await sendMessage(to, "Neizdevās saprast balss ziņu. Lūdzu mēģiniet vēlreiz.");
     return;
   }
 
@@ -331,7 +355,7 @@ async function handleWorkText(args: {
 
   if (work.isFinish) {
     if (!session.Works) {
-      await sendMessage(to, "I have the drawing, but not the work you started yet. Please send the starting work first.");
+      await sendMessage(to, "Rasējums ir saņemts, bet vēl nav darba sākšanas ziņas. Lūdzu pasakiet, kādu darbu sākat.");
       return;
     }
 
@@ -343,7 +367,7 @@ async function handleWorkText(args: {
         },
       });
 
-      await sendMessage(to, "Finish message received. Please send a photo of the completed work.");
+      await sendMessage(to, "Pabeigšanas ziņa saņemta. Lūdzu atsūtiet pabeigtā darba foto.");
       return;
     }
 
@@ -352,7 +376,7 @@ async function handleWorkText(args: {
   }
 
   if (!work.workDescription) {
-    await sendMessage(to, "Please say which work you are starting.");
+    await sendMessage(to, "Lūdzu pasakiet, kādu darbu sākat.");
     return;
   }
 
@@ -362,10 +386,10 @@ async function handleWorkText(args: {
       Date: now,
       Works: work.workDescription,
       Comments: [
-        `Worker: ${workerFullName(worker)}`,
-        `Project: ${session.Location ?? ""}`,
-        `Element: ${session.Location_Custom_1 ?? ""}`,
-        `Started work: ${work.workDescription}`,
+        `Darbinieks: ${workerFullName(worker)}`,
+        `Projekts: ${session.Location ?? ""}`,
+        `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
+        `Sāktais darbs: ${work.workDescription}`,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -375,7 +399,7 @@ async function handleWorkText(args: {
 
   await sendMessage(
     to,
-    `Started: ${work.workDescription}\nProject: ${session.Location}\nElement: ${session.Location_Custom_1}\nWhen finished, send a completed-work photo and say the work is finished.`,
+    `Sākts darbs: ${work.workDescription}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nKad darbs ir pabeigts, atsūtiet pabeigtā darba foto un pasakiet, ka darbs ir pabeigts.`,
   );
 }
 
@@ -390,7 +414,7 @@ async function handleFinishedPhoto(args: {
   const session = await getOpenZtcSession(worker.id);
 
   if (!session?.Works) {
-    await sendMessage(to, "Please send the drawing photo and starting work voice message before completion photos.");
+    await sendMessage(to, "Pirms pabeigtā darba foto lūdzu atsūtiet rasējuma foto un balss ziņu par darba sākšanu.");
     return;
   }
 
@@ -400,6 +424,11 @@ async function handleFinishedPhoto(args: {
   await prisma.sitediaryrecords.update({
     where: { id: session.id },
     data: { Photos: nextPhotos },
+  });
+  await saveCompletedWorkPhoto({
+    worker,
+    publicUrl: image.publicUrl,
+    session,
   });
 
   if (session.Comments_Custom_1?.startsWith("__ZTC_FINISH_PENDING__")) {
@@ -419,7 +448,7 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
-  await sendMessage(to, "Completion photo received. Please send a voice message saying the work is finished.");
+  await sendMessage(to, "Pabeigtā darba foto saņemts. Lūdzu atsūtiet balss ziņu, ka darbs ir pabeigts.");
 }
 
 export async function handleZtcWorkerRoute(args: {
@@ -455,9 +484,9 @@ export async function handleZtcWorkerRoute(args: {
       return;
     }
 
-    await sendMessage(from, "Please send a drawing photo, a voice message, or a completed-work photo.");
+    await sendMessage(from, "Lūdzu atsūtiet rasējuma foto, balss ziņu vai pabeigtā darba foto.");
   } catch (error) {
     console.error("[ZTC workflow] failed", error);
-    await sendMessage(from, "Sorry, ZTC workflow could not process this message. Please try again.");
+    await sendMessage(from, "Atvainojiet, ZTC plūsma nevarēja apstrādāt šo ziņu. Lūdzu mēģiniet vēlreiz.");
   }
 }

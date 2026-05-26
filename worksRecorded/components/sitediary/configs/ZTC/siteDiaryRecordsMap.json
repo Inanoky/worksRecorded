@@ -1,60 +1,49 @@
 {
-  "Date": {
-    "Type": "fixed",
-    "DisplayName": "Start time",
-    "customSettings": {
-      "renderAs": "Time",
-      "order": 1,
-      "cellWidth": 140,
-      "displayinSiteList": "yes",
-      "displayinSiteListOrder": 1,
-      "displayinSiteListWidth": 120,
-      "displayinSiteListTextAlignment": "left"
-    }
-  },
-  "Date_Custom_1": {
-    "Type": "fixed",
-    "DisplayName": "Drawing received",
-    "customSettings": {
-      "renderAs": "Time",
-      "order": 2,
-      "cellWidth": 150,
-      "displayinSiteList": "no",
-      "displayinSiteListOrder": 2,
-      "displayinSiteListWidth": 140,
-      "displayinSiteListTextAlignment": "left"
-    }
-  },
-  "Date_Custom_2": {
-    "Type": "fixed",
-    "DisplayName": "Finish time",
-    "customSettings": {
-      "renderAs": "Time",
-      "order": 3,
-      "cellWidth": 140,
-      "displayinSiteList": "yes",
-      "displayinSiteListOrder": 2,
-      "displayinSiteListWidth": 120,
-      "displayinSiteListTextAlignment": "left"
-    }
+  "otherSettings": {
+    "displaySiteListWidth": 120,
+    "hideCreatedAtInSiteList": true
   },
   "Location": {
     "Type": "textInput",
-    "DisplayName": "Project",
+    "DisplayName": "Projekts",
     "customSettings": {
-      "order": 4,
-      "cellWidth": 180,
+      "order": 1,
+      "cellWidth": 220,
       "displayinSiteList": "yes",
-      "displayinSiteListOrder": 3,
-      "displayinSiteListWidth": 180,
+      "displayinSiteListOrder": 1,
+      "displayinSiteListWidth": 220,
       "displayinSiteListTextAlignment": "left"
     }
   },
   "Location_Custom_1": {
     "Type": "textInput",
-    "DisplayName": "Element",
+    "DisplayName": "Elementa numurs",
     "customSettings": {
-      "order": 5,
+      "order": 2,
+      "cellWidth": 180,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 2,
+      "displayinSiteListWidth": 180,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Works": {
+    "Type": "textInput",
+    "DisplayName": "Darbi",
+    "customSettings": {
+      "order": 3,
+      "cellWidth": 260,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 3,
+      "displayinSiteListWidth": 260,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "createdBy": {
+    "Type": "fixed",
+    "DisplayName": "Darbinieks",
+    "customSettings": {
+      "order": 4,
       "cellWidth": 180,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 4,
@@ -62,27 +51,54 @@
       "displayinSiteListTextAlignment": "left"
     }
   },
+  "Date": {
+    "Type": "fixed",
+    "DisplayName": "Sākuma laiks",
+    "customSettings": {
+      "renderAs": "Time",
+      "order": 5,
+      "cellWidth": 140,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 5,
+      "displayinSiteListWidth": 120,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_1": {
+    "Type": "fixed",
+    "DisplayName": "Rasējums saņemts",
+    "customSettings": {
+      "renderAs": "Time",
+      "order": 6,
+      "cellWidth": 150,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 6,
+      "displayinSiteListWidth": 140,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
+  "Date_Custom_2": {
+    "Type": "fixed",
+    "DisplayName": "Beigu laiks",
+    "customSettings": {
+      "renderAs": "Time",
+      "order": 7,
+      "cellWidth": 140,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 7,
+      "displayinSiteListWidth": 120,
+      "displayinSiteListTextAlignment": "left"
+    }
+  },
   "Location_Custom_2": {
     "Type": "noRender",
     "DisplayName": "Location_Custom_2",
     "customSettings": {
-      "order": 6,
+      "order": 8,
       "cellWidth": 180,
       "displayinSiteList": "no",
-      "displayinSiteListOrder": 5,
+      "displayinSiteListOrder": 8,
       "displayinSiteListWidth": 180,
-      "displayinSiteListTextAlignment": "left"
-    }
-  },
-  "Works": {
-    "Type": "textInput",
-    "DisplayName": "Activity",
-    "customSettings": {
-      "order": 7,
-      "cellWidth": 240,
-      "displayinSiteList": "yes",
-      "displayinSiteListOrder": 5,
-      "displayinSiteListWidth": 240,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -90,10 +106,10 @@
     "Type": "noRender",
     "DisplayName": "Works_Custom_1",
     "customSettings": {
-      "order": 8,
+      "order": 9,
       "cellWidth": 180,
       "displayinSiteList": "no",
-      "displayinSiteListOrder": 6,
+      "displayinSiteListOrder": 9,
       "displayinSiteListWidth": 180,
       "displayinSiteListTextAlignment": "left"
     }
@@ -102,22 +118,22 @@
     "Type": "noRender",
     "DisplayName": "Works_Custom_2",
     "customSettings": {
-      "order": 9,
+      "order": 10,
       "cellWidth": 180,
       "displayinSiteList": "no",
-      "displayinSiteListOrder": 7,
+      "displayinSiteListOrder": 10,
       "displayinSiteListWidth": 180,
       "displayinSiteListTextAlignment": "left"
     }
   },
   "Comments": {
     "Type": "textInput",
-    "DisplayName": "Description",
+    "DisplayName": "Komentāri",
     "customSettings": {
-      "order": 10,
+      "order": 11,
       "cellWidth": 420,
       "displayinSiteList": "yes",
-      "displayinSiteListOrder": 6,
+      "displayinSiteListOrder": 8,
       "displayinSiteListWidth": 360,
       "displayinSiteListTextAlignment": "left"
     }
@@ -126,10 +142,10 @@
     "Type": "noRender",
     "DisplayName": "Comments_Custom_1",
     "customSettings": {
-      "order": 11,
+      "order": 12,
       "cellWidth": 200,
       "displayinSiteList": "no",
-      "displayinSiteListOrder": 8,
+      "displayinSiteListOrder": 12,
       "displayinSiteListWidth": 200,
       "displayinSiteListTextAlignment": "left"
     }
@@ -138,55 +154,55 @@
     "Type": "noRender",
     "DisplayName": "Comments_Custom_2",
     "customSettings": {
-      "order": 12,
+      "order": 13,
       "cellWidth": 200,
       "displayinSiteList": "no",
-      "displayinSiteListOrder": 9,
+      "displayinSiteListOrder": 13,
       "displayinSiteListWidth": 200,
       "displayinSiteListTextAlignment": "left"
     }
   },
   "Units": {
-    "Type": "noRender",
-    "DisplayName": "Units",
+    "Type": "textInput",
+    "DisplayName": "Mērvienība",
     "customSettings": {
-      "order": 13,
+      "order": 14,
       "cellWidth": 120,
-      "displayinSiteList": "no",
-      "displayinSiteListOrder": 10,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 5,
       "displayinSiteListWidth": 120,
       "displayinSiteListTextAlignment": "left"
     }
   },
   "Amounts": {
-    "Type": "noRender",
-    "DisplayName": "Amount",
+    "Type": "numberInput",
+    "DisplayName": "Daudzums",
     "customSettings": {
-      "order": 14,
+      "order": 15,
       "cellWidth": 120,
-      "displayinSiteList": "no",
-      "displayinSiteListOrder": 11,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 6,
       "displayinSiteListWidth": 120,
       "displayinSiteListTextAlignment": "right"
     }
   },
   "WorkersInvolved": {
     "Type": "noRender",
-    "DisplayName": "Workers",
+    "DisplayName": "Darbinieki",
     "customSettings": {
-      "order": 15,
+      "order": 16,
       "cellWidth": 120,
       "displayinSiteList": "no",
-      "displayinSiteListOrder": 12,
+      "displayinSiteListOrder": 16,
       "displayinSiteListWidth": 120,
       "displayinSiteListTextAlignment": "right"
     }
   },
   "TimeInvolved": {
     "Type": "numberInput",
-    "DisplayName": "Hours",
+    "DisplayName": "Stundas",
     "customSettings": {
-      "order": 16,
+      "order": 17,
       "cellWidth": 100,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 7,
@@ -196,24 +212,24 @@
   },
   "Photos": {
     "Type": "fixed",
-    "DisplayName": "Photos",
+    "DisplayName": "Foto",
     "customSettings": {
-      "order": 17,
+      "order": 18,
       "cellWidth": 180,
-      "displayinSiteList": "yes",
-      "displayinSiteListOrder": 8,
+      "displayinSiteList": "no",
+      "displayinSiteListOrder": 18,
       "displayinSiteListWidth": 140,
       "displayinSiteListTextAlignment": "left"
     }
   },
   "originalUserComment": {
     "Type": "textInput",
-    "DisplayName": "Original message",
+    "DisplayName": "Sākotnējā ziņa",
     "customSettings": {
-      "order": 18,
+      "order": 19,
       "cellWidth": 300,
       "displayinSiteList": "no",
-      "displayinSiteListOrder": 9,
+      "displayinSiteListOrder": 19,
       "displayinSiteListWidth": 260,
       "displayinSiteListTextAlignment": "left"
     }

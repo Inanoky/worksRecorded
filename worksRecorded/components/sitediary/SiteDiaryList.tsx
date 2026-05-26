@@ -508,7 +508,7 @@ export default function SiteDiaryCalendar({
         }
 
         //Here we load config from database, and if no config we use default.
-        const cfg = (await getConfig(siteId)) ?? defaultConfig;
+        const cfg = (((await getConfig(siteId)) ?? defaultConfig) as ConfigMap);
         if (cancelled) return;
 
         const screenWidth = cfg?.otherSettings?.displaySiteListWidth ?? 140;
@@ -520,7 +520,11 @@ export default function SiteDiaryCalendar({
         setMap(cfg);
 
         const renderableFields = getRenderableFieldsOrdered(cfg);
-        const tableFields = ["createdAt", ...renderableFields];
+        const showCreatedAtColumn =
+          cfg?.otherSettings?.hideCreatedAtInSiteList !== true;
+        const tableFields = showCreatedAtColumn
+          ? ["createdAt", ...renderableFields]
+          : renderableFields;
         console.log(`renderableFields ${renderableFields}`);
 
         setTableHeads(tableFields);

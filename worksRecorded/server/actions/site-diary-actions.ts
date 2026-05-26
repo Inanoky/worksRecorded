@@ -11,6 +11,9 @@ import { getOrganizationIdByUserId } from "./shared-actions";
 import { getOrganizationIdByWorkerId, orgCheck } from "./shared-actions";
 import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
+
+const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
 
 function extractBisUrlDebug(url: string) {
@@ -66,6 +69,10 @@ function formatOriginalUserComment(originalUserComment?: string, fullName?: stri
 //-------Loading config------------------------------
 
 export async function getConfig(siteId: string) {
+  if (siteId === ZTC_SITE_ID) {
+    return ztcSiteDiaryRecordsMap;
+  }
+
   const clientConfig = await prisma.site.findUnique({
     where: {
       id: siteId,
