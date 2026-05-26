@@ -356,6 +356,13 @@ export default function SiteDiaryCalendar({
   }
 
   function getDisplayNameByKey(key) {
+    if (
+      defaultMap?.otherSettings?.preferConfigDisplayNames === true &&
+      defaultMap[key]?.DisplayName
+    ) {
+      return defaultMap[key].DisplayName;
+    }
+
     if (Object.prototype.hasOwnProperty.call(localizedHeaderMap, key)) return localizedHeaderMap[key as keyof typeof localizedHeaderMap];
     return defaultMap[key]?.DisplayName ?? key;
   }

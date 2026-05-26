@@ -133,9 +133,9 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
         });
         if (!alive) return;
         setPhotos(rows || []);
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (!alive) return;
-        setError(e?.message ?? t.failedLoadPhotos);
+        setError(e instanceof Error ? e.message : t.failedLoadPhotos);
         setPhotos([]);
       } finally {
         if (alive) setLoading(false);
@@ -207,7 +207,7 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
     if (!viewerRef.current) return;
 
     const factor = Math.pow(1.0015, -e.deltaY);
-    let target = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
+    const target = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
     const cover = Math.max(1, getCoverScale());
 
     if (target <= cover) {
@@ -304,7 +304,7 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
     midY: 0,
   });
 
-  function dist(a: Touch, b: Touch) {
+  function dist(a: React.Touch, b: React.Touch) {
     const dx = a.clientX - b.clientX;
     const dy = a.clientY - b.clientY;
     return Math.hypot(dx, dy);
@@ -512,7 +512,7 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
               {/* Viewer */}
               <div
                 ref={viewerRef}
-                className="max-h-[90vh] max-w-[95vw] p-2"
+                className="flex h-[92vh] w-[92vw] max-w-[1400px] flex-col p-2"
                 onClick={(e) => e.stopPropagation()}
                 onWheel={handleWheel}
                 onDoubleClick={handleDoubleClick}
@@ -529,8 +529,7 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
                 onTouchEnd={handleTouchEnd}
               >
                 <div
-                  className="relative mx-auto flex items-center justifycenter overflow-hidden rounded-md"
-                  style={{ maxHeight: "80vh", maxWidth: "90vw" }}
+                  className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md"
                 >
                   <img
                     ref={imgRef}
@@ -542,8 +541,8 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
                     style={{
                       transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
                       transformOrigin: "center center",
-                      maxHeight: "80vh",
-                      maxWidth: "90vw",
+                      maxHeight: "100%",
+                      maxWidth: "100%",
                       objectFit: "contain",
                       transition: isPanningRef.current
                         ? "none"
@@ -553,7 +552,7 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
                 </div>
 
                 {imageList[currentIndex]?.caption ? (
-                  <div className="mt-2 text-center text-sm text-white/90">
+                  <div className="mx-auto mt-3 max-h-24 max-w-4xl overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-black/40 px-3 py-2 text-center text-sm leading-snug text-white/90">
                     {imageList[currentIndex].caption}
                   </div>
                 ) : null}

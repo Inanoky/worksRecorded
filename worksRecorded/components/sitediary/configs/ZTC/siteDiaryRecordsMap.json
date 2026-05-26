@@ -1,29 +1,30 @@
 {
   "otherSettings": {
-    "displaySiteListWidth": 120,
-    "hideCreatedAtInSiteList": true
+    "displaySiteListWidth": 96,
+    "hideCreatedAtInSiteList": true,
+    "preferConfigDisplayNames": true
   },
   "Location": {
     "Type": "textInput",
     "DisplayName": "Projekts",
     "customSettings": {
       "order": 1,
-      "cellWidth": 220,
+      "cellWidth": 125,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 1,
-      "displayinSiteListWidth": 220,
+      "displayinSiteListWidth": 125,
       "displayinSiteListTextAlignment": "left"
     }
   },
   "Location_Custom_1": {
     "Type": "textInput",
-    "DisplayName": "Elementa numurs",
+    "DisplayName": "Elements",
     "customSettings": {
       "order": 2,
-      "cellWidth": 180,
+      "cellWidth": 115,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 2,
-      "displayinSiteListWidth": 180,
+      "displayinSiteListWidth": 115,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -32,10 +33,10 @@
     "DisplayName": "Darbi",
     "customSettings": {
       "order": 3,
-      "cellWidth": 260,
+      "cellWidth": 165,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 3,
-      "displayinSiteListWidth": 260,
+      "displayinSiteListWidth": 165,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -44,23 +45,23 @@
     "DisplayName": "Darbinieks",
     "customSettings": {
       "order": 4,
-      "cellWidth": 180,
+      "cellWidth": 115,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 4,
-      "displayinSiteListWidth": 180,
+      "displayinSiteListWidth": 115,
       "displayinSiteListTextAlignment": "left"
     }
   },
   "Date": {
     "Type": "fixed",
-    "DisplayName": "Sākuma laiks",
+    "DisplayName": "Sākums",
     "customSettings": {
       "renderAs": "Time",
       "order": 5,
-      "cellWidth": 140,
-      "displayinSiteList": "no",
+      "cellWidth": 80,
+      "displayinSiteList": "yes",
       "displayinSiteListOrder": 5,
-      "displayinSiteListWidth": 120,
+      "displayinSiteListWidth": 80,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -79,14 +80,14 @@
   },
   "Date_Custom_2": {
     "Type": "fixed",
-    "DisplayName": "Beigu laiks",
+    "DisplayName": "Beigas",
     "customSettings": {
       "renderAs": "Time",
       "order": 7,
-      "cellWidth": 140,
-      "displayinSiteList": "no",
-      "displayinSiteListOrder": 7,
-      "displayinSiteListWidth": 120,
+      "cellWidth": 80,
+      "displayinSiteList": "yes",
+      "displayinSiteListOrder": 6,
+      "displayinSiteListWidth": 80,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -97,7 +98,7 @@
       "order": 8,
       "cellWidth": 180,
       "displayinSiteList": "no",
-      "displayinSiteListOrder": 8,
+      "displayinSiteListOrder": 10,
       "displayinSiteListWidth": 180,
       "displayinSiteListTextAlignment": "left"
     }
@@ -131,10 +132,10 @@
     "DisplayName": "Komentāri",
     "customSettings": {
       "order": 11,
-      "cellWidth": 420,
+      "cellWidth": 170,
       "displayinSiteList": "yes",
-      "displayinSiteListOrder": 8,
-      "displayinSiteListWidth": 360,
+      "displayinSiteListOrder": 10,
+      "displayinSiteListWidth": 170,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -164,25 +165,25 @@
   },
   "Units": {
     "Type": "textInput",
-    "DisplayName": "Mērvienība",
+    "DisplayName": "Mērv.",
     "customSettings": {
       "order": 14,
-      "cellWidth": 120,
+      "cellWidth": 75,
       "displayinSiteList": "yes",
-      "displayinSiteListOrder": 5,
-      "displayinSiteListWidth": 120,
+      "displayinSiteListOrder": 7,
+      "displayinSiteListWidth": 75,
       "displayinSiteListTextAlignment": "left"
     }
   },
   "Amounts": {
     "Type": "numberInput",
-    "DisplayName": "Daudzums",
+    "DisplayName": "Daudz.",
     "customSettings": {
       "order": 15,
-      "cellWidth": 120,
+      "cellWidth": 70,
       "displayinSiteList": "yes",
-      "displayinSiteListOrder": 6,
-      "displayinSiteListWidth": 120,
+      "displayinSiteListOrder": 8,
+      "displayinSiteListWidth": 70,
       "displayinSiteListTextAlignment": "right"
     }
   },
@@ -200,13 +201,13 @@
   },
   "TimeInvolved": {
     "Type": "numberInput",
-    "DisplayName": "Stundas",
+    "DisplayName": "h",
     "customSettings": {
       "order": 17,
-      "cellWidth": 100,
+      "cellWidth": 65,
       "displayinSiteList": "yes",
-      "displayinSiteListOrder": 7,
-      "displayinSiteListWidth": 100,
+      "displayinSiteListOrder": 9,
+      "displayinSiteListWidth": 65,
       "displayinSiteListTextAlignment": "right"
     }
   },

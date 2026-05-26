@@ -33,6 +33,8 @@ type WorkExtraction = {
   isGibberish: boolean;
   isFinish: boolean;
   workDescription: string | null;
+  amountCompleted: number | null;
+  units: string | null;
   issue: string | null;
 };
 
@@ -165,6 +167,8 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
       isGibberish: true,
       isFinish: false,
       workDescription: null,
+      amountCompleted: null,
+      units: null,
       issue: "No speech was recognized.",
     };
   }
@@ -177,7 +181,7 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
       {
         role: "system",
         content:
-          "Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, workDescription string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Otherwise extract the work activity being started, e.g. 'timber frame assembly'. Keep it concise.",
+          "Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, workDescription string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Extract the work activity, e.g. 'timber frame assembly'. If the worker says how much was completed, extract the numeric amount and unit exactly but normalize obvious spoken numbers to digits, for example 'twelve panels' -> amountCompleted 12, units 'panels', '8 square meters' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units. Keep workDescription concise.",
       },
       { role: "user", content: normalized },
     ],
@@ -187,6 +191,8 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
     isGibberish: true,
     isFinish: false,
     workDescription: null,
+    amountCompleted: null,
+    units: null,
     issue: "Could not understand the work message.",
   });
 }
@@ -213,22 +219,33 @@ async function completeSession(args: {
   session: NonNullable<Awaited<ReturnType<typeof getOpenZtcSession>>>;
   worker: ZtcWorker;
   to: string | null;
+  completedWork?: WorkExtraction | null;
 }) {
-  const { session, worker, to } = args;
+  const { session, worker, to, completedWork } = args;
   const now = new Date();
   const timeInvolved = calculateHours(session.Date, now);
+  const amountCompleted =
+    completedWork?.amountCompleted != null
+      ? completedWork.amountCompleted
+      : session.Amounts;
+  const units = completedWork?.units?.trim() || session.Units || null;
 
   await prisma.sitediaryrecords.update({
     where: { id: session.id },
     data: {
       Date_Custom_2: now,
       TimeInvolved: timeInvolved,
+      Amounts: amountCompleted ?? undefined,
+      Units: units ?? undefined,
       Comments_Custom_1: null,
       Comments: [
         `Darbinieks: ${workerFullName(worker)}`,
         `Projekts: ${session.Location ?? ""}`,
         `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
         `Darbs pabeigts: ${session.Works}`,
+        amountCompleted != null
+          ? `Pabeigtais daudzums: ${amountCompleted}${units ? ` ${units}` : ""}`
+          : null,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -363,6 +380,8 @@ async function handleWorkText(args: {
       await prisma.sitediaryrecords.update({
         where: { id: session.id },
         data: {
+          Amounts: work.amountCompleted ?? undefined,
+          Units: work.units?.trim() || undefined,
           Comments_Custom_1: `__ZTC_FINISH_PENDING__ ${text}`,
         },
       });
@@ -371,7 +390,7 @@ async function handleWorkText(args: {
       return;
     }
 
-    await completeSession({ session, worker, to });
+    await completeSession({ session, worker, to, completedWork: work });
     return;
   }
 
