@@ -8,6 +8,7 @@ import {
 import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
+const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
 type ZtcWorker = {
   id: string;
@@ -245,11 +246,6 @@ async function handleDrawingPhoto(args: {
 }) {
   const { formData, idx, to, worker } = args;
 
-  if (!worker.siteId) {
-    await sendMessage(to, "Your worker profile is not assigned to a project. Please contact admin.");
-    return;
-  }
-
   const existing = await getOpenZtcSession(worker.id);
   if (existing?.Works) {
     await sendMessage(
@@ -294,7 +290,7 @@ async function handleDrawingPhoto(args: {
     await prisma.sitediaryrecords.create({
       data: {
         workerId: worker.id,
-        siteId: worker.siteId,
+        siteId: ZTC_SITE_ID,
         organizationId: ZTC_ORGANIZATION_ID,
         Date_Custom_1: new Date(),
         Location: extraction.projectName,
