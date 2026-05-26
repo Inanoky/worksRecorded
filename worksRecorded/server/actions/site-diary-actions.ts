@@ -1471,55 +1471,10 @@ async function fetchBisRelatedResource(
 }
 
 export async function getBisCaseAvailableMaterials(siteId: string) {
-  const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(siteId);
+  const { accessToken, bisCaseId: bisCase, site } = await requireBisAccessTokenForSite(siteId);
 
   const baseUrl = getBisBaseUrl();
-  let caseConstructionRoundId: string | null = null;
-
-  try {
-    const caseUrl = `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}`;
-    logBisGetRequest("fetch BIS case", caseUrl);
-    const caseResponse = await bisFetch(
-      baseUrl,
-      caseUrl,
-      {
-        headers: {
-          Accept: "application/vnd.api+json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        cache: "no-store",
-      },
-    );
-
-    const caseText = await caseResponse.text();
-    let caseJson: any = null;
-    try {
-      caseJson = caseText ? JSON.parse(caseText) : null;
-    } catch {
-      caseJson = null;
-    }
-
-    if (caseResponse.ok) {
-      const rawRoundId =
-        caseJson?.data?.attributes?.case_construction_round_id ??
-        caseJson?.data?.attributes?.current_case_construction_round_id ??
-        null;
-      caseConstructionRoundId = rawRoundId == null ? null : String(rawRoundId);
-    } else {
-      console.warn("[SiteDiary BIS] Could not load case round id for material availability", {
-        siteId,
-        bisCase,
-        status: caseResponse.status,
-        detail: caseJson?.errors?.[0]?.detail ?? caseJson?.error ?? null,
-      });
-    }
-  } catch (error) {
-    console.warn("[SiteDiary BIS] Failed to resolve case round id for material availability", {
-      siteId,
-      bisCase,
-      error: error instanceof Error ? error.message : error,
-    });
-  }
+  const caseConstructionRoundId = site.bisConstructionRoundId;
 
   // 12I7-136: available received construction products for adding into performed works.
   // This endpoint already includes all available rows for the current case context.
@@ -1855,7 +1810,7 @@ export async function sendSiteDiaryRecordToBis(
     throw new Error("Site diary record is not assigned to a site");
   }
 
-  const { accessToken, bisCaseId: bisCase } = await requireBisAccessTokenForSite(recordSite.siteId);
+  const { accessToken, bisCaseId: bisCase, site } = await requireBisAccessTokenForSite(recordSite.siteId);
 
   const diaryRecord = await prisma.sitediaryrecords.findUnique({
     where: { id: recordId },
@@ -1971,7 +1926,7 @@ export async function sendSiteDiaryRecordToBis(
       attributes: {
         event_date: eventDate,
         event_time_from: eventTimeFrom,
-        case_construction_round_id: null,
+        case_construction_round_id: site.bisConstructionRoundId,
         responsible_person_id: resolvedResponsiblePerson.responsiblePersonId,
         responsible_person_type: resolvedResponsiblePerson.responsiblePersonType,
         description:

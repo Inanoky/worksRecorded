@@ -17,7 +17,44 @@ type SiteBisConfigRow = {
   bisCaseNumber: string | null;
   bisCaseName: string | null;
   bisCaseStage: string | null;
+  bisConstructionRoundId: string | null;
+  bisConstructionRoundName: string | null;
+  bisConstructionRoundNumber: number | null;
+  bisConstructionRoundStatus: string | null;
 };
+
+export type BisConstructionRoundOption = {
+  id: string;
+  name: string | null;
+  roundNumber: number | null;
+  status: string | null;
+  label: string;
+};
+
+export type BisCaseOption = {
+  id: string;
+  caseNumber: string | null;
+  constructionName: string | null;
+  stageName: string | null;
+};
+
+type JsonRecord = Record<string, unknown>;
+
+function isJsonRecord(value: unknown): value is JsonRecord {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function getJsonApiErrorMessage(payload: unknown, fallback: string) {
+  if (!isJsonRecord(payload)) return fallback;
+  const errors = payload.errors;
+  if (Array.isArray(errors)) {
+    const firstError = errors[0];
+    if (isJsonRecord(firstError) && typeof firstError.detail === "string") {
+      return firstError.detail;
+    }
+  }
+  return typeof payload.error === "string" ? payload.error : fallback;
+}
 
 class BisTokenRefreshError extends Error {
   code: string;
@@ -174,7 +211,12 @@ export async function refreshBisAccessToken(userId: string, refreshToken: string
   });
 
   const text = await response.text();
-  let json: any = {};
+  let json: {
+    access_token?: string;
+    refresh_token?: string;
+    error_description?: string;
+    error?: string;
+  } = {};
   try {
     json = text ? JSON.parse(text) : {};
   } catch {
@@ -258,7 +300,16 @@ export async function deleteUserBisTokens(userId: string) {
 
 export async function getSiteBisConfig(siteId: string) {
   const rows = await prisma.$queryRaw<SiteBisConfigRow[]>`
-    SELECT id, "bisCaseId", "bisCaseNumber", "bisCaseName", "bisCaseStage"
+    SELECT
+      id,
+      "bisCaseId",
+      "bisCaseNumber",
+      "bisCaseName",
+      "bisCaseStage",
+      "bisConstructionRoundId",
+      "bisConstructionRoundName",
+      "bisConstructionRoundNumber",
+      "bisConstructionRoundStatus"
     FROM "Site"
     WHERE id = ${siteId}
     LIMIT 1
@@ -274,7 +325,31 @@ export async function setSiteBisConfig(siteId: string, config: Omit<SiteBisConfi
       "bisCaseId" = ${config.bisCaseId},
       "bisCaseNumber" = ${config.bisCaseNumber},
       "bisCaseName" = ${config.bisCaseName},
-      "bisCaseStage" = ${config.bisCaseStage}
+      "bisCaseStage" = ${config.bisCaseStage},
+      "bisConstructionRoundId" = ${config.bisConstructionRoundId},
+      "bisConstructionRoundName" = ${config.bisConstructionRoundName},
+      "bisConstructionRoundNumber" = ${config.bisConstructionRoundNumber},
+      "bisConstructionRoundStatus" = ${config.bisConstructionRoundStatus}
+    WHERE id = ${siteId}
+  `;
+}
+
+export async function setSiteBisConstructionRound(
+  siteId: string,
+  round: {
+    id: string | null;
+    name: string | null;
+    roundNumber: number | null;
+    status: string | null;
+  },
+) {
+  await prisma.$executeRaw`
+    UPDATE "Site"
+    SET
+      "bisConstructionRoundId" = ${round.id},
+      "bisConstructionRoundName" = ${round.name},
+      "bisConstructionRoundNumber" = ${round.roundNumber},
+      "bisConstructionRoundStatus" = ${round.status}
     WHERE id = ${siteId}
   `;
 }
@@ -327,7 +402,7 @@ export async function fetchBisAvailableCases(accessToken: string) {
   );
 
   const text = await response.text();
-  let json: any = {};
+  let json: unknown = {};
   try {
     json = text ? JSON.parse(text) : {};
   } catch {
@@ -344,21 +419,96 @@ export async function fetchBisAvailableCases(accessToken: string) {
 
   if (!response.ok) {
     throw new Error(
-      json?.errors?.[0]?.detail || json?.error || "Failed to fetch BIS cases",
+      getJsonApiErrorMessage(json, "Failed to fetch BIS cases"),
     );
   }
 
-  return (Array.isArray(json?.data) ? json.data : []).map((item: any) => ({
-    id: String(item?.id ?? ""),
-    caseNumber:
-      item?.attributes?.bis_case_number ?? item?.attributes?.case_number ?? null,
-    constructionName:
-      item?.attributes?.bis_case_name ??
-      item?.attributes?.construction_name ??
-      item?.attributes?.construction_board_name ??
-      null,
-    stageName: item?.attributes?.stage_name ?? null,
-  }));
+  const jsonRecord = isJsonRecord(json) ? json : {};
+  const rows = Array.isArray(jsonRecord.data) ? jsonRecord.data : [];
+
+  return rows
+    .map((item) => {
+      if (!isJsonRecord(item)) return null;
+      const attributes = isJsonRecord(item.attributes) ? item.attributes : {};
+
+      return {
+        id: String(item.id ?? ""),
+        caseNumber:
+          attributes.bis_case_number == null && attributes.case_number == null
+            ? null
+            : String(attributes.bis_case_number ?? attributes.case_number),
+        constructionName:
+          attributes.bis_case_name == null &&
+          attributes.construction_name == null &&
+          attributes.construction_board_name == null
+            ? null
+            : String(
+                attributes.bis_case_name ??
+                attributes.construction_name ??
+                attributes.construction_board_name,
+              ),
+        stageName: attributes.stage_name == null ? null : String(attributes.stage_name),
+      };
+    })
+    .filter((item): item is BisCaseOption => Boolean(item?.id));
+}
+
+export async function fetchBisCaseConstructionRounds(
+  accessToken: string,
+  bisCaseId: string,
+): Promise<BisConstructionRoundOption[]> {
+  const response = await bisFetch(
+    getBisBaseUrl(),
+    `${getBisBaseUrl()}/bisp/api/portal/bis_cases/${encodeURIComponent(bisCaseId)}/construction_rounds?page[number]=1&page[size]=100`,
+    {
+      headers: {
+        Accept: "application/vnd.api+json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const text = await response.text();
+  let json: unknown = {};
+  try {
+    json = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(
+      `BIS construction rounds endpoint returned non-JSON response (status ${response.status}).`,
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      getJsonApiErrorMessage(json, "Failed to fetch BIS construction rounds"),
+    );
+  }
+
+  const jsonRecord = isJsonRecord(json) ? json : {};
+  const rows = Array.isArray(jsonRecord.data) ? jsonRecord.data : [];
+
+  return rows
+    .map((item) => {
+      if (!isJsonRecord(item)) return null;
+      const id = String(item.id ?? "");
+      const attributes = isJsonRecord(item.attributes) ? item.attributes : {};
+      const name = attributes.name == null ? null : String(attributes.name);
+      const roundNumber =
+        attributes.round_number == null ? null : Number(attributes.round_number);
+      const status = attributes.status == null ? null : String(attributes.status);
+      const numberLabel = Number.isFinite(roundNumber) ? `${roundNumber}. ` : "";
+      const label = `${numberLabel}${name || `Round ${id}`}${status ? ` (${status})` : ""}`;
+
+      return {
+        id,
+        name,
+        roundNumber: Number.isFinite(roundNumber) ? roundNumber : null,
+        status,
+        label,
+      };
+    })
+    .filter((item): item is BisConstructionRoundOption => Boolean(item?.id));
 }
 
 export async function exchangeBisAuthorizationCode(code: string) {

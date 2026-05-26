@@ -349,11 +349,14 @@ async function fetchWarehouseMaterialConfigurationData(siteId: string): Promise<
   materialMeasures: MaterialMeasure[];
   materialTypes: MaterialType[];
 }> {
-  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const { accessToken, bisCaseId, site } = await requireBisAccessTokenForSite(siteId);
+  const materialConfigurationsPath = site.bisConstructionRoundId
+    ? `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials?filter[case_construction_round_id_eq]=${encodeURIComponent(site.bisConstructionRoundId)}`
+    : `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`;
 
   const [materialsData, measuresData, materialTypesData] = await Promise.all([
     fetchBisPagedData(
-      `/bisp/api/portal/bis_cases/${bisCaseId}/logbook/construction_materials`,
+      materialConfigurationsPath,
       accessToken,
     ),
     fetchBisPagedData(
@@ -645,10 +648,12 @@ export async function createMaterialConfiguration(
     throw new Error("Manufacturer is required");
   }
 
-  const { accessToken, bisCaseId } = await requireBisAccessTokenForSite(siteId);
+  const { accessToken, bisCaseId, site } = await requireBisAccessTokenForSite(siteId);
+  const caseConstructionRoundId = site.bisConstructionRoundId;
   console.log("[Warehouse BIS] createMaterialConfiguration: start", {
     siteId,
     bisCaseId,
+    caseConstructionRoundId,
     materialKind,
     materialType,
     manufacturer,
@@ -695,25 +700,6 @@ export async function createMaterialConfiguration(
   }
 
   const attachedDocuments: Array<{ attributes: { uuid: string; code: string } }> = [];
-
-  let caseConstructionRoundId: number | null = null;
-  try {
-    const caseJson = await fetchBisJson(
-      `/bisp/api/portal/bis_cases/${bisCaseId}`,
-      accessToken,
-    );
-    const rawRoundId =
-      caseJson?.data?.attributes?.case_construction_round_id ??
-      caseJson?.data?.attributes?.current_case_construction_round_id ??
-      null;
-    caseConstructionRoundId = rawRoundId == null ? null : Number(rawRoundId);
-  } catch (error) {
-    console.warn("[Warehouse BIS] Failed to fetch case construction round id", {
-      siteId,
-      bisCaseId,
-      error: error instanceof Error ? error.message : error,
-    });
-  }
 
   for (const file of payload.attachments) {
     let blob: Blob;

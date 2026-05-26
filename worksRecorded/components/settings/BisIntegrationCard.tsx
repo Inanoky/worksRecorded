@@ -1,7 +1,12 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { getBisAuthorizeUrl, isBisHostedAuthorizationEnabled } from "@/server/actions/BIS/service";
-import { assignBisCaseToSiteAction, completeBisManualAuthorizationAction, disconnectBisAction } from "@/server/actions/bis-settings-actions";
+import {
+  assignBisCaseToSiteAction,
+  completeBisManualAuthorizationAction,
+  disconnectBisAction,
+  setBisConstructionRoundForSiteAction,
+} from "@/server/actions/bis-settings-actions";
 import { getSiteSettingsMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import { BisConnectionTutorialDialog } from "@/components/settings/BisConnectionTutorialDialog";
 
@@ -12,12 +17,22 @@ type BisCaseOption = {
   stageName: string | null;
 };
 
+type BisConstructionRoundOption = {
+  id: string;
+  name: string | null;
+  roundNumber: number | null;
+  status: string | null;
+  label: string;
+};
+
 export function BisIntegrationCard({
   organizationLanguage,
   siteId,
   isConnected,
   selectedCase,
+  selectedConstructionRound,
   availableCases,
+  availableConstructionRounds,
   statusMessage,
   hasManualAuthorizationCode,
 }: {
@@ -30,7 +45,14 @@ export function BisIntegrationCard({
     name: string | null;
     stage: string | null;
   };
+  selectedConstructionRound: {
+    id: string | null;
+    name: string | null;
+    roundNumber: number | null;
+    status: string | null;
+  };
   availableCases: BisCaseOption[];
+  availableConstructionRounds: BisConstructionRoundOption[];
   statusMessage?: string | null;
   hasManualAuthorizationCode: boolean;
 }) {
@@ -215,6 +237,51 @@ export function BisIntegrationCard({
               {t.connectFirst}
             </p>
           )}
+
+          {selectedCase.id ? (
+            <div className="mt-5 border-t pt-4">
+              <div className="text-sm font-medium">Construction round</div>
+              {availableConstructionRounds.length > 0 ? (
+                <form action={setBisConstructionRoundForSiteAction} className="mt-3 space-y-3">
+                  <input type="hidden" name="siteId" value={siteId} />
+                  <select
+                    name="bisConstructionRoundId"
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    defaultValue={selectedConstructionRound.id ?? ""}
+                    required
+                  >
+                    <option value="" disabled>
+                      Select construction round
+                    </option>
+                    {availableConstructionRounds.map((round) => (
+                      <option key={round.id} value={round.id}>
+                        {round.label}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedConstructionRound.id ? (
+                    <p className="text-xs text-muted-foreground">
+                      Selected:{" "}
+                      {selectedConstructionRound.roundNumber != null
+                        ? `${selectedConstructionRound.roundNumber}. `
+                        : ""}
+                      {selectedConstructionRound.name || selectedConstructionRound.id}
+                      {selectedConstructionRound.status ? ` (${selectedConstructionRound.status})` : ""}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      BIS records will not include a construction round until one is selected.
+                    </p>
+                  )}
+                  <SubmitButton text="Save construction round" className="w-fit" />
+                </form>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No construction rounds were returned for this BIS case.
+                </p>
+              )}
+            </div>
+          ) : null}
         </div>
       </CardContent>
 

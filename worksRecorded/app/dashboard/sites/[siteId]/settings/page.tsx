@@ -32,6 +32,7 @@ import {
 import { BisIntegrationCard } from "@/components/settings/BisIntegrationCard";
 import {
   fetchBisAvailableCases,
+  fetchBisCaseConstructionRounds,
   getSiteBisConfig,
   getUserBisTokenByUserId,
 } from "@/server/actions/BIS/service";
@@ -60,13 +61,17 @@ export default async function SettingsSiteRoute({
   const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
   const t = getSiteSettingsMessages(organizationLanguage);
 
+  if (!orgId) {
+    notFound();
+  }
+
   const [
-    userData,
+    ,
     site,
     siteBisConfig,
-    settings,
+    ,
     remindersData,
-    reminderTimes,
+    ,
     bisToken,
   ] = await Promise.all([
     getUserData(orgId),
@@ -87,6 +92,7 @@ export default async function SettingsSiteRoute({
   console.log(remindersData);
 
   const isBisConnected = Boolean(bisToken?.accessToken);
+  const bisAccessToken = bisToken?.accessToken ?? null;
 
   let availableBisCases: Array<{
     id: string;
@@ -94,12 +100,30 @@ export default async function SettingsSiteRoute({
     constructionName: string | null;
     stageName: string | null;
   }> = [];
+  let availableBisConstructionRounds: Array<{
+    id: string;
+    name: string | null;
+    roundNumber: number | null;
+    status: string | null;
+    label: string;
+  }> = [];
 
-  if (isBisConnected) {
+  if (bisAccessToken) {
     try {
-      availableBisCases = await fetchBisAvailableCases(bisToken.accessToken);
+      availableBisCases = await fetchBisAvailableCases(bisAccessToken);
     } catch (error) {
       console.error("Failed to load BIS cases", error);
+    }
+
+    if (siteBisConfig?.bisCaseId) {
+      try {
+        availableBisConstructionRounds = await fetchBisCaseConstructionRounds(
+          bisAccessToken,
+          siteBisConfig.bisCaseId,
+        );
+      } catch (error) {
+        console.error("Failed to load BIS construction rounds", error);
+      }
     }
   }
 
@@ -201,6 +225,7 @@ export default async function SettingsSiteRoute({
     connected: `${t.bisIntegration}: OK`,
     disconnected: t.disconnectNote,
     "case-selected": t.saveBisCase,
+    "round-selected": "BIS construction round saved.",
     error: bisMessage
       ? `BIS connection failed: ${bisMessage}`
       : "BIS connection failed.",
@@ -232,7 +257,14 @@ export default async function SettingsSiteRoute({
           name: siteBisConfig?.bisCaseName ?? null,
           stage: siteBisConfig?.bisCaseStage ?? null,
         }}
+        selectedConstructionRound={{
+          id: siteBisConfig?.bisConstructionRoundId ?? null,
+          name: siteBisConfig?.bisConstructionRoundName ?? null,
+          roundNumber: siteBisConfig?.bisConstructionRoundNumber ?? null,
+          status: siteBisConfig?.bisConstructionRoundStatus ?? null,
+        }}
         availableCases={availableBisCases}
+        availableConstructionRounds={availableBisConstructionRounds}
         statusMessage={statusMessage}
         hasManualAuthorizationCode={Boolean(
           process.env.BIS_AUTHORIZATION_CODE

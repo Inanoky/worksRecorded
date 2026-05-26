@@ -99,6 +99,10 @@ model Site {
   bisCaseNumber    String?
   bisCaseName      String?
   bisCaseStage     String?
+  bisConstructionRoundId     String?
+  bisConstructionRoundName   String?
+  bisConstructionRoundNumber Int?
+  bisConstructionRoundStatus String?
   geofenceMapLink    String?
   geofencePolygon    Json?
   
