@@ -173,7 +173,7 @@
     }
   },
   "Units": {
-    "Type": "textInput",
+    "Type": "dropdown",
     "DisplayName": "Mērv.",
     "customSettings": {
       "order": 14,
@@ -182,6 +182,14 @@
       "displayinSiteListOrder": 7,
       "displayinSiteListWidth": 55,
       "displayinSiteListTextAlignment": "left"
+    },
+    "DropDownOptions": {
+      "gab": "gab",
+      "m": "m",
+      "m2": "m2",
+      "m3": "m3",
+      "kg": "kg",
+      "kompl": "kompl"
     }
   },
   "Amounts": {

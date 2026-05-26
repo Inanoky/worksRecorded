@@ -7,6 +7,7 @@ import {
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
+import { getConfig } from "@/server/actions/site-diary-actions";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -39,10 +40,41 @@ type WorkExtraction = {
   issue: string | null;
 };
 
+type ZtcConfigField = {
+  DropDownOptions?: Record<string, unknown>;
+};
+
+type ZtcConfigMap = Record<string, ZtcConfigField | undefined>;
+
 const utapi = new UTApi();
-const ZTC_WORK_OPTIONS = Object.values(
-  ztcSiteDiaryRecordsMap.Works.DropDownOptions,
-);
+
+function getDropdownLabels(config: ZtcConfigMap, fieldKey: string) {
+  const options = config?.[fieldKey]?.DropDownOptions;
+  if (!options || typeof options !== "object") return [];
+  return Object.values(options)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+}
+
+async function getZtcDropdownOptions() {
+  const config = ((await getConfig(ZTC_SITE_ID)) ??
+    ztcSiteDiaryRecordsMap) as ZtcConfigMap;
+
+  return {
+    workOptions: getDropdownLabels(config, "Works"),
+    unitOptions: getDropdownLabels(config, "Units"),
+  };
+}
+
+function normalizeAllowedOption(value: string | null | undefined, allowed: string[]) {
+  const normalized = value?.trim();
+  if (!normalized) return null;
+
+  return (
+    allowed.find((option) => option.toLowerCase() === normalized.toLowerCase()) ??
+    null
+  );
+}
 
 function workerFullName(worker: ZtcWorker) {
   return [worker.name, worker.surname].filter(Boolean).join(" ").trim() || "Darbinieks";
@@ -166,6 +198,8 @@ async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> 
 
 async function extractWorkInfo(text: string): Promise<WorkExtraction> {
   const normalized = text.trim();
+  const { workOptions, unitOptions } = await getZtcDropdownOptions();
+
   if (!normalized) {
     return {
       isGibberish: true,
@@ -185,13 +219,13 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
       {
         role: "system",
         content:
-          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. For workOption, choose exactly one label from this allowed list if it clearly matches the worker's activity: ${JSON.stringify(ZTC_WORK_OPTIONS)}. If none clearly match, return null for workOption. Do not invent a new work option. If the worker says how much was completed, extract the numeric amount and unit exactly but normalize obvious spoken numbers to digits, for example 'twelve panels' -> amountCompleted 12, units 'panels', '8 square meters' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(workOptions)}. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mērvienība list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
       },
       { role: "user", content: normalized },
     ],
   });
 
-  return parseJsonObject<WorkExtraction>(response.choices[0]?.message?.content, {
+  const extracted = parseJsonObject<WorkExtraction>(response.choices[0]?.message?.content, {
     isGibberish: true,
     isFinish: false,
     workOption: null,
@@ -199,6 +233,12 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
     units: null,
     issue: "Could not understand the work message.",
   });
+
+  return {
+    ...extracted,
+    workOption: normalizeAllowedOption(extracted.workOption, workOptions),
+    units: normalizeAllowedOption(extracted.units, unitOptions),
+  };
 }
 
 async function getOpenZtcSession(workerId: string) {
