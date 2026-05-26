@@ -6,6 +6,7 @@ import {
   getString,
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -32,13 +33,16 @@ type DrawingExtraction = {
 type WorkExtraction = {
   isGibberish: boolean;
   isFinish: boolean;
-  workDescription: string | null;
+  workOption: string | null;
   amountCompleted: number | null;
   units: string | null;
   issue: string | null;
 };
 
 const utapi = new UTApi();
+const ZTC_WORK_OPTIONS = Object.values(
+  ztcSiteDiaryRecordsMap.Works.DropDownOptions,
+);
 
 function workerFullName(worker: ZtcWorker) {
   return [worker.name, worker.surname].filter(Boolean).join(" ").trim() || "Darbinieks";
@@ -166,7 +170,7 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
     return {
       isGibberish: true,
       isFinish: false,
-      workDescription: null,
+      workOption: null,
       amountCompleted: null,
       units: null,
       issue: "No speech was recognized.",
@@ -181,7 +185,7 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
       {
         role: "system",
         content:
-          "Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, workDescription string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Extract the work activity, e.g. 'timber frame assembly'. If the worker says how much was completed, extract the numeric amount and unit exactly but normalize obvious spoken numbers to digits, for example 'twelve panels' -> amountCompleted 12, units 'panels', '8 square meters' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units. Keep workDescription concise.",
+          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. For workOption, choose exactly one label from this allowed list if it clearly matches the worker's activity: ${JSON.stringify(ZTC_WORK_OPTIONS)}. If none clearly match, return null for workOption. Do not invent a new work option. If the worker says how much was completed, extract the numeric amount and unit exactly but normalize obvious spoken numbers to digits, for example 'twelve panels' -> amountCompleted 12, units 'panels', '8 square meters' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
       },
       { role: "user", content: normalized },
     ],
@@ -190,7 +194,7 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
   return parseJsonObject<WorkExtraction>(response.choices[0]?.message?.content, {
     isGibberish: true,
     isFinish: false,
-    workDescription: null,
+    workOption: null,
     amountCompleted: null,
     units: null,
     issue: "Could not understand the work message.",
@@ -260,14 +264,15 @@ async function saveCompletedWorkPhoto(args: {
       URL: publicUrl,
       fileUrl: publicUrl,
       Comment: [
-        `ZTC pabeigtā darba foto`,
-        `Darbinieks: ${workerFullName(worker)}`,
-        `Projekts: ${session.Location ?? ""}`,
-        `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
-        `Darbi: ${session.Works ?? ""}`,
+        session.Location ?? "",
+        session.Location_Custom_1 ?? "",
+        session.Works ?? "",
+        worker.name ?? "",
+        worker.surname ?? "",
       ]
+        .map((part) => String(part).trim())
         .filter(Boolean)
-        .join("\n"),
+        .join(" - "),
       Location: session.Location ?? null,
       workerId: worker.id,
       siteId: ZTC_SITE_ID,
@@ -392,8 +397,8 @@ async function handleWorkText(args: {
     return;
   }
 
-  if (!work.workDescription) {
-    await sendMessage(to, "Lūdzu pasakiet, kādu darbu sākat.");
+  if (!work.workOption) {
+    await sendMessage(to, "Neatradu atbilstošu darbu sarakstā. Lūdzu pasakiet darbu vēlreiz.");
     return;
   }
 
@@ -401,12 +406,12 @@ async function handleWorkText(args: {
     where: { id: session.id },
     data: {
       Date: now,
-      Works: work.workDescription,
+      Works: work.workOption,
       Comments: [
         `Darbinieks: ${workerFullName(worker)}`,
         `Projekts: ${session.Location ?? ""}`,
         `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
-        `Sāktais darbs: ${work.workDescription}`,
+        `Sāktais darbs: ${work.workOption}`,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -416,7 +421,7 @@ async function handleWorkText(args: {
 
   await sendMessage(
     to,
-    `Sākts darbs: ${work.workDescription}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nKad darbs ir pabeigts, atsūtiet pabeigtā darba foto un pasakiet, ka darbs ir pabeigts.`,
+    `Sākts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nKad darbs ir pabeigts, atsūtiet pabeigtā darba foto un pasakiet, ka darbs ir pabeigts.`,
   );
 }
 
