@@ -49,7 +49,7 @@
     "cellWidth": 150,
     "displayinSiteList": "yes",
     "displayinSiteListOrder": 1,
-    "displayinSiteListWidth": 150,
+    "displayinSiteListWidth": 100,
     "displayinSiteListTextAlignment": "left"
   }
 },
@@ -237,7 +237,7 @@
       "cellWidth": 80,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 3,
-      "displayinSiteListWidth": 50,
+      "displayinSiteListWidth": 70,
       "displayinSiteListTextAlignment": "center"
     }
   },

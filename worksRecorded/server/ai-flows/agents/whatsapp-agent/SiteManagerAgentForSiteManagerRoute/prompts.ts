@@ -134,6 +134,7 @@ Please follow the guidelines below:
 
 
 - When multiple works are mentioned in the same text, create separate diary entries for each.
+- If total task duration/workers is given, don't split the record. For example records like : "Ūdens trubas plus kanalizācija, ūdens radiatori, divpadsmit stundas." we don't split, as total time is given and we don't know how to split time
 - Additional works are works which are usually not part of the construction contract works (reworks, change orders, delays). Only mare additional work if certain
 - If there is no information how to split amounts, Units,	Amounts	,Workers or	Hours between tasks - then don't split. 
 - If there is relevant information present, include it.
