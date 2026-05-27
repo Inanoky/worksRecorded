@@ -1,5 +1,3 @@
-"use server";
-
 export const maxDuration = 300;
 
 import { after } from "next/server";
