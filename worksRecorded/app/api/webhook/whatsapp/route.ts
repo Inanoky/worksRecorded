@@ -1,5 +1,7 @@
 "use server";
 
+export const maxDuration = 300;
+
 import { after } from "next/server";
 import { prisma } from "@/lib/utils/db";
 import {

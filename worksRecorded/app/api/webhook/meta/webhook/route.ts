@@ -1,6 +1,6 @@
 // worksRecorded/app/api/webhook/Meta/route.ts
 // Next.js App Router webhook endpoint (GET verify + POST events)
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 import { prisma } from "@/lib/utils/db";
 import {
