@@ -9,11 +9,47 @@ import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSite
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
 import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 
+type PostgresCheckpointer = ReturnType<typeof PostgresSaver.fromConnString>;
+
+let checkpointerSetupPromise: Promise<void> | null = null;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === "object" && !Array.isArray(value)
+        ? value as Record<string, unknown>
+        : null;
+}
+
 function isInvalidToolResultsError(error: unknown): boolean {
-    const maybeError = error as any;
+    const maybeError = asRecord(error);
     if (maybeError?.lc_error_code === "INVALID_TOOL_RESULTS") return true;
     const message = typeof maybeError?.message === "string" ? maybeError.message : "";
     return message.includes("INVALID_TOOL_RESULTS") || message.includes("tool_call_id");
+}
+
+function isCheckpointMigrationRace(error: unknown): boolean {
+    const maybeError = asRecord(error);
+    const message = typeof maybeError?.message === "string" ? maybeError.message : "";
+    return (
+        maybeError?.code === "23505" &&
+        (maybeError?.constraint === "checkpoint_migrations_pkey" ||
+            message.includes("checkpoint_migrations_pkey"))
+    );
+}
+
+async function setupCheckpointerOnce(checkpointer: PostgresCheckpointer) {
+    if (!checkpointerSetupPromise) {
+        checkpointerSetupPromise = checkpointer.setup().catch((error: unknown) => {
+            if (isCheckpointMigrationRace(error)) {
+                console.warn("LangGraph checkpoint setup migration already exists; continuing.", error);
+                return;
+            }
+
+            checkpointerSetupPromise = null;
+            throw error;
+        });
+    }
+
+    await checkpointerSetupPromise;
 }
 
 
@@ -64,7 +100,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
     const agent = async (state) => {
         const { messages } = state;
-        const sanitized = sanitizeCheckpointHistory(messages as any[]);
+        const sanitized = sanitizeCheckpointHistory(messages);
         const safeMessages = sanitized.messages;
         if (safeMessages.length !== messages.length) {
             console.warn("site-manager agent - sanitized checkpoint history before model call", {
@@ -105,11 +141,13 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         .addConditionalEdges("agent", shouldContinue, ["tools", END])
         .addEdge("tools", "agent") // <--- loop back to agent!
 
-    const checkpointer = PostgresSaver.fromConnString(
-        process.env.DATABASE_URL
-    );
+    if (!process.env.DATABASE_URL) {
+        throw new Error("DATABASE_URL is required for site manager WhatsApp agent checkpointing");
+    }
 
-    await checkpointer.setup();
+    const checkpointer = PostgresSaver.fromConnString(process.env.DATABASE_URL);
+
+    await setupCheckpointerOnce(checkpointer);
     const config = {
       configurable: { thread_id: `siteManager:${siteId}:${userId}` },
     };
@@ -131,14 +169,13 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
 
 
     let finalState;
-    let lastMsg;
 
     for await (const output of await graph.stream(inputs, config)) {
 
-        for (const [key, value] of Object.entries(output)) {
-            lastMsg = value.messages[value.messages.length - 1];
-            finalState = value;
-
+        for (const value of Object.values(output)) {
+            if (value?.messages?.length) {
+                finalState = value;
+            }
         }
     }
 
