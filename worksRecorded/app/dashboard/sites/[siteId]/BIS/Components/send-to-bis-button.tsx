@@ -7,6 +7,7 @@ import { NO_MATCH_VALUE } from "./material-config-select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
+import { getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 
 function normalizeBisErrorMessage(message: string) {
   if (
@@ -30,6 +31,7 @@ export default function SendToBisButton({
   action,
   sendLabel = "Send to BIS",
   selectConfigurationLabel = "Select configuration",
+  organizationLanguage,
 }: {
   siteId: string
   recordId: string
@@ -58,6 +60,7 @@ export default function SendToBisButton({
   ) => Promise<any>
   sendLabel?: string
   selectConfigurationLabel?: string
+  organizationLanguage?: string | null
 }) {
   const [pending, startTransition] = useTransition()
   const [attachDialogOpen, setAttachDialogOpen] = useState(false)
@@ -67,6 +70,7 @@ export default function SendToBisButton({
   const [draftName, setDraftName] = useState(materialName ?? "")
   const [draftQuantity, setDraftQuantity] = useState(String(quantity))
   const [includeSourcePhoto, setIncludeSourcePhoto] = useState(Boolean(sourcePhoto))
+  const toastMessages = getToastMessages(normalizeOrganizationLanguage(organizationLanguage))
 
   const hasConfiguration =
     !!categoryId?.trim() && categoryId !== NO_MATCH_VALUE
@@ -113,7 +117,7 @@ export default function SendToBisButton({
         )
 
         if (result?.errors) {
-          const detail = result.errors?.[0]?.detail || "Failed to send to BIS"
+          const detail = result.errors?.[0]?.detail || toastMessages.failedSendToBis
           const normalized = normalizeBisErrorMessage(String(detail))
           toast.error(normalized)
           if (normalized.includes("attach a certificate")) {
@@ -122,11 +126,11 @@ export default function SendToBisButton({
           return
         }
 
-        toast.success("Sent successfully")
+        toast.success(toastMessages.sentSuccessfully)
         setConfirmDialogOpen(false)
       } catch (error) {
         console.error(error)
-        const message = error instanceof Error ? error.message : "Failed to send to BIS"
+        const message = error instanceof Error ? error.message : toastMessages.failedSendToBis
         const normalized = normalizeBisErrorMessage(message)
         toast.error(normalized)
         if (normalized.includes("attach a certificate")) {
@@ -138,7 +142,7 @@ export default function SendToBisButton({
 
   const handleAttachCertificate = () => {
     if (!certificateFile) {
-      toast.error("Please select a certificate file.")
+      toast.error(toastMessages.selectCertificateFile)
       return
     }
 
@@ -152,12 +156,12 @@ export default function SendToBisButton({
           code: "compliance",
         })
 
-        toast.success("Certificate attached. Please click Send to BIS again.")
+        toast.success(toastMessages.certificateAttachedSendAgain)
         setAttachDialogOpen(false)
         setCertificateFile(null)
       } catch (error) {
         console.error(error)
-        toast.error(error instanceof Error ? error.message : "Failed to attach certificate.")
+        toast.error(error instanceof Error ? error.message : toastMessages.failedAttachCertificate)
       }
     })
   }

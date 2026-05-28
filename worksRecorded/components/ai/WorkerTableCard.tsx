@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
-import { getWorkersUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getToastMessages, getWorkersUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type WorkerRow = {
   id: string;
@@ -85,7 +85,9 @@ const EMPTY_EDIT_FORM = {
 
 export function WorkerTableCard({ siteId, initialWorkers, organizationLanguage }: WorkerTableCardProps) {
   const router = useRouter();
-  const t = getWorkersUiMessages(normalizeOrganizationLanguage(organizationLanguage));
+  const language = normalizeOrganizationLanguage(organizationLanguage);
+  const t = getWorkersUiMessages(language);
+  const toastMessages = getToastMessages(language);
   const [open, setOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [editPending, startEditTransition] = React.useTransition();
@@ -94,10 +96,10 @@ export function WorkerTableCard({ siteId, initialWorkers, organizationLanguage }
   async function handleDeleteRow(id: string) {
     const res = await deleteTeamMember(id);
     if (res.success) {
-      toast.success("Worker deleted");
+      toast.success(toastMessages.workerDeleted);
       router.refresh();
     } else {
-      toast.error("Failed to delete worker");
+      toast.error(toastMessages.failedDeleteWorker);
     }
   }
 
@@ -118,17 +120,17 @@ export function WorkerTableCard({ siteId, initialWorkers, organizationLanguage }
     e.preventDefault();
 
     if (!editForm.id || !editForm.name.trim() || !editForm.surname.trim()) {
-      toast.error("Name and surname are required");
+      toast.error(toastMessages.nameSurnameRequired);
       return;
     }
 
     const normalizedPhone = normalizePhonePart(editForm.phone);
     if (normalizedPhone && normalizedPhone.length < 6) {
-      toast.error("Phone number is too short");
+      toast.error(toastMessages.phoneTooShort);
       return;
     }
     if (normalizedPhone.length > 14) {
-      toast.error("Phone number is too long");
+      toast.error(toastMessages.phoneTooLong);
       return;
     }
 
@@ -146,12 +148,12 @@ export function WorkerTableCard({ siteId, initialWorkers, organizationLanguage }
       });
 
       if (res.success) {
-        toast.success("Worker updated");
+        toast.success(toastMessages.workerUpdated);
         setEditOpen(false);
         setEditForm(EMPTY_EDIT_FORM);
         router.refresh();
       } else {
-        toast.error(res.error || "Failed to update worker");
+        toast.error(res.error || toastMessages.failedUpdateWorker);
       }
     });
   }

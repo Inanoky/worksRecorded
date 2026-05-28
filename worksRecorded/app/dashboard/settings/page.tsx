@@ -44,7 +44,12 @@ export default async function SettingsSiteRoute() {
         orgId={orgId}
         organizationLanguage={currentLanguage}
       />
-      <WorkersSettingsTable orgId={orgId || ""} workers={workersData.workers} projects={workersData.projects} />
+      <WorkersSettingsTable
+        orgId={orgId || ""}
+        workers={workersData.workers}
+        projects={workersData.projects}
+        organizationLanguage={currentLanguage}
+      />
     </>
   );
 }

@@ -57,7 +57,7 @@ import MaterialConfigSelect, {
   NO_MATCH_VALUE,
 } from "./material-config-select"
 import { toast } from "sonner"
-import { getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
+import { getToastMessages, getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 import { UploadButton } from "@/lib/utils/UploadthingsComponents"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
@@ -331,7 +331,9 @@ export default function MaterialsTableClient({
   copyMaterialRecord,
   deleteRecords,
 }: Props) {
-  const t = getWarehouseUiMessages(normalizeOrganizationLanguage(organizationLanguage))
+  const language = normalizeOrganizationLanguage(organizationLanguage)
+  const t = getWarehouseUiMessages(language)
+  const toastMessages = getToastMessages(language)
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
@@ -681,31 +683,31 @@ export default function MaterialsTableClient({
     const cost = editCostRef.current.trim() === "" ? null : Number(editCostRef.current)
 
     if (trimmedName.length === 0) {
-      toast.error("Material name is required.")
+      toast.error(toastMessages.materialNameRequired)
       setEditSaveLoading(false)
       return
     }
 
     if (trimmedName.length > MAX_MATERIAL_NAME_LENGTH) {
-      toast.error(`Material name must be ${MAX_MATERIAL_NAME_LENGTH} characters or fewer.`)
+      toast.error(toastMessages.materialNameMax(MAX_MATERIAL_NAME_LENGTH))
       setEditSaveLoading(false)
       return
     }
 
     if (quantity !== null && (Number.isNaN(quantity) || quantity <= 0 || quantity > MAX_QUANTITY)) {
-      toast.error(`Quantity must be a number between 0 and ${MAX_QUANTITY}.`)
+      toast.error(toastMessages.quantityRange(MAX_QUANTITY))
       setEditSaveLoading(false)
       return
     }
 
     if (cost !== null && (Number.isNaN(cost) || cost < 0 || cost > MAX_COST)) {
-      toast.error(`Cost must be a number between 0 and ${MAX_COST}.`)
+      toast.error(toastMessages.costRange(MAX_COST))
       setEditSaveLoading(false)
       return
     }
 
     if (trimmedMeasurementUnit.length > MAX_MEASUREMENT_UNIT_LENGTH) {
-      toast.error(`Units must be ${MAX_MEASUREMENT_UNIT_LENGTH} characters or fewer.`)
+      toast.error(toastMessages.unitsMax(MAX_MEASUREMENT_UNIT_LENGTH))
       setEditSaveLoading(false)
       return
     }
@@ -722,7 +724,7 @@ export default function MaterialsTableClient({
     }
 
     if ((editModalMode === "confirm-send" || existingRow?.BISId) && quantity == null) {
-      toast.error(`${t.qty} is required.`)
+      toast.error(toastMessages.fieldRequired(t.qty))
       setEditSaveLoading(false)
       return
     }
@@ -798,10 +800,10 @@ export default function MaterialsTableClient({
         ),
       )
       setEditModalOpen(false)
-      toast.success(editModalMode === "confirm-send" ? "Material confirmed and sent to BIS" : "Material updated")
+      toast.success(editModalMode === "confirm-send" ? toastMessages.materialConfirmedAndSent : toastMessages.materialUpdated)
     } catch (error) {
       console.error(error)
-      toast.error("Failed to save material")
+      toast.error(toastMessages.failedSaveMaterial)
     } finally {
       setEditSaveLoading(false)
     }
@@ -850,13 +852,13 @@ export default function MaterialsTableClient({
       const { deletedIds } = await deleteRecords(siteId, selectedRowIds)
       setRows((current) => current.filter((row) => !deletedIds.includes(row.id)))
       setSelectedRowIds((current) => current.filter((id) => !deletedIds.includes(id)))
-      toast.success(deletedIds.length === 1 ? "Record deleted" : `${deletedIds.length} records deleted`)
+      toast.success(toastMessages.recordsDeleted(deletedIds.length))
       if (bisBackedRowsCount > 0) {
-        toast.warning("Some deleted records were already sent to BIS. They were removed only from WorksRecorded and stay in BIS.")
+        toast.warning(toastMessages.someBisRecordsOnlyDeletedLocally)
       }
     } catch (error) {
       console.error("[Warehouse BIS] Delete records failed", { siteId, selectedRowIds, error })
-      toast.error(error instanceof Error ? error.message : "Failed to delete records")
+      toast.error(error instanceof Error ? error.message : toastMessages.failedDeleteRecords)
     } finally {
       setDeleteLoading(false)
     }
@@ -1036,10 +1038,10 @@ export default function MaterialsTableClient({
         return next
       })
       setEditableRowIds([])
-      toast.success("Changes saved")
+      toast.success(toastMessages.changesSaved)
     } catch (error) {
       console.error(error)
-      toast.error("Failed to save changes")
+      toast.error(toastMessages.failedSaveChanges)
     }
   }
 

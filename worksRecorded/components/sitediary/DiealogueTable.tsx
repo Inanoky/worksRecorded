@@ -42,7 +42,7 @@ import { toast } from "sonner";
 import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
-import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 
 //--------Loading config------------
@@ -106,10 +106,10 @@ const isUUID = (id: unknown) =>
   typeof id === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 
-const showZodErrorToast = (err: z.ZodError) => {
+const showZodErrorToast = (err: z.ZodError, toastMessages: ReturnType<typeof getToastMessages>) => {
   const first = err.errors[0];
   const path = first?.path?.length ? first.path.join(".") : "row";
-  toast.error(`Validation error in "${path}": ${first.message}`);
+  toast.error(toastMessages.validationError(path, first.message));
 };
 
 /**
@@ -183,10 +183,10 @@ const DiaryRowSchema = z.object({
 const DiaryRowsSchema = z.array(DiaryRowSchema);
 
 
-const validateRows = (rowsToValidate: any[]) => {
+const validateRows = (rowsToValidate: any[], toastMessages: ReturnType<typeof getToastMessages>) => {
   const parsed = DiaryRowsSchema.safeParse(rowsToValidate);
   if (!parsed.success) {
-    showZodErrorToast(parsed.error);
+    showZodErrorToast(parsed.error, toastMessages);
     return { ok: false as const, rows: null as any };
   }
 
@@ -196,19 +196,19 @@ const validateRows = (rowsToValidate: any[]) => {
 
     const a = coerceOptionalFloat(r.Amounts);
     if (a !== undefined && Math.abs(a) > MAX_NUM) {
-      toast.error(`Row ${key}: Amounts must be <= ${MAX_NUM}`);
+      toast.error(toastMessages.rowAmountsMax(String(key), MAX_NUM));
       return { ok: false as const, rows: null as any };
     }
 
     const h = coerceOptionalFloat(r.TimeInvolved);
     if (h !== undefined && Math.abs(h) > MAX_NUM) {
-      toast.error(`Row ${key}: Hours must be <= ${MAX_NUM}`);
+      toast.error(toastMessages.rowHoursMax(String(key), MAX_NUM));
       return { ok: false as const, rows: null as any };
     }
 
     const w = coerceOptionalInt(r.WorkersInvolved);
     if (w !== undefined && Math.abs(w) > MAX_NUM) {
-      toast.error(`Row ${key}: Workers must be an integer <= ${MAX_NUM}`);
+      toast.error(toastMessages.rowWorkersMax(String(key), MAX_NUM));
       return { ok: false as const, rows: null as any };
     }
   }
@@ -231,7 +231,9 @@ export function DialogTable({
   onSaved?: () => void;
   organizationLanguage?: string | null;
 }) {
-  const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
+  const language = normalizeOrganizationLanguage(organizationLanguage);
+  const t = getSiteDiaryDialogMessages(language);
+  const toastMessages = getToastMessages(language);
 
 
 
@@ -383,11 +385,11 @@ export function DialogTable({
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
 
-      toast.success("Diary row deleted successfully.");
+      toast.success(toastMessages.diaryRowDeleted);
       onSaved?.();
     } else {
       setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
-      toast.success("Unsaved row removed.");
+      toast.success(toastMessages.unsavedRowRemoved);
     }
   };
 
@@ -406,7 +408,7 @@ export function DialogTable({
     e?.preventDefault();
 
 
-    const validated = validateRows(rows);
+    const validated = validateRows(rows, toastMessages);
     if (!validated.ok) return;
 
     const cleanRows = validated.rows; // <-- use this
@@ -476,7 +478,7 @@ export function DialogTable({
         await updateSiteDiaryRecord(payload);
         updatedCount += 1;
       } catch (err: any) {
-        toast.error(`Could not update existing diary row (${r.id}). ${err?.message ?? "Unknown error"}`);
+        toast.error(toastMessages.updateDiaryRowFailed(String(r.id), err?.message ?? toastMessages.somethingWentWrong));
         return;
       }
     }
@@ -506,12 +508,12 @@ export function DialogTable({
         });
         createdCount = rowsToCreate.length;
       } catch (err: any) {
-        toast.error(`Could not create new diary rows. ${err?.message ?? "Unknown error"}`);
+        toast.error(toastMessages.createDiaryRowsFailed(err?.message ?? toastMessages.somethingWentWrong));
         return;
       }
     }
 
-    toast.success(`Diary saved: ${updatedCount} updated, ${createdCount} created.`);
+    toast.success(toastMessages.diarySaved(updatedCount, createdCount));
     onSaved?.();
   };
 

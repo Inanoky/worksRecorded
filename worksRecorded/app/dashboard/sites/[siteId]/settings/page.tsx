@@ -245,7 +245,7 @@ export default async function SettingsSiteRoute({
         <h3 className="text-xl font-semibold">{t.goBack}</h3>
       </div>
 
-      <div data-tour="settings-image"><UploadImageForm siteId={siteId} /></div>
+      <div data-tour="settings-image"><UploadImageForm siteId={siteId} organizationLanguage={organizationLanguage} /></div>
 
       <div data-tour="settings-bis"><BisIntegrationCard
         organizationLanguage={organizationLanguage}

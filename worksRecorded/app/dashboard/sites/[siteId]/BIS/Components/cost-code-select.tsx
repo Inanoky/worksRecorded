@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Check, Pencil, Trash2, X } from "lucide-react"
+import { getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 
 export const NO_COST_CODE_VALUE = "no_cost_code"
 const MANAGE_COST_CODES_VALUE = "manage_cost_codes"
@@ -31,12 +32,14 @@ export default function CostCodeSelect({
   onCodesChange,
   disabled,
   onSave,
+  organizationLanguage,
 }: {
   recordId: string
   value?: string | null
   availableCodes?: string[]
   onCodesChange?: (codes: string[]) => void | Promise<void>
   disabled?: boolean
+  organizationLanguage?: string | null
   onSave: (
     recordId: string,
     costCode: string | null
@@ -49,6 +52,7 @@ export default function CostCodeSelect({
   const [search, setSearch] = useState("")
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editingValue, setEditingValue] = useState("")
+  const toastMessages = getToastMessages(normalizeOrganizationLanguage(organizationLanguage))
 
   const selectedValue =
     value && value.trim() ? value : NO_COST_CODE_VALUE
@@ -95,7 +99,7 @@ export default function CostCodeSelect({
 
     const normalizedValue = editingValue.trim()
     if (!normalizedValue) {
-      toast.error("Cost code cannot be empty")
+      toast.error(toastMessages.costCodeCannotBeEmpty)
       return
     }
 
@@ -105,7 +109,7 @@ export default function CostCodeSelect({
     )
 
     if (duplicateExists) {
-      toast.error("Cost code already exists")
+      toast.error(toastMessages.costCodeAlreadyExists)
       return
     }
 
@@ -116,7 +120,7 @@ export default function CostCodeSelect({
   const appendCode = () => {
     const normalizedValue = newCode.trim()
     if (!normalizedValue) {
-      toast.error("Cost code cannot be empty")
+      toast.error(toastMessages.costCodeCannotBeEmpty)
       return
     }
 
@@ -125,7 +129,7 @@ export default function CostCodeSelect({
         (code) => code.toLowerCase() === normalizedValue.toLowerCase(),
       )
     ) {
-      toast.error("Cost code already exists")
+      toast.error(toastMessages.costCodeAlreadyExists)
       return
     }
 
@@ -140,7 +144,7 @@ export default function CostCodeSelect({
     const deduplicated = Array.from(new Set(normalized))
 
     if (!deduplicated.length) {
-      toast.error("At least one cost code is required")
+      toast.error(toastMessages.atLeastOneCostCodeRequired)
       return
     }
 
@@ -148,10 +152,10 @@ export default function CostCodeSelect({
       try {
         await onCodesChange?.(deduplicated)
         setManageDialogOpen(false)
-        toast.success("Cost codes updated")
+        toast.success(toastMessages.costCodesUpdated)
       } catch (error) {
         console.error(error)
-        toast.error("Failed to update cost codes")
+        toast.error(toastMessages.failedUpdateCostCodes)
       }
     })
   }
@@ -180,11 +184,11 @@ export default function CostCodeSelect({
               await onSave(recordId, nextValue)
 
               toast.success(
-                nextValue ? "Cost code updated" : "Cost code cleared"
+                nextValue ? toastMessages.costCodeUpdated : toastMessages.costCodeCleared
               )
             } catch (error) {
               console.error(error)
-              toast.error("Failed to update cost code")
+              toast.error(toastMessages.failedUpdateCostCode)
             }
           })
         }}

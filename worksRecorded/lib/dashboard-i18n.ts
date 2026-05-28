@@ -420,6 +420,102 @@ type SiteDiaryDialogMessages = {
   unitLabels: Record<string, string>;
 };
 
+type ToastMessages = {
+  savedSuccessfully: string;
+  workerCreated: string;
+  failedCreateWorker: string;
+  workerDeleted: string;
+  failedDeleteWorker: string;
+  workerUpdated: string;
+  failedUpdateWorker: string;
+  nameSurnameRequired: string;
+  phoneTooShort: string;
+  phoneTooLong: string;
+  phoneAlreadyUsed: string;
+  failedAddWorker: string;
+  languageUpdated: string;
+  organizationLanguageUpdated: string;
+  failedUpdateOrganizationLanguage: string;
+  correctForm: string;
+  fieldRequired: (field: string) => string;
+  failedUpdateTimeRecord: string;
+  timeRecordUpdated: string;
+  timeRecordDeleted: string;
+  failedDeleteTimeRecord: string;
+  reminderSent: string;
+  failedSendReminder: string;
+  failedSendInvite: string;
+  failedDeleteUser: string;
+  userDeleted: string;
+  imageUploaded: string;
+  uploadNoUrl: string;
+  somethingWentWrong: string;
+  uploadImageFirst: string;
+  noRecordsSelected: string;
+  deletedRecords: (count: number) => string;
+  deletedRecordsPartial: (count: number, failed: number) => string;
+  failedDeleteSelectedRecords: string;
+  recordCannotBeSentNoId: string;
+  missingSiteId: string;
+  failedLoadBisOptions: string;
+  sendSiteDiaryToBisFirst: string;
+  failedLoadBisApprovers: string;
+  noRecordSelectedForApproval: string;
+  selectAtLeastOneApprover: string;
+  siteDiarySubmittedForApproval: string;
+  failedSubmitApproval: string;
+  selectRecordAndTargetDate: string;
+  recordCopiedLocally: string;
+  failedCopyRecord: string;
+  recordDeleted: string;
+  failedDeleteRecord: string;
+  bisLinksRemoved: (count: number) => string;
+  bisSyncNoDeletedRecords: string;
+  failedSyncBisRecords: string;
+  missingSelectedRecordId: string;
+  selectResponsiblePerson: string;
+  siteDiarySentToBis: string;
+  failedSendSiteDiaryToBis: string;
+  recordNotSentToBisYet: string;
+  bisUrlUnavailable: string;
+  failedOpenRecordInBis: string;
+  validationError: (path: string, message: string) => string;
+  rowAmountsMax: (row: string, max: number) => string;
+  rowHoursMax: (row: string, max: number) => string;
+  rowWorkersMax: (row: string, max: number) => string;
+  diaryRowDeleted: string;
+  unsavedRowRemoved: string;
+  updateDiaryRowFailed: (id: string, message: string) => string;
+  createDiaryRowsFailed: (message: string) => string;
+  diarySaved: (updated: number, created: number) => string;
+  sentSuccessfully: string;
+  failedSendToBis: string;
+  selectCertificateFile: string;
+  certificateAttachedSendAgain: string;
+  failedAttachCertificate: string;
+  materialNameRequired: string;
+  materialNameMax: (max: number) => string;
+  quantityRange: (max: number) => string;
+  costRange: (max: number) => string;
+  unitsMax: (max: number) => string;
+  materialConfirmedAndSent: string;
+  materialUpdated: string;
+  failedSaveMaterial: string;
+  recordsDeleted: (count: number) => string;
+  someBisRecordsOnlyDeletedLocally: string;
+  failedDeleteRecords: string;
+  changesSaved: string;
+  failedSaveChanges: string;
+  costCodeCannotBeEmpty: string;
+  costCodeAlreadyExists: string;
+  atLeastOneCostCodeRequired: string;
+  costCodesUpdated: string;
+  failedUpdateCostCodes: string;
+  costCodeUpdated: string;
+  costCodeCleared: string;
+  failedUpdateCostCode: string;
+};
+
 export function normalizeOrganizationLanguage(language?: string | null): OrganizationLanguage {
   return language === "lv" ? "lv" : "en";
 }
@@ -1301,6 +1397,199 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
   },
 };
 
+const TOAST_MESSAGES: Record<OrganizationLanguage, ToastMessages> = {
+  en: {
+    savedSuccessfully: "Saved successfully",
+    workerCreated: "Worker created",
+    failedCreateWorker: "Failed to create worker",
+    workerDeleted: "Worker deleted",
+    failedDeleteWorker: "Failed to delete worker",
+    workerUpdated: "Worker updated",
+    failedUpdateWorker: "Failed to update worker",
+    nameSurnameRequired: "Name and surname are required",
+    phoneTooShort: "Phone number is too short",
+    phoneTooLong: "Phone number is too long",
+    phoneAlreadyUsed: "Phone number already used",
+    failedAddWorker: "Failed to add worker",
+    languageUpdated: "Language updated",
+    organizationLanguageUpdated: "Organization language updated",
+    failedUpdateOrganizationLanguage: "Failed to update organization language",
+    correctForm: "Please correct the form.",
+    fieldRequired: (field) => `${field} is required.`,
+    failedUpdateTimeRecord: "Failed to update time record.",
+    timeRecordUpdated: "Time record updated.",
+    timeRecordDeleted: "Time record deleted.",
+    failedDeleteTimeRecord: "Failed to delete time record.",
+    reminderSent: "Reminder sent",
+    failedSendReminder: "Failed to send reminder",
+    failedSendInvite: "Failed to send invite",
+    failedDeleteUser: "Failed to delete user",
+    userDeleted: "User deleted",
+    imageUploaded: "Image has been uploaded",
+    uploadNoUrl: "Upload finished but no URL was returned",
+    somethingWentWrong: "Something went wrong",
+    uploadImageFirst: "Please upload an image first",
+    noRecordsSelected: "No records selected.",
+    deletedRecords: (count) => `Deleted ${count} record(s).`,
+    deletedRecordsPartial: (count, failed) => `Deleted ${count} record(s), ${failed} failed.`,
+    failedDeleteSelectedRecords: "Failed to delete selected records.",
+    recordCannotBeSentNoId: "This record cannot be sent because it has no id.",
+    missingSiteId: "Missing site id.",
+    failedLoadBisOptions: "Failed to load BIS material or attachment options.",
+    sendSiteDiaryToBisFirst: "Send this site diary record to BIS first.",
+    failedLoadBisApprovers: "Failed to load BIS approvers.",
+    noRecordSelectedForApproval: "No record selected for approval.",
+    selectAtLeastOneApprover: "Select at least one approver.",
+    siteDiarySubmittedForApproval: "Site diary record submitted for BIS approval.",
+    failedSubmitApproval: "Failed to submit approval.",
+    selectRecordAndTargetDate: "Select a record and target date.",
+    recordCopiedLocally: "Record copied locally. Submit it to BIS again if needed.",
+    failedCopyRecord: "Failed to copy record.",
+    recordDeleted: "Record deleted",
+    failedDeleteRecord: "Failed to delete record.",
+    bisLinksRemoved: (count) => `${count} BIS link(s) were removed because records were deleted in BIS.`,
+    bisSyncNoDeletedRecords: "BIS sync completed. No deleted BIS records found.",
+    failedSyncBisRecords: "Failed to sync BIS records.",
+    missingSelectedRecordId: "Missing selected record id.",
+    selectResponsiblePerson: "Please select a responsible person for BIS submission.",
+    siteDiarySentToBis: "Site diary record sent to BIS.",
+    failedSendSiteDiaryToBis: "Failed to send site diary record to BIS.",
+    recordNotSentToBisYet: "This record has not been sent to BIS yet.",
+    bisUrlUnavailable: "BIS URL is not available for this record.",
+    failedOpenRecordInBis: "Failed to open record in BIS.",
+    validationError: (path, message) => `Validation error in "${path}": ${message}`,
+    rowAmountsMax: (row, max) => `Row ${row}: Amounts must be <= ${max}`,
+    rowHoursMax: (row, max) => `Row ${row}: Hours must be <= ${max}`,
+    rowWorkersMax: (row, max) => `Row ${row}: Workers must be an integer <= ${max}`,
+    diaryRowDeleted: "Diary row deleted successfully.",
+    unsavedRowRemoved: "Unsaved row removed.",
+    updateDiaryRowFailed: (id, message) => `Could not update existing diary row (${id}). ${message}`,
+    createDiaryRowsFailed: (message) => `Could not create new diary rows. ${message}`,
+    diarySaved: (updated, created) => `Diary saved: ${updated} updated, ${created} created.`,
+    sentSuccessfully: "Sent successfully",
+    failedSendToBis: "Failed to send to BIS",
+    selectCertificateFile: "Please select a certificate file.",
+    certificateAttachedSendAgain: "Certificate attached. Please click Send to BIS again.",
+    failedAttachCertificate: "Failed to attach certificate.",
+    materialNameRequired: "Material name is required.",
+    materialNameMax: (max) => `Material name must be ${max} characters or fewer.`,
+    quantityRange: (max) => `Quantity must be a number between 0 and ${max}.`,
+    costRange: (max) => `Cost must be a number between 0 and ${max}.`,
+    unitsMax: (max) => `Units must be ${max} characters or fewer.`,
+    materialConfirmedAndSent: "Material confirmed and sent to BIS",
+    materialUpdated: "Material updated",
+    failedSaveMaterial: "Failed to save material",
+    recordsDeleted: (count) => (count === 1 ? "Record deleted" : `${count} records deleted`),
+    someBisRecordsOnlyDeletedLocally: "Some deleted records were already sent to BIS. They were removed only from WorksRecorded and stay in BIS.",
+    failedDeleteRecords: "Failed to delete records",
+    changesSaved: "Changes saved",
+    failedSaveChanges: "Failed to save changes",
+    costCodeCannotBeEmpty: "Cost code cannot be empty",
+    costCodeAlreadyExists: "Cost code already exists",
+    atLeastOneCostCodeRequired: "At least one cost code is required",
+    costCodesUpdated: "Cost codes updated",
+    failedUpdateCostCodes: "Failed to update cost codes",
+    costCodeUpdated: "Cost code updated",
+    costCodeCleared: "Cost code cleared",
+    failedUpdateCostCode: "Failed to update cost code",
+  },
+  lv: {
+    savedSuccessfully: "Saglabāts veiksmīgi",
+    workerCreated: "Darbinieks izveidots",
+    failedCreateWorker: "Neizdevās izveidot darbinieku",
+    workerDeleted: "Darbinieks dzēsts",
+    failedDeleteWorker: "Neizdevās dzēst darbinieku",
+    workerUpdated: "Darbinieks atjaunināts",
+    failedUpdateWorker: "Neizdevās atjaunināt darbinieku",
+    nameSurnameRequired: "Vārds un uzvārds ir obligāti",
+    phoneTooShort: "Tālruņa numurs ir pārāk īss",
+    phoneTooLong: "Tālruņa numurs ir pārāk garš",
+    phoneAlreadyUsed: "Tālruņa numurs jau tiek izmantots",
+    failedAddWorker: "Neizdevās pievienot darbinieku",
+    languageUpdated: "Valoda nomainīta",
+    organizationLanguageUpdated: "Organizācijas valoda nomainīta",
+    failedUpdateOrganizationLanguage: "Neizdevās atjaunināt organizācijas valodu",
+    correctForm: "Lūdzu, izlabojiet formu.",
+    fieldRequired: (field) => `${field} ir obligāts lauks.`,
+    failedUpdateTimeRecord: "Neizdevās atjaunināt laika ierakstu.",
+    timeRecordUpdated: "Laika ieraksts atjaunināts.",
+    timeRecordDeleted: "Laika ieraksts dzēsts.",
+    failedDeleteTimeRecord: "Neizdevās dzēst laika ierakstu.",
+    reminderSent: "Atgādinājums nosūtīts",
+    failedSendReminder: "Neizdevās nosūtīt atgādinājumu",
+    failedSendInvite: "Neizdevās nosūtīt uzaicinājumu",
+    failedDeleteUser: "Neizdevās dzēst lietotāju",
+    userDeleted: "Lietotājs dzēsts",
+    imageUploaded: "Attēls augšupielādēts",
+    uploadNoUrl: "Augšupielāde pabeigta, bet saite netika saņemta",
+    somethingWentWrong: "Kaut kas nogāja greizi",
+    uploadImageFirst: "Lūdzu, vispirms augšupielādējiet attēlu",
+    noRecordsSelected: "Nav atlasītu ierakstu.",
+    deletedRecords: (count) => `Dzēsti ${count} ieraksti.`,
+    deletedRecordsPartial: (count, failed) => `Dzēsti ${count} ieraksti, ${failed} neizdevās.`,
+    failedDeleteSelectedRecords: "Neizdevās dzēst atlasītos ierakstus.",
+    recordCannotBeSentNoId: "Šo ierakstu nevar nosūtīt, jo tam nav ID.",
+    missingSiteId: "Trūkst objekta ID.",
+    failedLoadBisOptions: "Neizdevās ielādēt BIS materiālu vai pielikumu opcijas.",
+    sendSiteDiaryToBisFirst: "Vispirms nosūtiet šo būvdarbu žurnāla ierakstu uz BIS.",
+    failedLoadBisApprovers: "Neizdevās ielādēt BIS apstiprinātājus.",
+    noRecordSelectedForApproval: "Apstiprināšanai nav atlasīts ieraksts.",
+    selectAtLeastOneApprover: "Atlasiet vismaz vienu apstiprinātāju.",
+    siteDiarySubmittedForApproval: "Būvdarbu žurnāla ieraksts nosūtīts BIS apstiprināšanai.",
+    failedSubmitApproval: "Neizdevās nosūtīt apstiprināšanai.",
+    selectRecordAndTargetDate: "Atlasiet ierakstu un mērķa datumu.",
+    recordCopiedLocally: "Ieraksts nokopēts lokāli. Ja nepieciešams, nosūtiet to uz BIS vēlreiz.",
+    failedCopyRecord: "Neizdevās kopēt ierakstu.",
+    recordDeleted: "Ieraksts dzēsts",
+    failedDeleteRecord: "Neizdevās dzēst ierakstu.",
+    bisLinksRemoved: (count) => `${count} BIS saites noņemtas, jo ieraksti BIS ir dzēsti.`,
+    bisSyncNoDeletedRecords: "BIS sinhronizācija pabeigta. Dzēsti BIS ieraksti nav atrasti.",
+    failedSyncBisRecords: "Neizdevās sinhronizēt BIS ierakstus.",
+    missingSelectedRecordId: "Trūkst atlasītā ieraksta ID.",
+    selectResponsiblePerson: "Lūdzu, atlasiet atbildīgo personu nosūtīšanai uz BIS.",
+    siteDiarySentToBis: "Būvdarbu žurnāla ieraksts nosūtīts uz BIS.",
+    failedSendSiteDiaryToBis: "Neizdevās nosūtīt būvdarbu žurnāla ierakstu uz BIS.",
+    recordNotSentToBisYet: "Šis ieraksts vēl nav nosūtīts uz BIS.",
+    bisUrlUnavailable: "Šim ierakstam BIS saite nav pieejama.",
+    failedOpenRecordInBis: "Neizdevās atvērt ierakstu BIS.",
+    validationError: (path, message) => `Validācijas kļūda laukā "${path}": ${message}`,
+    rowAmountsMax: (row, max) => `Rinda ${row}: daudzumam jābūt <= ${max}`,
+    rowHoursMax: (row, max) => `Rinda ${row}: stundām jābūt <= ${max}`,
+    rowWorkersMax: (row, max) => `Rinda ${row}: darbiniekiem jābūt veselam skaitlim <= ${max}`,
+    diaryRowDeleted: "Žurnāla rinda dzēsta veiksmīgi.",
+    unsavedRowRemoved: "Nesaglabātā rinda noņemta.",
+    updateDiaryRowFailed: (id, message) => `Neizdevās atjaunināt esošo žurnāla rindu (${id}). ${message}`,
+    createDiaryRowsFailed: (message) => `Neizdevās izveidot jaunas žurnāla rindas. ${message}`,
+    diarySaved: (updated, created) => `Žurnāls saglabāts: atjaunināti ${updated}, izveidoti ${created}.`,
+    sentSuccessfully: "Nosūtīts veiksmīgi",
+    failedSendToBis: "Neizdevās nosūtīt uz BIS",
+    selectCertificateFile: "Lūdzu, atlasiet sertifikāta failu.",
+    certificateAttachedSendAgain: "Sertifikāts pievienots. Lūdzu, vēlreiz nospiediet Sūtīt uz BIS.",
+    failedAttachCertificate: "Neizdevās pievienot sertifikātu.",
+    materialNameRequired: "Materiāla nosaukums ir obligāts.",
+    materialNameMax: (max) => `Materiāla nosaukumam jābūt līdz ${max} rakstzīmēm.`,
+    quantityRange: (max) => `Daudzumam jābūt skaitlim no 0 līdz ${max}.`,
+    costRange: (max) => `Izmaksām jābūt skaitlim no 0 līdz ${max}.`,
+    unitsMax: (max) => `Mērvienībai jābūt līdz ${max} rakstzīmēm.`,
+    materialConfirmedAndSent: "Materiāls apstiprināts un nosūtīts uz BIS",
+    materialUpdated: "Materiāls atjaunināts",
+    failedSaveMaterial: "Neizdevās saglabāt materiālu",
+    recordsDeleted: (count) => (count === 1 ? "Ieraksts dzēsts" : `Dzēsti ${count} ieraksti`),
+    someBisRecordsOnlyDeletedLocally: "Daži dzēstie ieraksti jau bija nosūtīti uz BIS. Tie noņemti tikai no WorksRecorded un paliek BIS.",
+    failedDeleteRecords: "Neizdevās dzēst ierakstus",
+    changesSaved: "Izmaiņas saglabātas",
+    failedSaveChanges: "Neizdevās saglabāt izmaiņas",
+    costCodeCannotBeEmpty: "Izmaksu kods nedrīkst būt tukšs",
+    costCodeAlreadyExists: "Izmaksu kods jau pastāv",
+    atLeastOneCostCodeRequired: "Nepieciešams vismaz viens izmaksu kods",
+    costCodesUpdated: "Izmaksu kodi atjaunināti",
+    failedUpdateCostCodes: "Neizdevās atjaunināt izmaksu kodus",
+    costCodeUpdated: "Izmaksu kods atjaunināts",
+    costCodeCleared: "Izmaksu kods notīrīts",
+    failedUpdateCostCode: "Neizdevās atjaunināt izmaksu kodu",
+  },
+};
+
 export function getDashboardMessages(language?: string | null) {
   return DASHBOARD_MESSAGES[normalizeOrganizationLanguage(language)];
 }
@@ -1343,4 +1632,8 @@ export function getSiteSettingsMessages(language?: string | null) {
 
 export function getSiteDiaryDialogMessages(language?: string | null) {
   return SITE_DIARY_DIALOG_MESSAGES[normalizeOrganizationLanguage(language)];
+}
+
+export function getToastMessages(language?: string | null) {
+  return TOAST_MESSAGES[normalizeOrganizationLanguage(language)];
 }

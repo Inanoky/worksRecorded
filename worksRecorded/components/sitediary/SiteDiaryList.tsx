@@ -103,7 +103,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 
 import { toast } from "sonner";
-import { getSiteDiaryListMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import {
   CartesianGrid,
   Line,
@@ -240,6 +240,7 @@ export default function SiteDiaryCalendar({
   const today = new Date();
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryListMessages(language);
+  const toastMessages = getToastMessages(language);
   const dateLocale = language === "lv" ? "lv-LV" : "en-GB";
 
   // 👇 add "gallery" to view mode
@@ -752,7 +753,7 @@ export default function SiteDiaryCalendar({
 
   const handleBulkDeleteRecords = async () => {
     if (selectedRecordIds.size === 0) {
-      toast.error("No records selected.");
+      toast.error(toastMessages.noRecordsSelected);
       return;
     }
 
@@ -787,14 +788,14 @@ export default function SiteDiaryCalendar({
       reloadFilledDays();
 
       if (deletedIds.length > 0 && failedCount === 0) {
-        toast.success(`Deleted ${deletedIds.length} record(s).`);
+        toast.success(toastMessages.deletedRecords(deletedIds.length));
       } else if (deletedIds.length > 0) {
-        toast.warning(`Deleted ${deletedIds.length} record(s), ${failedCount} failed.`);
+        toast.warning(toastMessages.deletedRecordsPartial(deletedIds.length, failedCount));
       } else {
-        toast.error("Failed to delete selected records.");
+        toast.error(toastMessages.failedDeleteSelectedRecords);
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to delete selected records.");
+      toast.error(e?.message ?? toastMessages.failedDeleteSelectedRecords);
     } finally {
       setBulkDeleteLoading(false);
     }
@@ -871,12 +872,12 @@ export default function SiteDiaryCalendar({
     }
 
     if (!row.id) {
-      toast.error("This record cannot be sent because it has no id.");
+      toast.error(toastMessages.recordCannotBeSentNoId);
       return;
     }
 
     if (!siteId) {
-      toast.error("Missing site id.");
+      toast.error(toastMessages.missingSiteId);
       return;
     }
 
@@ -914,7 +915,7 @@ export default function SiteDiaryCalendar({
         setBisSubmitMeasurement(current?.id ?? measurements[0]?.id ?? "12");
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to load BIS material or attachment options.");
+      toast.error(e?.message ?? toastMessages.failedLoadBisOptions);
       setBisPickerOpen(false);
     } finally {
       setBisPickerLoading(false);
@@ -1023,7 +1024,7 @@ export default function SiteDiaryCalendar({
 
   const openApprovalDialog = async (row: DiaryRow) => {
     if (!row.id || !row.BISId) {
-      toast.error("Send this site diary record to BIS first.");
+      toast.error(toastMessages.sendSiteDiaryToBisFirst);
       return;
     }
 
@@ -1042,14 +1043,14 @@ export default function SiteDiaryCalendar({
       setApproverOptions(approvers);
       setSelectedApproverKeys(defaultApproverKeys(approvers));
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to load BIS approvers.");
+      toast.error(e?.message ?? toastMessages.failedLoadBisApprovers);
       setApproverDialogOpen(false);
     }
   };
 
   const submitApproval = async () => {
     if (!approvalRow?.id) {
-      toast.error("No record selected for approval.");
+      toast.error(toastMessages.noRecordSelectedForApproval);
       return;
     }
 
@@ -1058,7 +1059,7 @@ export default function SiteDiaryCalendar({
     );
 
     if (selectedApprovers.length === 0) {
-      toast.error("Select at least one approver.");
+      toast.error(toastMessages.selectAtLeastOneApprover);
       return;
     }
 
@@ -1074,10 +1075,10 @@ export default function SiteDiaryCalendar({
       );
       setBisApprovalStatusByRowId((prev) => ({ ...prev, [approvalRow.id as string]: result.status }));
       await refreshRowsWithBisSync({ skipSync: true });
-      toast.success("Site diary record submitted for BIS approval.");
+      toast.success(toastMessages.siteDiarySubmittedForApproval);
       setApproverDialogOpen(false);
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to submit approval.");
+      toast.error(e?.message ?? toastMessages.failedSubmitApproval);
     } finally {
       setApprovalLoading(false);
     }
@@ -1091,7 +1092,7 @@ export default function SiteDiaryCalendar({
 
   const handleCopyRecord = async () => {
     if (!copyTargetRow?.id || !copyTargetDate) {
-      toast.error("Select a record and target date.");
+      toast.error(toastMessages.selectRecordAndTargetDate);
       return;
     }
 
@@ -1101,10 +1102,10 @@ export default function SiteDiaryCalendar({
       if (!siteId) return;
       await refreshRowsWithBisSync();
       reloadFilledDays();
-      toast.success("Record copied locally. Submit it to BIS again if needed.");
+      toast.success(toastMessages.recordCopiedLocally);
       setCopyDialogOpen(false);
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to copy record.");
+      toast.error(e?.message ?? toastMessages.failedCopyRecord);
     } finally {
       setCopyLoading(false);
     }
@@ -1119,15 +1120,15 @@ export default function SiteDiaryCalendar({
       await deleteSiteDiaryRecord({ id: row.id });
       await refreshRowsWithBisSync({ skipSync: true });
       reloadFilledDays();
-      toast.success("Record deleted");
+      toast.success(toastMessages.recordDeleted);
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to delete record.");
+      toast.error(e?.message ?? toastMessages.failedDeleteRecord);
     }
   };
 
   const handleSyncBisRecords = async () => {
     if (!siteId) {
-      toast.error("Missing site id.");
+      toast.error(toastMessages.missingSiteId);
       return;
     }
 
@@ -1149,12 +1150,12 @@ export default function SiteDiaryCalendar({
           });
           return next;
         });
-        toast.success(`${result.cleared} BIS link(s) were removed because records were deleted in BIS.`);
+        toast.success(toastMessages.bisLinksRemoved(result.cleared));
       } else {
-        toast.success("BIS sync completed. No deleted BIS records found.");
+        toast.success(toastMessages.bisSyncNoDeletedRecords);
       }
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to sync BIS records.");
+      toast.error(e?.message ?? toastMessages.failedSyncBisRecords);
     } finally {
       setBisSyncLoading(false);
     }
@@ -1162,7 +1163,7 @@ export default function SiteDiaryCalendar({
 
   const handleSendRowToBis = async () => {
     if (!selectedRowForBis?.id) {
-      toast.error("Missing selected record id.");
+      toast.error(toastMessages.missingSelectedRecordId);
       return;
     }
 
@@ -1183,7 +1184,7 @@ export default function SiteDiaryCalendar({
         `${item.responsiblePersonId}:${item.responsiblePersonType}` === selectedBisResponsiblePersonKey,
     );
     if (!selectedResponsiblePerson?.responsiblePersonId || !selectedResponsiblePerson?.responsiblePersonType) {
-      toast.error("Please select a responsible person for BIS submission.");
+      toast.error(toastMessages.selectResponsiblePerson);
       return;
     }
 
@@ -1209,9 +1210,9 @@ export default function SiteDiaryCalendar({
       setBisSentRowIds((prev) => new Set(prev).add(selectedRowForBis.id as string));
       await refreshRowsWithBisSync();
       setBisPickerOpen(false);
-      toast.success("Site diary record sent to BIS.");
+      toast.success(toastMessages.siteDiarySentToBis);
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to send site diary record to BIS.");
+      toast.error(e?.message ?? toastMessages.failedSendSiteDiaryToBis);
     } finally {
       setBisSendingRowId(null);
     }
@@ -1219,19 +1220,19 @@ export default function SiteDiaryCalendar({
 
   const handleOpenRecordInBis = async (row: DiaryRow) => {
     if (!row?.id || !row.BISId) {
-      toast.error("This record has not been sent to BIS yet.");
+      toast.error(toastMessages.recordNotSentToBisYet);
       return;
     }
 
     try {
       const url = await getSiteDiaryRecordBisUrl(row.id);
       if (!url) {
-        toast.error("BIS URL is not available for this record.");
+        toast.error(toastMessages.bisUrlUnavailable);
         return;
       }
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e: any) {
-      toast.error(e?.message ?? "Failed to open record in BIS.");
+      toast.error(e?.message ?? toastMessages.failedOpenRecordInBis);
     }
   };
   const handleDownloadPdf = async (groupKey: string, date: Date) => {

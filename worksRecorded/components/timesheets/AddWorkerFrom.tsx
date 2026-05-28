@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { createTeamMember } from "@/server/actions/timesheets-actions";
 import { checkPhoneUnique } from "@/lib/utils/Timesheets/phone-check";
 import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
-import { getWorkersUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getToastMessages, getWorkersUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 const nameRegex = /^[\p{L}][\p{L}\s'-]{1,49}$/u;
 
@@ -65,7 +65,9 @@ export function AddWorkerForm({
   onCancel?: () => void;
   organizationLanguage?: string | null;
 }) {
-  const t = getWorkersUiMessages(normalizeOrganizationLanguage(organizationLanguage));
+  const language = normalizeOrganizationLanguage(organizationLanguage);
+  const t = getWorkersUiMessages(language);
+  const toastMessages = getToastMessages(language);
   const [form, setForm] = useState<FormState>({
     name: "",
     surname: "",
@@ -98,8 +100,8 @@ export function AddWorkerForm({
       }
       setErrors(fieldErrors);
       const firstError =
-        parsed.error.issues[0]?.message ?? "Please fix validation errors.";
-      toast.error(firstError);
+        parsed.error.issues[0]?.message ?? toastMessages.correctForm;
+      toast.error(language === "lv" ? toastMessages.correctForm : firstError);
       return;
     }
 
@@ -108,8 +110,8 @@ export function AddWorkerForm({
     startTransition(async () => {
       const phoneCheck = await checkPhoneUnique(data.phone);
       if (!phoneCheck.unique) {
-        setErrors((prev) => ({ ...prev, phone: "Phone number already used" }));
-        toast.error("Phone number already used");
+        setErrors((prev) => ({ ...prev, phone: toastMessages.phoneAlreadyUsed }));
+        toast.error(toastMessages.phoneAlreadyUsed);
         return;
       }
 
@@ -133,7 +135,7 @@ export function AddWorkerForm({
         onSuccess?.(res.worker);
         router.refresh();
       } else {
-        toast.error(res.error || "Failed to add worker");
+        toast.error(res.error || toastMessages.failedAddWorker);
       }
     });
   };

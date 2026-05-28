@@ -9,7 +9,7 @@ import GeoMap from "@/components/settings/geomap";
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { SubmitButton } from "@/components/dashboard/SubmitButtons";
 import { updateSiteAction } from "@/server/actions/shared-actions";
-import { getSiteSettingsMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getSiteSettingsMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type Point = {
   lat: number;
@@ -34,7 +34,9 @@ export function UpdateSiteForm({
   parsedPolygon,
   organizationLanguage,
 }: UpdateSiteFormProps) {
-  const t = getSiteSettingsMessages(normalizeOrganizationLanguage(organizationLanguage));
+  const language = normalizeOrganizationLanguage(organizationLanguage);
+  const t = getSiteSettingsMessages(language);
+  const toastMessages = getToastMessages(language);
   const [isPending, startTransition] = useTransition();
 
   async function formAction(formData: FormData) {
@@ -42,13 +44,13 @@ export function UpdateSiteForm({
       try {
         const result = await updateSiteAction(formData);
         if (!result.success) {
-          toast.error(result.message || t.cancel);
+          toast.error(result.message || toastMessages.failedSaveChanges);
           return;
         }
-        toast.success(t.saveChanges);
+        toast.success(toastMessages.changesSaved);
       } catch (error) {
         console.error("Failed to update site", error);
-        toast.error(t.cancel);
+        toast.error(toastMessages.failedSaveChanges);
       }
     });
   }

@@ -13,6 +13,7 @@ import {
 import { updateOrganizationLanguage } from "@/server/actions/shared-actions";
 import {
   getSettingsUiMessages,
+  getToastMessages,
   normalizeOrganizationLanguage,
   type OrganizationLanguage,
 } from "@/lib/dashboard-i18n";
@@ -26,18 +27,19 @@ export function OrganizationLanguageSwitcher({ currentLanguage }: Props) {
   const [isPending, startTransition] = useTransition();
   const value = normalizeOrganizationLanguage(currentLanguage);
   const t = getSettingsUiMessages(value);
+  const toastMessages = getToastMessages(value);
 
   const onChange = (language: OrganizationLanguage) => {
     startTransition(async () => {
       const result = await updateOrganizationLanguage(language);
 
       if (result?.ok) {
-        toast.success(language === "lv" ? "Organizācijas valoda nomainīta" : "Organization language updated");
+        toast.success(getToastMessages(language).organizationLanguageUpdated);
         router.refresh();
         return;
       }
 
-      toast.error(result?.message ?? "Failed to update organization language");
+      toast.error(result?.message ?? toastMessages.failedUpdateOrganizationLanguage);
     });
   };
 

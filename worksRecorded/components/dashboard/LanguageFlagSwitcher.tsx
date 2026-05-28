@@ -6,7 +6,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { updateOrganizationLanguage } from "@/server/actions/shared-actions";
-import { normalizeOrganizationLanguage, type OrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getToastMessages, normalizeOrganizationLanguage, type OrganizationLanguage } from "@/lib/dashboard-i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +28,7 @@ export function LanguageFlagSwitcher({ currentLanguage }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const value = normalizeOrganizationLanguage(currentLanguage);
+  const toastMessages = getToastMessages(value);
   const activeOption = FLAG_OPTIONS.find((option) => option.code === value) ?? FLAG_OPTIONS[0];
 
   const onChange = (language: OrganizationLanguage) => {
@@ -37,12 +38,12 @@ export function LanguageFlagSwitcher({ currentLanguage }: Props) {
       const result = await updateOrganizationLanguage(language);
 
       if (result?.ok) {
-        toast.success(language === "lv" ? "Valoda nomainīta" : "Language updated");
+        toast.success(getToastMessages(language).languageUpdated);
         router.refresh();
         return;
       }
 
-      toast.error(result?.message ?? "Failed to update organization language");
+      toast.error(result?.message ?? toastMessages.failedUpdateOrganizationLanguage);
     });
   };
 

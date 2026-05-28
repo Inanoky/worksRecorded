@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
+import { getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import {
   createOrganizationWorker,
   deleteOrganizationWorker,
@@ -45,6 +46,7 @@ type Props = {
   orgId: string;
   workers: WorkerRow[];
   projects: ProjectOption[];
+  organizationLanguage?: string | null;
 };
 
 type WorkerFormState = {
@@ -106,8 +108,10 @@ function toHHmm(dt: string | Date | null | undefined) {
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
+export function WorkersSettingsTable({ orgId, workers, projects, organizationLanguage }: Props) {
   const router = useRouter();
+  const language = normalizeOrganizationLanguage(organizationLanguage);
+  const toastMessages = getToastMessages(language);
   const [addOpen, setAddOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [pending, startTransition] = React.useTransition();
@@ -128,23 +132,23 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
 
   function validateWorkerInput(worker: WorkerFormState, mode: "create" | "edit") {
     const parsed = workerValidationSchema.safeParse(worker);
-    if (!parsed.success) return parsed.error.issues[0]?.message ?? "Validation failed";
+    if (!parsed.success) return language === "lv" ? toastMessages.correctForm : parsed.error.issues[0]?.message ?? toastMessages.correctForm;
 
     if (mode === "edit" && !worker.id) {
-      return "Missing worker id";
+      return toastMessages.correctForm;
     }
 
     const normalizedPhone = normalizePhonePart(worker.phone);
     if (normalizedPhone && (normalizedPhone.length < 7 || normalizedPhone.length > 15)) {
-      return "Phone number must contain 7 to 15 digits";
+      return `${toastMessages.phoneTooShort} / ${toastMessages.phoneTooLong}`;
     }
 
     if (worker.reminderTime && !HHMM_REGEX.test(worker.reminderTime)) {
-      return "Reminder time must be in HH:mm format";
+      return toastMessages.correctForm;
     }
 
     if (worker.siteId !== "none" && worker.siteId && !projects.some((project) => project.id === worker.siteId)) {
-      return "Please select a valid project";
+      return toastMessages.correctForm;
     }
 
     return null;
@@ -183,13 +187,13 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
         siteId: newWorker.siteId === "none" ? null : newWorker.siteId,
       });
 
-      if (res.ok) {
-        toast.success("Worker created");
+    if (res.ok) {
+        toast.success(toastMessages.workerCreated);
         setAddOpen(false);
         setNewWorker((prev) => ({ ...prev, name: "", surname: "", phone: "", siteId: "none" }));
         router.refresh();
       } else {
-        toast.error("Failed to create worker");
+        toast.error(toastMessages.failedCreateWorker);
       }
     });
   }
@@ -215,11 +219,11 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
       });
 
       if (res.ok) {
-        toast.success("Worker updated");
+        toast.success(toastMessages.workerUpdated);
         setEditOpen(false);
         router.refresh();
       } else {
-        toast.error("Failed to update worker");
+        toast.error(toastMessages.failedUpdateWorker);
       }
     });
   }
@@ -230,10 +234,10 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
 
     const res = await deleteOrganizationWorker(workerId);
     if (res.ok) {
-      toast.success("Worker deleted");
+      toast.success(toastMessages.workerDeleted);
       router.refresh();
     } else {
-      toast.error("Failed to delete worker");
+      toast.error(toastMessages.failedDeleteWorker);
     }
   }
 
@@ -244,9 +248,9 @@ export function WorkersSettingsTable({ orgId, workers, projects }: Props) {
         targetId: worker.id,
         reminderText: worker.reminderText?.trim() || null,
       });
-      toast.success("Reminder sent");
+      toast.success(toastMessages.reminderSent);
     } catch (error: any) {
-      toast.error(error?.message ?? "Failed to send reminder");
+      toast.error(error?.message ?? toastMessages.failedSendReminder);
     }
   }
 

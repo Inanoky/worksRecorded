@@ -7,13 +7,16 @@ import {UploadDropzone} from "@/lib/utils/UploadthingsComponents";
 import {SubmitButton} from "@/components/dashboard/SubmitButtons";
 import {toast} from "sonner";
 import {UpdateImage} from "@/server/actions/shared-actions";
+import { getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 interface iAppProps {
   siteId: string;
+  organizationLanguage?: string | null;
 }
 
-export function UploadImageForm({ siteId }: iAppProps) {
+export function UploadImageForm({ siteId, organizationLanguage }: iAppProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const toastMessages = getToastMessages(normalizeOrganizationLanguage(organizationLanguage));
 
   return (
     <Card>
@@ -38,13 +41,13 @@ export function UploadImageForm({ siteId }: iAppProps) {
               const url = res?.[0]?.url;
               if (url) {
                 setImageUrl(url);
-                toast.success("Image has been uploaded");
+                toast.success(toastMessages.imageUploaded);
               } else {
-                toast.error("Upload finished but no URL was returned");
+                toast.error(toastMessages.uploadNoUrl);
               }
             }}
             onUploadError={() => {
-              toast.error("Something went wrong");
+              toast.error(toastMessages.somethingWentWrong);
             }}
           />
         )}
@@ -56,7 +59,7 @@ export function UploadImageForm({ siteId }: iAppProps) {
           onSubmit={(e) => {
             if (!imageUrl) {
               e.preventDefault();
-              toast.error("Please upload an image first");
+              toast.error(toastMessages.uploadImageFirst);
             }
           }}
         >

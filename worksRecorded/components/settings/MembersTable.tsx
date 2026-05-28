@@ -29,7 +29,7 @@ import { useRouter } from "next/navigation";
 import { useActionState } from "react";
 import { toast } from "sonner";
 import { z } from "zod"; // <-- Zod
-import { getSettingsUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getSettingsUiMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
 
 // server actions
@@ -156,7 +156,9 @@ export function MembersTable({
   organizationLanguage,
 }: MembersTableProps) {
   const router = useRouter();
-  const t = getSettingsUiMessages(normalizeOrganizationLanguage(organizationLanguage));
+  const language = normalizeOrganizationLanguage(organizationLanguage);
+  const t = getSettingsUiMessages(language);
+  const toastMessages = getToastMessages(language);
   const columns = React.useMemo(() => getColumns(t), [t]);
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
@@ -328,7 +330,7 @@ export function MembersTable({
                     setOpenAdd(false);
                     router.refresh();
                   } else {
-                    toast.error(res?.message ?? "Failed to send invite");
+                    toast.error(res?.message ?? toastMessages.failedSendInvite);
                   }
                 }}
               >
@@ -618,9 +620,9 @@ export function MembersTable({
                                       targetId: r.id,
                                       reminderText: String(currentDraft.reminderText ?? r.reminderText ?? "").trim() || null,
                                     });
-                                    toast.success("Reminder sent");
+                                    toast.success(toastMessages.reminderSent);
                                   } catch (error: any) {
-                                    toast.error(error?.message ?? "Failed to send reminder");
+                                    toast.error(error?.message ?? toastMessages.failedSendReminder);
                                   }
                                 }}
                               >
@@ -634,13 +636,13 @@ export function MembersTable({
                                   try {
                                     const result = await deleteOrganizationUser(r.id);
                                     if (!result.ok) {
-                                      toast.error("Failed to delete user");
+                                      toast.error(toastMessages.failedDeleteUser);
                                       return;
                                     }
-                                    toast.success("User deleted");
+                                    toast.success(toastMessages.userDeleted);
                                     router.refresh();
                                   } catch (error: any) {
-                                    toast.error(error?.message ?? "Failed to delete user");
+                                    toast.error(error?.message ?? toastMessages.failedDeleteUser);
                                   }
                                 }}
                               >

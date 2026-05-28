@@ -72,7 +72,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { getTimesheetsUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getTimesheetsUiMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type TableRecord = {
   id: string;
@@ -209,7 +209,9 @@ export function FrontendTable({
   exportFileName = "table_data.xlsx",
   organizationLanguage,
 }: FrontendTableProps) {
-  const t = getTimesheetsUiMessages(normalizeOrganizationLanguage(organizationLanguage));
+  const language = normalizeOrganizationLanguage(organizationLanguage);
+  const t = getTimesheetsUiMessages(language);
+  const toastMessages = getToastMessages(language);
   const columns = React.useMemo(() => getColumnsFromData(data, t), [data, t]);
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [localData, setLocalData] = React.useState<TableRecord[]>(data);
@@ -251,7 +253,7 @@ export function FrontendTable({
 
     const parsed = RowSchema.safeParse(editDraft);
     if (!parsed.success) {
-      toast.error(parsed.error.errors[0]?.message ?? "Please correct the form.");
+      toast.error(language === "lv" ? toastMessages.correctForm : parsed.error.errors[0]?.message ?? toastMessages.correctForm);
       return;
     }
 
@@ -273,7 +275,7 @@ export function FrontendTable({
       });
 
       if (!result.success) {
-        toast.error(result.error ?? "Failed to update time record.");
+        toast.error(result.error ?? toastMessages.failedUpdateTimeRecord);
         return;
       }
 
@@ -302,11 +304,11 @@ export function FrontendTable({
         ),
       );
 
-      toast.success("Time record updated.");
+      toast.success(toastMessages.timeRecordUpdated);
       setEditDraft(null);
       router.refresh();
     } catch {
-      toast.error("Failed to update time record.");
+      toast.error(toastMessages.failedUpdateTimeRecord);
     } finally {
       setIsSaving(false);
     }
@@ -319,16 +321,16 @@ export function FrontendTable({
     try {
       const result = await deleteTimeRecord(recordToDelete.id, siteId);
       if (!result.success) {
-        toast.error(result.error ?? "Failed to delete time record.");
+        toast.error(result.error ?? toastMessages.failedDeleteTimeRecord);
         return;
       }
 
       setLocalData((prev) => prev.filter((row) => row.id !== recordToDelete.id));
-      toast.success("Time record deleted.");
+      toast.success(toastMessages.timeRecordDeleted);
       setRecordToDelete(null);
       router.refresh();
     } catch {
-      toast.error("Failed to delete time record.");
+      toast.error(toastMessages.failedDeleteTimeRecord);
     } finally {
       setIsDeleting(false);
     }
