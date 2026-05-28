@@ -20,6 +20,7 @@ import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { PhoneRequiredDialog } from "@/components/dashboard/PhoneRequiredDialog";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
+import { saveUserPhone } from "@/server/actions/shared-actions";
 
 async function getData(orgId: string) {
   const [sites] = await Promise.all([
@@ -36,6 +37,12 @@ async function getData(orgId: string) {
   return { sites };
 }
 
+async function setPhone(formData: FormData) {
+  "use server";
+  await saveUserPhone(formData);
+  redirect("/dashboard/welcome");
+}
+
 export default async function Welcome() {
   const user = await requireUser();
 
@@ -44,7 +51,7 @@ export default async function Welcome() {
     select: { userTour: true, phone: true },
   });
 
-  const tour = dbUser?.userTour as Record<string, any> | null;
+  const tour = dbUser?.userTour as Record<string, unknown> | null;
   const isFirstTime =
     !tour || (typeof tour === "object" && Object.keys(tour).length === 0);
 
@@ -65,6 +72,10 @@ export default async function Welcome() {
   }
 
   const orgId = await getOrganizationIdByUserId(user.id);
+  if (!orgId) {
+    redirect("/dashboard");
+  }
+
   const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
   const t = getDashboardMessages(organizationLanguage);
   const { sites } = await getData(orgId);
@@ -72,7 +83,7 @@ export default async function Welcome() {
   return (
     <>
       {/* Force phone number BEFORE tour + usage */}
-      <PhoneRequiredDialog needsPhone={needsPhone} />
+      <PhoneRequiredDialog needsPhone={needsPhone} action={setPhone} />
 
       {/* Tour only runs after phone is set */}
       {!needsPhone && (
