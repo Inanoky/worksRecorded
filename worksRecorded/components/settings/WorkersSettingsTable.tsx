@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { COUNTRY_CALLING_CODES } from "@/lib/constants/countryCallingCodes";
-import { getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getToastMessages, getWorkersUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import {
   createOrganizationWorker,
   deleteOrganizationWorker,
@@ -111,6 +111,7 @@ function toHHmm(dt: string | Date | null | undefined) {
 export function WorkersSettingsTable({ orgId, workers, projects, organizationLanguage }: Props) {
   const router = useRouter();
   const language = normalizeOrganizationLanguage(organizationLanguage);
+  const t = getWorkersUiMessages(language);
   const toastMessages = getToastMessages(language);
   const [addOpen, setAddOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
@@ -229,7 +230,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
   }
 
   async function handleDelete(workerId: string) {
-    const confirmed = window.confirm("Delete this worker? This action cannot be undone.");
+    const confirmed = window.confirm(t.deleteWorkerConfirm);
     if (!confirmed) return;
 
     const res = await deleteOrganizationWorker(workerId);
@@ -257,31 +258,31 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
   return (
     <Card className="mt-6">
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle>Workers settings</CardTitle>
+        <CardTitle>{t.workersSettings}</CardTitle>
 
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
-            <Button size="sm">Add worker</Button>
+            <Button size="sm">{t.addWorker}</Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Add worker</DialogTitle>
-              <DialogDescription>Create worker and set project assignment.</DialogDescription>
+              <DialogTitle>{t.addWorker}</DialogTitle>
+              <DialogDescription>{t.createWorkerAndSetProjectAssignment}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddSubmit} className="space-y-3">
               <div className="space-y-1">
-                <Label>First name</Label>
+                <Label>{t.firstName}</Label>
                 <Input value={newWorker.name} onChange={(e) => setNewWorker((p) => ({ ...p, name: e.target.value }))} required />
               </div>
               <div className="space-y-1">
-                <Label>Last name</Label>
+                <Label>{t.lastName}</Label>
                 <Input value={newWorker.surname} onChange={(e) => setNewWorker((p) => ({ ...p, surname: e.target.value }))} required />
               </div>
               <div className="space-y-1">
-                <Label>Phone</Label>
+                <Label>{t.phone}</Label>
                 <div className="flex gap-2">
                   <Select value={newWorker.countryCode} onValueChange={(v) => setNewWorker((p) => ({ ...p, countryCode: v }))}>
-                    <SelectTrigger className="w-[220px]"><SelectValue placeholder="Country code" /></SelectTrigger>
+                    <SelectTrigger className="w-[220px]"><SelectValue placeholder={t.countryCode} /></SelectTrigger>
                     <SelectContent>
                       {COUNTRY_CALLING_CODES.map((country) => (
                         <SelectItem key={`${country.iso2}-${country.dialCode}`} value={country.dialCode}>
@@ -294,11 +295,11 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
                 </div>
               </div>
               <div className="space-y-1">
-                <Label>Project</Label>
+                <Label>{t.project}</Label>
                 <Select value={newWorker.siteId} onValueChange={(v) => setNewWorker((p) => ({ ...p, siteId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Project" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t.project} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No project</SelectItem>
+                    <SelectItem value="none">{t.noProject}</SelectItem>
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                     ))}
@@ -306,8 +307,8 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
                 </Select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="ghost" onClick={() => setAddOpen(false)} disabled={pending}>Cancel</Button>
-                <Button type="submit" disabled={pending}>{pending ? "..." : "Add worker"}</Button>
+                <Button type="button" variant="ghost" onClick={() => setAddOpen(false)} disabled={pending}>{t.cancel}</Button>
+                <Button type="submit" disabled={pending}>{pending ? "..." : t.addWorker}</Button>
               </div>
             </form>
           </DialogContent>
@@ -318,23 +319,23 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Worker</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Reminder time</TableHead>
-              <TableHead>Reminder enabled</TableHead>
-              <TableHead>Reminder text</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>{t.worker}</TableHead>
+              <TableHead>{t.phone}</TableHead>
+              <TableHead>{t.project}</TableHead>
+              <TableHead>{t.reminderTime}</TableHead>
+              <TableHead>{t.reminderEnabled}</TableHead>
+              <TableHead>{t.reminderText}</TableHead>
+              <TableHead>{t.actions}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {workers.map((worker) => (
               <TableRow key={worker.id}>
-                <TableCell>{`${worker.name ?? ""} ${worker.surname ?? ""}`.trim() || "Unnamed"}</TableCell>
+                <TableCell>{`${worker.name ?? ""} ${worker.surname ?? ""}`.trim() || t.unnamed}</TableCell>
                 <TableCell>{worker.phone ?? ""}</TableCell>
-                <TableCell>{projects.find((p) => p.id === worker.siteId)?.name ?? "No project"}</TableCell>
+                <TableCell>{projects.find((p) => p.id === worker.siteId)?.name ?? t.noProject}</TableCell>
                 <TableCell>{toHHmm(worker.reminderTime) || "-"}</TableCell>
-                <TableCell>{worker.remindersEnabled ? "Enabled" : "Disabled"}</TableCell>
+                <TableCell>{worker.remindersEnabled ? t.enabled : t.disabled}</TableCell>
                 <TableCell>{worker.reminderText ?? ""}</TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -342,11 +343,11 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
                       <Button size="icon" variant="ghost"><MoreHorizontal /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuLabel>{t.actions}</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => openEdit(worker)}>Edit</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleSendNow(worker)}>Send now</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(worker.id)}>Delete</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openEdit(worker)}>{t.edit}</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleSendNow(worker)}>{t.sendNow}</DropdownMenuItem>
+                      <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(worker.id)}>{t.delete}</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -359,23 +360,23 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Edit worker</DialogTitle>
-            <DialogDescription>All worker edits are done in this modal.</DialogDescription>
+            <DialogTitle>{t.editWorker}</DialogTitle>
+            <DialogDescription>{t.allWorkerEditsDoneInThisModal}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditSubmit} className="space-y-3">
             <div className="space-y-1">
-              <Label>First name</Label>
+              <Label>{t.firstName}</Label>
               <Input value={editWorker.name} onChange={(e) => setEditWorker((p) => ({ ...p, name: e.target.value }))} required />
             </div>
             <div className="space-y-1">
-              <Label>Last name</Label>
+              <Label>{t.lastName}</Label>
               <Input value={editWorker.surname} onChange={(e) => setEditWorker((p) => ({ ...p, surname: e.target.value }))} required />
             </div>
             <div className="space-y-1">
-              <Label>Phone</Label>
+              <Label>{t.phone}</Label>
               <div className="flex gap-2">
                 <Select value={editWorker.countryCode} onValueChange={(v) => setEditWorker((p) => ({ ...p, countryCode: v }))}>
-                  <SelectTrigger className="w-[220px]"><SelectValue placeholder="Country code" /></SelectTrigger>
+                  <SelectTrigger className="w-[220px]"><SelectValue placeholder={t.countryCode} /></SelectTrigger>
                   <SelectContent>
                     {COUNTRY_CALLING_CODES.map((country) => (
                       <SelectItem key={`${country.iso2}-${country.dialCode}`} value={country.dialCode}>
@@ -388,11 +389,11 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Project</Label>
+              <Label>{t.project}</Label>
               <Select value={editWorker.siteId} onValueChange={(v) => setEditWorker((p) => ({ ...p, siteId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Project" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t.project} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No project</SelectItem>
+                  <SelectItem value="none">{t.noProject}</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
                   ))}
@@ -400,20 +401,20 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Reminder time</Label>
+              <Label>{t.reminderTime}</Label>
               <Input type="time" step={60} lang="en-GB" value={editWorker.reminderTime} onChange={(e) => setEditWorker((p) => ({ ...p, reminderTime: e.target.value }))} />
             </div>
             <label className="inline-flex items-center gap-2 text-sm">
               <input type="checkbox" checked={editWorker.remindersEnabled} onChange={(e) => setEditWorker((p) => ({ ...p, remindersEnabled: e.target.checked }))} />
-              Reminder enabled
+              {t.reminderEnabled}
             </label>
             <div className="space-y-1">
-              <Label>Reminder text</Label>
+              <Label>{t.reminderText}</Label>
               <Input value={editWorker.reminderText} onChange={(e) => setEditWorker((p) => ({ ...p, reminderText: e.target.value }))} />
             </div>
             <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" variant="ghost" onClick={() => setEditOpen(false)} disabled={pending}>Cancel</Button>
-              <Button type="submit" disabled={pending}>{pending ? "..." : "Save changes"}</Button>
+              <Button type="button" variant="ghost" onClick={() => setEditOpen(false)} disabled={pending}>{t.cancel}</Button>
+              <Button type="submit" disabled={pending}>{pending ? "..." : t.saveChanges}</Button>
             </div>
           </form>
         </DialogContent>

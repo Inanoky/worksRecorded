@@ -154,23 +154,40 @@ type TimesheetsUiMessages = {
 
 type WorkersUiMessages = {
   workersOnSite: string;
+  workersSettings: string;
   workersDescription: string;
   addWorker: string;
   addWorkerDescription: string;
+  createWorkerAndSetProjectAssignment: string;
   totalWorkers: string;
   firstName: string;
   lastName: string;
+  worker: string;
   onSite: string;
+  project: string;
+  noProject: string;
   lastWorkDate: string;
   lastWorkType: string;
+  reminderTime: string;
+  reminderEnabled: string;
+  reminderText: string;
+  actions: string;
   editWorker: string;
   updateWorkerInformation: string;
+  allWorkerEditsDoneInThisModal: string;
   name: string;
   surname: string;
   phone: string;
   countryCode: string;
   saveChanges: string;
   cancel: string;
+  unnamed: string;
+  enabled: string;
+  disabled: string;
+  edit: string;
+  sendNow: string;
+  delete: string;
+  deleteWorkerConfirm: string;
 };
 
 type WarehouseMaterialConfigSelectMessages = {
@@ -836,43 +853,77 @@ const TIMESHEETS_UI_MESSAGES: Record<OrganizationLanguage, TimesheetsUiMessages>
 const WORKERS_UI_MESSAGES: Record<OrganizationLanguage, WorkersUiMessages> = {
   en: {
     workersOnSite: "Workers on site",
+    workersSettings: "Workers settings",
     workersDescription: "Create, update, and delete workers available for timesheets on this project.",
     addWorker: "Add worker",
     addWorkerDescription: "Create a new worker profile for this site.",
+    createWorkerAndSetProjectAssignment: "Create worker and set project assignment.",
     totalWorkers: "Total workers",
     firstName: "First Name",
     lastName: "Last Name",
+    worker: "Worker",
     onSite: "On site?",
+    project: "Project",
+    noProject: "No project",
     lastWorkDate: "Last Work Date",
     lastWorkType: "Last Work Type",
+    reminderTime: "Reminder time",
+    reminderEnabled: "Reminder enabled",
+    reminderText: "Reminder text",
+    actions: "Actions",
     editWorker: "Edit worker",
     updateWorkerInformation: "Update worker information.",
+    allWorkerEditsDoneInThisModal: "All worker edits are done in this modal.",
     name: "Name",
     surname: "Surname",
     phone: "Phone",
     countryCode: "Country code",
     saveChanges: "Save changes",
     cancel: "Cancel",
+    unnamed: "Unnamed",
+    enabled: "Enabled",
+    disabled: "Disabled",
+    edit: "Edit",
+    sendNow: "Send now",
+    delete: "Delete",
+    deleteWorkerConfirm: "Delete this worker? This action cannot be undone.",
   },
   lv: {
     workersOnSite: "Objektā esošie darbinieki",
+    workersSettings: "Darbinieku iestatījumi",
     workersDescription: "Izveidojiet, rediģējiet un dzēsiet darbiniekus, kas pieejami darba laika uzskaitei šajā projektā.",
     addWorker: "Pievienot darbinieku",
     addWorkerDescription: "Izveidojiet jaunu darbinieka profilu šim objektam.",
+    createWorkerAndSetProjectAssignment: "Izveidojiet darbinieku un piesaistiet projektu.",
     totalWorkers: "Kopā darbinieki",
     firstName: "Vārds",
     lastName: "Uzvārds",
+    worker: "Darbinieks",
     onSite: "Objektā?",
+    project: "Projekts",
+    noProject: "Nav projekta",
     lastWorkDate: "Pēdējā darba diena",
     lastWorkType: "Pēdējais darba veids",
+    reminderTime: "Atgādinājuma laiks",
+    reminderEnabled: "Atgādinājums ieslēgts",
+    reminderText: "Atgādinājuma teksts",
+    actions: "Darbības",
     editWorker: "Rediģēt darbinieku",
     updateWorkerInformation: "Atjauniniet darbinieka informāciju.",
+    allWorkerEditsDoneInThisModal: "Visas darbinieka izmaiņas tiek veiktas šajā logā.",
     name: "Vārds",
     surname: "Uzvārds",
     phone: "Tālrunis",
     countryCode: "Valsts kods",
     saveChanges: "Saglabāt izmaiņas",
     cancel: "Atcelt",
+    unnamed: "Bez vārda",
+    enabled: "Ieslēgts",
+    disabled: "Izslēgts",
+    edit: "Rediģēt",
+    sendNow: "Nosūtīt tagad",
+    delete: "Dzēst",
+    deleteWorkerConfirm: "Dzēst šo darbinieku? Šo darbību nevar atsaukt.",
   },
 };
 
