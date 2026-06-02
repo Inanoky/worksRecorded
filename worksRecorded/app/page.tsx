@@ -9,7 +9,7 @@ function readParam(
 ): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
-
+//nothing
 export default async function Home({ searchParams }: RootPageProps) {
   const params = (await searchParams) ?? {};
   const code = readParam(params.code);
