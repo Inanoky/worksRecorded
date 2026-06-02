@@ -1,9 +1,8 @@
-import Link from "next/link";
 import Image from "next/image";
-import { caseStudies } from "./_data/caseStudies";
-
+import Link from "next/link";
 import type { Metadata } from "next";
 import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
+import { getCaseStudies } from "./_data/caseStudies";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -28,17 +27,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   });
 }
 
-export default async function CaseStudiesPage({
-  params,
-}: PageProps) {
-  const { locale } = await params; // ✅ en / lv / etc
+export default async function CaseStudiesPage({ params }: PageProps) {
+  const { locale } = await params;
+  const isLatvian = locale === "lv";
+  const caseStudies = getCaseStudies(locale);
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
       <div className="mb-10">
-        <h1 className="text-3xl font-semibold">Case studies</h1>
+        <h1 className="text-3xl font-semibold">
+          {isLatvian ? "Projektu pieredze" : "Case studies"}
+        </h1>
         <p className="mt-2 text-muted-foreground">
-          Real examples of how teams use WorksRecorded to capture site records with WhatsApp.
+          {isLatvian
+            ? "Reāli piemēri, kā komandas izmanto WorksRecorded objektu pierakstiem un atskaitēm ar WhatsApp."
+            : "Real examples of how teams use WorksRecorded to capture site records with WhatsApp."}
         </p>
       </div>
 
@@ -46,7 +49,7 @@ export default async function CaseStudiesPage({
         {caseStudies.map((cs) => (
           <Link
             key={cs.slug}
-            href={`/${locale}/Landing/CaseStudies/${cs.slug}`} // ✅ locale-aware
+            href={`/${locale}/Landing/CaseStudies/${cs.slug}`}
             className="group rounded-2xl border bg-background p-4 shadow-sm transition hover:shadow-md"
           >
             <div className="relative mb-4 aspect-[16/9] overflow-hidden rounded-xl bg-muted">
@@ -72,12 +75,12 @@ export default async function CaseStudiesPage({
 
             {cs.tags?.length ? (
               <div className="mt-4 flex flex-wrap gap-2">
-                {cs.tags.slice(0, 3).map((t) => (
+                {cs.tags.slice(0, 3).map((tag) => (
                   <span
-                    key={t}
+                    key={tag}
                     className="rounded-full border px-2 py-1 text-xs text-muted-foreground"
                   >
-                    {t}
+                    {tag}
                   </span>
                 ))}
               </div>
