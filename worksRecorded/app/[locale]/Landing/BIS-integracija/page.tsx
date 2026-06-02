@@ -56,7 +56,7 @@ export default async function BISIntegracijaPage({ params }: PageProps) {
           <div className="aspect-video w-full overflow-hidden rounded-xl border shadow-xl shadow-black/15">
             <iframe
               title="BIS automatizācija. Materiālu un būvizstrādājumu pievienošana caur WhatsApp."
-              src="https://www.youtube.com/embed/78_e52vV0ps"
+              src="https://www.youtube.com/embed/2hmYq3Rf3SI"
               className="h-full w-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               referrerPolicy="strict-origin-when-cross-origin"
