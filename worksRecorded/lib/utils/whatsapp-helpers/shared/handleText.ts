@@ -1,4 +1,4 @@
-import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
 
 /**

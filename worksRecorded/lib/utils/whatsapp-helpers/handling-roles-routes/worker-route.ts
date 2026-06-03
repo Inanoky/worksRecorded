@@ -1,18 +1,15 @@
 "use server";
 
 import { prisma } from "@/lib/utils/db";
+import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import talkToClockInAgent from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/agent";
 import OpenAI, { toFile } from "openai";
-import { sendMessage } from "../shared/twillio";
+import { sendMessage } from "../shared/sender";
 // UPDATE: Ensure this import path is correct for your file structure
 // (assuming handleImage.ts is in the same directory as this file based on surrounding context)
 import { handleImage } from "../shared/handleImage";
 // NOTE: I am using './handleImage' as a placeholder. You used '../shared/handleImage',
 // ensure the path matches where you placed the updated handleImage.ts file.
-
-const accountSid = process.env.TWILIO_ACCOUNT_SID!;
-const authToken = process.env.TWILIO_AUTH_TOKEN!;
-const metaAccessToken = process.env.META_ACCESS_TOKEN || "";
 
 function inferAudioExtension(contentType: string) {
   const normalized = contentType.toLowerCase();
@@ -83,31 +80,11 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
   if (NumMedia === "1") {
     const MediaUrl0 = formData.get("MediaUrl0") as string | null;
     const MediaContentType0 = (formData.get("MediaContentType0") || "").toString();
-    const MediaProvider0 = (formData.get("MediaProvider0") || "").toString().toLowerCase();
 
     if (MediaUrl0 && MediaContentType0.startsWith("audio")) {
       try {
         console.log("🎤 Audio message detected");
-        const headers: Record<string, string> = {};
-        if (MediaProvider0 === "meta") {
-          if (!metaAccessToken) {
-            throw new Error("Missing META_ACCESS_TOKEN for Meta media download");
-          }
-          headers.Authorization = `Bearer ${metaAccessToken}`;
-        } else {
-          const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
-          headers.Authorization = `Basic ${basicAuth}`;
-        }
-
-        const res = await fetch(MediaUrl0, { headers });
-        if (!res.ok) {
-          const errText = await res.text().catch(() => "");
-          throw new Error(
-            `Failed to fetch audio media (${MediaProvider0 || "twilio"}): ${res.status} ${res.statusText} ${errText}`
-          );
-        }
-
-        const buf = Buffer.from(await res.arrayBuffer());
+        const buf = await fetchWhatsAppMediaAsBuffer(MediaUrl0);
         const ext = inferAudioExtension(MediaContentType0);
         const file = await toFile(buf, `voice-message.${ext}`);
 

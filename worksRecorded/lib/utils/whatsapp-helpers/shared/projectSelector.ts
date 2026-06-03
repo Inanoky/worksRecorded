@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/utils/db";
-import { sendMessage } from "./twillio";
+import { sendMessage } from "./sender";
 
 const PROJECT_SELECTION_COMMANDS = new Set(["change", "project", "projekts"]);
 

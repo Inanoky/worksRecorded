@@ -1,3 +1,3 @@
 ALTER TABLE "BISmaterialRecords"
-ADD COLUMN "declarationAttachment" JSONB,
-ADD COLUMN "agreementAttachment" JSONB;
+ADD COLUMN IF NOT EXISTS "declarationAttachment" JSONB,
+ADD COLUMN IF NOT EXISTS "agreementAttachment" JSONB;

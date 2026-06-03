@@ -1,3 +1,3 @@
 -- Add organization-level BIS cost code storage
 ALTER TABLE "Organization"
-ADD COLUMN "bisCostCodes" JSONB;
+ADD COLUMN IF NOT EXISTS "bisCostCodes" JSONB;

@@ -1,6 +1,6 @@
 import OpenAI, { toFile } from "openai";
-import { getString, fetchTwilioMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { getString, fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
 
 
@@ -61,7 +61,7 @@ export async function handleAudio(args: {
   if (!ct0.startsWith("audio")) return false;
 
   try {
-    const buf = await fetchTwilioMediaAsBuffer(mediaUrl0!);
+    const buf = await fetchWhatsAppMediaAsBuffer(mediaUrl0!);
     const file = await toFile(buf, "voice-message.ogg");
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

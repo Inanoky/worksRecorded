@@ -1,1 +1,1 @@
-ALTER TABLE "sitediaryrecords" ADD COLUMN "bisStatus" TEXT;
+ALTER TABLE "sitediaryrecords" ADD COLUMN IF NOT EXISTS "bisStatus" TEXT;

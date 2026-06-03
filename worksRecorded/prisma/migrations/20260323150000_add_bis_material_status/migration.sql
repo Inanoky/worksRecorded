@@ -1,1 +1,1 @@
-ALTER TABLE "BISmaterialRecords" ADD COLUMN "bisStatus" TEXT;
+ALTER TABLE "BISmaterialRecords" ADD COLUMN IF NOT EXISTS "bisStatus" TEXT;
