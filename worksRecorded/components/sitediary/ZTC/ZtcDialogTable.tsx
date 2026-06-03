@@ -101,7 +101,7 @@ function normalizeNumber(value: unknown) {
 
 function getRenderableFieldsOrdered(map: Record<string, any>) {
   return Object.entries(map)
-    .filter(([_, cfg]) => cfg?.Type !== "noRender")
+    .filter(([_, cfg]) => Boolean(cfg?.Type) && cfg?.Type !== "noRender")
     .sort((a, b) => {
       const ao = a[1]?.customSettings?.order;
       const bo = b[1]?.customSettings?.order;
@@ -330,10 +330,20 @@ export function ZtcDialogTable({
   const getCellWidth = (field: string, fallback = 180) =>
     fieldMap[field]?.customSettings?.cellWidth ?? fallback;
 
+  const getControlWidth = (field: string) => {
+    const configured = getCellWidth(field);
+    if (field === "Location") return Math.max(configured, 260);
+    if (field === "Location_Custom_1") return Math.max(configured, 180);
+    if (field === "Works") return Math.max(configured, 300);
+    if (field === "Comments") return Math.max(configured, 340);
+    if (field === "originalUserComment") return Math.max(configured, 340);
+    return configured;
+  };
+
   const renderCell = (field: string, row: any) => {
     const rowKey = row.id ?? row._tempId;
     const type = fieldMap[field]?.Type;
-    const width = isMobile ? "100%" : getCellWidth(field);
+    const width = isMobile ? "100%" : getControlWidth(field);
 
     if (field === "Units") {
       return (
@@ -376,7 +386,7 @@ export function ZtcDialogTable({
           value={currentValue}
           onValueChange={(value) => handleChange(rowKey, field, value)}
         >
-          <SelectTrigger style={{ width }}>
+          <SelectTrigger className="justify-between" style={{ width, minWidth: width }}>
             <SelectValue placeholder={t.select} />
           </SelectTrigger>
           <SelectContent>
@@ -394,7 +404,8 @@ export function ZtcDialogTable({
       return (
         <Input
           inputMode="decimal"
-          style={{ width }}
+          className="h-9"
+          style={{ width, minWidth: width }}
           value={String(row[field] ?? "")}
           onChange={(event) => handleChange(rowKey, field, event.target.value)}
         />
@@ -405,7 +416,8 @@ export function ZtcDialogTable({
       return (
         <Textarea
           rows={1}
-          style={{ width }}
+          className="min-h-14 resize-y leading-snug"
+          style={{ width, minWidth: width }}
           value={String(row[field] ?? "")}
           onChange={(event) => handleChange(rowKey, field, event.target.value)}
         />
@@ -465,17 +477,17 @@ export function ZtcDialogTable({
     <form onSubmit={handleSubmit} className={className}>
       <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/95 pb-3 backdrop-blur">
         <Button type="button" variant="outline" onClick={() => setRows((prev) => [...prev, newEmptyRow()])}>
-          {t.addRow}
+          {t.addRow || "Pievienot"}
         </Button>
-        <Button type="submit">{t.save}</Button>
+        <Button type="submit">{t.save || "Saglabat"}</Button>
       </div>
 
       <ScrollArea className="w-full rounded-md border bg-background">
-        <Table>
+        <Table className="min-w-max">
           <TableHeader>
             <TableRow className="bg-muted/60 hover:bg-muted/60">
               {tableHeads.map((field) => (
-                <TableHead key={field} className="h-10 whitespace-nowrap text-xs font-semibold uppercase tracking-normal text-muted-foreground" style={{ width: getCellWidth(field) }}>
+                <TableHead key={field} className="h-10 whitespace-nowrap text-xs font-semibold uppercase tracking-normal text-muted-foreground" style={{ width: getControlWidth(field), minWidth: getControlWidth(field) }}>
                   {getDisplayName(field)}
                 </TableHead>
               ))}
@@ -489,7 +501,7 @@ export function ZtcDialogTable({
               return (
                 <TableRow key={rowKey}>
                   {tableHeads.map((field) => (
-                    <TableCell key={field} className="align-top py-2">{renderCell(field, row)}</TableCell>
+                    <TableCell key={field} className="align-top py-2" style={{ width: getControlWidth(field), minWidth: getControlWidth(field) }}>{renderCell(field, row)}</TableCell>
                   ))}
                   <TableCell>
                     <Button

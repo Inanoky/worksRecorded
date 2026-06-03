@@ -13,6 +13,8 @@ export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 const FINISH_PENDING_PREFIX = "__ZTC_FINISH_PENDING__";
 const PHOTO_PENDING_FINISH_PREFIX = "__ZTC_PHOTO_PENDING_FINISH__";
+const DIAGONALS_PENDING_PREFIX = "__ZTC_DIAGONALS_PENDING__";
+const DIAGONALS_CONFIRM_PREFIX = "__ZTC_DIAGONALS_CONFIRM__";
 
 type ZtcWorker = {
   id: string;
@@ -115,6 +117,14 @@ function hasPapilddarbiKeyword(text: string) {
   return /\bpapild\w*/i.test(text);
 }
 
+function hasFrameKeyword(text: string) {
+  return /\b(karkas\w*|timber\s*frame|timberkarkas\w*|koka\s*karkas\w*)\b/i.test(text);
+}
+
+function isTlWork(workName: string | null | undefined) {
+  return /^TL(\b|\s*[-–—])/i.test(String(workName ?? "").trim());
+}
+
 function workerFullName(worker: ZtcWorker) {
   return [worker.name, worker.surname].filter(Boolean).join(" ").trim() || "Darbinieks";
 }
@@ -145,6 +155,46 @@ function parseJsonObject<T>(value: string | null | undefined, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function readMarkerPayload(value: string | null | undefined, prefix: string) {
+  if (!value?.startsWith(prefix)) return "";
+  return value.slice(prefix.length).trim();
+}
+
+function parseDiagonalNumbers(text: string): [number, number] | null {
+  const matches = text.match(/-?\d+(?:[.,]\d+)?/g) ?? [];
+  const numbers = matches
+    .map((match) => Number(match.replace(",", ".")))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  if (numbers.length < 2) return null;
+  return [numbers[0], numbers[1]];
+}
+
+function isPositiveConfirmation(text: string) {
+  return /\b(j[aā]|yes|ok|pareizi|apstiprinu|apstiprin[uā]ts|labi|correct)\b/i.test(text);
+}
+
+function isNegativeConfirmation(text: string) {
+  return /\b(n[eē]|no|nepareizi|labot|kluda|k[ļl][uū]da|redo|again)\b/i.test(text);
+}
+
+function buildDiagonalComment(args: {
+  session: OpenZtcSession;
+  completedText: string;
+  diagonalA: number;
+  diagonalB: number;
+}) {
+  const baseComment = args.session.Comments?.trim();
+  const finishComment = args.completedText.trim();
+  return [
+    baseComment,
+    finishComment ? `Pabeigsana: ${finishComment}` : null,
+    `Rama diagonales: ${args.diagonalA} un ${args.diagonalB}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction {
@@ -310,7 +360,7 @@ async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> 
       {
         role: "system",
         content:
-          "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, drawings without a readable total element area, and unreadable/blurry photos. Extract the project name, element name, total element area in m2, and visible work operations exactly as visible when possible. If work-specific areas are not stated, use the total element area for each workItems amountM2.",
+          "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, drawings without a readable total element area, and unreadable/blurry photos. Extract the project name, element name, total element area in m2, and visible work operations exactly as visible when possible. Preserve the exact order of work operations as they appear in the drawing. If work-specific areas are not stated, use the total element area for each workItems amountM2.",
       },
       {
         role: "user",
@@ -376,7 +426,7 @@ async function extractWorkInfo(
       {
         role: "system",
         content:
-          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
       },
       { role: "user", content: normalized },
     ],
@@ -396,7 +446,11 @@ async function extractWorkInfo(
   return {
     ...extracted,
     isAdditionalWork: extracted.isAdditionalWork || hasPapilddarbiKeyword(normalized),
-    workOption: normalizeAllowedOption(extracted.workOption, effectiveWorkOptions),
+    workOption:
+      normalizeAllowedOption(extracted.workOption, effectiveWorkOptions) ??
+      (hasFrameKeyword(normalized) && effectiveWorkOptions.filter(isTlWork).length === 1
+        ? effectiveWorkOptions.filter(isTlWork)[0]
+        : null),
     units: normalizeAllowedOption(extracted.units, unitOptions),
   };
 }
@@ -464,6 +518,135 @@ async function completeSession(args: {
   });
 
   await sendMessage(to, `Darbs pabeigts un saglabats. Registretais laiks: ${timeInvolved ?? 0} stundas.`);
+}
+
+async function askForTlDiagonals(args: {
+  session: OpenZtcSession;
+  to: string | null;
+  completedText?: string | null;
+}) {
+  const completedText = args.completedText?.trim() || "";
+
+  await prisma.sitediaryrecords.update({
+    where: { id: args.session.id },
+    data: {
+      Comments_Custom_1: `${DIAGONALS_PENDING_PREFIX} ${completedText}`,
+      Units: "m2",
+      Amounts: args.session.Amounts ?? undefined,
+    },
+  });
+
+  await sendMessage(
+    args.to,
+    "TL/karkasa darbs ir pabeigts. Pirms noslegsanas ludzu izmeriet rama diagonales un atsutiet 2 skaitlus, piemeram: 5240 5238.",
+  );
+}
+
+async function finishSessionOrAskTlDiagonals(args: {
+  session: OpenZtcSession;
+  to: string | null;
+  completedWork?: WorkExtraction | null;
+  completedText?: string | null;
+}) {
+  if (isTlWork(args.session.Works)) {
+    await askForTlDiagonals({
+      session: args.session,
+      to: args.to,
+      completedText: args.completedText,
+    });
+    return;
+  }
+
+  await completeSession(args);
+}
+
+async function handleDiagonalMeasurementText(args: {
+  session: OpenZtcSession;
+  text: string;
+  to: string | null;
+}) {
+  const completedText = readMarkerPayload(args.session.Comments_Custom_1, DIAGONALS_PENDING_PREFIX);
+  const diagonals = parseDiagonalNumbers(args.text);
+
+  if (!diagonals) {
+    await sendMessage(args.to, "Neatradu 2 diagonalju skaitlus. Ludzu atsutiet abus merijumus, piemeram: 5240 5238.");
+    return;
+  }
+
+  const payload = {
+    completedText,
+    diagonalA: diagonals[0],
+    diagonalB: diagonals[1],
+  };
+
+  await prisma.sitediaryrecords.update({
+    where: { id: args.session.id },
+    data: {
+      Comments_Custom_1: `${DIAGONALS_CONFIRM_PREFIX} ${JSON.stringify(payload)}`,
+    },
+  });
+
+  await sendMessage(
+    args.to,
+    `Sanemu diagonalju merijumus: ${payload.diagonalA} un ${payload.diagonalB}. Vai pareizi? Atbildiet "ja" vai "ne".`,
+  );
+}
+
+async function handleDiagonalConfirmationText(args: {
+  session: OpenZtcSession;
+  text: string;
+  to: string | null;
+}) {
+  const rawPayload = readMarkerPayload(args.session.Comments_Custom_1, DIAGONALS_CONFIRM_PREFIX);
+  const payload = parseJsonObject<{
+    completedText: string;
+    diagonalA: number;
+    diagonalB: number;
+  }>(rawPayload, {
+    completedText: "",
+    diagonalA: 0,
+    diagonalB: 0,
+  });
+
+  const replacementDiagonals = parseDiagonalNumbers(args.text);
+  if (replacementDiagonals && !isPositiveConfirmation(args.text) && !isNegativeConfirmation(args.text)) {
+    await handleDiagonalMeasurementText({
+      session: {
+        ...args.session,
+        Comments_Custom_1: `${DIAGONALS_PENDING_PREFIX} ${payload.completedText}`,
+      },
+      text: args.text,
+      to: args.to,
+    });
+    return;
+  }
+
+  if (isNegativeConfirmation(args.text)) {
+    await prisma.sitediaryrecords.update({
+      where: { id: args.session.id },
+      data: {
+        Comments_Custom_1: `${DIAGONALS_PENDING_PREFIX} ${payload.completedText}`,
+      },
+    });
+    await sendMessage(args.to, "Labi, atsutiet pareizos 2 diagonalju merijumus velreiz.");
+    return;
+  }
+
+  if (!isPositiveConfirmation(args.text)) {
+    await sendMessage(args.to, `Ludzu apstipriniet merijumus ${payload.diagonalA} un ${payload.diagonalB} ar "ja" vai "ne".`);
+    return;
+  }
+
+  await completeSession({
+    session: args.session,
+    to: args.to,
+    completedText: buildDiagonalComment({
+      session: args.session,
+      completedText: payload.completedText,
+      diagonalA: payload.diagonalA,
+      diagonalB: payload.diagonalB,
+    }),
+  });
 }
 
 async function saveCompletedWorkPhoto(args: {
@@ -635,6 +818,17 @@ async function handleWorkText(args: {
 }) {
   const { text, to, worker } = args;
   const openSession = await getOpenZtcSession(worker.id);
+
+  if (openSession?.Comments_Custom_1?.startsWith(DIAGONALS_PENDING_PREFIX)) {
+    await handleDiagonalMeasurementText({ session: openSession, text, to });
+    return;
+  }
+
+  if (openSession?.Comments_Custom_1?.startsWith(DIAGONALS_CONFIRM_PREFIX)) {
+    await handleDiagonalConfirmationText({ session: openSession, text, to });
+    return;
+  }
+
   const isAdditionalWorkRequest = hasPapilddarbiKeyword(text);
   const latestDrawingContext =
     openSession || isAdditionalWorkRequest
@@ -693,7 +887,7 @@ async function handleWorkText(args: {
       return;
     }
 
-    await completeSession({
+    await finishSessionOrAskTlDiagonals({
       session,
       to,
       completedWork: work,
@@ -762,12 +956,16 @@ async function handleFinishedPhoto(args: {
 
   const image = await uploadMediaImage(formData, idx);
   const nextPhotos = [...(session.Photos ?? []), image.publicUrl];
+  const shouldPreservePendingState =
+    session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX) ||
+    session.Comments_Custom_1?.startsWith(DIAGONALS_PENDING_PREFIX) ||
+    session.Comments_Custom_1?.startsWith(DIAGONALS_CONFIRM_PREFIX);
 
   await prisma.sitediaryrecords.update({
     where: { id: session.id },
     data: {
       Photos: nextPhotos,
-      Comments_Custom_1: session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX)
+      Comments_Custom_1: shouldPreservePendingState
         ? session.Comments_Custom_1
         : PHOTO_PENDING_FINISH_PREFIX,
     },
@@ -784,7 +982,7 @@ async function handleFinishedPhoto(args: {
       "",
     ).trim();
 
-    await completeSession({
+    await finishSessionOrAskTlDiagonals({
       session: {
         ...session,
         Photos: nextPhotos,
@@ -792,6 +990,21 @@ async function handleFinishedPhoto(args: {
       to,
       completedText,
     });
+    return;
+  }
+
+  if (session.Comments_Custom_1?.startsWith(DIAGONALS_PENDING_PREFIX)) {
+    await sendMessage(to, "Foto sanemts. Ludzu atsutiet 2 rama diagonalju merijumus.");
+    return;
+  }
+
+  if (session.Comments_Custom_1?.startsWith(DIAGONALS_CONFIRM_PREFIX)) {
+    const rawPayload = readMarkerPayload(session.Comments_Custom_1, DIAGONALS_CONFIRM_PREFIX);
+    const payload = parseJsonObject<{ diagonalA: number; diagonalB: number }>(rawPayload, {
+      diagonalA: 0,
+      diagonalB: 0,
+    });
+    await sendMessage(to, `Foto sanemts. Ludzu apstipriniet diagonalju merijumus ${payload.diagonalA} un ${payload.diagonalB} ar "ja" vai "ne".`);
     return;
   }
 

@@ -9,10 +9,10 @@
     "DisplayName": "Projekts",
     "customSettings": {
       "order": 1,
-      "cellWidth": 125,
+      "cellWidth": 260,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 1,
-      "displayinSiteListWidth": 125,
+      "displayinSiteListWidth": 180,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -22,10 +22,10 @@
     "DropDownOptions": {},
     "customSettings": {
       "order": 2,
-      "cellWidth": 115,
+      "cellWidth": 180,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 2,
-      "displayinSiteListWidth": 115,
+      "displayinSiteListWidth": 140,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -43,10 +43,10 @@
     },
     "customSettings": {
       "order": 3,
-      "cellWidth": 165,
+      "cellWidth": 300,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 3,
-      "displayinSiteListWidth": 165,
+      "displayinSiteListWidth": 220,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -142,10 +142,10 @@
     "DisplayName": "Komentari",
     "customSettings": {
       "order": 11,
-      "cellWidth": 260,
+      "cellWidth": 340,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 10,
-      "displayinSiteListWidth": 260,
+      "displayinSiteListWidth": 280,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -178,10 +178,10 @@
     "DisplayName": "Merv.",
     "customSettings": {
       "order": 14,
-      "cellWidth": 55,
+      "cellWidth": 75,
       "displayinSiteList": "yes",
       "displayinSiteListOrder": 7,
-      "displayinSiteListWidth": 55,
+      "displayinSiteListWidth": 70,
       "displayinSiteListTextAlignment": "left"
     },
     "DropDownOptions": {
@@ -230,7 +230,7 @@
     }
   },
   "Photos": {
-    "Type": "fixed",
+    "Type": "noRender",
     "DisplayName": "Foto",
     "customSettings": {
       "order": 18,
@@ -246,7 +246,7 @@
     "DisplayName": "Sakotneja zina",
     "customSettings": {
       "order": 19,
-      "cellWidth": 300,
+      "cellWidth": 360,
       "displayinSiteList": "no",
       "displayinSiteListOrder": 19,
       "displayinSiteListWidth": 260,
