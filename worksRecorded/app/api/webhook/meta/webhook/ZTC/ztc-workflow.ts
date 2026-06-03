@@ -11,6 +11,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+const FINISH_PENDING_PREFIX = "__ZTC_FINISH_PENDING__";
 
 type ZtcWorker = {
   id: string;
@@ -25,15 +26,19 @@ type DrawingExtraction = {
   isConstructionDrawing: boolean;
   hasReadableProjectName: boolean;
   hasReadableElementName: boolean;
+  hasReadableWorkList: boolean;
   qualityOk: boolean;
   projectName: string | null;
   elementName: string | null;
+  workList: string[];
   issue: string | null;
 };
 
 type WorkExtraction = {
   isGibberish: boolean;
   isFinish: boolean;
+  isAdditionalWork: boolean;
+  additionalWorkDescription: string | null;
   workOption: string | null;
   amountCompleted: number | null;
   units: string | null;
@@ -45,6 +50,8 @@ type ZtcConfigField = {
 };
 
 type ZtcConfigMap = Record<string, ZtcConfigField | undefined>;
+
+type OpenZtcSession = NonNullable<Awaited<ReturnType<typeof getOpenZtcSession>>>;
 
 const utapi = new UTApi();
 
@@ -74,6 +81,18 @@ function normalizeAllowedOption(value: string | null | undefined, allowed: strin
     allowed.find((option) => option.toLowerCase() === normalized.toLowerCase()) ??
     null
   );
+}
+
+function getFallbackOtherWorkOption(allowed: string[]) {
+  return (
+    allowed.find((option) => option.toLowerCase() === "cits") ??
+    allowed.find((option) => option.toLowerCase().includes("cits")) ??
+    "Cits"
+  );
+}
+
+function hasPapilddarbiKeyword(text: string) {
+  return /\bpapild\w*/i.test(text);
 }
 
 function workerFullName(worker: ZtcWorker) {
@@ -106,6 +125,15 @@ function parseJsonObject<T>(value: string | null | undefined, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction {
+  return {
+    ...value,
+    workList: Array.isArray(value.workList)
+      ? value.workList.map((work) => String(work).trim()).filter(Boolean)
+      : [],
+  };
 }
 
 async function uploadMediaImage(formData: FormData, idx: number) {
@@ -167,14 +195,14 @@ async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> 
       {
         role: "system",
         content:
-          "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, qualityOk boolean, projectName string|null, elementName string|null, issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, and unreadable/blurry photos. Extract the project name and element name exactly as visible when possible.",
+          "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, workList string[], issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, and unreadable/blurry photos. Extract the project name, element name, and visible work operations exactly as visible when possible.",
       },
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: "Check this WhatsApp photo. Is it a readable construction drawing with both project name and element name?",
+            text: "Check this WhatsApp photo. Is it a readable construction drawing with project name, element name, and a readable work/operation list?",
           },
           {
             type: "image_url",
@@ -185,15 +213,19 @@ async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> 
     ],
   });
 
-  return parseJsonObject<DrawingExtraction>(response.choices[0]?.message?.content, {
-    isConstructionDrawing: false,
-    hasReadableProjectName: false,
-    hasReadableElementName: false,
-    qualityOk: false,
-    projectName: null,
-    elementName: null,
-    issue: "Unable to read the drawing photo.",
-  });
+  return normalizeDrawingExtraction(
+    parseJsonObject<DrawingExtraction>(response.choices[0]?.message?.content, {
+      isConstructionDrawing: false,
+      hasReadableProjectName: false,
+      hasReadableElementName: false,
+      hasReadableWorkList: false,
+      qualityOk: false,
+      projectName: null,
+      elementName: null,
+      workList: [],
+      issue: "Unable to read the drawing photo.",
+    }),
+  );
 }
 
 async function extractWorkInfo(text: string): Promise<WorkExtraction> {
@@ -204,6 +236,8 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
     return {
       isGibberish: true,
       isFinish: false,
+      isAdditionalWork: false,
+      additionalWorkDescription: null,
       workOption: null,
       amountCompleted: null,
       units: null,
@@ -219,7 +253,7 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
       {
         role: "system",
         content:
-          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(workOptions)}. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mērvienība list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(workOptions)}. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
       },
       { role: "user", content: normalized },
     ],
@@ -228,6 +262,8 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
   const extracted = parseJsonObject<WorkExtraction>(response.choices[0]?.message?.content, {
     isGibberish: true,
     isFinish: false,
+    isAdditionalWork: false,
+    additionalWorkDescription: null,
     workOption: null,
     amountCompleted: null,
     units: null,
@@ -236,6 +272,7 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
 
   return {
     ...extracted,
+    isAdditionalWork: extracted.isAdditionalWork || hasPapilddarbiKeyword(normalized),
     workOption: normalizeAllowedOption(extracted.workOption, workOptions),
     units: normalizeAllowedOption(extracted.units, unitOptions),
   };
@@ -252,6 +289,21 @@ async function getOpenZtcSession(workerId: string) {
   });
 }
 
+async function getLatestZtcDrawingContext(workerId: string) {
+  return prisma.sitediaryrecords.findFirst({
+    where: {
+      workerId,
+      organizationId: ZTC_ORGANIZATION_ID,
+      Location: { not: null },
+      Location_Custom_1: { not: null },
+      NOT: {
+        Location: "Papilddarbi",
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 function calculateHours(start: Date | null | undefined, end: Date) {
   if (!start) return undefined;
   const hours = (end.getTime() - start.getTime()) / 3_600_000;
@@ -260,8 +312,7 @@ function calculateHours(start: Date | null | undefined, end: Date) {
 }
 
 async function completeSession(args: {
-  session: NonNullable<Awaited<ReturnType<typeof getOpenZtcSession>>>;
-  worker: ZtcWorker;
+  session: OpenZtcSession;
   to: string | null;
   completedWork?: WorkExtraction | null;
   completedText?: string | null;
@@ -288,13 +339,13 @@ async function completeSession(args: {
     },
   });
 
-  await sendMessage(to, `Darbs pabeigts un saglabāts. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.`);
+  await sendMessage(to, `Darbs pabeigts un saglabats. Registretais laiks: ${timeInvolved ?? 0} stundas.`);
 }
 
 async function saveCompletedWorkPhoto(args: {
   worker: ZtcWorker;
   publicUrl: string;
-  session: NonNullable<Awaited<ReturnType<typeof getOpenZtcSession>>>;
+  session: OpenZtcSession;
 }) {
   const { worker, publicUrl, session } = args;
 
@@ -331,7 +382,7 @@ async function handleDrawingPhoto(args: {
 
   const existing = await getOpenZtcSession(worker.id);
   if (existing?.Works) {
-    await sendMessage(to, "Jums jau ir aktīva ZTC darba sesija. Lūdzu pabeidziet to pirms jauna rasējuma sūtīšanas.");
+    await sendMessage(to, "Jums jau ir aktiva ZTC darba sesija. Ludzu pabeidziet to pirms jauna rasejuma sutisanas.");
     return;
   }
 
@@ -343,15 +394,19 @@ async function handleDrawingPhoto(args: {
     !extraction.qualityOk ||
     !extraction.hasReadableProjectName ||
     !extraction.hasReadableElementName ||
+    !extraction.hasReadableWorkList ||
     !extraction.projectName ||
-    !extraction.elementName
+    !extraction.elementName ||
+    extraction.workList.length === 0
   ) {
     await sendMessage(
       to,
-      "Lūdzu atsūtiet skaidru būvniecības rasējuma foto, kur redzams projekta nosaukums un elementa numurs.",
+      "Ludzu atsutiet skaidru buvniecibas rasejuma foto, kur redzams projekta nosaukums, elementa numurs un darbu saraksts.",
     );
     return;
   }
+
+  const drawingWorks = extraction.workList.join("; ");
 
   if (existing && !existing.Works) {
     await prisma.sitediaryrecords.update({
@@ -360,7 +415,8 @@ async function handleDrawingPhoto(args: {
         Date_Custom_1: new Date(),
         Location: extraction.projectName,
         Location_Custom_1: extraction.elementName,
-        Comments: "ZTC rasējums saņemts. Gaidām balss ziņu par darba sākšanu.",
+        Works_Custom_1: drawingWorks,
+        Comments: "ZTC rasejums sanemts. Gaidam balss zinu par darba saksanu.",
         Photos: [image.publicUrl],
       },
     });
@@ -373,8 +429,9 @@ async function handleDrawingPhoto(args: {
         Date_Custom_1: new Date(),
         Location: extraction.projectName,
         Location_Custom_1: extraction.elementName,
-        Comments: "ZTC rasējums saņemts. Gaidām balss ziņu par darba sākšanu.",
-        originalUserComment: `${workerFullName(worker)} : rasējuma foto`,
+        Works_Custom_1: drawingWorks,
+        Comments: "ZTC rasejums sanemts. Gaidam balss zinu par darba saksanu.",
+        originalUserComment: `${workerFullName(worker)} : rasejuma foto`,
         Photos: [image.publicUrl],
       },
     });
@@ -382,8 +439,61 @@ async function handleDrawingPhoto(args: {
 
   await sendMessage(
     to,
-    `Rasējums pieņemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nTagad atsūtiet balss ziņu ar darbu, ko sākat darīt.`,
+    `Rasejums pienemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nTagad atsutiet balss zinu ar darbu, ko sakat darit.`,
   );
+}
+
+async function createSessionFromLatestDrawing(worker: ZtcWorker) {
+  const previous = await getLatestZtcDrawingContext(worker.id);
+  if (!previous) return null;
+
+  return prisma.sitediaryrecords.create({
+    data: {
+      workerId: worker.id,
+      siteId: ZTC_SITE_ID,
+      organizationId: ZTC_ORGANIZATION_ID,
+      Date_Custom_1: new Date(),
+      Location: previous.Location,
+      Location_Custom_1: previous.Location_Custom_1,
+      Works_Custom_1: previous.Works_Custom_1,
+      Comments: "ZTC rasejuma konteksts parnemts. Gaidam darba saksanas zinu.",
+      originalUserComment: `${workerFullName(worker)} : atkartots darbs pie ta pasa rasejuma`,
+      Photos: previous.Photos?.[0] ? [previous.Photos[0]] : [],
+    },
+  });
+}
+
+async function createAdditionalWorkSession(args: {
+  worker: ZtcWorker;
+  work: WorkExtraction;
+  text: string;
+}) {
+  const { worker, work, text } = args;
+  const { workOptions } = await getZtcDropdownOptions();
+  const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
+  const description = work.additionalWorkDescription?.trim() || text.trim();
+  const now = new Date();
+
+  return prisma.sitediaryrecords.create({
+    data: {
+      workerId: worker.id,
+      siteId: ZTC_SITE_ID,
+      organizationId: ZTC_ORGANIZATION_ID,
+      Date: now,
+      Date_Custom_1: now,
+      Location: "Papilddarbi",
+      Works: workOption,
+      Comments: [
+        `Darbinieks: ${workerFullName(worker)}`,
+        "Projekts: Papilddarbi",
+        `Saktais darbs: ${workOption}`,
+        description ? `Apraksts: ${description}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      originalUserComment: `${workerFullName(worker)} : ${text}`,
+    },
+  });
 }
 
 async function handleWorkText(args: {
@@ -392,16 +502,33 @@ async function handleWorkText(args: {
   worker: ZtcWorker;
 }) {
   const { text, to, worker } = args;
-  const session = await getOpenZtcSession(worker.id);
+  const work = await extractWorkInfo(text);
 
-  if (!session) {
-    await sendMessage(to, "Lūdzu sāciet ar skaidru būvniecības rasējuma foto.");
+  if (work.isGibberish) {
+    await sendMessage(to, "Neizdevas saprast balss zinu. Ludzu meginiet velreiz.");
     return;
   }
 
-  const work = await extractWorkInfo(text);
-  if (work.isGibberish) {
-    await sendMessage(to, "Neizdevās saprast balss ziņu. Lūdzu mēģiniet vēlreiz.");
+  const openSession = await getOpenZtcSession(worker.id);
+
+  if (work.isAdditionalWork && !work.isFinish) {
+    if (openSession?.Works) {
+      await sendMessage(to, "Jums jau ir aktiva darba sesija. Ludzu pabeidziet to pirms papilddarba saksanas.");
+      return;
+    }
+
+    await createAdditionalWorkSession({ worker, work, text });
+    await sendMessage(
+      to,
+      `Papilddarbs sakts${work.workOption ? `: ${work.workOption}` : ""}. Kad darbs ir pabeigts, atsutiet foto un pasakiet, ka darbs ir pabeigts.`,
+    );
+    return;
+  }
+
+  const session = openSession ?? (!work.isFinish ? await createSessionFromLatestDrawing(worker) : null);
+
+  if (!session) {
+    await sendMessage(to, "Ludzu saciet ar skaidru buvniecibas rasejuma foto.");
     return;
   }
 
@@ -409,7 +536,7 @@ async function handleWorkText(args: {
 
   if (work.isFinish) {
     if (!session.Works) {
-      await sendMessage(to, "Rasējums ir saņemts, bet vēl nav darba sākšanas ziņas. Lūdzu pasakiet, kādu darbu sākat.");
+      await sendMessage(to, "Rasejums ir sanemts, bet vel nav darba saksanas zinas. Ludzu pasakiet, kadu darbu sakat.");
       return;
     }
 
@@ -419,17 +546,16 @@ async function handleWorkText(args: {
         data: {
           Amounts: work.amountCompleted ?? undefined,
           Units: work.units?.trim() || undefined,
-          Comments_Custom_1: `__ZTC_FINISH_PENDING__ ${text}`,
+          Comments_Custom_1: `${FINISH_PENDING_PREFIX} ${text}`,
         },
       });
 
-      await sendMessage(to, "Pabeigšanas ziņa saņemta. Lūdzu atsūtiet pabeigtā darba foto.");
+      await sendMessage(to, "Pabeigsanas zina sanemta. Ludzu atsutiet pabeigta darba foto.");
       return;
     }
 
     await completeSession({
       session,
-      worker,
       to,
       completedWork: work,
       completedText: text,
@@ -438,7 +564,7 @@ async function handleWorkText(args: {
   }
 
   if (!work.workOption) {
-    await sendMessage(to, "Neatradu atbilstošu darbu sarakstā. Lūdzu pasakiet darbu vēlreiz.");
+    await sendMessage(to, "Neatradu atbilstosu darbu saraksta. Ludzu pasakiet darbu velreiz.");
     return;
   }
 
@@ -451,7 +577,7 @@ async function handleWorkText(args: {
         `Darbinieks: ${workerFullName(worker)}`,
         `Projekts: ${session.Location ?? ""}`,
         `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
-        `Sāktais darbs: ${work.workOption}`,
+        `Saktais darbs: ${work.workOption}`,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -461,7 +587,7 @@ async function handleWorkText(args: {
 
   await sendMessage(
     to,
-    `Sākts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nKad darbs ir pabeigts, atsūtiet pabeigtā darba foto un pasakiet, ka darbs ir pabeigts.`,
+    `Sakts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nKad darbs ir pabeigts, atsutiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
   );
 }
 
@@ -476,7 +602,7 @@ async function handleFinishedPhoto(args: {
   const session = await getOpenZtcSession(worker.id);
 
   if (!session?.Works) {
-    await sendMessage(to, "Pirms pabeigtā darba foto lūdzu atsūtiet rasējuma foto un balss ziņu par darba sākšanu.");
+    await sendMessage(to, "Pirms pabeigta darba foto ludzu atsutiet rasejuma foto un balss zinu par darba saksanu.");
     return;
   }
 
@@ -493,9 +619,9 @@ async function handleFinishedPhoto(args: {
     session,
   });
 
-  if (session.Comments_Custom_1?.startsWith("__ZTC_FINISH_PENDING__")) {
+  if (session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX)) {
     const completedText = session.Comments_Custom_1.replace(
-      "__ZTC_FINISH_PENDING__",
+      FINISH_PENDING_PREFIX,
       "",
     ).trim();
 
@@ -504,7 +630,6 @@ async function handleFinishedPhoto(args: {
         ...session,
         Photos: nextPhotos,
       },
-      worker,
       to,
       completedText,
     });
@@ -516,7 +641,7 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
-  await sendMessage(to, "Pabeigtā darba foto saņemts. Lūdzu atsūtiet balss ziņu, ka darbs ir pabeigts.");
+  await sendMessage(to, "Pabeigta darba foto sanemts. Ludzu atsutiet balss zinu, ka darbs ir pabeigts.");
 }
 
 export async function handleZtcWorkerRoute(args: {
@@ -552,9 +677,9 @@ export async function handleZtcWorkerRoute(args: {
       return;
     }
 
-    await sendMessage(from, "Lūdzu atsūtiet rasējuma foto, balss ziņu vai pabeigtā darba foto.");
+    await sendMessage(from, "Ludzu atsutiet rasejuma foto, balss zinu vai pabeigta darba foto.");
   } catch (error) {
     console.error("[ZTC workflow] failed", error);
-    await sendMessage(from, "Atvainojiet, ZTC plūsma nevarēja apstrādāt šo ziņu. Lūdzu mēģiniet vēlreiz.");
+    await sendMessage(from, "Atvainojiet, ZTC plusma nevareja apstradat so zinu. Ludzu meginiet velreiz.");
   }
 }

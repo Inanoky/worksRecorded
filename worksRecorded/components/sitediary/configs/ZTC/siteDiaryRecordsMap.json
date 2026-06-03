@@ -32,12 +32,12 @@
     "Type": "dropdown",
     "DisplayName": "Darbi",
     "DropDownOptions": {
-      "timber_frame": "Koka karkasa montāža",
-      "nailing": "Naglošana / stiprināšana",
-      "insulation": "Siltināšana",
-      "sheathing": "Apšuvuma montāža",
-      "assembly": "Elementa montāža",
-      "quality_check": "Kvalitātes pārbaude",
+      "timber_frame": "Koka karkasa montaza",
+      "nailing": "Naglosana / stiprinasana",
+      "insulation": "Siltinasana",
+      "sheathing": "Apsuvuma montaza",
+      "assembly": "Elementa montaza",
+      "quality_check": "Kvalitates parbaude",
       "other": "Cits"
     },
     "customSettings": {
@@ -63,7 +63,7 @@
   },
   "Date": {
     "Type": "fixed",
-    "DisplayName": "Sākums",
+    "DisplayName": "Sakums",
     "customSettings": {
       "renderAs": "Time",
       "order": 5,
@@ -76,7 +76,7 @@
   },
   "Date_Custom_1": {
     "Type": "fixed",
-    "DisplayName": "Rasējums saņemts",
+    "DisplayName": "Rasejums sanemts",
     "customSettings": {
       "renderAs": "Time",
       "order": 6,
@@ -113,14 +113,14 @@
     }
   },
   "Works_Custom_1": {
-    "Type": "noRender",
-    "DisplayName": "Works_Custom_1",
+    "Type": "textInput",
+    "DisplayName": "Rasejuma darbi",
     "customSettings": {
       "order": 9,
-      "cellWidth": 180,
+      "cellWidth": 240,
       "displayinSiteList": "no",
       "displayinSiteListOrder": 9,
-      "displayinSiteListWidth": 180,
+      "displayinSiteListWidth": 220,
       "displayinSiteListTextAlignment": "left"
     }
   },
@@ -138,7 +138,7 @@
   },
   "Comments": {
     "Type": "textInput",
-    "DisplayName": "Komentāri",
+    "DisplayName": "Komentari",
     "customSettings": {
       "order": 11,
       "cellWidth": 260,
@@ -174,7 +174,7 @@
   },
   "Units": {
     "Type": "dropdown",
-    "DisplayName": "Mērv.",
+    "DisplayName": "Merv.",
     "customSettings": {
       "order": 14,
       "cellWidth": 55,
@@ -242,7 +242,7 @@
   },
   "originalUserComment": {
     "Type": "textInput",
-    "DisplayName": "Sākotnējā ziņa",
+    "DisplayName": "Sakotneja zina",
     "customSettings": {
       "order": 19,
       "cellWidth": 300,
