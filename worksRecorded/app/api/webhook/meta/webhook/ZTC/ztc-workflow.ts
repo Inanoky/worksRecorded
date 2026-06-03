@@ -12,6 +12,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 const FINISH_PENDING_PREFIX = "__ZTC_FINISH_PENDING__";
+const PHOTO_PENDING_FINISH_PREFIX = "__ZTC_PHOTO_PENDING_FINISH__";
 
 type ZtcWorker = {
   id: string;
@@ -237,6 +238,19 @@ function getSessionWorkAmountM2(session: OpenZtcSession, workName: string | null
   return work?.amountM2 ?? element?.totalAreaM2 ?? null;
 }
 
+function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
+  const items = extraction.workItems.length
+    ? extraction.workItems
+    : extraction.workList.map((name) => ({ name, amountM2: extraction.totalAreaM2 }));
+
+  return items
+    .map((item, index) => {
+      const amount = item.amountM2 ?? extraction.totalAreaM2;
+      return `${index + 1}. ${item.name}${amount != null ? ` - ${amount} m2` : ""}`;
+    })
+    .join("\n");
+}
+
 async function uploadMediaImage(formData: FormData, idx: number) {
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "image/jpeg").toLowerCase();
@@ -430,10 +444,11 @@ async function completeSession(args: {
   const now = new Date();
   const timeInvolved = calculateHours(session.Date, now);
   const amountCompleted =
-    completedWork?.amountCompleted != null
-      ? completedWork.amountCompleted
-      : session.Amounts;
-  const units = completedWork?.units?.trim() || session.Units || null;
+    session.Amounts != null
+      ? session.Amounts
+      : completedWork?.amountCompleted != null
+        ? completedWork.amountCompleted
+        : null;
   const finalWorkerComment = completedText?.trim() || session.Comments || "";
 
   await prisma.sitediaryrecords.update({
@@ -442,7 +457,7 @@ async function completeSession(args: {
       Date_Custom_2: now,
       TimeInvolved: timeInvolved,
       Amounts: amountCompleted ?? undefined,
-      Units: units ?? undefined,
+      Units: "m2",
       Comments_Custom_1: null,
       Comments: finalWorkerComment,
     },
@@ -552,7 +567,7 @@ async function handleDrawingPhoto(args: {
 
   await sendMessage(
     to,
-    `Rasejums pienemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nPlatiba: ${extraction.totalAreaM2} m2\nTagad atsutiet balss zinu ar darbu, ko sakat darit.`,
+    `Rasejums pienemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nPlatiba: ${extraction.totalAreaM2} m2\nDarbi:\n${formatExtractedWorksForMessage(extraction)}\n\nTagad atsutiet balss zinu ar darbu, ko sakat darit.`,
   );
 }
 
@@ -597,7 +612,7 @@ async function createAdditionalWorkSession(args: {
       Date_Custom_1: now,
       Location: "Papilddarbi",
       Works: workOption,
-      Units: work.amountCompleted != null ? "m2" : undefined,
+      Units: "m2",
       Amounts: work.amountCompleted ?? undefined,
       Comments: [
         `Darbinieks: ${workerFullName(worker)}`,
@@ -668,8 +683,8 @@ async function handleWorkText(args: {
       await prisma.sitediaryrecords.update({
         where: { id: session.id },
         data: {
-          Amounts: work.amountCompleted ?? undefined,
-          Units: work.units?.trim() || undefined,
+          Amounts: session.Amounts ?? undefined,
+          Units: "m2",
           Comments_Custom_1: `${FINISH_PENDING_PREFIX} ${text}`,
         },
       });
@@ -684,6 +699,16 @@ async function handleWorkText(args: {
       completedWork: work,
       completedText: text,
     });
+    return;
+  }
+
+  if (session.Works) {
+    if (session.Comments_Custom_1?.startsWith(PHOTO_PENDING_FINISH_PREFIX)) {
+      await sendMessage(to, "Pabeigta darba foto ir sanemts. Ludzu pasakiet, ka darbs ir pabeigts, lai es varu noslegt sesiju.");
+      return;
+    }
+
+    await sendMessage(to, "Jums jau ir aktiva darba sesija. Ludzu vispirms atsutiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.");
     return;
   }
 
@@ -740,7 +765,12 @@ async function handleFinishedPhoto(args: {
 
   await prisma.sitediaryrecords.update({
     where: { id: session.id },
-    data: { Photos: nextPhotos },
+    data: {
+      Photos: nextPhotos,
+      Comments_Custom_1: session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX)
+        ? session.Comments_Custom_1
+        : PHOTO_PENDING_FINISH_PREFIX,
+    },
   });
   await saveCompletedWorkPhoto({
     worker,
@@ -770,7 +800,7 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
-  await sendMessage(to, "Pabeigta darba foto sanemts. Ludzu atsutiet balss zinu, ka darbs ir pabeigts.");
+  await sendMessage(to, "Pabeigta darba foto sanemts. Ludzu atsutiet balss zinu vai tekstu, ka darbs ir pabeigts.");
 }
 
 export async function handleZtcWorkerRoute(args: {

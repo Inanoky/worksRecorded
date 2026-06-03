@@ -54,6 +54,7 @@ type ZtcDialogTableProps = {
 };
 
 const HIDDEN_FIELDS_TO_KEEP = [
+  "Date_Custom_1",
   "Comments_Custom_1",
   "Comments_Custom_2",
   "Works_Custom_1",
@@ -290,6 +291,7 @@ export function ZtcDialogTable({
         ...dbRow,
         Date_Custom_1: normalizeDate(dbRow.Date_Custom_1),
         Date_Custom_2: normalizeDate(dbRow.Date_Custom_2),
+        Units: "m2",
         Amounts: normalizeNumber(dbRow.Amounts),
         TimeInvolved: normalizeNumber(dbRow.TimeInvolved),
         WorkersInvolved: normalizeNumber(dbRow.WorkersInvolved),
@@ -332,6 +334,14 @@ export function ZtcDialogTable({
     const rowKey = row.id ?? row._tempId;
     const type = fieldMap[field]?.Type;
     const width = isMobile ? "100%" : getCellWidth(field);
+
+    if (field === "Units") {
+      return (
+        <span className="inline-flex h-9 items-center rounded-md border bg-muted px-3 text-sm font-medium text-muted-foreground">
+          m2
+        </span>
+      );
+    }
 
     if (type === "fixed") {
       const renderAs = fieldMap[field]?.customSettings?.renderAs;
@@ -453,19 +463,19 @@ export function ZtcDialogTable({
 
   return (
     <form onSubmit={handleSubmit} className={className}>
-      <div className="flex items-center justify-end gap-2 pb-3">
+      <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/95 pb-3 backdrop-blur">
         <Button type="button" variant="outline" onClick={() => setRows((prev) => [...prev, newEmptyRow()])}>
           {t.addRow}
         </Button>
         <Button type="submit">{t.save}</Button>
       </div>
 
-      <ScrollArea className="w-full rounded-md border">
+      <ScrollArea className="w-full rounded-md border bg-background">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-muted/60 hover:bg-muted/60">
               {tableHeads.map((field) => (
-                <TableHead key={field} style={{ width: getCellWidth(field) }}>
+                <TableHead key={field} className="h-10 whitespace-nowrap text-xs font-semibold uppercase tracking-normal text-muted-foreground" style={{ width: getCellWidth(field) }}>
                   {getDisplayName(field)}
                 </TableHead>
               ))}
@@ -479,7 +489,7 @@ export function ZtcDialogTable({
               return (
                 <TableRow key={rowKey}>
                   {tableHeads.map((field) => (
-                    <TableCell key={field}>{renderCell(field, row)}</TableCell>
+                    <TableCell key={field} className="align-top py-2">{renderCell(field, row)}</TableCell>
                   ))}
                   <TableCell>
                     <Button

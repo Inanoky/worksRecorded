@@ -76,7 +76,7 @@
     }
   },
   "Date_Custom_1": {
-    "Type": "fixed",
+    "Type": "noRender",
     "DisplayName": "Rasejums sanemts",
     "customSettings": {
       "renderAs": "Time",
@@ -114,7 +114,7 @@
     }
   },
   "Works_Custom_1": {
-    "Type": "textInput",
+    "Type": "noRender",
     "DisplayName": "Rasejuma darbi",
     "customSettings": {
       "order": 9,
