@@ -13,6 +13,10 @@ export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 const FINISH_PENDING_PREFIX = "__ZTC_FINISH_PENDING__";
 const PHOTO_PENDING_FINISH_PREFIX = "__ZTC_PHOTO_PENDING_FINISH__";
+const DIAGONAL_FIRST_PHOTO_PENDING_PREFIX = "__ZTC_DIAGONAL_FIRST_PHOTO_PENDING__";
+const DIAGONAL_FIRST_MEASURE_PENDING_PREFIX = "__ZTC_DIAGONAL_FIRST_MEASURE_PENDING__";
+const DIAGONAL_SECOND_PHOTO_PENDING_PREFIX = "__ZTC_DIAGONAL_SECOND_PHOTO_PENDING__";
+const DIAGONAL_SECOND_MEASURE_PENDING_PREFIX = "__ZTC_DIAGONAL_SECOND_MEASURE_PENDING__";
 const DIAGONALS_PENDING_PREFIX = "__ZTC_DIAGONALS_PENDING__";
 const DIAGONALS_CONFIRM_PREFIX = "__ZTC_DIAGONALS_CONFIRM__";
 
@@ -73,6 +77,14 @@ type ZtcDrawingMetadata = {
       amountM2: number | null;
     }>;
   }>;
+};
+
+type ZtcDiagonalPayload = {
+  completedText: string;
+  firstPhotoUrl?: string;
+  firstMeasureMm?: number;
+  secondPhotoUrl?: string;
+  secondMeasureMm?: number;
 };
 
 const utapi = new UTApi();
@@ -229,6 +241,56 @@ function buildDiagonalComment(args: {
     baseComment,
     finishComment ? `Pabeigsana: ${finishComment}` : null,
     `Rama diagonales: ${args.diagonalA} un ${args.diagonalB}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function parseDiagonalMeasureMm(text: string): number | null {
+  const matches = text.match(/-?\d+(?:[.,]\d+)?/g) ?? [];
+  const numbers = matches
+    .map((match) => Number(match.replace(",", ".")))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  return numbers[0] ?? null;
+}
+
+function isDiagonalPhotoMeasureFlow(value: string | null | undefined) {
+  return Boolean(
+    value?.startsWith(DIAGONAL_FIRST_PHOTO_PENDING_PREFIX) ||
+      value?.startsWith(DIAGONAL_FIRST_MEASURE_PENDING_PREFIX) ||
+      value?.startsWith(DIAGONAL_SECOND_PHOTO_PENDING_PREFIX) ||
+      value?.startsWith(DIAGONAL_SECOND_MEASURE_PENDING_PREFIX),
+  );
+}
+
+function readDiagonalPhotoMeasurePayload(
+  value: string | null | undefined,
+  prefix: string,
+): ZtcDiagonalPayload {
+  return parseJsonObject<ZtcDiagonalPayload>(readMarkerPayload(value, prefix), {
+    completedText: "",
+  });
+}
+
+function buildDiagonalPhotoMeasureComment(args: {
+  session: OpenZtcSession;
+  payload: ZtcDiagonalPayload;
+}) {
+  const baseComment = args.session.Comments?.trim();
+  const finishComment = args.payload.completedText.trim();
+
+  return [
+    baseComment,
+    finishComment ? `Pabeigsana: ${finishComment}` : null,
+    args.payload.firstMeasureMm != null
+      ? `Rama diagonale 1: ${args.payload.firstMeasureMm} mm`
+      : null,
+    args.payload.firstPhotoUrl ? `Rama diagonale 1 foto: ${args.payload.firstPhotoUrl}` : null,
+    args.payload.secondMeasureMm != null
+      ? `Rama diagonale 2: ${args.payload.secondMeasureMm} mm`
+      : null,
+    args.payload.secondPhotoUrl ? `Rama diagonale 2 foto: ${args.payload.secondPhotoUrl}` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -570,7 +632,7 @@ async function askForTlDiagonals(args: {
   await prisma.sitediaryrecords.update({
     where: { id: args.session.id },
     data: {
-      Comments_Custom_1: `${DIAGONALS_PENDING_PREFIX} ${completedText}`,
+      Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({ completedText })}`,
       Units: "m2",
       Amounts: args.session.Amounts ?? undefined,
     },
@@ -578,7 +640,7 @@ async function askForTlDiagonals(args: {
 
   await sendMessage(
     args.to,
-    "TL/karkasa darbs ir pabeigts. Pirms noslegsanas ludzu izmeriet rama diagonales un atsutiet 2 skaitlus, piemeram: 5240 5238.",
+    "TL/karkasa darbs ir pabeigts. Pirms noslegsanas ludzu atsutiet foto ar pirmas ramas diagonales merijumu.",
   );
 }
 
@@ -687,6 +749,174 @@ async function handleDiagonalConfirmationText(args: {
       diagonalB: payload.diagonalB,
     }),
   });
+}
+
+async function saveDiagonalMeasurePhoto(args: {
+  worker: ZtcWorker;
+  publicUrl: string;
+  session: OpenZtcSession;
+  label: string;
+}) {
+  const { worker, publicUrl, session, label } = args;
+
+  await prisma.photos.create({
+    data: {
+      Date: new Date(),
+      URL: publicUrl,
+      fileUrl: publicUrl,
+      Comment: [
+        session.Location ?? "",
+        session.Location_Custom_1 ?? "",
+        session.Works ?? "",
+        label,
+        worker.name ?? "",
+        worker.surname ?? "",
+      ]
+        .map((part) => String(part).trim())
+        .filter(Boolean)
+        .join(" - "),
+      Location: session.Location ?? null,
+      workerId: worker.id,
+      siteId: ZTC_SITE_ID,
+      organizationId: ZTC_ORGANIZATION_ID,
+    },
+  });
+}
+
+async function handleTlDiagonalMeasureText(args: {
+  session: OpenZtcSession;
+  text: string;
+  to: string | null;
+}) {
+  const state = args.session.Comments_Custom_1;
+
+  if (state?.startsWith(DIAGONAL_FIRST_PHOTO_PENDING_PREFIX)) {
+    await sendMessage(args.to, "Ludzu vispirms atsutiet pirmas ramas diagonales foto.");
+    return;
+  }
+
+  if (state?.startsWith(DIAGONAL_SECOND_PHOTO_PENDING_PREFIX)) {
+    await sendMessage(args.to, "Ludzu vispirms atsutiet otras ramas diagonales foto.");
+    return;
+  }
+
+  if (state?.startsWith(DIAGONAL_FIRST_MEASURE_PENDING_PREFIX)) {
+    const measure = parseDiagonalMeasureMm(args.text);
+    if (measure == null) {
+      await sendMessage(args.to, "Neatradu merijumu. Ludzu ierakstiet pirmas diagonales merijumu mm, piemeram: 5240.");
+      return;
+    }
+
+    const payload = {
+      ...readDiagonalPhotoMeasurePayload(state, DIAGONAL_FIRST_MEASURE_PENDING_PREFIX),
+      firstMeasureMm: measure,
+    };
+
+    await prisma.sitediaryrecords.update({
+      where: { id: args.session.id },
+      data: {
+        Comments_Custom_1: `${DIAGONAL_SECOND_PHOTO_PENDING_PREFIX} ${JSON.stringify(payload)}`,
+      },
+    });
+
+    await sendMessage(args.to, `Pirmas diagonales merijums: ${measure} mm. Tagad atsutiet foto ar otras ramas diagonales merijumu.`);
+    return;
+  }
+
+  if (state?.startsWith(DIAGONAL_SECOND_MEASURE_PENDING_PREFIX)) {
+    const measure = parseDiagonalMeasureMm(args.text);
+    if (measure == null) {
+      await sendMessage(args.to, "Neatradu merijumu. Ludzu ierakstiet otras diagonales merijumu mm, piemeram: 5238.");
+      return;
+    }
+
+    const payload = {
+      ...readDiagonalPhotoMeasurePayload(state, DIAGONAL_SECOND_MEASURE_PENDING_PREFIX),
+      secondMeasureMm: measure,
+    };
+
+    await completeSession({
+      session: args.session,
+      to: args.to,
+      completedText: buildDiagonalPhotoMeasureComment({
+        session: args.session,
+        payload,
+      }),
+    });
+  }
+}
+
+async function handleTlDiagonalPhoto(args: {
+  formData: FormData;
+  idx: number;
+  to: string | null;
+  worker: ZtcWorker;
+  session: OpenZtcSession;
+}) {
+  const state = args.session.Comments_Custom_1;
+
+  if (state?.startsWith(DIAGONAL_FIRST_MEASURE_PENDING_PREFIX)) {
+    await sendMessage(args.to, "Pirmas diagonales foto jau ir sanemts. Ludzu ierakstiet pirmas diagonales merijumu mm.");
+    return;
+  }
+
+  if (state?.startsWith(DIAGONAL_SECOND_MEASURE_PENDING_PREFIX)) {
+    await sendMessage(args.to, "Otras diagonales foto jau ir sanemts. Ludzu ierakstiet otras diagonales merijumu mm.");
+    return;
+  }
+
+  if (state?.startsWith(DIAGONAL_FIRST_PHOTO_PENDING_PREFIX)) {
+    const image = await uploadMediaImage(args.formData, args.idx);
+    const payload = {
+      ...readDiagonalPhotoMeasurePayload(state, DIAGONAL_FIRST_PHOTO_PENDING_PREFIX),
+      firstPhotoUrl: image.publicUrl,
+    };
+    const nextPhotos = [...(args.session.Photos ?? []), image.publicUrl];
+
+    await prisma.sitediaryrecords.update({
+      where: { id: args.session.id },
+      data: {
+        Photos: nextPhotos,
+        Comments_Custom_1: `${DIAGONAL_FIRST_MEASURE_PENDING_PREFIX} ${JSON.stringify(payload)}`,
+      },
+    });
+
+    await saveDiagonalMeasurePhoto({
+      worker: args.worker,
+      publicUrl: image.publicUrl,
+      session: args.session,
+      label: "Pirma diagonale",
+    });
+
+    await sendMessage(args.to, "Pirmas diagonales foto sanemts. Ludzu ierakstiet pirmas diagonales merijumu mm, piemeram: 5240.");
+    return;
+  }
+
+  if (state?.startsWith(DIAGONAL_SECOND_PHOTO_PENDING_PREFIX)) {
+    const image = await uploadMediaImage(args.formData, args.idx);
+    const payload = {
+      ...readDiagonalPhotoMeasurePayload(state, DIAGONAL_SECOND_PHOTO_PENDING_PREFIX),
+      secondPhotoUrl: image.publicUrl,
+    };
+    const nextPhotos = [...(args.session.Photos ?? []), image.publicUrl];
+
+    await prisma.sitediaryrecords.update({
+      where: { id: args.session.id },
+      data: {
+        Photos: nextPhotos,
+        Comments_Custom_1: `${DIAGONAL_SECOND_MEASURE_PENDING_PREFIX} ${JSON.stringify(payload)}`,
+      },
+    });
+
+    await saveDiagonalMeasurePhoto({
+      worker: args.worker,
+      publicUrl: image.publicUrl,
+      session: args.session,
+      label: "Otra diagonale",
+    });
+
+    await sendMessage(args.to, "Otras diagonales foto sanemts. Ludzu ierakstiet otras diagonales merijumu mm, piemeram: 5238.");
+  }
 }
 
 async function saveCompletedWorkPhoto(args: {
@@ -859,13 +1089,8 @@ async function handleWorkText(args: {
   const { text, to, worker } = args;
   const openSession = await getOpenZtcSession(worker.id);
 
-  if (openSession?.Comments_Custom_1?.startsWith(DIAGONALS_PENDING_PREFIX)) {
-    await handleDiagonalMeasurementText({ session: openSession, text, to });
-    return;
-  }
-
-  if (openSession?.Comments_Custom_1?.startsWith(DIAGONALS_CONFIRM_PREFIX)) {
-    await handleDiagonalConfirmationText({ session: openSession, text, to });
+  if (openSession && isDiagonalPhotoMeasureFlow(openSession.Comments_Custom_1)) {
+    await handleTlDiagonalMeasureText({ session: openSession, text, to });
     return;
   }
 
@@ -994,12 +1219,16 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
+  if (isDiagonalPhotoMeasureFlow(session.Comments_Custom_1)) {
+    await handleTlDiagonalPhoto({ formData, idx, to, worker, session });
+    return;
+  }
+
   const image = await uploadMediaImage(formData, idx);
   const nextPhotos = [...(session.Photos ?? []), image.publicUrl];
   const shouldPreservePendingState =
     session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX) ||
-    session.Comments_Custom_1?.startsWith(DIAGONALS_PENDING_PREFIX) ||
-    session.Comments_Custom_1?.startsWith(DIAGONALS_CONFIRM_PREFIX);
+    isDiagonalPhotoMeasureFlow(session.Comments_Custom_1);
 
   await prisma.sitediaryrecords.update({
     where: { id: session.id },
