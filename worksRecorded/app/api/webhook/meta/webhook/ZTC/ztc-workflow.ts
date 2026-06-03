@@ -2,10 +2,10 @@ import { UTApi } from "uploadthing/server";
 import OpenAI, { toFile } from "openai";
 import { prisma } from "@/lib/utils/db";
 import {
-  fetchTwilioMediaAsBuffer,
+  fetchWhatsAppMediaAsBuffer,
   getString,
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getConfig } from "@/server/actions/site-diary-actions";
 
@@ -344,14 +344,10 @@ function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
 async function uploadMediaImage(formData: FormData, idx: number) {
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "image/jpeg").toLowerCase();
-  const mediaProvider = (getString(formData, `MediaProvider${idx}`) || "").toLowerCase();
 
   if (!mediaUrl) throw new Error("Image media URL is missing");
 
-  const buffer = await fetchTwilioMediaAsBuffer(
-    mediaUrl,
-    mediaProvider === "meta" ? "meta" : "twilio",
-  );
+  const buffer = await fetchWhatsAppMediaAsBuffer(mediaUrl);
   const ext = contentType.split("/")[1] || "jpg";
   const file = new File([buffer], `ztc_whatsapp_${Date.now()}.${ext}`, {
     type: contentType,
@@ -373,14 +369,10 @@ async function uploadMediaImage(formData: FormData, idx: number) {
 async function transcribeAudio(formData: FormData, idx: number) {
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "").toLowerCase();
-  const mediaProvider = (getString(formData, `MediaProvider${idx}`) || "").toLowerCase();
 
   if (!mediaUrl) throw new Error("Audio media URL is missing");
 
-  const buffer = await fetchTwilioMediaAsBuffer(
-    mediaUrl,
-    mediaProvider === "meta" ? "meta" : "twilio",
-  );
+  const buffer = await fetchWhatsAppMediaAsBuffer(mediaUrl);
   const file = await toFile(buffer, `voice-message.${inferAudioExtension(contentType)}`);
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const transcript = await openai.audio.transcriptions.create({
