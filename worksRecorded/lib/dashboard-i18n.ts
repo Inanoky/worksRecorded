@@ -86,6 +86,10 @@ type SiteDiaryListMessages = {
   performedWorkDetails: string;
   bisEventDate: string;
   pickBisEventDate: string;
+  multipleDayJob: string;
+  bisEventDateTo: string;
+  pickBisEventDateTo: string;
+  bisEventDateToMustBeAfterStart: string;
   worksDescription: string;
   worksDescriptionLimit: string;
   bisMeasurementUnit: string;
@@ -647,6 +651,10 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     performedWorkDetails: "Performed work details",
     bisEventDate: "BIS event date",
     pickBisEventDate: "Pick BIS event date",
+    multipleDayJob: "Multiple day job",
+    bisEventDateTo: "BIS event date to",
+    pickBisEventDateTo: "Pick BIS event date to",
+    bisEventDateToMustBeAfterStart: "BIS event date to must be after the start date.",
     worksDescription: "Works description",
     worksDescriptionLimit: "Max 200 characters",
     bisMeasurementUnit: "BIS measurement unit",
@@ -744,6 +752,10 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     performedWorkDetails: "Veikto darbu informācija",
     bisEventDate: "BIS notikuma datums",
     pickBisEventDate: "Izvēlieties BIS notikuma datumu",
+    multipleDayJob: "Vairāku dienu darbs",
+    bisEventDateTo: "BIS notikuma datums līdz",
+    pickBisEventDateTo: "Ievadīt",
+    bisEventDateToMustBeAfterStart: "BIS notikuma beigu datumam jābūt pēc sākuma datuma.",
     worksDescription: "Darbu apraksts",
     worksDescriptionLimit: "Maks. 200 rakstzīmes",
     bisMeasurementUnit: "BIS mērvienība",

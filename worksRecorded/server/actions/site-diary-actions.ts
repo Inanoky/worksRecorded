@@ -1792,6 +1792,7 @@ export async function sendSiteDiaryRecordToBis(
     materials?: BisPerformedWorkMaterialSelection[];
     attachments?: BisPerformedWorkAttachmentSelection[];
     eventDate?: string;
+    eventDateTo?: string;
     worksDescription?: string;
     amount?: number;
     measurement?: string;
@@ -1843,6 +1844,13 @@ export async function sendSiteDiaryRecordToBis(
   const eventDate = options?.eventDate
     ? new Date(options.eventDate).toISOString().slice(0, 10)
     : (diaryRecord.Date ?? new Date()).toISOString().slice(0, 10);
+  const eventDateTo = options?.eventDateTo
+    ? new Date(options.eventDateTo).toISOString().slice(0, 10)
+    : null;
+  if (eventDateTo && eventDateTo <= eventDate) {
+    throw new Error("BIS event date to must be after the start date");
+  }
+  const multiDayWork = Boolean(eventDateTo);
   const eventTimeFrom = new Date().toTimeString().slice(0, 5);
   const amountValue = Number(options?.amount ?? diaryRecord.Amounts ?? 1);
   const descriptionOverride = options?.worksDescription?.trim().slice(0, 200);
@@ -1856,6 +1864,7 @@ export async function sendSiteDiaryRecordToBis(
   });
 
   const detailAttributes: Record<string, unknown> = {
+    multi_day_work: multiDayWork,
     employees: Number(diaryRecord.WorkersInvolved ?? 1),
     quantity: Number.isFinite(amountValue) ? amountValue : 1,
     measurement: Number(options?.measurement ?? process.env.BIS_DEFAULT_MEASUREMENT ?? 12),
@@ -1925,6 +1934,7 @@ export async function sendSiteDiaryRecordToBis(
       type: "performed_work",
       attributes: {
         event_date: eventDate,
+        ...(eventDateTo ? { event_date_to: eventDateTo } : {}),
         event_time_from: eventTimeFrom,
         case_construction_round_id: site.bisConstructionRoundId,
         responsible_person_id: resolvedResponsiblePerson.responsiblePersonId,
