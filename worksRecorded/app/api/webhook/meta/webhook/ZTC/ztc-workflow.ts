@@ -30,7 +30,12 @@ type DrawingExtraction = {
   qualityOk: boolean;
   projectName: string | null;
   elementName: string | null;
+  totalAreaM2: number | null;
   workList: string[];
+  workItems: Array<{
+    name: string;
+    amountM2: number | null;
+  }>;
   issue: string | null;
 };
 
@@ -52,6 +57,20 @@ type ZtcConfigField = {
 type ZtcConfigMap = Record<string, ZtcConfigField | undefined>;
 
 type OpenZtcSession = NonNullable<Awaited<ReturnType<typeof getOpenZtcSession>>>;
+
+type ZtcDrawingMetadata = {
+  type: "ztc_drawing_context";
+  version: 1;
+  projectName: string;
+  elements: Array<{
+    elementName: string;
+    totalAreaM2: number | null;
+    works: Array<{
+      name: string;
+      amountM2: number | null;
+    }>;
+  }>;
+};
 
 const utapi = new UTApi();
 
@@ -128,12 +147,94 @@ function parseJsonObject<T>(value: string | null | undefined, fallback: T): T {
 }
 
 function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction {
+  const workItems = Array.isArray(value.workItems)
+    ? value.workItems
+        .map((item) => ({
+          name: String(item?.name ?? "").trim(),
+          amountM2:
+            item?.amountM2 == null || !Number.isFinite(Number(item.amountM2))
+              ? null
+              : Number(item.amountM2),
+        }))
+        .filter((item) => item.name)
+    : [];
+  const workList = Array.isArray(value.workList)
+    ? value.workList.map((work) => String(work).trim()).filter(Boolean)
+    : [];
+
   return {
     ...value,
-    workList: Array.isArray(value.workList)
-      ? value.workList.map((work) => String(work).trim()).filter(Boolean)
-      : [],
+    totalAreaM2:
+      value.totalAreaM2 == null || !Number.isFinite(Number(value.totalAreaM2))
+        ? null
+        : Number(value.totalAreaM2),
+    workList: workList.length ? workList : workItems.map((item) => item.name),
+    workItems,
   };
+}
+
+function parseZtcDrawingMetadata(value: string | null | undefined): ZtcDrawingMetadata | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as ZtcDrawingMetadata;
+    if (parsed?.type !== "ztc_drawing_context" || !Array.isArray(parsed.elements)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingMetadata {
+  const worksSource = extraction.workItems.length
+    ? extraction.workItems
+    : extraction.workList.map((name) => ({ name, amountM2: extraction.totalAreaM2 }));
+
+  return {
+    type: "ztc_drawing_context",
+    version: 1,
+    projectName: extraction.projectName ?? "",
+    elements: [
+      {
+        elementName: extraction.elementName ?? "",
+        totalAreaM2: extraction.totalAreaM2,
+        works: worksSource.map((work) => ({
+          name: work.name,
+          amountM2: work.amountM2 ?? extraction.totalAreaM2,
+        })),
+      },
+    ],
+  };
+}
+
+function getSessionWorkOptions(session: OpenZtcSession | null) {
+  const metadata = parseZtcDrawingMetadata(session?.Comments_Custom_2);
+  const element = metadata?.elements.find(
+    (item) =>
+      item.elementName.toLowerCase() ===
+      String(session?.Location_Custom_1 ?? "").trim().toLowerCase(),
+  );
+
+  return element?.works.map((work) => work.name).filter(Boolean) ?? [];
+}
+
+function getSessionWorkAmountM2(session: OpenZtcSession, workName: string | null | undefined) {
+  const normalizedWork = workName?.trim().toLowerCase();
+  if (!normalizedWork) return null;
+
+  const metadata = parseZtcDrawingMetadata(session.Comments_Custom_2);
+  const element = metadata?.elements.find(
+    (item) =>
+      item.elementName.toLowerCase() ===
+      String(session.Location_Custom_1 ?? "").trim().toLowerCase(),
+  );
+  const work = element?.works.find(
+    (item) => item.name.trim().toLowerCase() === normalizedWork,
+  );
+
+  return work?.amountM2 ?? element?.totalAreaM2 ?? null;
 }
 
 async function uploadMediaImage(formData: FormData, idx: number) {
@@ -195,14 +296,14 @@ async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> 
       {
         role: "system",
         content:
-          "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, workList string[], issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, and unreadable/blurry photos. Extract the project name, element name, and visible work operations exactly as visible when possible.",
+          "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, drawings without a readable total element area, and unreadable/blurry photos. Extract the project name, element name, total element area in m2, and visible work operations exactly as visible when possible. If work-specific areas are not stated, use the total element area for each workItems amountM2.",
       },
       {
         role: "user",
         content: [
           {
             type: "text",
-            text: "Check this WhatsApp photo. Is it a readable construction drawing with project name, element name, and a readable work/operation list?",
+            text: "Check this WhatsApp photo. Is it a readable construction drawing with project name, element name, total area in m2, and a readable work/operation list?",
           },
           {
             type: "image_url",
@@ -222,15 +323,23 @@ async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> 
       qualityOk: false,
       projectName: null,
       elementName: null,
+      totalAreaM2: null,
       workList: [],
+      workItems: [],
       issue: "Unable to read the drawing photo.",
     }),
   );
 }
 
-async function extractWorkInfo(text: string): Promise<WorkExtraction> {
+async function extractWorkInfo(
+  text: string,
+  allowedWorkOptions?: string[],
+): Promise<WorkExtraction> {
   const normalized = text.trim();
   const { workOptions, unitOptions } = await getZtcDropdownOptions();
+  const effectiveWorkOptions = allowedWorkOptions?.length
+    ? allowedWorkOptions
+    : workOptions;
 
   if (!normalized) {
     return {
@@ -253,7 +362,7 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
       {
         role: "system",
         content:
-          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(workOptions)}. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
       },
       { role: "user", content: normalized },
     ],
@@ -273,7 +382,7 @@ async function extractWorkInfo(text: string): Promise<WorkExtraction> {
   return {
     ...extracted,
     isAdditionalWork: extracted.isAdditionalWork || hasPapilddarbiKeyword(normalized),
-    workOption: normalizeAllowedOption(extracted.workOption, workOptions),
+    workOption: normalizeAllowedOption(extracted.workOption, effectiveWorkOptions),
     units: normalizeAllowedOption(extracted.units, unitOptions),
   };
 }
@@ -397,16 +506,18 @@ async function handleDrawingPhoto(args: {
     !extraction.hasReadableWorkList ||
     !extraction.projectName ||
     !extraction.elementName ||
+    extraction.totalAreaM2 == null ||
     extraction.workList.length === 0
   ) {
     await sendMessage(
       to,
-      "Ludzu atsutiet skaidru buvniecibas rasejuma foto, kur redzams projekta nosaukums, elementa numurs un darbu saraksts.",
+      "Ludzu atsutiet skaidru buvniecibas rasejuma foto, kur redzams projekta nosaukums, elementa numurs, kopplatiba m2 un darbu saraksts.",
     );
     return;
   }
 
   const drawingWorks = extraction.workList.join("; ");
+  const drawingMetadata = JSON.stringify(buildDrawingMetadata(extraction));
 
   if (existing && !existing.Works) {
     await prisma.sitediaryrecords.update({
@@ -416,6 +527,7 @@ async function handleDrawingPhoto(args: {
         Location: extraction.projectName,
         Location_Custom_1: extraction.elementName,
         Works_Custom_1: drawingWorks,
+        Comments_Custom_2: drawingMetadata,
         Comments: "ZTC rasejums sanemts. Gaidam balss zinu par darba saksanu.",
         Photos: [image.publicUrl],
       },
@@ -430,6 +542,7 @@ async function handleDrawingPhoto(args: {
         Location: extraction.projectName,
         Location_Custom_1: extraction.elementName,
         Works_Custom_1: drawingWorks,
+        Comments_Custom_2: drawingMetadata,
         Comments: "ZTC rasejums sanemts. Gaidam balss zinu par darba saksanu.",
         originalUserComment: `${workerFullName(worker)} : rasejuma foto`,
         Photos: [image.publicUrl],
@@ -439,7 +552,7 @@ async function handleDrawingPhoto(args: {
 
   await sendMessage(
     to,
-    `Rasejums pienemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nTagad atsutiet balss zinu ar darbu, ko sakat darit.`,
+    `Rasejums pienemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nPlatiba: ${extraction.totalAreaM2} m2\nTagad atsutiet balss zinu ar darbu, ko sakat darit.`,
   );
 }
 
@@ -456,6 +569,7 @@ async function createSessionFromLatestDrawing(worker: ZtcWorker) {
       Location: previous.Location,
       Location_Custom_1: previous.Location_Custom_1,
       Works_Custom_1: previous.Works_Custom_1,
+      Comments_Custom_2: previous.Comments_Custom_2,
       Comments: "ZTC rasejuma konteksts parnemts. Gaidam darba saksanas zinu.",
       originalUserComment: `${workerFullName(worker)} : atkartots darbs pie ta pasa rasejuma`,
       Photos: previous.Photos?.[0] ? [previous.Photos[0]] : [],
@@ -483,10 +597,13 @@ async function createAdditionalWorkSession(args: {
       Date_Custom_1: now,
       Location: "Papilddarbi",
       Works: workOption,
+      Units: work.amountCompleted != null ? "m2" : undefined,
+      Amounts: work.amountCompleted ?? undefined,
       Comments: [
         `Darbinieks: ${workerFullName(worker)}`,
         "Projekts: Papilddarbi",
         `Saktais darbs: ${workOption}`,
+        work.amountCompleted != null ? `Apjoms: ${work.amountCompleted} m2` : null,
         description ? `Apraksts: ${description}` : null,
       ]
         .filter(Boolean)
@@ -502,18 +619,23 @@ async function handleWorkText(args: {
   worker: ZtcWorker;
 }) {
   const { text, to, worker } = args;
-  const work = await extractWorkInfo(text);
+  const openSession = await getOpenZtcSession(worker.id);
+  const isAdditionalWorkRequest = hasPapilddarbiKeyword(text);
+  const latestDrawingContext =
+    openSession || isAdditionalWorkRequest
+      ? null
+      : await getLatestZtcDrawingContext(worker.id);
+  const workOptionsForSession = getSessionWorkOptions(openSession ?? latestDrawingContext);
+  const work = await extractWorkInfo(text, workOptionsForSession);
 
   if (work.isGibberish) {
     await sendMessage(to, "Neizdevas saprast balss zinu. Ludzu meginiet velreiz.");
     return;
   }
 
-  const openSession = await getOpenZtcSession(worker.id);
-
   if (work.isAdditionalWork && !work.isFinish) {
-    if (openSession?.Works) {
-      await sendMessage(to, "Jums jau ir aktiva darba sesija. Ludzu pabeidziet to pirms papilddarba saksanas.");
+    if (openSession?.Location === "Papilddarbi" && openSession.Works) {
+      await sendMessage(to, "Papilddarbs jau ir aktiva sesija. Ludzu pabeidziet to pirms jauna papilddarba saksanas.");
       return;
     }
 
@@ -525,7 +647,9 @@ async function handleWorkText(args: {
     return;
   }
 
-  const session = openSession ?? (!work.isFinish ? await createSessionFromLatestDrawing(worker) : null);
+  const session = work.isFinish
+    ? openSession
+    : openSession ?? (await createSessionFromLatestDrawing(worker));
 
   if (!session) {
     await sendMessage(to, "Ludzu saciet ar skaidru buvniecibas rasejuma foto.");
@@ -568,16 +692,21 @@ async function handleWorkText(args: {
     return;
   }
 
+  const amountM2 = getSessionWorkAmountM2(session, work.workOption);
+
   await prisma.sitediaryrecords.update({
     where: { id: session.id },
     data: {
       Date: now,
       Works: work.workOption,
+      Units: "m2",
+      Amounts: amountM2 ?? undefined,
       Comments: [
         `Darbinieks: ${workerFullName(worker)}`,
         `Projekts: ${session.Location ?? ""}`,
         `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
         `Saktais darbs: ${work.workOption}`,
+        amountM2 != null ? `Apjoms: ${amountM2} m2` : null,
       ]
         .filter(Boolean)
         .join("\n"),
@@ -587,7 +716,7 @@ async function handleWorkText(args: {
 
   await sendMessage(
     to,
-    `Sakts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nKad darbs ir pabeigts, atsutiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
+    `Sakts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nApjoms: ${amountM2 ?? 0} m2\nKad darbs ir pabeigts, atsutiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
   );
 }
 

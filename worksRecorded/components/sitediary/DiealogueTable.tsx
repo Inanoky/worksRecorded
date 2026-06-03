@@ -66,6 +66,37 @@ const OTHER_OPTION = { value: "__other__", label: "Other Works" }
 const ADD_NEW_LOCATION = "__add_new_location__";
 const ADD_NEW_WORK = "__add_new_work__";
 const MANAGE_DROPDOWN_OPTIONS = "__manage_dropdown_options__";
+const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+
+type ZtcDrawingMetadata = {
+  type: "ztc_drawing_context";
+  elements?: Array<{
+    elementName?: string | null;
+    totalAreaM2?: number | null;
+    works?: Array<{
+      name?: string | null;
+      amountM2?: number | null;
+    }>;
+  }>;
+};
+
+function parseZtcDrawingMetadata(value: unknown): ZtcDrawingMetadata | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  try {
+    const parsed = JSON.parse(value) as ZtcDrawingMetadata;
+    if (parsed?.type !== "ztc_drawing_context" || !Array.isArray(parsed.elements)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeOption(value: unknown) {
+  return String(value ?? "").trim();
+}
 
 export const allowedUnits = [
   "m",
@@ -155,7 +186,7 @@ const DiaryRowSchema = z.object({
 
   Comments: z.string().max(1500).optional().or(z.literal("")),
   Comments_Custom_1: z.string().max(1500).optional().or(z.literal("")),
-  Comments_Custom_2: z.string().max(1500).optional().or(z.literal("")),
+  Comments_Custom_2: z.string().max(10000).optional().or(z.literal("")),
 
   // allow any strings but cap length if provided
   Location: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
@@ -165,8 +196,8 @@ const DiaryRowSchema = z.object({
 
 
   Works: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
-  Works_Custom_1: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
-  Works_Custom_2: z.string().max(MAX_FREE_TEXT).optional().or(z.literal("")),
+  Works_Custom_1: z.string().max(10000).optional().or(z.literal("")),
+  Works_Custom_2: z.string().max(10000).optional().or(z.literal("")),
 
 
 
@@ -257,6 +288,12 @@ export function DialogTable({
     WorkersInvolved: "",
     TimeInvolved: "",
     Comments: "",
+    Comments_Custom_1: "",
+    Comments_Custom_2: "",
+    Works_Custom_1: "",
+    Works_Custom_2: "",
+    Location_Custom_1: "",
+    Location_Custom_2: "",
     CreatedBy: "",
 
     // Manual entry support
@@ -393,12 +430,116 @@ export function DialogTable({
     }
   };
 
+  const getZtcElementsFromRows = (sourceRows: any[]) => {
+    const elements = new Map<string, string>();
+
+    for (const row of sourceRows) {
+      const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
+      for (const element of metadata?.elements ?? []) {
+        const elementName = normalizeOption(element.elementName);
+        if (elementName) elements.set(elementName.toLowerCase(), elementName);
+      }
+
+      const rowElement = normalizeOption(row.Location_Custom_1);
+      if (rowElement && row.Location !== "Papilddarbi") {
+        elements.set(rowElement.toLowerCase(), rowElement);
+      }
+    }
+
+    return [...elements.values()];
+  };
+
+  const getZtcElementWorkOptions = (sourceRows: any[], elementName: string) => {
+    const normalizedElement = normalizeOption(elementName).toLowerCase();
+    if (!normalizedElement) return [];
+
+    const works = new Map<string, string>();
+    for (const row of sourceRows) {
+      const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
+      for (const element of metadata?.elements ?? []) {
+        if (normalizeOption(element.elementName).toLowerCase() !== normalizedElement) continue;
+        for (const work of element.works ?? []) {
+          const workName = normalizeOption(work.name);
+          if (workName) works.set(workName.toLowerCase(), workName);
+        }
+      }
+    }
+
+    return [...works.values()];
+  };
+
+  const getZtcWorkAmountM2 = (sourceRows: any[], elementName: string, workName: string) => {
+    const normalizedElement = normalizeOption(elementName).toLowerCase();
+    const normalizedWork = normalizeOption(workName).toLowerCase();
+    if (!normalizedElement || !normalizedWork) return null;
+
+    for (const row of sourceRows) {
+      const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
+      for (const element of metadata?.elements ?? []) {
+        if (normalizeOption(element.elementName).toLowerCase() !== normalizedElement) continue;
+        const work = (element.works ?? []).find(
+          (item) => normalizeOption(item.name).toLowerCase() === normalizedWork,
+        );
+        const amount = work?.amountM2 ?? element.totalAreaM2;
+        if (amount != null && Number.isFinite(Number(amount))) {
+          return Number(amount);
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const getDropdownOptionsForField = (field: string, row: any, sourceRows = rows) => {
+    if (siteId === ZTC_SITE_ID && field === "Location_Custom_1") {
+      const elementOptions = getZtcElementsFromRows(sourceRows);
+      if (elementOptions.length) {
+        return elementOptions.map((label) => ({ value: label, label }));
+      }
+    }
+
+    if (siteId === ZTC_SITE_ID && field === "Works" && row.Location !== "Papilddarbi") {
+      const workOptions = getZtcElementWorkOptions(sourceRows, row.Location_Custom_1);
+      if (workOptions.length) {
+        return workOptions.map((label) => ({ value: label, label }));
+      }
+    }
+
+    const optionsObj = defaultMap[field]?.DropDownOptions ?? {};
+    return Object.entries(optionsObj).map(([value, label]) => ({
+      value,
+      label: String(label),
+    }));
+  };
+
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
 
     setRows((prev) =>
-      prev.map((r) =>
-        r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
-      )
+      prev.map((r) => {
+        if (r.id !== rowIdOrTemp && r._tempId !== rowIdOrTemp) return r;
+
+        const next = { ...r, [field]: value };
+
+        if (siteId === ZTC_SITE_ID && field === "Location_Custom_1") {
+          const workOptions = getZtcElementWorkOptions(prev, value);
+          if (!workOptions.some((option) => option === next.Works)) {
+            next.Works = "";
+            next.Amounts = "";
+          } else {
+            const amountM2 = getZtcWorkAmountM2(prev, value, next.Works);
+            if (amountM2 != null) next.Amounts = String(amountM2);
+          }
+          if (workOptions.length) next.Units = "m2";
+        }
+
+        if (siteId === ZTC_SITE_ID && field === "Works" && next.Location !== "Papilddarbi") {
+          const amountM2 = getZtcWorkAmountM2(prev, next.Location_Custom_1, value);
+          next.Units = "m2";
+          if (amountM2 != null) next.Amounts = String(amountM2);
+        }
+
+        return next;
+      })
     );
   };
 
@@ -718,12 +859,7 @@ export function DialogTable({
 
 
 
-      const optionsObj = defaultMap[field]?.DropDownOptions ?? {};
-
-      let options = Object.entries(optionsObj).map(([value, label]) => ({
-        value,
-        label: String(label),
-      }));
+      let options = getDropdownOptionsForField(field, row);
 
       const currentValue = String(row[field] ?? "");
       const getDropdownOptionLabel = (label: string) =>
@@ -874,12 +1010,22 @@ export function DialogTable({
         rows: Record<string, any>[],
         renderableFields: string[]
       ) {
+        const hiddenFieldsToKeep = [
+          "Comments_Custom_1",
+          "Comments_Custom_2",
+          "Works_Custom_1",
+          "Works_Custom_2",
+          "Location_Custom_1",
+          "Location_Custom_2",
+        ];
+        const fieldsToKeep = Array.from(new Set([...renderableFields, ...hiddenFieldsToKeep]));
+
         return rows.map((row) => ({
           id: row.id ?? undefined, // keep DB id even if not renderable
           createdBy: row.createdBy ?? undefined,
 
           ...Object.fromEntries(
-            renderableFields.map((field) => [field, row[field] ?? ""])
+            fieldsToKeep.map((field) => [field, row[field] ?? ""])
           ),
         }));
       }

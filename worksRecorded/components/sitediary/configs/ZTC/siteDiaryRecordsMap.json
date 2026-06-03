@@ -17,8 +17,9 @@
     }
   },
   "Location_Custom_1": {
-    "Type": "textInput",
+    "Type": "dropdown",
     "DisplayName": "Elements",
+    "DropDownOptions": {},
     "customSettings": {
       "order": 2,
       "cellWidth": 115,
