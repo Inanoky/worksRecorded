@@ -11,15 +11,18 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DialogTable } from "@/components/sitediary/DiealogueTable";
+import { ZtcDialogTable } from "@/components/sitediary/ZTC/ZtcDialogTable";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
+const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
 export default function DialogWindow({ open, setOpen, date, siteId, onSaved, organizationLanguage }) {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
   const dateLocale = normalizeOrganizationLanguage(organizationLanguage) === "lv" ? "lv-LV" : "en-GB";
+  const TableComponent = siteId === ZTC_SITE_ID ? ZtcDialogTable : DialogTable;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -53,7 +56,7 @@ export default function DialogWindow({ open, setOpen, date, siteId, onSaved, org
         <div className="flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto px-4 pb-4 sm:px-0 sm:pb-0">
           {/* Table area – Joyride target */}
           <div data-tour="dialog-table">
-            <DialogTable
+            <TableComponent
               key={refreshKey}
               className="flex-none"
               date={date}
