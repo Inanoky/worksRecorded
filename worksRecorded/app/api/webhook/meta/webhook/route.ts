@@ -10,7 +10,18 @@ import {
 import { handleWorkerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/worker";
 
 import { handleSiteManagerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/site-manager-route";
-import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import { getMetaGraphBaseUrl } from "@/lib/utils/whatsapp-helpers/meta/config";
+import {
+  applyMetaUserIdUpdate,
+  extractMetaWebhookIdentity,
+  resolveMetaWhatsAppIdentity,
+  type ResolvedWhatsAppIdentity,
+} from "@/lib/utils/whatsapp-helpers/meta/identity";
+import {
+  sendMetaContactRequest,
+  sendMetaGraphMessage,
+} from "@/lib/utils/whatsapp-helpers/meta/sender";
 import {
   getSession,
   startSession,
@@ -47,14 +58,14 @@ async function cleanupStaleLock(phone: string) {
   });
 }
 
-async function tryAcquireTextLock(phone: string, messageSid?: string | null) {
+async function tryAcquireTextLock(phone: string, messageId?: string | null) {
   await cleanupStaleLock(phone);
 
   try {
     await prisma.whatsappTextLock.create({
       data: {
         phone,
-        messageSid: messageSid || undefined,
+        messageId: messageId || undefined,
       },
     });
 
@@ -97,7 +108,7 @@ async function graphSendMessage(
   const token = mustGetEnv("META_ACCESS_TOKEN", META_ACCESS_TOKEN);
 
   const res = await fetch(
-    `https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`,
+    `${getMetaGraphBaseUrl()}/${businessPhoneNumberId}/messages`,
     {
       method: "POST",
       headers: {
@@ -119,17 +130,19 @@ async function graphSendMessage(
 async function sendMetaTypingIndicator(
   businessPhoneNumberId: string,
   messageId: string,
-  to: string
+  to: string | null
 ): Promise<void> {
-  await graphSendMessage(businessPhoneNumberId, {
+  const body: Record<string, unknown> = {
     messaging_product: "whatsapp",
-    to,
     status: "read",
     message_id: messageId,
     typing_indicator: {
       type: "text",
     },
-  });
+  };
+
+  if (to) body.to = to;
+  await graphSendMessage(businessPhoneNumberId, body);
 }
 
 /**
@@ -155,7 +168,7 @@ export async function GET(req: Request): Promise<Response> {
 async function getMetaMediaInfo(mediaId: string): Promise<{ url: string; mimeType: string } | null> {
   const token = mustGetEnv("META_ACCESS_TOKEN", META_ACCESS_TOKEN);
 
-  const res = await fetch(`https://graph.facebook.com/v18.0/${mediaId}`, {
+  const res = await fetch(`${getMetaGraphBaseUrl()}/${mediaId}`, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -176,23 +189,25 @@ async function getMetaMediaInfo(mediaId: string): Promise<{ url: string; mimeTyp
   return { url, mimeType: mimeType || "image/jpeg" };
 }
 
-async function toTwilioLikeFormData(message: any): Promise<FormData> {
+async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdentity): Promise<FormData> {
   const formData = new FormData();
   const textBody = typeof message?.text?.body === "string" ? message.text.body : "";
   const imageCaption =
     typeof message?.image?.caption === "string" ? message.image.caption : "";
   const body = textBody || imageCaption;
-  const from = message?.from ? `whatsapp:+${message.from}` : "";
+  const from = resolved.fromForHandlers || "";
   const hasImage = Boolean(message?.image?.id);
   const hasAudio = Boolean(message?.audio?.id);
   const numMedia = hasImage || hasAudio ? "1" : "0";
 
   formData.set("SmsStatus", "received");
   formData.set("From", from);
-  formData.set("WaId", message?.from ?? "");
+  formData.set("WaId", resolved.webhookIdentity.phone ?? "");
+  formData.set("MetaUserId", resolved.webhookIdentity.bsuid ?? "");
+  formData.set("MetaParentUserId", resolved.webhookIdentity.parentBsuid ?? "");
+  formData.set("MetaUsername", resolved.webhookIdentity.username ?? "");
   formData.set("Body", body);
-  formData.set("MessageSid", message?.id ?? "");
-  formData.set("SmsMessageSid", message?.id ?? "");
+  formData.set("MessageId", message?.id ?? "");
   formData.set("NumMedia", numMedia);
 
   if (hasImage) {
@@ -218,13 +233,20 @@ async function toTwilioLikeFormData(message: any): Promise<FormData> {
 
 async function runWhatsappRoutingForMeta(args: {
   message: any;
+  value: any;
   businessPhoneNumberId: string;
 }) {
-  const { message, businessPhoneNumberId } = args;
-  const formData = await toTwilioLikeFormData(message);
+  const { message, value, businessPhoneNumberId } = args;
+  const webhookIdentity = extractMetaWebhookIdentity({
+    value,
+    message,
+    businessPhoneNumberId,
+  });
+  const resolved = await resolveMetaWhatsAppIdentity(webhookIdentity);
+  const formData = await toWhatsAppFormData(message, resolved);
 
   let lockHeld = false;
-  let lockPhone: string | null = null;
+  let lockKey: string | null = null;
 
   try {
     const smsStatus = getString(formData, "SmsStatus");
@@ -233,25 +255,35 @@ async function runWhatsappRoutingForMeta(args: {
     const numMediaRaw = getString(formData, "NumMedia");
     const numMedia = Number(numMediaRaw || "0");
     const isText = !Number.isNaN(numMedia) ? numMedia === 0 : true;
-    const messageSid = getString(formData, "MessageSid") || null;
+    const messageId = getString(formData, "MessageId") || null;
 
     if (smsStatus && smsStatus.toLowerCase() !== "received") {
       return;
     }
 
     const phone = await normalizePhone(waId, from);
+    const identityKey = resolved.identityKey || waId || from;
+    if (!identityKey) {
+      console.warn("Meta webhook message has no usable phone or BSUID", {
+        messageId: message?.id,
+        type: message?.type,
+      });
+      return;
+    }
 
     if (isText) {
-      const acquired = await tryAcquireTextLock(phone, messageSid);
+      const acquired = await tryAcquireTextLock(identityKey, messageId);
       if (!acquired) return;
 
       lockHeld = true;
-      lockPhone = phone;
+      lockKey = identityKey;
     }
 
-    const worker = await prisma.workers.findFirst({
-      where: { phone },
-    });
+    const worker = phone
+      ? await prisma.workers.findFirst({
+          where: { phone },
+        })
+      : null;
 
     if (worker) {
       if (worker.organizationId === ZTC_ORGANIZATION_ID) {
@@ -263,25 +295,32 @@ async function runWhatsappRoutingForMeta(args: {
       return;
     }
 
-    const user = await prisma.user.findFirst({
-      where: { phone },
-      include: {
-        organization: {
-          include: {
-            sites: true,
-          },
-        },
-      },
-    });
+    const resolvedWorker = resolved.worker;
+
+    if (resolvedWorker?.phone) {
+      await handleWorkerRoute({ phone: resolvedWorker.phone, formData });
+      return;
+    }
+
+    const user = resolved.user;
 
     if (!user) {
-      await graphSendMessage(businessPhoneNumberId, {
-        messaging_product: "whatsapp",
-        to: message.from,
-        text: {
-          body: "Sorry, this phone number is not registered. Please contact admin.",
-        },
-      });
+      if (resolved.webhookIdentity.bsuid && !resolved.webhookIdentity.phone && resolved.replyTarget) {
+        await sendMetaContactRequest({
+          businessPhoneNumberId,
+          recipient: resolved.replyTarget,
+        });
+      } else if (resolved.replyTarget) {
+        await sendMetaGraphMessage({
+          businessPhoneNumberId,
+          recipient: resolved.replyTarget,
+          body: {
+            text: {
+              body: "Sorry, this WhatsApp contact is not registered. Please contact admin.",
+            },
+          },
+        });
+      }
       return;
     }
 
@@ -289,22 +328,67 @@ async function runWhatsappRoutingForMeta(args: {
   } catch (err) {
     console.error("runWhatsappRoutingForMeta error", err);
 
-    if (message?.from) {
-      await graphSendMessage(businessPhoneNumberId, {
-        messaging_product: "whatsapp",
-        to: message.from,
-        text: {
-          body: "Sorry, an error occurred processing your message.",
+    const fallbackTarget = resolvedSafeReplyTarget(message, value, businessPhoneNumberId);
+    if (fallbackTarget) {
+      await sendMetaGraphMessage({
+        businessPhoneNumberId,
+        recipient: fallbackTarget,
+        body: {
+          text: {
+            body: "Sorry, an error occurred processing your message.",
+          },
         },
       });
     }
   } finally {
-    if (lockHeld && lockPhone) {
-      await releaseTextLock(lockPhone).catch((e) => {
+    if (lockHeld && lockKey) {
+      await releaseTextLock(lockKey).catch((e) => {
         console.error("releaseTextLock error", e);
       });
     }
   }
+}
+
+function resolvedSafeReplyTarget(message: any, value: any, businessPhoneNumberId: string) {
+  const identity = extractMetaWebhookIdentity({ value, message, businessPhoneNumberId });
+  return identity.parentBsuid || identity.bsuid || identity.phone;
+}
+
+async function handleContactsMessage(args: { value: any; message: any; businessPhoneNumberId: string }) {
+  const identity = extractMetaWebhookIdentity({
+    value: args.value,
+    message: args.message,
+    businessPhoneNumberId: args.businessPhoneNumberId,
+  });
+  const resolved = await resolveMetaWhatsAppIdentity(identity);
+
+  if (resolved.replyTarget) {
+    await sendMetaGraphMessage({
+      businessPhoneNumberId: args.businessPhoneNumberId,
+      recipient: resolved.replyTarget,
+      body: {
+        text: {
+          body: "Thanks, your WhatsApp contact info was received.",
+        },
+      },
+    });
+  }
+}
+
+async function handleUserIdUpdate(args: { value: any; businessPhoneNumberId: string }) {
+  const update = Array.isArray(args.value?.user_id_update)
+    ? args.value.user_id_update[0]
+    : null;
+  if (!update) return;
+
+  await applyMetaUserIdUpdate({
+    businessPhoneNumberId: args.businessPhoneNumberId,
+    previousBsuid: update?.user_id?.previous,
+    currentBsuid: update?.user_id?.current,
+    previousParentBsuid: update?.parent_user_id?.previous,
+    currentParentBsuid: update?.parent_user_id?.current,
+    phone: update?.wa_id,
+  });
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -313,9 +397,32 @@ export async function POST(req: Request): Promise<Response> {
 
     console.log("Incoming webhook message:", JSON.stringify(body, null, 2));
 
-    const message = body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
-    const business_phone_number_id =
-      body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+    const change = body?.entry?.[0]?.changes?.[0];
+    const value = change?.value;
+    const field = change?.field;
+    const message = value?.messages?.[0];
+    const business_phone_number_id = value?.metadata?.phone_number_id;
+
+    if (field === "user_id_update" && business_phone_number_id) {
+      await handleUserIdUpdate({ value, businessPhoneNumberId: business_phone_number_id });
+      return new Response("OK", { status: 200 });
+    }
+
+    if (Array.isArray(value?.statuses)) {
+      console.log("Meta status webhook received", {
+        field,
+        phoneNumberId: business_phone_number_id,
+        statuses: value.statuses.map((status: any) => ({
+          id: status?.id,
+          status: status?.status,
+          recipientId: status?.recipient_id,
+          recipientUserId: status?.recipient_user_id,
+          recipientParentUserId: status?.recipient_parent_user_id,
+          errors: status?.errors,
+        })),
+      });
+      return new Response("OK", { status: 200 });
+    }
 
     if (message && business_phone_number_id) {
       if (message.id && hasProcessedMetaMessage(message.id)) {
@@ -323,33 +430,51 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       if (message.id && (message.type === "text" || message.type === "image" || message.type === "audio")) {
-        await sendMetaTypingIndicator(business_phone_number_id, message.id, message.from);
+        await sendMetaTypingIndicator(business_phone_number_id, message.id, message.from || null).catch((error) => {
+          console.error("Meta typing/read indicator failed", error);
+        });
+      }
+
+      if (message.type === "contacts") {
+        await handleContactsMessage({
+          value,
+          message,
+          businessPhoneNumberId: business_phone_number_id,
+        });
+        return new Response("OK", { status: 200 });
       }
 
       //-----------------BOOKING APPOINTMENT BOT (PRISMA)-----------------------
 
       if (message.type === "text" && typeof message.text?.body === "string") {
         const text = message.text.body.trim().toLowerCase();
-        const user = message.from;
+        const webhookIdentity = extractMetaWebhookIdentity({
+          value,
+          message,
+          businessPhoneNumberId: business_phone_number_id,
+        });
+        const user = webhookIdentity.parentBsuid || webhookIdentity.bsuid || webhookIdentity.phone;
 
         // START BOOKING
-        if (text === "book") {
+        if (text === "book" && user) {
           await startSession(user);
 
-          await graphSendMessage(business_phone_number_id, {
-            messaging_product: "whatsapp",
-            to: user,
-            text: {
-              body: "📅 Booking started.\n\nWhat service do you want?",
+          await sendMetaGraphMessage({
+            businessPhoneNumberId: business_phone_number_id,
+            recipient: user,
+            body: {
+              text: {
+                body: "📅 Booking started.\n\nWhat service do you want?",
+              },
             },
           });
 
           return new Response("OK", { status: 200 });
         }
 
-        const session = await getSession(user);
+        const session = user ? await getSession(user) : null;
 
-        if (session) {
+        if (session && user) {
           // STEP 1 — SERVICE
           if (session.step === "service") {
             await updateSession(user, {
@@ -357,11 +482,13 @@ export async function POST(req: Request): Promise<Response> {
               step: "date",
             });
 
-            await graphSendMessage(business_phone_number_id, {
-              messaging_product: "whatsapp",
-              to: user,
-              text: {
-                body: "Great 👍\n\nChoose a date (YYYY-MM-DD)",
+            await sendMetaGraphMessage({
+              businessPhoneNumberId: business_phone_number_id,
+              recipient: user,
+              body: {
+                text: {
+                  body: "Great 👍\n\nChoose a date (YYYY-MM-DD)",
+                },
               },
             });
 
@@ -375,11 +502,13 @@ export async function POST(req: Request): Promise<Response> {
               step: "time",
             });
 
-            await graphSendMessage(business_phone_number_id, {
-              messaging_product: "whatsapp",
-              to: user,
-              text: {
-                body: "Perfect.\n\nChoose a time (HH:MM)",
+            await sendMetaGraphMessage({
+              businessPhoneNumberId: business_phone_number_id,
+              recipient: user,
+              body: {
+                text: {
+                  body: "Perfect.\n\nChoose a time (HH:MM)",
+                },
               },
             });
 
@@ -392,11 +521,13 @@ export async function POST(req: Request): Promise<Response> {
               time: text,
             });
 
-            await graphSendMessage(business_phone_number_id, {
-              messaging_product: "whatsapp",
-              to: user,
-              text: {
-                body: `✅ Booking confirmed!\n\nService: ${session.service}\nDate: ${session.date}\nTime: ${text}\n\nWe will see you soon!`,
+            await sendMetaGraphMessage({
+              businessPhoneNumberId: business_phone_number_id,
+              recipient: user,
+              body: {
+                text: {
+                  body: `✅ Booking confirmed!\n\nService: ${session.service}\nDate: ${session.date}\nTime: ${text}\n\nWe will see you soon!`,
+                },
               },
             });
 
@@ -407,13 +538,14 @@ export async function POST(req: Request): Promise<Response> {
         }
       }
 
-      // 2) Run the same role-based WhatsApp routing used by Twilio webhook.
+      // 2) Run the shared role-based WhatsApp routing.
       if (message.type === "text" || message.type === "image" || message.type === "audio") {
         await runWithMetaReplyContext(
           { businessPhoneNumberId: business_phone_number_id },
           async () =>
             runWhatsappRoutingForMeta({
               message,
+              value,
               businessPhoneNumberId: business_phone_number_id,
             })
         );
@@ -425,6 +557,8 @@ export async function POST(req: Request): Promise<Response> {
           messaging_product: "whatsapp",
           status: "read",
           message_id: message.id,
+        }).catch((error) => {
+          console.error("Meta mark-as-read failed", error);
         });
       }
     }

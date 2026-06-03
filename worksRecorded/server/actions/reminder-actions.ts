@@ -73,8 +73,6 @@ export async function saveUserReminderTimes(updates: TimeUpdate[]) {
       where: { id: userId },
       data: { reminderTime: dt, timezone: tz },
     });
-    // optional: keep Twilio schedule in sync
-    // try { await scheduleNextForUser(userId); } catch {}
   }
 
   revalidatePath("/dashboard/settings");

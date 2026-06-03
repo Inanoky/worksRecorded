@@ -1,8 +1,5 @@
 import { Buffer } from "buffer";
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID!;
-const authToken = process.env.TWILIO_AUTH_TOKEN!;
-
 export function getString(fd: FormData, key: string) {
   const v = fd.get(key);
   const result = typeof v === "string" ? v : (v as any)?.toString?.() ?? null;
@@ -16,22 +13,24 @@ export async function normalizePhone(waId: string | null, from: string | null) {
   return normalized;
 }
 
-export async function fetchTwilioMediaAsBuffer(url: string, provider: "twilio" | "meta" = "twilio") {
-  console.log("🌐 [fetchTwilioMediaAsBuffer] fetching media from:", url);
-  const isMetaMedia =
-    provider === "meta" || /(facebook\.com|fbcdn\.net|fbsbx\.com|lookaside)/i.test(url);
-  try {
-    const token = process.env.META_ACCESS_TOKEN;
-    const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
-    const headers = isMetaMedia ? { Authorization: `Bearer ${token}` } : { Authorization: `Basic ${basicAuth}` };
+export async function fetchWhatsAppMediaAsBuffer(url: string) {
+  console.log("🌐 [fetchWhatsAppMediaAsBuffer] fetching media from:", url);
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token) {
+    throw new Error("Missing META_ACCESS_TOKEN for WhatsApp media download");
+  }
 
-    const res = await fetch(url, { headers, redirect: "follow" });
-    console.log("✅ [fetchTwilioMediaAsBuffer] response status:", res.status, res.statusText);
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      redirect: "follow",
+    });
+    console.log("✅ [fetchWhatsAppMediaAsBuffer] response status:", res.status, res.statusText);
     const buf = Buffer.from(await res.arrayBuffer());
-    console.log("📦 [fetchTwilioMediaAsBuffer] buffer size:", buf.length);
+    console.log("📦 [fetchWhatsAppMediaAsBuffer] buffer size:", buf.length);
     return buf;
   } catch (err) {
-    console.error("❌ [fetchTwilioMediaAsBuffer] fetch failed:", err);
+    console.error("❌ [fetchWhatsAppMediaAsBuffer] fetch failed:", err);
     throw err;
   }
 }

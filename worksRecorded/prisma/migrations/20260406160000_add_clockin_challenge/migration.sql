@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "ClockInChallenge" (
+CREATE TABLE IF NOT EXISTS "ClockInChallenge" (
     "id" TEXT NOT NULL,
     "workerId" TEXT NOT NULL,
     "siteId" TEXT NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE "ClockInChallenge" (
 );
 
 -- CreateIndex
-CREATE INDEX "ClockInChallenge_workerId_siteId_idx" ON "ClockInChallenge"("workerId", "siteId");
+CREATE INDEX IF NOT EXISTS "ClockInChallenge_workerId_siteId_idx" ON "ClockInChallenge"("workerId", "siteId");
 
 -- CreateIndex
-CREATE INDEX "ClockInChallenge_expiresAt_idx" ON "ClockInChallenge"("expiresAt");
+CREATE INDEX IF NOT EXISTS "ClockInChallenge_expiresAt_idx" ON "ClockInChallenge"("expiresAt");

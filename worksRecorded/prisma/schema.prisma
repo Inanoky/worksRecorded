@@ -74,6 +74,7 @@ model User {
   photos            photos[]
   BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
   bisToken          BisToken?
+  whatsappIdentities WhatsAppIdentity[]
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -312,8 +313,39 @@ model workers {
   remindersEnabled Boolean @default(false)
   reminderText   String?
   createdAt       DateTime  @default(now())
+  whatsappIdentities WhatsAppIdentity[]
 
  
+}
+
+model WhatsAppIdentity {
+  id                    String   @id @default(uuid())
+  provider              String   @default("meta")
+  phone                 String?
+  waId                  String?
+  bsuid                 String?
+  parentBsuid           String?
+  username              String?
+  businessPhoneNumberId String?
+  wabaId                String?
+  status                String   @default("active")
+  userId                String?
+  workerId              String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user   User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  worker workers? @relation(fields: [workerId], references: [id], onDelete: SetNull)
+
+  @@unique([businessPhoneNumberId, bsuid])
+  @@unique([businessPhoneNumberId, parentBsuid])
+  @@unique([businessPhoneNumberId, phone])
+  @@index([phone])
+  @@index([waId])
+  @@index([bsuid])
+  @@index([parentBsuid])
+  @@index([userId])
+  @@index([workerId])
 }
 
 model timelog {
@@ -372,7 +404,7 @@ model analytics {
 model WhatsappTextLock {
   phone      String   @id
   lockedAt   DateTime @default(now())
-  messageSid String?
+  messageId  String?
 }
 
 

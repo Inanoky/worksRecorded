@@ -1,6 +1,6 @@
 
 import { getString } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { handleProjectSelector } from "@/lib/utils/whatsapp-helpers/shared/projectSelector";
 import { handleImage } from "@/lib/utils/whatsapp-helpers/shared/handleImage";
 import { handleAudio } from "@/lib/utils/whatsapp-helpers/shared/handleAudio";

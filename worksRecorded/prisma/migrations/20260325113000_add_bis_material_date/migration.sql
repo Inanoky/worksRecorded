@@ -1,1 +1,1 @@
-ALTER TABLE "BISmaterialRecords" ADD COLUMN "materialDate" TIMESTAMP(3);
+ALTER TABLE "BISmaterialRecords" ADD COLUMN IF NOT EXISTS "materialDate" TIMESTAMP(3);

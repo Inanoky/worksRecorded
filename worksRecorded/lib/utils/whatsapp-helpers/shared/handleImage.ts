@@ -1,8 +1,8 @@
 
 import { UTApi } from "uploadthing/server";
 import { savePhoto } from "@/server/actions/site-diary-actions";
-import { getString, fetchTwilioMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/twillio";
+import { getString, fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
 
 export type UploadedImageContext = {
@@ -39,10 +39,9 @@ export async function handleImage(args: {
 
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "image/jpeg").toLowerCase();
-  const mediaProvider = (getString(formData, `MediaProvider${idx}`) || "").toLowerCase();
 
   try {
-    const buf = await fetchTwilioMediaAsBuffer(mediaUrl!, mediaProvider === "meta" ? "meta" : "twilio");
+    const buf = await fetchWhatsAppMediaAsBuffer(mediaUrl!);
 
     const ext = contentType.split("/")[1] || "jpg";
     const fileName = `whatsapp_${Date.now()}.${ext}`;
