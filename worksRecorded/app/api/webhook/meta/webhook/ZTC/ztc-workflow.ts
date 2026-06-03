@@ -85,12 +85,37 @@ function getDropdownLabels(config: ZtcConfigMap, fieldKey: string) {
     .filter(Boolean);
 }
 
+function normalizeZtcWorkName(value: string | null | undefined) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+
+  return trimmed
+    .replace(/^T\s*\d+(?=\s|[-/]|$)/i, "TL")
+    .replace(/^T(?!L)(?=\s|[-/]|$)/i, "TL");
+}
+
+function normalizeZtcWorkOptions(values: string[]) {
+  const seen = new Set<string>();
+  const options: string[] = [];
+
+  for (const value of values) {
+    const normalized = normalizeZtcWorkName(value);
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    options.push(normalized);
+  }
+
+  return options;
+}
+
 async function getZtcDropdownOptions() {
   const config = ((await getConfig(ZTC_SITE_ID)) ??
     ztcSiteDiaryRecordsMap) as ZtcConfigMap;
 
   return {
-    workOptions: getDropdownLabels(config, "Works"),
+    workOptions: normalizeZtcWorkOptions(getDropdownLabels(config, "Works")),
     unitOptions: getDropdownLabels(config, "Units"),
   };
 }
@@ -102,6 +127,18 @@ function normalizeAllowedOption(value: string | null | undefined, allowed: strin
   return (
     allowed.find((option) => option.toLowerCase() === normalized.toLowerCase()) ??
     null
+  );
+}
+
+function normalizeAllowedWorkOption(value: string | null | undefined, allowed: string[]) {
+  const normalized = normalizeZtcWorkName(value);
+  if (!normalized) return null;
+
+  return (
+    allowed.find(
+      (option) =>
+        normalizeZtcWorkName(option).toLowerCase() === normalized.toLowerCase(),
+    ) ?? null
   );
 }
 
@@ -122,7 +159,7 @@ function hasFrameKeyword(text: string) {
 }
 
 function isTlWork(workName: string | null | undefined) {
-  return /^TL(\b|\s*[-–—])/i.test(String(workName ?? "").trim());
+  return /^TL(\b|\s*[-/])/i.test(normalizeZtcWorkName(workName));
 }
 
 function workerFullName(worker: ZtcWorker) {
@@ -173,11 +210,11 @@ function parseDiagonalNumbers(text: string): [number, number] | null {
 }
 
 function isPositiveConfirmation(text: string) {
-  return /\b(j[aā]|yes|ok|pareizi|apstiprinu|apstiprin[uā]ts|labi|correct)\b/i.test(text);
+  return /\b(ja|jā|yes|ok|pareizi|apstiprinu|apstiprinats|apstiprināts|labi|correct)\b/i.test(text);
 }
 
 function isNegativeConfirmation(text: string) {
-  return /\b(n[eē]|no|nepareizi|labot|kluda|k[ļl][uū]da|redo|again)\b/i.test(text);
+  return /\b(ne|nē|no|nepareizi|labot|kluda|kļuda|kļūda|redo|again)\b/i.test(text);
 }
 
 function buildDiagonalComment(args: {
@@ -201,7 +238,7 @@ function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction
   const workItems = Array.isArray(value.workItems)
     ? value.workItems
         .map((item) => ({
-          name: String(item?.name ?? "").trim(),
+          name: normalizeZtcWorkName(item?.name),
           amountM2:
             item?.amountM2 == null || !Number.isFinite(Number(item.amountM2))
               ? null
@@ -210,7 +247,7 @@ function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction
         .filter((item) => item.name)
     : [];
   const workList = Array.isArray(value.workList)
-    ? value.workList.map((work) => String(work).trim()).filter(Boolean)
+    ? value.workList.map((work) => normalizeZtcWorkName(work)).filter(Boolean)
     : [];
 
   return {
@@ -241,7 +278,10 @@ function parseZtcDrawingMetadata(value: string | null | undefined): ZtcDrawingMe
 function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingMetadata {
   const worksSource = extraction.workItems.length
     ? extraction.workItems
-    : extraction.workList.map((name) => ({ name, amountM2: extraction.totalAreaM2 }));
+    : extraction.workList.map((name) => ({
+        name: normalizeZtcWorkName(name),
+        amountM2: extraction.totalAreaM2,
+      }));
 
   return {
     type: "ztc_drawing_context",
@@ -252,7 +292,7 @@ function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingMetadata
         elementName: extraction.elementName ?? "",
         totalAreaM2: extraction.totalAreaM2,
         works: worksSource.map((work) => ({
-          name: work.name,
+          name: normalizeZtcWorkName(work.name),
           amountM2: work.amountM2 ?? extraction.totalAreaM2,
         })),
       },
@@ -268,11 +308,11 @@ function getSessionWorkOptions(session: OpenZtcSession | null) {
       String(session?.Location_Custom_1 ?? "").trim().toLowerCase(),
   );
 
-  return element?.works.map((work) => work.name).filter(Boolean) ?? [];
+  return normalizeZtcWorkOptions(element?.works.map((work) => work.name).filter(Boolean) ?? []);
 }
 
 function getSessionWorkAmountM2(session: OpenZtcSession, workName: string | null | undefined) {
-  const normalizedWork = workName?.trim().toLowerCase();
+  const normalizedWork = normalizeZtcWorkName(workName).toLowerCase();
   if (!normalizedWork) return null;
 
   const metadata = parseZtcDrawingMetadata(session.Comments_Custom_2);
@@ -282,7 +322,7 @@ function getSessionWorkAmountM2(session: OpenZtcSession, workName: string | null
       String(session.Location_Custom_1 ?? "").trim().toLowerCase(),
   );
   const work = element?.works.find(
-    (item) => item.name.trim().toLowerCase() === normalizedWork,
+    (item) => normalizeZtcWorkName(item.name).toLowerCase() === normalizedWork,
   );
 
   return work?.amountM2 ?? element?.totalAreaM2 ?? null;
@@ -296,7 +336,7 @@ function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
   return items
     .map((item, index) => {
       const amount = item.amountM2 ?? extraction.totalAreaM2;
-      return `${index + 1}. ${item.name}${amount != null ? ` - ${amount} m2` : ""}`;
+      return `${index + 1}. ${normalizeZtcWorkName(item.name)}${amount != null ? ` - ${amount} m2` : ""}`;
     })
     .join("\n");
 }
@@ -360,7 +400,7 @@ async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> 
       {
         role: "system",
         content:
-          "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, drawings without a readable total element area, and unreadable/blurry photos. Extract the project name, element name, total element area in m2, and visible work operations exactly as visible when possible. Preserve the exact order of work operations as they appear in the drawing. If work-specific areas are not stated, use the total element area for each workItems amountM2.",
+          "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, drawings without a readable total element area, and unreadable/blurry photos. Extract the project name, element name, total element area in m2, and visible work operations exactly as visible when possible. Preserve the exact order of work operations as they appear in the drawing. ZTC drawings always use TL positions for timber frame work: normalize any work prefix T or T1 to TL, and never return T1. If work-specific areas are not stated, use the total element area for each workItems amountM2.",
       },
       {
         role: "user",
@@ -401,9 +441,9 @@ async function extractWorkInfo(
 ): Promise<WorkExtraction> {
   const normalized = text.trim();
   const { workOptions, unitOptions } = await getZtcDropdownOptions();
-  const effectiveWorkOptions = allowedWorkOptions?.length
-    ? allowedWorkOptions
-    : workOptions;
+  const effectiveWorkOptions = normalizeZtcWorkOptions(
+    allowedWorkOptions?.length ? allowedWorkOptions : workOptions,
+  );
 
   if (!normalized) {
     return {
@@ -426,7 +466,7 @@ async function extractWorkInfo(
       {
         role: "system",
         content:
-          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
       },
       { role: "user", content: normalized },
     ],
@@ -447,7 +487,7 @@ async function extractWorkInfo(
     ...extracted,
     isAdditionalWork: extracted.isAdditionalWork || hasPapilddarbiKeyword(normalized),
     workOption:
-      normalizeAllowedOption(extracted.workOption, effectiveWorkOptions) ??
+      normalizeAllowedWorkOption(extracted.workOption, effectiveWorkOptions) ??
       (hasFrameKeyword(normalized) && effectiveWorkOptions.filter(isTlWork).length === 1
         ? effectiveWorkOptions.filter(isTlWork)[0]
         : null),

@@ -23,12 +23,12 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  deleteSiteDiaryRecord,
-  getConfig,
-  getSiteDiaryRecord,
-  saveSiteDiaryRecordFromWeb,
-  updateSiteDiaryRecord,
-} from "@/server/actions/site-diary-actions";
+  createZtcSiteDiaryRecords,
+  deleteZtcSiteDiaryRecord,
+  getZtcSiteDiaryConfig,
+  getZtcSiteDiaryRecords,
+  updateZtcSiteDiaryRecord,
+} from "@/components/sitediary/ZTC/actions";
 import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import defaultConfig from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { useMediaQuery } from "@/components/sitediary/Use-media-querty";
@@ -79,6 +79,15 @@ function parseZtcDrawingMetadata(value: unknown): ZtcDrawingMetadata | null {
 
 function normalizeOption(value: unknown) {
   return String(value ?? "").trim();
+}
+
+function normalizeZtcWorkName(value: unknown) {
+  const trimmed = normalizeOption(value);
+  if (!trimmed) return "";
+
+  return trimmed
+    .replace(/^T\s*\d+(?=\s|[-/]|$)/i, "TL")
+    .replace(/^T(?!L)(?=\s|[-/]|$)/i, "TL");
 }
 
 function isUUID(id: unknown) {
@@ -182,7 +191,7 @@ export function ZtcDialogTable({
       for (const element of metadata?.elements ?? []) {
         if (normalizeOption(element.elementName).toLowerCase() !== normalizedElement) continue;
         for (const work of element.works ?? []) {
-          const workName = normalizeOption(work.name);
+          const workName = normalizeZtcWorkName(work.name);
           if (workName) works.set(workName.toLowerCase(), workName);
         }
       }
@@ -193,7 +202,7 @@ export function ZtcDialogTable({
 
   const getWorkAmountM2 = (sourceRows: any[], elementName: string, workName: string) => {
     const normalizedElement = normalizeOption(elementName).toLowerCase();
-    const normalizedWork = normalizeOption(workName).toLowerCase();
+    const normalizedWork = normalizeZtcWorkName(workName).toLowerCase();
     if (!normalizedElement || !normalizedWork) return null;
 
     for (const row of sourceRows) {
@@ -201,7 +210,7 @@ export function ZtcDialogTable({
       for (const element of metadata?.elements ?? []) {
         if (normalizeOption(element.elementName).toLowerCase() !== normalizedElement) continue;
         const work = (element.works ?? []).find(
-          (item) => normalizeOption(item.name).toLowerCase() === normalizedWork,
+          (item) => normalizeZtcWorkName(item.name).toLowerCase() === normalizedWork,
         );
         const amount = work?.amountM2 ?? element.totalAreaM2;
         if (amount != null && Number.isFinite(Number(amount))) {
@@ -270,7 +279,8 @@ export function ZtcDialogTable({
     if (!confirmed) return;
 
     if (row.id) {
-      await deleteSiteDiaryRecord({ id: row.id });
+      if (!siteId) return;
+      await deleteZtcSiteDiaryRecord({ siteId, id: row.id });
       toast.success(toastMessages.diaryRowDeleted);
       onSaved?.();
       return;
@@ -303,14 +313,14 @@ export function ZtcDialogTable({
 
     try {
       for (const row of existingRows) {
-        await updateSiteDiaryRecord({
+        await updateZtcSiteDiaryRecord({
           ...stripUiFields(row),
           siteId,
         });
       }
 
       if (newRows.length) {
-        await saveSiteDiaryRecordFromWeb({
+        await createZtcSiteDiaryRecords({
           rows: newRows.map((row) => {
             const { id, ...rest } = stripUiFields(row);
             return rest;
@@ -439,10 +449,10 @@ export function ZtcDialogTable({
         return;
       }
 
-      const config = ((await getConfig(siteId)) ?? defaultConfig) as Record<string, any>;
+      const config = ((await getZtcSiteDiaryConfig(siteId)) ?? defaultConfig) as Record<string, any>;
       const renderableFields = getRenderableFieldsOrdered(config);
       const fieldsToKeep = Array.from(new Set([...renderableFields, ...HIDDEN_FIELDS_TO_KEEP]));
-      const loadedRows = await getSiteDiaryRecord({
+      const loadedRows = await getZtcSiteDiaryRecords({
         siteId,
         date: date.toISOString(),
       });
