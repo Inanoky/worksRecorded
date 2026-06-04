@@ -470,6 +470,7 @@ export default function SiteDiaryCalendar({
   const bisUiEnabled = bisEnabled && showBisUi;
   const isZtcSite = siteId === ZTC_SITE_ID;
   const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
+  const [payrollDirtyRowIds, setPayrollDirtyRowIds] = React.useState<Set<string>>(new Set());
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -805,6 +806,7 @@ export default function SiteDiaryCalendar({
           : row,
       ),
     );
+    setPayrollDirtyRowIds((prev) => new Set(prev).add(recordId));
   };
 
   const savePayrollDraft = async (row: DiaryRow) => {
@@ -837,6 +839,12 @@ export default function SiteDiaryCalendar({
 
       if (!result?.ok) {
         toast.error(result?.message ?? "Failed to save payroll fields.");
+      } else {
+        setPayrollDirtyRowIds((prev) => {
+          const next = new Set(prev);
+          next.delete(row.id as string);
+          return next;
+        });
       }
     } catch (error: any) {
       toast.error(error?.message ?? "Failed to save payroll fields.");
@@ -853,28 +861,16 @@ export default function SiteDiaryCalendar({
   ) => {
     if (!row.id) return "—";
     const saving = payrollSavingRowId === row.id;
-    const dbField =
-      field === "rate"
-        ? "Location_Custom_2"
-        : field === "coefficient"
-          ? "Works_Custom_2"
-          : "WorkersInvolved";
-    const saveWithValue = (nextValue: string) => {
-      void savePayrollDraft({ ...row, [dbField]: nextValue });
-    };
-
     return (
       <Input
         inputMode="decimal"
-        className={cn("h-8 text-right", widthClass)}
+        className={cn("h-8 px-2 text-right tabular-nums", widthClass)}
         disabled={saving}
         value={String(value ?? "")}
         onChange={(event) => updatePayrollDraft(row.id as string, field, event.target.value)}
-        onBlur={(event) => saveWithValue(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
-            saveWithValue(event.currentTarget.value);
           }
         }}
       />
@@ -2047,6 +2043,20 @@ export default function SiteDiaryCalendar({
                                       {formatMoney(getZtcPayrollValues(r).sum)}
                                     </div>
                                   </div>
+                                  {r.id && payrollDirtyRowIds.has(r.id) ? (
+                                    <Button
+                                      size="sm"
+                                      className="col-span-2 h-8"
+                                      disabled={payrollSavingRowId === r.id}
+                                      onClick={() => savePayrollDraft(r)}
+                                    >
+                                      {payrollSavingRowId === r.id ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        "Save"
+                                      )}
+                                    </Button>
+                                  ) : null}
                                 </div>
                               ) : null}
 
@@ -2182,6 +2192,241 @@ export default function SiteDiaryCalendar({
                             ).length;
                             const allDaySelected =
                               dayRecordIds.length > 0 && selectedDayCount === dayRecordIds.length;
+
+                            if (isZtcSite) {
+                              return (
+                                <Table className="table-fixed min-w-[1220px] text-xs">
+                                  <TableHeader className="sticky top-0 z-10 bg-background">
+                                    <TableRow className="hover:bg-transparent">
+                                      <TableHead className="text-center" style={{ width: 44 }}>
+                                        <Checkbox
+                                          checked={allDaySelected}
+                                          onCheckedChange={(checked) =>
+                                            handleToggleSelectForDay(dayRecordIds, checked === true)
+                                          }
+                                          aria-label={`Select all records for ${dayLabel(group.date)}`}
+                                        />
+                                      </TableHead>
+                                      <TableHead style={{ width: 235 }}>Projekts / elements</TableHead>
+                                      <TableHead style={{ width: 175 }}>Darbi</TableHead>
+                                      <TableHead style={{ width: 105 }}>Darbinieks</TableHead>
+                                      <TableHead style={{ width: 105 }}>Sākums / beigas</TableHead>
+                                      <TableHead className="text-right" style={{ width: 76 }}>Daudz. / mērv.</TableHead>
+                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 68 }}>Rate</TableHead>
+                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Koef.</TableHead>
+                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Bonuss</TableHead>
+                                      <TableHead className="text-right" style={{ width: 82 }}>Summa</TableHead>
+                                      <TableHead className="text-center" style={{ width: 72 }}>Save</TableHead>
+                                      <TableHead style={{ width: 270 }}>Komentāri</TableHead>
+                                      {bisUiEnabled ? (
+                                        <TableHead className="text-center" style={{ width: 122 }}>BIS</TableHead>
+                                      ) : null}
+                                      {bisUiEnabled ? (
+                                        <TableHead className="text-center" style={{ width: 118 }}>{t.status}</TableHead>
+                                      ) : null}
+                                      <TableHead className="text-center" style={{ width: 72 }}>{t.action}</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {group.rows.map((row, i) => {
+                                      const payroll = getZtcPayrollValues(row);
+                                      const payrollDirty = row.id ? payrollDirtyRowIds.has(row.id) : false;
+                                      const payrollSaving = row.id ? payrollSavingRowId === row.id : false;
+                                      const startTime = formatValueByConfig("Date", row.Date, defaultMap) || "—";
+                                      const endTime = formatValueByConfig("Date_Custom_2", row.Date_Custom_2, defaultMap) || "—";
+                                      const amount = row.Amounts === null || row.Amounts === undefined || row.Amounts === ""
+                                        ? "—"
+                                        : String(row.Amounts);
+                                      const unit = row.Units || "m2";
+                                      const approvalStatus = row.id ? bisApprovalStatusByRowId[row.id] : null;
+                                      const isPendingApproval = isApprovalPendingStatus(approvalStatus);
+                                      const isApproved = isApprovedStatus(approvalStatus);
+                                      const isSent = Boolean(row.BISId) || (row.id ? bisSentRowIds.has(row.id) : false);
+
+                                      return (
+                                        <TableRow key={row.id ?? `${group.key}-${i}`} className="align-top hover:bg-muted/30">
+                                          <TableCell className="px-2 py-3 text-center" style={{ width: 44 }}>
+                                            {row.id ? (
+                                              <Checkbox
+                                                checked={selectedRecordIds.has(row.id)}
+                                                onCheckedChange={(checked) =>
+                                                  toggleRecordSelection(row.id as string, checked === true)
+                                                }
+                                                aria-label={`Select record ${row.id}`}
+                                              />
+                                            ) : null}
+                                          </TableCell>
+                                          <TableCell className="px-3 py-3" style={{ width: 235 }}>
+                                            <div className="space-y-1 leading-snug">
+                                              <div className="line-clamp-2">
+                                                <span className="text-[11px] font-medium text-muted-foreground">Projekts: </span>
+                                                <span className="font-medium text-foreground">{row.Location || "—"}</span>
+                                              </div>
+                                              <div className="line-clamp-1">
+                                                <span className="text-[11px] font-medium text-muted-foreground">Elements: </span>
+                                                <span>{row.Location_Custom_1 || "—"}</span>
+                                              </div>
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="px-3 py-3" style={{ width: 175 }}>
+                                            <div className="line-clamp-2 whitespace-normal break-words leading-snug">
+                                              {row.Works || "—"}
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="px-3 py-3" style={{ width: 105 }}>
+                                            <div className="line-clamp-2 leading-snug">{row.createdBy || "—"}</div>
+                                          </TableCell>
+                                          <TableCell className="px-3 py-3" style={{ width: 105 }}>
+                                            <div className="space-y-1 leading-tight">
+                                              <div><span className="text-muted-foreground">Sākums: </span>{startTime}</div>
+                                              <div><span className="text-muted-foreground">Beigas: </span>{endTime}</div>
+                                              <div className="text-[11px] font-medium text-muted-foreground">{row.TimeInvolved ?? "—"} h</div>
+                                            </div>
+                                          </TableCell>
+                                          <TableCell className="px-3 py-3 text-right" style={{ width: 76 }}>
+                                            <div className="font-medium tabular-nums">{amount}</div>
+                                            <div className="text-[11px] text-muted-foreground">{unit}</div>
+                                          </TableCell>
+                                          <TableCell className="px-1.5 py-2 text-right" style={{ width: 68 }}>
+                                            {renderZtcPayrollInput(row, "rate", row.Location_Custom_2, "w-full")}
+                                          </TableCell>
+                                          <TableCell className="px-1.5 py-2 text-right" style={{ width: 72 }}>
+                                            {renderZtcPayrollInput(row, "coefficient", row.Works_Custom_2, "w-full")}
+                                          </TableCell>
+                                          <TableCell className="px-1.5 py-2 text-right" style={{ width: 72 }}>
+                                            {renderZtcPayrollInput(row, "bonus", row.WorkersInvolved, "w-full")}
+                                          </TableCell>
+                                          <TableCell className="px-3 py-3 text-right font-semibold tabular-nums" style={{ width: 82 }}>
+                                            {formatMoney(payroll.sum)}
+                                          </TableCell>
+                                          <TableCell className="px-2 py-2 text-center" style={{ width: 72 }}>
+                                            {payrollDirty ? (
+                                              <Button
+                                                size="sm"
+                                                className="h-8 px-3"
+                                                disabled={!row.id || payrollSaving}
+                                                onClick={() => savePayrollDraft(row)}
+                                              >
+                                                {payrollSaving ? (
+                                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                ) : (
+                                                  "Save"
+                                                )}
+                                              </Button>
+                                            ) : null}
+                                          </TableCell>
+                                          <TableCell className="px-3 py-3" style={{ width: 270 }}>
+                                            {row.Comments ? (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button
+                                                    type="button"
+                                                    className="line-clamp-2 text-left leading-snug hover:text-blue-700"
+                                                  >
+                                                    {row.Comments}
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="max-w-lg whitespace-pre-wrap text-sm">
+                                                  {row.Comments}
+                                                </PopoverContent>
+                                              </Popover>
+                                            ) : (
+                                              <span className="text-muted-foreground">—</span>
+                                            )}
+                                          </TableCell>
+                                          {bisUiEnabled ? (
+                                            <TableCell className="px-3 py-3 text-center" style={{ width: 122 }}>
+                                              {!isSent ? (
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="h-8 bg-green-600 text-white hover:bg-green-700"
+                                                  disabled={!row.id || bisSendingRowId === row.id}
+                                                  onClick={() => openBisPicker(row)}
+                                                >
+                                                  {bisSendingRowId === row.id ? (
+                                                    <>
+                                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                      {t.sending}
+                                                    </>
+                                                  ) : (
+                                                    t.sendToBis
+                                                  )}
+                                                </Button>
+                                              ) : (
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className={cn(
+                                                    "h-8",
+                                                    isApproved
+                                                      ? "bg-green-600 text-white hover:bg-green-600"
+                                                      : isPendingApproval
+                                                        ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                        : "bg-blue-600 text-white hover:bg-blue-700",
+                                                  )}
+                                                  disabled={!row.id || isPendingApproval || isApproved}
+                                                  onClick={() => openApprovalDialog(row)}
+                                                >
+                                                  {isApproved ? (
+                                                    <>
+                                                      <ShieldCheck className="mr-1 h-3 w-3" />
+                                                      {t.approved}
+                                                    </>
+                                                  ) : isPendingApproval ? (
+                                                    t.sentForApproval
+                                                  ) : (
+                                                    t.sendForApproval
+                                                  )}
+                                                </Button>
+                                              )}
+                                            </TableCell>
+                                          ) : null}
+                                          {bisUiEnabled ? (
+                                            <TableCell className="px-3 py-3 text-center" style={{ width: 118 }}>
+                                              <Badge
+                                                className={cn(
+                                                  "inline-flex items-center justify-center rounded-full px-3 py-1 font-medium capitalize",
+                                                  getBisStatusClassName(row.id ? bisApprovalStatusByRowId[row.id] ?? row.bisStatus : row.bisStatus),
+                                                )}
+                                              >
+                                                {getBisStatusLabel(row.id ? bisApprovalStatusByRowId[row.id] ?? row.bisStatus : row.bisStatus)}
+                                              </Badge>
+                                            </TableCell>
+                                          ) : null}
+                                          <TableCell className="px-3 py-3 text-center" style={{ width: 72 }}>
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!row.id}>
+                                                  <Ellipsis className="h-4 w-4" />
+                                                </Button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => openDayDialog(group.date)}>
+                                                  {t.edit}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => openCopyDialog(row)} disabled={!row.id}>
+                                                  {t.copy}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleDeleteRecord(row)} disabled={!row.id}>
+                                                  Delete
+                                                </DropdownMenuItem>
+                                                {bisUiEnabled ? (
+                                                  <DropdownMenuItem onClick={() => handleOpenRecordInBis(row)} disabled={!row.BISId}>
+                                                    <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                                                    {t.openInBis}
+                                                  </DropdownMenuItem>
+                                                ) : null}
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
+                                          </TableCell>
+                                        </TableRow>
+                                      );
+                                    })}
+                                  </TableBody>
+                                </Table>
+                              );
+                            }
 
                             const formattedGroupRows = group.rows.map((r) => ({
                               id: r.id ?? undefined,
