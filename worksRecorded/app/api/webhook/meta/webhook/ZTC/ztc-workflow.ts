@@ -178,6 +178,42 @@ function workerFullName(worker: ZtcWorker) {
   return [worker.name, worker.surname].filter(Boolean).join(" ").trim() || "Darbinieks";
 }
 
+function formatSessionWork(session: Pick<OpenZtcSession, "Location" | "Location_Custom_1" | "Works">) {
+  return [
+    session.Works,
+    session.Location_Custom_1 ? `elements ${session.Location_Custom_1}` : null,
+    session.Location ? `projekts ${session.Location}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
+function hasCompletedWorkPhoto(session: Pick<OpenZtcSession, "Location" | "Photos">) {
+  const photoCount = session.Photos?.length ?? 0;
+  return session.Location === "Papilddarbi" ? photoCount >= 1 : photoCount >= 2;
+}
+
+function logZtcSession(
+  event: string,
+  args: {
+    session?: Partial<OpenZtcSession> | null;
+    worker?: ZtcWorker | null;
+    details?: Record<string, unknown>;
+  } = {},
+) {
+  const session = args.session;
+  console.log("[ZTC session]", {
+    event,
+    sitediaryrecordId: session?.id ?? null,
+    workerId: args.worker?.id ?? session?.workerId ?? null,
+    workerName: args.worker ? workerFullName(args.worker) : null,
+    project: session?.Location ?? null,
+    element: session?.Location_Custom_1 ?? null,
+    work: session?.Works ?? null,
+    details: args.details ?? {},
+  });
+}
+
 function stripWorkerPrefix(value: string | null | undefined) {
   const normalized = value?.trim();
   if (!normalized) return "";
@@ -644,7 +680,7 @@ async function completeSession(args: {
       finishText: completedText,
     });
 
-  await prisma.sitediaryrecords.update({
+  const updated = await prisma.sitediaryrecords.update({
     where: { id: session.id },
     data: {
       Date_Custom_2: now,
@@ -656,7 +692,19 @@ async function completeSession(args: {
     },
   });
 
-  await sendMessage(to, `Darbs pabeigts un saglabats. Registretais laiks: ${timeInvolved ?? 0} stundas.`);
+  logZtcSession("session_completed", {
+    session: updated,
+    details: {
+      timeInvolved,
+      amountCompleted,
+      comments: finalWorkerComment,
+    },
+  });
+
+  await sendMessage(
+    to,
+    `Darbs pabeigts un saglabats: ${formatSessionWork(session) || "darbs"}. Registretais laiks: ${timeInvolved ?? 0} stundas.`,
+  );
 }
 
 async function askForTlDiagonals(args: {
@@ -666,7 +714,7 @@ async function askForTlDiagonals(args: {
 }) {
   const completedText = args.completedText?.trim() || "";
 
-  await prisma.sitediaryrecords.update({
+  const updated = await prisma.sitediaryrecords.update({
     where: { id: args.session.id },
     data: {
       Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({ completedText })}`,
@@ -675,9 +723,14 @@ async function askForTlDiagonals(args: {
     },
   });
 
+  logZtcSession("tl_diagonal_flow_started", {
+    session: updated,
+    details: { completedText },
+  });
+
   await sendMessage(
     args.to,
-    "TL/karkasa darbs ir pabeigts. Pirms noslegsanas ludzu atsutiet foto ar pirmas ramas diagonales merijumu.",
+    `Darbs pabeigts: ${formatSessionWork(args.session) || "TL/karkasa darbs"}. Pirms noslegsanas ludzu atsutiet foto ar pirmas ramas diagonales merijumu.`,
   );
 }
 
@@ -849,11 +902,16 @@ async function handleTlDiagonalMeasureText(args: {
       firstMeasureMm: measure,
     };
 
-    await prisma.sitediaryrecords.update({
+    const updated = await prisma.sitediaryrecords.update({
       where: { id: args.session.id },
       data: {
         Comments_Custom_1: `${DIAGONAL_SECOND_PHOTO_PENDING_PREFIX} ${JSON.stringify(payload)}`,
       },
+    });
+
+    logZtcSession("tl_diagonal_one_measured", {
+      session: updated,
+      details: { measureMm: measure },
     });
 
     await sendMessage(args.to, `Pirmas diagonales merijums: ${measure} mm. Tagad atsutiet foto ar otras ramas diagonales merijumu.`);
@@ -871,6 +929,11 @@ async function handleTlDiagonalMeasureText(args: {
       ...readDiagonalPhotoMeasurePayload(state, DIAGONAL_SECOND_MEASURE_PENDING_PREFIX),
       secondMeasureMm: measure,
     };
+
+    logZtcSession("tl_diagonal_two_measured", {
+      session: args.session,
+      details: { measureMm: measure },
+    });
 
     await sendTypingIndicator(args.to);
 
@@ -912,12 +975,18 @@ async function handleTlDiagonalPhoto(args: {
     };
     const nextPhotos = [...(args.session.Photos ?? []), image.publicUrl];
 
-    await prisma.sitediaryrecords.update({
+    const updated = await prisma.sitediaryrecords.update({
       where: { id: args.session.id },
       data: {
         Photos: nextPhotos,
         Comments_Custom_1: `${DIAGONAL_FIRST_MEASURE_PENDING_PREFIX} ${JSON.stringify(payload)}`,
       },
+    });
+
+    logZtcSession("tl_diagonal_one_photo_saved", {
+      session: updated,
+      worker: args.worker,
+      details: { photoUrl: image.publicUrl },
     });
 
     await saveDiagonalMeasurePhoto({
@@ -939,12 +1008,18 @@ async function handleTlDiagonalPhoto(args: {
     };
     const nextPhotos = [...(args.session.Photos ?? []), image.publicUrl];
 
-    await prisma.sitediaryrecords.update({
+    const updated = await prisma.sitediaryrecords.update({
       where: { id: args.session.id },
       data: {
         Photos: nextPhotos,
         Comments_Custom_1: `${DIAGONAL_SECOND_MEASURE_PENDING_PREFIX} ${JSON.stringify(payload)}`,
       },
+    });
+
+    logZtcSession("tl_diagonal_two_photo_saved", {
+      session: updated,
+      worker: args.worker,
+      details: { photoUrl: image.publicUrl },
     });
 
     await saveDiagonalMeasurePhoto({
@@ -1018,7 +1093,7 @@ async function handleDrawingPhoto(args: {
   ) {
     await sendMessage(
       to,
-      "Ludzu atsutiet skaidru buvniecibas rasejuma foto, kur redzams projekta nosaukums, elementa numurs, kopplatiba m2 un darbu saraksts.",
+      "Lūdzu, atsūtiet skaidru ražošanas rasējuma foto, kur redzams projekta nosaukums, elementa numurs, kopplatība m2 un darbu saraksts.",
     );
     return;
   }
@@ -1027,7 +1102,7 @@ async function handleDrawingPhoto(args: {
   const drawingMetadata = JSON.stringify(buildDrawingMetadata(extraction));
 
   if (existing && !existing.Works) {
-    await prisma.sitediaryrecords.update({
+    const updated = await prisma.sitediaryrecords.update({
       where: { id: existing.id },
       data: {
         Date_Custom_1: new Date(),
@@ -1039,8 +1114,17 @@ async function handleDrawingPhoto(args: {
         Photos: [image.publicUrl],
       },
     });
+
+    logZtcSession("drawing_context_updated", {
+      session: updated,
+      worker,
+      details: {
+        drawingPhotoUrl: image.publicUrl,
+        extractedWorks: extraction.workList,
+      },
+    });
   } else {
-    await prisma.sitediaryrecords.create({
+    const created = await prisma.sitediaryrecords.create({
       data: {
         workerId: worker.id,
         siteId: ZTC_SITE_ID,
@@ -1055,6 +1139,15 @@ async function handleDrawingPhoto(args: {
         Photos: [image.publicUrl],
       },
     });
+
+    logZtcSession("drawing_context_created", {
+      session: created,
+      worker,
+      details: {
+        drawingPhotoUrl: image.publicUrl,
+        extractedWorks: extraction.workList,
+      },
+    });
   }
 
   await sendMessage(
@@ -1067,7 +1160,7 @@ async function createSessionFromLatestDrawing(worker: ZtcWorker) {
   const previous = await getLatestZtcDrawingContext(worker.id);
   if (!previous) return null;
 
-  return prisma.sitediaryrecords.create({
+  const created = await prisma.sitediaryrecords.create({
     data: {
       workerId: worker.id,
       siteId: ZTC_SITE_ID,
@@ -1082,6 +1175,14 @@ async function createSessionFromLatestDrawing(worker: ZtcWorker) {
       Photos: previous.Photos?.[0] ? [previous.Photos[0]] : [],
     },
   });
+
+  logZtcSession("session_created_from_latest_drawing", {
+    session: created,
+    worker,
+    details: { previousRecordId: previous.id },
+  });
+
+  return created;
 }
 
 async function createAdditionalWorkSession(args: {
@@ -1094,7 +1195,7 @@ async function createAdditionalWorkSession(args: {
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
 
-  return prisma.sitediaryrecords.create({
+  const created = await prisma.sitediaryrecords.create({
     data: {
       workerId: worker.id,
       siteId: ZTC_SITE_ID,
@@ -1109,6 +1210,14 @@ async function createAdditionalWorkSession(args: {
       originalUserComment: `${workerFullName(worker)} : ${text}`,
     },
   });
+
+  logZtcSession("additional_work_started", {
+    session: created,
+    worker,
+    details: { startText: text },
+  });
+
+  return created;
 }
 
 async function handleWorkText(args: {
@@ -1139,7 +1248,10 @@ async function handleWorkText(args: {
 
   if (work.isAdditionalWork && !work.isFinish) {
     if (openSession?.Location === "Papilddarbi" && openSession.Works) {
-      await sendMessage(to, "Papilddarbs jau ir aktiva sesija. Ludzu pabeidziet to pirms jauna papilddarba saksanas.");
+      await sendMessage(
+        to,
+        `Papilddarbs jau ir aktiva sesija: ${formatSessionWork(openSession) || "darbs"}. Ludzu pabeidziet to pirms jauna papilddarba saksanas.`,
+      );
       return;
     }
 
@@ -1170,8 +1282,8 @@ async function handleWorkText(args: {
       return;
     }
 
-    if ((session.Photos ?? []).length < 2) {
-      await prisma.sitediaryrecords.update({
+    if (!hasCompletedWorkPhoto(session)) {
+      const updated = await prisma.sitediaryrecords.update({
         where: { id: session.id },
         data: {
           Amounts: session.Amounts ?? undefined,
@@ -1180,7 +1292,16 @@ async function handleWorkText(args: {
         },
       });
 
-      await sendMessage(to, "Pabeigsanas zina sanemta. Ludzu atsutiet pabeigta darba foto.");
+      logZtcSession("finish_voice_waiting_for_photo", {
+        session: updated,
+        worker,
+        details: { finishText: text },
+      });
+
+      await sendMessage(
+        to,
+        `Pabeigsanas zina sanemta par darbu: ${formatSessionWork(session) || "darbs"}. Ludzu atsutiet pabeigta darba foto.`,
+      );
       return;
     }
 
@@ -1195,11 +1316,17 @@ async function handleWorkText(args: {
 
   if (session.Works) {
     if (session.Comments_Custom_1?.startsWith(PHOTO_PENDING_FINISH_PREFIX)) {
-      await sendMessage(to, "Pabeigta darba foto ir sanemts. Ludzu pasakiet, ka darbs ir pabeigts, lai es varu noslegt sesiju.");
+      await sendMessage(
+        to,
+        `Pabeigta darba foto ir sanemts darbam: ${formatSessionWork(session) || "darbs"}. Ludzu pasakiet, ka darbs ir pabeigts, lai es varu noslegt sesiju.`,
+      );
       return;
     }
 
-    await sendMessage(to, "Jums jau ir aktiva darba sesija. Ludzu vispirms atsutiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.");
+    await sendMessage(
+      to,
+      `Jums jau ir aktiva darba sesija: ${formatSessionWork(session) || "darbs"}. Ludzu vispirms atsutiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
+    );
     return;
   }
 
@@ -1210,7 +1337,7 @@ async function handleWorkText(args: {
 
   const amountM2 = getSessionWorkAmountM2(session, work.workOption);
 
-  await prisma.sitediaryrecords.update({
+  const updated = await prisma.sitediaryrecords.update({
     where: { id: session.id },
     data: {
       Date: now,
@@ -1220,6 +1347,12 @@ async function handleWorkText(args: {
       Comments: buildZtcUserComments({ startText: text }),
       originalUserComment: `${workerFullName(worker)} : ${text}`,
     },
+  });
+
+  logZtcSession("work_started", {
+    session: updated,
+    worker,
+    details: { startText: text, amountM2 },
   });
 
   await sendMessage(
@@ -1263,6 +1396,16 @@ async function handleFinishedPhoto(args: {
         : PHOTO_PENDING_FINISH_PREFIX,
     },
   });
+
+  logZtcSession("completed_work_photo_saved", {
+    session: {
+      ...session,
+      Photos: nextPhotos,
+    },
+    worker,
+    details: { photoUrl: image.publicUrl, caption },
+  });
+
   await saveCompletedWorkPhoto({
     worker,
     publicUrl: image.publicUrl,
@@ -1308,7 +1451,10 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
-  await sendMessage(to, "Pabeigta darba foto sanemts. Ludzu atsutiet balss zinu vai tekstu, ka darbs ir pabeigts.");
+  await sendMessage(
+    to,
+    `Pabeigta darba foto sanemts darbam: ${formatSessionWork(session) || "darbs"}. Ludzu atsutiet balss zinu vai tekstu, ka darbs ir pabeigts.`,
+  );
 }
 
 export async function handleZtcWorkerRoute(args: {

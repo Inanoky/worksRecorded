@@ -219,7 +219,7 @@
   },
   "TimeInvolved": {
     "Type": "numberInput",
-    "DisplayName": "h",
+    "DisplayName": "stundas",
     "customSettings": {
       "order": 17,
       "cellWidth": 65,
