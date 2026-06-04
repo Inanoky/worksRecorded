@@ -421,6 +421,8 @@ export default function SiteDiaryCalendar({
   const [copyTargetDate, setCopyTargetDate] = React.useState<Date | null>(null);
   const [copyLoading, setCopyLoading] = React.useState(false);
   const [bisSubmitDate, setBisSubmitDate] = React.useState<Date | null>(null);
+  const [bisMultipleDayJob, setBisMultipleDayJob] = React.useState(false);
+  const [bisSubmitDateTo, setBisSubmitDateTo] = React.useState<Date | null>(null);
   const bisSubmitWorksRef = React.useRef("");
   const [bisSubmitAmount, setBisSubmitAmount] = React.useState<string>("1");
   const [bisInputResetKey, setBisInputResetKey] = React.useState(0);
@@ -883,6 +885,8 @@ export default function SiteDiaryCalendar({
 
     setSelectedRowForBis(row);
     setBisSubmitDate(row.Date ? new Date(row.Date) : new Date());
+    setBisMultipleDayJob(false);
+    setBisSubmitDateTo(null);
     bisSubmitWorksRef.current = String(row.Comments ?? "");
     setBisSubmitAmount(String(row.Amounts ?? 1));
     setBisInputResetKey((value) => value + 1);
@@ -1188,6 +1192,23 @@ export default function SiteDiaryCalendar({
       return;
     }
 
+    if (bisMultipleDayJob) {
+      if (!bisSubmitDateTo) {
+        toast.error(t.pickBisEventDateTo);
+        return;
+      }
+      if (bisSubmitDate) {
+        const start = new Date(bisSubmitDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(bisSubmitDateTo);
+        end.setHours(0, 0, 0, 0);
+        if (end <= start) {
+          toast.error(t.bisEventDateToMustBeAfterStart);
+          return;
+        }
+      }
+    }
+
     try {
       setBisSendingRowId(selectedRowForBis.id);
 
@@ -1195,7 +1216,9 @@ export default function SiteDiaryCalendar({
       await sendSiteDiaryRecordToBis(selectedRowForBis.id, {
         materials: selectedMaterials,
         attachments: selectedAttachmentUrls.map((url) => ({ url })),
-        eventDate: bisSubmitDate ? bisSubmitDate.toISOString() : undefined,
+        eventDate: bisSubmitDate ? toLocalDateKey(bisSubmitDate) : undefined,
+        eventDateTo:
+          bisMultipleDayJob && bisSubmitDateTo ? toLocalDateKey(bisSubmitDateTo) : undefined,
         worksDescription: bisSubmitWorksRef.current,
         amount: Number.isFinite(parsedAmount) ? parsedAmount : undefined,
         measurement: bisSubmitMeasurement,
@@ -1455,10 +1478,10 @@ export default function SiteDiaryCalendar({
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateFrom
                             ? dateFrom.toLocaleDateString(dateLocale, {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })
                             : t.fromDate}
                         </Button>
                       </PopoverTrigger>
@@ -1486,10 +1509,10 @@ export default function SiteDiaryCalendar({
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateTo
                             ? dateTo.toLocaleDateString(dateLocale, {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })
                             : t.toDate}
                         </Button>
                       </PopoverTrigger>
@@ -1816,15 +1839,15 @@ export default function SiteDiaryCalendar({
 
                                     return (
                                       <>
-                                          <Button
-                                            size="sm"
-                                            variant="outline"
-                                            className={cn(
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className={cn(
                                             "h-7 text-[10px]",
                                             isSent
                                               ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
                                               : "bg-green-600 text-white hover:bg-green-700",
-                                            )}
+                                          )}
                                           disabled={!r.id || bisSendingRowId === r.id || isSent}
                                           onClick={() => openBisPicker(r)}
                                         >
@@ -1992,14 +2015,14 @@ export default function SiteDiaryCalendar({
                                       );
                                     })}
 
-{bisUiEnabled ? (
-                                    <TableHead
-                                      className="text-center"
-                                      style={{ width: 140 }}
-                                    >
-                                      BIS
-                                    </TableHead>
-                                  ) : null}
+                                    {bisUiEnabled ? (
+                                      <TableHead
+                                        className="text-center"
+                                        style={{ width: 140 }}
+                                      >
+                                        BIS
+                                      </TableHead>
+                                    ) : null}
                                     {bisUiEnabled ? (
                                       <TableHead
                                         className="text-center"
@@ -2084,8 +2107,8 @@ export default function SiteDiaryCalendar({
                                             }}
                                           >
                                             {row[field] === null ||
-                                            row[field] === undefined ||
-                                            row[field] === "" ? (
+                                              row[field] === undefined ||
+                                              row[field] === "" ? (
                                               "—"
                                             ) : (
                                               <div className="line-clamp-4">
@@ -2100,68 +2123,68 @@ export default function SiteDiaryCalendar({
                                         );
                                       })}
 
-{bisUiEnabled ? (
-                                      <TableCell
-                                        className="align-middle px-3 py-3 text-center"
-                                        style={{ width: 140 }}
-                                      >
-                                        {(() => {
-                                          const originalRow = group.rows[i] ?? row;
-                                          const approvalStatus = row.id ? bisApprovalStatusByRowId[row.id] : null;
-                                          const isPendingApproval = isApprovalPendingStatus(approvalStatus);
-                                          const isApproved = isApprovedStatus(approvalStatus);
-                                          const isSent = Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false);
+                                      {bisUiEnabled ? (
+                                        <TableCell
+                                          className="align-middle px-3 py-3 text-center"
+                                          style={{ width: 140 }}
+                                        >
+                                          {(() => {
+                                            const originalRow = group.rows[i] ?? row;
+                                            const approvalStatus = row.id ? bisApprovalStatusByRowId[row.id] : null;
+                                            const isPendingApproval = isApprovalPendingStatus(approvalStatus);
+                                            const isApproved = isApprovedStatus(approvalStatus);
+                                            const isSent = Boolean(group.rows[i]?.BISId) || (row.id ? bisSentRowIds.has(row.id) : false);
 
-                                          if (!isSent) {
+                                            if (!isSent) {
+                                              return (
+                                                <Button
+                                                  size="sm"
+                                                  variant="outline"
+                                                  className="h-8 bg-green-600 text-white hover:bg-green-700"
+                                                  disabled={!row.id || bisSendingRowId === row.id}
+                                                  onClick={() => openBisPicker(originalRow)}
+                                                >
+                                                  {bisSendingRowId === row.id ? (
+                                                    <>
+                                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                      {t.sending}
+                                                    </>
+                                                  ) : (
+                                                    t.sendToBis
+                                                  )}
+                                                </Button>
+                                              );
+                                            }
+
                                             return (
                                               <Button
                                                 size="sm"
                                                 variant="outline"
-                                                className="h-8 bg-green-600 text-white hover:bg-green-700"
-                                                disabled={!row.id || bisSendingRowId === row.id}
-                                                onClick={() => openBisPicker(originalRow)}
+                                                className={cn(
+                                                  "h-8",
+                                                  isApproved
+                                                    ? "bg-green-600 text-white hover:bg-green-600"
+                                                    : isPendingApproval
+                                                      ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
+                                                      : "bg-blue-600 text-white hover:bg-blue-700",
+                                                )}
+                                                disabled={!row.id || isPendingApproval || isApproved}
+                                                onClick={() => openApprovalDialog(originalRow)}
                                               >
-                                                {bisSendingRowId === row.id ? (
+                                                {isApproved ? (
                                                   <>
-                                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                                    {t.sending}
+                                                    <ShieldCheck className="mr-1 h-3 w-3" />
+                                                    {t.approved}
                                                   </>
-                                                 ) : (
-                                                  t.sendToBis
+                                                ) : isPendingApproval ? (
+                                                  t.sentForApproval
+                                                ) : (
+                                                  t.sendForApproval
                                                 )}
                                               </Button>
                                             );
-                                          }
-
-                                          return (
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              className={cn(
-                                                "h-8",
-                                                isApproved
-                                                  ? "bg-green-600 text-white hover:bg-green-600"
-                                                  : isPendingApproval
-                                                    ? "cursor-not-allowed border border-border bg-muted text-muted-foreground hover:bg-muted"
-                                                    : "bg-blue-600 text-white hover:bg-blue-700",
-                                              )}
-                                              disabled={!row.id || isPendingApproval || isApproved}
-                                              onClick={() => openApprovalDialog(originalRow)}
-                                            >
-                                              {isApproved ? (
-                                                <>
-                                                  <ShieldCheck className="mr-1 h-3 w-3" />
-                                                  {t.approved}
-                                                </>
-                                              ) : isPendingApproval ? (
-                                                t.sentForApproval
-                                              ) : (
-                                                t.sendForApproval
-                                              )}
-                                            </Button>
-                                          );
-                                        })()}
-                                      </TableCell>
+                                          })()}
+                                        </TableCell>
                                       ) : null}
 
                                       {bisUiEnabled ? (
@@ -2235,11 +2258,11 @@ export default function SiteDiaryCalendar({
                                           <Popover>
                                             <PopoverTrigger asChild>
                                               <button
-  type="button"
-  className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-blue-600 text-sm font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-800"
->
-  ?
-</button>
+                                                type="button"
+                                                className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-blue-600 text-sm font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+                                              >
+                                                ?
+                                              </button>
                                             </PopoverTrigger>
                                             <PopoverContent className={sourcePopoverClassName}>
                                               {row.originalUserComment}
@@ -2290,248 +2313,324 @@ export default function SiteDiaryCalendar({
         </DialogWindow>
 
         {bisUiEnabled ? (
-        <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
-          <DialogContent className="w-[99vw] max-w-[99vw] sm:max-w-[96vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[84vw] max-h-[96vh] overflow-y-auto p-6">
-            <DialogHeader>
-              <DialogTitle>{t.selectBisMaterialsDialogTitle}</DialogTitle>
-              <p className="text-xs text-muted-foreground">
-                {t.selectBisMaterialsDialogDescription}
-              </p>
-            </DialogHeader>
+          <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
+            <DialogContent className="w-[99vw] max-w-[99vw] sm:max-w-[96vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[84vw] max-h-[96vh] overflow-y-auto p-6">
+              <DialogHeader>
+                <DialogTitle>{t.selectBisMaterialsDialogTitle}</DialogTitle>
+                <p className="text-xs text-muted-foreground">
+                  {t.selectBisMaterialsDialogDescription}
+                </p>
+              </DialogHeader>
 
-            {bisPickerLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading options...
-              </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-                  Selected attachments: {selectedAttachmentUrls.length} (optional)
+              {bisPickerLoading ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading options...
                 </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
+                    Selected attachments: {selectedAttachmentUrls.length} (optional)
+                  </div>
 
-                <div className="grid gap-4 lg:grid-cols-3">
-                  <div className="rounded-md border p-4 lg:col-span-2">
-                    <h3 className="mb-3 text-sm font-semibold">{t.performedWorkDetails}</h3>
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-foreground">{t.bisEventDate}</label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
-                          {bisSubmitDate
-                            ? bisSubmitDate.toLocaleDateString(dateLocale)
-                            : t.pickBisEventDate}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={bisSubmitDate || undefined}
-                          onSelect={(value) => setBisSubmitDate(value ?? null)}
-                          className="bg-green-50/40"
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-foreground">{t.worksDescription}</label>
-                    <Textarea
-                      key={`works-${bisInputResetKey}`}
-                      defaultValue={bisSubmitWorksRef.current}
-                      onChange={(event) => {
-                        const truncatedValue = event.target.value.slice(0, 200);
-                        if (event.target.value !== truncatedValue) {
-                          event.target.value = truncatedValue;
-                        }
-                        bisSubmitWorksRef.current = truncatedValue;
-                      }}
-                      placeholder="Describe works sent to BIS"
-                      rows={3}
-                      maxLength={200}
-                      className="min-h-[84px]"
-                    />
-                    <p className="text-[11px] text-muted-foreground">{t.worksDescriptionLimit}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-foreground">
-                      Amount {selectedRowForBis?.Units ? `(${selectedRowForBis.Units})` : ""}
-                    </label>
-                    <Input
-                      key={`amount-${bisInputResetKey}`}
-                      type="text"
-                      inputMode="decimal"
-                      value={bisSubmitAmount}
-                      onChange={(event) => {
-                        setBisSubmitAmount(event.target.value);
-                      }}
-                      placeholder="Enter amount"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-foreground">{t.bisMeasurementUnit}</label>
-                    <Select value={bisSubmitMeasurement} onValueChange={setBisSubmitMeasurement}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select measurement" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {bisMeasurementOptions.map((option) => (
-                          <SelectItem key={option.id} value={option.id}>
-                            {option.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1 xl:col-span-2">
-                    <label className="text-xs font-medium text-foreground">Responsible person</label>
-                    <Select
-                      value={selectedBisResponsiblePersonKey}
-                      onValueChange={setSelectedBisResponsiblePersonKey}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select responsible person" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {bisResponsiblePersonOptions.map((person) => {
-                          const key = `${person.responsiblePersonId}:${person.responsiblePersonType}`;
-                          const roleLabel = person.role ? ` (${person.role})` : "";
-                          return (
-                            <SelectItem key={key} value={key}>
-                              {(person.fullName || `Person #${person.personId ?? "?"}`) + roleLabel}
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    <div className="rounded-md border p-4 lg:col-span-2">
+                      <h3 className="mb-3 text-sm font-semibold">{t.performedWorkDetails}</h3>
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="flex flex-col gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-foreground">{t.bisEventDate}</label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="w-full justify-start text-left font-normal"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                                  {bisSubmitDate
+                                    ? bisSubmitDate.toLocaleDateString(dateLocale)
+                                    : t.pickBisEventDate}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={bisSubmitDate || undefined}
+                                  onSelect={(value) => {
+                                    setBisSubmitDate(value ?? null);
+                                    if (value && bisSubmitDateTo) {
+                                      const start = new Date(value);
+                                      start.setHours(0, 0, 0, 0);
+                                      const end = new Date(bisSubmitDateTo);
+                                      end.setHours(0, 0, 0, 0);
+                                      if (end <= start) {
+                                        setBisSubmitDateTo(null);
+                                      }
+                                    }
+                                  }}
+                                  className="bg-green-50/40"
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id="bis-multiple-day-job"
+                              checked={bisMultipleDayJob}
+                              onCheckedChange={(checked) => {
+                                const enabled = checked === true;
+                                setBisMultipleDayJob(enabled);
+                                if (!enabled) {
+                                  setBisSubmitDateTo(null);
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor="bis-multiple-day-job"
+                              className="cursor-pointer text-xs font-medium text-foreground"
+                            >
+                              {t.multipleDayJob}
+                            </label>
+                          </div>
+                          <div className="space-y-1">
+                            <label
+                              className={cn(
+                                "text-xs font-medium",
+                                bisMultipleDayJob ? "text-foreground" : "text-muted-foreground",
+                              )}
+                            >
+                              {t.bisEventDateTo}
+                            </label>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  disabled={!bisMultipleDayJob}
+                                  className="w-full justify-start text-left font-normal disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4 text-green-600" />
+                                  {bisSubmitDateTo
+                                    ? bisSubmitDateTo.toLocaleDateString(dateLocale)
+                                    : t.pickBisEventDateTo}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={bisSubmitDateTo || undefined}
+                                  onSelect={(value) => setBisSubmitDateTo(value ?? null)}
+                                  disabled={(date) => {
+                                    if (!bisMultipleDayJob) return true;
+                                    if (!bisSubmitDate) return false;
+                                    const start = new Date(bisSubmitDate);
+                                    start.setHours(0, 0, 0, 0);
+                                    const candidate = new Date(date);
+                                    candidate.setHours(0, 0, 0, 0);
+                                    return candidate <= start;
+                                  }}
+                                  className="bg-green-50/40"
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">{t.worksDescription}</label>
+                          <Textarea
+                            key={`works-${bisInputResetKey}`}
+                            defaultValue={bisSubmitWorksRef.current}
+                            onChange={(event) => {
+                              const truncatedValue = event.target.value.slice(0, 200);
+                              if (event.target.value !== truncatedValue) {
+                                event.target.value = truncatedValue;
+                              }
+                              bisSubmitWorksRef.current = truncatedValue;
+                            }}
+                            placeholder="Describe works sent to BIS"
+                            rows={3}
+                            maxLength={200}
+                            className="min-h-[84px]"
+                          />
+                          <p className="text-[11px] text-muted-foreground">{t.worksDescriptionLimit}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">
+                            Amount {selectedRowForBis?.Units ? `(${selectedRowForBis.Units})` : ""}
+                          </label>
+                          <Input
+                            key={`amount-${bisInputResetKey}`}
+                            type="text"
+                            inputMode="decimal"
+                            value={bisSubmitAmount}
+                            onChange={(event) => {
+                              setBisSubmitAmount(event.target.value);
+                            }}
+                            placeholder="Enter amount"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-foreground">{t.bisMeasurementUnit}</label>
+                          <Select value={bisSubmitMeasurement} onValueChange={setBisSubmitMeasurement}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select measurement" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {bisMeasurementOptions.map((option) => (
+                                <SelectItem key={option.id} value={option.id}>
+                                  {option.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1 xl:col-span-2">
+                          <label className="text-xs font-medium text-foreground">Responsible person</label>
+                          <Select
+                            value={selectedBisResponsiblePersonKey}
+                            onValueChange={setSelectedBisResponsiblePersonKey}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select responsible person" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {bisResponsiblePersonOptions.map((person) => {
+                                const key = `${person.responsiblePersonId}:${person.responsiblePersonType}`;
+                                const roleLabel = person.role ? ` (${person.role})` : "";
+                                return (
+                                  <SelectItem key={key} value={key}>
+                                    {(person.fullName || `Person #${person.personId ?? "?"}`) + roleLabel}
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-md border p-4">
+                      <h3 className="mb-2 text-sm font-semibold">{t.attachments}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {t.attachmentsOptionalHelp}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 w-full"
+                        onClick={() => setAttachmentGalleryOpen(true)}
+                      >
+                        {t.addManageAttachments}
+                      </Button>
                     </div>
                   </div>
-                  <div className="rounded-md border p-4">
-                    <h3 className="mb-2 text-sm font-semibold">{t.attachments}</h3>
-                    <p className="text-xs text-muted-foreground">
-                      {t.attachmentsOptionalHelp}
-                    </p>
+
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold">{t.materialsFromCurrentBisCase}</h3>
+                    <div className="max-h-[52vh] overflow-y-auto rounded-md border">
+                      {bisMaterialOptions.length === 0 ? (
+                        <p className="p-3 text-xs text-muted-foreground">{t.noBisMaterialsAvailable}</p>
+                      ) : (
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50 text-xs text-muted-foreground">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium">{t.material}</th>
+                              <th className="px-3 py-2 text-left font-medium">{t.unit}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t.total}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t.used}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t.available}</th>
+                              <th className="px-3 py-2 text-right font-medium">{t.sendQty}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bisMaterialOptions.map((material) => (
+                              <tr key={material.id} className="border-t">
+                                <td className="px-3 py-2 align-top">
+                                  <div className="font-medium">{material.label}</div>
+                                </td>
+                                <td className="px-3 py-2">{material.measurementUnit || "—"}</td>
+                                <td className="px-3 py-2 text-right">{material.deliveredQuantity ?? "—"}</td>
+                                <td className="px-3 py-2 text-right">{material.usedQuantity ?? "—"}</td>
+                                <td className="px-3 py-2 text-right font-semibold">
+                                  {material.availableQuantity} {material.measurementUnit || ""}
+                                </td>
+                                <td className="px-3 py-2 text-right">
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    className="ml-auto w-28"
+                                    defaultValue={materialQuantitiesRef.current[material.id] ?? ""}
+                                    onChange={(e) => {
+                                      const rawValue = e.target.value.replace(",", ".");
+                                      if (!/^\d*\.?\d*$/.test(rawValue)) return;
+                                      materialQuantitiesRef.current[material.id] = rawValue;
+                                    }}
+                                  />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm font-semibold">{t.selectedGalleryAttachments}</h3>
+                    </div>
+
+                    {selectedAttachmentUrls.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{t.noAttachmentsSelected}</p>
+                    ) : (
+                      <div className="max-h-56 overflow-y-auto rounded-md border p-2">
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+                          {selectedAttachmentUrls.map((url) => (
+                            <div key={url} className="relative overflow-hidden rounded border">
+                              <img src={url} alt="Selected attachment" className="h-24 w-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => toggleAttachment(url, false)}
+                                className="absolute right-1 top-1 rounded bg-black/70 px-1 text-[10px] text-white"
+                              >
+                                {t.remove}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setBisPickerOpen(false)}>
+                      {t.cancel}
+                    </Button>
                     <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 w-full"
-                      onClick={() => setAttachmentGalleryOpen(true)}
+                      onClick={handleSendRowToBis}
+                      disabled={
+                        Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
+                        (Number.parseFloat(bisSubmitAmount || "") || 0) <= 0 ||
+                        (bisMultipleDayJob && !bisSubmitDateTo)
+                      }
                     >
-                      {t.addManageAttachments}
+                      {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {t.sending}
+                        </>
+                      ) : (
+                        t.sendToBis
+                      )}
                     </Button>
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold">{t.materialsFromCurrentBisCase}</h3>
-                  <div className="max-h-[52vh] overflow-y-auto rounded-md border">
-                    {bisMaterialOptions.length === 0 ? (
-                      <p className="p-3 text-xs text-muted-foreground">{t.noBisMaterialsAvailable}</p>
-                    ) : (
-                      <table className="w-full text-sm">
-                        <thead className="bg-muted/50 text-xs text-muted-foreground">
-                          <tr>
-                            <th className="px-3 py-2 text-left font-medium">{t.material}</th>
-                            <th className="px-3 py-2 text-left font-medium">{t.unit}</th>
-                            <th className="px-3 py-2 text-right font-medium">{t.total}</th>
-                            <th className="px-3 py-2 text-right font-medium">{t.used}</th>
-                            <th className="px-3 py-2 text-right font-medium">{t.available}</th>
-                            <th className="px-3 py-2 text-right font-medium">{t.sendQty}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {bisMaterialOptions.map((material) => (
-                            <tr key={material.id} className="border-t">
-                              <td className="px-3 py-2 align-top">
-                                <div className="font-medium">{material.label}</div>
-                              </td>
-                              <td className="px-3 py-2">{material.measurementUnit || "—"}</td>
-                              <td className="px-3 py-2 text-right">{material.deliveredQuantity ?? "—"}</td>
-                              <td className="px-3 py-2 text-right">{material.usedQuantity ?? "—"}</td>
-                              <td className="px-3 py-2 text-right font-semibold">
-                                {material.availableQuantity} {material.measurementUnit || ""}
-                              </td>
-                              <td className="px-3 py-2 text-right">
-                                <Input
-                                  type="text"
-                                  inputMode="decimal"
-                                  className="ml-auto w-28"
-                                  defaultValue={materialQuantitiesRef.current[material.id] ?? ""}
-                                  onChange={(e) => {
-                                    const rawValue = e.target.value.replace(",", ".");
-                                    if (!/^\d*\.?\d*$/.test(rawValue)) return;
-                                    materialQuantitiesRef.current[material.id] = rawValue;
-                                  }}
-                                />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold">{t.selectedGalleryAttachments}</h3>
-                  </div>
-
-                  {selectedAttachmentUrls.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">{t.noAttachmentsSelected}</p>
-                  ) : (
-                    <div className="max-h-56 overflow-y-auto rounded-md border p-2">
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-                      {selectedAttachmentUrls.map((url) => (
-                        <div key={url} className="relative overflow-hidden rounded border">
-                          <img src={url} alt="Selected attachment" className="h-24 w-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => toggleAttachment(url, false)}
-                            className="absolute right-1 top-1 rounded bg-black/70 px-1 text-[10px] text-white"
-                          >
-                            {t.remove}
-                          </button>
-                        </div>
-                      ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setBisPickerOpen(false)}>
-                    {t.cancel}
-                  </Button>
-                  <Button
-                    onClick={handleSendRowToBis}
-                    disabled={
-                      Boolean(selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id) ||
-                      (Number.parseFloat(bisSubmitAmount || "") || 0) <= 0
-                    }
-                  >
-                    {selectedRowForBis?.id && bisSendingRowId === selectedRowForBis.id ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t.sending}
-                      </>
-                    ) : (
-                      t.sendToBis
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+              )}
+            </DialogContent>
+          </Dialog>
         ) : null}
 
         <Dialog
@@ -2647,39 +2746,39 @@ export default function SiteDiaryCalendar({
             ) : (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
-                {pagedGalleryAttachments.map((attachment) => {
-                  const checked = selectedAttachmentUrls.includes(attachment.url);
-                  return (
-                    <label
-                      key={attachment.id}
-                      className={cn(
-                        "cursor-pointer overflow-hidden rounded-md border",
-                        checked ? "ring-2 ring-green-600" : "",
-                      )}
-                    >
-                      <div className="relative">
-                        <img
-                          src={attachment.url}
-                          alt={attachment.comment || "Gallery photo"}
-                          className="h-40 w-full object-cover"
-                        />
-                        <div className="absolute left-2 top-2 rounded bg-black/70 p-1">
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(value) =>
-                              toggleAttachment(attachment.url, Boolean(value))
-                            }
+                  {pagedGalleryAttachments.map((attachment) => {
+                    const checked = selectedAttachmentUrls.includes(attachment.url);
+                    return (
+                      <label
+                        key={attachment.id}
+                        className={cn(
+                          "cursor-pointer overflow-hidden rounded-md border",
+                          checked ? "ring-2 ring-green-600" : "",
+                        )}
+                      >
+                        <div className="relative">
+                          <img
+                            src={attachment.url}
+                            alt={attachment.comment || "Gallery photo"}
+                            className="h-40 w-full object-cover"
                           />
+                          <div className="absolute left-2 top-2 rounded bg-black/70 p-1">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(value) =>
+                                toggleAttachment(attachment.url, Boolean(value))
+                              }
+                            />
+                          </div>
                         </div>
-                      </div>
-                      <div className="p-2 text-[11px] text-muted-foreground">
-                        {attachment.date
-                          ? new Date(attachment.date).toLocaleDateString(dateLocale)
-                          : ""}
-                      </div>
-                    </label>
-                  );
-                })}
+                        <div className="p-2 text-[11px] text-muted-foreground">
+                          {attachment.date
+                            ? new Date(attachment.date).toLocaleDateString(dateLocale)
+                            : ""}
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
 
                 <div className="flex items-center justify-between rounded border bg-muted/20 px-3 py-2 text-xs">
@@ -2728,10 +2827,10 @@ export default function SiteDiaryCalendar({
                 Photos –{" "}
                 {photosDate
                   ? photosDate.toLocaleDateString(dateLocale, {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })
                   : t.noDateSelected}
               </DialogTitle>
             </DialogHeader>
@@ -2751,10 +2850,10 @@ export default function SiteDiaryCalendar({
                 {t.weatherFor}{" "}
                 {weatherDate
                   ? weatherDate.toLocaleDateString(dateLocale, {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })
                   : t.noDateSelected}
               </DialogTitle>
             </DialogHeader>
