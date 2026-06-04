@@ -250,3 +250,39 @@ export async function deleteZtcSiteDiaryRecord(args: { siteId: string; id: strin
 
   return { success: true };
 }
+
+export async function updateZtcPayrollFields(args: {
+  siteId: string;
+  id: string;
+  rate?: string | number | null;
+  coefficient?: string | number | null;
+  bonus?: string | number | null;
+}) {
+  await requireZtcAccess(args.siteId);
+
+  const rate = args.rate === "" || args.rate == null ? null : String(args.rate);
+  const coefficient =
+    args.coefficient === "" || args.coefficient == null
+      ? null
+      : String(args.coefficient);
+  const bonus = normalizeNumber(args.bonus);
+
+  const result = await prisma.sitediaryrecords.updateMany({
+    where: {
+      id: args.id,
+      siteId: ZTC_SITE_ID,
+      organizationId: ZTC_ORGANIZATION_ID,
+    },
+    data: {
+      Location_Custom_2: rate,
+      Works_Custom_2: coefficient,
+      WorkersInvolved: bonus ?? null,
+    },
+  });
+
+  if (result.count !== 1) {
+    return { ok: false, message: "ZTC record not found" };
+  }
+
+  return { ok: true };
+}

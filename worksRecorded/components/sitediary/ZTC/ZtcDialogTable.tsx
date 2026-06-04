@@ -108,6 +108,26 @@ function normalizeNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function hasAnyRowValue(row: any) {
+  return [
+    "Date",
+    "Date_Custom_1",
+    "Date_Custom_2",
+    "Location",
+    "Location_Custom_1",
+    "Works",
+    "Amounts",
+    "TimeInvolved",
+    "Comments",
+  ].some((field) => normalizeOption(row[field]));
+}
+
+function isValidDateValue(value: unknown) {
+  if (!value) return false;
+  const parsed = value instanceof Date ? value : new Date(String(value));
+  return !Number.isNaN(parsed.getTime());
+}
+
 function getRenderableFieldsOrdered(map: Record<string, any>) {
   return Object.entries(map)
     .filter(([_, cfg]) => Boolean(cfg?.Type) && cfg?.Type !== "noRender")
@@ -295,6 +315,66 @@ export function ZtcDialogTable({
 
     if (!siteId) return;
 
+    const validationErrors: string[] = [];
+    const rowsToSave = rows.filter(hasAnyRowValue);
+
+    rowsToSave.forEach((row, index) => {
+      const label = `Rinda ${index + 1}`;
+      const isAdditionalWork = row.Location === "Papilddarbi";
+      const amount = normalizeNumber(row.Amounts);
+      const hours = normalizeNumber(row.TimeInvolved);
+      const start = normalizeDate(row.Date);
+      const end = normalizeDate(row.Date_Custom_2);
+
+      if (!normalizeOption(row.Location)) {
+        validationErrors.push(`${label}: norādiet projektu.`);
+      }
+
+      if (!isAdditionalWork && !normalizeOption(row.Location_Custom_1)) {
+        validationErrors.push(`${label}: norādiet elementu.`);
+      }
+
+      if (!normalizeOption(row.Works)) {
+        validationErrors.push(`${label}: norādiet darbu.`);
+      }
+
+      if (row.Date && !isValidDateValue(row.Date)) {
+        validationErrors.push(`${label}: sākuma laiks nav derīgs.`);
+      }
+
+      if (row.Date_Custom_2 && !isValidDateValue(row.Date_Custom_2)) {
+        validationErrors.push(`${label}: beigu laiks nav derīgs.`);
+      }
+
+      if (start && end && end.getTime() < start.getTime()) {
+        validationErrors.push(`${label}: beigu laiks nevar būt pirms sākuma laika.`);
+      }
+
+      if (row.Amounts !== "" && row.Amounts != null && (amount == null || amount < 0)) {
+        validationErrors.push(`${label}: daudzumam jābūt pozitīvam skaitlim.`);
+      }
+
+      if (row.TimeInvolved !== "" && row.TimeInvolved != null && (hours == null || hours < 0)) {
+        validationErrors.push(`${label}: stundām jābūt pozitīvam skaitlim.`);
+      }
+
+      if (!isAdditionalWork) {
+        const workOptions = getElementWorkOptions(rows, row.Location_Custom_1);
+        if (workOptions.length && !workOptions.some((option) => option === row.Works)) {
+          validationErrors.push(`${label}: darbs neatbilst izvēlētajam elementam.`);
+        }
+      }
+    });
+
+    if (!rowsToSave.length) {
+      validationErrors.push("Pievienojiet vismaz vienu aizpildītu ierakstu.");
+    }
+
+    if (validationErrors.length) {
+      toast.error(validationErrors.slice(0, 4).join("\n"));
+      return;
+    }
+
     const stripUiFields = (row: any) => {
       const { _tempId, createdBy, ...dbRow } = row;
       return {
@@ -308,8 +388,8 @@ export function ZtcDialogTable({
       };
     };
 
-    const existingRows = rows.filter((row) => isUUID(row.id));
-    const newRows = rows.filter((row) => !isUUID(row.id));
+    const existingRows = rowsToSave.filter((row) => isUUID(row.id));
+    const newRows = rowsToSave.filter((row) => !isUUID(row.id));
 
     try {
       for (const row of existingRows) {

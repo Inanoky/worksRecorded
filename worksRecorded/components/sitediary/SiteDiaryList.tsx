@@ -101,6 +101,7 @@ import {
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
+import { updateZtcPayrollFields } from "@/components/sitediary/ZTC/actions";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -157,6 +158,37 @@ type DiaryRow = {
   bisStatus?: string | null;
   [key: string]: any;
 };
+
+const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+
+function parsePayrollNumber(value: unknown, fallback = 0) {
+  if (value === "" || value === null || value === undefined) return fallback;
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function getZtcPayrollValues(row: DiaryRow) {
+  const hours = parsePayrollNumber(row.TimeInvolved);
+  const rate = parsePayrollNumber(row.Location_Custom_2);
+  const coefficient = parsePayrollNumber(row.Works_Custom_2, 1);
+  const bonus = parsePayrollNumber(row.WorkersInvolved);
+  const sum = hours * rate * coefficient + bonus;
+
+  return {
+    hours,
+    rate,
+    coefficient,
+    bonus,
+    sum: Number(sum.toFixed(2)),
+  };
+}
+
+function formatMoney(value: number) {
+  return value.toLocaleString("lv-LV", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
 type DayGroup = {
   key: string; // yyyy-mm-dd
@@ -436,6 +468,8 @@ export default function SiteDiaryCalendar({
   const [selectedRecordIds, setSelectedRecordIds] = React.useState<Set<string>>(new Set());
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const bisUiEnabled = bisEnabled && showBisUi;
+  const isZtcSite = siteId === ZTC_SITE_ID;
+  const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -753,6 +787,100 @@ export default function SiteDiaryCalendar({
     });
   };
 
+  const updatePayrollDraft = (recordId: string, field: "rate" | "coefficient" | "bonus", value: string) => {
+    const dbField =
+      field === "rate"
+        ? "Location_Custom_2"
+        : field === "coefficient"
+          ? "Works_Custom_2"
+          : "WorkersInvolved";
+
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === recordId
+          ? {
+              ...row,
+              [dbField]: value,
+            }
+          : row,
+      ),
+    );
+  };
+
+  const savePayrollDraft = async (row: DiaryRow) => {
+    if (!isZtcSite || !siteId || !row.id) return;
+
+    const rateValue = String(row.Location_Custom_2 ?? "").trim();
+    const coefficientValue = String(row.Works_Custom_2 ?? "").trim();
+    const bonusValue = String(row.WorkersInvolved ?? "").trim();
+
+    const invalid = [
+      ["rate", rateValue],
+      ["coefficient", coefficientValue],
+      ["bonus", bonusValue],
+    ].find(([_, value]) => value && !Number.isFinite(Number(String(value).replace(",", "."))));
+
+    if (invalid) {
+      toast.error(`Payroll ${invalid[0]} must be a valid number.`);
+      return;
+    }
+
+    try {
+      setPayrollSavingRowId(row.id);
+      const result = await updateZtcPayrollFields({
+        siteId,
+        id: row.id,
+        rate: rateValue,
+        coefficient: coefficientValue,
+        bonus: bonusValue,
+      });
+
+      if (!result?.ok) {
+        toast.error(result?.message ?? "Failed to save payroll fields.");
+      }
+    } catch (error: any) {
+      toast.error(error?.message ?? "Failed to save payroll fields.");
+    } finally {
+      setPayrollSavingRowId(null);
+    }
+  };
+
+  const renderZtcPayrollInput = (
+    row: DiaryRow,
+    field: "rate" | "coefficient" | "bonus",
+    value: unknown,
+    widthClass = "w-20",
+  ) => {
+    if (!row.id) return "—";
+    const saving = payrollSavingRowId === row.id;
+    const dbField =
+      field === "rate"
+        ? "Location_Custom_2"
+        : field === "coefficient"
+          ? "Works_Custom_2"
+          : "WorkersInvolved";
+    const saveWithValue = (nextValue: string) => {
+      void savePayrollDraft({ ...row, [dbField]: nextValue });
+    };
+
+    return (
+      <Input
+        inputMode="decimal"
+        className={cn("h-8 text-right", widthClass)}
+        disabled={saving}
+        value={String(value ?? "")}
+        onChange={(event) => updatePayrollDraft(row.id as string, field, event.target.value)}
+        onBlur={(event) => saveWithValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            saveWithValue(event.currentTarget.value);
+          }
+        }}
+      />
+    );
+  };
+
   const handleBulkDeleteRecords = async () => {
     if (selectedRecordIds.size === 0) {
       toast.error(toastMessages.noRecordsSelected);
@@ -823,6 +951,66 @@ export default function SiteDiaryCalendar({
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
     XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
+  };
+
+  const exportZtcPayrollToExcel = () => {
+    const monthRows = rows.filter((row) => {
+      const date = new Date(row.Date);
+      return (
+        !Number.isNaN(date.getTime()) &&
+        date.getFullYear() === currentYear &&
+        date.getMonth() === currentMonth
+      );
+    });
+
+    const payrollRows = monthRows.map((row) => {
+      const payroll = getZtcPayrollValues(row);
+      return {
+        Datums: row.Date ? new Date(row.Date).toLocaleDateString("lv-LV") : "",
+        Darbinieks: row.createdBy ?? "",
+        Projekts: row.Location ?? "",
+        Elements: row.Location_Custom_1 ?? "",
+        Darbi: row.Works ?? "",
+        Stundas: payroll.hours,
+        Rate: payroll.rate,
+        Koeficients: payroll.coefficient,
+        Bonuss: payroll.bonus,
+        Summa: payroll.sum,
+      };
+    });
+
+    const summarizeBy = (key: "Darbinieks" | "Projekts" | "Elements") => {
+      const map = new Map<string, { hours: number; bonus: number; sum: number; rows: number }>();
+      for (const row of payrollRows) {
+        const label = String(row[key] || "Nav norādīts");
+        const current = map.get(label) ?? { hours: 0, bonus: 0, sum: 0, rows: 0 };
+        current.hours += Number(row.Stundas || 0);
+        current.bonus += Number(row.Bonuss || 0);
+        current.sum += Number(row.Summa || 0);
+        current.rows += 1;
+        map.set(label, current);
+      }
+
+      return [...map.entries()]
+        .sort(([a], [b]) => a.localeCompare(b, "lv"))
+        .map(([label, totals]) => ({
+          [key]: label,
+          Ieraksti: totals.rows,
+          Stundas: Number(totals.hours.toFixed(2)),
+          Bonuss: Number(totals.bonus.toFixed(2)),
+          Summa: Number(totals.sum.toFixed(2)),
+        }));
+    };
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(payrollRows), "Payroll records");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Darbinieks")), "By worker");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Projekts")), "By project");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Elements")), "By element");
+    XLSX.writeFile(
+      workbook,
+      `ZTC-Payroll-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.xlsx`,
+    );
   };
 
   const openDayDialog = (date: Date) => {
@@ -1346,6 +1534,11 @@ export default function SiteDiaryCalendar({
                 <Button variant="outline" onClick={exportToExcel}>
                   {t.exportToExcel}
                 </Button>
+                {isZtcSite ? (
+                  <Button variant="outline" onClick={exportZtcPayrollToExcel}>
+                    Payroll Excel
+                  </Button>
+                ) : null}
                 {bisUiEnabled ? (
                   <Button variant="outline" onClick={handleSyncBisRecords} disabled={bisSyncLoading}>
                     <RefreshCw className={cn("mr-2 h-4 w-4", bisSyncLoading ? "animate-spin" : "")} />
@@ -1684,6 +1877,10 @@ export default function SiteDiaryCalendar({
                     (sum, r) => sum + Number(r.WorkersInvolved ?? 0),
                     0,
                   );
+                  const ztcDayPayrollSum = group.rows.reduce(
+                    (sum, r) => sum + getZtcPayrollValues(r).sum,
+                    0,
+                  );
 
                   const dataTour =
                     !firstFilledMarked && totalTasks > 0
@@ -1708,6 +1905,11 @@ export default function SiteDiaryCalendar({
                             <span>
                               {totalTasks} {totalTasks === 1 ? t.taskSingular : t.taskPlural}
                             </span>
+                            {isZtcSite ? (
+                              <span>
+                                Dienas summa: {formatMoney(ztcDayPayrollSum)}
+                              </span>
+                            ) : null}
                           </div>
                         </div>
 
@@ -1809,12 +2011,14 @@ export default function SiteDiaryCalendar({
                               </div>
 
                               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+                                {!isZtcSite ? (
                                 <span>
                                   {t.workers}:{" "}
                                   <span className="font-medium text-foreground">
                                     {r.WorkersInvolved ?? "—"}
                                   </span>
                                 </span>
+                                ) : null}
                                 <span>
                                   {t.hours}:{" "}
                                   <span className="font-medium text-foreground">
@@ -1822,6 +2026,29 @@ export default function SiteDiaryCalendar({
                                   </span>
                                 </span>
                               </div>
+
+                              {isZtcSite ? (
+                                <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
+                                  <label className="space-y-1">
+                                    <span>Rate</span>
+                                    {renderZtcPayrollInput(r, "rate", r.Location_Custom_2, "w-full")}
+                                  </label>
+                                  <label className="space-y-1">
+                                    <span>Koef.</span>
+                                    {renderZtcPayrollInput(r, "coefficient", r.Works_Custom_2, "w-full")}
+                                  </label>
+                                  <label className="space-y-1">
+                                    <span>Bonuss</span>
+                                    {renderZtcPayrollInput(r, "bonus", r.WorkersInvolved, "w-full")}
+                                  </label>
+                                  <div className="space-y-1">
+                                    <span>Summa</span>
+                                    <div className="flex h-8 items-center justify-end rounded-md border bg-background px-2 font-medium text-foreground">
+                                      {formatMoney(getZtcPayrollValues(r).sum)}
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : null}
 
                               <div className="mt-1">
                                 <p className="line-clamp-4 whitespace-pre-wrap text-[11px] leading-snug text-foreground">
@@ -1968,7 +2195,7 @@ export default function SiteDiaryCalendar({
                             }));
 
                             return (
-                              <Table className="table-fixed min-w-[760px] text-xs sm:text-sm">
+                              <Table className={`table-fixed ${isZtcSite ? "min-w-[1180px]" : "min-w-[760px]"} text-xs sm:text-sm`}>
                                 {/* HEADER */}
                                 <TableHeader>
                                   <TableRow>
@@ -2003,15 +2230,24 @@ export default function SiteDiaryCalendar({
                                       );
 
                                       return (
-                                        <TableHead
-                                          key={head}
-                                          className={`text-${align}`}
-                                          style={{
-                                            width: getCellWidthByKey(head, defaultMap),
-                                          }}
-                                        >
-                                          {getDisplayNameByKey(head)}
-                                        </TableHead>
+                                        <React.Fragment key={head}>
+                                          <TableHead
+                                            className={`text-${align}`}
+                                            style={{
+                                              width: getCellWidthByKey(head, defaultMap),
+                                            }}
+                                          >
+                                            {getDisplayNameByKey(head)}
+                                          </TableHead>
+                                          {isZtcSite && head === "TimeInvolved" ? (
+                                            <>
+                                              <TableHead className="text-right" style={{ width: 90 }}>Rate</TableHead>
+                                              <TableHead className="text-right" style={{ width: 105 }}>Koeficients</TableHead>
+                                              <TableHead className="text-right" style={{ width: 95 }}>Bonuss</TableHead>
+                                              <TableHead className="text-right" style={{ width: 95 }}>Summa</TableHead>
+                                            </>
+                                          ) : null}
+                                        </React.Fragment>
                                       );
                                     })}
 
@@ -2094,10 +2330,12 @@ export default function SiteDiaryCalendar({
                                             field,
                                             defaultMap,
                                           );
+                                        const originalRow = group.rows[i] ?? row;
+                                        const payroll = getZtcPayrollValues(originalRow);
 
                                         return (
+                                          <React.Fragment key={field}>
                                           <TableCell
-                                            key={field}
                                             className={`align-top px-3 py-3 whitespace-normal break-words text-${align}`}
                                             style={{
                                               width: getCellWidthByKey(
@@ -2120,6 +2358,23 @@ export default function SiteDiaryCalendar({
                                               </div>
                                             )}
                                           </TableCell>
+                                          {isZtcSite && field === "TimeInvolved" ? (
+                                            <>
+                                              <TableCell className="align-top px-2 py-2 text-right" style={{ width: 90 }}>
+                                                {renderZtcPayrollInput(originalRow, "rate", originalRow.Location_Custom_2)}
+                                              </TableCell>
+                                              <TableCell className="align-top px-2 py-2 text-right" style={{ width: 105 }}>
+                                                {renderZtcPayrollInput(originalRow, "coefficient", originalRow.Works_Custom_2)}
+                                              </TableCell>
+                                              <TableCell className="align-top px-2 py-2 text-right" style={{ width: 95 }}>
+                                                {renderZtcPayrollInput(originalRow, "bonus", originalRow.WorkersInvolved)}
+                                              </TableCell>
+                                              <TableCell className="align-top px-3 py-3 text-right font-medium" style={{ width: 95 }}>
+                                                {formatMoney(payroll.sum)}
+                                              </TableCell>
+                                            </>
+                                          ) : null}
+                                          </React.Fragment>
                                         );
                                       })}
 
