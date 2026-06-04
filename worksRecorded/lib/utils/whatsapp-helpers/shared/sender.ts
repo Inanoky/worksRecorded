@@ -6,6 +6,8 @@ import {
 
 type MetaReplyContext = {
   businessPhoneNumberId: string;
+  incomingMessageId?: string | null;
+  incomingFrom?: string | null;
 };
 
 const metaReplyContext = new AsyncLocalStorage<MetaReplyContext>();
@@ -43,6 +45,29 @@ export async function runWithMetaReplyContext<T>(
 
 export function getMetaReplyContext() {
   return metaReplyContext.getStore() ?? null;
+}
+
+export async function sendTypingIndicator(to?: string | null) {
+  const metaCtx = metaReplyContext.getStore();
+  if (!metaCtx?.incomingMessageId) return;
+
+  const recipient = normalizeMetaRecipient(to ?? metaCtx.incomingFrom ?? null);
+
+  try {
+    await sendMetaGraphMessage({
+      businessPhoneNumberId: metaCtx.businessPhoneNumberId,
+      recipient,
+      body: {
+        status: "read",
+        message_id: metaCtx.incomingMessageId,
+        typing_indicator: {
+          type: "text",
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Meta typing indicator send error:", error);
+  }
 }
 
 function sanitizeOutgoingWhatsappText(message: string): string {

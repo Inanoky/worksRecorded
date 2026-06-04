@@ -5,7 +5,7 @@ import {
   fetchWhatsAppMediaAsBuffer,
   getString,
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import { sendMessage, sendTypingIndicator } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getConfig } from "@/server/actions/site-diary-actions";
 
@@ -178,6 +178,59 @@ function workerFullName(worker: ZtcWorker) {
   return [worker.name, worker.surname].filter(Boolean).join(" ").trim() || "Darbinieks";
 }
 
+function stripWorkerPrefix(value: string | null | undefined) {
+  const normalized = value?.trim();
+  if (!normalized) return "";
+  const separatorIndex = normalized.indexOf(" : ");
+  return separatorIndex >= 0
+    ? normalized.slice(separatorIndex + 3).trim()
+    : normalized;
+}
+
+function stripCommentLabel(value: string, label: string) {
+  return value.toLowerCase().startsWith(label.toLowerCase())
+    ? value.slice(label.length).trim()
+    : value;
+}
+
+function getSessionStartMessage(session: OpenZtcSession) {
+  const comments = session.Comments?.trim();
+  const startLine = comments
+    ?.split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.toLowerCase().startsWith("sakums:"));
+
+  if (startLine) return stripCommentLabel(startLine, "Sakums:");
+
+  const originalMessage = stripWorkerPrefix(session.originalUserComment);
+  if (originalMessage) return originalMessage;
+
+  if (!comments || comments.includes("Darbinieks:") || comments.includes("Projekts:")) {
+    return "";
+  }
+
+  return stripCommentLabel(comments, "Sakums:");
+}
+
+function buildZtcUserComments(args: {
+  startText?: string | null;
+  finishText?: string | null;
+  diagonalOneMm?: number | null;
+  diagonalTwoMm?: number | null;
+}) {
+  const startText = stripCommentLabel(args.startText?.trim() ?? "", "Sakums:");
+  const finishText = stripCommentLabel(args.finishText?.trim() ?? "", "Beigas:");
+
+  return [
+    startText ? `Sakums: ${startText}` : null,
+    finishText ? `Beigas: ${finishText}` : null,
+    args.diagonalOneMm != null ? `Diagonale 1: ${args.diagonalOneMm} mm` : null,
+    args.diagonalTwoMm != null ? `Diagonale 2: ${args.diagonalTwoMm} mm` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function findFirstMediaIndex(formData: FormData, numMedia: number, prefix: string) {
   for (let i = 0; i < numMedia; i += 1) {
     const contentType = (getString(formData, `MediaContentType${i}`) || "").toLowerCase();
@@ -235,15 +288,12 @@ function buildDiagonalComment(args: {
   diagonalA: number;
   diagonalB: number;
 }) {
-  const baseComment = args.session.Comments?.trim();
-  const finishComment = args.completedText.trim();
-  return [
-    baseComment,
-    finishComment ? `Pabeigsana: ${finishComment}` : null,
-    `Rama diagonales: ${args.diagonalA} un ${args.diagonalB}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  return buildZtcUserComments({
+    startText: getSessionStartMessage(args.session),
+    finishText: args.completedText,
+    diagonalOneMm: args.diagonalA,
+    diagonalTwoMm: args.diagonalB,
+  });
 }
 
 function parseDiagonalMeasureMm(text: string): number | null {
@@ -277,23 +327,12 @@ function buildDiagonalPhotoMeasureComment(args: {
   session: OpenZtcSession;
   payload: ZtcDiagonalPayload;
 }) {
-  const baseComment = args.session.Comments?.trim();
-  const finishComment = args.payload.completedText.trim();
-
-  return [
-    baseComment,
-    finishComment ? `Pabeigsana: ${finishComment}` : null,
-    args.payload.firstMeasureMm != null
-      ? `Rama diagonale 1: ${args.payload.firstMeasureMm} mm`
-      : null,
-    args.payload.firstPhotoUrl ? `Rama diagonale 1 foto: ${args.payload.firstPhotoUrl}` : null,
-    args.payload.secondMeasureMm != null
-      ? `Rama diagonale 2: ${args.payload.secondMeasureMm} mm`
-      : null,
-    args.payload.secondPhotoUrl ? `Rama diagonale 2 foto: ${args.payload.secondPhotoUrl}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  return buildZtcUserComments({
+    startText: getSessionStartMessage(args.session),
+    finishText: args.payload.completedText,
+    diagonalOneMm: args.payload.firstMeasureMm,
+    diagonalTwoMm: args.payload.secondMeasureMm,
+  });
 }
 
 function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction {
@@ -587,8 +626,9 @@ async function completeSession(args: {
   to: string | null;
   completedWork?: WorkExtraction | null;
   completedText?: string | null;
+  finalComments?: string | null;
 }) {
-  const { session, to, completedWork, completedText } = args;
+  const { session, to, completedWork, completedText, finalComments } = args;
   const now = new Date();
   const timeInvolved = calculateHours(session.Date, now);
   const amountCompleted =
@@ -597,7 +637,12 @@ async function completeSession(args: {
       : completedWork?.amountCompleted != null
         ? completedWork.amountCompleted
         : null;
-  const finalWorkerComment = completedText?.trim() || session.Comments || "";
+  const finalWorkerComment =
+    finalComments?.trim() ||
+    buildZtcUserComments({
+      startText: getSessionStartMessage(session),
+      finishText: completedText,
+    });
 
   await prisma.sitediaryrecords.update({
     where: { id: session.id },
@@ -734,7 +779,7 @@ async function handleDiagonalConfirmationText(args: {
   await completeSession({
     session: args.session,
     to: args.to,
-    completedText: buildDiagonalComment({
+    finalComments: buildDiagonalComment({
       session: args.session,
       completedText: payload.completedText,
       diagonalA: payload.diagonalA,
@@ -827,10 +872,12 @@ async function handleTlDiagonalMeasureText(args: {
       secondMeasureMm: measure,
     };
 
+    await sendTypingIndicator(args.to);
+
     await completeSession({
       session: args.session,
       to: args.to,
-      completedText: buildDiagonalPhotoMeasureComment({
+      finalComments: buildDiagonalPhotoMeasureComment({
         session: args.session,
         payload,
       }),
@@ -988,7 +1035,7 @@ async function handleDrawingPhoto(args: {
         Location_Custom_1: extraction.elementName,
         Works_Custom_1: drawingWorks,
         Comments_Custom_2: drawingMetadata,
-        Comments: "ZTC rasejums sanemts. Gaidam balss zinu par darba saksanu.",
+        Comments: null,
         Photos: [image.publicUrl],
       },
     });
@@ -1003,7 +1050,7 @@ async function handleDrawingPhoto(args: {
         Location_Custom_1: extraction.elementName,
         Works_Custom_1: drawingWorks,
         Comments_Custom_2: drawingMetadata,
-        Comments: "ZTC rasejums sanemts. Gaidam balss zinu par darba saksanu.",
+        Comments: null,
         originalUserComment: `${workerFullName(worker)} : rasejuma foto`,
         Photos: [image.publicUrl],
       },
@@ -1030,7 +1077,7 @@ async function createSessionFromLatestDrawing(worker: ZtcWorker) {
       Location_Custom_1: previous.Location_Custom_1,
       Works_Custom_1: previous.Works_Custom_1,
       Comments_Custom_2: previous.Comments_Custom_2,
-      Comments: "ZTC rasejuma konteksts parnemts. Gaidam darba saksanas zinu.",
+      Comments: null,
       originalUserComment: `${workerFullName(worker)} : atkartots darbs pie ta pasa rasejuma`,
       Photos: previous.Photos?.[0] ? [previous.Photos[0]] : [],
     },
@@ -1045,7 +1092,6 @@ async function createAdditionalWorkSession(args: {
   const { worker, work, text } = args;
   const { workOptions } = await getZtcDropdownOptions();
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
-  const description = work.additionalWorkDescription?.trim() || text.trim();
   const now = new Date();
 
   return prisma.sitediaryrecords.create({
@@ -1059,15 +1105,7 @@ async function createAdditionalWorkSession(args: {
       Works: workOption,
       Units: "m2",
       Amounts: work.amountCompleted ?? undefined,
-      Comments: [
-        `Darbinieks: ${workerFullName(worker)}`,
-        "Projekts: Papilddarbi",
-        `Saktais darbs: ${workOption}`,
-        work.amountCompleted != null ? `Apjoms: ${work.amountCompleted} m2` : null,
-        description ? `Apraksts: ${description}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      Comments: buildZtcUserComments({ startText: text }),
       originalUserComment: `${workerFullName(worker)} : ${text}`,
     },
   });
@@ -1125,6 +1163,8 @@ async function handleWorkText(args: {
   const now = new Date();
 
   if (work.isFinish) {
+    await sendTypingIndicator(to);
+
     if (!session.Works) {
       await sendMessage(to, "Rasejums ir sanemts, bet vel nav darba saksanas zinas. Ludzu pasakiet, kadu darbu sakat.");
       return;
@@ -1177,15 +1217,7 @@ async function handleWorkText(args: {
       Works: work.workOption,
       Units: "m2",
       Amounts: amountM2 ?? undefined,
-      Comments: [
-        `Darbinieks: ${workerFullName(worker)}`,
-        `Projekts: ${session.Location ?? ""}`,
-        `Elementa numurs: ${session.Location_Custom_1 ?? ""}`,
-        `Saktais darbs: ${work.workOption}`,
-        amountM2 != null ? `Apjoms: ${amountM2} m2` : null,
-      ]
-        .filter(Boolean)
-        .join("\n"),
+      Comments: buildZtcUserComments({ startText: text }),
       originalUserComment: `${workerFullName(worker)} : ${text}`,
     },
   });
@@ -1238,6 +1270,8 @@ async function handleFinishedPhoto(args: {
   });
 
   if (session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX)) {
+    await sendTypingIndicator(to);
+
     const completedText = session.Comments_Custom_1.replace(
       FINISH_PENDING_PREFIX,
       "",
