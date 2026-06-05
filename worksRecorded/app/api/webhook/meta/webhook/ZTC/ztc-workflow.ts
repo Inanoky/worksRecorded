@@ -239,6 +239,15 @@ function isZtcTimeoutError(error: unknown) {
   return error instanceof ZtcTimeoutError || (error instanceof Error && error.name === "ZtcTimeoutError");
 }
 
+async function sendZtcMessage(to: string | null, message: string) {
+  try {
+    await sendTypingIndicator(to);
+  } catch (error) {
+    console.warn("[ZTC workflow] typing indicator failed", error);
+  }
+  await sendMessage(to, message);
+}
+
 function stripWorkerPrefix(value: string | null | undefined) {
   const normalized = value?.trim();
   if (!normalized) return "";
@@ -750,7 +759,7 @@ async function completeSession(args: {
     },
   });
 
-  await sendMessage(
+  await sendZtcMessage(
     to,
     `Darbs pabeigts un saglabāts: ${formatSessionWork(session) || "darbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.`,
   );
@@ -777,7 +786,7 @@ async function askForTlDiagonals(args: {
     details: { completedText },
   });
 
-  await sendMessage(
+  await sendZtcMessage(
     args.to,
     `Darbs pabeigts: ${formatSessionWork(args.session) || "TL/karkasa darbs"}. Pirms noslēgšanas lūdzu atsūtiet foto ar pirmās rāmja diagonāles mērījumu.`,
   );
@@ -810,7 +819,7 @@ async function handleDiagonalMeasurementText(args: {
   const diagonals = parseDiagonalNumbers(args.text);
 
   if (!diagonals) {
-    await sendMessage(args.to, "Neatradu 2 diagonāļu skaitļus. Lūdzu, atsūtiet abus mērījumus, piemēram: 5240 5238.");
+    await sendZtcMessage(args.to, "Neatradu 2 diagonāļu skaitļus. Lūdzu, atsūtiet abus mērījumus, piemēram: 5240 5238.");
     return;
   }
 
@@ -827,7 +836,7 @@ async function handleDiagonalMeasurementText(args: {
     },
   });
 
-  await sendMessage(
+  await sendZtcMessage(
     args.to,
     `Saņēmu diagonāļu mērījumus: ${payload.diagonalA} un ${payload.diagonalB}. Vai pareizi? Atbildiet "jā" vai "nē".`,
   );
@@ -869,12 +878,12 @@ async function handleDiagonalConfirmationText(args: {
         Comments_Custom_1: `${DIAGONALS_PENDING_PREFIX} ${payload.completedText}`,
       },
     });
-    await sendMessage(args.to, "Labi, atsūtiet pareizos 2 diagonāļu mērījumus vēlreiz.");
+    await sendZtcMessage(args.to, "Labi, atsūtiet pareizos 2 diagonāļu mērījumus vēlreiz.");
     return;
   }
 
   if (!isPositiveConfirmation(args.text)) {
-    await sendMessage(args.to, `Lūdzu, apstipriniet mērījumus ${payload.diagonalA} un ${payload.diagonalB} ar "jā" vai "nē".`);
+    await sendZtcMessage(args.to, `Lūdzu, apstipriniet mērījumus ${payload.diagonalA} un ${payload.diagonalB} ar "jā" vai "nē".`);
     return;
   }
 
@@ -930,19 +939,19 @@ async function handleTlDiagonalMeasureText(args: {
   const state = args.session.Comments_Custom_1;
 
   if (state?.startsWith(DIAGONAL_FIRST_PHOTO_PENDING_PREFIX)) {
-    await sendMessage(args.to, "Lūdzu, vispirms atsūtiet pirmās rāmja diagonāles foto.");
+    await sendZtcMessage(args.to, "Lūdzu, vispirms atsūtiet pirmās rāmja diagonāles foto.");
     return;
   }
 
   if (state?.startsWith(DIAGONAL_SECOND_PHOTO_PENDING_PREFIX)) {
-    await sendMessage(args.to, "Lūdzu, vispirms atsūtiet otrās rāmja diagonāles foto.");
+    await sendZtcMessage(args.to, "Lūdzu, vispirms atsūtiet otrās rāmja diagonāles foto.");
     return;
   }
 
   if (state?.startsWith(DIAGONAL_FIRST_MEASURE_PENDING_PREFIX)) {
     const measure = parseDiagonalMeasureMm(args.text);
     if (measure == null) {
-      await sendMessage(args.to, "Neatradu mērījumu. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm, piemēram: 5240.");
+      await sendZtcMessage(args.to, "Neatradu mērījumu. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm, piemēram: 5240.");
       return;
     }
 
@@ -963,14 +972,14 @@ async function handleTlDiagonalMeasureText(args: {
       details: { measureMm: measure },
     });
 
-    await sendMessage(args.to, `Pirmās diagonāles mērījums: ${measure} mm. Tagad atsūtiet foto ar otrās rāmja diagonāles mērījumu.`);
+    await sendZtcMessage(args.to, `Pirmās diagonāles mērījums: ${measure} mm. Tagad atsūtiet foto ar otrās rāmja diagonāles mērījumu.`);
     return;
   }
 
   if (state?.startsWith(DIAGONAL_SECOND_MEASURE_PENDING_PREFIX)) {
     const measure = parseDiagonalMeasureMm(args.text);
     if (measure == null) {
-      await sendMessage(args.to, "Neatradu mērījumu. Lūdzu, ierakstiet otrās diagonāles mērījumu mm, piemēram: 5238.");
+      await sendZtcMessage(args.to, "Neatradu mērījumu. Lūdzu, ierakstiet otrās diagonāles mērījumu mm, piemēram: 5238.");
       return;
     }
 
@@ -1007,12 +1016,12 @@ async function handleTlDiagonalPhoto(args: {
   const state = args.session.Comments_Custom_1;
 
   if (state?.startsWith(DIAGONAL_FIRST_MEASURE_PENDING_PREFIX)) {
-    await sendMessage(args.to, "Pirmās diagonāles foto jau ir saņemts. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm.");
+    await sendZtcMessage(args.to, "Pirmās diagonāles foto jau ir saņemts. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm.");
     return;
   }
 
   if (state?.startsWith(DIAGONAL_SECOND_MEASURE_PENDING_PREFIX)) {
-    await sendMessage(args.to, "Otrās diagonāles foto jau ir saņemts. Lūdzu, ierakstiet otrās diagonāles mērījumu mm.");
+    await sendZtcMessage(args.to, "Otrās diagonāles foto jau ir saņemts. Lūdzu, ierakstiet otrās diagonāles mērījumu mm.");
     return;
   }
 
@@ -1045,7 +1054,7 @@ async function handleTlDiagonalPhoto(args: {
       label: "Pirma diagonale",
     });
 
-    await sendMessage(args.to, "Pirmās diagonāles foto saņemts. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm, piemēram: 5240.");
+    await sendZtcMessage(args.to, "Pirmās diagonāles foto saņemts. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm, piemēram: 5240.");
     return;
   }
 
@@ -1078,7 +1087,7 @@ async function handleTlDiagonalPhoto(args: {
       label: "Otra diagonale",
     });
 
-    await sendMessage(args.to, "Otrās diagonāles foto saņemts. Lūdzu, ierakstiet otrās diagonāles mērījumu mm, piemēram: 5238.");
+    await sendZtcMessage(args.to, "Otrās diagonāles foto saņemts. Lūdzu, ierakstiet otrās diagonāles mērījumu mm, piemēram: 5238.");
   }
 }
 
@@ -1122,7 +1131,7 @@ async function handleDrawingPhoto(args: {
 
   const existing = await getOpenZtcSession(worker.id);
   if (existing?.Works) {
-    await sendMessage(to, `Jums jau ir aktīva ZTC darba sesija: ${formatSessionWork(existing) || "darbs"}. Lūdzu, pabeidziet to pirms jauna rasējuma sūtīšanas.`);
+    await sendZtcMessage(to, `Jums jau ir aktīva ZTC darba sesija: ${formatSessionWork(existing) || "darbs"}. Lūdzu, pabeidziet to pirms jauna rasējuma sūtīšanas.`);
     return;
   }
 
@@ -1174,7 +1183,7 @@ async function handleDrawingPhoto(args: {
     extraction.totalAreaM2 == null ||
     extraction.workList.length === 0
   ) {
-    await sendMessage(
+    await sendZtcMessage(
       to,
       "Lūdzu, atsūtiet skaidru ražošanas rasējuma foto, kur redzams projekta nosaukums, elementa numurs, kopplatība m2 un darbu saraksts.",
     );
@@ -1233,9 +1242,9 @@ async function handleDrawingPhoto(args: {
     });
   }
 
-  await sendMessage(
+  await sendZtcMessage(
     to,
-    `Rasējums pieņemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nPlatība: ${extraction.totalAreaM2} m2\nDarbi:\n${formatExtractedWorksForMessage(extraction)}\n\nTagad atsūtiet balss ziņu ar darbu, ko sākat darīt.`,
+    `Rasējums pieņemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nPlatība: ${extraction.totalAreaM2} m2\nDarbi:\n${formatExtractedWorksForMessage(extraction)}\n\nTagad atsūtiet balss ziņu vai tekstu ar darbu, ko sākat darīt.`,
   );
 }
 
@@ -1325,13 +1334,13 @@ async function handleWorkText(args: {
   const work = await extractWorkInfo(text, workOptionsForSession);
 
   if (work.isGibberish) {
-    await sendMessage(to, "Neizdevās saprast balss ziņu. Lūdzu, mēģiniet vēlreiz.");
+    await sendZtcMessage(to, "Neizdevās saprast ziņu. Lūdzu, mēģiniet vēlreiz.");
     return;
   }
 
   if (work.isAdditionalWork && !work.isFinish) {
     if (openSession?.Location === "Papilddarbi" && openSession.Works) {
-      await sendMessage(
+      await sendZtcMessage(
         to,
         `Papilddarbs jau ir aktīva sesija: ${formatSessionWork(openSession) || "darbs"}. Lūdzu, pabeidziet to pirms jauna papilddarba sākšanas.`,
       );
@@ -1339,7 +1348,7 @@ async function handleWorkText(args: {
     }
 
     await createAdditionalWorkSession({ worker, work, text });
-    await sendMessage(
+    await sendZtcMessage(
       to,
       `Papilddarbs sākts${work.workOption ? `: ${work.workOption}` : ""}. Kad darbs ir pabeigts, atsūtiet foto un pasakiet, ka darbs ir pabeigts.`,
     );
@@ -1351,7 +1360,7 @@ async function handleWorkText(args: {
     : openSession ?? (await createSessionFromLatestDrawing(worker));
 
   if (!session) {
-    await sendMessage(to, "Lūdzu, sāciet ar skaidru ražošanas rasējuma foto.");
+    await sendZtcMessage(to, "Lūdzu, sāciet ar skaidru ražošanas rasējuma foto.");
     return;
   }
 
@@ -1361,7 +1370,7 @@ async function handleWorkText(args: {
     await sendTypingIndicator(to);
 
     if (!session.Works) {
-      await sendMessage(to, "Rasējums ir saņemts, bet vēl nav darba sākšanas ziņas. Lūdzu, pasakiet, kādu darbu sākat.");
+      await sendZtcMessage(to, "Rasējums ir saņemts, bet vēl nav darba sākšanas ziņas. Lūdzu, pasakiet vai uzrakstiet, kādu darbu sākat.");
       return;
     }
 
@@ -1381,7 +1390,7 @@ async function handleWorkText(args: {
         details: { finishText: text },
       });
 
-      await sendMessage(
+      await sendZtcMessage(
         to,
         `Pabeigšanas ziņa saņemta par darbu: ${formatSessionWork(session) || "darbs"}. Lūdzu, atsūtiet pabeigta darba foto.`,
       );
@@ -1399,14 +1408,14 @@ async function handleWorkText(args: {
 
   if (session.Works) {
     if (session.Comments_Custom_1?.startsWith(PHOTO_PENDING_FINISH_PREFIX)) {
-      await sendMessage(
+      await sendZtcMessage(
         to,
-        `Pabeigta darba foto ir saņemts darbam: ${formatSessionWork(session) || "darbs"}. Lūdzu, pasakiet, ka darbs ir pabeigts, lai es varu noslēgt sesiju.`,
+        `Pabeigta darba foto ir saņemts darbam: ${formatSessionWork(session) || "darbs"}. Lūdzu, pasakiet vai uzrakstiet, ka darbs ir pabeigts, lai es varu noslēgt sesiju.`,
       );
       return;
     }
 
-    await sendMessage(
+    await sendZtcMessage(
       to,
       `Jums jau ir aktīva darba sesija: ${formatSessionWork(session) || "darbs"}. Lūdzu, vispirms atsūtiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
     );
@@ -1414,7 +1423,7 @@ async function handleWorkText(args: {
   }
 
   if (!work.workOption) {
-    await sendMessage(to, "Neatradu atbilstošu darbu sarakstā. Lūdzu, pasakiet darbu vēlreiz.");
+    await sendZtcMessage(to, "Neatradu atbilstošu darbu sarakstā. Lūdzu, pasakiet vai uzrakstiet darbu vēlreiz.");
     return;
   }
 
@@ -1438,7 +1447,7 @@ async function handleWorkText(args: {
     details: { startText: text, amountM2 },
   });
 
-  await sendMessage(
+  await sendZtcMessage(
     to,
     `Sākts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nApjoms: ${amountM2 ?? 0} m2\nKad darbs ir pabeigts, atsūtiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
   );
@@ -1455,7 +1464,7 @@ async function handleFinishedPhoto(args: {
   const session = await getOpenZtcSession(worker.id);
 
   if (!session?.Works) {
-    await sendMessage(to, "Pirms pabeigta darba foto, lūdzu, atsūtiet rasējuma foto un balss ziņu par darba sākšanu.");
+    await sendZtcMessage(to, "Pirms pabeigta darba foto, lūdzu, atsūtiet rasējuma foto un balss ziņu vai tekstu par darba sākšanu.");
     return;
   }
 
@@ -1515,7 +1524,7 @@ async function handleFinishedPhoto(args: {
   }
 
   if (session.Comments_Custom_1?.startsWith(DIAGONALS_PENDING_PREFIX)) {
-    await sendMessage(to, "Foto saņemts. Lūdzu, atsūtiet 2 rāmja diagonāļu mērījumus.");
+    await sendZtcMessage(to, "Foto saņemts. Lūdzu, atsūtiet 2 rāmja diagonāļu mērījumus.");
     return;
   }
 
@@ -1525,7 +1534,7 @@ async function handleFinishedPhoto(args: {
       diagonalA: 0,
       diagonalB: 0,
     });
-    await sendMessage(to, `Foto saņemts. Lūdzu, apstipriniet diagonāļu mērījumus ${payload.diagonalA} un ${payload.diagonalB} ar "jā" vai "nē".`);
+    await sendZtcMessage(to, `Foto saņemts. Lūdzu, apstipriniet diagonāļu mērījumus ${payload.diagonalA} un ${payload.diagonalB} ar "jā" vai "nē".`);
     return;
   }
 
@@ -1534,7 +1543,7 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
-  await sendMessage(
+  await sendZtcMessage(
     to,
     `Pabeigta darba foto saņemts darbam: ${formatSessionWork(session) || "darbs"}. Lūdzu, atsūtiet balss ziņu vai tekstu, ka darbs ir pabeigts.`,
   );
@@ -1573,7 +1582,7 @@ export async function handleZtcWorkerRoute(args: {
       return;
     }
 
-    await sendMessage(from, "Lūdzu, atsūtiet rasējuma foto, balss ziņu vai pabeigta darba foto.");
+    await sendZtcMessage(from, "Lūdzu, atsūtiet rasējuma foto, balss ziņu, tekstu vai pabeigta darba foto.");
   } catch (error) {
     console.error("[ZTC workflow] failed", error);
     if (isZtcTimeoutError(error)) {
@@ -1586,7 +1595,7 @@ export async function handleZtcWorkerRoute(args: {
           hasBody: Boolean(body),
         },
       });
-      await sendMessage(
+      await sendZtcMessage(
         from,
         imageIdx >= 0
           ? "Foto apstrāde aizņēma pārāk ilgu laiku. Lūdzu, atsūtiet foto vēlreiz pēc brīža."
@@ -1595,6 +1604,7 @@ export async function handleZtcWorkerRoute(args: {
       return;
     }
 
-    await sendMessage(from, "Atvainojiet, ZTC plūsma nevarēja apstrādāt šo ziņu. Lūdzu, mēģiniet vēlreiz.");
+    await sendZtcMessage(from, "Atvainojiet, ZTC plūsma nevarēja apstrādāt šo ziņu. Lūdzu, mēģiniet vēlreiz.");
   }
 }
+

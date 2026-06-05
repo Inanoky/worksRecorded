@@ -31,6 +31,8 @@ import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import * as XLSX from "xlsx";
 import {
   CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   CloudSun,
   Ellipsis,
@@ -485,6 +487,7 @@ export default function SiteDiaryCalendar({
   const isZtcSite = siteId === ZTC_SITE_ID;
   const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
   const [payrollDirtyRowIds, setPayrollDirtyRowIds] = React.useState<Set<string>>(new Set());
+  const [ztcPhotoIndexes, setZtcPhotoIndexes] = React.useState<Record<string, number>>({});
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
@@ -830,6 +833,12 @@ export default function SiteDiaryCalendar({
       }
       return next;
     });
+  };
+
+  const setZtcPhotoIndex = (rowKey: string, photoCount: number, nextIndex: number) => {
+    if (!photoCount) return;
+    const normalized = ((nextIndex % photoCount) + photoCount) % photoCount;
+    setZtcPhotoIndexes((prev) => ({ ...prev, [rowKey]: normalized }));
   };
 
   const updatePayrollDraft = (recordId: string, field: "rate" | "coefficient" | "bonus", value: string) => {
@@ -2351,6 +2360,12 @@ export default function SiteDiaryCalendar({
                                     {group.rows.map((row, i) => {
                                       const payroll = getZtcPayrollValues(row);
                                       const completedPhotoUrls = getZtcCompletedPhotoUrls(row);
+                                      const rowPhotoKey = row.id ?? `${group.key}-${i}`;
+                                      const activePhotoIndex = Math.min(
+                                        ztcPhotoIndexes[rowPhotoKey] ?? 0,
+                                        Math.max(completedPhotoUrls.length - 1, 0),
+                                      );
+                                      const activePhotoUrl = completedPhotoUrls[activePhotoIndex];
                                       const payrollDirty = row.id ? payrollDirtyRowIds.has(row.id) : false;
                                       const payrollSaving = row.id ? payrollSavingRowId === row.id : false;
                                       const startTime = formatValueByConfig("Date", row.Date, defaultMap) || "—";
@@ -2400,26 +2415,44 @@ export default function SiteDiaryCalendar({
                                                     {row.Works || "—"}
                                                   </button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-[520px] max-w-[90vw]">
-                                                  <div className="mb-2 text-xs font-medium text-muted-foreground">
-                                                    Pabeigtā darba foto
+                                                <PopoverContent className="w-[340px] max-w-[90vw]">
+                                                  <div className="mb-2 flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                                                    <span>Pabeigtā darba foto</span>
+                                                    <span>{activePhotoIndex + 1}/{completedPhotoUrls.length}</span>
                                                   </div>
-                                                  <div className="grid grid-cols-2 gap-2">
-                                                    {completedPhotoUrls.slice(0, 4).map((url, photoIndex) => (
-                                                      <a
-                                                        key={`${url}-${photoIndex}`}
-                                                        href={url}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="block overflow-hidden rounded-md border bg-muted"
-                                                      >
-                                                        <img
-                                                          src={url}
-                                                          alt={`${row.Works || "Darbs"} foto ${photoIndex + 1}`}
-                                                          className="h-40 w-full object-cover"
-                                                        />
-                                                      </a>
-                                                    ))}
+                                                  <div className="flex items-center gap-2">
+                                                    <Button
+                                                      type="button"
+                                                      size="icon"
+                                                      variant="outline"
+                                                      className="h-8 w-8 shrink-0"
+                                                      disabled={completedPhotoUrls.length <= 1}
+                                                      onClick={() => setZtcPhotoIndex(rowPhotoKey, completedPhotoUrls.length, activePhotoIndex - 1)}
+                                                    >
+                                                      <ChevronLeft className="h-4 w-4" />
+                                                    </Button>
+                                                    <a
+                                                      href={activePhotoUrl}
+                                                      target="_blank"
+                                                      rel="noreferrer"
+                                                      className="block min-w-0 flex-1 overflow-hidden rounded-md border bg-muted"
+                                                    >
+                                                      <img
+                                                        src={activePhotoUrl}
+                                                        alt={`${row.Works || "Darbs"} foto ${activePhotoIndex + 1}`}
+                                                        className="h-56 w-full object-cover"
+                                                      />
+                                                    </a>
+                                                    <Button
+                                                      type="button"
+                                                      size="icon"
+                                                      variant="outline"
+                                                      className="h-8 w-8 shrink-0"
+                                                      disabled={completedPhotoUrls.length <= 1}
+                                                      onClick={() => setZtcPhotoIndex(rowPhotoKey, completedPhotoUrls.length, activePhotoIndex + 1)}
+                                                    >
+                                                      <ChevronRight className="h-4 w-4" />
+                                                    </Button>
                                                   </div>
                                                 </PopoverContent>
                                               </Popover>
