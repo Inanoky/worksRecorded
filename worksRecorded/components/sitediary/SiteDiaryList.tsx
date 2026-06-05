@@ -1027,31 +1027,6 @@ export default function SiteDiaryCalendar({
       };
     });
 
-    const summarizeBy = (key: "Darbinieks" | "Projekts" | "Elements") => {
-      const map = new Map<string, { hours: number; amountM2: number; bonus: number; sum: number; rows: number }>();
-      for (const row of payrollRows) {
-        const label = String(row[key] || "Nav norādīts");
-        const current = map.get(label) ?? { hours: 0, amountM2: 0, bonus: 0, sum: 0, rows: 0 };
-        current.hours += Number(row.Stundas || 0);
-        current.amountM2 += Number(row["Apjoms m2"] || 0);
-        current.bonus += Number(row.Bonuss || 0);
-        current.sum += Number(row.Summa || 0);
-        current.rows += 1;
-        map.set(label, current);
-      }
-
-      return [...map.entries()]
-        .sort(([a], [b]) => a.localeCompare(b, "lv"))
-        .map(([label, totals]) => ({
-          [key]: label,
-          Ieraksti: totals.rows,
-          Stundas: Number(totals.hours.toFixed(2)),
-          "Apjoms m2": Number(totals.amountM2.toFixed(2)),
-          Bonuss: Number(totals.bonus.toFixed(2)),
-          Summa: Number(totals.sum.toFixed(2)),
-        }));
-    };
-
     const workbook = XLSX.utils.book_new();
     const payrollWorksheet = XLSX.utils.json_to_sheet(payrollRows, { cellDates: true });
     const payrollRange = XLSX.utils.decode_range(payrollWorksheet["!ref"] ?? "A1:A1");
@@ -1063,9 +1038,6 @@ export default function SiteDiaryCalendar({
       }
     }
     XLSX.utils.book_append_sheet(workbook, payrollWorksheet, "Algu ieraksti");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Darbinieks")), "Pec darbinieka");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Projekts")), "Pec projekta");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Elements")), "Pec elementa");
     XLSX.writeFile(
       workbook,
       `ZTC-Algu-aprekins-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.xlsx`,
@@ -2407,7 +2379,7 @@ export default function SiteDiaryCalendar({
                                             <div className="leading-snug">
                                               <div className="font-medium">{workerName.name}</div>
                                               {workerName.surname ? (
-                                                <div className="text-muted-foreground">{workerName.surname}</div>
+                                                <div>{workerName.surname}</div>
                                               ) : null}
                                             </div>
                                           </TableCell>
