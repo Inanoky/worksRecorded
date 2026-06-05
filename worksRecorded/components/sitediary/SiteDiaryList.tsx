@@ -153,6 +153,7 @@ type DiaryRow = {
   TimeInvolved?: number | string | null;
   Comments?: string | null;
   originalUserComment?: string | null;
+  Photos?: string[] | null;
 
   BISId?: string | null;
   bisStatus?: string | null;
@@ -190,6 +191,15 @@ function formatMoney(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+function getZtcCompletedPhotoUrls(row: DiaryRow) {
+  const photos = Array.isArray(row.Photos)
+    ? row.Photos.filter((url): url is string => typeof url === "string" && Boolean(url.trim()))
+    : [];
+
+  if (row.Location === "Papilddarbi") return photos;
+  return photos.length > 1 ? photos.slice(1) : [];
 }
 
 type DayGroup = {
@@ -313,6 +323,8 @@ export default function SiteDiaryCalendar({
   const [dateTo, setDateTo] = React.useState<Date | null>(null);
   const [workFilter, setWorkFilter] = React.useState<string>("__ALL__");
   const [floorFilter, setFloorFilter] = React.useState<string>("__ALL__");
+  const [elementFilter, setElementFilter] = React.useState<string>("__ALL__");
+  const [workerFilter, setWorkerFilter] = React.useState<string>("__ALL__");
   const [keywordFilter, setKeywordFilter] = React.useState<string>("");
   const keywordInputRef = React.useRef<HTMLInputElement | null>(null);
   const keywordDebounceRef = React.useRef<number | null>(null);
@@ -640,6 +652,26 @@ export default function SiteDiaryCalendar({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
+  const elementOptions = React.useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (r.Location_Custom_1 && String(r.Location_Custom_1).trim()) {
+        set.add(String(r.Location_Custom_1).trim());
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
+  }, [rows]);
+
+  const workerOptions = React.useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (r.createdBy && String(r.createdBy).trim()) {
+        set.add(String(r.createdBy).trim());
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
+  }, [rows]);
+
   // Rows after applying structured filters (date, works, floor)
   const filteredRows: DiaryRow[] = React.useMemo(() => {
     const startMs = dateFrom
@@ -664,9 +696,17 @@ export default function SiteDiaryCalendar({
         if (!r.Location || r.Location !== floorFilter) return false;
       }
 
+      if (isZtcSite && elementFilter !== "__ALL__") {
+        if (!r.Location_Custom_1 || r.Location_Custom_1 !== elementFilter) return false;
+      }
+
+      if (isZtcSite && workerFilter !== "__ALL__") {
+        if (!r.createdBy || r.createdBy !== workerFilter) return false;
+      }
+
       return true;
     });
-  }, [rows, dateFrom, dateTo, workFilter, floorFilter]);
+  }, [rows, dateFrom, dateTo, workFilter, floorFilter, elementFilter, workerFilter, isZtcSite]);
 
   // Group filtered rows by day
   const dayGroups: DayGroup[] = React.useMemo(() => {
@@ -705,6 +745,8 @@ export default function SiteDiaryCalendar({
           const searchableText = [
             r.Works,
             r.Location,
+            r.Location_Custom_1,
+            r.createdBy,
             r.Comments,
             r.Units,
           ]
@@ -939,6 +981,8 @@ export default function SiteDiaryCalendar({
     setDateTo(null);
     setWorkFilter("__ALL__");
     setFloorFilter("__ALL__");
+    setElementFilter("__ALL__");
+    setWorkerFilter("__ALL__");
     setKeywordFilter("");
     if (keywordDebounceRef.current) {
       window.clearTimeout(keywordDebounceRef.current);
@@ -975,7 +1019,8 @@ export default function SiteDiaryCalendar({
         Elements: row.Location_Custom_1 ?? "",
         Darbi: row.Works ?? "",
         Stundas: payroll.hours,
-        Rate: payroll.rate,
+        "Apjoms m2": payroll.amountM2,
+        Likme: payroll.rate,
         Koeficients: payroll.coefficient,
         Bonuss: payroll.bonus,
         Summa: payroll.sum,
@@ -983,11 +1028,12 @@ export default function SiteDiaryCalendar({
     });
 
     const summarizeBy = (key: "Darbinieks" | "Projekts" | "Elements") => {
-      const map = new Map<string, { hours: number; bonus: number; sum: number; rows: number }>();
+      const map = new Map<string, { hours: number; amountM2: number; bonus: number; sum: number; rows: number }>();
       for (const row of payrollRows) {
         const label = String(row[key] || "Nav norādīts");
-        const current = map.get(label) ?? { hours: 0, bonus: 0, sum: 0, rows: 0 };
+        const current = map.get(label) ?? { hours: 0, amountM2: 0, bonus: 0, sum: 0, rows: 0 };
         current.hours += Number(row.Stundas || 0);
+        current.amountM2 += Number(row["Apjoms m2"] || 0);
         current.bonus += Number(row.Bonuss || 0);
         current.sum += Number(row.Summa || 0);
         current.rows += 1;
@@ -1000,19 +1046,20 @@ export default function SiteDiaryCalendar({
           [key]: label,
           Ieraksti: totals.rows,
           Stundas: Number(totals.hours.toFixed(2)),
+          "Apjoms m2": Number(totals.amountM2.toFixed(2)),
           Bonuss: Number(totals.bonus.toFixed(2)),
           Summa: Number(totals.sum.toFixed(2)),
         }));
     };
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(payrollRows), "Payroll records");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Darbinieks")), "By worker");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Projekts")), "By project");
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Elements")), "By element");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(payrollRows), "Algu ieraksti");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Darbinieks")), "Pec darbinieka");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Projekts")), "Pec projekta");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Elements")), "Pec elementa");
     XLSX.writeFile(
       workbook,
-      `ZTC-Payroll-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.xlsx`,
+      `ZTC-Algu-aprekins-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.xlsx`,
     );
   };
 
@@ -1539,7 +1586,7 @@ export default function SiteDiaryCalendar({
                 </Button>
                 {isZtcSite ? (
                   <Button variant="outline" onClick={exportZtcPayrollToExcel}>
-                    Payroll Excel
+                    Algu Excel
                   </Button>
                 ) : null}
                 {bisUiEnabled ? (
@@ -1722,43 +1769,105 @@ export default function SiteDiaryCalendar({
                       </PopoverContent>
                     </Popover>
 
-                    {/* Works filter */}
-                    <Select
-                      value={workFilter}
-                      onValueChange={(val) => setWorkFilter(val)}
-                    >
-                      <SelectTrigger className="h-9 w-full text-sm sm:w-[220px]">
-                        <SelectValue placeholder={t.filterByWorks} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__ALL__">{t.allWorks}</SelectItem>
-                        {worksOptions.map((w) => (
-                          <SelectItem key={w} value={w}>
-                            {w}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {isZtcSite ? (
+                      <>
+                        <Select value={floorFilter} onValueChange={(val) => setFloorFilter(val)}>
+                          <SelectTrigger className="h-9 w-full text-sm sm:w-[190px]">
+                            <SelectValue placeholder="Projekts" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__ALL__">Visi projekti</SelectItem>
+                            {floorOptions.map((f) => (
+                              <SelectItem key={f} value={f}>
+                                {f}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-                    {/* Floor filter (Location) */}
-                    <Select
-                      value={floorFilter}
-                      onValueChange={(val) => setFloorFilter(val)}
-                    >
-                      <SelectTrigger className="h-9 w-full text-sm sm:w-[200px]">
-                        <SelectValue placeholder={t.filterByFloorLocation} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__ALL__">
-                          {t.allFloorsLocations}
-                        </SelectItem>
-                        {floorOptions.map((f) => (
-                          <SelectItem key={f} value={f}>
-                            {f}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                        <Select value={elementFilter} onValueChange={(val) => setElementFilter(val)}>
+                          <SelectTrigger className="h-9 w-full text-sm sm:w-[170px]">
+                            <SelectValue placeholder="Elements" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__ALL__">Visi elementi</SelectItem>
+                            {elementOptions.map((element) => (
+                              <SelectItem key={element} value={element}>
+                                {element}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <Select value={workerFilter} onValueChange={(val) => setWorkerFilter(val)}>
+                          <SelectTrigger className="h-9 w-full text-sm sm:w-[170px]">
+                            <SelectValue placeholder="Darbinieks" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__ALL__">Visi darbinieki</SelectItem>
+                            {workerOptions.map((worker) => (
+                              <SelectItem key={worker} value={worker}>
+                                {worker}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <Select value={workFilter} onValueChange={(val) => setWorkFilter(val)}>
+                          <SelectTrigger className="h-9 w-full text-sm sm:w-[190px]">
+                            <SelectValue placeholder="Darbi" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__ALL__">Visi darbi</SelectItem>
+                            {worksOptions.map((w) => (
+                              <SelectItem key={w} value={w}>
+                                {w}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    ) : (
+                      <>
+                        {/* Works filter */}
+                        <Select
+                          value={workFilter}
+                          onValueChange={(val) => setWorkFilter(val)}
+                        >
+                          <SelectTrigger className="h-9 w-full text-sm sm:w-[220px]">
+                            <SelectValue placeholder={t.filterByWorks} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__ALL__">{t.allWorks}</SelectItem>
+                            {worksOptions.map((w) => (
+                              <SelectItem key={w} value={w}>
+                                {w}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        {/* Floor filter (Location) */}
+                        <Select
+                          value={floorFilter}
+                          onValueChange={(val) => setFloorFilter(val)}
+                        >
+                          <SelectTrigger className="h-9 w-full text-sm sm:w-[200px]">
+                            <SelectValue placeholder={t.filterByFloorLocation} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__ALL__">
+                              {t.allFloorsLocations}
+                            </SelectItem>
+                            {floorOptions.map((f) => (
+                              <SelectItem key={f} value={f}>
+                                {f}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </>
+                    )}
 
                     <div className="relative w-full sm:w-[240px]">
                       <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -2241,6 +2350,7 @@ export default function SiteDiaryCalendar({
                                   <TableBody>
                                     {group.rows.map((row, i) => {
                                       const payroll = getZtcPayrollValues(row);
+                                      const completedPhotoUrls = getZtcCompletedPhotoUrls(row);
                                       const payrollDirty = row.id ? payrollDirtyRowIds.has(row.id) : false;
                                       const payrollSaving = row.id ? payrollSavingRowId === row.id : false;
                                       const startTime = formatValueByConfig("Date", row.Date, defaultMap) || "—";
@@ -2280,9 +2390,44 @@ export default function SiteDiaryCalendar({
                                             </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 175 }}>
-                                            <div className="line-clamp-2 whitespace-normal break-words leading-snug">
-                                              {row.Works || "—"}
-                                            </div>
+                                            {completedPhotoUrls.length ? (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button
+                                                    type="button"
+                                                    className="block w-full overflow-hidden text-left leading-snug line-clamp-2 whitespace-normal break-words text-blue-700 underline-offset-2 hover:underline"
+                                                  >
+                                                    {row.Works || "—"}
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[520px] max-w-[90vw]">
+                                                  <div className="mb-2 text-xs font-medium text-muted-foreground">
+                                                    Pabeigtā darba foto
+                                                  </div>
+                                                  <div className="grid grid-cols-2 gap-2">
+                                                    {completedPhotoUrls.slice(0, 4).map((url, photoIndex) => (
+                                                      <a
+                                                        key={`${url}-${photoIndex}`}
+                                                        href={url}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="block overflow-hidden rounded-md border bg-muted"
+                                                      >
+                                                        <img
+                                                          src={url}
+                                                          alt={`${row.Works || "Darbs"} foto ${photoIndex + 1}`}
+                                                          className="h-40 w-full object-cover"
+                                                        />
+                                                      </a>
+                                                    ))}
+                                                  </div>
+                                                </PopoverContent>
+                                              </Popover>
+                                            ) : (
+                                              <div className="line-clamp-2 whitespace-normal break-words leading-snug">
+                                                {row.Works || "—"}
+                                              </div>
+                                            )}
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 105 }}>
                                             <div className="line-clamp-2 leading-snug">{row.createdBy || "—"}</div>
