@@ -1021,8 +1021,9 @@ export default function SiteDiaryCalendar({
 
     const payrollRows = monthRows.map((row) => {
       const payroll = getZtcPayrollValues(row);
+      const payrollDate = row.Date ? new Date(row.Date) : null;
       return {
-        Datums: row.Date ? new Date(row.Date).toLocaleDateString("lv-LV") : "",
+        Datums: payrollDate && !Number.isNaN(payrollDate.getTime()) ? payrollDate : undefined,
         Darbinieks: row.createdBy ?? "",
         Projekts: row.Location ?? "",
         Elements: row.Location_Custom_1 ?? "",
@@ -1062,7 +1063,16 @@ export default function SiteDiaryCalendar({
     };
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(payrollRows), "Algu ieraksti");
+    const payrollWorksheet = XLSX.utils.json_to_sheet(payrollRows, { cellDates: true });
+    const payrollRange = XLSX.utils.decode_range(payrollWorksheet["!ref"] ?? "A1:A1");
+    for (let rowIndex = 1; rowIndex <= payrollRange.e.r; rowIndex += 1) {
+      const cell = payrollWorksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })];
+      if (cell?.v instanceof Date) {
+        cell.t = "d";
+        cell.z = "dd.mm.yyyy";
+      }
+    }
+    XLSX.utils.book_append_sheet(workbook, payrollWorksheet, "Algu ieraksti");
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Darbinieks")), "Pec darbinieka");
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Projekts")), "Pec projekta");
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summarizeBy("Elements")), "Pec elementa");

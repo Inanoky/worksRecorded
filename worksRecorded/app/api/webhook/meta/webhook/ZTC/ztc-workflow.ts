@@ -19,6 +19,8 @@ const DIAGONAL_SECOND_PHOTO_PENDING_PREFIX = "__ZTC_DIAGONAL_SECOND_PHOTO_PENDIN
 const DIAGONAL_SECOND_MEASURE_PENDING_PREFIX = "__ZTC_DIAGONAL_SECOND_MEASURE_PENDING__";
 const DIAGONALS_PENDING_PREFIX = "__ZTC_DIAGONALS_PENDING__";
 const DIAGONALS_CONFIRM_PREFIX = "__ZTC_DIAGONALS_CONFIRM__";
+const PHOTO_BATCH_CONFIRM_PREFIX = "__ZTC_PHOTO_BATCH_CONFIRM__";
+const PHOTO_BATCH_CONFIRM_WINDOW_MS = 45_000;
 const ZTC_MEDIA_TIMEOUT_MS = 30_000;
 const ZTC_UPLOAD_TIMEOUT_MS = 30_000;
 const ZTC_VISION_TIMEOUT_MS = 60_000;
@@ -237,6 +239,22 @@ function withZtcTimeout<T>(promise: Promise<T>, label: string, timeoutMs: number
 
 function isZtcTimeoutError(error: unknown) {
   return error instanceof ZtcTimeoutError || (error instanceof Error && error.name === "ZtcTimeoutError");
+}
+
+function readPhotoBatchConfirmAt(value: string | null | undefined) {
+  const raw = readMarkerPayload(value, PHOTO_BATCH_CONFIRM_PREFIX);
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isRecentPhotoBatchConfirmation(value: string | null | undefined, now = Date.now()) {
+  const confirmedAt = readPhotoBatchConfirmAt(value);
+  return confirmedAt != null && now - confirmedAt < PHOTO_BATCH_CONFIRM_WINDOW_MS;
+}
+
+function photoBatchMarker(now = Date.now()) {
+  return `${PHOTO_BATCH_CONFIRM_PREFIX} ${now}`;
 }
 
 async function sendZtcMessage(to: string | null, message: string) {
@@ -589,14 +607,14 @@ async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> 
         {
           role: "system",
           content:
-            "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, drawings without a readable total element area, and unreadable/blurry photos. Project name is always present and must be extracted only from the value immediately after the exact label \"Project name :\". If the label \"Project name :\" is missing, unreadable, or the value after it is unreadable, set hasReadableProjectName=false and projectName=null. Extract the element name, total element area in m2, and visible work operations exactly as visible when possible. Preserve Latvian diacritics and original spelling in extracted names; do not transliterate. Preserve the exact order of work operations as they appear in the drawing. ZTC drawings always use TL positions for timber frame work: normalize any work prefix T or T1 to TL, and never return T1. If work-specific areas are not stated, use the total element area for each workItems amountM2.",
+            "You validate ZTC factory drawing photos. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only readable precast/timber element production drawings. Ignore the large drawing views, dimensions, revision stamp, designer names, legends, and unrelated notes unless needed to confirm it is a drawing. Extract only from the framed tables at the bottom of the drawing: (1) the lower-left work list frame, (2) the area/info square immediately to the right of that work list, and (3) the right title block with project and drawing info. The work list is the lower-left frame and uses prefixes in this order when present: R5, R4, R3, R2, R1, TL, L1, L2, L3, L4, L5. Extract only rows from that lower-left work frame with a visible description after the hyphen; omit empty prefix rows. Preserve the exact drawing order. Include the prefix in the work name, for example \"R2 - Batten, 45x45mm\" or \"TL - 45x245 / Mineral wool\". ZTC drawings always use TL for timber frame work: normalize any prefix T, T1, or similar OCR mistake to TL, and never return T1. The total area is in the adjacent square/table to the right of the work list, usually labelled like \"Aptuvena panela kvadratura - 15.87m2\"; extract that number as totalAreaM2. If work-specific areas are not explicitly stated in the work list, set every workItems amountM2 to totalAreaM2. Project name must be extracted only from the value immediately after the exact title-block label \"Project name:\" or \"Project name :\". If that label or value is unreadable, set hasReadableProjectName=false and projectName=null. Element name must come from the exact title-block label \"Drawing name:\" when visible. Reject ordinary photos, selfies, documents without this drawing/title-block context, drawings without a readable project name, element name, work list, or total area, and unreadable/blurry photos. Preserve Latvian diacritics and original spelling in extracted names; do not transliterate.",
         },
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Check this WhatsApp photo. Is it a readable construction drawing with project name, element name, total area in m2, and a readable work/operation list?",
+              text: "Check this WhatsApp photo. Read only the bottom ZTC drawing tables: lower-left work list, adjacent total area square, and right title block. Return project name, drawing/element name, total area in m2, and the ordered work list.",
             },
             {
               type: "image_url",
@@ -717,6 +735,21 @@ async function getLatestZtcDrawingContext(workerId: string) {
   });
 }
 
+async function getRecentCompletedPhotoBatchSession(workerId: string) {
+  const cutoff = new Date(Date.now() - PHOTO_BATCH_CONFIRM_WINDOW_MS);
+  const session = await prisma.sitediaryrecords.findFirst({
+    where: {
+      workerId,
+      organizationId: ZTC_ORGANIZATION_ID,
+      Date_Custom_2: { gte: cutoff },
+      Comments_Custom_1: { startsWith: PHOTO_BATCH_CONFIRM_PREFIX },
+    },
+    orderBy: { Date_Custom_2: "desc" },
+  });
+
+  return isRecentPhotoBatchConfirmation(session?.Comments_Custom_1) ? session : null;
+}
+
 function calculateHours(start: Date | null | undefined, end: Date) {
   if (!start) return undefined;
   const hours = (end.getTime() - start.getTime()) / 3_600_000;
@@ -754,7 +787,7 @@ async function completeSession(args: {
       TimeInvolved: timeInvolved,
       Amounts: amountCompleted ?? undefined,
       Units: "m2",
-      Comments_Custom_1: null,
+      Comments_Custom_1: photoBatchMarker(),
       Comments: finalWorkerComment,
     },
   });
@@ -1130,6 +1163,47 @@ async function saveCompletedWorkPhoto(args: {
   });
 }
 
+async function appendPhotosToRecentCompletedSession(args: {
+  formData: FormData;
+  idxs: number[];
+  worker: ZtcWorker;
+}) {
+  const session = await getRecentCompletedPhotoBatchSession(args.worker.id);
+  if (!session) return false;
+
+  await sendTypingIndicator(getString(args.formData, "From"));
+
+  const images = await Promise.all(args.idxs.map((idx) => uploadMediaImage(args.formData, idx)));
+  const uploadedUrls = images.map((image) => image.publicUrl);
+  const nextPhotos = [...(session.Photos ?? []), ...uploadedUrls];
+
+  const updated = await prisma.sitediaryrecords.update({
+    where: { id: session.id },
+    data: {
+      Photos: nextPhotos,
+      Comments_Custom_1: photoBatchMarker(),
+    },
+  });
+
+  await Promise.all(
+    uploadedUrls.map((publicUrl) =>
+      saveCompletedWorkPhoto({
+        worker: args.worker,
+        publicUrl,
+        session,
+      }),
+    ),
+  );
+
+  logZtcSession("completed_work_late_photos_appended", {
+    session: updated,
+    worker: args.worker,
+    details: { addedPhotoCount: uploadedUrls.length, photoUrls: uploadedUrls },
+  });
+
+  return true;
+}
+
 async function handleDrawingPhoto(args: {
   formData: FormData;
   idx: number;
@@ -1493,17 +1567,19 @@ async function handleFinishedPhoto(args: {
   const images = await Promise.all(idxs.map((idx) => uploadMediaImage(formData, idx)));
   const uploadedUrls = images.map((image) => image.publicUrl);
   const nextPhotos = [...(session.Photos ?? []), ...uploadedUrls];
+  const alreadyConfirmedPhotoBatch = isRecentPhotoBatchConfirmation(session.Comments_Custom_1);
   const shouldPreservePendingState =
     session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX) ||
     isDiagonalPhotoMeasureFlow(session.Comments_Custom_1);
+  const nextPhotoState = shouldPreservePendingState
+    ? session.Comments_Custom_1
+    : photoBatchMarker();
 
   await prisma.sitediaryrecords.update({
     where: { id: session.id },
     data: {
       Photos: nextPhotos,
-      Comments_Custom_1: shouldPreservePendingState
-        ? session.Comments_Custom_1
-        : PHOTO_PENDING_FINISH_PREFIX,
+      Comments_Custom_1: nextPhotoState,
     },
   });
 
@@ -1565,6 +1641,18 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
+  if (alreadyConfirmedPhotoBatch) {
+    logZtcSession("completed_work_photo_confirmation_suppressed", {
+      session: {
+        ...session,
+        Photos: nextPhotos,
+      },
+      worker,
+      details: { addedPhotoCount: uploadedUrls.length },
+    });
+    return;
+  }
+
   await sendZtcMessage(
     to,
     `Saņemti ${uploadedUrls.length} pabeigta darba foto darbam: ${formatSessionWork(session) || "darbs"}. Lūdzu, atsūtiet balss ziņu vai tekstu, ka darbs ir pabeigts.`,
@@ -1588,6 +1676,8 @@ export async function handleZtcWorkerRoute(args: {
       const openSession = await getOpenZtcSession(worker.id);
       if (openSession?.Works) {
         await handleFinishedPhoto({ formData, idxs: imageIndexes, to: from, worker, caption: body });
+      } else if (await appendPhotosToRecentCompletedSession({ formData, idxs: imageIndexes, worker })) {
+        // The worker sent multiple completion photos as separate WhatsApp messages.
       } else {
         await handleDrawingPhoto({ formData, idx: imageIdx, to: from, worker });
       }
