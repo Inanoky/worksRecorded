@@ -169,13 +169,15 @@ function parsePayrollNumber(value: unknown, fallback = 0) {
 
 function getZtcPayrollValues(row: DiaryRow) {
   const hours = parsePayrollNumber(row.TimeInvolved);
+  const amountM2 = parsePayrollNumber(row.Amounts);
   const rate = parsePayrollNumber(row.Location_Custom_2);
   const coefficient = parsePayrollNumber(row.Works_Custom_2, 1);
   const bonus = parsePayrollNumber(row.WorkersInvolved);
-  const sum = hours * rate * coefficient + bonus;
+  const sum = amountM2 * rate * coefficient + bonus;
 
   return {
     hours,
+    amountM2,
     rate,
     coefficient,
     bonus,
@@ -1931,39 +1933,43 @@ export default function SiteDiaryCalendar({
                             </TooltipContent>
                           </Tooltip>
 
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="rounded-full"
-                                onClick={() => openWeather(group.date)}
-                              >
-                                <CloudSun className="h-5 w-5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>
-                                {t.viewWeatherForDay}
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
+                          {!isZtcSite ? (
+                            <>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="rounded-full"
+                                    onClick={() => openWeather(group.date)}
+                                  >
+                                    <CloudSun className="h-5 w-5" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>
+                                    {t.viewWeatherForDay}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
 
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={isPdfLoading}
-                            onClick={() => handleDownloadPdf(group.key, group.date)}
-                          >
-                            {isPdfLoading ? (
-                              <>
-                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                {t.generating}
-                              </>
-                            ) : (
-                              t.pdfReport
-                            )}
-                          </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={isPdfLoading}
+                                onClick={() => handleDownloadPdf(group.key, group.date)}
+                              >
+                                {isPdfLoading ? (
+                                  <>
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    {t.generating}
+                                  </>
+                                ) : (
+                                  t.pdfReport
+                                )}
+                              </Button>
+                            </>
+                          ) : null}
 
                           <Button
                             size="sm"

@@ -108,6 +108,24 @@ function normalizeNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+const ZTC_FIELD_MAX_LENGTHS: Record<string, number> = {
+  Location: 180,
+  Location_Custom_1: 80,
+  Works: 180,
+  Amounts: 12,
+  TimeInvolved: 8,
+  Comments: 600,
+};
+
+const ZTC_FIELD_LABELS: Record<string, string> = {
+  Location: "projekts",
+  Location_Custom_1: "elements",
+  Works: "darbs",
+  Amounts: "daudzums",
+  TimeInvolved: "stundas",
+  Comments: "komentāri",
+};
+
 function hasAnyRowValue(row: any) {
   return [
     "Date",
@@ -126,6 +144,12 @@ function isValidDateValue(value: unknown) {
   if (!value) return false;
   const parsed = value instanceof Date ? value : new Date(String(value));
   return !Number.isNaN(parsed.getTime());
+}
+
+function validateZtcFieldLengths(row: any, label: string) {
+  return Object.entries(ZTC_FIELD_MAX_LENGTHS)
+    .filter(([field, maxLength]) => String(row[field] ?? "").trim().length > maxLength)
+    .map(([field, maxLength]) => `${label}: lauks "${ZTC_FIELD_LABELS[field] ?? field}" nedrīkst pārsniegt ${maxLength} zīmes.`);
 }
 
 function getRenderableFieldsOrdered(map: Record<string, any>) {
@@ -326,6 +350,8 @@ export function ZtcDialogTable({
       const start = normalizeDate(row.Date);
       const end = normalizeDate(row.Date_Custom_2);
 
+      validationErrors.push(...validateZtcFieldLengths(row, label));
+
       if (!normalizeOption(row.Location)) {
         validationErrors.push(`${label}: norādiet projektu.`);
       }
@@ -495,6 +521,7 @@ export function ZtcDialogTable({
         <Input
           inputMode="decimal"
           className="h-9"
+          maxLength={ZTC_FIELD_MAX_LENGTHS[field] ?? 16}
           style={{ width, minWidth: width }}
           value={String(row[field] ?? "")}
           onChange={(event) => handleChange(rowKey, field, event.target.value)}
@@ -507,6 +534,7 @@ export function ZtcDialogTable({
         <Textarea
           rows={1}
           className="min-h-14 resize-y leading-snug"
+          maxLength={ZTC_FIELD_MAX_LENGTHS[field] ?? 240}
           style={{ width, minWidth: width }}
           value={String(row[field] ?? "")}
           onChange={(event) => handleChange(rowKey, field, event.target.value)}
