@@ -310,6 +310,15 @@ function findFirstMediaIndex(formData: FormData, numMedia: number, prefix: strin
   return -1;
 }
 
+function findMediaIndexes(formData: FormData, numMedia: number, prefix: string) {
+  const indexes: number[] = [];
+  for (let i = 0; i < numMedia; i += 1) {
+    const contentType = (getString(formData, `MediaContentType${i}`) || "").toLowerCase();
+    if (contentType.startsWith(prefix)) indexes.push(i);
+  }
+  return indexes;
+}
+
 function inferAudioExtension(contentType: string) {
   const normalized = contentType.toLowerCase();
   if (normalized.includes("ogg")) return "ogg";
@@ -1455,12 +1464,13 @@ async function handleWorkText(args: {
 
 async function handleFinishedPhoto(args: {
   formData: FormData;
-  idx: number;
+  idxs: number[];
   to: string | null;
   worker: ZtcWorker;
   caption: string;
 }) {
-  const { formData, idx, to, worker, caption } = args;
+  const { formData, idxs, to, worker, caption } = args;
+  const firstIdx = idxs[0];
   const session = await getOpenZtcSession(worker.id);
 
   if (!session?.Works) {
@@ -1468,13 +1478,21 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
-  if (isDiagonalPhotoMeasureFlow(session.Comments_Custom_1)) {
-    await handleTlDiagonalPhoto({ formData, idx, to, worker, session });
+  if (firstIdx == null) {
+    await sendZtcMessage(to, "Neatradu foto. Lūdzu, atsūtiet pabeigta darba foto vēlreiz.");
     return;
   }
 
-  const image = await uploadMediaImage(formData, idx);
-  const nextPhotos = [...(session.Photos ?? []), image.publicUrl];
+  if (isDiagonalPhotoMeasureFlow(session.Comments_Custom_1)) {
+    await handleTlDiagonalPhoto({ formData, idx: firstIdx, to, worker, session });
+    return;
+  }
+
+  await sendTypingIndicator(to);
+
+  const images = await Promise.all(idxs.map((idx) => uploadMediaImage(formData, idx)));
+  const uploadedUrls = images.map((image) => image.publicUrl);
+  const nextPhotos = [...(session.Photos ?? []), ...uploadedUrls];
   const shouldPreservePendingState =
     session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX) ||
     isDiagonalPhotoMeasureFlow(session.Comments_Custom_1);
@@ -1495,14 +1513,18 @@ async function handleFinishedPhoto(args: {
       Photos: nextPhotos,
     },
     worker,
-    details: { photoUrl: image.publicUrl, caption },
+    details: { photoUrls: uploadedUrls, photoCount: uploadedUrls.length, caption },
   });
 
-  await saveCompletedWorkPhoto({
-    worker,
-    publicUrl: image.publicUrl,
-    session,
-  });
+  await Promise.all(
+    uploadedUrls.map((publicUrl) =>
+      saveCompletedWorkPhoto({
+        worker,
+        publicUrl,
+        session,
+      }),
+    ),
+  );
 
   if (session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX)) {
     await sendTypingIndicator(to);
@@ -1545,7 +1567,7 @@ async function handleFinishedPhoto(args: {
 
   await sendZtcMessage(
     to,
-    `Pabeigta darba foto saņemts darbam: ${formatSessionWork(session) || "darbs"}. Lūdzu, atsūtiet balss ziņu vai tekstu, ka darbs ir pabeigts.`,
+    `Saņemti ${uploadedUrls.length} pabeigta darba foto darbam: ${formatSessionWork(session) || "darbs"}. Lūdzu, atsūtiet balss ziņu vai tekstu, ka darbs ir pabeigts.`,
   );
 }
 
@@ -1557,14 +1579,15 @@ export async function handleZtcWorkerRoute(args: {
   const from = getString(formData, "From");
   const body = (getString(formData, "Body") || "").trim();
   const numMedia = Number(getString(formData, "NumMedia") || "0") || 0;
-  const imageIdx = findFirstMediaIndex(formData, numMedia, "image/");
+  const imageIndexes = findMediaIndexes(formData, numMedia, "image/");
+  const imageIdx = imageIndexes[0] ?? -1;
   const audioIdx = findFirstMediaIndex(formData, numMedia, "audio/");
 
   try {
-    if (imageIdx >= 0) {
+    if (imageIndexes.length > 0) {
       const openSession = await getOpenZtcSession(worker.id);
       if (openSession?.Works) {
-        await handleFinishedPhoto({ formData, idx: imageIdx, to: from, worker, caption: body });
+        await handleFinishedPhoto({ formData, idxs: imageIndexes, to: from, worker, caption: body });
       } else {
         await handleDrawingPhoto({ formData, idx: imageIdx, to: from, worker });
       }

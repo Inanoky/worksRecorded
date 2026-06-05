@@ -2155,7 +2155,7 @@ export default function SiteDiaryCalendar({
                               {isZtcSite ? (
                                 <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
                                   <label className="space-y-1">
-                                    <span>Rate</span>
+                                    <span>Likme</span>
                                     {renderZtcPayrollInput(r, "rate", r.Location_Custom_2, "w-full")}
                                   </label>
                                   <label className="space-y-1">
@@ -2341,7 +2341,7 @@ export default function SiteDiaryCalendar({
                                       <TableHead style={{ width: 105 }}>Darbinieks</TableHead>
                                       <TableHead style={{ width: 105 }}>Sākums / beigas</TableHead>
                                       <TableHead className="text-right" style={{ width: 76 }}>Daudz. / mērv.</TableHead>
-                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 68 }}>Rate</TableHead>
+                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 68 }}>Likme</TableHead>
                                       <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Koef.</TableHead>
                                       <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Bonuss</TableHead>
                                       <TableHead className="text-right" style={{ width: 82 }}>Summa</TableHead>
@@ -2675,7 +2675,7 @@ export default function SiteDiaryCalendar({
                                           </TableHead>
                                           {isZtcSite && head === "TimeInvolved" ? (
                                             <>
-                                              <TableHead className="text-right" style={{ width: 90 }}>Rate</TableHead>
+                                              <TableHead className="text-right" style={{ width: 90 }}>Likme</TableHead>
                                               <TableHead className="text-right" style={{ width: 105 }}>Koeficients</TableHead>
                                               <TableHead className="text-right" style={{ width: 95 }}>Bonuss</TableHead>
                                               <TableHead className="text-right" style={{ width: 95 }}>Summa</TableHead>
