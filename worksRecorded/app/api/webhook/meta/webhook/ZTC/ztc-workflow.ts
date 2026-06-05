@@ -19,6 +19,18 @@ const DIAGONAL_SECOND_PHOTO_PENDING_PREFIX = "__ZTC_DIAGONAL_SECOND_PHOTO_PENDIN
 const DIAGONAL_SECOND_MEASURE_PENDING_PREFIX = "__ZTC_DIAGONAL_SECOND_MEASURE_PENDING__";
 const DIAGONALS_PENDING_PREFIX = "__ZTC_DIAGONALS_PENDING__";
 const DIAGONALS_CONFIRM_PREFIX = "__ZTC_DIAGONALS_CONFIRM__";
+const ZTC_MEDIA_TIMEOUT_MS = 30_000;
+const ZTC_UPLOAD_TIMEOUT_MS = 30_000;
+const ZTC_VISION_TIMEOUT_MS = 60_000;
+const ZTC_TEXT_TIMEOUT_MS = 30_000;
+const ZTC_TRANSCRIPTION_TIMEOUT_MS = 30_000;
+
+class ZtcTimeoutError extends Error {
+  constructor(label: string, timeoutMs: number) {
+    super(`${label} timed out after ${timeoutMs}ms`);
+    this.name = "ZtcTimeoutError";
+  }
+}
 
 type ZtcWorker = {
   id: string;
@@ -212,6 +224,19 @@ function logZtcSession(
     work: session?.Works ?? null,
     details: args.details ?? {},
   });
+}
+
+function withZtcTimeout<T>(promise: Promise<T>, label: string, timeoutMs: number) {
+  let timeout: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new ZtcTimeoutError(label, timeoutMs)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeout));
+}
+
+function isZtcTimeoutError(error: unknown) {
+  return error instanceof ZtcTimeoutError || (error instanceof Error && error.name === "ZtcTimeoutError");
 }
 
 function stripWorkerPrefix(value: string | null | undefined) {
@@ -484,13 +509,21 @@ async function uploadMediaImage(formData: FormData, idx: number) {
 
   if (!mediaUrl) throw new Error("Image media URL is missing");
 
-  const buffer = await fetchWhatsAppMediaAsBuffer(mediaUrl);
+  const buffer = await withZtcTimeout(
+    fetchWhatsAppMediaAsBuffer(mediaUrl),
+    "ztc_image_media_fetch",
+    ZTC_MEDIA_TIMEOUT_MS,
+  );
   const ext = contentType.split("/")[1] || "jpg";
   const file = new File([buffer], `ztc_whatsapp_${Date.now()}.${ext}`, {
     type: contentType,
   });
 
-  const uploaded = await utapi.uploadFiles([file]);
+  const uploaded = await withZtcTimeout(
+    utapi.uploadFiles([file]),
+    "ztc_image_upload",
+    ZTC_UPLOAD_TIMEOUT_MS,
+  );
   const first = Array.isArray(uploaded) ? uploaded[0] : uploaded;
 
   if (first?.error || !first?.data) {
@@ -509,43 +542,55 @@ async function transcribeAudio(formData: FormData, idx: number) {
 
   if (!mediaUrl) throw new Error("Audio media URL is missing");
 
-  const buffer = await fetchWhatsAppMediaAsBuffer(mediaUrl);
+  const buffer = await withZtcTimeout(
+    fetchWhatsAppMediaAsBuffer(mediaUrl),
+    "ztc_audio_media_fetch",
+    ZTC_MEDIA_TIMEOUT_MS,
+  );
   const file = await toFile(buffer, `voice-message.${inferAudioExtension(contentType)}`);
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const transcript = await openai.audio.transcriptions.create({
-    file,
-    model: "gpt-4o-transcribe",
-  });
+  const transcript = await withZtcTimeout(
+    openai.audio.transcriptions.create({
+      file,
+      model: "gpt-4o-transcribe",
+    }),
+    "ztc_audio_transcription",
+    ZTC_TRANSCRIPTION_TIMEOUT_MS,
+  );
 
   return transcript.text?.trim() || "";
 }
 
 async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const response = await openai.chat.completions.create({
-    model: process.env.ZTC_VISION_MODEL || "gpt-5.1",
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, drawings without a readable total element area, and unreadable/blurry photos. Project name is always present and must be extracted only from the value immediately after the exact label \"Project name :\". If the label \"Project name :\" is missing, unreadable, or the value after it is unreadable, set hasReadableProjectName=false and projectName=null. Extract the element name, total element area in m2, and visible work operations exactly as visible when possible. Preserve Latvian diacritics and original spelling in extracted names; do not transliterate. Preserve the exact order of work operations as they appear in the drawing. ZTC drawings always use TL positions for timber frame work: normalize any work prefix T or T1 to TL, and never return T1. If work-specific areas are not stated, use the total element area for each workItems amountM2.",
-      },
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: "Check this WhatsApp photo. Is it a readable construction drawing with project name, element name, total area in m2, and a readable work/operation list?",
-          },
-          {
-            type: "image_url",
-            image_url: { url: imageUrl },
-          },
-        ],
-      },
-    ],
-  });
+  const response = await withZtcTimeout(
+    openai.chat.completions.create({
+      model: process.env.ZTC_VISION_MODEL || "gpt-5.1",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You validate photos sent by factory workers. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only construction/shop/precast/timber element drawings. Reject ordinary site photos, selfies, documents without drawing context, drawings without a readable project name, drawings without a readable element name, drawings without a readable list/table/notes of work operations, drawings without a readable total element area, and unreadable/blurry photos. Project name is always present and must be extracted only from the value immediately after the exact label \"Project name :\". If the label \"Project name :\" is missing, unreadable, or the value after it is unreadable, set hasReadableProjectName=false and projectName=null. Extract the element name, total element area in m2, and visible work operations exactly as visible when possible. Preserve Latvian diacritics and original spelling in extracted names; do not transliterate. Preserve the exact order of work operations as they appear in the drawing. ZTC drawings always use TL positions for timber frame work: normalize any work prefix T or T1 to TL, and never return T1. If work-specific areas are not stated, use the total element area for each workItems amountM2.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Check this WhatsApp photo. Is it a readable construction drawing with project name, element name, total area in m2, and a readable work/operation list?",
+            },
+            {
+              type: "image_url",
+              image_url: { url: imageUrl },
+            },
+          ],
+        },
+      ],
+    }),
+    "ztc_drawing_extraction",
+    ZTC_VISION_TIMEOUT_MS,
+  );
 
   return normalizeDrawingExtraction(
     parseJsonObject<DrawingExtraction>(response.choices[0]?.message?.content, {
@@ -588,18 +633,22 @@ async function extractWorkInfo(
   }
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const response = await openai.chat.completions.create({
-    model: process.env.ZTC_TEXT_MODEL || "gpt-5.1",
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
-      },
-      { role: "user", content: normalized },
-    ],
-  });
+  const response = await withZtcTimeout(
+    openai.chat.completions.create({
+      model: process.env.ZTC_TEXT_MODEL || "gpt-5.1",
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+        },
+        { role: "user", content: normalized },
+      ],
+    }),
+    "ztc_work_text_extraction",
+    ZTC_TEXT_TIMEOUT_MS,
+  );
 
   const extracted = parseJsonObject<WorkExtraction>(response.choices[0]?.message?.content, {
     isGibberish: true,
@@ -1077,8 +1126,42 @@ async function handleDrawingPhoto(args: {
     return;
   }
 
+  logZtcSession("drawing_photo_received", {
+    worker,
+    details: { mediaIndex: idx },
+  });
+
+  await sendTypingIndicator(to);
+
+  logZtcSession("drawing_photo_upload_started", {
+    worker,
+    details: { mediaIndex: idx },
+  });
   const image = await uploadMediaImage(formData, idx);
+  logZtcSession("drawing_photo_upload_completed", {
+    worker,
+    details: { mediaIndex: idx, publicUrl: image.publicUrl, contentType: image.contentType },
+  });
+
+  logZtcSession("drawing_extraction_started", {
+    worker,
+    details: { imageUrl: image.publicUrl },
+  });
   const extraction = await extractDrawingInfo(image.publicUrl);
+  logZtcSession("drawing_extraction_completed", {
+    worker,
+    details: {
+      isConstructionDrawing: extraction.isConstructionDrawing,
+      hasReadableProjectName: extraction.hasReadableProjectName,
+      hasReadableElementName: extraction.hasReadableElementName,
+      hasReadableWorkList: extraction.hasReadableWorkList,
+      qualityOk: extraction.qualityOk,
+      projectName: extraction.projectName,
+      elementName: extraction.elementName,
+      workCount: extraction.workList.length,
+      issue: extraction.issue,
+    },
+  });
 
   if (
     !extraction.isConstructionDrawing ||
@@ -1493,6 +1576,25 @@ export async function handleZtcWorkerRoute(args: {
     await sendMessage(from, "Lūdzu, atsūtiet rasējuma foto, balss ziņu vai pabeigta darba foto.");
   } catch (error) {
     console.error("[ZTC workflow] failed", error);
+    if (isZtcTimeoutError(error)) {
+      logZtcSession("workflow_timeout", {
+        worker,
+        details: {
+          message: error instanceof Error ? error.message : String(error),
+          imageIdx,
+          audioIdx,
+          hasBody: Boolean(body),
+        },
+      });
+      await sendMessage(
+        from,
+        imageIdx >= 0
+          ? "Foto apstrāde aizņēma pārāk ilgu laiku. Lūdzu, atsūtiet foto vēlreiz pēc brīža."
+          : "Ziņas apstrāde aizņēma pārāk ilgu laiku. Lūdzu, mēģiniet vēlreiz pēc brīža.",
+      );
+      return;
+    }
+
     await sendMessage(from, "Atvainojiet, ZTC plūsma nevarēja apstrādāt šo ziņu. Lūdzu, mēģiniet vēlreiz.");
   }
 }
