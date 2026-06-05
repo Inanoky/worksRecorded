@@ -31,8 +31,6 @@ import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import * as XLSX from "xlsx";
 import {
   CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
   Copy,
   CloudSun,
   Ellipsis,
@@ -195,13 +193,13 @@ function formatMoney(value: number) {
   });
 }
 
-function getZtcCompletedPhotoUrls(row: DiaryRow) {
-  const photos = Array.isArray(row.Photos)
-    ? row.Photos.filter((url): url is string => typeof url === "string" && Boolean(url.trim()))
-    : [];
-
-  if (row.Location === "Papilddarbi") return photos;
-  return photos.length > 1 ? photos.slice(1) : [];
+function splitWorkerDisplayName(value: string | null | undefined) {
+  const parts = String(value ?? "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return { name: "—", surname: "" };
+  return {
+    name: parts[0],
+    surname: parts.slice(1).join(" "),
+  };
 }
 
 type DayGroup = {
@@ -487,8 +485,6 @@ export default function SiteDiaryCalendar({
   const isZtcSite = siteId === ZTC_SITE_ID;
   const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
   const [payrollDirtyRowIds, setPayrollDirtyRowIds] = React.useState<Set<string>>(new Set());
-  const [ztcPhotoIndexes, setZtcPhotoIndexes] = React.useState<Record<string, number>>({});
-
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
       setFilledDays([]);
@@ -833,12 +829,6 @@ export default function SiteDiaryCalendar({
       }
       return next;
     });
-  };
-
-  const setZtcPhotoIndex = (rowKey: string, photoCount: number, nextIndex: number) => {
-    if (!photoCount) return;
-    const normalized = ((nextIndex % photoCount) + photoCount) % photoCount;
-    setZtcPhotoIndexes((prev) => ({ ...prev, [rowKey]: normalized }));
   };
 
   const updatePayrollDraft = (recordId: string, field: "rate" | "coefficient" | "bonus", value: string) => {
@@ -2369,13 +2359,7 @@ export default function SiteDiaryCalendar({
                                   <TableBody>
                                     {group.rows.map((row, i) => {
                                       const payroll = getZtcPayrollValues(row);
-                                      const completedPhotoUrls = getZtcCompletedPhotoUrls(row);
-                                      const rowPhotoKey = row.id ?? `${group.key}-${i}`;
-                                      const activePhotoIndex = Math.min(
-                                        ztcPhotoIndexes[rowPhotoKey] ?? 0,
-                                        Math.max(completedPhotoUrls.length - 1, 0),
-                                      );
-                                      const activePhotoUrl = completedPhotoUrls[activePhotoIndex];
+                                      const workerName = splitWorkerDisplayName(row.createdBy);
                                       const payrollDirty = row.id ? payrollDirtyRowIds.has(row.id) : false;
                                       const payrollSaving = row.id ? payrollSavingRowId === row.id : false;
                                       const startTime = formatValueByConfig("Date", row.Date, defaultMap) || "—";
@@ -2415,65 +2399,17 @@ export default function SiteDiaryCalendar({
                                             </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 175 }}>
-                                            {completedPhotoUrls.length ? (
-                                              <Popover>
-                                                <PopoverTrigger asChild>
-                                                  <button
-                                                    type="button"
-                                                    className="block w-full overflow-hidden text-left leading-snug line-clamp-2 whitespace-normal break-words text-blue-700 underline-offset-2 hover:underline"
-                                                  >
-                                                    {row.Works || "—"}
-                                                  </button>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-[340px] max-w-[90vw]">
-                                                  <div className="mb-2 flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
-                                                    <span>Pabeigtā darba foto</span>
-                                                    <span>{activePhotoIndex + 1}/{completedPhotoUrls.length}</span>
-                                                  </div>
-                                                  <div className="flex items-center gap-2">
-                                                    <Button
-                                                      type="button"
-                                                      size="icon"
-                                                      variant="outline"
-                                                      className="h-8 w-8 shrink-0"
-                                                      disabled={completedPhotoUrls.length <= 1}
-                                                      onClick={() => setZtcPhotoIndex(rowPhotoKey, completedPhotoUrls.length, activePhotoIndex - 1)}
-                                                    >
-                                                      <ChevronLeft className="h-4 w-4" />
-                                                    </Button>
-                                                    <a
-                                                      href={activePhotoUrl}
-                                                      target="_blank"
-                                                      rel="noreferrer"
-                                                      className="block min-w-0 flex-1 overflow-hidden rounded-md border bg-muted"
-                                                    >
-                                                      <img
-                                                        src={activePhotoUrl}
-                                                        alt={`${row.Works || "Darbs"} foto ${activePhotoIndex + 1}`}
-                                                        className="h-56 w-full object-cover"
-                                                      />
-                                                    </a>
-                                                    <Button
-                                                      type="button"
-                                                      size="icon"
-                                                      variant="outline"
-                                                      className="h-8 w-8 shrink-0"
-                                                      disabled={completedPhotoUrls.length <= 1}
-                                                      onClick={() => setZtcPhotoIndex(rowPhotoKey, completedPhotoUrls.length, activePhotoIndex + 1)}
-                                                    >
-                                                      <ChevronRight className="h-4 w-4" />
-                                                    </Button>
-                                                  </div>
-                                                </PopoverContent>
-                                              </Popover>
-                                            ) : (
-                                              <div className="line-clamp-2 whitespace-normal break-words leading-snug">
-                                                {row.Works || "—"}
-                                              </div>
-                                            )}
+                                            <div className="line-clamp-2 whitespace-normal break-words leading-snug">
+                                              {row.Works || "—"}
+                                            </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 105 }}>
-                                            <div className="line-clamp-2 leading-snug">{row.createdBy || "—"}</div>
+                                            <div className="leading-snug">
+                                              <div className="font-medium">{workerName.name}</div>
+                                              {workerName.surname ? (
+                                                <div className="text-muted-foreground">{workerName.surname}</div>
+                                              ) : null}
+                                            </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 105 }}>
                                             <div className="space-y-1 leading-tight">
