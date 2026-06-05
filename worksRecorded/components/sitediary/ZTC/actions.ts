@@ -10,7 +10,7 @@ const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
 function ensureZtcSite(siteId: string | null | undefined) {
   if (siteId !== ZTC_SITE_ID) {
-    throw new Error("ZTC actions can only be used for the ZTC site.");
+    throw new Error("ZTC darbības var izmantot tikai ZTC objektam.");
   }
 }
 
@@ -21,7 +21,7 @@ async function requireZtcAccess(siteId: string) {
   const organizationId = await getOrganizationIdByUserId(user.id);
 
   if (!site || organizationId !== ZTC_ORGANIZATION_ID) {
-    throw new Error("You do not have access to the ZTC site diary.");
+    throw new Error("Jums nav piekļuves ZTC būvdarbu žurnālam.");
   }
 
   return user;
@@ -206,7 +206,7 @@ export async function createZtcSiteDiaryRecords(args: {
     Photos: [],
   }));
 
-  if (!rows.length) return { ok: false, message: "No records to insert" };
+  if (!rows.length) return { ok: false, message: "Nav ierakstu, ko pievienot." };
 
   await prisma.sitediaryrecords.createMany({ data: rows });
   return { ok: true, count: rows.length };
@@ -230,7 +230,7 @@ export async function updateZtcSiteDiaryRecord(args: {
   });
 
   if (result.count !== 1) {
-    return { ok: false, message: "ZTC record not found" };
+    return { ok: false, message: "ZTC ieraksts nav atrasts." };
   }
 
   const record = await prisma.sitediaryrecords.findUnique({ where: { id } });
@@ -281,7 +281,7 @@ export async function updateZtcPayrollFields(args: {
   });
 
   if (result.count !== 1) {
-    return { ok: false, message: "ZTC record not found" };
+    return { ok: false, message: "ZTC ieraksts nav atrasts." };
   }
 
   return { ok: true };

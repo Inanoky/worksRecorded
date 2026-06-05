@@ -151,7 +151,7 @@ export function ZtcDialogTable({
 }: ZtcDialogTableProps) {
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryDialogMessages(language);
-  const toastMessages = getToastMessages(language);
+  const toastMessages = getToastMessages("lv");
   const isMobile = useMediaQuery("(max-width: 640px)");
 
   const [loading, setLoading] = useState(true);

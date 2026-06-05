@@ -815,6 +815,11 @@ export default function SiteDiaryCalendar({
     const rateValue = String(row.Location_Custom_2 ?? "").trim();
     const coefficientValue = String(row.Works_Custom_2 ?? "").trim();
     const bonusValue = String(row.WorkersInvolved ?? "").trim();
+    const payrollFieldLabels: Record<string, string> = {
+      rate: "likmei",
+      coefficient: "koeficientam",
+      bonus: "bonusam",
+    };
 
     const invalid = [
       ["rate", rateValue],
@@ -823,7 +828,7 @@ export default function SiteDiaryCalendar({
     ].find(([_, value]) => value && !Number.isFinite(Number(String(value).replace(",", "."))));
 
     if (invalid) {
-      toast.error(`Payroll ${invalid[0]} must be a valid number.`);
+      toast.error(`Algas ${payrollFieldLabels[invalid[0]] ?? "laukam"} jābūt derīgam skaitlim.`);
       return;
     }
 
@@ -838,7 +843,7 @@ export default function SiteDiaryCalendar({
       });
 
       if (!result?.ok) {
-        toast.error(result?.message ?? "Failed to save payroll fields.");
+        toast.error(result?.message ?? "Neizdevās saglabāt algas laukus.");
       } else {
         setPayrollDirtyRowIds((prev) => {
           const next = new Set(prev);
@@ -847,7 +852,7 @@ export default function SiteDiaryCalendar({
         });
       }
     } catch (error: any) {
-      toast.error(error?.message ?? "Failed to save payroll fields.");
+      toast.error(error?.message ?? "Neizdevās saglabāt algas laukus.");
     } finally {
       setPayrollSavingRowId(null);
     }
@@ -2044,7 +2049,7 @@ export default function SiteDiaryCalendar({
                                     </div>
                                   </div>
                                   {r.id && payrollDirtyRowIds.has(r.id) ? (
-                                    <Button
+                                      <Button
                                       size="sm"
                                       className="col-span-2 h-8"
                                       disabled={payrollSavingRowId === r.id}
@@ -2053,7 +2058,7 @@ export default function SiteDiaryCalendar({
                                       {payrollSavingRowId === r.id ? (
                                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                       ) : (
-                                        "Save"
+                                        "Saglabāt"
                                       )}
                                     </Button>
                                   ) : null}
@@ -2061,7 +2066,7 @@ export default function SiteDiaryCalendar({
                               ) : null}
 
                               <div className="mt-1">
-                                <p className="line-clamp-4 whitespace-pre-wrap text-[11px] leading-snug text-foreground">
+                                <p className="line-clamp-2 overflow-hidden whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
                                   {r.Comments || t.noComments}
                                 </p>
                               </div>
@@ -2280,7 +2285,7 @@ export default function SiteDiaryCalendar({
                                             <div className="space-y-1 leading-tight">
                                               <div><span className="text-muted-foreground">Sākums: </span>{startTime}</div>
                                               <div><span className="text-muted-foreground">Beigas: </span>{endTime}</div>
-                                              <div className="text-[11px] font-medium text-muted-foreground">{row.TimeInvolved ?? "—"} h</div>
+                                              <div className="text-[11px] font-medium text-muted-foreground">{row.TimeInvolved ?? "—"} st</div>
                                             </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3 text-right" style={{ width: 76 }}>
@@ -2310,7 +2315,7 @@ export default function SiteDiaryCalendar({
                                                 {payrollSaving ? (
                                                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                                 ) : (
-                                                  "Save"
+                                                  "Saglabāt"
                                                 )}
                                               </Button>
                                             ) : null}
@@ -2321,7 +2326,7 @@ export default function SiteDiaryCalendar({
                                                 <PopoverTrigger asChild>
                                                   <button
                                                     type="button"
-                                                    className="line-clamp-2 text-left leading-snug hover:text-blue-700"
+                                                    className="block w-full overflow-hidden text-left leading-snug line-clamp-2 whitespace-normal break-words hover:text-blue-700"
                                                   >
                                                     {row.Comments}
                                                   </button>
