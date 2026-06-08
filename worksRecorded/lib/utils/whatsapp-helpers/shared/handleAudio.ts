@@ -1,14 +1,37 @@
 import OpenAI, { toFile } from "openai";
+import { UTApi } from "uploadthing/server";
 import { getString, fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
-
-
-
-
-
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 
 const WHATSAPP_SAFE_LIMIT = 1400;
+const utapi = new UTApi();
+
+export function inferAudioExtension(contentType: string) {
+  const normalized = contentType.toLowerCase();
+  if (normalized.includes("ogg")) return "ogg";
+  if (normalized.includes("mpeg") || normalized.includes("mp3")) return "mp3";
+  if (normalized.includes("wav")) return "wav";
+  if (normalized.includes("m4a") || normalized.includes("mp4")) return "m4a";
+  return "ogg";
+}
+
+export async function uploadSourceAudio(buf: Buffer, contentType: string) {
+  const ext = inferAudioExtension(contentType);
+  const file = new File([buf], `whatsapp_voice_${Date.now()}.${ext}`, {
+    type: contentType || "audio/ogg",
+  });
+  const uploaded = await utapi.uploadFiles([file]);
+  const first = Array.isArray(uploaded) ? uploaded[0] : uploaded;
+
+  if (first?.error || !first?.data) {
+    console.error("❌ [handleAudio] failed to upload source audio", first?.error);
+    return null;
+  }
+
+  return getUploadThingFileUrl(first.data);
+}
 
 async function sendWithLengthCheck(
   to: string | null,
@@ -62,13 +85,15 @@ export async function handleAudio(args: {
 
   try {
     const buf = await fetchWhatsAppMediaAsBuffer(mediaUrl0!);
-    const file = await toFile(buf, "voice-message.ogg");
+    const sourceAudioUrl = await uploadSourceAudio(buf, ct0);
+    const ext = inferAudioExtension(ct0);
+    const file = await toFile(buf, `voice-message.${ext}`);
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const tr = await openai.audio.transcriptions.create({ file, model: "gpt-4o-transcribe" });
     const transcript = tr.text || "(No text recognized)";
 
-    const aiMessage = await agent(transcript, user.lastSelectedSiteIdforWhatsapp, user.id);
+    const aiMessage = await agent(transcript, user.lastSelectedSiteIdforWhatsapp, user.id, sourceAudioUrl);
 
 
 

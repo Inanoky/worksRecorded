@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { UploadButton } from "@/lib/utils/UploadthingsComponents"
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url"
 
 export const NO_MATCH_VALUE = "no_match"
 const CREATE_VALUE = "__create_material_configuration__"
@@ -440,12 +441,17 @@ export default function MaterialConfigSelect({
                   content={{ button: messages.declaration }}
                   onClientUploadComplete={(res) => {
                     const uploaded = res
-                      .filter((file) => file?.url)
-                      .map((file) => ({
-                        name: file.name,
-                        mimeType: getAttachmentMimeType(file),
-                        fileUrl: file.url,
-                      }))
+                      .map((file) => {
+                        const fileUrl = getUploadThingFileUrl(file)
+                        if (!fileUrl) return null
+
+                        return {
+                          name: file.name,
+                          mimeType: getAttachmentMimeType(file),
+                          fileUrl,
+                        }
+                      })
+                      .filter((file): file is NonNullable<typeof file> => Boolean(file))
 
                     if (!uploaded.length) return
                     setUploadedAttachments((current) => [...current, ...uploaded])

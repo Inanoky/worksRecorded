@@ -8,6 +8,7 @@ import {
 import { sendMessage, sendTypingIndicator } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getConfig } from "@/server/actions/site-diary-actions";
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -682,8 +683,14 @@ export async function uploadMediaImage(formData: FormData, idx: number) {
     throw new Error(first?.error?.message || "Failed to upload image");
   }
 
+  const publicUrl = getUploadThingFileUrl(first.data);
+
+  if (!publicUrl) {
+    throw new Error("UploadThing upload completed without a file URL");
+  }
+
   return {
-    publicUrl: first.data.ufsUrl ?? first.data.url,
+    publicUrl,
     contentType,
   };
 }

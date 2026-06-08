@@ -1,0 +1,45 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "waba-test-001",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15550000000",
+              "phone_number_id": "business-phone-test-001",
+              "waba_id": "waba-test-001"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Test Site Manager",
+                  "username": "test_site_manager"
+                },
+                "wa_id": "37120000001"
+              }
+            ],
+            "messages": [
+              {
+                "from": "37120000001",
+                "id": "wamid.site-manager-audio-001",
+                "timestamp": "1790000000",
+                "type": "audio",
+                "audio": {
+                  "mime_type": "audio/ogg; codecs=opus",
+                  "sha256": "test-audio-sha256",
+                  "id": "meta-audio-media-site-manager-001",
+                  "url": "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=meta-audio-media-site-manager-001&source=webhook&ext=1790000300&hash=test-hash",
+                  "voice": true
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

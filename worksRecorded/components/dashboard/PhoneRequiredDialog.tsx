@@ -1,6 +1,6 @@
 "use client";
 
-import { Dispatch, SetStateAction, useState } from "react";
+import { useActionState, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,15 +16,25 @@ import { useFormStatus } from "react-dom";
 
 type Props = {
   needsPhone: boolean;
-  action: (formData: FormData) => void | Promise<void>;
+  action: (
+    state: PhoneFormState,
+    formData: FormData,
+  ) => PhoneFormState | Promise<PhoneFormState>;
+};
+
+type PhoneFormState = {
+  ok: boolean;
+  message?: string;
 };
 
 function PhoneFormControls({
   phone,
   setPhone,
+  errorMessage,
 }: {
   phone: string;
   setPhone: Dispatch<SetStateAction<string>>;
+  errorMessage?: string;
 }) {
   const { pending } = useFormStatus();
 
@@ -56,6 +66,11 @@ function PhoneFormControls({
           buttonClass="!h-11"
           containerClass="!w-full"
         />
+        {errorMessage && (
+          <p className="text-sm font-medium text-destructive">
+            {errorMessage}
+          </p>
+        )}
 
         <Button
           type="submit"
@@ -89,6 +104,7 @@ function PhoneFormControls({
 
 export function PhoneRequiredDialog({ needsPhone, action }: Props) {
   const [phone, setPhone] = useState("");
+  const [state, formAction] = useActionState(action, { ok: true });
 
   if (!needsPhone) return null;
 
@@ -124,8 +140,12 @@ export function PhoneRequiredDialog({ needsPhone, action }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <form action={action} className="mt-4 space-y-4">
-          <PhoneFormControls phone={phone} setPhone={setPhone} />
+        <form action={formAction} className="mt-4 space-y-4">
+          <PhoneFormControls
+            phone={phone}
+            setPhone={setPhone}
+            errorMessage={state.ok ? undefined : state.message}
+          />
         </form>
       </DialogContent>
     </Dialog>

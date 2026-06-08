@@ -268,9 +268,14 @@ async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdenti
 
   if (hasAudio) {
     const mediaInfo = await getMetaMediaInfo(message.audio.id);
-    if (mediaInfo) {
-      formData.set("MediaUrl0", mediaInfo.url);
-      formData.set("MediaContentType0", mediaInfo.mimeType);
+    const mediaUrl = mediaInfo?.url || (typeof message.audio?.url === "string" ? message.audio.url : "");
+    const mimeType =
+      mediaInfo?.mimeType ||
+      (typeof message.audio?.mime_type === "string" ? message.audio.mime_type : "audio/ogg");
+
+    if (mediaUrl) {
+      formData.set("MediaUrl0", mediaUrl);
+      formData.set("MediaContentType0", mimeType);
       formData.set("MediaProvider0", "meta");
     }
   }

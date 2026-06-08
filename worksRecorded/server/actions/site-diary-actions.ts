@@ -976,12 +976,14 @@ export async function saveSiteDiaryRecord({
   workerId,
   siteId,
   originalUserComment,
+  originalAudioUrl,
 }: {
   rows: any[];
   userId?: string;
   workerId?: string;
   siteId?: string;
   originalUserComment?: string;
+  originalAudioUrl?: string | null;
 }) {
   // 🪵 LOG: Initial inputs for context
 
@@ -1049,6 +1051,7 @@ export async function saveSiteDiaryRecord({
         Comments_Custom_2: row.Comments_Custom_2 || undefined,
 
         originalUserComment: formattedOriginalUserComment,
+        originalAudioUrl: originalAudioUrl || undefined,
 
         Units: row.Units || undefined,
         Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
@@ -1197,6 +1200,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       Comments_Custom_1: true,
       Comments_Custom_2: true,
       originalUserComment: true,
+      originalAudioUrl: true,
 
       // >>> START: NEW FIELDS for 'Created by' logic
       userId: true, // Keep userId for update payload
@@ -1263,6 +1267,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       Comments_Custom_1: rec.Comments_Custom_1 || "",
       Comments_Custom_2: rec.Comments_Custom_2 || "",
       originalUserComment: rec.originalUserComment || "",
+      originalAudioUrl: rec.originalAudioUrl || "",
 
       // >>> NEW FIELD
       createdBy: createdBy || "N/A",
@@ -1304,6 +1309,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       BISId: true,
       bisStatus: true,
       originalUserComment: true,
+      originalAudioUrl: true,
 
       // createdBy support
       User: {
@@ -1368,6 +1374,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       BISId: rec.BISId || null,
       bisStatus: rec.bisStatus || null,
       originalUserComment: rec.originalUserComment || "",
+      originalAudioUrl: rec.originalAudioUrl || "",
 
       createdBy: createdBy || "N/A",
     };
@@ -2305,6 +2312,7 @@ export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO:
       Comments_Custom_1: true,
       Comments_Custom_2: true,
       originalUserComment: true,
+      originalAudioUrl: true,
       Units: true,
       Amounts: true,
       WorkersInvolved: true,
@@ -2343,6 +2351,7 @@ export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO:
       Comments_Custom_1: source.Comments_Custom_1,
       Comments_Custom_2: source.Comments_Custom_2,
       originalUserComment: source.originalUserComment,
+      originalAudioUrl: source.originalAudioUrl,
       Units: source.Units,
       Amounts: source.Amounts,
       WorkersInvolved: source.WorkersInvolved,

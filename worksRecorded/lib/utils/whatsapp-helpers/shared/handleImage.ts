@@ -4,6 +4,7 @@ import { savePhoto } from "@/server/actions/site-diary-actions";
 import { getString, fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 
 export type UploadedImageContext = {
   publicUrl: string;
@@ -55,7 +56,12 @@ export async function handleImage(args: {
       return true;
     }
 
-    const publicUrl = first.data.ufsUrl ?? first.data.url;
+    const publicUrl = getUploadThingFileUrl(first.data);
+
+    if (!publicUrl) {
+      await sendMessage(to, "Sorry, failed to store the image.");
+      return true;
+    }
 
     if (onUploadedImage) {
       const wasHandled = await onUploadedImage({

@@ -1,0 +1,111 @@
+const uploadFilesMock = jest.fn();
+const transcriptionCreateMock = jest.fn();
+const sendMessageMock = jest.fn();
+
+jest.mock("uploadthing/server", () => ({
+  UTApi: jest.fn().mockImplementation(() => ({
+    uploadFiles: uploadFilesMock,
+  })),
+}));
+
+jest.mock("openai", () => {
+  return {
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => ({
+      audio: {
+        transcriptions: {
+          create: transcriptionCreateMock,
+        },
+      },
+    })),
+    toFile: jest.fn(async (buffer: Buffer, fileName: string) => ({
+      buffer,
+      name: fileName,
+    })),
+  };
+});
+
+jest.mock("@/lib/utils/whatsapp-helpers/shared/helpers", () => {
+  const actual = jest.requireActual("@/lib/utils/whatsapp-helpers/shared/helpers");
+  return {
+    ...actual,
+    fetchWhatsAppMediaAsBuffer: jest.fn(async () => Buffer.from("test audio bytes")),
+  };
+});
+
+jest.mock("@/lib/utils/whatsapp-helpers/shared/sender", () => ({
+  sendMessage: sendMessageMock,
+}));
+
+import { handleAudio } from "./handleAudio";
+import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+
+describe("handleAudio", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.OPENAI_API_KEY = "test-openai";
+    uploadFilesMock.mockResolvedValue({
+      data: { ufsUrl: "https://ut.test/voice.ogg" },
+    });
+    transcriptionCreateMock.mockResolvedValue({ text: "Test transcript" });
+  });
+
+  function audioFormData() {
+    const formData = new FormData();
+    formData.set("MediaUrl0", "https://meta.test/audio.ogg");
+    formData.set("MediaContentType0", "audio/ogg");
+    return formData;
+  }
+
+  it("uploads source audio, transcribes it, and passes sourceAudioUrl to the agent", async () => {
+    const agent = jest.fn().mockResolvedValue("AI response");
+
+    const handled = await handleAudio({
+      formData: audioFormData(),
+      user: {
+        id: "user-1",
+        lastSelectedSiteIdforWhatsapp: "site-1",
+      },
+      to: "whatsapp:+37120000001",
+      agent,
+    });
+
+    expect(handled).toBe(true);
+    expect(fetchWhatsAppMediaAsBuffer).toHaveBeenCalledWith("https://meta.test/audio.ogg");
+    expect(uploadFilesMock).toHaveBeenCalledTimes(1);
+    expect(transcriptionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: "gpt-4o-transcribe",
+      }),
+    );
+    expect(agent).toHaveBeenCalledWith(
+      "Test transcript",
+      "site-1",
+      "user-1",
+      "https://ut.test/voice.ogg",
+    );
+    expect(sendMessageMock).toHaveBeenCalledWith(
+      "whatsapp:+37120000001",
+      expect.stringContaining("Transcription:\nTest transcript"),
+    );
+  });
+
+  it("continues transcription when UploadThing upload fails and passes null audio URL", async () => {
+    uploadFilesMock.mockResolvedValue({ error: { message: "upload failed" } });
+    const agent = jest.fn().mockResolvedValue("AI response");
+
+    const handled = await handleAudio({
+      formData: audioFormData(),
+      user: {
+        id: "user-1",
+        lastSelectedSiteIdforWhatsapp: "site-1",
+      },
+      to: "whatsapp:+37120000001",
+      agent,
+    });
+
+    expect(handled).toBe(true);
+    expect(transcriptionCreateMock).toHaveBeenCalledTimes(1);
+    expect(agent).toHaveBeenCalledWith("Test transcript", "site-1", "user-1", null);
+  });
+});

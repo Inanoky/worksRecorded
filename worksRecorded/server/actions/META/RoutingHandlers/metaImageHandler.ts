@@ -9,6 +9,7 @@ import {
   metaMaterialImageClassifierModel,
   metaMaterialImageClassifierTemperature,
 } from "@/server/ai-flows/ai-models-settings";
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 
 
 //-------------------------------------Utilities--------------------------------
@@ -94,7 +95,11 @@ export async function downloadMetaMedia(mediaId: string) {
 
     const first = Array.isArray(uploaded) ? uploaded[0] : uploaded; //This I don't know what it is
 
-    const publicUrl = first.data.ufsUrl ?? first.data.url; //Get Upload URL
+    const publicUrl = getUploadThingFileUrl(first.data); //Get Upload URL
+
+    if (!publicUrl) {
+      throw new Error("UploadThing upload completed without a file URL");
+    }
 
 
     console.log(publicUrl)

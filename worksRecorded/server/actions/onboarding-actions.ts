@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/utils/db";
+import { getPhoneDigits, normalizeInternationalPhoneForWhatsApp } from "@/lib/utils/phone/international-phone";
 import { requireUser } from "@/lib/utils/requireUser";
 import { updateOrganizationLanguage } from "@/server/actions/shared-actions";
 
@@ -58,10 +59,16 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded(args: { siteId: st
     return { ok: false, skipped: true, reason: "missing-project-name" };
   }
 
-  const to = dbUser?.phone?.replace(/\D/g, "") ?? "";
-  if (!to) {
+  const phoneDigits = getPhoneDigits(dbUser?.phone);
+  if (!phoneDigits) {
     console.log("[onboarding-whatsapp] skip: missing-phone", { userId: user.id });
     return { ok: false, skipped: true, reason: "missing-phone" };
+  }
+
+  const to = normalizeInternationalPhoneForWhatsApp(dbUser?.phone);
+  if (!to) {
+    console.log("[onboarding-whatsapp] skip: invalid-phone", { userId: user.id, phoneDigits });
+    return { ok: false, skipped: true, reason: "invalid-phone" };
   }
 
   const token = process.env.META_ACCESS_TOKEN;

@@ -8,6 +8,7 @@ import {SubmitButton} from "@/components/dashboard/SubmitButtons";
 import {toast} from "sonner";
 import {UpdateImage} from "@/server/actions/shared-actions";
 import { getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 
 interface iAppProps {
   siteId: string;
@@ -38,7 +39,7 @@ export function UploadImageForm({ siteId, organizationLanguage }: iAppProps) {
           <UploadDropzone
             endpoint="imageUploader"
             onClientUploadComplete={(res) => {
-              const url = res?.[0]?.url;
+              const url = getUploadThingFileUrl(res?.[0]);
               if (url) {
                 setImageUrl(url);
                 toast.success(toastMessages.imageUploaded);

@@ -59,6 +59,7 @@ import MaterialConfigSelect, {
 import { toast } from "sonner"
 import { getToastMessages, getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 import { UploadButton } from "@/lib/utils/UploadthingsComponents"
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
 const MAX_MEASUREMENT_UNIT_LENGTH = 20
@@ -1788,7 +1789,7 @@ export default function MaterialsTableClient({
                         <div className="text-xs font-medium text-muted-foreground">Pielikums</div>
                         <div className="flex flex-wrap gap-2">
                           <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
-                            <UploadButton endpoint="imageUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const url=res?.[0]?.url; if(url){setModalSourcePhoto(url); setIncludeDeliveryNotePhoto(true)}}} />
+                            <UploadButton endpoint="imageUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const url=getUploadThingFileUrl(res?.[0]); if(url){setModalSourcePhoto(url); setIncludeDeliveryNotePhoto(true)}}} />
                           </div>
                           {modalSourcePhoto ? ([{ id: "source-photo", name: "Pielikums", mimeType: "image/*", base64Data: "", kind: "sourcePhoto" as const }]).map((file) => (
                             <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
@@ -1820,7 +1821,7 @@ export default function MaterialsTableClient({
                         <div className="text-xs font-medium text-muted-foreground">{t.declarationDocument}</div>
                         <div className="flex flex-wrap gap-2">
                           <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
-                            <UploadButton endpoint="materialAttachmentUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; if(file?.url){setEditDraft({...editDraft,declarationAttachment:[...editDraft.declarationAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:getAttachmentMimeType(file),fileUrl:file.url}]})}}} />
+                            <UploadButton endpoint="materialAttachmentUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; const fileUrl=getUploadThingFileUrl(file); if(file&&fileUrl){setEditDraft({...editDraft,declarationAttachment:[...editDraft.declarationAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:getAttachmentMimeType(file),fileUrl}]})}}} />
                           </div>
                           {editDraft.declarationAttachment.map((file) => ({ ...file, kind: "declaration" as const })).map((file) => (
                             <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">
@@ -1858,7 +1859,7 @@ export default function MaterialsTableClient({
                         <div className="text-xs font-medium text-muted-foreground">{t.agreement}</div>
                         <div className="flex flex-wrap gap-2">
                           <div className="h-[135px] w-[135px] overflow-hidden rounded-md border border-dashed border-muted bg-muted/40 p-2">
-                            <UploadButton endpoint="materialAttachmentUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; if(file?.url){setEditDraft({...editDraft,agreementAttachment:[...editDraft.agreementAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:getAttachmentMimeType(file),fileUrl:file.url}]})}}} />
+                            <UploadButton endpoint="materialAttachmentUploader" appearance={{button:"h-full w-full text-xs"}} content={{button:"Augšupielādēt"}} onClientUploadComplete={(res)=>{const file=res?.[0]; const fileUrl=getUploadThingFileUrl(file); if(file&&fileUrl){setEditDraft({...editDraft,agreementAttachment:[...editDraft.agreementAttachment,{id:crypto.randomUUID(),name:file.name,mimeType:getAttachmentMimeType(file),fileUrl}]})}}} />
                           </div>
                           {editDraft.agreementAttachment.map((file) => ({ ...file, kind: "agreement" as const })).map((file) => (
                             <div key={`${file.kind}-${file.id}`} className="group relative h-[135px] w-[135px] overflow-hidden rounded-md border border-muted bg-background">

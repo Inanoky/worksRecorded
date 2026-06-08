@@ -453,6 +453,7 @@ type ToastMessages = {
   phoneTooShort: string;
   phoneTooLong: string;
   phoneAlreadyUsed: string;
+  internationalPhoneWithCountryCodeRequired: string;
   failedAddWorker: string;
   languageUpdated: string;
   organizationLanguageUpdated: string;
@@ -1473,6 +1474,8 @@ const TOAST_MESSAGES: Record<OrganizationLanguage, ToastMessages> = {
     phoneTooShort: "Phone number is too short",
     phoneTooLong: "Phone number is too long",
     phoneAlreadyUsed: "Phone number already used",
+    internationalPhoneWithCountryCodeRequired:
+      "Enter the full phone number with country code, for example +371 24885690.",
     failedAddWorker: "Failed to add worker",
     languageUpdated: "Language updated",
     organizationLanguageUpdated: "Organization language updated",
@@ -1568,6 +1571,8 @@ const TOAST_MESSAGES: Record<OrganizationLanguage, ToastMessages> = {
     phoneTooShort: "Tālruņa numurs ir pārāk īss",
     phoneTooLong: "Tālruņa numurs ir pārāk garš",
     phoneAlreadyUsed: "Tālruņa numurs jau tiek izmantots",
+    internationalPhoneWithCountryCodeRequired:
+      "Ievadiet pilnu tālruņa numuru ar valsts kodu, piemēram, +371 24885690.",
     failedAddWorker: "Neizdevās pievienot darbinieku",
     languageUpdated: "Valoda nomainīta",
     organizationLanguageUpdated: "Organizācijas valoda nomainīta",

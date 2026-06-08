@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
+import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
 import {
   copySiteDiaryRecordToDate,
   deleteSiteDiaryRecord,
@@ -157,6 +158,7 @@ type DiaryRow = {
   TimeInvolved?: number | string | null;
   Comments?: string | null;
   originalUserComment?: string | null;
+  originalAudioUrl?: string | null;
   Photos?: string[] | null;
 
   BISId?: string | null;
@@ -393,6 +395,7 @@ type GalleryAttachmentOption = {
   date?: Date | null;
   comment?: string | null;
 };
+
 type BisResponsiblePersonOption = {
   id: string;
   personId: number | null;
@@ -768,6 +771,7 @@ export default function SiteDiaryCalendar({
           return rows.map((row) => ({
             createdAt: row.createdAt ?? undefined,
             originalUserComment: row.originalUserComment ?? "",
+            originalAudioUrl: row.originalAudioUrl ?? "",
             ...Object.fromEntries(
               renderableFields.map((field) => [field, row[field] ?? ""]),
             ),
@@ -964,7 +968,7 @@ export default function SiteDiaryCalendar({
   }, [rows]);
 
   const sourcePopoverClassName =
-    "w-[calc(100vw-1.5rem)] max-w-lg max-h-[70vh] overflow-y-auto whitespace-pre-wrap break-words text-xs leading-relaxed sm:text-sm";
+    "w-[calc(100vw-1.5rem)] max-w-lg max-h-[70vh] overflow-y-auto break-words text-xs leading-relaxed sm:text-sm";
 
   const toggleRecordSelection = (recordId: string, checked: boolean) => {
     setSelectedRecordIds((prev) => {
@@ -2483,7 +2487,7 @@ export default function SiteDiaryCalendar({
                                 </div>
                               )}
 
-                              {r.originalUserComment ? (
+                              {r.originalUserComment || r.originalAudioUrl ? (
                                 <div className="mt-2">
                                   <Popover>
                                     <PopoverTrigger asChild>
@@ -2495,7 +2499,10 @@ export default function SiteDiaryCalendar({
                                       </button>
                                     </PopoverTrigger>
                                     <PopoverContent className={sourcePopoverClassName}>
-                                      {r.originalUserComment}
+                                      <OriginalSourceContent
+                                        originalUserComment={r.originalUserComment}
+                                        originalAudioUrl={r.originalAudioUrl}
+                                      />
                                     </PopoverContent>
                                   </Popover>
                                 </div>
@@ -2774,6 +2781,7 @@ export default function SiteDiaryCalendar({
                             const formattedGroupRows = group.rows.map((r) => ({
                               id: r.id ?? undefined,
                               originalUserComment: r.originalUserComment ?? "",
+                              originalAudioUrl: r.originalAudioUrl ?? "",
                               ...Object.fromEntries(
                                 tableHeads.map((f) => [
                                   f,
@@ -3097,7 +3105,7 @@ export default function SiteDiaryCalendar({
                                         className="align-top px-3 py-3 text-center"
                                         style={{ width: 60 }}
                                       >
-                                        {row.originalUserComment ? (
+                                        {row.originalUserComment || row.originalAudioUrl ? (
                                           <Popover>
                                             <PopoverTrigger asChild>
                                               <button
@@ -3108,7 +3116,10 @@ export default function SiteDiaryCalendar({
                                               </button>
                                             </PopoverTrigger>
                                             <PopoverContent className={sourcePopoverClassName}>
-                                              {row.originalUserComment}
+                                              <OriginalSourceContent
+                                                originalUserComment={row.originalUserComment}
+                                                originalAudioUrl={row.originalAudioUrl}
+                                              />
                                             </PopoverContent>
                                           </Popover>
                                         ) : (
