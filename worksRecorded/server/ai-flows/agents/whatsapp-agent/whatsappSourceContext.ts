@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "async_hooks";
 
 type WhatsappSourceContext = {
     originalAudioUrl?: string | null;
+    originalAudioRecordId?: string | null;
 };
 
 const whatsappSourceContext = new AsyncLocalStorage<WhatsappSourceContext>();

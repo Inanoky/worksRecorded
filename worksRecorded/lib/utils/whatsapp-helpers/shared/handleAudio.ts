@@ -5,6 +5,8 @@ import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
 import { getUploadThingUfsUrl } from "@/lib/utils/uploadthing-file-url";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import { prisma } from "@/lib/utils/db";
+import { getOrganizationIdByUserId, getOrganizationIdByWorkerId } from "@/server/actions/shared-actions";
 
 const WHATSAPP_SAFE_LIMIT = 1400;
 const utapi = new UTApi();
@@ -58,7 +60,11 @@ export async function uploadSourceAudio(buf: Buffer, contentType: string) {
   return publicUrl;
 }
 
-export async function storeWhatsAppAudioFromUrl(mediaUrl: string, contentType: string) {
+export async function storeWhatsAppAudioFromUrl(
+  mediaUrl: string, 
+  contentType: string,
+  meta?: { userId?: string | null; workerId?: string | null; siteId?: string | null }
+) {
   console.log("[originalAudioUrl][audioStorage] downloading source audio", {
     mediaUrl: describeUrlForLog(mediaUrl),
     contentType,
@@ -76,9 +82,40 @@ export async function storeWhatsAppAudioFromUrl(mediaUrl: string, contentType: s
     byteLength: buffer.length,
   });
 
+  let skeletonRecordId: string | null = null;
+  if (originalAudioUrl && meta && meta.siteId && (meta.userId || meta.workerId)) {
+    try {
+      const orgId = meta.workerId
+        ? await getOrganizationIdByWorkerId(meta.workerId)
+        : meta.userId
+          ? await getOrganizationIdByUserId(meta.userId)
+          : null;
+
+      const record = await prisma.sitediaryrecords.create({
+        data: {
+          userId: meta.userId || undefined,
+          workerId: meta.workerId || undefined,
+          siteId: meta.siteId,
+          organizationId: orgId || undefined,
+          originalAudioUrl,
+          Date: new Date(),
+          Works: "Processing voice message...",
+        },
+      });
+      skeletonRecordId = record.id;
+      console.log("[originalAudioUrl][audioStorage] skeleton record created", {
+        recordId: skeletonRecordId,
+        siteId: meta.siteId,
+      });
+    } catch (dbErr) {
+      console.error("❌ [audioStorage] failed to create skeleton record", dbErr);
+    }
+  }
+
   return {
     buffer,
     originalAudioUrl,
+    skeletonRecordId,
   };
 }
 
@@ -98,22 +135,6 @@ async function sendWithLengthCheck(
     "Your message is a bit too long to transcribe, but it is saved and stored online."
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /**
  * Try to handle a single audio clip (MediaUrl0).
@@ -138,7 +159,10 @@ export async function handleAudio(args: {
   if (!ct0.startsWith("audio")) return false;
 
   try {
-    const { buffer: buf, originalAudioUrl: sourceAudioUrl } = await storeWhatsAppAudioFromUrl(mediaUrl0!, ct0);
+    const siteId = user?.lastSelectedSiteIdforWhatsapp;
+    const { buffer: buf, originalAudioUrl: sourceAudioUrl, skeletonRecordId } = 
+      await storeWhatsAppAudioFromUrl(mediaUrl0!, ct0, { userId: user?.id, siteId });
+
     const ext = inferAudioExtension(ct0);
     const file = await toFile(buf, `voice-message.${ext}`);
 
@@ -149,24 +173,20 @@ export async function handleAudio(args: {
       transcriptLength: transcript.length,
       sourceAudioUrl: describeUrlForLog(sourceAudioUrl),
       userId: user?.id,
-      siteId: user?.lastSelectedSiteIdforWhatsapp,
+      siteId,
     });
 
     const aiMessage = await runWithWhatsappSourceContext(
-      { originalAudioUrl: sourceAudioUrl },
-      () => agent(transcript, user.lastSelectedSiteIdforWhatsapp, user.id),
+      { originalAudioUrl: sourceAudioUrl, originalAudioRecordId: skeletonRecordId },
+      () => agent(transcript, siteId, user.id),
     );
     console.log("[originalAudioUrl][handleAudio] agent returned", {
       sourceAudioUrl: describeUrlForLog(sourceAudioUrl),
       aiMessageLength: typeof aiMessage === "string" ? aiMessage.length : null,
     });
 
-
-
     const out = `Transcription:\n${transcript}\n\nAI message:\n${aiMessage}`;
     await sendWithLengthCheck(to, out);
-
-
 
   } catch (err) {
     console.error("❌ [handleAudio] error", err);

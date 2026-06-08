@@ -1,9 +1,11 @@
 const createManyMock = jest.fn();
+const updateMock = jest.fn();
 
 jest.mock("@/lib/utils/db", () => ({
   prisma: {
     sitediaryrecords: {
       createMany: createManyMock,
+      update: updateMock,
     },
   },
 }));
@@ -123,6 +125,51 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
       data: [
         expect.objectContaining({
           originalAudioUrl: undefined,
+        }),
+      ],
+    });
+  });
+
+  it("updates skeleton record instead of creating new when originalAudioRecordId is in context", async () => {
+    updateMock.mockResolvedValue({ id: "pending-1" });
+
+    const result = await runWithWhatsappSourceContext(
+      { originalAudioRecordId: "pending-1" },
+      () =>
+        saveSiteDiaryRecord({
+          rows: [
+            {
+              Location: "Site A",
+              Works: "Concrete pour",
+            },
+            {
+              Location: "Site B",
+              Works: "Painting",
+            },
+          ],
+          userId: "user-1",
+          siteId: "site-1",
+          originalUserComment: "Work log",
+        }),
+    );
+
+    expect(result).toEqual({ ok: true, count: 2 });
+    
+    // First row should be updated
+    expect(updateMock).toHaveBeenCalledWith({
+      where: { id: "pending-1" },
+      data: expect.objectContaining({
+        Location: "Site A",
+        Works: "Concrete pour",
+      }),
+    });
+
+    // Second row should be created
+    expect(createManyMock).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          Location: "Site B",
+          Works: "Painting",
         }),
       ],
     });

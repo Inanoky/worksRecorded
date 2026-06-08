@@ -87,6 +87,7 @@ describe("handleWorkerMessage audio", () => {
     expect(storeWhatsAppAudioFromUrlMock).toHaveBeenCalledWith(
       "https://meta.test/worker-audio.ogg",
       "audio/ogg",
+      { workerId: "worker-1", siteId: "site-1" }
     );
     expect(transcriptionCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({

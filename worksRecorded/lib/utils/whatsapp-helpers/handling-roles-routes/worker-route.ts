@@ -77,7 +77,11 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
     if (MediaUrl0 && MediaContentType0.startsWith("audio")) {
       try {
         console.log("🎤 Audio message detected");
-        const { buffer: buf, originalAudioUrl } = await storeWhatsAppAudioFromUrl(MediaUrl0, MediaContentType0);
+        const { buffer: buf, originalAudioUrl, skeletonRecordId } = await storeWhatsAppAudioFromUrl(
+          MediaUrl0, 
+          MediaContentType0, 
+          { workerId: worker.id, siteId: worker.siteId }
+        );
         sourceAudioUrl = originalAudioUrl;
         const ext = inferAudioExtension(MediaContentType0);
         const file = await toFile(buf, `voice-message.${ext}`);
@@ -90,6 +94,15 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
 
         messageText = transcriptResult.text || "(No text recognized)";
         console.log("📝 Transcription result:", messageText);
+
+        // Update the routing context with the skeleton record ID
+        const message = await runWithWhatsappSourceContext(
+          { originalAudioUrl: sourceAudioUrl, originalAudioRecordId: skeletonRecordId },
+          () => talkToClockInAgent(messageText, worker.id),
+        );
+        await sendMessage(from, message);
+        return; // Important: return here because we've handled the audio message
+
       } catch (err) {
         console.error("Failed to transcribe audio message:", err);
         await sendMessage(
@@ -99,34 +112,5 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
         return;
       }
     }
-  }
-
-  // Log incoming message details
-  console.log("[handleWorkerMessage] Received message");
-  console.log("  Phone:", phone);
-  console.log("  WhatsApp From:", from);
-  console.log("  Body:", body);
-  console.log("  Used Text:", messageText);
-
-  // The second `worker` lookup and check block has been REMOVED here.
-  try {
-    // Worker found, send to AI agent (only if messageText is not empty or non-transcribed audio)
-    // NOTE: This assumes that if an image was handled, the function returned earlier.
-    if (messageText.length === 0) {
-        // Handles cases where there was no message body and no transcribable audio
-        return;
-    }
-
-    console.log("[handleWorkerMessage] Sending to talkToClockInAgent...");
-    // We use the worker object retrieved at the start of the function.
-    const message = await runWithWhatsappSourceContext(
-      { originalAudioUrl: sourceAudioUrl },
-      () => talkToClockInAgent(messageText, worker.id),
-    );
-    await sendMessage(from, message);
-
-  } catch (error) {
-    console.error("Worker workflow error:", error);
-    await sendMessage(from, "WorkRecorded: Sorry, there was a temporary issue. Please send your message one more time.");
   }
 }

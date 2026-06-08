@@ -1114,14 +1114,32 @@ export async function saveSiteDiaryRecord({
   }
 
   try {
-    await prisma.sitediaryrecords.createMany({ data: toInsert });
-    console.log("[originalAudioUrl][saveSiteDiaryRecord] createMany completed", {
-      insertedCount: toInsert.length,
-      rowsWithOriginalAudioUrl: toInsert.filter((row) => Boolean(row.originalAudioUrl)).length,
+    const pendingRecordId = getWhatsappSourceContext().originalAudioRecordId;
+    let finalCount = 0;
+
+    if (pendingRecordId && toInsert.length > 0) {
+      console.log("[originalAudioUrl][saveSiteDiaryRecord] updating skeleton record", { pendingRecordId });
+      const firstRow = toInsert.shift()!;
+      await prisma.sitediaryrecords.update({
+        where: { id: pendingRecordId },
+        data: firstRow,
+      });
+      finalCount++;
+    }
+
+    if (toInsert.length > 0) {
+      await prisma.sitediaryrecords.createMany({ data: toInsert });
+      finalCount += toInsert.length;
+    }
+
+    console.log("[originalAudioUrl][saveSiteDiaryRecord] completion", {
+      finalCount,
+      hasPendingUpdate: Boolean(pendingRecordId),
     });
 
-    return { ok: true, count: toInsert.length }; //Multitenant
+    return { ok: true, count: finalCount }; //Multitenant
   } catch (err: any) {
+    console.error("❌ [saveSiteDiaryRecord] error", err);
     return { ok: false, message: err.message };
   }
 }

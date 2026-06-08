@@ -21,6 +21,7 @@ export function getUploadThingUfsUrl(file: UploadThingUrlLike | null | undefined
 
 /** URL safe to persist as originalAudioUrl (UploadThing CDN only). */
 export function resolvePersistableAudioUrl(url: string | null | undefined): string | null {
-  if (!url) return null
-  return url
+  if (!url) return null;
+  if (url.includes("lookaside.fbsbx.com")) return null;
+  return url;
 }
