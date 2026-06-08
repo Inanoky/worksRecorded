@@ -3687,7 +3687,7 @@ export default function SiteDiaryCalendar({
           <DialogContent className="w-[95vw] max-w-[95vw] sm:w-[90vw] sm:max-w-[90vw] lg:max-w-[1200px] max-h-[90vh]">
             <DialogHeader>
               <DialogTitle className="text-base sm:text-lg">
-                Photos –{" "}
+                Photos & audio –{" "}
                 {photosDate
                   ? photosDate.toLocaleDateString(dateLocale, {
                     year: "numeric",

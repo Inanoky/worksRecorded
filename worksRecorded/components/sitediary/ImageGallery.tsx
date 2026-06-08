@@ -6,7 +6,7 @@ import { getPhotosByDate, deletePhotoById } from "@/server/actions/site-diary-ac
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils/utils";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Mic2 } from "lucide-react";
 import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type ImageGalleryProps = {
@@ -27,6 +27,18 @@ type PhotoRow = {
   userId: string | null;
 };
 
+type AudioRow = {
+  id: string;
+  Date: string | Date | null;
+  Location: string | null;
+  Works: string | null;
+  originalUserComment: string | null;
+  originalAudioUrl: string | null;
+  siteId: string | null;
+  userId: string | null;
+  workerId: string | null;
+};
+
 function toDayRangeISO(date: Date) {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
@@ -41,6 +53,7 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
   React.useEffect(() => setMounted(true), []);
 
   const [photos, setPhotos] = React.useState<PhotoRow[] | null>(null);
+  const [audioRecords, setAudioRecords] = React.useState<AudioRow[] | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState<string | null>(null);
@@ -120,23 +133,26 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
     async function run() {
       if (!date) {
         setPhotos([]);
+        setAudioRecords([]);
         return;
       }
       setLoading(true);
       setError(null);
       try {
         const { startISO, endISO } = toDayRangeISO(date);
-        const rows = await getPhotosByDate({
+        const result = await getPhotosByDate({
           siteId: siteId ?? null,
           startISO,
           endISO,
         });
         if (!alive) return;
-        setPhotos(rows || []);
+        setPhotos(result.photos || []);
+        setAudioRecords(result.audioRecords || []);
       } catch (e: unknown) {
         if (!alive) return;
         setError(e instanceof Error ? e.message : t.failedLoadPhotos);
         setPhotos([]);
+        setAudioRecords([]);
       } finally {
         if (alive) setLoading(false);
       }
@@ -157,6 +173,16 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
     } finally {
       setDeleting(null);
     }
+  }
+
+  function formatAudioTime(value: string | Date | null) {
+    if (!value) return null;
+    const parsed = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed.toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   // --- Photos-like "expand to cover" behavior ------------------------------
@@ -381,8 +407,8 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
         {loading
           ? t.loadingPhotos
           : error
-          ? error
-          : `${photos?.length ?? 0} ${t.photosCount}`}
+            ? error
+            : `${photos?.length ?? 0} ${t.photosCount} · ${audioRecords?.length ?? 0} ${t.audioCount}`}
       </div>
 
       <div className="relative h-full">
@@ -392,69 +418,114 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
               <Skeleton key={i} className="aspect-square" />
             ))}
           </div>
-        ) : (photos?.length ?? 0) === 0 ? (
+        ) : (photos?.length ?? 0) === 0 && (audioRecords?.length ?? 0) === 0 ? (
           <div className="text-sm text-muted-foreground p-2">
-            {t.noPhotosForDate}
+            {t.noMediaForDate}
           </div>
         ) : (
           <div data-tour="dialog-gallery">
             <ScrollArea className="h-[600px]">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 p-2">
-                {photos!.map((p, idx) => {
-                  const src = p.URL ?? p.fileUrl ?? "";
-                  const isDeleting = deleting === p.id;
+              <div className="space-y-4 p-2">
+                {(photos?.length ?? 0) > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
+                    {photos!.map((p, idx) => {
+                      const src = p.URL ?? p.fileUrl ?? "";
+                      const isDeleting = deleting === p.id;
 
-                  return (
-                    <div
-                      key={p.id}
-                      className="group relative aspect-square overflow-hidden rounded-md border border-muted cursor-pointer"
-                      title={p.Comment ?? undefined}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => src && openLightboxAt(idx)}
-                      onKeyDown={(e) => {
-                        if ((e.key === "Enter" || e.key === " ") && src)
-                          openLightboxAt(idx);
-                      }}
-                    >
-                      <img
-                        src={src}
-                        alt={p.Comment ?? t.photo}
-                        className={cn(
-                          "h-full w-full object-cover transition-transform duration-200 group-hover:scale-105",
-                          isDeleting && "opacity-50",
-                        )}
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                      />
+                      return (
+                        <div
+                          key={p.id}
+                          className="group relative aspect-square overflow-hidden rounded-md border border-muted cursor-pointer"
+                          title={p.Comment ?? undefined}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => src && openLightboxAt(idx)}
+                          onKeyDown={(e) => {
+                            if ((e.key === "Enter" || e.key === " ") && src)
+                              openLightboxAt(idx);
+                          }}
+                        >
+                          <img
+                            src={src}
+                            alt={p.Comment ?? t.photo}
+                            className={cn(
+                              "h-full w-full object-cover transition-transform duration-200 group-hover:scale-105",
+                              isDeleting && "opacity-50",
+                            )}
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                          />
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleDelete(p.id);
-                        }}
-                        className={cn(
-                          "hidden md:block absolute right-1 top-1 rounded-full p-1",
-                          "bg-black/60 text-white",
-                          "opacity-0 group-hover:opacity-100 transition-opacity",
-                          "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus:ring-ring",
-                        )}
-                        aria-label={t.deletePhoto}
-                        title={t.deletePhoto}
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDelete(p.id);
+                            }}
+                            className={cn(
+                              "hidden md:block absolute right-1 top-1 rounded-full p-1",
+                              "bg-black/60 text-white",
+                              "opacity-0 group-hover:opacity-100 transition-opacity",
+                              "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus:ring-ring",
+                            )}
+                            aria-label={t.deletePhoto}
+                            title={t.deletePhoto}
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
 
-                      {p.Comment ? (
-                        <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-2">
-                          {p.Comment}
+                          {p.Comment ? (
+                            <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-2">
+                              {p.Comment}
+                            </div>
+                          ) : null}
                         </div>
-                      ) : null}
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                {(audioRecords?.length ?? 0) > 0 ? (
+                  <section className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Mic2 className="h-4 w-4" />
+                      <span>{t.voiceMessages}</span>
                     </div>
-                  );
-                })}
+                    <div className="grid gap-2">
+                      {audioRecords!.map((record) => {
+                        const time = formatAudioTime(record.Date);
+                        const title = [time, record.Location, record.Works]
+                          .filter(Boolean)
+                          .join(" · ");
+
+                        return (
+                          <div
+                            key={record.id}
+                            className="rounded-md border border-muted bg-muted/20 p-3"
+                          >
+                            {title ? (
+                              <div className="mb-2 text-xs font-medium text-muted-foreground">
+                                {title}
+                              </div>
+                            ) : null}
+                            {record.originalUserComment ? (
+                              <p className="mb-2 whitespace-pre-wrap text-sm">
+                                {record.originalUserComment}
+                              </p>
+                            ) : null}
+                            <audio
+                              controls
+                              preload="metadata"
+                              src={record.originalAudioUrl ?? undefined}
+                              className="w-full"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : null}
               </div>
             </ScrollArea>
           </div>
@@ -464,105 +535,105 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
       {/* Lightbox via portal – full-screen, independent of parent dialog */}
       {mounted && isLightboxOpen && imageList.length > 0
         ? createPortal(
-            <div
-              className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
-              onClick={closeLightbox}
-              aria-modal="true"
-              role="dialog"
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80"
+            onClick={closeLightbox}
+            aria-modal="true"
+            role="dialog"
+          >
+            {/* Close */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                closeLightbox();
+              }}
+              className="absolute right-4 top-4 rounded-full p-2 bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label={t.close}
+              title={t.close}
             >
-              {/* Close */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  closeLightbox();
-                }}
-                className="absolute right-4 top-4 rounded-full p-2 bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label={t.close}
-                title={t.close}
-              >
-                <X className="h-6 w-6" />
-              </button>
+              <X className="h-6 w-6" />
+            </button>
 
-              {/* Prev */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goPrev();
-                }}
-                className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label={t.previous}
-                title={t.previous}
-              >
-                <ChevronLeft className="h-7 w-7" />
-              </button>
+            {/* Prev */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                goPrev();
+              }}
+              className="absolute left-4 md:left-6 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label={t.previous}
+              title={t.previous}
+            >
+              <ChevronLeft className="h-7 w-7" />
+            </button>
 
-              {/* Next */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goNext();
-                }}
-                className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
-                aria-label={t.next}
-                title={t.next}
-              >
-                <ChevronRight className="h-7 w-7" />
-              </button>
+            {/* Next */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                goNext();
+              }}
+              className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 rounded-full p-2 bg-black/60 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
+              aria-label={t.next}
+              title={t.next}
+            >
+              <ChevronRight className="h-7 w-7" />
+            </button>
 
-              {/* Viewer */}
+            {/* Viewer */}
+            <div
+              ref={viewerRef}
+              className="flex h-[92vh] w-[92vw] max-w-[1400px] flex-col p-2"
+              onClick={(e) => e.stopPropagation()}
+              onWheel={handleWheel}
+              onDoubleClick={handleDoubleClick}
+              onMouseDown={(e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                startPan(e.clientX, e.clientY);
+              }}
+              onMouseMove={(e) => movePan(e.clientX, e.clientY)}
+              onMouseUp={endPan}
+              onMouseLeave={endPan}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
               <div
-                ref={viewerRef}
-                className="flex h-[92vh] w-[92vw] max-w-[1400px] flex-col p-2"
-                onClick={(e) => e.stopPropagation()}
-                onWheel={handleWheel}
-                onDoubleClick={handleDoubleClick}
-                onMouseDown={(e) => {
-                  if (e.button !== 0) return;
-                  e.preventDefault();
-                  startPan(e.clientX, e.clientY);
-                }}
-                onMouseMove={(e) => movePan(e.clientX, e.clientY)}
-                onMouseUp={endPan}
-                onMouseLeave={endPan}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
+                className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md"
               >
-                <div
-                  className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md"
-                >
-                  <img
-                    ref={imgRef}
-                    src={imageList[currentIndex]?.src}
-                    alt={imageList[currentIndex]?.caption || t.photo}
-                    onLoad={handleImgLoaded}
-                    className="select-none"
-                    draggable={false}
-                    style={{
-                      transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
-                      transformOrigin: "center center",
-                      maxHeight: "100%",
-                      maxWidth: "100%",
-                      objectFit: "contain",
-                      transition: isPanningRef.current
-                        ? "none"
-                        : "transform 120ms ease-out",
-                    }}
-                  />
-                </div>
-
-                {imageList[currentIndex]?.caption ? (
-                  <div className="mx-auto mt-3 max-h-24 max-w-4xl overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-black/40 px-3 py-2 text-center text-sm leading-snug text-white/90">
-                    {imageList[currentIndex].caption}
-                  </div>
-                ) : null}
-                <div className="mt-1 text-center text-xs text-white/70">
-                  {currentIndex + 1} / {imageList.length}
-                </div>
+                <img
+                  ref={imgRef}
+                  src={imageList[currentIndex]?.src}
+                  alt={imageList[currentIndex]?.caption || t.photo}
+                  onLoad={handleImgLoaded}
+                  className="select-none"
+                  draggable={false}
+                  style={{
+                    transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
+                    transformOrigin: "center center",
+                    maxHeight: "100%",
+                    maxWidth: "100%",
+                    objectFit: "contain",
+                    transition: isPanningRef.current
+                      ? "none"
+                      : "transform 120ms ease-out",
+                  }}
+                />
               </div>
-            </div>,
-            document.body,
-          )
+
+              {imageList[currentIndex]?.caption ? (
+                <div className="mx-auto mt-3 max-h-24 max-w-4xl overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-black/40 px-3 py-2 text-center text-sm leading-snug text-white/90">
+                  {imageList[currentIndex].caption}
+                </div>
+              ) : null}
+              <div className="mt-1 text-center text-xs text-white/70">
+                {currentIndex + 1} / {imageList.length}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
         : null}
     </div>
   );

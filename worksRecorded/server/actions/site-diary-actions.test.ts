@@ -1,11 +1,17 @@
 const createManyMock = jest.fn();
 const updateMock = jest.fn();
+const photosFindManyMock = jest.fn();
+const siteDiaryFindManyMock = jest.fn();
 
 jest.mock("@/lib/utils/db", () => ({
   prisma: {
+    photos: {
+      findMany: photosFindManyMock,
+    },
     sitediaryrecords: {
       createMany: createManyMock,
       update: updateMock,
+      findMany: siteDiaryFindManyMock,
     },
   },
 }));
@@ -34,13 +40,15 @@ jest.mock("./whatsapp-actions", () => ({
   getWorkerFullNameById: jest.fn(async () => "Test Worker"),
 }));
 
-import { saveSiteDiaryRecord } from "./site-diary-actions";
+import { getPhotosByDate, saveSiteDiaryRecord } from "./site-diary-actions";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 describe("saveSiteDiaryRecord originalAudioUrl", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     createManyMock.mockResolvedValue({ count: 1 });
+    photosFindManyMock.mockResolvedValue([]);
+    siteDiaryFindManyMock.mockResolvedValue([]);
   });
 
   it("stores originalAudioUrl from WhatsApp source context in sitediaryrecords createMany data", async () => {
@@ -173,5 +181,51 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         }),
       ],
     });
+  });
+
+  it("returns photos and same-day audio diary records for the media dialog", async () => {
+    const photoRows = [
+      {
+        id: "photo-1",
+        Date: new Date("2026-06-08T10:00:00.000Z"),
+        URL: "https://ut.test.ufs.sh/f/photo.jpg",
+        fileUrl: "https://ut.test.ufs.sh/f/photo.jpg",
+        Comment: "Wall photo",
+        Location: "Site A",
+        siteId: "site-1",
+        userId: "user-1",
+      },
+    ];
+    const audioRows = [
+      {
+        id: "record-1",
+        Date: new Date("2026-06-08T11:00:00.000Z"),
+        Location: "Site A",
+        Works: "Concrete pour",
+        originalUserComment: "Test Manager : poured concrete",
+        originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
+        siteId: "site-1",
+        userId: "user-1",
+        workerId: null,
+      },
+    ];
+    photosFindManyMock.mockResolvedValue(photoRows);
+    siteDiaryFindManyMock.mockResolvedValue(audioRows);
+
+    const result = await getPhotosByDate({
+      siteId: "site-1",
+      startISO: "2026-06-08T00:00:00.000Z",
+      endISO: "2026-06-09T00:00:00.000Z",
+    });
+
+    expect(result).toEqual({ photos: photoRows, audioRecords: audioRows });
+    expect(siteDiaryFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          siteId: "site-1",
+          AND: [{ originalAudioUrl: { not: null } }, { originalAudioUrl: { not: "" } }],
+        }),
+      }),
+    );
   });
 });

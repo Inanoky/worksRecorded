@@ -4,4 +4,6 @@ export type AgentFn = (
   input: string,
   siteId: string | null,
   userId: string,
+  originalAudioUrl?: string | null,
+  originalAudioRecordId?: string | null,
 ) => Promise<string>;

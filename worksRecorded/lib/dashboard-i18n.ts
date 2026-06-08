@@ -413,6 +413,9 @@ type SiteDiaryDialogMessages = {
   failedLoadPhotos: string;
   failedDeletePhoto: string;
   photosCount: string;
+  audioCount: string;
+  voiceMessages: string;
+  noMediaForDate: string;
   noPhotosForDate: string;
   photo: string;
   deletePhoto: string;
@@ -1356,6 +1359,9 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     failedLoadPhotos: "Failed to load photos",
     failedDeletePhoto: "Failed to delete photo",
     photosCount: "photos",
+    audioCount: "audio",
+    voiceMessages: "Voice messages",
+    noMediaForDate: "No photos or voice messages for this date.",
     noPhotosForDate: "No photos for this date.",
     photo: "Photo",
     deletePhoto: "Delete photo",
@@ -1419,6 +1425,9 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     failedLoadPhotos: "Neizdevās ielādēt foto",
     failedDeletePhoto: "Neizdevās dzēst foto",
     photosCount: "foto",
+    audioCount: "audio",
+    voiceMessages: "Balss ziņas",
+    noMediaForDate: "Šim datumam nav foto vai balss ziņu.",
     noPhotosForDate: "Šim datumam nav foto.",
     photo: "Foto",
     deletePhoto: "Dzēst foto",

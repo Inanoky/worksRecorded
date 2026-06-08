@@ -54,26 +54,18 @@ async function setupCheckpointerOnce(checkpointer: PostgresCheckpointer) {
     await checkpointerSetupPromise;
 }
 
-
-
-
-
-export default async function talkToWhatsappAgent(question, siteId, userId) {
-    console.log("=== talkToWhatsappAgent called ===");
+export default async function talkToWhatsappAgent(question, siteId, userId, originalAudioUrl?: string | null, originalAudioRecordId?: string | null) {
+    console.log("=== talkToWhatsappAgent (Site Manager) called ===", { hasAudio: !!originalAudioUrl, hasRecordId: !!originalAudioRecordId });
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
     const sourceComment = userFullName ? `${userFullName} : ${normalizedQuestion}` : normalizedQuestion;
 
-
-
-//introdued originalQuestion in graph state.
-  const state = Annotation.Root({
-  messages: Annotation<BaseMessage[]>({
-    reducer: (x, y) => x.concat(y),
-    default: () => [],
-  }),
-
-});
+    const state = Annotation.Root({
+        messages: Annotation<BaseMessage[]>({
+            reducer: (x, y) => x.concat(y),
+            default: () => [],
+        }),
+    });
 
     const shouldContinue = (state) => {
         const { messages } = state;
@@ -87,7 +79,8 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
                         sourceComment,
                         userId,
                         siteId,
-                        originalAudioUrl: getWhatsappSourceContext().originalAudioUrl ?? null,
+                        originalAudioUrl: originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null,
+                        originalAudioRecordId: originalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId ?? null,
                     });
                 } catch (e) {
                     console.error("Error modifying arguments for save_to_database:", e);
@@ -114,7 +107,6 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         }
 
         const llm = new ChatOpenAI({
-            
             temperature: siteManagerAgentForSiteManagerRouteModelModelTemperature,
             model: siteManagerAgentForSiteManagerRouteModelModel,
             reasoning: { effort: "low" },
@@ -142,7 +134,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
         .addNode("tools", toolNode)
         .addEdge(START, "agent")
         .addConditionalEdges("agent", shouldContinue, ["tools", END])
-        .addEdge("tools", "agent") // <--- loop back to agent!
+        .addEdge("tools", "agent")
 
     if (!process.env.DATABASE_URL) {
         throw new Error("DATABASE_URL is required for site manager WhatsApp agent checkpointing");
@@ -155,8 +147,6 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
       configurable: { thread_id: `siteManager:${siteId}:${userId}` },
     };
 
-
-
     const graph = workflow.compile({ checkpointer });
 
     const systemPrompt = systemPromptFunction(siteId,userId)
@@ -166,15 +156,11 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
             new SystemMessage(await systemPrompt),
             new HumanMessage(question),
         ],
-
     };
-
-
 
     let finalState;
 
     for await (const output of await graph.stream(inputs, config)) {
-
         for (const value of Object.values(output)) {
             if (value?.messages?.length) {
                 finalState = value;
@@ -183,11 +169,9 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
     }
 
     if (finalState && finalState.messages && finalState.messages.length > 0) {
-
         const lastContentMsg = finalState.messages.findLast((msg: BaseMessage) => typeof msg.content === "string" && msg.content.length > 0);
         return lastContentMsg ? lastContentMsg.content : "Completed action with no response.";
     } else {
-
         return null;
     }
 }

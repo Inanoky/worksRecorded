@@ -12,6 +12,7 @@ type SiteManagerToolContext = {
     userId: string;
     siteId: string | null;
     originalAudioUrl?: string | null;
+    originalAudioRecordId?: string | null;
 };
 
 type WorkerToolContext = {
@@ -20,6 +21,7 @@ type WorkerToolContext = {
     nowISO: string;
     sourceComment: string;
     originalAudioUrl?: string | null;
+    originalAudioRecordId?: string | null;
 };
 
 function getToolName(toolCall: ToolCallLike): string | undefined {
@@ -29,6 +31,7 @@ function getToolName(toolCall: ToolCallLike): string | undefined {
 function setSiteManagerArgs(args: Record<string, unknown>, context: SiteManagerToolContext) {
     args.originalUserComment = context.sourceComment;
     args.originalAudioUrl = context.originalAudioUrl ?? null;
+    args.originalAudioRecordId = context.originalAudioRecordId ?? null;
 }
 
 function setWorkerArgs(args: Record<string, unknown>, toolName: string, context: WorkerToolContext) {
@@ -39,6 +42,7 @@ function setWorkerArgs(args: Record<string, unknown>, toolName: string, context:
         if (!args.date) args.date = context.nowISO;
         args.originalUserComment = context.sourceComment;
         args.originalAudioUrl = context.originalAudioUrl ?? null;
+        args.originalAudioRecordId = context.originalAudioRecordId ?? null;
     }
 }
 

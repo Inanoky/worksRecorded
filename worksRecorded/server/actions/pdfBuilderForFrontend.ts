@@ -127,7 +127,7 @@ export async function generateSiteDiaryPdf(args: {
 
   // 2) Load photos for that day
   const { startISO, endISO } = toDayRangeISO(date);
-  const photos = await getPhotosByDate({ siteId, startISO, endISO });
+  const { photos } = await getPhotosByDate({ siteId, startISO, endISO });
   const dayISO = date.toISOString().slice(0, 10);
   const weather = await getSiteDayWeather({ siteId, dayISO }).catch(() => null);
   const weatherRows = [...(weather?.hours ?? [])]

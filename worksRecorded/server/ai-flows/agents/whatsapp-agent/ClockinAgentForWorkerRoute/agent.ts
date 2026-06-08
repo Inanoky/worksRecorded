@@ -19,9 +19,8 @@ function isInvalidToolResultsError(error: unknown): boolean {
     return message.includes("INVALID_TOOL_RESULTS") || message.includes("tool_call_id");
 }
 
-
-export default async function talkToClockInAgent(question, workerId) {
-    console.log("=== talkToWhatsappAgent called ===");
+export default async function talkToClockInAgent(question, workerId, originalAudioUrl?: string | null, originalAudioRecordId?: string | null) {
+    console.log("=== talkToWhatsappAgent (Worker) called ===", { hasAudio: !!originalAudioUrl, hasRecordId: !!originalAudioRecordId });
 
     const siteId = await getSiteIdByWorkerId(workerId)
     console.log(siteId)
@@ -63,7 +62,8 @@ export default async function talkToClockInAgent(question, workerId) {
                         siteId,
                         nowISO,
                         sourceComment,
-                        originalAudioUrl: getWhatsappSourceContext().originalAudioUrl ?? null,
+                        originalAudioUrl: originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null,
+                        originalAudioRecordId: originalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId ?? null,
                     });
 
                     if (injected) {

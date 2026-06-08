@@ -109,9 +109,9 @@ describe("handleAudio", () => {
     expect(stored.skeletonRecordId).toBe("skeleton-123");
   });
 
-  it("returns null when upload response has no ufsUrl", async () => {
+  it("returns null when upload response has no ufsUrl to persist", async () => {
     uploadFilesMock.mockResolvedValue({
-      data: { url: "https://utfs.io/f/legacy-only.ogg" },
+      data: { appUrl: "https://ut.test/a/voice.ogg" },
     });
 
     const stored = await storeWhatsAppAudioFromUrl("https://meta.test/audio.ogg", "audio/ogg");
@@ -158,6 +158,8 @@ describe("handleAudio", () => {
       "Test transcript",
       "site-1",
       "user-1",
+      "https://ut.test.ufs.sh/f/voice.ogg",
+      "skeleton-123",
     );
     expect(sendMessageMock).toHaveBeenCalledWith(
       "whatsapp:+37120000001",
@@ -184,6 +186,6 @@ describe("handleAudio", () => {
 
     expect(handled).toBe(true);
     expect(transcriptionCreateMock).toHaveBeenCalledTimes(1);
-    expect(agent).toHaveBeenCalledWith("Test transcript", "site-1", "user-1");
+    expect(agent).toHaveBeenCalledWith("Test transcript", "site-1", "user-1", null, null);
   });
 });

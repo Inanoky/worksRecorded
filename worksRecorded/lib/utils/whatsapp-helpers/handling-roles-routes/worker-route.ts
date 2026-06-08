@@ -98,7 +98,7 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
         // Update the routing context with the skeleton record ID
         const message = await runWithWhatsappSourceContext(
           { originalAudioUrl: sourceAudioUrl, originalAudioRecordId: skeletonRecordId },
-          () => talkToClockInAgent(messageText, worker.id),
+          () => talkToClockInAgent(messageText, worker.id, sourceAudioUrl, skeletonRecordId),
         );
         await sendMessage(from, message);
         return; // Important: return here because we've handled the audio message

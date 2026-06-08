@@ -139,13 +139,15 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
     date: z.string().describe("The current date and time as a string (including time, e.g., '2025-11-21T17:45:00Z')."),
     originalUserComment: z.string().describe("The worker's original message saved without modification."),
     originalAudioUrl: z.string().nullable().optional(),
+    originalAudioRecordId: z.string().nullable().optional(),
   }),
-  async func({ question, workerId, siteId, date, originalUserComment, originalAudioUrl: injectedOriginalAudioUrl }: { question: string; workerId: string, siteId: string, date: string, originalUserComment: string, originalAudioUrl?: string | null }) {
+  async func({ question, workerId, siteId, date, originalUserComment, originalAudioUrl: injectedOriginalAudioUrl, originalAudioRecordId: injectedOriginalAudioRecordId }: { question: string; workerId: string, siteId: string, date: string, originalUserComment: string, originalAudioUrl?: string | null, originalAudioRecordId?: string | null }) {
     const originalAudioUrl = injectedOriginalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
+    const originalAudioRecordId = injectedOriginalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId ?? null;
 
     console.log("[originalAudioUrl][workerTool] received app context", {
       hasOriginalAudioUrl: Boolean(originalAudioUrl),
-      originalAudioUrlLength: originalAudioUrl?.length ?? 0,
+      hasOriginalAudioRecordId: Boolean(originalAudioRecordId),
       workerId,
       siteId,
     });
@@ -204,6 +206,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
           siteId,
           originalUserComment,
           originalAudioUrl,
+          originalAudioRecordId,
         });
 
 

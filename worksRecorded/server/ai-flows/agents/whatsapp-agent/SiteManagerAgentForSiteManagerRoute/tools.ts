@@ -13,16 +13,11 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
-
-
-
-
 export const allowedUnits = [
   "m", "m2", "m3", "tn", "kg",
   "pcs", "package", "project",
   "hour", "set", "minute", "lifts",
 ] as const;
-
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
   name: "save_to_database",
@@ -35,16 +30,18 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     date: z.string(),
     originalUserComment: z.string(),
     originalAudioUrl: z.string().nullable().optional(),
+    originalAudioRecordId: z.string().nullable().optional(),
   }),
 
-  async func({ question, userId, siteId, date, originalUserComment, originalAudioUrl: injectedOriginalAudioUrl }) {
+  async func({ question, userId, siteId, date, originalUserComment, originalAudioUrl: injectedOriginalAudioUrl, originalAudioRecordId: injectedOriginalAudioRecordId }) {
     const originalAudioUrl = injectedOriginalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
+    const originalAudioRecordId = injectedOriginalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId ?? null;
 
     console.log("▶️ TOOL START");
     console.log("Input:", { question, userId, siteId, date });
     console.log("[originalAudioUrl][siteManagerTool] received app context", {
       hasOriginalAudioUrl: Boolean(originalAudioUrl),
-      originalAudioUrlLength: originalAudioUrl?.length ?? 0,
+      hasOriginalAudioRecordId: Boolean(originalAudioRecordId),
       userId,
       siteId,
     });
@@ -115,6 +112,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
       siteId,
       originalUserComment,
       originalAudioUrl,
+      originalAudioRecordId,
     });
 
     console.log("✅ Save result:", result);
@@ -129,9 +127,6 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
   },
 });
 
-
 export const tools = [siteDiaryToDatabaseTool]
 
 export const toolNode = new ToolNode<typeof GraphState.State>(tools)
-
-

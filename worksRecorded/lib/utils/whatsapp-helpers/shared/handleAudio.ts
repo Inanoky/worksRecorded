@@ -178,7 +178,7 @@ export async function handleAudio(args: {
 
     const aiMessage = await runWithWhatsappSourceContext(
       { originalAudioUrl: sourceAudioUrl, originalAudioRecordId: skeletonRecordId },
-      () => agent(transcript, siteId, user.id),
+      () => agent(transcript, siteId, user.id, sourceAudioUrl, skeletonRecordId),
     );
     console.log("[originalAudioUrl][handleAudio] agent returned", {
       sourceAudioUrl: describeUrlForLog(sourceAudioUrl),

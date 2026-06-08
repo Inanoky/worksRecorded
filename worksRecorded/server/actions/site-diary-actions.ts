@@ -979,6 +979,7 @@ export async function saveSiteDiaryRecord({
   siteId,
   originalUserComment,
   originalAudioUrl,
+  originalAudioRecordId,
 }: {
   rows: any[];
   userId?: string;
@@ -986,6 +987,7 @@ export async function saveSiteDiaryRecord({
   siteId?: string;
   originalUserComment?: string;
   originalAudioUrl?: string | null;
+  originalAudioRecordId?: string | null;
 }) {
   const rawOriginalAudioUrl = originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
   const resolvedOriginalAudioUrl = resolvePersistableAudioUrl(rawOriginalAudioUrl);
@@ -1010,6 +1012,7 @@ export async function saveSiteDiaryRecord({
     siteId: siteId ?? null,
     hasOriginalAudioUrl: Boolean(resolvedOriginalAudioUrl),
     originalAudioUrlLength: resolvedOriginalAudioUrl?.length ?? 0,
+    hasOriginalAudioRecordId: Boolean(originalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId),
   });
 
   // NEW: Determine the entity and fetch the organization ID
@@ -1114,7 +1117,7 @@ export async function saveSiteDiaryRecord({
   }
 
   try {
-    const pendingRecordId = getWhatsappSourceContext().originalAudioRecordId;
+    const pendingRecordId = originalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId;
     let finalCount = 0;
 
     if (pendingRecordId && toInsert.length > 0) {
@@ -2750,26 +2753,52 @@ export async function getPhotosByDate({
   const start = new Date(startISO);
   const end = new Date(endISO);
 
-  return prisma.photos.findMany({
-    where: {
-      siteId: siteId ?? undefined,
-      Date: {
-        gte: start,
-        lt: end,
+  const [photos, audioRecords] = await Promise.all([
+    prisma.photos.findMany({
+      where: {
+        siteId: siteId ?? undefined,
+        Date: {
+          gte: start,
+          lt: end,
+        },
       },
-    },
-    orderBy: { Date: "desc" },
-    select: {
-      id: true,
-      Date: true,
-      URL: true,
-      fileUrl: true,
-      Comment: true,
-      Location: true,
-      siteId: true,
-      userId: true,
-    },
-  });
+      orderBy: { Date: "desc" },
+      select: {
+        id: true,
+        Date: true,
+        URL: true,
+        fileUrl: true,
+        Comment: true,
+        Location: true,
+        siteId: true,
+        userId: true,
+      },
+    }),
+    prisma.sitediaryrecords.findMany({
+      where: {
+        siteId: siteId ?? undefined,
+        Date: {
+          gte: start,
+          lt: end,
+        },
+        AND: [{ originalAudioUrl: { not: null } }, { originalAudioUrl: { not: "" } }],
+      },
+      orderBy: { Date: "desc" },
+      select: {
+        id: true,
+        Date: true,
+        Location: true,
+        Works: true,
+        originalUserComment: true,
+        originalAudioUrl: true,
+        siteId: true,
+        userId: true,
+        workerId: true,
+      },
+    }),
+  ]);
+
+  return { photos, audioRecords };
 }
 
 export async function deletePhotoById(id: string) {
