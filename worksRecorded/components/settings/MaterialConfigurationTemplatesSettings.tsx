@@ -29,6 +29,7 @@ import type {
   OrganizationMaterialConfigurationTemplate,
 } from "@/lib/bis/material-configuration-templates";
 import { UploadButton } from "@/lib/utils/UploadthingsComponents";
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 
 type MaterialTypeOption = {
   id: string;
@@ -338,12 +339,17 @@ export function MaterialConfigurationTemplatesSettings({
                   content={{ button: text.declaration }}
                   onClientUploadComplete={(res) => {
                     const uploaded = res
-                      .filter((file) => file?.url)
-                      .map((file): MaterialConfigurationTemplateAttachment => ({
-                        name: file.name,
-                        mimeType: getAttachmentMimeType(file),
-                        fileUrl: file.url,
-                      }));
+                      .map((file): MaterialConfigurationTemplateAttachment | null => {
+                        const fileUrl = getUploadThingFileUrl(file);
+                        if (!fileUrl) return null;
+
+                        return {
+                          name: file.name,
+                          mimeType: getAttachmentMimeType(file),
+                          fileUrl,
+                        };
+                      })
+                      .filter((file): file is MaterialConfigurationTemplateAttachment => Boolean(file));
 
                     if (!uploaded.length) return;
 
