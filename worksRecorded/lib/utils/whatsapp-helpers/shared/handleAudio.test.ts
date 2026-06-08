@@ -39,6 +39,7 @@ jest.mock("@/lib/utils/whatsapp-helpers/shared/sender", () => ({
 
 import { handleAudio } from "./handleAudio";
 import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 describe("handleAudio", () => {
   beforeEach(() => {
@@ -57,8 +58,11 @@ describe("handleAudio", () => {
     return formData;
   }
 
-  it("uploads source audio, transcribes it, and passes sourceAudioUrl to the agent", async () => {
-    const agent = jest.fn().mockResolvedValue("AI response");
+  it("uploads source audio, transcribes it, and exposes sourceAudioUrl through app context", async () => {
+    const agent = jest.fn(async () => {
+      expect(getWhatsappSourceContext().originalAudioUrl).toBe("https://ut.test/voice.ogg");
+      return "AI response";
+    });
 
     const handled = await handleAudio({
       formData: audioFormData(),
@@ -82,7 +86,6 @@ describe("handleAudio", () => {
       "Test transcript",
       "site-1",
       "user-1",
-      "https://ut.test/voice.ogg",
     );
     expect(sendMessageMock).toHaveBeenCalledWith(
       "whatsapp:+37120000001",
@@ -90,9 +93,12 @@ describe("handleAudio", () => {
     );
   });
 
-  it("continues transcription when UploadThing upload fails and passes null audio URL", async () => {
+  it("continues transcription when UploadThing upload fails and exposes null audio URL through app context", async () => {
     uploadFilesMock.mockResolvedValue({ error: { message: "upload failed" } });
-    const agent = jest.fn().mockResolvedValue("AI response");
+    const agent = jest.fn(async () => {
+      expect(getWhatsappSourceContext().originalAudioUrl).toBeNull();
+      return "AI response";
+    });
 
     const handled = await handleAudio({
       formData: audioFormData(),
@@ -106,6 +112,6 @@ describe("handleAudio", () => {
 
     expect(handled).toBe(true);
     expect(transcriptionCreateMock).toHaveBeenCalledTimes(1);
-    expect(agent).toHaveBeenCalledWith("Test transcript", "site-1", "user-1", null);
+    expect(agent).toHaveBeenCalledWith("Test transcript", "site-1", "user-1");
   });
 });

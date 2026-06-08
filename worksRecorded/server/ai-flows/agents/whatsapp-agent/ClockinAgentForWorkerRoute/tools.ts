@@ -14,6 +14,7 @@ import { getOrganizationLanguageByWorkerId } from "@/server/actions/shared-actio
 import { prisma } from "@/lib/utils/db";
 import { getMetaReplyContext, sendClockInCard } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { createClockInToken } from "@/lib/utils/clock-in-link";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 async function buildSystemPromptSaveToDatabase(workerId: string) {
   const organizationLanguage = await getOrganizationLanguageByWorkerId(workerId);
@@ -137,10 +138,11 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
     // NEW: The date needs to be a string to pass it as context to the structured LLM
     date: z.string().describe("The current date and time as a string (including time, e.g., '2025-11-21T17:45:00Z')."),
     originalUserComment: z.string().describe("The worker's original message saved without modification."),
-    originalAudioUrl: z.string().optional(),
   }),
-  async func({ question, workerId, siteId, date, originalUserComment, originalAudioUrl }: { question: string; workerId: string, siteId: string, date: string, originalUserComment: string, originalAudioUrl?: string }) {
-    console.log("[originalAudioUrl][workerTool] received tool input", {
+  async func({ question, workerId, siteId, date, originalUserComment }: { question: string; workerId: string, siteId: string, date: string, originalUserComment: string }) {
+    const { originalAudioUrl } = getWhatsappSourceContext();
+
+    console.log("[originalAudioUrl][workerTool] received app context", {
       hasOriginalAudioUrl: Boolean(originalAudioUrl),
       originalAudioUrlLength: originalAudioUrl?.length ?? 0,
       workerId,

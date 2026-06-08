@@ -4,6 +4,7 @@ import { getString, fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-help
 import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
+import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 const WHATSAPP_SAFE_LIMIT = 1400;
 const utapi = new UTApi();
@@ -124,7 +125,10 @@ export async function handleAudio(args: {
       siteId: user?.lastSelectedSiteIdforWhatsapp,
     });
 
-    const aiMessage = await agent(transcript, user.lastSelectedSiteIdforWhatsapp, user.id, sourceAudioUrl);
+    const aiMessage = await runWithWhatsappSourceContext(
+      { originalAudioUrl: sourceAudioUrl },
+      () => agent(transcript, user.lastSelectedSiteIdforWhatsapp, user.id),
+    );
     console.log("[originalAudioUrl][handleAudio] agent returned", {
       sourceAudioUrl: describeUrlForLog(sourceAudioUrl),
       aiMessageLength: typeof aiMessage === "string" ? aiMessage.length : null,

@@ -11,8 +11,8 @@ import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 import { processMaterialDocumentImageFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 
-const currentAgent: AgentFn = (input, siteId, userId, sourceAudioUrl) =>
-  talkToWhatsappAgent(input, siteId, userId, sourceAudioUrl);
+const currentAgent: AgentFn = (input, siteId, userId) =>
+  talkToWhatsappAgent(input, siteId, userId);
 
 export async function handleSiteManagerRoute(args: {
   from: string | null;

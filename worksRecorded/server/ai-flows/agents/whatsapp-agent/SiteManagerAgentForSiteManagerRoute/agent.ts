@@ -8,6 +8,7 @@ import {toolNode, tools} from "@/server/ai-flows/agents/whatsapp-agent/SiteManag
 import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSiteManagerRouteModelModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
 import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
+import { injectSiteManagerToolCallContext } from "@/server/ai-flows/agents/whatsapp-agent/toolCallContext";
 
 type PostgresCheckpointer = ReturnType<typeof PostgresSaver.fromConnString>;
 
@@ -56,7 +57,7 @@ async function setupCheckpointerOnce(checkpointer: PostgresCheckpointer) {
 
 
 
-export default async function talkToWhatsappAgent(question, siteId, userId, sourceAudioUrl?: string | null) {
+export default async function talkToWhatsappAgent(question, siteId, userId) {
     console.log("=== talkToWhatsappAgent called ===");
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
@@ -80,21 +81,14 @@ export default async function talkToWhatsappAgent(question, siteId, userId, sour
 
         if (lastMessage && "tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls.length) {
             for (const toolCall of lastMessage.tool_calls) {
-                if (toolCall.function?.name === "save_to_database" && toolCall.function.arguments) {
-                    try {
-                        const args = JSON.parse(toolCall.function.arguments);
-                        args.originalUserComment = sourceComment;
-                        if (sourceAudioUrl) args.originalAudioUrl = sourceAudioUrl;
-                        console.log("[originalAudioUrl][siteManagerAgent] injected source audio into tool args", {
-                            hasSourceAudioUrl: Boolean(sourceAudioUrl),
-                            toolName: toolCall.function.name,
-                            userId,
-                            siteId,
-                        });
-                        toolCall.function.arguments = JSON.stringify(args);
-                    } catch (e) {
-                        console.error("Error modifying arguments for save_to_database:", e);
-                    }
+                try {
+                    injectSiteManagerToolCallContext(toolCall, {
+                        sourceComment,
+                        userId,
+                        siteId,
+                    });
+                } catch (e) {
+                    console.error("Error modifying arguments for save_to_database:", e);
                 }
             }
 

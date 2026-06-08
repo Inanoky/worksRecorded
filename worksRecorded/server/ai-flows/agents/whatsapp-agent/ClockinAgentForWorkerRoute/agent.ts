@@ -9,6 +9,7 @@ import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/server/actions/timeshee
 import { clickInAgentForWorkersModel, clockInAgentForWorkersModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getWorkerFullNameById } from "@/server/actions/whatsapp-actions";
 import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
+import { injectWorkerToolCallContext } from "@/server/ai-flows/agents/whatsapp-agent/toolCallContext";
 
 function isInvalidToolResultsError(error: unknown): boolean {
     const maybeError = error as any;
@@ -18,7 +19,7 @@ function isInvalidToolResultsError(error: unknown): boolean {
 }
 
 
-export default async function talkToClockInAgent(question, workerId, sourceAudioUrl?: string | null) {
+export default async function talkToClockInAgent(question, workerId) {
     console.log("=== talkToWhatsappAgent called ===");
 
     const siteId = await getSiteIdByWorkerId(workerId)
@@ -55,42 +56,21 @@ export default async function talkToClockInAgent(question, workerId, sourceAudio
 
             // CRITICAL FIX: Inject context data into tool call arguments
             for (const toolCall of toolCalls) {
-                // Ensure toolCall.function and toolCall.function.arguments exist
-                if (toolCall.function && toolCall.function.arguments) {
-                    const toolName = toolCall.function.name;
+                try {
+                    const injected = injectWorkerToolCallContext(toolCall, {
+                        workerId,
+                        siteId,
+                        nowISO,
+                        sourceComment,
+                    });
 
-                    if (toolName === "ClockInWorker" || toolName === "ClockOutWorker" || toolName === "WorkerDiaryToDatabase") {
-                        try {
-                            // Arguments are a JSON string, so we must parse them
-                            let args = JSON.parse(toolCall.function.arguments);
-
-                            // Inject context data
-                            if (!args.workerId) args.workerId = workerId;
-                            if (!args.siteId) args.siteId = siteId;
-
-                            // Inject current date/time and original user message for diary tool
-                            if (toolName === "WorkerDiaryToDatabase") {
-                                if (!args.date) {
-                                    args.date = nowISO;
-                                }
-                                args.originalUserComment = sourceComment;
-                                if (sourceAudioUrl) args.originalAudioUrl = sourceAudioUrl;
-                                console.log("[originalAudioUrl][workerAgent] injected source audio into tool args", {
-                                    hasSourceAudioUrl: Boolean(sourceAudioUrl),
-                                    toolName,
-                                    workerId,
-                                    siteId,
-                                });
-                            }
-
-                            // Re-stringify the arguments and update the tool call object in place
-                            toolCall.function.arguments = JSON.stringify(args);
-                            console.log(`Injected context into arguments for tool: ${toolName}`);
-                        } catch (e) {
-                            console.error(`Error modifying arguments for ${toolName}:`, e);
-                            // Continue to next tool call
-                        }
+                    if (injected) {
+                        const toolName = toolCall.name ?? toolCall.function?.name;
+                        console.log(`Injected context into arguments for tool: ${toolName}`);
                     }
+                } catch (e) {
+                    const toolName = toolCall.name ?? toolCall.function?.name ?? "unknown";
+                    console.error(`Error modifying arguments for ${toolName}:`, e);
                 }
             }
 

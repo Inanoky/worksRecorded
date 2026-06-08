@@ -53,6 +53,7 @@ jest.mock("openai", () => {
 import { prisma } from "@/lib/utils/db";
 import { handleWorkerMessage } from "./worker-route";
 import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 describe("handleWorkerMessage audio", () => {
   beforeEach(() => {
@@ -67,10 +68,13 @@ describe("handleWorkerMessage audio", () => {
     });
     uploadSourceAudioMock.mockResolvedValue("https://ut.test/worker-voice.ogg");
     transcriptionCreateMock.mockResolvedValue({ text: "Worker transcript" });
-    talkToClockInAgentMock.mockResolvedValue("Worker AI response");
+    talkToClockInAgentMock.mockImplementation(async () => {
+      expect(getWhatsappSourceContext().originalAudioUrl).toBe("https://ut.test/worker-voice.ogg");
+      return "Worker AI response";
+    });
   });
 
-  it("passes uploaded sourceAudioUrl to the worker agent", async () => {
+  it("stores uploaded sourceAudioUrl in app context and calls the worker agent without it", async () => {
     const formData = new FormData();
     formData.set("From", "whatsapp:+37120000002");
     formData.set("NumMedia", "1");
@@ -92,7 +96,6 @@ describe("handleWorkerMessage audio", () => {
     expect(talkToClockInAgentMock).toHaveBeenCalledWith(
       "Worker transcript",
       "worker-1",
-      "https://ut.test/worker-voice.ogg",
     );
     expect(sendMessageMock).toHaveBeenCalledWith(
       "whatsapp:+37120000002",

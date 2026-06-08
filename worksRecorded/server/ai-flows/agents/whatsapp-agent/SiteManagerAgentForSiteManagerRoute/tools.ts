@@ -11,6 +11,7 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 
 
@@ -33,14 +34,14 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     userId: z.string(),
     date: z.string(),
     originalUserComment: z.string(),
-    originalAudioUrl: z.string().optional(),
   }),
 
-  async func({ question, userId, siteId, date, originalUserComment, originalAudioUrl}) {
+  async func({ question, userId, siteId, date, originalUserComment}) {
+    const { originalAudioUrl } = getWhatsappSourceContext();
 
     console.log("▶️ TOOL START");
     console.log("Input:", { question, userId, siteId, date });
-    console.log("[originalAudioUrl][siteManagerTool] received tool input", {
+    console.log("[originalAudioUrl][siteManagerTool] received app context", {
       hasOriginalAudioUrl: Boolean(originalAudioUrl),
       originalAudioUrlLength: originalAudioUrl?.length ?? 0,
       userId,

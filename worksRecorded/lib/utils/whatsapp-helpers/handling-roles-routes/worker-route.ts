@@ -9,6 +9,7 @@ import { sendMessage } from "../shared/sender";
 // (assuming handleImage.ts is in the same directory as this file based on surrounding context)
 import { handleImage } from "../shared/handleImage";
 import { inferAudioExtension, uploadSourceAudio } from "../shared/handleAudio";
+import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 // NOTE: I am using './handleImage' as a placeholder. You used '../shared/handleImage',
 // ensure the path matches where you placed the updated handleImage.ts file.
 
@@ -119,7 +120,10 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
 
     console.log("[handleWorkerMessage] Sending to talkToClockInAgent...");
     // We use the worker object retrieved at the start of the function.
-    const message = await talkToClockInAgent(messageText, worker.id, sourceAudioUrl);
+    const message = await runWithWhatsappSourceContext(
+      { originalAudioUrl: sourceAudioUrl },
+      () => talkToClockInAgent(messageText, worker.id),
+    );
     await sendMessage(from, message);
 
   } catch (error) {
