@@ -50,6 +50,30 @@ export async function uploadSourceAudio(buf: Buffer, contentType: string) {
   return publicUrl;
 }
 
+export async function storeWhatsAppAudioFromUrl(mediaUrl: string, contentType: string) {
+  console.log("[originalAudioUrl][audioStorage] downloading source audio", {
+    mediaUrl: describeUrlForLog(mediaUrl),
+    contentType,
+  });
+
+  const buffer = await fetchWhatsAppMediaAsBuffer(mediaUrl);
+  console.log("[originalAudioUrl][audioStorage] source audio downloaded", {
+    byteLength: buffer.length,
+    contentType,
+  });
+
+  const originalAudioUrl = await uploadSourceAudio(buffer, contentType);
+  console.log("[originalAudioUrl][audioStorage] source audio stored", {
+    originalAudioUrl: describeUrlForLog(originalAudioUrl),
+    byteLength: buffer.length,
+  });
+
+  return {
+    buffer,
+    originalAudioUrl,
+  };
+}
+
 async function sendWithLengthCheck(
   to: string | null,
   text: string,
@@ -106,12 +130,7 @@ export async function handleAudio(args: {
   if (!ct0.startsWith("audio")) return false;
 
   try {
-    const buf = await fetchWhatsAppMediaAsBuffer(mediaUrl0!);
-    console.log("[originalAudioUrl][handleAudio] media downloaded", {
-      byteLength: buf.length,
-      contentType: ct0,
-    });
-    const sourceAudioUrl = await uploadSourceAudio(buf, ct0);
+    const { buffer: buf, originalAudioUrl: sourceAudioUrl } = await storeWhatsAppAudioFromUrl(mediaUrl0!, ct0);
     const ext = inferAudioExtension(ct0);
     const file = await toFile(buf, `voice-message.${ext}`);
 

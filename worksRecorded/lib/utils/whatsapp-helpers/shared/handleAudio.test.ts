@@ -37,7 +37,7 @@ jest.mock("@/lib/utils/whatsapp-helpers/shared/sender", () => ({
   sendMessage: sendMessageMock,
 }));
 
-import { handleAudio } from "./handleAudio";
+import { handleAudio, storeWhatsAppAudioFromUrl } from "./handleAudio";
 import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
@@ -57,6 +57,23 @@ describe("handleAudio", () => {
     formData.set("MediaContentType0", "audio/ogg");
     return formData;
   }
+
+  it("downloads the expiring Meta audio URL and uploads it to UploadThing", async () => {
+    const stored = await storeWhatsAppAudioFromUrl("https://meta.test/audio.ogg", "audio/ogg");
+
+    expect(fetchWhatsAppMediaAsBuffer).toHaveBeenCalledWith("https://meta.test/audio.ogg");
+    expect(uploadFilesMock).toHaveBeenCalledTimes(1);
+    expect(uploadFilesMock.mock.calls[0][0][0]).toEqual(
+      expect.objectContaining({
+        name: expect.stringMatching(/^whatsapp_voice_\d+\.ogg$/),
+        type: "audio/ogg",
+      }),
+    );
+    expect(stored).toEqual({
+      buffer: Buffer.from("test audio bytes"),
+      originalAudioUrl: "https://ut.test/voice.ogg",
+    });
+  });
 
   it("uploads source audio, transcribes it, and exposes sourceAudioUrl through app context", async () => {
     const agent = jest.fn(async () => {

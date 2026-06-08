@@ -1,14 +1,13 @@
 "use server";
 
 import { prisma } from "@/lib/utils/db";
-import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import talkToClockInAgent from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/agent";
 import OpenAI, { toFile } from "openai";
 import { sendMessage } from "../shared/sender";
 // UPDATE: Ensure this import path is correct for your file structure
 // (assuming handleImage.ts is in the same directory as this file based on surrounding context)
 import { handleImage } from "../shared/handleImage";
-import { inferAudioExtension, uploadSourceAudio } from "../shared/handleAudio";
+import { inferAudioExtension, storeWhatsAppAudioFromUrl } from "../shared/handleAudio";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 // NOTE: I am using './handleImage' as a placeholder. You used '../shared/handleImage',
 // ensure the path matches where you placed the updated handleImage.ts file.
@@ -78,8 +77,8 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
     if (MediaUrl0 && MediaContentType0.startsWith("audio")) {
       try {
         console.log("🎤 Audio message detected");
-        const buf = await fetchWhatsAppMediaAsBuffer(MediaUrl0);
-        sourceAudioUrl = await uploadSourceAudio(buf, MediaContentType0);
+        const { buffer: buf, originalAudioUrl } = await storeWhatsAppAudioFromUrl(MediaUrl0, MediaContentType0);
+        sourceAudioUrl = originalAudioUrl;
         const ext = inferAudioExtension(MediaContentType0);
         const file = await toFile(buf, `voice-message.${ext}`);
 

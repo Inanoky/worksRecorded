@@ -1,5 +1,5 @@
 const transcriptionCreateMock = jest.fn();
-const uploadSourceAudioMock = jest.fn();
+const storeWhatsAppAudioFromUrlMock = jest.fn();
 const talkToClockInAgentMock = jest.fn();
 const sendMessageMock = jest.fn();
 
@@ -11,17 +11,13 @@ jest.mock("@/lib/utils/db", () => ({
   },
 }));
 
-jest.mock("@/lib/utils/whatsapp-helpers/shared/helpers", () => ({
-  fetchWhatsAppMediaAsBuffer: jest.fn(async () => Buffer.from("worker audio bytes")),
-}));
-
 jest.mock("@/lib/utils/whatsapp-helpers/shared/handleImage", () => ({
   handleImage: jest.fn().mockResolvedValue(false),
 }));
 
 jest.mock("@/lib/utils/whatsapp-helpers/shared/handleAudio", () => ({
   inferAudioExtension: jest.fn(() => "ogg"),
-  uploadSourceAudio: uploadSourceAudioMock,
+  storeWhatsAppAudioFromUrl: storeWhatsAppAudioFromUrlMock,
 }));
 
 jest.mock("@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/agent", () => ({
@@ -52,7 +48,6 @@ jest.mock("openai", () => {
 
 import { prisma } from "@/lib/utils/db";
 import { handleWorkerMessage } from "./worker-route";
-import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 describe("handleWorkerMessage audio", () => {
@@ -66,7 +61,10 @@ describe("handleWorkerMessage audio", () => {
       name: "Test",
       surname: "Worker",
     });
-    uploadSourceAudioMock.mockResolvedValue("https://ut.test/worker-voice.ogg");
+    storeWhatsAppAudioFromUrlMock.mockResolvedValue({
+      buffer: Buffer.from("worker audio bytes"),
+      originalAudioUrl: "https://ut.test/worker-voice.ogg",
+    });
     transcriptionCreateMock.mockResolvedValue({ text: "Worker transcript" });
     talkToClockInAgentMock.mockImplementation(async () => {
       expect(getWhatsappSourceContext().originalAudioUrl).toBe("https://ut.test/worker-voice.ogg");
@@ -86,8 +84,10 @@ describe("handleWorkerMessage audio", () => {
     expect(prisma.workers.findFirst).toHaveBeenCalledWith({
       where: { phone: "37120000002" },
     });
-    expect(fetchWhatsAppMediaAsBuffer).toHaveBeenCalledWith("https://meta.test/worker-audio.ogg");
-    expect(uploadSourceAudioMock).toHaveBeenCalledWith(expect.any(Buffer), "audio/ogg");
+    expect(storeWhatsAppAudioFromUrlMock).toHaveBeenCalledWith(
+      "https://meta.test/worker-audio.ogg",
+      "audio/ogg",
+    );
     expect(transcriptionCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         model: "gpt-4o-transcribe",
