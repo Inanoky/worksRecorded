@@ -9,6 +9,7 @@ import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSite
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
 import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 import { injectSiteManagerToolCallContext } from "@/server/ai-flows/agents/whatsapp-agent/toolCallContext";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 type PostgresCheckpointer = ReturnType<typeof PostgresSaver.fromConnString>;
 
@@ -86,6 +87,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId) {
                         sourceComment,
                         userId,
                         siteId,
+                        originalAudioUrl: getWhatsappSourceContext().originalAudioUrl ?? null,
                     });
                 } catch (e) {
                     console.error("Error modifying arguments for save_to_database:", e);

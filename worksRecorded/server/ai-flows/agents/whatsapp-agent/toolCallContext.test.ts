@@ -4,7 +4,7 @@ import {
 } from "./toolCallContext";
 
 describe("tool call context injection", () => {
-    it("injects app context into LangChain-style site manager toolCall.args without original audio URL", () => {
+    it("injects app context into LangChain-style site manager toolCall.args including original audio URL", () => {
         const toolCall = {
             name: "save_to_database",
             args: {
@@ -22,18 +22,40 @@ describe("tool call context injection", () => {
             sourceComment: "Manager Name : Test transcript",
             userId: "user-1",
             siteId: "site-1",
+            originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
         });
 
         expect(injected).toBe(true);
         expect(toolCall.args).toEqual(
             expect.objectContaining({
                 originalUserComment: "Manager Name : Test transcript",
+                originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
             }),
         );
-        expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
     });
 
-    it("injects app context into OpenAI-style site manager function arguments without original audio URL", () => {
+    it("overwrites LLM-provided Meta audio URL with injected UploadThing URL", () => {
+        const toolCall = {
+            name: "save_to_database",
+            args: {
+                question: "save diary",
+                originalAudioUrl: "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=test",
+            },
+            type: "tool_call",
+            id: "call-meta",
+        };
+
+        injectSiteManagerToolCallContext(toolCall, {
+            sourceComment: "Manager Name : Test transcript",
+            userId: "user-1",
+            siteId: "site-1",
+            originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
+        });
+
+        expect(toolCall.args.originalAudioUrl).toBe("https://ut.test.ufs.sh/f/voice.ogg");
+    });
+
+    it("injects app context into OpenAI-style site manager function arguments including original audio URL", () => {
         const toolCall = {
             function: {
                 name: "save_to_database",
@@ -51,6 +73,7 @@ describe("tool call context injection", () => {
             sourceComment: "Manager Name : Test transcript",
             userId: "user-1",
             siteId: "site-1",
+            originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
         });
 
         expect(injected).toBe(true);
@@ -58,12 +81,12 @@ describe("tool call context injection", () => {
         expect(parsedArgs).toEqual(
             expect.objectContaining({
                 originalUserComment: "Manager Name : Test transcript",
+                originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
             }),
         );
-        expect(parsedArgs).not.toHaveProperty("originalAudioUrl");
     });
 
-    it("injects app context into LangChain-style worker diary toolCall.args without original audio URL", () => {
+    it("injects app context into LangChain-style worker diary toolCall.args including original audio URL", () => {
         const toolCall = {
             name: "WorkerDiaryToDatabase",
             args: {
@@ -78,6 +101,7 @@ describe("tool call context injection", () => {
             siteId: "site-1",
             nowISO: "2026-06-08T12:00:00.000Z",
             sourceComment: "Worker Name : Test transcript",
+            originalAudioUrl: "https://ut.test.ufs.sh/f/worker-voice.ogg",
         });
 
         expect(injected).toBe(true);
@@ -87,8 +111,8 @@ describe("tool call context injection", () => {
                 siteId: "site-1",
                 date: "2026-06-08T12:00:00.000Z",
                 originalUserComment: "Worker Name : Test transcript",
+                originalAudioUrl: "https://ut.test.ufs.sh/f/worker-voice.ogg",
             }),
         );
-        expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
     });
 });

@@ -10,6 +10,7 @@ import { clickInAgentForWorkersModel, clockInAgentForWorkersModelTemperature } f
 import { getWorkerFullNameById } from "@/server/actions/whatsapp-actions";
 import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 import { injectWorkerToolCallContext } from "@/server/ai-flows/agents/whatsapp-agent/toolCallContext";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 function isInvalidToolResultsError(error: unknown): boolean {
     const maybeError = error as any;
@@ -62,6 +63,7 @@ export default async function talkToClockInAgent(question, workerId) {
                         siteId,
                         nowISO,
                         sourceComment,
+                        originalAudioUrl: getWhatsappSourceContext().originalAudioUrl ?? null,
                     });
 
                     if (injected) {

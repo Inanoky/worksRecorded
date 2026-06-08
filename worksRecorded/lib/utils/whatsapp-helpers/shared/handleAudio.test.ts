@@ -46,7 +46,7 @@ describe("handleAudio", () => {
     jest.clearAllMocks();
     process.env.OPENAI_API_KEY = "test-openai";
     uploadFilesMock.mockResolvedValue({
-      data: { ufsUrl: "https://ut.test/voice.ogg" },
+      data: { ufsUrl: "https://ut.test.ufs.sh/f/voice.ogg" },
     });
     transcriptionCreateMock.mockResolvedValue({ text: "Test transcript" });
   });
@@ -71,13 +71,31 @@ describe("handleAudio", () => {
     );
     expect(stored).toEqual({
       buffer: Buffer.from("test audio bytes"),
-      originalAudioUrl: "https://ut.test/voice.ogg",
+      originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
     });
+  });
+
+  it("returns null when upload response has no ufsUrl", async () => {
+    uploadFilesMock.mockResolvedValue({
+      data: { url: "https://utfs.io/f/legacy-only.ogg" },
+    });
+
+    const stored = await storeWhatsAppAudioFromUrl("https://meta.test/audio.ogg", "audio/ogg");
+
+    expect(stored.originalAudioUrl).toBeNull();
+  });
+
+  it("never returns the expiring Meta download URL as originalAudioUrl", async () => {
+    const metaUrl = "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=test";
+    const stored = await storeWhatsAppAudioFromUrl(metaUrl, "audio/ogg");
+
+    expect(stored.originalAudioUrl).toBe("https://ut.test.ufs.sh/f/voice.ogg");
+    expect(stored.originalAudioUrl).not.toBe(metaUrl);
   });
 
   it("uploads source audio, transcribes it, and exposes sourceAudioUrl through app context", async () => {
     const agent = jest.fn(async () => {
-      expect(getWhatsappSourceContext().originalAudioUrl).toBe("https://ut.test/voice.ogg");
+      expect(getWhatsappSourceContext().originalAudioUrl).toBe("https://ut.test.ufs.sh/f/voice.ogg");
       return "AI response";
     });
 

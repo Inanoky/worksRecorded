@@ -34,10 +34,11 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     userId: z.string(),
     date: z.string(),
     originalUserComment: z.string(),
+    originalAudioUrl: z.string().nullable().optional(),
   }),
 
-  async func({ question, userId, siteId, date, originalUserComment}) {
-    const { originalAudioUrl } = getWhatsappSourceContext();
+  async func({ question, userId, siteId, date, originalUserComment, originalAudioUrl: injectedOriginalAudioUrl }) {
+    const originalAudioUrl = injectedOriginalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
 
     console.log("▶️ TOOL START");
     console.log("Input:", { question, userId, siteId, date });

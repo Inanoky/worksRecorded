@@ -11,6 +11,7 @@ type SiteManagerToolContext = {
     sourceComment: string;
     userId: string;
     siteId: string | null;
+    originalAudioUrl?: string | null;
 };
 
 type WorkerToolContext = {
@@ -18,6 +19,7 @@ type WorkerToolContext = {
     siteId: string | null;
     nowISO: string;
     sourceComment: string;
+    originalAudioUrl?: string | null;
 };
 
 function getToolName(toolCall: ToolCallLike): string | undefined {
@@ -26,6 +28,7 @@ function getToolName(toolCall: ToolCallLike): string | undefined {
 
 function setSiteManagerArgs(args: Record<string, unknown>, context: SiteManagerToolContext) {
     args.originalUserComment = context.sourceComment;
+    args.originalAudioUrl = context.originalAudioUrl ?? null;
 }
 
 function setWorkerArgs(args: Record<string, unknown>, toolName: string, context: WorkerToolContext) {
@@ -35,6 +38,7 @@ function setWorkerArgs(args: Record<string, unknown>, toolName: string, context:
     if (toolName === "WorkerDiaryToDatabase") {
         if (!args.date) args.date = context.nowISO;
         args.originalUserComment = context.sourceComment;
+        args.originalAudioUrl = context.originalAudioUrl ?? null;
     }
 }
 
@@ -75,6 +79,7 @@ export function injectSiteManagerToolCallContext(
         toolName,
         userId: context.userId,
         siteId: context.siteId,
+        hasOriginalAudioUrl: Boolean(context.originalAudioUrl),
     });
 
     return true;
@@ -105,6 +110,7 @@ export function injectWorkerToolCallContext(
             toolName,
             workerId: context.workerId,
             siteId: context.siteId,
+            hasOriginalAudioUrl: Boolean(context.originalAudioUrl),
         });
     }
 

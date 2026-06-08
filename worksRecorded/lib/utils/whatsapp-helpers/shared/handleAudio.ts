@@ -3,7 +3,7 @@ import { UTApi } from "uploadthing/server";
 import { getString, fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
-import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
+import { getUploadThingUfsUrl } from "@/lib/utils/uploadthing-file-url";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 const WHATSAPP_SAFE_LIMIT = 1400;
@@ -41,7 +41,15 @@ export async function uploadSourceAudio(buf: Buffer, contentType: string) {
     return null;
   }
 
-  const publicUrl = getUploadThingFileUrl(first.data);
+  const publicUrl = getUploadThingUfsUrl(first.data);
+  if (!publicUrl) {
+    console.error("❌ [handleAudio] upload completed without ufsUrl", {
+      hasUfsUrl: Boolean(first.data?.ufsUrl),
+      uploadedUrl: describeUrlForLog(first.data?.ufsUrl ?? first.data?.url),
+    });
+    return null;
+  }
+
   console.log("[originalAudioUrl][handleAudio] source audio upload completed", {
     hasUploadThingData: Boolean(first.data),
     uploadedUrl: describeUrlForLog(publicUrl),

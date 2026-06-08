@@ -13,6 +13,7 @@ import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
 
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
@@ -986,7 +987,20 @@ export async function saveSiteDiaryRecord({
   originalUserComment?: string;
   originalAudioUrl?: string | null;
 }) {
-  const resolvedOriginalAudioUrl = originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
+  const rawOriginalAudioUrl = originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
+  const resolvedOriginalAudioUrl = resolvePersistableAudioUrl(rawOriginalAudioUrl);
+
+  if (rawOriginalAudioUrl && !resolvedOriginalAudioUrl) {
+    console.warn("[originalAudioUrl][saveSiteDiaryRecord] rejected non-persistable audio URL", {
+      rejectedUrlHostname: (() => {
+        try {
+          return new URL(rawOriginalAudioUrl).hostname;
+        } catch {
+          return "<invalid-url>";
+        }
+      })(),
+    });
+  }
 
   // 🪵 LOG: Initial inputs for context
   console.log("[originalAudioUrl][saveSiteDiaryRecord] called", {

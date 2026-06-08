@@ -63,11 +63,11 @@ describe("handleWorkerMessage audio", () => {
     });
     storeWhatsAppAudioFromUrlMock.mockResolvedValue({
       buffer: Buffer.from("worker audio bytes"),
-      originalAudioUrl: "https://ut.test/worker-voice.ogg",
+      originalAudioUrl: "https://ut.test.ufs.sh/f/worker-voice.ogg",
     });
     transcriptionCreateMock.mockResolvedValue({ text: "Worker transcript" });
     talkToClockInAgentMock.mockImplementation(async () => {
-      expect(getWhatsappSourceContext().originalAudioUrl).toBe("https://ut.test/worker-voice.ogg");
+      expect(getWhatsappSourceContext().originalAudioUrl).toBe("https://ut.test.ufs.sh/f/worker-voice.ogg");
       return "Worker AI response";
     });
   });

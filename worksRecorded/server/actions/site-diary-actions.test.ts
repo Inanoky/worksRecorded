@@ -43,7 +43,7 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
 
   it("stores originalAudioUrl from WhatsApp source context in sitediaryrecords createMany data", async () => {
     const result = await runWithWhatsappSourceContext(
-      { originalAudioUrl: "https://ut.test/voice.ogg" },
+      { originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg" },
       () =>
         saveSiteDiaryRecord({
           rows: [
@@ -69,7 +69,7 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         expect.objectContaining({
           userId: "user-1",
           siteId: "site-1",
-          originalAudioUrl: "https://ut.test/voice.ogg",
+          originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
           originalUserComment: "Test Manager : Concrete pour",
         }),
       ],
@@ -78,7 +78,7 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
 
   it("prefers explicit originalAudioUrl over WhatsApp source context", async () => {
     await runWithWhatsappSourceContext(
-      { originalAudioUrl: "https://ut.test/context-voice.ogg" },
+      { originalAudioUrl: "https://ut.test.ufs.sh/f/context-voice.ogg" },
       () =>
         saveSiteDiaryRecord({
           rows: [
@@ -90,14 +90,39 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
           userId: "user-1",
           siteId: "site-1",
           originalUserComment: "Concrete pour",
-          originalAudioUrl: "https://ut.test/explicit-voice.ogg",
+          originalAudioUrl: "https://ut.test.ufs.sh/f/explicit-voice.ogg",
         }),
     );
 
     expect(createManyMock).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
-          originalAudioUrl: "https://ut.test/explicit-voice.ogg",
+          originalAudioUrl: "https://ut.test.ufs.sh/f/explicit-voice.ogg",
+        }),
+      ],
+    });
+  });
+
+  it("rejects expiring Meta audio URLs at save time", async () => {
+    const result = await saveSiteDiaryRecord({
+      rows: [
+        {
+          Location: "Site A",
+          Works: "Concrete pour",
+        },
+      ],
+      userId: "user-1",
+      siteId: "site-1",
+      originalUserComment: "Concrete pour",
+      originalAudioUrl:
+        "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=test",
+    });
+
+    expect(result).toEqual({ ok: true, count: 1 });
+    expect(createManyMock).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          originalAudioUrl: undefined,
         }),
       ],
     });
