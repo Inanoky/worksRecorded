@@ -27,6 +27,7 @@ const ZTC_VISION_TIMEOUT_MS = 60_000;
 const ZTC_TEXT_TIMEOUT_MS = 30_000;
 const ZTC_TRANSCRIPTION_TIMEOUT_MS = 30_000;
 const ZTC_DROPDOWN_CACHE_MS = 60_000;
+const ZTC_COMMENT_POLISH_TIMEOUT_MS = 15_000;
 
 class ZtcTimeoutError extends Error {
   constructor(label: string, timeoutMs: number) {
@@ -297,10 +298,103 @@ function stripWorkerPrefix(value: string | null | undefined) {
     : normalized;
 }
 
+function normalizeCommentLabel(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function stripCommentLabel(value: string, label: string) {
-  return value.toLowerCase().startsWith(label.toLowerCase())
+  return normalizeCommentLabel(value).startsWith(normalizeCommentLabel(label))
     ? value.slice(label.length).trim()
     : value;
+}
+
+function getCommentLineText(value: string, labels: string[]) {
+  for (const label of labels) {
+    if (normalizeCommentLabel(value).startsWith(normalizeCommentLabel(label))) {
+      return value.slice(label.length).trim();
+    }
+  }
+  return null;
+}
+
+export async function polishZtcCommentText(value: string | null | undefined) {
+  const text = String(value ?? "").trim();
+  if (!text || text.length < 3) return text;
+
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await withZtcTimeout(
+      openai.chat.completions.create({
+        model: process.env.ZTC_TEXT_MODEL || "gpt-5.1",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Correct this factory worker comment in Latvian. Preserve the original meaning, technical terms, project names, element names, work codes, numbers, units, and names. Do not add details. Return only the corrected comment text without quotes.",
+          },
+          { role: "user", content: text },
+        ],
+      }),
+      "ztc_comment_polish",
+      ZTC_COMMENT_POLISH_TIMEOUT_MS,
+    );
+
+    return response.choices[0]?.message?.content?.trim() || text;
+  } catch (error) {
+    console.warn("[ZTC workflow] comment polish failed", error);
+    return text;
+  }
+}
+
+async function buildPolishedZtcUserComments(args: {
+  startText?: string | null;
+  finishText?: string | null;
+  diagonalOneMm?: number | null;
+  diagonalTwoMm?: number | null;
+}) {
+  const [startText, finishText] = await Promise.all([
+    polishZtcCommentText(stripCommentLabel(args.startText?.trim() ?? "", "Sākums:")),
+    polishZtcCommentText(stripCommentLabel(args.finishText?.trim() ?? "", "Beigas:")),
+  ]);
+
+  return buildZtcUserComments({
+    ...args,
+    startText,
+    finishText,
+  });
+}
+
+async function polishZtcCommentBlock(value: string) {
+  const lines = value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const polishedLines: string[] = [];
+
+  for (const line of lines) {
+    const startText = getCommentLineText(line, ["Sākums:", "Sakums:"]);
+    if (startText !== null) {
+      polishedLines.push(`Sākums: ${await polishZtcCommentText(startText)}`);
+      continue;
+    }
+
+    const finishText = getCommentLineText(line, ["Beigas:"]);
+    if (finishText !== null) {
+      polishedLines.push(`Beigas: ${await polishZtcCommentText(finishText)}`);
+      continue;
+    }
+
+    polishedLines.push(
+      line
+        .replace(/^Diagonale\s+1:/i, "Diagonāle 1:")
+        .replace(/^Diagonale\s+2:/i, "Diagonāle 2:"),
+    );
+  }
+
+  return polishedLines.join("\n");
 }
 
 function getSessionStartMessage(session: OpenZtcSession) {
@@ -308,9 +402,9 @@ function getSessionStartMessage(session: OpenZtcSession) {
   const startLine = comments
     ?.split("\n")
     .map((line) => line.trim())
-    .find((line) => line.toLowerCase().startsWith("sakums:"));
+    .find((line) => getCommentLineText(line, ["Sākums:", "Sakums:"]) !== null);
 
-  if (startLine) return stripCommentLabel(startLine, "Sakums:");
+  if (startLine) return getCommentLineText(startLine, ["Sākums:", "Sakums:"]) ?? "";
 
   const originalMessage = stripWorkerPrefix(session.originalUserComment);
   if (originalMessage) return originalMessage;
@@ -319,7 +413,7 @@ function getSessionStartMessage(session: OpenZtcSession) {
     return "";
   }
 
-  return stripCommentLabel(comments, "Sakums:");
+  return stripCommentLabel(comments, "Sākums:");
 }
 
 function buildZtcUserComments(args: {
@@ -328,14 +422,14 @@ function buildZtcUserComments(args: {
   diagonalOneMm?: number | null;
   diagonalTwoMm?: number | null;
 }) {
-  const startText = stripCommentLabel(args.startText?.trim() ?? "", "Sakums:");
+  const startText = stripCommentLabel(args.startText?.trim() ?? "", "Sākums:");
   const finishText = stripCommentLabel(args.finishText?.trim() ?? "", "Beigas:");
 
   return [
-    startText ? `Sakums: ${startText}` : null,
+    startText ? `Sākums: ${startText}` : null,
     finishText ? `Beigas: ${finishText}` : null,
-    args.diagonalOneMm != null ? `Diagonale 1: ${args.diagonalOneMm} mm` : null,
-    args.diagonalTwoMm != null ? `Diagonale 2: ${args.diagonalTwoMm} mm` : null,
+    args.diagonalOneMm != null ? `Diagonāle 1: ${args.diagonalOneMm} mm` : null,
+    args.diagonalTwoMm != null ? `Diagonāle 2: ${args.diagonalTwoMm} mm` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -795,9 +889,9 @@ async function completeSession(args: {
       : completedWork?.amountCompleted != null
         ? completedWork.amountCompleted
         : null;
-  const finalWorkerComment =
-    finalComments?.trim() ||
-    buildZtcUserComments({
+  const finalWorkerComment = finalComments?.trim()
+    ? await polishZtcCommentBlock(finalComments)
+    : await buildPolishedZtcUserComments({
       startText: getSessionStartMessage(session),
       finishText: completedText,
     });
@@ -1391,6 +1485,7 @@ async function createAdditionalWorkSession(args: {
   const { workOptions } = await getZtcDropdownOptions();
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
+  const comments = await buildPolishedZtcUserComments({ startText: text });
 
   const created = await prisma.sitediaryrecords.create({
     data: {
@@ -1403,7 +1498,7 @@ async function createAdditionalWorkSession(args: {
       Works: workOption,
       Units: "m2",
       Amounts: work.amountCompleted ?? undefined,
-      Comments: buildZtcUserComments({ startText: text }),
+      Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
     },
   });
@@ -1533,6 +1628,7 @@ async function handleWorkText(args: {
   }
 
   const amountM2 = getSessionWorkAmountM2(session, work.workOption);
+  const comments = await buildPolishedZtcUserComments({ startText: text });
 
   const updated = await prisma.sitediaryrecords.update({
     where: { id: session.id },
@@ -1541,7 +1637,7 @@ async function handleWorkText(args: {
       Works: work.workOption,
       Units: "m2",
       Amounts: amountM2 ?? undefined,
-      Comments: buildZtcUserComments({ startText: text }),
+      Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
     },
   });

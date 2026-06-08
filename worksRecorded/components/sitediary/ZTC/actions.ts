@@ -100,6 +100,7 @@ function mapZtcRecord(rec: any) {
     Comments_Custom_1: rec.Comments_Custom_1 || "",
     Comments_Custom_2: rec.Comments_Custom_2 || "",
     originalUserComment: rec.originalUserComment || "",
+    Photos: Array.isArray(rec.Photos) ? rec.Photos : [],
     createdBy: createdBy || "N/A",
   };
 }
@@ -170,6 +171,7 @@ async function loadZtcSiteDiaryRecords(args: { date: string }) {
       Comments_Custom_1: true,
       Comments_Custom_2: true,
       originalUserComment: true,
+      Photos: true,
       User: {
         select: {
           firstName: true,

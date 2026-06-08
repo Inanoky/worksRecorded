@@ -8,6 +8,7 @@ import {
   formatExtractedWorksForMessage,
   isZtcTimeoutError,
   parseJsonObject,
+  polishZtcCommentText,
   sendZtcMessage,
   transcribeAudio,
   uploadMediaImage,
@@ -186,16 +187,17 @@ async function completeQualitySession(args: {
   const qualityPhotoUrls = args.payload.qualityPhotoUrls ?? [];
   if (!qualityText || qualityPhotoUrls.length === 0) return;
 
-  const checkedWork = findCheckedWork(args.payload, qualityText);
+  const polishedQualityText = await polishZtcCommentText(qualityText);
+  const checkedWork = findCheckedWork(args.payload, polishedQualityText);
   const metadata = buildQualityMetadata({
     payload: args.payload,
     qualityPhotoUrls,
-    qualityText,
+    qualityText: polishedQualityText,
     checkedWork,
   });
   const elementName = args.payload.drawingMetadata.elements[0]?.elementName ?? "";
   const comments = [
-    `Kvalitātes kontrole: ${qualityText}`,
+    `Kvalitātes kontrole: ${polishedQualityText}`,
     checkedWork ? `Darbs: ${checkedWork}` : null,
   ]
     .filter(Boolean)
@@ -336,7 +338,7 @@ async function handleQualityDrawingPhoto(args: {
   ) {
     await sendZtcMessage(
       args.to,
-      `Lūdzu, atsūtiet skaidru ražošanas rasējuma foto. Neizdevās nolasīt projektu, elementu vai darbu sarakstu.${extraction.issue ? `\n${extraction.issue}` : ""}`,
+      "Lūdzu, atsūtiet skaidru ražošanas rasējuma foto. Neizdevās nolasīt projektu, elementu vai darbu sarakstu.",
     );
     return;
   }

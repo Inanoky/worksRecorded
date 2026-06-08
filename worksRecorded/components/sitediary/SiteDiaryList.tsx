@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { createPortal } from "react-dom";
 import {
   Card,
   CardContent,
@@ -31,6 +32,8 @@ import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import * as XLSX from "xlsx";
 import {
   CalendarIcon,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   CloudSun,
   Ellipsis,
@@ -42,6 +45,7 @@ import {
   Search,
   ShieldCheck,
   Trash2,
+  X,
 } from "lucide-react";
 
 
@@ -220,6 +224,152 @@ function splitWorkerDisplayName(value: string | null | undefined) {
     name: parts[0],
     surname: parts.slice(1).join(" "),
   };
+}
+
+function getZtcRowPhotos(row: DiaryRow) {
+  return (Array.isArray(row.Photos) ? row.Photos : [])
+    .map((url) => String(url ?? "").trim())
+    .filter(Boolean);
+}
+
+function getZtcRowKindLabel(row: DiaryRow) {
+  return isZtcQualityRow(row) ? "QA" : "Darbs";
+}
+
+type ZtcImageDialogState = {
+  title: string;
+  subtitle?: string;
+  photos: Array<{ src: string; caption?: string }>;
+} | null;
+
+function ZtcRelatedImageGallery({
+  photos,
+  title,
+  subtitle,
+  onClose,
+}: {
+  photos: Array<{ src: string; caption?: string }>;
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+}) {
+  const [mounted, setMounted] = React.useState(false);
+  const [currentIndex, setCurrentIndex] = React.useState(0);
+
+  React.useEffect(() => setMounted(true), []);
+
+  const goPrev = React.useCallback(() => {
+    if (!photos.length) return;
+    setCurrentIndex((index) => (index - 1 + photos.length) % photos.length);
+  }, [photos.length]);
+  const goNext = React.useCallback(() => {
+    if (!photos.length) return;
+    setCurrentIndex((index) => (index + 1) % photos.length);
+  }, [photos.length]);
+
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      if (event.key === "ArrowLeft") goPrev();
+      if (event.key === "ArrowRight") goNext();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [goNext, goPrev, onClose]);
+
+  if (!mounted || !photos.length) return null;
+
+  const currentPhoto = photos[currentIndex];
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
+        className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
+        aria-label="Aizvērt"
+      >
+        <X className="h-6 w-6" />
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          goPrev();
+        }}
+        className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring md:left-6"
+        aria-label="Iepriekšējais foto"
+      >
+        <ChevronLeft className="h-7 w-7" />
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          goNext();
+        }}
+        className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring md:right-6"
+        aria-label="Nākamais foto"
+      >
+        <ChevronRight className="h-7 w-7" />
+      </button>
+
+      <div
+        className="flex h-[92vh] w-[92vw] max-w-[1400px] flex-col p-2"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-2 text-center text-white">
+          <div className="text-base font-medium">{title}</div>
+          {subtitle ? <div className="text-xs text-white/70">{subtitle}</div> : null}
+        </div>
+        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md">
+          <img
+            src={currentPhoto.src}
+            alt={currentPhoto.caption || title}
+            className="max-h-full max-w-full select-none object-contain"
+            draggable={false}
+          />
+        </div>
+        {currentPhoto.caption ? (
+          <div className="mx-auto mt-3 max-h-24 max-w-4xl overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-black/40 px-3 py-2 text-center text-sm leading-snug text-white/90">
+            {currentPhoto.caption}
+          </div>
+        ) : null}
+        <div className="mt-1 text-center text-xs text-white/70">
+          {currentIndex + 1} / {photos.length}
+        </div>
+      </div>
+      {photos.length > 1 ? (
+        <div className="absolute bottom-3 left-1/2 flex max-w-[90vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-md bg-black/40 p-2">
+          {photos.map((photo, index) => (
+            <button
+              key={`${photo.src}-${index}`}
+              type="button"
+              className={cn(
+                "h-14 w-14 shrink-0 overflow-hidden rounded border",
+                index === currentIndex ? "border-white" : "border-white/20 opacity-70",
+              )}
+              onClick={(event) => {
+                event.stopPropagation();
+                setCurrentIndex(index);
+              }}
+            >
+              <img src={photo.src} alt="" className="h-full w-full object-cover" />
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>,
+    document.body,
+  );
 }
 
 type DayGroup = {
@@ -505,6 +655,7 @@ export default function SiteDiaryCalendar({
   const isZtcSite = siteId === ZTC_SITE_ID;
   const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
   const [payrollDirtyRowIds, setPayrollDirtyRowIds] = React.useState<Set<string>>(new Set());
+  const [ztcImageDialog, setZtcImageDialog] = React.useState<ZtcImageDialogState>(null);
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
       setFilledDays([]);
@@ -1074,6 +1225,37 @@ export default function SiteDiaryCalendar({
   const openPhotos = (date: Date) => {
     setPhotosDate(date);
     setPhotosDialogOpen(true);
+  };
+
+  const openZtcRowImages = (row: DiaryRow) => {
+    const photos = getZtcRowPhotos(row);
+    if (!photos.length) {
+      toast.error("Šim ierakstam nav pievienotu foto.");
+      return;
+    }
+
+    setZtcImageDialog({
+      title: row.Works || getZtcRowKindLabel(row),
+      subtitle: [row.Location, row.Location_Custom_1, row.createdBy]
+        .map((part) => String(part ?? "").trim())
+        .filter(Boolean)
+        .join(" • "),
+      photos: photos.map((src) => ({
+        src,
+        caption: [row.Works, row.Location_Custom_1, row.createdBy, row.Comments]
+          .map((part) => String(part ?? "").trim())
+          .filter(Boolean)
+          .join(" • "),
+      })),
+    });
+  };
+
+  const openZtcElementDetails = (elementName: string | null | undefined) => {
+    const normalizedElement = String(elementName ?? "").trim();
+    if (!normalizedElement) return;
+
+    setViewMode("list");
+    setElementFilter(normalizedElement);
   };
 
   const openWeather = async (date: Date) => {
@@ -2121,11 +2303,30 @@ export default function SiteDiaryCalendar({
                                     : r.Units || r.Amounts || ""}
                                 </span>
                               </div>
+                              {isZtcSite && r.Location_Custom_1 ? (
+                                <button
+                                  type="button"
+                                  className="mt-1 block text-left text-[10px] font-medium text-blue-700 underline-offset-2 hover:underline"
+                                  onClick={() => openZtcElementDetails(r.Location_Custom_1)}
+                                >
+                                  Elements: {r.Location_Custom_1}
+                                </button>
+                              ) : null}
 
                               <div className="mt-1 text-[11px]">
-                                <div className="font-semibold">
-                                  {r.Works || t.noWorksRecorded}
-                                </div>
+                                {isZtcSite ? (
+                                  <button
+                                    type="button"
+                                    className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
+                                    onClick={() => openZtcRowImages(r)}
+                                  >
+                                    {r.Works || t.noWorksRecorded}
+                                  </button>
+                                ) : (
+                                  <div className="font-semibold">
+                                    {r.Works || t.noWorksRecorded}
+                                  </div>
+                                )}
                               </div>
 
                               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
@@ -2387,14 +2588,28 @@ export default function SiteDiaryCalendar({
                                               </div>
                                               <div className="line-clamp-1">
                                                 <span className="text-[11px] font-medium text-muted-foreground">Elements: </span>
-                                                <span>{row.Location_Custom_1 || "—"}</span>
+                                                {row.Location_Custom_1 ? (
+                                                  <button
+                                                    type="button"
+                                                    className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
+                                                    onClick={() => openZtcElementDetails(row.Location_Custom_1)}
+                                                  >
+                                                    {row.Location_Custom_1}
+                                                  </button>
+                                                ) : (
+                                                  <span>—</span>
+                                                )}
                                               </div>
                                             </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 175 }}>
-                                            <div className="line-clamp-2 whitespace-normal break-words leading-snug">
+                                            <button
+                                              type="button"
+                                              className="line-clamp-2 whitespace-normal break-words text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
+                                              onClick={() => openZtcRowImages(row)}
+                                            >
                                               {row.Works || "—"}
-                                            </div>
+                                            </button>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 105 }}>
                                             <div className="leading-snug">
@@ -3446,6 +3661,15 @@ export default function SiteDiaryCalendar({
             </div>
           </DialogContent>
         </Dialog>
+
+        {ztcImageDialog ? (
+          <ZtcRelatedImageGallery
+            title={ztcImageDialog.title}
+            subtitle={ztcImageDialog.subtitle}
+            photos={ztcImageDialog.photos}
+            onClose={() => setZtcImageDialog(null)}
+          />
+        ) : null}
 
         {/* Photos dialog with ImageGallery */}
         <Dialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen}>
