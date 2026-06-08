@@ -12,6 +12,7 @@ import { getOrganizationIdByWorkerId, orgCheck } from "./shared-actions";
 import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
@@ -985,14 +986,16 @@ export async function saveSiteDiaryRecord({
   originalUserComment?: string;
   originalAudioUrl?: string | null;
 }) {
+  const resolvedOriginalAudioUrl = originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
+
   // 🪵 LOG: Initial inputs for context
   console.log("[originalAudioUrl][saveSiteDiaryRecord] called", {
     rowCount: rows?.length ?? 0,
     userId: userId ?? null,
     workerId: workerId ?? null,
     siteId: siteId ?? null,
-    hasOriginalAudioUrl: Boolean(originalAudioUrl),
-    originalAudioUrlLength: originalAudioUrl?.length ?? 0,
+    hasOriginalAudioUrl: Boolean(resolvedOriginalAudioUrl),
+    originalAudioUrlLength: resolvedOriginalAudioUrl?.length ?? 0,
   });
 
   // NEW: Determine the entity and fetch the organization ID
@@ -1059,7 +1062,7 @@ export async function saveSiteDiaryRecord({
         Comments_Custom_2: row.Comments_Custom_2 || undefined,
 
         originalUserComment: formattedOriginalUserComment,
-        originalAudioUrl: originalAudioUrl || undefined,
+        originalAudioUrl: resolvedOriginalAudioUrl || undefined,
 
         Units: row.Units || undefined,
         Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
@@ -1091,7 +1094,7 @@ export async function saveSiteDiaryRecord({
     console.log("--- saveSiteDiaryRecord END: No records to insert ---");
     console.warn("[originalAudioUrl][saveSiteDiaryRecord] no rows inserted after filtering", {
       inputRowCount: rows?.length ?? 0,
-      hasOriginalAudioUrl: Boolean(originalAudioUrl),
+      hasOriginalAudioUrl: Boolean(resolvedOriginalAudioUrl),
     });
     return { ok: false, message: "No records to insert" };
   }
