@@ -8,6 +8,8 @@ import {parseWithZod} from '@conform-to/zod'
 import { SiteCreationSchema} from "@/lib/utils/zodSchemas";
 import {prisma} from "@/lib/utils/db";
 import {requireUser} from "@/lib/utils/requireUser";
+import { requireInternationalPhoneForWhatsApp } from "@/lib/utils/phone/international-phone";
+import { getToastMessages } from "@/lib/dashboard-i18n";
 import {stripe} from "@/lib/utils/stripe";
 import { defaultProgram } from "@/lib/utils/DefaultProgram";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
@@ -354,14 +356,12 @@ export async function getOrganizationIdByWorkerId(workerId: string): Promise<str
 
 export async function saveUserPhone(formData: FormData) {
   const user = await requireUser();
-  let phone = String(formData.get("phone") ?? "").trim();
-
-  // allow only digits
-  phone = phone.replace(/[^\d]/g, "");
-
-  if (!phone) {
-    throw new Error("Invalid phone number");
-  }
+  const language = await getOrganizationLanguageByUserId(user.id);
+  const t = getToastMessages(language);
+  const phone = requireInternationalPhoneForWhatsApp(
+    String(formData.get("phone") ?? ""),
+    t.internationalPhoneWithCountryCodeRequired,
+  );
 
   await prisma.user.update({
     where: { id: user.id },

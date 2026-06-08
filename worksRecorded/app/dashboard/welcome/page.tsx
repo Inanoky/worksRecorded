@@ -37,9 +37,23 @@ async function getData(orgId: string) {
   return { sites };
 }
 
-async function setPhone(formData: FormData) {
+type PhoneFormState = {
+  ok: boolean;
+  message?: string;
+};
+
+async function setPhone(_prevState: PhoneFormState, formData: FormData): Promise<PhoneFormState> {
   "use server";
-  await saveUserPhone(formData);
+
+  try {
+    await saveUserPhone(formData);
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Invalid phone number",
+    };
+  }
+
   redirect("/dashboard/welcome");
 }
 
