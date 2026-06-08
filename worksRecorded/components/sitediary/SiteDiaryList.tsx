@@ -2546,7 +2546,7 @@ export default function SiteDiaryCalendar({
                                       <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Koef.</TableHead>
                                       <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Bonuss</TableHead>
                                       <TableHead className="text-right" style={{ width: 82 }}>Summa</TableHead>
-                                      <TableHead className="text-center" style={{ width: 72 }}>Save</TableHead>
+                                      <TableHead className="text-center" style={{ width: 72 }}>Saglabāt</TableHead>
                                       <TableHead style={{ width: 270 }}>Komentāri</TableHead>
                                       {bisUiEnabled ? (
                                         <TableHead className="text-center" style={{ width: 122 }}>BIS</TableHead>

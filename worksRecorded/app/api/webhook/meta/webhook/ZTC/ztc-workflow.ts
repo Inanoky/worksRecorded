@@ -695,6 +695,29 @@ export async function uploadMediaImage(formData: FormData, idx: number) {
   };
 }
 
+async function uploadZtcImages(formData: FormData, idxs: number[], context: string) {
+  const results = await Promise.allSettled(idxs.map((idx) => uploadMediaImage(formData, idx)));
+  const uploaded = results
+    .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof uploadMediaImage>>> => result.status === "fulfilled")
+    .map((result) => result.value);
+  const failed = results.filter((result) => result.status === "rejected");
+
+  if (failed.length > 0) {
+    console.warn("[ZTC workflow]", {
+      event: "image_upload_partial_failure",
+      context,
+      requestedPhotoCount: idxs.length,
+      uploadedPhotoCount: uploaded.length,
+      failedPhotoCount: failed.length,
+      errors: failed.map((result) =>
+        result.reason instanceof Error ? result.reason.message : String(result.reason),
+      ),
+    });
+  }
+
+  return uploaded;
+}
+
 export async function transcribeAudio(formData: FormData, idx: number) {
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "").toLowerCase();
@@ -1216,7 +1239,7 @@ async function handleTlDiagonalPhoto(args: {
       worker: args.worker,
       publicUrl: image.publicUrl,
       session: args.session,
-      label: "Pirma diagonale",
+      label: "Pirmā diagonāle",
     });
 
     await sendZtcMessage(args.to, "Pirmās diagonāles foto saņemts. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm, piemēram: 5240.");
@@ -1249,7 +1272,7 @@ async function handleTlDiagonalPhoto(args: {
       worker: args.worker,
       publicUrl: image.publicUrl,
       session: args.session,
-      label: "Otra diagonale",
+      label: "Otrā diagonāle",
     });
 
     await sendZtcMessage(args.to, "Otrās diagonāles foto saņemts. Lūdzu, ierakstiet otrās diagonāles mērījumu mm, piemēram: 5238.");
@@ -1296,8 +1319,17 @@ async function appendPhotosToRecentCompletedSession(args: {
 
   await sendTypingIndicator(getString(args.formData, "From"));
 
-  const images = await Promise.all(args.idxs.map((idx) => uploadMediaImage(args.formData, idx)));
+  const images = await uploadZtcImages(args.formData, args.idxs, "recent_completed_append");
   const uploadedUrls = images.map((image) => image.publicUrl);
+  if (uploadedUrls.length === 0) {
+    logZtcSession("completed_work_late_photos_append_skipped", {
+      session,
+      worker: args.worker,
+      details: { requestedPhotoCount: args.idxs.length },
+    });
+    return true;
+  }
+
   const nextPhotos = [...(session.Photos ?? []), ...uploadedUrls];
 
   const updated = await prisma.sitediaryrecords.update({
@@ -1689,8 +1721,13 @@ async function handleFinishedPhoto(args: {
 
   await sendTypingIndicator(to);
 
-  const images = await Promise.all(idxs.map((idx) => uploadMediaImage(formData, idx)));
+  const images = await uploadZtcImages(formData, idxs, "completed_work_photos");
   const uploadedUrls = images.map((image) => image.publicUrl);
+  if (uploadedUrls.length === 0) {
+    await sendZtcMessage(to, "Neizdevās saglabāt pabeigtā darba foto. Lūdzu, atsūtiet foto vēlreiz.");
+    return;
+  }
+
   const nextPhotos = [...(session.Photos ?? []), ...uploadedUrls];
   const alreadyConfirmedPhotoBatch = isRecentPhotoBatchConfirmation(session.Comments_Custom_1);
   const shouldPreservePendingState =
