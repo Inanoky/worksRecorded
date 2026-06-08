@@ -12,7 +12,12 @@ import { getOrganizationIdByWorkerId, orgCheck } from "./shared-actions";
 import { getUserFullNameById, getWorkerFullNameById } from "./whatsapp-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
-import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import {
+  consumeWhatsappAudioSourceContext,
+  getWhatsappSourceContext,
+  hasConsumedWhatsappSiteDiarySave,
+  markWhatsappSiteDiarySaveConsumed,
+} from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
 
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -989,7 +994,33 @@ export async function saveSiteDiaryRecord({
   originalAudioUrl?: string | null;
   originalAudioRecordId?: string | null;
 }) {
-  const rawOriginalAudioUrl = originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
+  const validRows = rows.filter((r) => r.Location || r.Works);
+
+  if (!validRows.length) {
+    const rawOriginalAudioUrlPreview = originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
+    const resolvedOriginalAudioUrlPreview = resolvePersistableAudioUrl(rawOriginalAudioUrlPreview);
+
+    console.log("--- saveSiteDiaryRecord END: No records to insert ---");
+    console.warn("[originalAudioUrl][saveSiteDiaryRecord] no rows inserted after filtering", {
+      inputRowCount: rows?.length ?? 0,
+      hasOriginalAudioUrl: Boolean(resolvedOriginalAudioUrlPreview),
+    });
+    return { ok: false, message: "No records to insert" };
+  }
+
+  if (!originalAudioUrl && !originalAudioRecordId && hasConsumedWhatsappSiteDiarySave()) {
+    console.warn("[originalAudioUrl][saveSiteDiaryRecord] ignored repeated save for consumed audio context", {
+      rowCount: validRows.length,
+      userId: userId ?? null,
+      workerId: workerId ?? null,
+      siteId: siteId ?? null,
+    });
+    return { ok: true, count: 0, message: "Audio diary already saved" };
+  }
+
+  const whatsappAudioContext = consumeWhatsappAudioSourceContext();
+  const pendingAudioRecordId = originalAudioRecordId ?? whatsappAudioContext.originalAudioRecordId ?? null;
+  const rawOriginalAudioUrl = originalAudioUrl ?? whatsappAudioContext.originalAudioUrl ?? null;
   const resolvedOriginalAudioUrl = resolvePersistableAudioUrl(rawOriginalAudioUrl);
 
   if (rawOriginalAudioUrl && !resolvedOriginalAudioUrl) {
@@ -1012,7 +1043,7 @@ export async function saveSiteDiaryRecord({
     siteId: siteId ?? null,
     hasOriginalAudioUrl: Boolean(resolvedOriginalAudioUrl),
     originalAudioUrlLength: resolvedOriginalAudioUrl?.length ?? 0,
-    hasOriginalAudioRecordId: Boolean(originalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId),
+    hasOriginalAudioRecordId: Boolean(pendingAudioRecordId),
   });
 
   // NEW: Determine the entity and fetch the organization ID
@@ -1052,8 +1083,7 @@ export async function saveSiteDiaryRecord({
 
   // Make sure requireUser() is not triggering a redirect!
   // Defensive: Only save if at least one row with location or works
-  const toInsert = rows
-    .filter((r) => r.Location || r.Works)
+  const toInsert = validRows
     .map((row, idx) => {
       const out = {
         // UPDATE: Conditionally set userId or workerId
@@ -1079,7 +1109,7 @@ export async function saveSiteDiaryRecord({
         Comments_Custom_2: row.Comments_Custom_2 || undefined,
 
         originalUserComment: formattedOriginalUserComment,
-        originalAudioUrl: resolvedOriginalAudioUrl || undefined,
+        originalAudioUrl: idx === 0 ? resolvedOriginalAudioUrl || undefined : undefined,
 
         Units: row.Units || undefined,
         Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
@@ -1107,26 +1137,27 @@ export async function saveSiteDiaryRecord({
       return out;
     });
 
-  if (!toInsert.length) {
-    console.log("--- saveSiteDiaryRecord END: No records to insert ---");
-    console.warn("[originalAudioUrl][saveSiteDiaryRecord] no rows inserted after filtering", {
-      inputRowCount: rows?.length ?? 0,
-      hasOriginalAudioUrl: Boolean(resolvedOriginalAudioUrl),
-    });
-    return { ok: false, message: "No records to insert" };
-  }
-
   try {
-    const pendingRecordId = originalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId;
+    const pendingRecordId = pendingAudioRecordId;
     let finalCount = 0;
 
     if (pendingRecordId && toInsert.length > 0) {
       console.log("[originalAudioUrl][saveSiteDiaryRecord] updating skeleton record", { pendingRecordId });
       const firstRow = toInsert.shift()!;
-      await prisma.sitediaryrecords.update({
-        where: { id: pendingRecordId },
+      const updateResult = await prisma.sitediaryrecords.updateMany({
+        where: {
+          id: pendingRecordId,
+          Works: "Processing voice message...",
+        },
         data: firstRow,
       });
+      if (updateResult.count === 0) {
+        console.warn("[originalAudioUrl][saveSiteDiaryRecord] skipped repeated skeleton update", {
+          pendingRecordId,
+        });
+        markWhatsappSiteDiarySaveConsumed();
+        return { ok: true, count: 0, message: "Audio diary already saved" };
+      }
       finalCount++;
     }
 
@@ -1140,6 +1171,7 @@ export async function saveSiteDiaryRecord({
       hasPendingUpdate: Boolean(pendingRecordId),
     });
 
+    markWhatsappSiteDiarySaveConsumed();
     return { ok: true, count: finalCount }; //Multitenant
   } catch (err: any) {
     console.error("❌ [saveSiteDiaryRecord] error", err);

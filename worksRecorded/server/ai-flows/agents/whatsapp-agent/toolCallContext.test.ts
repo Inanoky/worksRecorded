@@ -4,7 +4,7 @@ import {
 } from "./toolCallContext";
 
 describe("tool call context injection", () => {
-    it("injects app context into LangChain-style site manager toolCall.args including original audio URL", () => {
+    it("injects source comment into LangChain-style site manager toolCall.args without audio metadata", () => {
         const toolCall = {
             name: "save_to_database",
             args: {
@@ -29,12 +29,13 @@ describe("tool call context injection", () => {
         expect(toolCall.args).toEqual(
             expect.objectContaining({
                 originalUserComment: "Manager Name : Test transcript",
-                originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
             }),
         );
+        expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
+        expect(toolCall.args).not.toHaveProperty("originalAudioRecordId");
     });
 
-    it("overwrites LLM-provided Meta audio URL with injected UploadThing URL", () => {
+    it("strips LLM-provided audio URL from existing tool args", () => {
         const toolCall = {
             name: "save_to_database",
             args: {
@@ -52,10 +53,11 @@ describe("tool call context injection", () => {
             originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
         });
 
-        expect(toolCall.args.originalAudioUrl).toBe("https://ut.test.ufs.sh/f/voice.ogg");
+        expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
+        expect(toolCall.args).not.toHaveProperty("originalAudioRecordId");
     });
 
-    it("injects app context into OpenAI-style site manager function arguments including original audio URL", () => {
+    it("injects source comment into OpenAI-style site manager function arguments without audio metadata", () => {
         const toolCall = {
             function: {
                 name: "save_to_database",
@@ -81,12 +83,13 @@ describe("tool call context injection", () => {
         expect(parsedArgs).toEqual(
             expect.objectContaining({
                 originalUserComment: "Manager Name : Test transcript",
-                originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
             }),
         );
+        expect(parsedArgs).not.toHaveProperty("originalAudioUrl");
+        expect(parsedArgs).not.toHaveProperty("originalAudioRecordId");
     });
 
-    it("injects app context into LangChain-style worker diary toolCall.args including original audio URL", () => {
+    it("injects app context into LangChain-style worker diary toolCall.args without audio metadata", () => {
         const toolCall = {
             name: "WorkerDiaryToDatabase",
             args: {
@@ -111,8 +114,9 @@ describe("tool call context injection", () => {
                 siteId: "site-1",
                 date: "2026-06-08T12:00:00.000Z",
                 originalUserComment: "Worker Name : Test transcript",
-                originalAudioUrl: "https://ut.test.ufs.sh/f/worker-voice.ogg",
             }),
         );
+        expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
+        expect(toolCall.args).not.toHaveProperty("originalAudioRecordId");
     });
 });

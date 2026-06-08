@@ -1,5 +1,5 @@
 const createManyMock = jest.fn();
-const updateMock = jest.fn();
+const updateManyMock = jest.fn();
 const photosFindManyMock = jest.fn();
 const siteDiaryFindManyMock = jest.fn();
 
@@ -10,7 +10,7 @@ jest.mock("@/lib/utils/db", () => ({
     },
     sitediaryrecords: {
       createMany: createManyMock,
-      update: updateMock,
+      updateMany: updateManyMock,
       findMany: siteDiaryFindManyMock,
     },
   },
@@ -47,6 +47,7 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     createManyMock.mockResolvedValue({ count: 1 });
+    updateManyMock.mockResolvedValue({ count: 1 });
     photosFindManyMock.mockResolvedValue([]);
     siteDiaryFindManyMock.mockResolvedValue([]);
   });
@@ -139,7 +140,7 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
   });
 
   it("updates skeleton record instead of creating new when originalAudioRecordId is in context", async () => {
-    updateMock.mockResolvedValue({ id: "pending-1" });
+    updateManyMock.mockResolvedValue({ count: 1 });
 
     const result = await runWithWhatsappSourceContext(
       { originalAudioRecordId: "pending-1" },
@@ -164,8 +165,8 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     expect(result).toEqual({ ok: true, count: 2 });
     
     // First row should be updated
-    expect(updateMock).toHaveBeenCalledWith({
-      where: { id: "pending-1" },
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: "pending-1", Works: "Processing voice message..." },
       data: expect.objectContaining({
         Location: "Site A",
         Works: "Concrete pour",
@@ -181,6 +182,40 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         }),
       ],
     });
+  });
+
+  it("does not overwrite a skeleton record after the audio context has already been consumed", async () => {
+    const first = await runWithWhatsappSourceContext(
+      {
+        originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
+        originalAudioRecordId: "pending-1",
+      },
+      async () => {
+        const firstResult = await saveSiteDiaryRecord({
+          rows: [{ Location: "Site A", Works: "Concrete pour" }],
+          userId: "user-1",
+          siteId: "site-1",
+          originalUserComment: "Work log",
+        });
+        const secondResult = await saveSiteDiaryRecord({
+          rows: [{ Location: "Site B", Works: "Painting" }],
+          userId: "user-1",
+          siteId: "site-1",
+          originalUserComment: "Duplicate tool call",
+        });
+
+        return { firstResult, secondResult };
+      },
+    );
+
+    expect(first.firstResult).toEqual({ ok: true, count: 1 });
+    expect(first.secondResult).toEqual({
+      ok: true,
+      count: 0,
+      message: "Audio diary already saved",
+    });
+    expect(updateManyMock).toHaveBeenCalledTimes(1);
+    expect(createManyMock).not.toHaveBeenCalled();
   });
 
   it("returns photos and same-day audio diary records for the media dialog", async () => {

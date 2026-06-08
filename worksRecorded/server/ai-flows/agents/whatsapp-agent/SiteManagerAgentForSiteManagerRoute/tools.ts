@@ -29,19 +29,16 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     userId: z.string(),
     date: z.string(),
     originalUserComment: z.string(),
-    originalAudioUrl: z.string().nullable().optional(),
-    originalAudioRecordId: z.string().nullable().optional(),
   }),
 
-  async func({ question, userId, siteId, date, originalUserComment, originalAudioUrl: injectedOriginalAudioUrl, originalAudioRecordId: injectedOriginalAudioRecordId }) {
-    const originalAudioUrl = injectedOriginalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
-    const originalAudioRecordId = injectedOriginalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId ?? null;
+  async func({ question, userId, siteId, date, originalUserComment }) {
+    const whatsappSourceContext = getWhatsappSourceContext();
 
     console.log("▶️ TOOL START");
     console.log("Input:", { question, userId, siteId, date });
     console.log("[originalAudioUrl][siteManagerTool] received app context", {
-      hasOriginalAudioUrl: Boolean(originalAudioUrl),
-      hasOriginalAudioRecordId: Boolean(originalAudioRecordId),
+      hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
+      hasOriginalAudioRecordId: Boolean(whatsappSourceContext.originalAudioRecordId),
       userId,
       siteId,
     });
@@ -111,8 +108,6 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
       userId,
       siteId,
       originalUserComment,
-      originalAudioUrl,
-      originalAudioRecordId,
     });
 
     console.log("✅ Save result:", result);

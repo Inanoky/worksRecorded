@@ -98,9 +98,10 @@ describe("WhatsApp audio URL persistence integration", () => {
         userId: "user-1",
         siteId: "site-1",
         originalUserComment: "Test transcript",
-        originalAudioUrl: toolCall.args.originalAudioUrl as string,
       });
     });
+
+    expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
 
     expect(createManyMock).toHaveBeenCalledWith({
       data: [
