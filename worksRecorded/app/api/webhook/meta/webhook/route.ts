@@ -40,6 +40,8 @@ import {
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
 const LOCK_TTL_MS = 90_000;
+const ROUTING_LOCK_WAIT_MS = 120_000;
+const ROUTING_LOCK_RETRY_MS = 500;
 const PROCESSED_MESSAGE_TTL_MS = 10 * 60_000;
 const processedMetaMessages =
   (globalThis as any).__processedMetaMessages ||
@@ -80,6 +82,22 @@ async function tryAcquireTextLock(phone: string, messageId?: string | null) {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function acquireRoutingLock(phone: string, messageId?: string | null) {
+  const deadline = Date.now() + ROUTING_LOCK_WAIT_MS;
+
+  while (Date.now() < deadline) {
+    const acquired = await tryAcquireTextLock(phone, messageId);
+    if (acquired) return true;
+    await sleep(ROUTING_LOCK_RETRY_MS);
+  }
+
+  return false;
+}
+
 async function releaseTextLock(phone: string) {
   await prisma.whatsappTextLock.deleteMany({
     where: { phone },
@@ -98,6 +116,31 @@ function hasProcessedMetaMessage(messageId: string): boolean {
 
   processedMetaMessages.set(messageId, now + PROCESSED_MESSAGE_TTL_MS);
   return false;
+}
+
+function isRoutableMetaMessage(message: any) {
+  return message?.type === "text" || message?.type === "image" || message?.type === "audio";
+}
+
+function isReadableMetaMessage(message: any) {
+  return isRoutableMetaMessage(message) || message?.type === "contacts";
+}
+
+function logUnsupportedMetaMessage(message: any) {
+  console.warn("Meta unsupported webhook message skipped", {
+    id: message?.id,
+    from: message?.from,
+    type: message?.type,
+    unsupportedType: message?.unsupported?.type,
+    errors: Array.isArray(message?.errors)
+      ? message.errors.map((error: any) => ({
+          code: error?.code,
+          title: error?.title,
+          message: error?.message,
+          details: error?.error_data?.details,
+        }))
+      : undefined,
+  });
 }
 
 function mustGetEnv(name: string, value: string | undefined): string {
@@ -258,7 +301,6 @@ async function runWhatsappRoutingForMeta(args: {
     const waId = getString(formData, "WaId");
     const numMediaRaw = getString(formData, "NumMedia");
     const numMedia = Number(numMediaRaw || "0");
-    const isText = !Number.isNaN(numMedia) ? numMedia === 0 : true;
     const messageId = getString(formData, "MessageId") || null;
 
     if (smsStatus && smsStatus.toLowerCase() !== "received") {
@@ -275,13 +317,19 @@ async function runWhatsappRoutingForMeta(args: {
       return;
     }
 
-    if (isText) {
-      const acquired = await tryAcquireTextLock(identityKey, messageId);
-      if (!acquired) return;
-
-      lockHeld = true;
-      lockKey = identityKey;
+    const acquired = await acquireRoutingLock(identityKey, messageId);
+    if (!acquired) {
+      console.warn("Meta webhook routing lock timed out", {
+        identityKey,
+        messageId,
+        type: message?.type,
+        numMedia,
+      });
+      return;
     }
+
+    lockHeld = true;
+    lockKey = identityKey;
 
     const worker = phone
       ? await prisma.workers.findFirst({
@@ -412,7 +460,7 @@ export async function POST(req: Request): Promise<Response> {
     const change = body?.entry?.[0]?.changes?.[0];
     const value = change?.value;
     const field = change?.field;
-    const message = value?.messages?.[0];
+    const messages = Array.isArray(value?.messages) ? value.messages : [];
     const business_phone_number_id = value?.metadata?.phone_number_id;
 
     if (field === "user_id_update" && business_phone_number_id) {
@@ -436,12 +484,28 @@ export async function POST(req: Request): Promise<Response> {
       return new Response("OK", { status: 200 });
     }
 
-    if (message && business_phone_number_id) {
+    if (messages.length > 1) {
+      console.log("Meta webhook contains multiple messages", {
+        phoneNumberId: business_phone_number_id,
+        messageCount: messages.length,
+        messageIds: messages.map((message: any) => message?.id).filter(Boolean),
+        messageTypes: messages.map((message: any) => message?.type).filter(Boolean),
+      });
+    }
+
+    for (const message of messages) {
+      if (!message || !business_phone_number_id) continue;
+
       if (message.id && hasProcessedMetaMessage(message.id)) {
-        return new Response("OK", { status: 200 });
+        continue;
       }
 
-      if (message.id && (message.type === "text" || message.type === "image" || message.type === "audio")) {
+      if (!isReadableMetaMessage(message)) {
+        logUnsupportedMetaMessage(message);
+        continue;
+      }
+
+      if (message.id && isRoutableMetaMessage(message)) {
         await sendMetaTypingIndicator(business_phone_number_id, message.id, message.from || null).catch((error) => {
           console.error("Meta typing/read indicator failed", error);
         });
@@ -453,10 +517,12 @@ export async function POST(req: Request): Promise<Response> {
           message,
           businessPhoneNumberId: business_phone_number_id,
         });
-        return new Response("OK", { status: 200 });
+        continue;
       }
 
       //-----------------BOOKING APPOINTMENT BOT (PRISMA)-----------------------
+
+      let handledByBooking = false;
 
       if (message.type === "text" && typeof message.text?.body === "string") {
         const text = message.text.body.trim().toLowerCase();
@@ -481,10 +547,10 @@ export async function POST(req: Request): Promise<Response> {
             },
           });
 
-          return new Response("OK", { status: 200 });
+          handledByBooking = true;
         }
 
-        const session = user ? await getSession(user) : null;
+        const session = !handledByBooking && user ? await getSession(user) : null;
 
         if (session && user) {
           // STEP 1 — SERVICE
@@ -504,11 +570,11 @@ export async function POST(req: Request): Promise<Response> {
               },
             });
 
-            return new Response("OK", { status: 200 });
+            handledByBooking = true;
           }
 
           // STEP 2 — DATE
-          if (session.step === "date") {
+          if (!handledByBooking && session.step === "date") {
             await updateSession(user, {
               date: text,
               step: "time",
@@ -524,11 +590,11 @@ export async function POST(req: Request): Promise<Response> {
               },
             });
 
-            return new Response("OK", { status: 200 });
+            handledByBooking = true;
           }
 
           // STEP 3 — TIME
-          if (session.step === "time") {
+          if (!handledByBooking && session.step === "time") {
             await updateSession(user, {
               time: text,
             });
@@ -545,13 +611,15 @@ export async function POST(req: Request): Promise<Response> {
 
             await deleteSession(user);
 
-            return new Response("OK", { status: 200 });
+            handledByBooking = true;
           }
         }
       }
 
+      if (handledByBooking) continue;
+
       // 2) Run the shared role-based WhatsApp routing.
-      if (message.type === "text" || message.type === "image" || message.type === "audio") {
+      if (isRoutableMetaMessage(message)) {
         await runWithMetaReplyContext(
           {
             businessPhoneNumberId: business_phone_number_id,
@@ -568,7 +636,7 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       // 3) Mark message as read
-      if (message.id) {
+      if (message.id && isReadableMetaMessage(message)) {
         await graphSendMessage(business_phone_number_id, {
           messaging_product: "whatsapp",
           status: "read",
