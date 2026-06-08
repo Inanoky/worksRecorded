@@ -199,7 +199,7 @@ describe("Meta webhook audio replay", () => {
     expect(formData.get("MediaProvider0")).toBe("meta");
   });
 
-  it("returns OK and does not crash when Meta media info has no URL", async () => {
+  it("falls back to the webhook audio URL when Meta media info has no URL", async () => {
     const mocks = installRouteMocks({ mediaInfo: {} });
     const { POST } = await import("@/app/api/webhook/meta/webhook/route");
 
@@ -211,7 +211,9 @@ describe("Meta webhook audio replay", () => {
     expect(mocks.handleSiteManagerRoute).toHaveBeenCalledTimes(1);
     const formData = mocks.handleSiteManagerRoute.mock.calls[0][0].formData as FormData;
     expect(formData.get("NumMedia")).toBe("1");
-    expect(formData.get("MediaUrl0")).toBeNull();
-    expect(formData.get("MediaContentType0")).toBeNull();
+    expect(formData.get("MediaUrl0")).toBe(
+      "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=meta-audio-media-site-manager-001&source=webhook&ext=1790000300&hash=test-hash",
+    );
+    expect(formData.get("MediaContentType0")).toBe("audio/ogg; codecs=opus");
   });
 });

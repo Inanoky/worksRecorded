@@ -32,6 +32,7 @@
                   "mime_type": "audio/ogg; codecs=opus",
                   "sha256": "test-audio-sha256",
                   "id": "meta-audio-media-site-manager-001",
+                  "url": "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=meta-audio-media-site-manager-001&source=webhook&ext=1790000300&hash=test-hash",
                   "voice": true
                 }
               }
