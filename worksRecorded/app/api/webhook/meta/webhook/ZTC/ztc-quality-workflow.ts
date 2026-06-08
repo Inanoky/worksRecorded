@@ -21,6 +21,7 @@ import {
 const QA_PENDING_PREFIX = "__ZTC_QA_PENDING__";
 const QA_COMPLETED_PHOTO_BATCH_PREFIX = "__ZTC_QA_COMPLETED_PHOTO_BATCH__";
 const QA_COMPLETED_PHOTO_BATCH_WINDOW_MS = 45_000;
+const QA_PENDING_PHOTO_PROMPT_WINDOW_MS = 45_000;
 const QA_WORK_LABEL = "Kvalitātes kontrole";
 
 type QaPendingPayload = {
@@ -28,6 +29,7 @@ type QaPendingPayload = {
   drawingMetadata: ReturnType<typeof buildDrawingMetadata>;
   qualityText?: string | null;
   qualityPhotoUrls?: string[];
+  qualityPhotoPromptAt?: number | null;
 };
 
 function normalizeRole(value: string | null | undefined) {
@@ -72,6 +74,32 @@ function isRecentCompletedPhotoBatch(value: string | null | undefined, now = Dat
 function isUsefulQaText(text: string) {
   const trimmed = text.trim();
   return trimmed.length >= 3 && /[\p{L}\p{N}]/u.test(trimmed);
+}
+
+function shouldSendPendingPhotoPrompt(payload: QaPendingPayload, now = Date.now()) {
+  const promptedAt = Number(payload.qualityPhotoPromptAt ?? 0);
+  return !Number.isFinite(promptedAt) || promptedAt <= 0 || now - promptedAt >= QA_PENDING_PHOTO_PROMPT_WINDOW_MS;
+}
+
+async function uploadQualityImages(formData: FormData, idxs: number[], context: string) {
+  const results = await Promise.allSettled(idxs.map((idx) => uploadMediaImage(formData, idx)));
+  const uploaded = results
+    .filter((result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof uploadMediaImage>>> => result.status === "fulfilled")
+    .map((result) => result.value);
+  const failed = results.filter((result) => result.status === "rejected");
+
+  if (failed.length > 0) {
+    console.warn("[ZTC QA]", {
+      event: "quality_photo_upload_partial_failure",
+      context,
+      requestedPhotoCount: idxs.length,
+      uploadedPhotoCount: uploaded.length,
+      failedPhotoCount: failed.length,
+      errors: failed.map((result) => result.reason instanceof Error ? result.reason.message : String(result.reason)),
+    });
+  }
+
+  return uploaded;
 }
 
 function getPendingQaSession(workerId: string) {
@@ -258,8 +286,18 @@ async function appendPhotosToRecentCompletedQaSession(args: {
   }>(session.Comments_Custom_2, {});
   if (metadata.type !== "ztc_quality_check") return false;
 
-  const images = await Promise.all(args.idxs.map((idx) => uploadMediaImage(args.formData, idx)));
+  const images = await uploadQualityImages(args.formData, args.idxs, "recent_completed_append");
   const uploadedUrls = images.map((image) => image.publicUrl);
+  if (uploadedUrls.length === 0) {
+    console.warn("[ZTC QA]", {
+      event: "quality_late_photos_append_skipped",
+      sitediaryrecordId: session.id,
+      workerId: args.worker.id,
+      requestedPhotoCount: args.idxs.length,
+    });
+    return true;
+  }
+
   const nextQualityPhotoUrls = [...(metadata.qualityPhotoUrls ?? []), ...uploadedUrls];
   const nextMetadata = {
     ...metadata,
@@ -395,12 +433,20 @@ async function handleQualityPhotos(args: {
     return;
   }
 
-  const images = await Promise.all(args.idxs.map((idx) => uploadMediaImage(args.formData, idx)));
+  const images = await uploadQualityImages(args.formData, args.idxs, "pending_quality_photos");
   const qualityPhotoUrls = [...(payload.qualityPhotoUrls ?? []), ...images.map((image) => image.publicUrl)];
+  if (images.length === 0) {
+    await sendZtcMessage(args.to, "Neizdevās saglabāt kvalitātes foto. Lūdzu, atsūtiet foto vēlreiz.");
+    return;
+  }
+
+  const now = Date.now();
+  const shouldPrompt = shouldSendPendingPhotoPrompt(payload, now);
   const nextPayload: QaPendingPayload = {
     ...payload,
     qualityText: args.caption.trim() || payload.qualityText || null,
     qualityPhotoUrls,
+    qualityPhotoPromptAt: shouldPrompt ? now : payload.qualityPhotoPromptAt ?? null,
   };
 
   await prisma.sitediaryrecords.update({
@@ -421,7 +467,9 @@ async function handleQualityPhotos(args: {
     return;
   }
 
-  await sendZtcMessage(args.to, "Kvalitātes foto saņemts. Lūdzu, atsūtiet balss ziņu vai tekstu ar kvalitātes aprakstu.");
+  if (shouldPrompt) {
+    await sendZtcMessage(args.to, "Kvalitātes foto saņemts. Lūdzu, atsūtiet balss ziņu vai tekstu ar kvalitātes aprakstu.");
+  }
 }
 
 async function handleQualityText(args: {
