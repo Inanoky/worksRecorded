@@ -986,6 +986,14 @@ export async function saveSiteDiaryRecord({
   originalAudioUrl?: string | null;
 }) {
   // 🪵 LOG: Initial inputs for context
+  console.log("[originalAudioUrl][saveSiteDiaryRecord] called", {
+    rowCount: rows?.length ?? 0,
+    userId: userId ?? null,
+    workerId: workerId ?? null,
+    siteId: siteId ?? null,
+    hasOriginalAudioUrl: Boolean(originalAudioUrl),
+    originalAudioUrlLength: originalAudioUrl?.length ?? 0,
+  });
 
   // NEW: Determine the entity and fetch the organization ID
   const entityId = workerId ?? userId;
@@ -1069,17 +1077,31 @@ export async function saveSiteDiaryRecord({
         })}):`,
       );
       console.log(out);
+      console.log("[originalAudioUrl][saveSiteDiaryRecord] prepared row", {
+        rowIndex: idx,
+        hasOriginalAudioUrl: Boolean(out.originalAudioUrl),
+        hasLocation: Boolean(out.Location),
+        hasWorks: Boolean(out.Works),
+      });
 
       return out;
     });
 
   if (!toInsert.length) {
     console.log("--- saveSiteDiaryRecord END: No records to insert ---");
+    console.warn("[originalAudioUrl][saveSiteDiaryRecord] no rows inserted after filtering", {
+      inputRowCount: rows?.length ?? 0,
+      hasOriginalAudioUrl: Boolean(originalAudioUrl),
+    });
     return { ok: false, message: "No records to insert" };
   }
 
   try {
     await prisma.sitediaryrecords.createMany({ data: toInsert });
+    console.log("[originalAudioUrl][saveSiteDiaryRecord] createMany completed", {
+      insertedCount: toInsert.length,
+      rowsWithOriginalAudioUrl: toInsert.filter((row) => Boolean(row.originalAudioUrl)).length,
+    });
 
     return { ok: true, count: toInsert.length }; //Multitenant
   } catch (err: any) {

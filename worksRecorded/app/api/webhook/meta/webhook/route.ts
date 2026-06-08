@@ -148,6 +148,16 @@ function mustGetEnv(name: string, value: string | undefined): string {
   return value;
 }
 
+function describeUrlForLog(url: string | null | undefined) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}${parsed.pathname}`;
+  } catch {
+    return "<invalid-url>";
+  }
+}
+
 async function graphSendMessage(
   businessPhoneNumberId: string,
   body: unknown
@@ -273,10 +283,24 @@ async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdenti
       mediaInfo?.mimeType ||
       (typeof message.audio?.mime_type === "string" ? message.audio.mime_type : "audio/ogg");
 
+    console.log("[originalAudioUrl][webhook] audio media resolved", {
+      messageId: message?.id,
+      mediaId: message.audio?.id,
+      hasGraphUrl: Boolean(mediaInfo?.url),
+      hasPayloadUrl: typeof message.audio?.url === "string" && message.audio.url.length > 0,
+      selectedUrl: describeUrlForLog(mediaUrl),
+      mimeType,
+    });
+
     if (mediaUrl) {
       formData.set("MediaUrl0", mediaUrl);
       formData.set("MediaContentType0", mimeType);
       formData.set("MediaProvider0", "meta");
+    } else {
+      console.warn("[originalAudioUrl][webhook] audio message has no usable media URL", {
+        messageId: message?.id,
+        mediaId: message.audio?.id,
+      });
     }
   }
 

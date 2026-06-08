@@ -75,6 +75,12 @@ export default async function talkToClockInAgent(question, workerId, sourceAudio
                                 }
                                 args.originalUserComment = sourceComment;
                                 if (sourceAudioUrl) args.originalAudioUrl = sourceAudioUrl;
+                                console.log("[originalAudioUrl][workerAgent] injected source audio into tool args", {
+                                    hasSourceAudioUrl: Boolean(sourceAudioUrl),
+                                    toolName,
+                                    workerId,
+                                    siteId,
+                                });
                             }
 
                             // Re-stringify the arguments and update the tool call object in place

@@ -85,6 +85,12 @@ export default async function talkToWhatsappAgent(question, siteId, userId, sour
                         const args = JSON.parse(toolCall.function.arguments);
                         args.originalUserComment = sourceComment;
                         if (sourceAudioUrl) args.originalAudioUrl = sourceAudioUrl;
+                        console.log("[originalAudioUrl][siteManagerAgent] injected source audio into tool args", {
+                            hasSourceAudioUrl: Boolean(sourceAudioUrl),
+                            toolName: toolCall.function.name,
+                            userId,
+                            siteId,
+                        });
                         toolCall.function.arguments = JSON.stringify(args);
                     } catch (e) {
                         console.error("Error modifying arguments for save_to_database:", e);

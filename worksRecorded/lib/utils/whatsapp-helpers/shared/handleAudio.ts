@@ -8,6 +8,16 @@ import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 const WHATSAPP_SAFE_LIMIT = 1400;
 const utapi = new UTApi();
 
+function describeUrlForLog(url: string | null | undefined) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return `${parsed.hostname}${parsed.pathname}`;
+  } catch {
+    return "<invalid-url>";
+  }
+}
+
 export function inferAudioExtension(contentType: string) {
   const normalized = contentType.toLowerCase();
   if (normalized.includes("ogg")) return "ogg";
@@ -30,7 +40,13 @@ export async function uploadSourceAudio(buf: Buffer, contentType: string) {
     return null;
   }
 
-  return getUploadThingFileUrl(first.data);
+  const publicUrl = getUploadThingFileUrl(first.data);
+  console.log("[originalAudioUrl][handleAudio] source audio upload completed", {
+    hasUploadThingData: Boolean(first.data),
+    uploadedUrl: describeUrlForLog(publicUrl),
+  });
+
+  return publicUrl;
 }
 
 async function sendWithLengthCheck(
@@ -81,10 +97,19 @@ export async function handleAudio(args: {
 
   const mediaUrl0 = getString(formData, "MediaUrl0");
   const ct0 = (getString(formData, "MediaContentType0") || "").toLowerCase();
+  console.log("[originalAudioUrl][handleAudio] media check", {
+    hasMediaUrl: Boolean(mediaUrl0),
+    mediaUrl: describeUrlForLog(mediaUrl0),
+    contentType: ct0,
+  });
   if (!ct0.startsWith("audio")) return false;
 
   try {
     const buf = await fetchWhatsAppMediaAsBuffer(mediaUrl0!);
+    console.log("[originalAudioUrl][handleAudio] media downloaded", {
+      byteLength: buf.length,
+      contentType: ct0,
+    });
     const sourceAudioUrl = await uploadSourceAudio(buf, ct0);
     const ext = inferAudioExtension(ct0);
     const file = await toFile(buf, `voice-message.${ext}`);
@@ -92,8 +117,18 @@ export async function handleAudio(args: {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const tr = await openai.audio.transcriptions.create({ file, model: "gpt-4o-transcribe" });
     const transcript = tr.text || "(No text recognized)";
+    console.log("[originalAudioUrl][handleAudio] transcription completed", {
+      transcriptLength: transcript.length,
+      sourceAudioUrl: describeUrlForLog(sourceAudioUrl),
+      userId: user?.id,
+      siteId: user?.lastSelectedSiteIdforWhatsapp,
+    });
 
     const aiMessage = await agent(transcript, user.lastSelectedSiteIdforWhatsapp, user.id, sourceAudioUrl);
+    console.log("[originalAudioUrl][handleAudio] agent returned", {
+      sourceAudioUrl: describeUrlForLog(sourceAudioUrl),
+      aiMessageLength: typeof aiMessage === "string" ? aiMessage.length : null,
+    });
 
 
 

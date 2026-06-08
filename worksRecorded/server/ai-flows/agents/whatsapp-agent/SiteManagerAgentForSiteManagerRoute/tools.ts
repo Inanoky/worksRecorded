@@ -40,6 +40,12 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
     console.log("▶️ TOOL START");
     console.log("Input:", { question, userId, siteId, date });
+    console.log("[originalAudioUrl][siteManagerTool] received tool input", {
+      hasOriginalAudioUrl: Boolean(originalAudioUrl),
+      originalAudioUrlLength: originalAudioUrl?.length ?? 0,
+      userId,
+      siteId,
+    });
 
     // 1️⃣ Load config
     const map = await getConfig(siteId);

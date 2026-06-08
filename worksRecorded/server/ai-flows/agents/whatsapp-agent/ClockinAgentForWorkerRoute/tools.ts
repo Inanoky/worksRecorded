@@ -140,6 +140,12 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
     originalAudioUrl: z.string().optional(),
   }),
   async func({ question, workerId, siteId, date, originalUserComment, originalAudioUrl }: { question: string; workerId: string, siteId: string, date: string, originalUserComment: string, originalAudioUrl?: string }) {
+    console.log("[originalAudioUrl][workerTool] received tool input", {
+      hasOriginalAudioUrl: Boolean(originalAudioUrl),
+      originalAudioUrlLength: originalAudioUrl?.length ?? 0,
+      workerId,
+      siteId,
+    });
 
     // Extracting schema from site settings
    
