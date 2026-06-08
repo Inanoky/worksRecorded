@@ -41,29 +41,36 @@ function normalizeNullableDate(value: unknown) {
 
 function normalizeNumber(value: unknown) {
   if (value === "" || value === null || value === undefined) return undefined;
-  const number = Number(value);
+  const number = Number(String(value).replace(",", "."));
   return Number.isFinite(number) ? number : undefined;
+}
+
+function normalizePayrollTextNumber(value: unknown) {
+  if (value === "" || value === null || value === undefined) return null;
+  const normalized = String(value).trim().replace(",", ".");
+  if (!normalized) return null;
+  return Number.isFinite(Number(normalized)) ? normalized : undefined;
 }
 
 function sanitizeZtcRecordRow(row: Record<string, any>) {
   return {
-    Date: normalizeDate(row.Date),
+    Date: normalizeDate(row.Date) ?? null,
     Date_Custom_1: normalizeNullableDate(row.Date_Custom_1),
     Date_Custom_2: normalizeNullableDate(row.Date_Custom_2),
-    Location: row.Location || undefined,
-    Location_Custom_1: row.Location_Custom_1 || undefined,
-    Location_Custom_2: row.Location_Custom_2 || undefined,
-    Works: row.Works || undefined,
-    Works_Custom_1: row.Works_Custom_1 || undefined,
-    Works_Custom_2: row.Works_Custom_2 || undefined,
-    Comments: row.Comments || undefined,
-    Comments_Custom_1: row.Comments_Custom_1 || undefined,
-    Comments_Custom_2: row.Comments_Custom_2 || undefined,
-    originalUserComment: row.originalUserComment || undefined,
+    Location: row.Location || null,
+    Location_Custom_1: row.Location_Custom_1 || null,
+    Location_Custom_2: row.Location_Custom_2 || null,
+    Works: row.Works || null,
+    Works_Custom_1: row.Works_Custom_1 || null,
+    Works_Custom_2: row.Works_Custom_2 || null,
+    Comments: row.Comments || null,
+    Comments_Custom_1: row.Comments_Custom_1 || null,
+    Comments_Custom_2: row.Comments_Custom_2 || null,
+    originalUserComment: row.originalUserComment || null,
     Units: "m2",
-    Amounts: normalizeNumber(row.Amounts),
-    WorkersInvolved: normalizeNumber(row.WorkersInvolved),
-    TimeInvolved: normalizeNumber(row.TimeInvolved),
+    Amounts: normalizeNumber(row.Amounts) ?? null,
+    WorkersInvolved: normalizeNumber(row.WorkersInvolved) ?? null,
+    TimeInvolved: normalizeNumber(row.TimeInvolved) ?? null,
   };
 }
 
@@ -279,12 +286,21 @@ export async function updateZtcPayrollFields(args: {
 }) {
   await requireZtcAccess(args.siteId);
 
-  const rate = args.rate === "" || args.rate == null ? null : String(args.rate);
-  const coefficient =
-    args.coefficient === "" || args.coefficient == null
-      ? null
-      : String(args.coefficient);
+  const rate = normalizePayrollTextNumber(args.rate);
+  const coefficient = normalizePayrollTextNumber(args.coefficient);
   const bonus = normalizeNumber(args.bonus);
+
+  if (rate === undefined) {
+    return { ok: false, message: "Algas likmei jābūt derīgam skaitlim." };
+  }
+
+  if (coefficient === undefined) {
+    return { ok: false, message: "Algas koeficientam jābūt derīgam skaitlim." };
+  }
+
+  if (args.bonus !== "" && args.bonus != null && bonus === undefined) {
+    return { ok: false, message: "Algas bonusam jābūt derīgam skaitlim." };
+  }
 
   const result = await prisma.sitediaryrecords.updateMany({
     where: {

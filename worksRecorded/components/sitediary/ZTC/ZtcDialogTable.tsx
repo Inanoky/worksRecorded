@@ -110,7 +110,7 @@ function normalizeDate(value: unknown) {
 
 function normalizeNumber(value: unknown) {
   if (value === "" || value === null || value === undefined) return undefined;
-  const parsed = Number(value);
+  const parsed = Number(String(value).replace(",", "."));
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
@@ -352,7 +352,7 @@ export function ZtcDialogTable({
   };
 
   const handleDeleteRow = async (row: any) => {
-    const confirmed = window.confirm("Delete this diary row? This action cannot be undone.");
+    const confirmed = window.confirm("Dzēst šo žurnāla ierakstu? Šo darbību nevarēs atsaukt.");
     if (!confirmed) return;
 
     if (row.id) {
@@ -681,7 +681,7 @@ export function ZtcDialogTable({
         <Button type="button" variant="outline" onClick={() => setRows((prev) => [...prev, newEmptyRow()])}>
           {t.addRow || "Pievienot"}
         </Button>
-        <Button type="submit">{t.save || "Saglabat"}</Button>
+        <Button type="submit">{t.save || "Saglabāt"}</Button>
       </div>
 
       <ScrollArea className="w-full rounded-md border bg-background">

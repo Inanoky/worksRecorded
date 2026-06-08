@@ -33,12 +33,12 @@
     "Type": "dropdown",
     "DisplayName": "Darbi",
     "DropDownOptions": {
-      "timber_frame": "Koka karkasa montaza",
+      "timber_frame": "Koka karkasa montāža",
       "nailing": "Naglosana / stiprinasana",
       "insulation": "Siltinasana",
-      "sheathing": "Apsuvuma montaza",
-      "assembly": "Elementa montaza",
-      "quality_check": "Kvalitates parbaude",
+      "sheathing": "Apšuvuma montāža",
+      "assembly": "Elementa montāža",
+      "quality_check": "Kvalitātes pārbaude",
       "other": "Cits"
     },
     "customSettings": {
@@ -77,7 +77,7 @@
   },
   "Date_Custom_1": {
     "Type": "noRender",
-    "DisplayName": "Rasejums sanemts",
+    "DisplayName": "Rasējums saņemts",
     "customSettings": {
       "renderAs": "Time",
       "order": 6,
@@ -115,7 +115,7 @@
   },
   "Works_Custom_1": {
     "Type": "noRender",
-    "DisplayName": "Rasejuma darbi",
+    "DisplayName": "Rasējuma darbi",
     "customSettings": {
       "order": 9,
       "cellWidth": 240,
