@@ -104,9 +104,7 @@ function mapZtcRecord(rec: any) {
   };
 }
 
-export async function getZtcSiteDiaryConfig(siteId: string) {
-  await requireZtcAccess(siteId);
-
+async function loadZtcSiteDiaryConfig(siteId: string) {
   const site = await prisma.site.findUnique({
     where: { id: siteId },
     select: { siteDiaryRecordsMap: true },
@@ -137,9 +135,7 @@ export async function getZtcSiteDiaryConfig(siteId: string) {
   return baseMap;
 }
 
-export async function getZtcSiteDiaryRecords(args: { siteId: string; date: string }) {
-  await requireZtcAccess(args.siteId);
-
+async function loadZtcSiteDiaryRecords(args: { date: string }) {
   const start = new Date(args.date);
   start.setHours(0, 0, 0, 0);
   const end = new Date(args.date);
@@ -190,6 +186,27 @@ export async function getZtcSiteDiaryRecords(args: { siteId: string; date: strin
   });
 
   return records.map(mapZtcRecord);
+}
+
+export async function getZtcSiteDiaryConfig(siteId: string) {
+  await requireZtcAccess(siteId);
+  return loadZtcSiteDiaryConfig(siteId);
+}
+
+export async function getZtcSiteDiaryRecords(args: { siteId: string; date: string }) {
+  await requireZtcAccess(args.siteId);
+  return loadZtcSiteDiaryRecords({ date: args.date });
+}
+
+export async function getZtcDialogPrefetchData(args: { siteId: string; date: string }) {
+  await requireZtcAccess(args.siteId);
+
+  const [config, rows] = await Promise.all([
+    loadZtcSiteDiaryConfig(args.siteId),
+    loadZtcSiteDiaryRecords({ date: args.date }),
+  ]);
+
+  return { config, rows };
 }
 
 export async function createZtcSiteDiaryRecords(args: {

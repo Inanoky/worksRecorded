@@ -26,6 +26,7 @@ const ZTC_UPLOAD_TIMEOUT_MS = 30_000;
 const ZTC_VISION_TIMEOUT_MS = 60_000;
 const ZTC_TEXT_TIMEOUT_MS = 30_000;
 const ZTC_TRANSCRIPTION_TIMEOUT_MS = 30_000;
+const ZTC_DROPDOWN_CACHE_MS = 60_000;
 
 class ZtcTimeoutError extends Error {
   constructor(label: string, timeoutMs: number) {
@@ -77,6 +78,14 @@ type ZtcConfigField = {
 };
 
 type ZtcConfigMap = Record<string, ZtcConfigField | undefined>;
+type ZtcDropdownOptions = {
+  workOptions: string[];
+  unitOptions: string[];
+};
+
+let ztcDropdownOptionsCache:
+  | { value: ZtcDropdownOptions; expiresAt: number }
+  | null = null;
 
 type OpenZtcSession = NonNullable<Awaited<ReturnType<typeof getOpenZtcSession>>>;
 
@@ -138,13 +147,25 @@ function normalizeZtcWorkOptions(values: string[]) {
 }
 
 async function getZtcDropdownOptions() {
+  const now = Date.now();
+  if (ztcDropdownOptionsCache && ztcDropdownOptionsCache.expiresAt > now) {
+    return ztcDropdownOptionsCache.value;
+  }
+
   const config = ((await getConfig(ZTC_SITE_ID)) ??
     ztcSiteDiaryRecordsMap) as ZtcConfigMap;
 
-  return {
+  const value = {
     workOptions: normalizeZtcWorkOptions(getDropdownLabels(config, "Works")),
     unitOptions: getDropdownLabels(config, "Units"),
   };
+
+  ztcDropdownOptionsCache = {
+    value,
+    expiresAt: now + ZTC_DROPDOWN_CACHE_MS,
+  };
+
+  return value;
 }
 
 function normalizeAllowedOption(value: string | null | undefined, allowed: string[]) {

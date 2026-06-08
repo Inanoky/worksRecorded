@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -25,8 +25,7 @@ import { toast } from "sonner";
 import {
   createZtcSiteDiaryRecords,
   deleteZtcSiteDiaryRecord,
-  getZtcSiteDiaryConfig,
-  getZtcSiteDiaryRecords,
+  getZtcDialogPrefetchData,
   updateZtcSiteDiaryRecord,
 } from "@/components/sitediary/ZTC/actions";
 import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -52,6 +51,13 @@ type ZtcDialogTableProps = {
   onSaved?: () => void;
   organizationLanguage?: string | null;
 };
+
+type ZtcDialogPrefetchCacheEntry = {
+  config: Record<string, any>;
+  rows: any[];
+};
+
+const ztcDialogPrefetchCache = new Map<string, ZtcDialogPrefetchCacheEntry>();
 
 const HIDDEN_FIELDS_TO_KEEP = [
   "Date_Custom_1",
@@ -166,6 +172,72 @@ function getRenderableFieldsOrdered(map: Record<string, any>) {
     .map(([key]) => key.trim());
 }
 
+function toDateCacheKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getZtcDialogCacheKey(siteId: string, date: Date) {
+  return `${siteId}:${toDateCacheKey(date)}`;
+}
+
+function getAdjacentDates(date: Date) {
+  const previous = new Date(date);
+  previous.setDate(previous.getDate() - 1);
+  const next = new Date(date);
+  next.setDate(next.getDate() + 1);
+  return [previous, next];
+}
+
+function buildZtcDrawingIndex(sourceRows: any[]) {
+  const elements = new Map<string, string>();
+  const worksByElement = new Map<string, Map<string, string>>();
+  const amountsByElementWork = new Map<string, Map<string, number>>();
+
+  for (const row of sourceRows) {
+    const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
+    for (const element of metadata?.elements ?? []) {
+      const elementName = normalizeOption(element.elementName);
+      if (!elementName) continue;
+
+      const elementKey = elementName.toLowerCase();
+      elements.set(elementKey, elementName);
+
+      const workMap = worksByElement.get(elementKey) ?? new Map<string, string>();
+      const amountMap = amountsByElementWork.get(elementKey) ?? new Map<string, number>();
+
+      for (const work of element.works ?? []) {
+        const workName = normalizeZtcWorkName(work.name);
+        if (!workName) continue;
+
+        const workKey = workName.toLowerCase();
+        workMap.set(workKey, workName);
+
+        const amount = work.amountM2 ?? element.totalAreaM2;
+        if (amount != null && Number.isFinite(Number(amount))) {
+          amountMap.set(workKey, Number(amount));
+        }
+      }
+
+      worksByElement.set(elementKey, workMap);
+      amountsByElementWork.set(elementKey, amountMap);
+    }
+
+    const rowElement = normalizeOption(row.Location_Custom_1);
+    if (rowElement && row.Location !== "Papilddarbi") {
+      elements.set(rowElement.toLowerCase(), rowElement);
+    }
+  }
+
+  return {
+    elements: [...elements.values()],
+    worksByElement,
+    amountsByElementWork,
+  };
+}
+
 export function ZtcDialogTable({
   className,
   date,
@@ -206,76 +278,32 @@ export function ZtcDialogTable({
     createdBy: "",
   });
 
-  const getElementsFromRows = (sourceRows: any[]) => {
-    const elements = new Map<string, string>();
+  const drawingIndex = useMemo(() => buildZtcDrawingIndex(rows), [rows]);
 
-    for (const row of sourceRows) {
-      const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
-      for (const element of metadata?.elements ?? []) {
-        const elementName = normalizeOption(element.elementName);
-        if (elementName) elements.set(elementName.toLowerCase(), elementName);
-      }
-
-      const rowElement = normalizeOption(row.Location_Custom_1);
-      if (rowElement && row.Location !== "Papilddarbi") {
-        elements.set(rowElement.toLowerCase(), rowElement);
-      }
-    }
-
-    return [...elements.values()];
-  };
-
-  const getElementWorkOptions = (sourceRows: any[], elementName: string) => {
+  const getElementWorkOptions = (elementName: string) => {
     const normalizedElement = normalizeOption(elementName).toLowerCase();
     if (!normalizedElement) return [];
 
-    const works = new Map<string, string>();
-    for (const row of sourceRows) {
-      const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
-      for (const element of metadata?.elements ?? []) {
-        if (normalizeOption(element.elementName).toLowerCase() !== normalizedElement) continue;
-        for (const work of element.works ?? []) {
-          const workName = normalizeZtcWorkName(work.name);
-          if (workName) works.set(workName.toLowerCase(), workName);
-        }
-      }
-    }
-
-    return [...works.values()];
+    return [...(drawingIndex.worksByElement.get(normalizedElement)?.values() ?? [])];
   };
 
-  const getWorkAmountM2 = (sourceRows: any[], elementName: string, workName: string) => {
+  const getWorkAmountM2 = (elementName: string, workName: string) => {
     const normalizedElement = normalizeOption(elementName).toLowerCase();
     const normalizedWork = normalizeZtcWorkName(workName).toLowerCase();
     if (!normalizedElement || !normalizedWork) return null;
 
-    for (const row of sourceRows) {
-      const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
-      for (const element of metadata?.elements ?? []) {
-        if (normalizeOption(element.elementName).toLowerCase() !== normalizedElement) continue;
-        const work = (element.works ?? []).find(
-          (item) => normalizeZtcWorkName(item.name).toLowerCase() === normalizedWork,
-        );
-        const amount = work?.amountM2 ?? element.totalAreaM2;
-        if (amount != null && Number.isFinite(Number(amount))) {
-          return Number(amount);
-        }
-      }
-    }
-
-    return null;
+    return drawingIndex.amountsByElementWork.get(normalizedElement)?.get(normalizedWork) ?? null;
   };
 
   const getDropdownOptions = (field: string, row: any) => {
     if (field === "Location_Custom_1") {
-      const elementOptions = getElementsFromRows(rows);
-      if (elementOptions.length) {
-        return elementOptions.map((label) => ({ value: label, label }));
+      if (drawingIndex.elements.length) {
+        return drawingIndex.elements.map((label) => ({ value: label, label }));
       }
     }
 
     if (field === "Works" && row.Location !== "Papilddarbi") {
-      const workOptions = getElementWorkOptions(rows, row.Location_Custom_1);
+      const workOptions = getElementWorkOptions(row.Location_Custom_1);
       if (workOptions.length) {
         return workOptions.map((label) => ({ value: label, label }));
       }
@@ -288,6 +316,11 @@ export function ZtcDialogTable({
     }));
   };
 
+  const invalidateCurrentPrefetchCache = () => {
+    if (!siteId || !date) return;
+    ztcDialogPrefetchCache.delete(getZtcDialogCacheKey(siteId, date));
+  };
+
   const handleChange = (rowKey: string, field: string, value: any) => {
     setRows((prev) =>
       prev.map((row) => {
@@ -296,19 +329,19 @@ export function ZtcDialogTable({
         const next = { ...row, [field]: value };
 
         if (field === "Location_Custom_1") {
-          const workOptions = getElementWorkOptions(prev, value);
+          const workOptions = getElementWorkOptions(value);
           if (!workOptions.some((option) => option === next.Works)) {
             next.Works = "";
             next.Amounts = "";
           } else {
-            const amountM2 = getWorkAmountM2(prev, value, next.Works);
+            const amountM2 = getWorkAmountM2(value, next.Works);
             if (amountM2 != null) next.Amounts = String(amountM2);
           }
           if (workOptions.length) next.Units = "m2";
         }
 
         if (field === "Works" && next.Location !== "Papilddarbi") {
-          const amountM2 = getWorkAmountM2(prev, next.Location_Custom_1, value);
+          const amountM2 = getWorkAmountM2(next.Location_Custom_1, value);
           next.Units = "m2";
           if (amountM2 != null) next.Amounts = String(amountM2);
         }
@@ -325,6 +358,7 @@ export function ZtcDialogTable({
     if (row.id) {
       if (!siteId) return;
       await deleteZtcSiteDiaryRecord({ siteId, id: row.id });
+      invalidateCurrentPrefetchCache();
       toast.success(toastMessages.diaryRowDeleted);
       onSaved?.();
       return;
@@ -385,7 +419,7 @@ export function ZtcDialogTable({
       }
 
       if (!isAdditionalWork) {
-        const workOptions = getElementWorkOptions(rows, row.Location_Custom_1);
+        const workOptions = getElementWorkOptions(row.Location_Custom_1);
         if (workOptions.length && !workOptions.some((option) => option === row.Works)) {
           validationErrors.push(`${label}: darbs neatbilst izvēlētajam elementam.`);
         }
@@ -435,6 +469,7 @@ export function ZtcDialogTable({
         });
       }
 
+      invalidateCurrentPrefetchCache();
       toast.success(toastMessages.diarySaved(existingRows.length, newRows.length));
       onSaved?.();
     } catch (error: any) {
@@ -548,6 +583,46 @@ export function ZtcDialogTable({
   useEffect(() => {
     let cancelled = false;
 
+    const applyPrefetchData = (data: ZtcDialogPrefetchCacheEntry) => {
+      const config = (data.config ?? defaultConfig) as Record<string, any>;
+      const renderableFields = getRenderableFieldsOrdered(config);
+      const fieldsToKeep = Array.from(new Set([...renderableFields, ...HIDDEN_FIELDS_TO_KEEP]));
+
+      setFieldMap(config);
+      setTableHeads(renderableFields);
+      setRows(
+        data.rows.length
+          ? data.rows.map((row: any) => ({
+              id: row.id ?? undefined,
+              _tempId: crypto.randomUUID(),
+              createdBy: row.createdBy ?? "",
+              ...Object.fromEntries(fieldsToKeep.map((field) => [field, row[field] ?? ""])),
+            }))
+          : [newEmptyRow()],
+      );
+    };
+
+    const prefetchAdjacentDates = (activeDate: Date, activeSiteId: string) => {
+      for (const adjacentDate of getAdjacentDates(activeDate)) {
+        const adjacentKey = getZtcDialogCacheKey(activeSiteId, adjacentDate);
+        if (ztcDialogPrefetchCache.has(adjacentKey)) continue;
+
+        void getZtcDialogPrefetchData({
+          siteId: activeSiteId,
+          date: adjacentDate.toISOString(),
+        })
+          .then((data) => {
+            ztcDialogPrefetchCache.set(adjacentKey, {
+              config: ((data.config ?? defaultConfig) as Record<string, any>),
+              rows: data.rows,
+            });
+          })
+          .catch(() => {
+            // Best-effort prefetch only; visible load path handles user errors.
+          });
+      }
+    };
+
     async function loadRows() {
       setLoading(true);
 
@@ -557,29 +632,38 @@ export function ZtcDialogTable({
         return;
       }
 
-      const config = ((await getZtcSiteDiaryConfig(siteId)) ?? defaultConfig) as Record<string, any>;
-      const renderableFields = getRenderableFieldsOrdered(config);
-      const fieldsToKeep = Array.from(new Set([...renderableFields, ...HIDDEN_FIELDS_TO_KEEP]));
-      const loadedRows = await getZtcSiteDiaryRecords({
-        siteId,
-        date: date.toISOString(),
-      });
+      const cacheKey = getZtcDialogCacheKey(siteId, date);
+      const cachedData = ztcDialogPrefetchCache.get(cacheKey);
+      if (cachedData) {
+        applyPrefetchData(cachedData);
+        setLoading(false);
+        prefetchAdjacentDates(date, siteId);
+        return;
+      }
 
-      if (cancelled) return;
+      try {
+        const data = await getZtcDialogPrefetchData({
+          siteId,
+          date: date.toISOString(),
+        });
 
-      setFieldMap(config);
-      setTableHeads(renderableFields);
-      setRows(
-        loadedRows.length
-          ? loadedRows.map((row: any) => ({
-              id: row.id ?? undefined,
-              _tempId: crypto.randomUUID(),
-              createdBy: row.createdBy ?? "",
-              ...Object.fromEntries(fieldsToKeep.map((field) => [field, row[field] ?? ""])),
-            }))
-          : [newEmptyRow()],
-      );
-      setLoading(false);
+        if (cancelled) return;
+
+        const cacheEntry = {
+          config: ((data.config ?? defaultConfig) as Record<string, any>),
+          rows: data.rows,
+        };
+        ztcDialogPrefetchCache.set(cacheKey, cacheEntry);
+        applyPrefetchData(cacheEntry);
+        prefetchAdjacentDates(date, siteId);
+      } catch (error: any) {
+        if (!cancelled) {
+          toast.error(error?.message ?? toastMessages.somethingWentWrong);
+          setRows([newEmptyRow()]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
 
     loadRows();
