@@ -1,0 +1,44 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "waba-test-001",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15550000000",
+              "phone_number_id": "business-phone-test-001",
+              "waba_id": "waba-test-001"
+            },
+            "contacts": [
+              {
+                "profile": {
+                  "name": "Test Worker",
+                  "username": "test_worker"
+                },
+                "wa_id": "37120000002"
+              }
+            ],
+            "messages": [
+              {
+                "from": "37120000002",
+                "id": "wamid.worker-audio-001",
+                "timestamp": "1790000100",
+                "type": "audio",
+                "audio": {
+                  "mime_type": "audio/ogg; codecs=opus",
+                  "sha256": "test-worker-audio-sha256",
+                  "id": "meta-audio-media-worker-001",
+                  "voice": true
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

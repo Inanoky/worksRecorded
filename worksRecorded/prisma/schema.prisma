@@ -241,6 +241,7 @@ model sitediaryrecords {
   Comments_Custom_1 String?
   Comments_Custom_2 String?
   originalUserComment  String?
+  originalAudioUrl  String?
   Units           String?
   Amounts         Float?
   BISId String?

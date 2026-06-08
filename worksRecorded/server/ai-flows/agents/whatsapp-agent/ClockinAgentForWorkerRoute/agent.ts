@@ -18,7 +18,7 @@ function isInvalidToolResultsError(error: unknown): boolean {
 }
 
 
-export default async function talkToClockInAgent(question, workerId) {
+export default async function talkToClockInAgent(question, workerId, sourceAudioUrl?: string | null) {
     console.log("=== talkToWhatsappAgent called ===");
 
     const siteId = await getSiteIdByWorkerId(workerId)
@@ -74,6 +74,7 @@ export default async function talkToClockInAgent(question, workerId) {
                                     args.date = nowISO;
                                 }
                                 args.originalUserComment = sourceComment;
+                                if (sourceAudioUrl) args.originalAudioUrl = sourceAudioUrl;
                             }
 
                             // Re-stringify the arguments and update the tool call object in place

@@ -32,10 +32,11 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     siteId: z.string(),
     userId: z.string(),
     date: z.string(),
-   originalUserComment: z.string()
+    originalUserComment: z.string(),
+    originalAudioUrl: z.string().optional(),
   }),
 
-  async func({ question, userId, siteId, date, originalUserComment}) {
+  async func({ question, userId, siteId, date, originalUserComment, originalAudioUrl}) {
 
     console.log("▶️ TOOL START");
     console.log("Input:", { question, userId, siteId, date });
@@ -104,7 +105,8 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
       rows,
       userId,
       siteId,
-      originalUserComment
+      originalUserComment,
+      originalAudioUrl,
     });
 
     console.log("✅ Save result:", result);

@@ -8,17 +8,9 @@ import { sendMessage } from "../shared/sender";
 // UPDATE: Ensure this import path is correct for your file structure
 // (assuming handleImage.ts is in the same directory as this file based on surrounding context)
 import { handleImage } from "../shared/handleImage";
+import { inferAudioExtension, uploadSourceAudio } from "../shared/handleAudio";
 // NOTE: I am using './handleImage' as a placeholder. You used '../shared/handleImage',
 // ensure the path matches where you placed the updated handleImage.ts file.
-
-function inferAudioExtension(contentType: string) {
-  const normalized = contentType.toLowerCase();
-  if (normalized.includes("ogg")) return "ogg";
-  if (normalized.includes("mpeg") || normalized.includes("mp3")) return "mp3";
-  if (normalized.includes("wav")) return "wav";
-  if (normalized.includes("m4a") || normalized.includes("mp4")) return "m4a";
-  return "ogg";
-}
 
 /**
  * Handles incoming worker WhatsApp messages,
@@ -33,6 +25,7 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
   const numMedia = parseInt(NumMedia, 10); // NEW: parse NumMedia for general checks
 
   let messageText = body;
+  let sourceAudioUrl: string | null = null;
 
   // Find worker by phone number (FIRST LOOKUP)
   const worker = await prisma.workers.findFirst({
@@ -85,6 +78,7 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
       try {
         console.log("🎤 Audio message detected");
         const buf = await fetchWhatsAppMediaAsBuffer(MediaUrl0);
+        sourceAudioUrl = await uploadSourceAudio(buf, MediaContentType0);
         const ext = inferAudioExtension(MediaContentType0);
         const file = await toFile(buf, `voice-message.${ext}`);
 
@@ -125,7 +119,7 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
 
     console.log("[handleWorkerMessage] Sending to talkToClockInAgent...");
     // We use the worker object retrieved at the start of the function.
-    const message = await talkToClockInAgent(messageText, worker.id);
+    const message = await talkToClockInAgent(messageText, worker.id, sourceAudioUrl);
     await sendMessage(from, message);
 
   } catch (error) {
