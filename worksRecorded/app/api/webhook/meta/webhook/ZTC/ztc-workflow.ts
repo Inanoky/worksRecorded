@@ -10,7 +10,7 @@ import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiary
 import { getConfig } from "@/server/actions/site-diary-actions";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
-const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 const FINISH_PENDING_PREFIX = "__ZTC_FINISH_PENDING__";
 const PHOTO_PENDING_FINISH_PREFIX = "__ZTC_PHOTO_PENDING_FINISH__";
 const DIAGONAL_FIRST_PHOTO_PENDING_PREFIX = "__ZTC_DIAGONAL_FIRST_PHOTO_PENDING__";
@@ -34,16 +34,17 @@ class ZtcTimeoutError extends Error {
   }
 }
 
-type ZtcWorker = {
+export type ZtcWorker = {
   id: string;
   name: string | null;
   surname: string | null;
+  role?: string | null;
   phone: string | null;
   siteId: string | null;
   organizationId: string | null;
 };
 
-type DrawingExtraction = {
+export type DrawingExtraction = {
   isConstructionDrawing: boolean;
   hasReadableProjectName: boolean;
   hasReadableElementName: boolean;
@@ -188,7 +189,7 @@ function isTlWork(workName: string | null | undefined) {
   return /^TL(\b|\s*[-/])/i.test(normalizeZtcWorkName(workName));
 }
 
-function workerFullName(worker: ZtcWorker) {
+export function workerFullName(worker: ZtcWorker) {
   return [worker.name, worker.surname].filter(Boolean).join(" ").trim() || "Darbinieks";
 }
 
@@ -237,7 +238,7 @@ function withZtcTimeout<T>(promise: Promise<T>, label: string, timeoutMs: number
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeout));
 }
 
-function isZtcTimeoutError(error: unknown) {
+export function isZtcTimeoutError(error: unknown) {
   return error instanceof ZtcTimeoutError || (error instanceof Error && error.name === "ZtcTimeoutError");
 }
 
@@ -257,7 +258,7 @@ function photoBatchMarker(now = Date.now()) {
   return `${PHOTO_BATCH_CONFIRM_PREFIX} ${now}`;
 }
 
-async function sendZtcMessage(to: string | null, message: string) {
+export async function sendZtcMessage(to: string | null, message: string) {
   try {
     await sendTypingIndicator(to);
   } catch (error) {
@@ -319,7 +320,7 @@ function buildZtcUserComments(args: {
     .join("\n");
 }
 
-function findFirstMediaIndex(formData: FormData, numMedia: number, prefix: string) {
+export function findFirstMediaIndex(formData: FormData, numMedia: number, prefix: string) {
   for (let i = 0; i < numMedia; i += 1) {
     const contentType = (getString(formData, `MediaContentType${i}`) || "").toLowerCase();
     if (contentType.startsWith(prefix)) return i;
@@ -328,7 +329,7 @@ function findFirstMediaIndex(formData: FormData, numMedia: number, prefix: strin
   return -1;
 }
 
-function findMediaIndexes(formData: FormData, numMedia: number, prefix: string) {
+export function findMediaIndexes(formData: FormData, numMedia: number, prefix: string) {
   const indexes: number[] = [];
   for (let i = 0; i < numMedia; i += 1) {
     const contentType = (getString(formData, `MediaContentType${i}`) || "").toLowerCase();
@@ -346,7 +347,7 @@ function inferAudioExtension(contentType: string) {
   return "ogg";
 }
 
-function parseJsonObject<T>(value: string | null | undefined, fallback: T): T {
+export function parseJsonObject<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
 
   try {
@@ -473,7 +474,7 @@ function parseZtcDrawingMetadata(value: string | null | undefined): ZtcDrawingMe
   }
 }
 
-function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingMetadata {
+export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingMetadata {
   const worksSource = extraction.workItems.length
     ? extraction.workItems
     : extraction.workList.map((name) => ({
@@ -526,7 +527,7 @@ function getSessionWorkAmountM2(session: OpenZtcSession, workName: string | null
   return work?.amountM2 ?? element?.totalAreaM2 ?? null;
 }
 
-function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
+export function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
   const items = extraction.workItems.length
     ? extraction.workItems
     : extraction.workList.map((name) => ({ name, amountM2: extraction.totalAreaM2 }));
@@ -539,7 +540,7 @@ function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
     .join("\n");
 }
 
-async function uploadMediaImage(formData: FormData, idx: number) {
+export async function uploadMediaImage(formData: FormData, idx: number) {
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "image/jpeg").toLowerCase();
 
@@ -572,7 +573,7 @@ async function uploadMediaImage(formData: FormData, idx: number) {
   };
 }
 
-async function transcribeAudio(formData: FormData, idx: number) {
+export async function transcribeAudio(formData: FormData, idx: number) {
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "").toLowerCase();
 
@@ -597,7 +598,7 @@ async function transcribeAudio(formData: FormData, idx: number) {
   return transcript.text?.trim() || "";
 }
 
-async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> {
+export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const response = await withZtcTimeout(
     openai.chat.completions.create({

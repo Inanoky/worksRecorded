@@ -1,6 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/utils/db";
+import { Prisma } from "@prisma/client";
 import { Resend } from "resend";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { z } from "zod";
@@ -287,7 +288,20 @@ export async function getOrganizationWorkers(orgId: string) {
     orderBy: [{ name: "asc" }, { surname: "asc" }],
   });
 
-  return { workers, projects };
+  const roleRows = workers.length
+    ? await prisma.$queryRaw<Array<{ id: string; role: string | null }>>`
+        SELECT id, role FROM "workers" WHERE id IN (${Prisma.join(workers.map((worker) => worker.id))})
+      `
+    : [];
+  const roleByWorkerId = new Map(roleRows.map((row) => [row.id, row.role]));
+
+  return {
+    workers: workers.map((worker) => ({
+      ...worker,
+      role: roleByWorkerId.get(worker.id) ?? null,
+    })),
+    projects,
+  };
 }
 
 export async function updateWorkerOrganizationSettings(
@@ -296,6 +310,7 @@ export async function updateWorkerOrganizationSettings(
     siteId?: string | null;
     name?: string | null;
     surname?: string | null;
+    role?: string | null;
     phone?: string | null;
     reminderTime?: Date | null;
     remindersEnabled?: boolean;
@@ -303,10 +318,17 @@ export async function updateWorkerOrganizationSettings(
     timezone?: string | null;
   }
 ) {
+  const { role, ...workerData } = data;
   await prisma.workers.update({
     where: { id: workerId },
-    data,
+    data: workerData,
   });
+
+  if (role !== undefined) {
+    await prisma.$executeRaw`
+      UPDATE "workers" SET role = ${role} WHERE id = ${workerId}
+    `;
+  }
 
   return { ok: true };
 }
@@ -317,6 +339,7 @@ export async function createOrganizationWorker(data: {
   name: string;
   surname?: string | null;
   phone?: string | null;
+  role?: string | null;
 }) {
   const created = await prisma.workers.create({
     data: {
@@ -330,6 +353,12 @@ export async function createOrganizationWorker(data: {
     },
     select: { id: true },
   });
+
+  if (data.role?.trim()) {
+    await prisma.$executeRaw`
+      UPDATE "workers" SET role = ${data.role.trim()} WHERE id = ${created.id}
+    `;
+  }
 
   return { ok: true, id: created.id };
 }

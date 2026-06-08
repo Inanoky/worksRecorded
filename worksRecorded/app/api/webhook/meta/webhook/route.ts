@@ -32,6 +32,10 @@ import {
   handleZtcWorkerRoute,
   ZTC_ORGANIZATION_ID,
 } from "@/app/api/webhook/meta/webhook/ZTC/ztc-workflow";
+import {
+  handleZtcQualityRoute,
+  isZtcQualityWorkerRole,
+} from "@/app/api/webhook/meta/webhook/ZTC/ztc-quality-workflow";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
@@ -287,6 +291,14 @@ async function runWhatsappRoutingForMeta(args: {
 
     if (worker) {
       if (worker.organizationId === ZTC_ORGANIZATION_ID) {
+        const roleRows = await prisma.$queryRaw<Array<{ role: string | null }>>`
+          SELECT role FROM "workers" WHERE id = ${worker.id} LIMIT 1
+        `;
+        if (isZtcQualityWorkerRole(roleRows[0]?.role)) {
+          await handleZtcQualityRoute({ worker: worker as any, formData });
+          return;
+        }
+
         await handleZtcWorkerRoute({ worker, formData });
         return;
       }

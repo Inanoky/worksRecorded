@@ -168,7 +168,27 @@ function parsePayrollNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function isZtcQualityRow(row: DiaryRow) {
+  try {
+    const parsed = JSON.parse(String(row.Comments_Custom_2 ?? ""));
+    return parsed?.type === "ztc_quality_check";
+  } catch {
+    return false;
+  }
+}
+
 function getZtcPayrollValues(row: DiaryRow) {
+  if (isZtcQualityRow(row)) {
+    return {
+      hours: 0,
+      amountM2: 0,
+      rate: 0,
+      coefficient: 0,
+      bonus: 0,
+      sum: 0,
+    };
+  }
+
   const hours = parsePayrollNumber(row.TimeInvolved);
   const amountM2 = parsePayrollNumber(row.Amounts);
   const rate = parsePayrollNumber(row.Location_Custom_2);
@@ -907,7 +927,7 @@ export default function SiteDiaryCalendar({
     value: unknown,
     widthClass = "w-20",
   ) => {
-    if (!row.id) return "—";
+    if (!row.id || isZtcQualityRow(row)) return "—";
     const saving = payrollSavingRowId === row.id;
     return (
       <Input
@@ -1005,7 +1025,8 @@ export default function SiteDiaryCalendar({
       return (
         !Number.isNaN(date.getTime()) &&
         date.getFullYear() === currentYear &&
-        date.getMonth() === currentMonth
+        date.getMonth() === currentMonth &&
+        !isZtcQualityRow(row)
       );
     });
 

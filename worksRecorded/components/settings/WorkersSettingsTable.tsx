@@ -33,6 +33,7 @@ type WorkerRow = {
   id: string;
   name: string | null;
   surname: string | null;
+  role: string | null;
   phone: string | null;
   siteId: string | null;
   reminderTime: string | Date | null;
@@ -53,6 +54,7 @@ type WorkerFormState = {
   id: string;
   name: string;
   surname: string;
+  role: string;
   countryCode: string;
   phone: string;
   siteId: string;
@@ -62,6 +64,10 @@ type WorkerFormState = {
 };
 
 const DEFAULT_COUNTRY_CODE = "371";
+const WORKER_ROLE_OPTIONS = [
+  { value: "worker", label: "Worker" },
+  { value: "quality_control", label: "Quality control" },
+];
 const normalizePhonePart = (raw: string) => (raw || "").replace(/\D/g, "");
 const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
 const HHMM_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -121,6 +127,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
     id: "",
     name: "",
     surname: "",
+    role: "worker",
     countryCode: DEFAULT_COUNTRY_CODE,
     phone: "",
     siteId: "none",
@@ -161,6 +168,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
       id: worker.id,
       name: worker.name ?? "",
       surname: worker.surname ?? "",
+      role: worker.role ?? "worker",
       countryCode: parsedPhone.countryCode,
       phone: parsedPhone.phone,
       siteId: worker.siteId ?? "none",
@@ -184,6 +192,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
         organizationId: orgId,
         name: newWorker.name.trim(),
         surname: newWorker.surname.trim(),
+        role: newWorker.role === "worker" ? null : newWorker.role,
         phone: newWorker.phone ? `${newWorker.countryCode}${normalizePhonePart(newWorker.phone)}` : null,
         siteId: newWorker.siteId === "none" ? null : newWorker.siteId,
       });
@@ -191,7 +200,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
     if (res.ok) {
         toast.success(toastMessages.workerCreated);
         setAddOpen(false);
-        setNewWorker((prev) => ({ ...prev, name: "", surname: "", phone: "", siteId: "none" }));
+        setNewWorker((prev) => ({ ...prev, name: "", surname: "", role: "worker", phone: "", siteId: "none" }));
         router.refresh();
       } else {
         toast.error(toastMessages.failedCreateWorker);
@@ -211,6 +220,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
       const res = await updateWorkerOrganizationSettings(editWorker.id, {
         name: editWorker.name.trim(),
         surname: editWorker.surname.trim(),
+        role: editWorker.role === "worker" ? null : editWorker.role,
         phone: editWorker.phone ? `${editWorker.countryCode}${normalizePhonePart(editWorker.phone)}` : null,
         siteId: editWorker.siteId === "none" ? null : editWorker.siteId,
         reminderTime: editWorker.reminderTime ? new Date(`1970-01-01T${editWorker.reminderTime}:00.000Z`) : null,
@@ -279,6 +289,17 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
                 <Input value={newWorker.surname} onChange={(e) => setNewWorker((p) => ({ ...p, surname: e.target.value }))} required />
               </div>
               <div className="space-y-1">
+                <Label>Role</Label>
+                <Select value={newWorker.role} onValueChange={(v) => setNewWorker((p) => ({ ...p, role: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
+                  <SelectContent>
+                    {WORKER_ROLE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
                 <Label>{t.phone}</Label>
                 <div className="flex gap-2">
                   <Select value={newWorker.countryCode} onValueChange={(v) => setNewWorker((p) => ({ ...p, countryCode: v }))}>
@@ -320,6 +341,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
           <TableHeader>
             <TableRow>
               <TableHead>{t.worker}</TableHead>
+              <TableHead>Role</TableHead>
               <TableHead>{t.phone}</TableHead>
               <TableHead>{t.project}</TableHead>
               <TableHead>{t.reminderTime}</TableHead>
@@ -332,6 +354,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
             {workers.map((worker) => (
               <TableRow key={worker.id}>
                 <TableCell>{`${worker.name ?? ""} ${worker.surname ?? ""}`.trim() || t.unnamed}</TableCell>
+                <TableCell>{worker.role === "quality_control" ? "Quality control" : "Worker"}</TableCell>
                 <TableCell>{worker.phone ?? ""}</TableCell>
                 <TableCell>{projects.find((p) => p.id === worker.siteId)?.name ?? t.noProject}</TableCell>
                 <TableCell>{toHHmm(worker.reminderTime) || "-"}</TableCell>
@@ -371,6 +394,17 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
             <div className="space-y-1">
               <Label>{t.lastName}</Label>
               <Input value={editWorker.surname} onChange={(e) => setEditWorker((p) => ({ ...p, surname: e.target.value }))} required />
+            </div>
+            <div className="space-y-1">
+              <Label>Role</Label>
+              <Select value={editWorker.role} onValueChange={(v) => setEditWorker((p) => ({ ...p, role: v }))}>
+                <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
+                <SelectContent>
+                  {WORKER_ROLE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label>{t.phone}</Label>

@@ -298,6 +298,7 @@ model workers {
   id       String    @id @default(uuid())
   name String?
   surname String?
+  role String?
   personalId String?
   Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId   String?

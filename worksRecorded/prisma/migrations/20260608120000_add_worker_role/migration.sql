@@ -1,0 +1,2 @@
+ALTER TABLE "workers"
+ADD COLUMN IF NOT EXISTS "role" TEXT;
