@@ -3,7 +3,6 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -67,29 +66,11 @@ type WorkerFormState = {
 const DEFAULT_COUNTRY_CODE = "371";
 const WORKER_ROLE_OPTIONS = ["worker", "quality_control"] as const;
 const normalizePhonePart = (raw: string) => (raw || "").replace(/\D/g, "");
-const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
+const NAME_REGEX = /^[\p{L}' -]+$/u;
 const HHMM_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
-
-const workerValidationSchema = z.object({
-  id: z.string().optional(),
-  name: z
-    .string()
-    .trim()
-    .min(2, "First name must be at least 2 characters")
-    .max(50, "First name must be at most 50 characters")
-    .regex(NAME_REGEX, "First name contains invalid characters"),
-  surname: z
-    .string()
-    .trim()
-    .min(2, "Last name must be at least 2 characters")
-    .max(50, "Last name must be at most 50 characters")
-    .regex(NAME_REGEX, "Last name contains invalid characters"),
-  countryCode: z.string().min(1, "Country code is required"),
-  phone: z.string().optional(),
-  siteId: z.string().optional(),
-  reminderTime: z.string().optional(),
-  reminderText: z.string().max(300, "Reminder text must be at most 300 characters").optional(),
-});
+const MIN_NAME_LENGTH = 2;
+const MAX_NAME_LENGTH = 50;
+const MAX_REMINDER_TEXT_LENGTH = 300;
 
 function splitPhone(phone: string | null | undefined) {
   const digits = normalizePhonePart(phone || "");
@@ -110,6 +91,34 @@ function toHHmm(dt: string | Date | null | undefined) {
   const d = new Date(dt);
   if (Number.isNaN(d.getTime())) return "";
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+function getWorkerValidationMessages(language: string) {
+  const isLatvian = language === "lv";
+
+  return {
+    tooShort: (field: string) =>
+      isLatvian
+        ? `${field} jābūt vismaz ${MIN_NAME_LENGTH} rakstzīmes garam.`
+        : `${field} must be at least ${MIN_NAME_LENGTH} characters.`,
+    tooLong: (field: string) =>
+      isLatvian
+        ? `${field} nedrīkst pārsniegt ${MAX_NAME_LENGTH} rakstzīmes.`
+        : `${field} must be at most ${MAX_NAME_LENGTH} characters.`,
+    invalidName: (field: string) =>
+      isLatvian
+        ? `${field} drīkst saturēt tikai burtus, atstarpes, apostrofu un defisi.`
+        : `${field} can contain only letters, spaces, apostrophes, and hyphens.`,
+    invalidReminderTime: isLatvian
+      ? "Atgādinājuma laikam jābūt formātā HH:MM."
+      : "Reminder time must use HH:MM format.",
+    reminderTextTooLong: isLatvian
+      ? `Atgādinājuma teksts nedrīkst pārsniegt ${MAX_REMINDER_TEXT_LENGTH} rakstzīmes.`
+      : `Reminder text must be at most ${MAX_REMINDER_TEXT_LENGTH} characters.`,
+    invalidProject: isLatvian
+      ? "Izvēlētais projekts nav pieejams šajā organizācijā."
+      : "Selected project is not available in this organization.",
+  };
 }
 
 export function WorkersSettingsTable({ orgId, workers, projects, organizationLanguage, hideReminders = false }: Props) {
@@ -142,24 +151,44 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
   );
 
   function validateWorkerInput(worker: WorkerFormState, mode: "create" | "edit") {
-    const parsed = workerValidationSchema.safeParse(worker);
-    if (!parsed.success) return language === "lv" ? toastMessages.correctForm : parsed.error.issues[0]?.message ?? toastMessages.correctForm;
+    const messages = getWorkerValidationMessages(language);
 
     if (mode === "edit" && !worker.id) {
       return toastMessages.correctForm;
     }
 
+    const firstName = worker.name.trim();
+    if (!firstName) return toastMessages.fieldRequired(t.firstName);
+    if (firstName.length < MIN_NAME_LENGTH) return messages.tooShort(t.firstName);
+    if (firstName.length > MAX_NAME_LENGTH) return messages.tooLong(t.firstName);
+    if (!NAME_REGEX.test(firstName)) return messages.invalidName(t.firstName);
+
+    const lastName = worker.surname.trim();
+    if (!lastName) return toastMessages.fieldRequired(t.lastName);
+    if (lastName.length < MIN_NAME_LENGTH) return messages.tooShort(t.lastName);
+    if (lastName.length > MAX_NAME_LENGTH) return messages.tooLong(t.lastName);
+    if (!NAME_REGEX.test(lastName)) return messages.invalidName(t.lastName);
+
+    if (!worker.countryCode) return toastMessages.fieldRequired(t.countryCode);
+
     const normalizedPhone = normalizePhonePart(worker.phone);
-    if (normalizedPhone && (normalizedPhone.length < 7 || normalizedPhone.length > 15)) {
-      return `${toastMessages.phoneTooShort} / ${toastMessages.phoneTooLong}`;
+    if (normalizedPhone && normalizedPhone.length < 7) {
+      return toastMessages.phoneTooShort;
+    }
+    if (normalizedPhone && normalizedPhone.length > 15) {
+      return toastMessages.phoneTooLong;
     }
 
     if (!hideReminders && worker.reminderTime && !HHMM_REGEX.test(worker.reminderTime)) {
-      return toastMessages.correctForm;
+      return messages.invalidReminderTime;
+    }
+
+    if (!hideReminders && worker.reminderText.length > MAX_REMINDER_TEXT_LENGTH) {
+      return messages.reminderTextTooLong;
     }
 
     if (worker.siteId !== "none" && worker.siteId && !projects.some((project) => project.id === worker.siteId)) {
-      return toastMessages.correctForm;
+      return messages.invalidProject;
     }
 
     return null;
