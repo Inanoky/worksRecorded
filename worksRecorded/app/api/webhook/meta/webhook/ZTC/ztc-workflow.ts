@@ -329,7 +329,7 @@ export async function polishZtcCommentText(value: string | null | undefined) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await withZtcTimeout(
       openai.chat.completions.create({
-        model: process.env.ZTC_TEXT_MODEL || "gpt-5.5",
+        model: process.env.ZTC_TEXT_MODEL || "gpt-5.5-minimal",
         messages: [
           {
             role: "system",
@@ -747,7 +747,7 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const response = await withZtcTimeout(
     openai.chat.completions.create({
-      model: process.env.ZTC_VISION_MODEL || "gpt-5.5",
+      model: process.env.ZTC_VISION_MODEL || "gpt-5.5-minimal",
       response_format: { type: "json_object" },
       messages: [
         {
@@ -817,7 +817,7 @@ async function extractWorkInfo(
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const response = await withZtcTimeout(
     openai.chat.completions.create({
-      model: process.env.ZTC_TEXT_MODEL || "gpt-5.5",
+      model: process.env.ZTC_TEXT_MODEL || "gpt-5.5-minimal",
       response_format: { type: "json_object" },
       messages: [
         {
