@@ -48,6 +48,7 @@ type Props = {
   workers: WorkerRow[];
   projects: ProjectOption[];
   organizationLanguage?: string | null;
+  hideReminders?: boolean;
 };
 
 type WorkerFormState = {
@@ -64,10 +65,7 @@ type WorkerFormState = {
 };
 
 const DEFAULT_COUNTRY_CODE = "371";
-const WORKER_ROLE_OPTIONS = [
-  { value: "worker", label: "Worker" },
-  { value: "quality_control", label: "Quality control" },
-];
+const WORKER_ROLE_OPTIONS = ["worker", "quality_control"] as const;
 const normalizePhonePart = (raw: string) => (raw || "").replace(/\D/g, "");
 const NAME_REGEX = /^[A-Za-zÀ-ÖØ-öø-ÿ' -]+$/;
 const HHMM_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -114,7 +112,7 @@ function toHHmm(dt: string | Date | null | undefined) {
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
-export function WorkersSettingsTable({ orgId, workers, projects, organizationLanguage }: Props) {
+export function WorkersSettingsTable({ orgId, workers, projects, organizationLanguage, hideReminders = false }: Props) {
   const router = useRouter();
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getWorkersUiMessages(language);
@@ -137,6 +135,11 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
   });
 
   const [editWorker, setEditWorker] = React.useState<WorkerFormState>(newWorker);
+  const workerRoleLabel = React.useCallback(
+    (role: string | null | undefined) =>
+      role === "quality_control" ? t.qualityControlRole : t.workerRole,
+    [t.qualityControlRole, t.workerRole],
+  );
 
   function validateWorkerInput(worker: WorkerFormState, mode: "create" | "edit") {
     const parsed = workerValidationSchema.safeParse(worker);
@@ -151,7 +154,7 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
       return `${toastMessages.phoneTooShort} / ${toastMessages.phoneTooLong}`;
     }
 
-    if (worker.reminderTime && !HHMM_REGEX.test(worker.reminderTime)) {
+    if (!hideReminders && worker.reminderTime && !HHMM_REGEX.test(worker.reminderTime)) {
       return toastMessages.correctForm;
     }
 
@@ -223,9 +226,13 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
         role: editWorker.role === "worker" ? null : editWorker.role,
         phone: editWorker.phone ? `${editWorker.countryCode}${normalizePhonePart(editWorker.phone)}` : null,
         siteId: editWorker.siteId === "none" ? null : editWorker.siteId,
-        reminderTime: editWorker.reminderTime ? new Date(`1970-01-01T${editWorker.reminderTime}:00.000Z`) : null,
-        remindersEnabled: editWorker.remindersEnabled,
-        reminderText: editWorker.reminderText.trim() || null,
+        ...(!hideReminders
+          ? {
+              reminderTime: editWorker.reminderTime ? new Date(`1970-01-01T${editWorker.reminderTime}:00.000Z`) : null,
+              remindersEnabled: editWorker.remindersEnabled,
+              reminderText: editWorker.reminderText.trim() || null,
+            }
+          : {}),
         timezone: "Europe/Riga",
       });
 
@@ -289,12 +296,12 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
                 <Input value={newWorker.surname} onChange={(e) => setNewWorker((p) => ({ ...p, surname: e.target.value }))} required />
               </div>
               <div className="space-y-1">
-                <Label>Role</Label>
+                <Label>{t.role}</Label>
                 <Select value={newWorker.role} onValueChange={(v) => setNewWorker((p) => ({ ...p, role: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t.role} /></SelectTrigger>
                   <SelectContent>
                     {WORKER_ROLE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      <SelectItem key={option} value={option}>{workerRoleLabel(option)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -341,12 +348,16 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
           <TableHeader>
             <TableRow>
               <TableHead>{t.worker}</TableHead>
-              <TableHead>Role</TableHead>
+              <TableHead>{t.role}</TableHead>
               <TableHead>{t.phone}</TableHead>
               <TableHead>{t.project}</TableHead>
-              <TableHead>{t.reminderTime}</TableHead>
-              <TableHead>{t.reminderEnabled}</TableHead>
-              <TableHead>{t.reminderText}</TableHead>
+              {!hideReminders ? (
+                <>
+                  <TableHead>{t.reminderTime}</TableHead>
+                  <TableHead>{t.reminderEnabled}</TableHead>
+                  <TableHead>{t.reminderText}</TableHead>
+                </>
+              ) : null}
               <TableHead>{t.actions}</TableHead>
             </TableRow>
           </TableHeader>
@@ -354,12 +365,16 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
             {workers.map((worker) => (
               <TableRow key={worker.id}>
                 <TableCell>{`${worker.name ?? ""} ${worker.surname ?? ""}`.trim() || t.unnamed}</TableCell>
-                <TableCell>{worker.role === "quality_control" ? "Quality control" : "Worker"}</TableCell>
+                <TableCell>{workerRoleLabel(worker.role)}</TableCell>
                 <TableCell>{worker.phone ?? ""}</TableCell>
                 <TableCell>{projects.find((p) => p.id === worker.siteId)?.name ?? t.noProject}</TableCell>
-                <TableCell>{toHHmm(worker.reminderTime) || "-"}</TableCell>
-                <TableCell>{worker.remindersEnabled ? t.enabled : t.disabled}</TableCell>
-                <TableCell>{worker.reminderText ?? ""}</TableCell>
+                {!hideReminders ? (
+                  <>
+                    <TableCell>{toHHmm(worker.reminderTime) || "-"}</TableCell>
+                    <TableCell>{worker.remindersEnabled ? t.enabled : t.disabled}</TableCell>
+                    <TableCell>{worker.reminderText ?? ""}</TableCell>
+                  </>
+                ) : null}
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -369,7 +384,9 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
                       <DropdownMenuLabel>{t.actions}</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => openEdit(worker)}>{t.edit}</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleSendNow(worker)}>{t.sendNow}</DropdownMenuItem>
+                      {!hideReminders ? (
+                        <DropdownMenuItem onClick={() => handleSendNow(worker)}>{t.sendNow}</DropdownMenuItem>
+                      ) : null}
                       <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(worker.id)}>{t.delete}</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -396,12 +413,12 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
               <Input value={editWorker.surname} onChange={(e) => setEditWorker((p) => ({ ...p, surname: e.target.value }))} required />
             </div>
             <div className="space-y-1">
-              <Label>Role</Label>
+              <Label>{t.role}</Label>
               <Select value={editWorker.role} onValueChange={(v) => setEditWorker((p) => ({ ...p, role: v }))}>
-                <SelectTrigger><SelectValue placeholder="Role" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={t.role} /></SelectTrigger>
                 <SelectContent>
                   {WORKER_ROLE_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    <SelectItem key={option} value={option}>{workerRoleLabel(option)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -434,18 +451,22 @@ export function WorkersSettingsTable({ orgId, workers, projects, organizationLan
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>{t.reminderTime}</Label>
-              <Input type="time" step={60} lang="en-GB" value={editWorker.reminderTime} onChange={(e) => setEditWorker((p) => ({ ...p, reminderTime: e.target.value }))} />
-            </div>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={editWorker.remindersEnabled} onChange={(e) => setEditWorker((p) => ({ ...p, remindersEnabled: e.target.checked }))} />
-              {t.reminderEnabled}
-            </label>
-            <div className="space-y-1">
-              <Label>{t.reminderText}</Label>
-              <Input value={editWorker.reminderText} onChange={(e) => setEditWorker((p) => ({ ...p, reminderText: e.target.value }))} />
-            </div>
+            {!hideReminders ? (
+              <>
+                <div className="space-y-1">
+                  <Label>{t.reminderTime}</Label>
+                  <Input type="time" step={60} lang="en-GB" value={editWorker.reminderTime} onChange={(e) => setEditWorker((p) => ({ ...p, reminderTime: e.target.value }))} />
+                </div>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={editWorker.remindersEnabled} onChange={(e) => setEditWorker((p) => ({ ...p, remindersEnabled: e.target.checked }))} />
+                  {t.reminderEnabled}
+                </label>
+                <div className="space-y-1">
+                  <Label>{t.reminderText}</Label>
+                  <Input value={editWorker.reminderText} onChange={(e) => setEditWorker((p) => ({ ...p, reminderText: e.target.value }))} />
+                </div>
+              </>
+            ) : null}
             <div className="flex justify-end gap-2 pt-1">
               <Button type="button" variant="ghost" onClick={() => setEditOpen(false)} disabled={pending}>{t.cancel}</Button>
               <Button type="submit" disabled={pending}>{pending ? "..." : t.saveChanges}</Button>

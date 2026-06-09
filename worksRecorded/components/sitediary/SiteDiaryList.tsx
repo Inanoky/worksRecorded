@@ -1741,7 +1741,7 @@ export default function SiteDiaryCalendar({
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">
-                {t.title}
+                {isZtcSite ? t.productionJournalTitle : t.title}
               </h2>
               <p className="text-sm text-muted-foreground">
                 {t.subtitle}

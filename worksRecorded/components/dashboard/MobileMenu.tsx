@@ -9,11 +9,17 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/utils";
 import { Menu } from "lucide-react";
 
+const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+
 export function MobileMenu({ organizationLanguage }: { organizationLanguage?: string | null }) {
   const { projectId, projectName } = useProject();
   const pathname = usePathname();
   const navLinks = getNavLinks(organizationLanguage);
   const projectNavLinks = getProjectNavLinks(organizationLanguage);
+  const productionJournalLabel =
+    normalizeLanguageLabel(organizationLanguage) === "lv"
+      ? "Ražošanas žurnāls"
+      : "Production journal";
 
   return (
     <DropdownMenu>
@@ -57,7 +63,9 @@ export function MobileMenu({ organizationLanguage }: { organizationLanguage?: st
                   )}
                 >
                   <item.icon className="size-4" />
-                  {item.name}
+                  {projectId === ZTC_SITE_ID && item.path === "dashboard"
+                    ? productionJournalLabel
+                    : item.name}
                 </Link>
               </DropdownMenuItem>
             ))}
@@ -66,4 +74,8 @@ export function MobileMenu({ organizationLanguage }: { organizationLanguage?: st
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+function normalizeLanguageLabel(language?: string | null) {
+  return String(language ?? "").toLowerCase().startsWith("lv") ? "lv" : "en";
 }

@@ -13,15 +13,18 @@ import {
   getOrganizationMaterialConfigurationTemplates,
 } from "@/server/actions/material-configuration-template-actions";
 
+const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
+
 export default async function SettingsSiteRoute() {
   const user = await requireUser();
   const orgId = await getOrganizationIdByUserId(user.id);
+  const isZtcOrganization = orgId === ZTC_ORGANIZATION_ID;
   const userData = await getUserData(orgId);
   const workersData = await getOrganizationWorkers(orgId);
-  const materialConfigurationTemplates = orgId
+  const materialConfigurationTemplates = orgId && !isZtcOrganization
     ? await getOrganizationMaterialConfigurationTemplates(orgId)
     : [];
-  const materialConfigurationTemplateOptions = orgId
+  const materialConfigurationTemplateOptions = orgId && !isZtcOrganization
     ? await getOrganizationMaterialConfigurationTemplateOptions(orgId)
     : { materialMeasures: [], materialTypes: [] };
   const currentLanguage = await getOrganizationLanguageByUserId(user.id);
@@ -29,13 +32,15 @@ export default async function SettingsSiteRoute() {
   return (
     <>
       <OrganizationLanguageSwitcher currentLanguage={currentLanguage} />
-      <MaterialConfigurationTemplatesSettings
-        orgId={orgId || ""}
-        templates={materialConfigurationTemplates}
-        materialMeasures={materialConfigurationTemplateOptions.materialMeasures}
-        materialTypes={materialConfigurationTemplateOptions.materialTypes}
-        organizationLanguage={currentLanguage}
-      />
+      {!isZtcOrganization ? (
+        <MaterialConfigurationTemplatesSettings
+          orgId={orgId || ""}
+          templates={materialConfigurationTemplates}
+          materialMeasures={materialConfigurationTemplateOptions.materialMeasures}
+          materialTypes={materialConfigurationTemplateOptions.materialTypes}
+          organizationLanguage={currentLanguage}
+        />
+      ) : null}
       <MembersTable
         pageSize={5}
         data={userData}
@@ -43,12 +48,15 @@ export default async function SettingsSiteRoute() {
         userid={user.id}
         orgId={orgId}
         organizationLanguage={currentLanguage}
+        hideReminders={isZtcOrganization}
+        titleVariant={isZtcOrganization ? "adminPanel" : "default"}
       />
       <WorkersSettingsTable
         orgId={orgId || ""}
         workers={workersData.workers}
         projects={workersData.projects}
         organizationLanguage={currentLanguage}
+        hideReminders={isZtcOrganization}
       />
     </>
   );

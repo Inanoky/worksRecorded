@@ -22,6 +22,7 @@ type TimesheetsPageMessages = {
 type SiteDiaryListMessages = {
   daysOfWeek: string[];
   title: string;
+  productionJournalTitle: string;
   subtitle: string;
   tabList: string;
   tabCalendar: string;
@@ -172,6 +173,9 @@ type WorkersUiMessages = {
   noProject: string;
   lastWorkDate: string;
   lastWorkType: string;
+  role: string;
+  workerRole: string;
+  qualityControlRole: string;
   reminderTime: string;
   reminderEnabled: string;
   reminderText: string;
@@ -317,6 +321,8 @@ type SettingsUiMessages = {
   actions: string;
   edit: string;
   noDataFound: string;
+  siteManagers: string;
+  adminPanel: string;
   emailColumn: string;
   firstNameColumn: string;
   lastNameColumn: string;
@@ -592,6 +598,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
   en: {
     daysOfWeek: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     title: "Site Diary",
+    productionJournalTitle: "Production journal",
     subtitle: "Switch between calendar, list and gallery views.",
     tabList: "List",
     tabCalendar: "Calendar",
@@ -693,6 +700,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
   lv: {
     daysOfWeek: ["Sv", "Pr", "Ot", "Tr", "Ce", "Pk", "Se"],
     title: "Būvdarbu žurnāls",
+    productionJournalTitle: "Ražošanas žurnāls",
     subtitle: "Pārslēdzieties starp kalendāra, saraksta un galerijas skatu.",
     tabList: "Saraksts",
     tabCalendar: "Kalendārs",
@@ -885,6 +893,9 @@ const WORKERS_UI_MESSAGES: Record<OrganizationLanguage, WorkersUiMessages> = {
     noProject: "No project",
     lastWorkDate: "Last Work Date",
     lastWorkType: "Last Work Type",
+    role: "Role",
+    workerRole: "Worker",
+    qualityControlRole: "Quality control",
     reminderTime: "Reminder time",
     reminderEnabled: "Reminder enabled",
     reminderText: "Reminder text",
@@ -922,6 +933,9 @@ const WORKERS_UI_MESSAGES: Record<OrganizationLanguage, WorkersUiMessages> = {
     noProject: "Nav projekta",
     lastWorkDate: "Pēdējā darba diena",
     lastWorkType: "Pēdējais darba veids",
+    role: "Loma",
+    workerRole: "Darbinieks",
+    qualityControlRole: "Kvalitātes kontrole",
     reminderTime: "Atgādinājuma laiks",
     reminderEnabled: "Atgādinājums ieslēgts",
     reminderText: "Atgādinājuma teksts",
@@ -1172,6 +1186,8 @@ const SETTINGS_UI_MESSAGES: Record<OrganizationLanguage, SettingsUiMessages> = {
     actions: "Actions",
     edit: "Edit",
     noDataFound: "No data found.",
+    siteManagers: "Site managers",
+    adminPanel: "Admin panel",
     emailColumn: "Email",
     firstNameColumn: "First name",
     lastNameColumn: "Last name",
@@ -1202,6 +1218,8 @@ const SETTINGS_UI_MESSAGES: Record<OrganizationLanguage, SettingsUiMessages> = {
     actions: "Darbības",
     edit: "Rediģēt",
     noDataFound: "Dati nav atrasti.",
+    siteManagers: "Objekta vadītāji",
+    adminPanel: "Admin panelis",
     emailColumn: "E-pasts",
     firstNameColumn: "Vārds",
     lastNameColumn: "Uzvārds",

@@ -7,12 +7,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
 
+const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+
 export function DashboardItems({ userEmail, organizationLanguage }: { userEmail?: string; organizationLanguage?: string | null }) {
   const { projectId, projectName, setProject } = useProject();
   const pathname = usePathname();
   const router = useRouter();
   const navLinks = getNavLinks(organizationLanguage);
   const projectNavLinks = getProjectNavLinks(organizationLanguage);
+  const productionJournalLabel =
+    normalizeLanguageLabel(organizationLanguage) === "lv"
+      ? "Ražošanas žurnāls"
+      : "Production journal";
 
   useEffect(() => {
     const isAboveProject =
@@ -21,11 +27,14 @@ export function DashboardItems({ userEmail, organizationLanguage }: { userEmail?
   }, [pathname]);
 
   useEffect(() => {
+    navLinks.forEach((item) => {
+      router.prefetch(item.href);
+    });
     if (!projectId) return;
     projectNavLinks.forEach((item) => {
       router.prefetch(`/dashboard/sites/${projectId}/${item.path}`);
     });
-  }, [projectId, projectNavLinks, router]);
+  }, [navLinks, projectId, projectNavLinks, router]);
 
 return (
     <div className="flex items-center w-full justify-between gap-3">
@@ -35,6 +44,8 @@ return (
           <Link
             href={item.href}
             key={item.name}
+            prefetch
+            onMouseEnter={() => router.prefetch(item.href)}
             className={cn(
               pathname === item.href
                 ? "bg-primary/10 text-primary border-primary/30"
@@ -66,7 +77,11 @@ return (
         : {})}
             >
               <item.icon className="size-4" />
-              <span className="hidden xl:inline-block">{item.name}</span>
+              <span className="hidden xl:inline-block">
+                {projectId === ZTC_SITE_ID && item.path === "dashboard"
+                  ? productionJournalLabel
+                  : item.name}
+              </span>
             </Link>
           ))
         }
@@ -78,5 +93,9 @@ return (
         </div>
       )}
     </div>
-  );
+);
+}
+
+function normalizeLanguageLabel(language?: string | null) {
+  return String(language ?? "").toLowerCase().startsWith("lv") ? "lv" : "en";
 }

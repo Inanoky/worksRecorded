@@ -3,6 +3,7 @@ import { prisma } from "@/lib/utils/db";
 
 const DEFAULT_TIMEZONE = "Europe/Riga";
 const DEBUG_PREFIX = "[cron:reminders]";
+const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 
 function normalizeRecipientPhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -93,7 +94,10 @@ export async function GET(req: Request) {
 
   const [users, workers] = await Promise.all([
     prisma.user.findMany({
-      where: { remindersEnabled: true },
+      where: {
+        remindersEnabled: true,
+        organizationId: { not: ZTC_ORGANIZATION_ID },
+      },
       select: {
         id: true,
         phone: true,
@@ -103,7 +107,10 @@ export async function GET(req: Request) {
       },
     }),
     prisma.workers.findMany({
-      where: { remindersEnabled: true },
+      where: {
+        remindersEnabled: true,
+        organizationId: { not: ZTC_ORGANIZATION_ID },
+      },
       select: {
         id: true,
         phone: true,

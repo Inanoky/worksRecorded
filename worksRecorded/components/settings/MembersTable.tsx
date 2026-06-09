@@ -21,7 +21,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MoreHorizontal } from "lucide-react";
@@ -56,6 +56,8 @@ type MembersTableProps = {
   userid?: string;
   orgId?: string;
   organizationLanguage?: string | null;
+  hideReminders?: boolean;
+  titleVariant?: "default" | "adminPanel";
 };
 
 const emailSchema = z.string().trim().email("Please provide a valid email address");
@@ -65,18 +67,23 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "site manager", label: "Site manager" },
 ];
 
-function getColumns(t: ReturnType<typeof getSettingsUiMessages>): ColumnDef<Member, any>[] {
-  return [
+function getColumns(t: ReturnType<typeof getSettingsUiMessages>, hideReminders: boolean): ColumnDef<Member, any>[] {
+  const columns: ColumnDef<Member, any>[] = [
     { accessorKey: "email", header: t.emailColumn },
     { accessorKey: "firstName", header: t.firstNameColumn },
     { accessorKey: "lastName", header: t.lastNameColumn },
     { accessorKey: "phone", header: t.phoneColumn },
     { accessorKey: "role", header: t.roleColumn },
     { accessorKey: "status", header: t.statusColumn },
-    { accessorKey: "reminderTime", header: t.reminderTimeColumn },
-    { accessorKey: "remindersEnabled", header: t.remindersEnabledColumn },
-    { accessorKey: "reminderText", header: t.reminderTextColumn },
   ];
+  if (!hideReminders) {
+    columns.push(
+      { accessorKey: "reminderTime", header: t.reminderTimeColumn },
+      { accessorKey: "remindersEnabled", header: t.remindersEnabledColumn },
+      { accessorKey: "reminderText", header: t.reminderTextColumn },
+    );
+  }
+  return columns;
 }
 
 const defaultGlobalFilterFn = (row: any, _colId: string, filterValue: string) => {
@@ -154,12 +161,14 @@ export function MembersTable({
   userid: _userid,
   orgId,
   organizationLanguage,
+  hideReminders = false,
+  titleVariant = "default",
 }: MembersTableProps) {
   const router = useRouter();
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSettingsUiMessages(language);
   const toastMessages = getToastMessages(language);
-  const columns = React.useMemo(() => getColumns(t), [t]);
+  const columns = React.useMemo(() => getColumns(t, hideReminders), [t, hideReminders]);
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
   const [editRowId, setEditRowId] = React.useState<string | null>(null);
@@ -201,9 +210,9 @@ export function MembersTable({
       ...(parsed.lastName  !== undefined ? { lastName:  parsed.lastName }  : {}),
       ...(parsed.phone     !== undefined ? { phone:     parsed.phone }     : {}),
       ...(parsed.role      !== undefined ? { role:      parsed.role }       : {}),
-      ...(parsed.reminderTime !== undefined ? { reminderTime: parsed.reminderTime } : {}),
-      ...(parsed.remindersEnabled !== undefined ? { remindersEnabled: parsed.remindersEnabled } : {}),
-      ...(parsed.reminderText !== undefined ? { reminderText: parsed.reminderText } : {}),
+      ...(!hideReminders && parsed.reminderTime !== undefined ? { reminderTime: parsed.reminderTime } : {}),
+      ...(!hideReminders && parsed.remindersEnabled !== undefined ? { remindersEnabled: parsed.remindersEnabled } : {}),
+      ...(!hideReminders && parsed.reminderText !== undefined ? { reminderText: parsed.reminderText } : {}),
     };
 
     try {
@@ -249,9 +258,13 @@ export function MembersTable({
         // store only digits in draft state
         phone: sanitizePhoneDigits(rowData.phone ?? ""),
         role:  rowData.role ?? null,
-        reminderTime: toHHmm(rowData.reminderTime),
-        remindersEnabled: !!rowData.remindersEnabled,
-        reminderText: rowData.reminderText ?? "",
+        ...(!hideReminders
+          ? {
+              reminderTime: toHHmm(rowData.reminderTime),
+              remindersEnabled: !!rowData.remindersEnabled,
+              reminderText: rowData.reminderText ?? "",
+            }
+          : {}),
       }
     });
     setAnyChanges(false);
@@ -296,6 +309,9 @@ export function MembersTable({
   return (
     <Card>
       <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>{titleVariant === "adminPanel" ? t.adminPanel : t.siteManagers}</CardTitle>
+        </div>
         <div className="flex items-center py-4 gap-2">
           <Input
             placeholder={t.search}
@@ -386,13 +402,13 @@ export function MembersTable({
 
             if (patch.role != null) fd.set("role", String(patch.role));
 
-            if (patch.reminderTime != null && patch.reminderTime !== "") {
+            if (!hideReminders && patch.reminderTime != null && patch.reminderTime !== "") {
               fd.set("reminderTime", new Date(`1970-01-01T${patch.reminderTime}:00.000Z`).toISOString());
             }
-            if (patch.remindersEnabled != null) {
+            if (!hideReminders && patch.remindersEnabled != null) {
               fd.set("remindersEnabled", String(!!patch.remindersEnabled));
             }
-            if (patch.reminderText != null) {
+            if (!hideReminders && patch.reminderText != null) {
               fd.set("reminderText", String(patch.reminderText));
             }
             // @ts-expect-error bound server action
@@ -611,23 +627,25 @@ export function MembersTable({
                                   {t.saveChanges}
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem
-                                onClick={async () => {
-                                  try {
-                                    const currentDraft = draftById[r.id] ?? {};
-                                    await sendManualReminder({
-                                      targetType: "user",
-                                      targetId: r.id,
-                                      reminderText: String(currentDraft.reminderText ?? r.reminderText ?? "").trim() || null,
-                                    });
-                                    toast.success(toastMessages.reminderSent);
-                                  } catch (error: any) {
-                                    toast.error(error?.message ?? toastMessages.failedSendReminder);
-                                  }
-                                }}
-                              >
-                                Send reminder now
-                              </DropdownMenuItem>
+                              {!hideReminders ? (
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    try {
+                                      const currentDraft = draftById[r.id] ?? {};
+                                      await sendManualReminder({
+                                        targetType: "user",
+                                        targetId: r.id,
+                                        reminderText: String(currentDraft.reminderText ?? r.reminderText ?? "").trim() || null,
+                                      });
+                                      toast.success(toastMessages.reminderSent);
+                                    } catch (error: any) {
+                                      toast.error(error?.message ?? toastMessages.failedSendReminder);
+                                    }
+                                  }}
+                                >
+                                  Send reminder now
+                                </DropdownMenuItem>
+                              ) : null}
                               <DropdownMenuItem
                                 className="cursor-pointer text-red-600"
                                 onClick={async () => {
