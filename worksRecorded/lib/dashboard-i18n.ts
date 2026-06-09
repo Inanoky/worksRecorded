@@ -408,6 +408,8 @@ type SiteDiaryDialogMessages = {
   unknown: string;
   select: string;
   noDateSelected: string;
+  recordsTab: string;
+  mediaTab: string;
   close: string;
   loadingPhotos: string;
   failedLoadPhotos: string;
@@ -1354,6 +1356,8 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     unknown: "Unknown",
     select: "Select…",
     noDateSelected: "No date selected",
+    recordsTab: "Records",
+    mediaTab: "Photos",
     close: "Close",
     loadingPhotos: "Loading photos…",
     failedLoadPhotos: "Failed to load photos",
@@ -1420,6 +1424,8 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     unknown: "Nezināms",
     select: "Izvēlēties…",
     noDateSelected: "Datums nav izvēlēts",
+    recordsTab: "Ieraksti",
+    mediaTab: "Foto",
     close: "Aizvērt",
     loadingPhotos: "Ielādē foto...",
     failedLoadPhotos: "Neizdevās ielādēt foto",

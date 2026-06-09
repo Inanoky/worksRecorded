@@ -13,6 +13,7 @@ type ImageGalleryProps = {
   date: Date | null;
   siteId: string | null;
   className?: string;
+  scrollAreaClassName?: string;
   organizationLanguage?: string | null;
 };
 
@@ -47,7 +48,13 @@ function toDayRangeISO(date: Date) {
   return { startISO: start.toISOString(), endISO: end.toISOString() };
 }
 
-export function ImageGallery({ date, siteId, className, organizationLanguage }: ImageGalleryProps) {
+export function ImageGallery({
+  date,
+  siteId,
+  className,
+  scrollAreaClassName,
+  organizationLanguage,
+}: ImageGalleryProps) {
   const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -402,30 +409,31 @@ export function ImageGallery({ date, siteId, className, organizationLanguage }: 
   }
 
   return (
-    <div className={cn("p-3 border border-muted rounded-lg bg-background", className)}>
-      <div className="mb-2 text-sm text-muted-foreground">
-        {loading
-          ? t.loadingPhotos
-          : error
-            ? error
-            : `${photos?.length ?? 0} ${t.photosCount} · ${audioRecords?.length ?? 0} ${t.audioCount}`}
-      </div>
-
-      <div className="relative h-full">
+    <div
+      className={cn(
+        "flex min-h-0 flex-col bg-background",
+        className
+      )}
+    >
+      <div className="relative min-h-0 flex-1">
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 p-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5">
             {Array.from({ length: 10 }).map((_, i) => (
               <Skeleton key={i} className="aspect-square" />
             ))}
+          </div>
+        ) : error ? (
+          <div className="p-2 text-sm text-muted-foreground">
+            {error}
           </div>
         ) : (photos?.length ?? 0) === 0 && (audioRecords?.length ?? 0) === 0 ? (
           <div className="text-sm text-muted-foreground p-2">
             {t.noMediaForDate}
           </div>
         ) : (
-          <div data-tour="dialog-gallery">
-            <ScrollArea className="h-[600px]">
-              <div className="space-y-4 p-2">
+          <div data-tour="dialog-gallery" className="h-full min-h-0">
+            <ScrollArea className={scrollAreaClassName ?? "h-[600px]"}>
+              <div className="space-y-4 pr-3">
                 {(photos?.length ?? 0) > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
                     {photos!.map((p, idx) => {
