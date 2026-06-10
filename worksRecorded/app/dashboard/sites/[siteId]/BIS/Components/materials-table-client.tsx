@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import Image from "next/image"
-import * as XLSX from "xlsx"
 import {
   Search,
   Filter,
@@ -1113,7 +1112,8 @@ export default function MaterialsTableClient({
 
   const showBisControls = bisEnabled
 
-  const exportMaterialsToExcel = () => {
+  const exportMaterialsToExcel = async () => {
+    const XLSX = await import("xlsx")
     const worksheetData = [
       [
         t.material,

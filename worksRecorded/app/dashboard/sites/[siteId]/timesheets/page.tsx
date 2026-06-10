@@ -4,7 +4,7 @@ import {
   getTimelogsBySiteId,
   getWorkersBySiteId,
 } from "@/server/actions/timesheets-actions";
-import AiWidgetRag from "@/components/ai/AiChat";
+import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { getLocationsWorksFromSiteSchema } from "@/server/actions/site-diary-actions";
 import { SiteSchemaProvider } from "@/components/providers/SiteSchemaProvider";
 import { requireUser } from "@/lib/utils/requireUser";

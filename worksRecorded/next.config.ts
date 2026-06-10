@@ -12,6 +12,9 @@ import createNextIntlPlugin from "next-intl/plugin";
 // //------------------------------
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: process.cwd(),
+  },
   images: {
     remotePatterns: [
       {
@@ -19,11 +22,15 @@ const nextConfig: NextConfig = {
         hostname: "utfs.io",
         port: "",
       },
+      {
+        protocol: "https",
+        hostname: "*.ufs.sh",
+      },
+      {
+        protocol: "https",
+        hostname: "ufs.sh",
+      },
     ],
-  },
-
-  eslint: {
-    ignoreDuringBuilds: true,
   },
 
   typescript: {

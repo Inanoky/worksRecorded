@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// IMPORTANT: This import needs to point to your actual backend action file.
-import { getAllPhotos } from '@/server/actions/site-diary-actions'; 
+import Image from "next/image";
 
 // --- shadcn/ui Components ---
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,8 +103,11 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
         setError(null);
         setSelectedPhotoIndex(null); 
 
-        // NOTE: This call expects your updated backend action (getAllPhotos(siteId, currentPage))
-        const result = await getAllPhotos(siteId, currentPage);
+        const response = await fetch(`/api/sites/${encodeURIComponent(siteId)}/photos?page=${currentPage}`);
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result?.error || "Failed to load photos");
+        }
 
         setPhotos(result.photos as Photo[]);
         setTotalPhotos(result.totalCount);
@@ -300,23 +302,19 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
               </div>
 
               {/* Gallery Grid */}
-              <div 
-                className="grid" 
-                style={{
-                  gridTemplateColumns: 'repeat(6, 1fr)',
-                  gap: '10px',
-                }}
-              >
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
                 {photos.map((photo, index) => (
                   <div
                     key={photo.id}
                     onClick={() => setSelectedPhotoIndex(index)}
-                    className="cursor-pointer overflow-hidden rounded-md aspect-[4/3] transition-all hover:opacity-75"
+                    className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded-md transition-all hover:opacity-75"
                   >
-                    <img
+                    <Image
                       src={photo.fileUrl}
                       alt={photo.Comment || `Site Photo ${index + 1}`}
-                      className="w-full h-full object-cover"
+                      fill
+                      sizes="(min-width: 1024px) 16vw, (min-width: 640px) 33vw, 50vw"
+                      className="object-cover"
                       title={photo.Comment || `Click to expand`}
                     />
                   </div>

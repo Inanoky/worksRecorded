@@ -1,8 +1,6 @@
 //C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\layout.tsx
 "use client"
-import type { Metadata } from "next";
 
-import { Inter } from "next/font/google";
 import "@/app/globals.css";
 
 import {Toaster} from "@/components/ui/sonner"
@@ -12,8 +10,6 @@ import HeaderMobile from "@/components/landing/HeaderMobile";
 import HeaderDesktop from "@/components/landing/HeaderDesktop";
 import FooterMobile from "@/components/landing/FooterMobile";
 import FooterDesktop from "@/components/landing/FooterDesktop";
-
-const inter = Inter({ subsets: ["latin"] });
 
 
 
@@ -33,7 +29,7 @@ export default function LadningLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.className}  antialiased`}
+        className="antialiased"
 
 
       >

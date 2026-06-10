@@ -1,3 +1,5 @@
+import { logPerfEvent } from "@/lib/observability/perf";
+
 const TEST_BIS_HOST = "test.bis.gov.lv";
 
 function normalizeBaseUrl(url: string) {
@@ -24,6 +26,10 @@ function getHeaderValue(headers: HeadersInit | undefined, name: string) {
 
 function shouldLogFullBisTokens() {
   return process.env.BIS_LOG_FULL_TOKENS === "true" || process.env.BIS_LOG_FULL_ACCESS_TOKEN === "true";
+}
+
+function shouldLogVerboseBisApi() {
+  return process.env.BIS_VERBOSE_LOGS === "true";
 }
 
 function maskAccessToken(token: string) {
@@ -161,7 +167,139 @@ function createBisRequestLogPayload(url: string, init?: RequestInit) {
   };
 }
 
+function getBisPerfTarget(url: string) {
+  try {
+    const parsed = new URL(url);
+    return {
+      host: parsed.host,
+      path: sanitizeBisPath(parsed.pathname),
+      pathGroup: getBisPathGroup(parsed.pathname),
+    };
+  } catch {
+    const path = url.split("?")[0] || "unknown";
+    return {
+      host: "unknown",
+      path: sanitizeBisPath(path),
+      pathGroup: getBisPathGroup(path),
+    };
+  }
+}
+
+function sanitizeBisPath(path: string) {
+  return path
+    .split("/")
+    .map((segment) => {
+      if (!segment) return segment;
+      if (/^\d+$/.test(segment)) return ":id";
+      if (/^[0-9a-f-]{20,}$/i.test(segment)) return ":id";
+      return segment;
+    })
+    .join("/");
+}
+
+function getBisPathGroup(path: string) {
+  const normalizedPath = path.toLowerCase();
+
+  if (normalizedPath.includes("/bisp/api/auth/oauth2.0/token")) {
+    return "bis.auth.token";
+  }
+
+  if (normalizedPath.includes("/logbook/available_received_construction_products")) {
+    return "bis.logbook.available_received_materials";
+  }
+
+  if (normalizedPath.includes("/logbook/available_used_materials")) {
+    return "bis.logbook.available_used_materials";
+  }
+
+  if (normalizedPath.includes("/logbook/available_responsible_persons")) {
+    return "bis.logbook.available_responsible_persons";
+  }
+
+  if (normalizedPath.includes("/logbook/received_construction_product_attachments")) {
+    return "bis.material.received_product_attachments";
+  }
+
+  if (normalizedPath.includes("/logbook/received_construction_products")) {
+    return "bis.material.received_products";
+  }
+
+  if (normalizedPath.includes("/logbook/construction_materials")) {
+    return "bis.material.configurations";
+  }
+
+  if (normalizedPath.includes("/logbook/performed_works")) {
+    return "bis.logbook.performed_works";
+  }
+
+  if (normalizedPath.includes("/logbook/shared_attached_document_attachments")) {
+    return "bis.logbook.shared_attachments";
+  }
+
+  if (normalizedPath.includes("/logbook/")) {
+    return "bis.logbook.other";
+  }
+
+  if (normalizedPath.includes("/classifiers")) {
+    return "bis.classifiers";
+  }
+
+  if (normalizedPath.includes("/auth/oauth2.0/")) {
+    return "bis.auth.other";
+  }
+
+  return "bis.other";
+}
+
+function getHeaderNumber(headers: Headers, name: string) {
+  const value = headers.get(name);
+  if (!value) return undefined;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function logBisFetchPerf({
+  requestId,
+  url,
+  init,
+  startedAt,
+  relayed,
+  response,
+  error,
+}: {
+  requestId: string;
+  url: string;
+  init?: RequestInit;
+  startedAt: number;
+  relayed: boolean;
+  response?: Response;
+  error?: unknown;
+}) {
+  const target = getBisPerfTarget(url);
+
+  logPerfEvent({
+    route: "bis.fetch",
+    requestId,
+    status: response?.status ?? 599,
+    totalMs: Date.now() - startedAt,
+    error,
+    extra: {
+      target: "bis",
+      method: init?.method ?? "GET",
+      host: target.host,
+      path: target.path,
+      pathGroup: target.pathGroup,
+      relayed,
+      ok: response?.ok ?? false,
+      contentLength: response ? getHeaderNumber(response.headers, "content-length") : undefined,
+    },
+  });
+}
+
 async function logBisResponse(requestId: string, response: Response, startedAt: number) {
+  if (!shouldLogVerboseBisApi()) return;
+
   const contentType = response.headers.get("content-type");
   let responseBody: unknown = null;
 
@@ -204,26 +342,35 @@ export function getBisRelayBaseUrl() {
 export async function bisFetch(baseUrl: string, url: string, init?: RequestInit) {
   const requestId = crypto.randomUUID();
   const startedAt = Date.now();
+  const relayed = shouldUseBisRelay(baseUrl);
 
-  console.log("[BIS API] Request", JSON.stringify({
-    requestId,
-    ...createBisRequestLogPayload(url, init),
-  }, null, 2));
+  if (shouldLogVerboseBisApi()) {
+    console.log("[BIS API] Request", JSON.stringify({
+      requestId,
+      ...createBisRequestLogPayload(url, init),
+    }, null, 2));
+  }
 
   let response: Response;
 
-  if (!shouldUseBisRelay(baseUrl)) {
+  if (!relayed) {
     try {
       response = await fetch(url, init);
     } catch (error) {
-      console.error("[BIS API] Network error", JSON.stringify({
-        requestId,
-        durationMs: Date.now() - startedAt,
-        error: error instanceof Error ? error.message : String(error),
-      }, null, 2));
+      logBisFetchPerf({ requestId, url, init, startedAt, relayed, error });
+
+      if (shouldLogVerboseBisApi()) {
+        console.error("[BIS API] Network error", JSON.stringify({
+          requestId,
+          durationMs: Date.now() - startedAt,
+          error: error instanceof Error ? error.message : String(error),
+        }, null, 2));
+      }
+
       throw error;
     }
 
+    logBisFetchPerf({ requestId, url, init, startedAt, relayed, response });
     await logBisResponse(requestId, response, startedAt);
     return response;
   }
@@ -244,15 +391,21 @@ export async function bisFetch(baseUrl: string, url: string, init?: RequestInit)
       cache: "no-store",
     });
   } catch (error) {
-    console.error("[BIS API] Network error", JSON.stringify({
-      requestId,
-      relayUrl: relayUrl.toString(),
-      durationMs: Date.now() - startedAt,
-      error: error instanceof Error ? error.message : String(error),
-    }, null, 2));
+    logBisFetchPerf({ requestId, url, init, startedAt, relayed, error });
+
+    if (shouldLogVerboseBisApi()) {
+      console.error("[BIS API] Network error", JSON.stringify({
+        requestId,
+        relayUrl: relayUrl.toString(),
+        durationMs: Date.now() - startedAt,
+        error: error instanceof Error ? error.message : String(error),
+      }, null, 2));
+    }
+
     throw error;
   }
 
+  logBisFetchPerf({ requestId, url, init, startedAt, relayed, response });
   await logBisResponse(requestId, response, startedAt);
   return response;
 }

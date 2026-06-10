@@ -3,16 +3,10 @@
 
 import type { Metadata } from "next";
 
-import { Inter } from "next/font/google";
 import "./globals.css";
 import {ThemeProvider} from "@/components/dashboard/ThemeProvider";
 import {Toaster} from "@/components/ui/sonner"
-import {GoogleTagManager, GoogleAnalytics} from '@next/third-parties/google'
-import Script from "next/script";
-
-
-
-const inter = Inter({ subsets: ["latin"] });
+import {GoogleTagManager} from '@next/third-parties/google'
 
 
 export const metadata: Metadata = {
@@ -109,7 +103,7 @@ export default function RootLayout({
       
 
       <body
-        className={`${inter.className}  antialiased`}
+        className="antialiased"
       >
        <ThemeProvider
             attribute="class"

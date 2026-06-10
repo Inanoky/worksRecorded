@@ -30,7 +30,6 @@ import {
   submitSiteDiaryRecordToBisApproval,
 } from "@/server/actions/site-diary-actions";
 import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
-import * as XLSX from "xlsx";
 import {
   CalendarIcon,
   ChevronLeft,
@@ -1167,14 +1166,16 @@ export default function SiteDiaryCalendar({
   };
 
   // Export ONLY currently filtered rows
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    const XLSX = await import("xlsx");
     const worksheet = XLSX.utils.json_to_sheet(filteredRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
     XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
   };
 
-  const exportZtcPayrollToExcel = () => {
+  const exportZtcPayrollToExcel = async () => {
+    const XLSX = await import("xlsx");
     const monthRows = rows.filter((row) => {
       const date = new Date(row.Date);
       return (

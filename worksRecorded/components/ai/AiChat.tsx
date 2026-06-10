@@ -22,11 +22,9 @@ import ReactMarkdown from "react-markdown";
 import { Rnd } from "react-rnd";
 import { Textarea } from "@/components/ui/textarea";
 import remarkGfm from "remark-gfm";
-import OrchestratingAgentV2 from "@/server/ai-flows/agents/orchestrating-agent-v2/agent";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { downloadDataUrl, extractDataUrls } from "@/components/ai/AIchatHelpers";
-import { buildNativeFileContext } from "@/server/ai-flows/agents/orchestrating-agent-v2/fileContext";
 
 type Attachment = {
   id: string;
@@ -62,6 +60,7 @@ type Message = BotMessage | UserMessage;
 const STORAGE_KEY = (siteId?: string) => `aiwidget:${siteId ?? "default"}`;
 const MAX_ATTACHMENTS = 8;
 const MAX_TEXT_EXTRACT = 5000;
+const MAX_DATA_URL_BYTES = 3.5 * 1024 * 1024;
 const STREAM_CHUNK_SIZE = 18;
 const STREAM_DELAY_MS = 14;
 
@@ -103,25 +102,6 @@ async function toText(file: File) {
 
 function safeFilename(name = "download.bin") {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
-}
-
-function composePrompt(text: string, attachments: Attachment[], nativeFileContext = "") {
-  if (!attachments.length) return text;
-
-  const attachmentContext = attachments
-    .map((file, i) => {
-      const base = `#${i + 1} ${file.name} (${file.mimeType || "unknown"}, ${formatBytes(file.size)})`;
-      const extracted = file.textContent?.trim();
-      if (!extracted) return base;
-      return `${base}\nExtracted content:\n${extracted.slice(0, MAX_TEXT_EXTRACT)}`;
-    })
-    .join("\n\n");
-
-  const nativeContextBlock = nativeFileContext.trim()
-    ? `\n\nNative OpenAI file context:\n${nativeFileContext.trim()}`
-    : "";
-
-  return `${text}\n\nAttached files context:\n${attachmentContext}${nativeContextBlock}\n\nUse the attached file context in your answer when relevant.`;
 }
 
 function stripTransientAttachmentData(attachments: Attachment[]) {
@@ -242,7 +222,7 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
 
     let dataUrl: string | undefined;
 
-    if (file.size <= 8 * 1024 * 1024) {
+    if (file.size <= MAX_DATA_URL_BYTES) {
       dataUrl = await toDataUrl(file);
     }
 
@@ -339,25 +319,23 @@ export default function AiWidgetRag({ siteId }: AiWidgetRagProps) {
     setQueuedAttachments([]);
 
     try {
-      let nativeFileContext = "";
-      if (attachmentsForLLM.length > 0) {
-        nativeFileContext = await buildNativeFileContext(
-          outgoingText,
-          attachmentsForLLM
-            .filter((item) => item.dataUrl)
-            .map((item) => ({
-              name: item.name,
-              mimeType: item.mimeType,
-              dataUrl: item.dataUrl as string,
-            }))
-        );
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          siteId,
+          message: outgoingText,
+          attachments: attachmentsForLLM,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || "AI request failed");
       }
 
-      const prompt = composePrompt(outgoingText, userMsg.attachments ?? [], nativeFileContext);
-      const result = await OrchestratingAgentV2(prompt, siteId);
-
-      const aiComment = String((result as any) ?? "");
-      const acceptedResults = (result as any)?.acceptedResults ?? "";
+      const aiComment = String(result?.aiComment ?? "");
+      const acceptedResults = result?.acceptedResults ?? "";
 
       await streamBotMessage(pendingBotId, aiComment);
 

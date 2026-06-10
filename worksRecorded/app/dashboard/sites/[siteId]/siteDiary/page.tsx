@@ -1,13 +1,13 @@
 // app/[...]/page.tsx  (Server Component)
 import SiteDiaryCalendar from "@/components/sitediary/Calendar";
-import AiWidgetRag from "@/components/ai/AiChat";
+import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import { notFound } from "next/navigation";
 
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
-import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
+import FullPhotoGallery from "@/components/sitediary/FullGalleryViewLazy";
 
 
 

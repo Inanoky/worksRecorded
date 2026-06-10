@@ -1,0 +1,7 @@
+lib/generated/prisma/
+app/dashboard/sites/[siteId]/dashboard/*.json
+server/actions/BIS/*.json
+docs/
+playwright-report/
+test-results/
+blob-report/

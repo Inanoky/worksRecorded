@@ -1,4 +1,4 @@
-import AiWidgetRag from "@/components/ai/AiChat";
+import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
