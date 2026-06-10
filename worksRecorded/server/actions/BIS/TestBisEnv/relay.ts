@@ -280,6 +280,7 @@ function logBisFetchPerf({
 
   logPerfEvent({
     route: "bis.fetch",
+    category: "bis",
     requestId,
     status: response?.status ?? 599,
     totalMs: Date.now() - startedAt,

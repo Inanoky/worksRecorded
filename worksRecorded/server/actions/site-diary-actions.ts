@@ -1264,7 +1264,7 @@ export async function deleteSiteDiaryRecord({ id }: { id: string }) {
 }
 
 export async function getSiteDiaryRecord({ siteId, date }) {
-  const trace = createPerfTrace({ route: "action.siteDiary.getRecord", siteId });
+  const trace = createPerfTrace({ route: "action.siteDiary.getRecord", category: "action", siteId });
   const selectedDate = new Date(date);
   const dateISO = Number.isNaN(selectedDate.getTime())
     ? undefined
@@ -1402,7 +1402,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
 export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
   if (!siteId) throw new Error("Missing siteId");
 
-  const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", siteId });
+  const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", category: "action", siteId });
 
   try {
   const records = await trace.measure("recordsQuery", () => prisma.sitediaryrecords.findMany({
@@ -1615,7 +1615,7 @@ async function fetchBisRelatedResource(
 }
 
 export async function getBisCaseAvailableMaterials(siteId: string) {
-  const trace = createPerfTrace({ route: "action.siteDiary.getBisCaseAvailableMaterials", siteId });
+  const trace = createPerfTrace({ route: "action.siteDiary.getBisCaseAvailableMaterials", category: "action", siteId });
   let bisCaseForLog: string | undefined;
 
   try {
@@ -2704,7 +2704,7 @@ async function uploadLogbookAttachmentToBis({
 }
 
 export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {
-  const trace = createPerfTrace({ route: "action.siteDiary.getFilledDays", siteId });
+  const trace = createPerfTrace({ route: "action.siteDiary.getFilledDays", category: "action", siteId });
   const from = new Date(year, month, 1);
   const to = new Date(year, month + 1, 1);
 
@@ -2893,7 +2893,7 @@ export async function getPhotosByDate({
   startISO,
   endISO,
 }: GetPhotosByDateArgs) {
-  const trace = createPerfTrace({ route: "action.siteDiary.getPhotosByDate", siteId });
+  const trace = createPerfTrace({ route: "action.siteDiary.getPhotosByDate", category: "action", siteId });
   const start = new Date(startISO);
   const end = new Date(endISO);
 

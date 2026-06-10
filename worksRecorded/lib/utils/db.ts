@@ -63,6 +63,7 @@ if (isPrismaPerfLoggingEnabled() && !globalForPrisma.prismaPerfQueryListenerAtta
 
     logPerfEvent({
       route: "db.prisma",
+      category: "db",
       status: 200,
       totalMs: event.duration,
       extra: {

@@ -16,6 +16,7 @@ export async function GET(
   const { siteId } = await params;
   const trace = createPerfTrace({
     route: "/api/sites/[siteId]/photos",
+    category: "api",
     requestId: request.headers.get("x-vercel-id") ?? undefined,
     siteId,
   });

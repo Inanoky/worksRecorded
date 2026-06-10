@@ -1816,7 +1816,7 @@ export default async function MaterialsPage({
   params: Promise<{ siteId: string }>;
 }) {
   const { siteId } = await params;
-  const trace = createPerfTrace({ route: "/dashboard/sites/[siteId]/BIS", siteId });
+  const trace = createPerfTrace({ route: "/dashboard/sites/[siteId]/BIS", category: "action", siteId });
 
   try {
   const user = await trace.measure("auth", () => requireUser());

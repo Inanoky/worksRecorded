@@ -1,8 +1,10 @@
 export type PerfValue = string | number | boolean | null | undefined;
 export type PerfFields = Record<string, PerfValue>;
+export type PerfCategory = "api" | "ai" | "bis" | "db" | "action";
 
 type PerfTraceArgs = {
   route: string;
+  category?: PerfCategory;
   requestId?: string | null;
   userId?: string | null;
   siteId?: string | null;
@@ -15,6 +17,7 @@ type FinishArgs = {
 
 type PerfEventArgs = {
   route: string;
+  category?: PerfCategory;
   requestId?: string | null;
   userId?: string | null;
   siteId?: string | null;
@@ -44,6 +47,26 @@ export function isPerfLogsEnabled() {
   return process.env.NODE_ENV !== "test";
 }
 
+function isPerfCategoryEnabled(category?: PerfCategory) {
+  if (!isPerfLogsEnabled()) return false;
+  if (!category) return true;
+
+  const envByCategory: Record<PerfCategory, string> = {
+    api: "PERF_API_LOGS_ENABLED",
+    ai: "PERF_AI_LOGS_ENABLED",
+    bis: "PERF_BIS_LOGS_ENABLED",
+    db: "PERF_DB_LOGS_ENABLED",
+    action: "PERF_ACTION_LOGS_ENABLED",
+  };
+  const value = process.env[envByCategory[category]];
+
+  if (value == null || value === "") {
+    return category !== "db";
+  }
+
+  return value !== "false";
+}
+
 export function getSafePerfError(error: unknown): PerfFields {
   if (!error || typeof error !== "object") {
     return { errorName: "UnknownError" };
@@ -57,14 +80,18 @@ export function getSafePerfError(error: unknown): PerfFields {
   };
 }
 
-export function writePerfLog(payload: PerfFields & { route: string }) {
-  if (!isPerfLogsEnabled()) return;
+export function writePerfLog(payload: PerfFields & { route: string }, category?: PerfCategory) {
+  if (!isPerfCategoryEnabled(category)) return;
 
-  console.log(`[perf] ${JSON.stringify(payload)}`);
+  console.log(`[perf] ${JSON.stringify({
+    category,
+    ...payload,
+  })}`);
 }
 
 export function logPerfEvent({
   route,
+  category,
   requestId,
   userId,
   siteId,
@@ -82,10 +109,10 @@ export function logPerfEvent({
     totalMs: typeof totalMs === "number" ? roundPerfMs(totalMs) : undefined,
     ...(extra ?? {}),
     ...(error ? getSafePerfError(error) : {}),
-  });
+  }, category);
 }
 
-export function createPerfTrace({ route, requestId, userId, siteId }: PerfTraceArgs) {
+export function createPerfTrace({ route, category, requestId, userId, siteId }: PerfTraceArgs) {
   const startedAt = nowMs();
   const timings: Record<string, number> = {};
   let finished = false;
@@ -112,7 +139,7 @@ export function createPerfTrace({ route, requestId, userId, siteId }: PerfTraceA
       totalMs: roundPerfMs(nowMs() - startedAt),
       ...timings,
       ...(extra ?? {}),
-    });
+    }, category);
   }
 
   return {

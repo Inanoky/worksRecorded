@@ -47,6 +47,7 @@ function composePrompt(text: string, attachments: AttachmentInput[], nativeFileC
 export async function POST(request: Request) {
   const trace = createPerfTrace({
     route: "/api/ai/chat",
+    category: "ai",
     requestId: request.headers.get("x-vercel-id") ?? undefined,
   });
   let userId: string | null = null;
