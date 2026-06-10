@@ -96,6 +96,23 @@ function normalizeZtcWorkName(value: unknown) {
     .replace(/^T(?!L)(?=\s|[-/]|$)/i, "TL");
 }
 
+const ZTC_QUALITY_WORK_LABEL = "Kvalitātes kontrole";
+
+function isZtcQualityRow(row: any) {
+  return (
+    normalizeOption(row?.Works) === ZTC_QUALITY_WORK_LABEL ||
+    String(row?.Comments_Custom_2 ?? "").includes('"type":"ztc_quality_check"') ||
+    String(row?.Comments_Custom_1 ?? "").startsWith("__ZTC_QA_PENDING__")
+  );
+}
+
+function splitDrawingWorkList(value: unknown) {
+  return String(value ?? "")
+    .split(";")
+    .map((part) => normalizeZtcWorkName(part))
+    .filter(Boolean);
+}
+
 function isUUID(id: unknown) {
   return (
     typeof id === "string" &&
@@ -226,8 +243,28 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
     }
 
     const rowElement = normalizeOption(row.Location_Custom_1);
-    if (rowElement && row.Location !== "Papilddarbi") {
-      elements.set(rowElement.toLowerCase(), rowElement);
+    const rowWorks = splitDrawingWorkList(row.Works_Custom_1);
+    if (
+      rowElement &&
+      row.Location !== "Papilddarbi" &&
+      !isZtcQualityRow(row) &&
+      rowWorks.length
+    ) {
+      const elementKey = rowElement.toLowerCase();
+      elements.set(elementKey, rowElement);
+
+      const workMap = worksByElement.get(elementKey) ?? new Map<string, string>();
+      const amountMap = amountsByElementWork.get(elementKey) ?? new Map<string, number>();
+      const amount = normalizeNumber(row.Amounts);
+
+      for (const workName of rowWorks) {
+        const workKey = workName.toLowerCase();
+        workMap.set(workKey, workName);
+        if (amount != null) amountMap.set(workKey, amount);
+      }
+
+      worksByElement.set(elementKey, workMap);
+      amountsByElementWork.set(elementKey, amountMap);
     }
   }
 
@@ -303,6 +340,10 @@ export function ZtcDialogTable({
     }
 
     if (field === "Works" && row.Location !== "Papilddarbi") {
+      if (isZtcQualityRow(row)) {
+        return [{ value: ZTC_QUALITY_WORK_LABEL, label: ZTC_QUALITY_WORK_LABEL }];
+      }
+
       const workOptions = getElementWorkOptions(row.Location_Custom_1);
       if (workOptions.length) {
         return workOptions.map((label) => ({ value: label, label }));
@@ -329,6 +370,8 @@ export function ZtcDialogTable({
         const next = { ...row, [field]: value };
 
         if (field === "Location_Custom_1") {
+          if (isZtcQualityRow(next)) return next;
+
           const workOptions = getElementWorkOptions(value);
           if (!workOptions.some((option) => option === next.Works)) {
             next.Works = "";
@@ -341,6 +384,8 @@ export function ZtcDialogTable({
         }
 
         if (field === "Works" && next.Location !== "Papilddarbi") {
+          if (isZtcQualityRow(next)) return next;
+
           const amountM2 = getWorkAmountM2(next.Location_Custom_1, value);
           next.Units = "m2";
           if (amountM2 != null) next.Amounts = String(amountM2);
@@ -379,6 +424,7 @@ export function ZtcDialogTable({
     rowsToSave.forEach((row, index) => {
       const label = `Rinda ${index + 1}`;
       const isAdditionalWork = row.Location === "Papilddarbi";
+      const isQualityWork = isZtcQualityRow(row);
       const amount = normalizeNumber(row.Amounts);
       const hours = normalizeNumber(row.TimeInvolved);
       const start = normalizeDate(row.Date);
@@ -418,7 +464,7 @@ export function ZtcDialogTable({
         validationErrors.push(`${label}: stundām jābūt pozitīvam skaitlim.`);
       }
 
-      if (!isAdditionalWork) {
+      if (!isAdditionalWork && !isQualityWork) {
         const workOptions = getElementWorkOptions(row.Location_Custom_1);
         if (workOptions.length && !workOptions.some((option) => option === row.Works)) {
           validationErrors.push(`${label}: darbs neatbilst izvēlētajam elementam.`);

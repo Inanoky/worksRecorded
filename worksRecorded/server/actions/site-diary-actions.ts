@@ -73,6 +73,11 @@ function formatOriginalUserComment(originalUserComment?: string, fullName?: stri
   return `${normalizedFullName} : ${normalizedComment}`;
 }
 
+function getCreatorNameFromOriginalComment(originalUserComment?: string | null) {
+  const match = originalUserComment?.trim().match(/^(.+?)\s+:\s+/);
+  return match?.[1]?.trim() ?? "";
+}
+
 //-------Loading config------------------------------
 
 export async function getConfig(siteId: string) {
@@ -1335,6 +1340,9 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       // Created by Worker
       createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
     }
+    if (!createdBy) {
+      createdBy = getCreatorNameFromOriginalComment(rec.originalUserComment);
+    }
 
     return {
       id: rec.id,
@@ -1436,6 +1444,9 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
     } else if (rec.Worker) {
       createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
+    }
+    if (!createdBy) {
+      createdBy = getCreatorNameFromOriginalComment(rec.originalUserComment);
     }
 
     return {

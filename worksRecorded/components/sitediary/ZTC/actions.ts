@@ -81,12 +81,18 @@ function formatCreatorName(
   return [firstName, lastName].filter(Boolean).join(" ");
 }
 
+function getCreatorNameFromOriginalComment(value: unknown) {
+  const text = String(value ?? "").trim();
+  const match = text.match(/^(.+?)\s+:\s+/);
+  return match?.[1]?.trim() ?? "";
+}
+
 function mapZtcRecord(rec: any) {
   const createdBy = rec.User
     ? formatCreatorName(rec.User.firstName, rec.User.lastName)
     : rec.Worker
       ? formatCreatorName(rec.Worker.name, rec.Worker.surname)
-      : "";
+      : getCreatorNameFromOriginalComment(rec.originalUserComment);
 
   return {
     id: rec.id,

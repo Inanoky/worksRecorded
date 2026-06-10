@@ -364,9 +364,42 @@ export async function createOrganizationWorker(data: {
 }
 
 export async function deleteOrganizationWorker(workerId: string) {
-  await prisma.workers.delete({
+  const worker = await prisma.workers.findUnique({
     where: { id: workerId },
+    select: { id: true },
   });
+
+  if (!worker) {
+    return { ok: true };
+  }
+
+  await prisma.$transaction([
+    prisma.whatsAppIdentity.updateMany({
+      where: { workerId },
+      data: { workerId: null },
+    }),
+    prisma.workers.update({
+      where: { id: workerId },
+      data: {
+        organizationId: null,
+        siteId: null,
+        phone: null,
+        isClockedIn: false,
+        remindersEnabled: false,
+        reminderTime: null,
+        reminderText: null,
+        timezone: null,
+      },
+    }),
+  ]);
+
+  await prisma.$executeRaw`
+    UPDATE "workers" SET role = NULL WHERE id = ${workerId}
+  `;
+
+  await prisma.$executeRaw`
+    UPDATE "workers" SET "personalId" = NULL WHERE id = ${workerId}
+  `;
 
   return { ok: true };
 }
