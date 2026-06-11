@@ -10,7 +10,7 @@ import {
   parseJsonObject,
   polishZtcCommentText,
   sendZtcMessage,
-  transcribeAudio,
+  transcribeAudioWithSource,
   uploadMediaImage,
   workerFullName,
   ZTC_ORGANIZATION_ID,
@@ -30,6 +30,7 @@ type QaPendingPayload = {
   qualityText?: string | null;
   qualityPhotoUrls?: string[];
   qualityPhotoPromptAt?: number | null;
+  originalAudioUrl?: string | null;
 };
 
 function normalizeRole(value: string | null | undefined) {
@@ -246,6 +247,7 @@ async function completeQualitySession(args: {
       Comments_Custom_2: JSON.stringify(metadata),
       Photos: [args.payload.drawingPhotoUrl, ...qualityPhotoUrls],
       originalUserComment: `${workerFullName(args.worker)} : ${qualityText}`,
+      originalAudioUrl: args.payload.originalAudioUrl ?? undefined,
     },
   });
 
@@ -476,6 +478,7 @@ async function handleQualityText(args: {
   text: string;
   to: string | null;
   worker: ZtcWorker;
+  originalAudioUrl?: string | null;
 }) {
   const session = await getPendingQaSession(args.worker.id);
   const payload = readPendingPayload(session?.Comments_Custom_1);
@@ -493,6 +496,7 @@ async function handleQualityText(args: {
   const nextPayload: QaPendingPayload = {
     ...payload,
     qualityText: args.text.trim(),
+    originalAudioUrl: payload.originalAudioUrl ?? args.originalAudioUrl ?? null,
   };
 
   await prisma.sitediaryrecords.update({
@@ -541,8 +545,13 @@ export async function handleZtcQualityRoute(args: {
     }
 
     if (audioIdx >= 0) {
-      const transcript = await transcribeAudio(formData, audioIdx);
-      await handleQualityText({ text: transcript, to: from, worker });
+      const transcript = await transcribeAudioWithSource(formData, audioIdx);
+      await handleQualityText({
+        text: transcript.text,
+        to: from,
+        worker,
+        originalAudioUrl: transcript.originalAudioUrl,
+      });
       return;
     }
 
@@ -556,8 +565,8 @@ export async function handleZtcQualityRoute(args: {
     console.error("[ZTC QA] failed", error);
     await sendZtcMessage(
       from,
-      isZtcTimeoutError(error)
-        ? "Kvalitātes kontroles apstrāde aizņēma pārāk ilgu laiku. Lūdzu, mēģiniet vēlreiz pēc brīža."
+      isZtcTimeoutError(error) || imageIdx >= 0
+        ? "Tīkla vai foto apstrādes kļūda. Lūdzu, atsūtiet foto vēlreiz."
         : "Atvainojiet, kvalitātes kontroles plūsma nevarēja apstrādāt šo ziņu. Lūdzu, mēģiniet vēlreiz.",
     );
   }

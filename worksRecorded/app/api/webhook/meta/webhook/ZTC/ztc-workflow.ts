@@ -24,7 +24,7 @@ const PHOTO_BATCH_CONFIRM_PREFIX = "__ZTC_PHOTO_BATCH_CONFIRM__";
 const PHOTO_BATCH_CONFIRM_WINDOW_MS = 45_000;
 const ZTC_MEDIA_TIMEOUT_MS = 30_000;
 const ZTC_UPLOAD_TIMEOUT_MS = 30_000;
-const ZTC_VISION_TIMEOUT_MS = 60_000;
+const ZTC_VISION_TIMEOUT_MS = 120_000;
 const ZTC_TEXT_TIMEOUT_MS = 30_000;
 const ZTC_TRANSCRIPTION_TIMEOUT_MS = 30_000;
 const ZTC_DROPDOWN_CACHE_MS = 60_000;
@@ -718,7 +718,26 @@ async function uploadZtcImages(formData: FormData, idxs: number[], context: stri
   return uploaded;
 }
 
-export async function transcribeAudio(formData: FormData, idx: number) {
+async function uploadOriginalAudioBuffer(buffer: Buffer, contentType: string) {
+  const file = new File([buffer], `ztc_voice_${Date.now()}.${inferAudioExtension(contentType)}`, {
+    type: contentType || "audio/ogg",
+  });
+
+  const uploaded = await withZtcTimeout(
+    utapi.uploadFiles([file]),
+    "ztc_audio_upload",
+    ZTC_UPLOAD_TIMEOUT_MS,
+  );
+  const first = Array.isArray(uploaded) ? uploaded[0] : uploaded;
+
+  if (first?.error || !first?.data) {
+    throw new Error(first?.error?.message || "Failed to upload audio");
+  }
+
+  return getUploadThingFileUrl(first.data);
+}
+
+export async function transcribeAudioWithSource(formData: FormData, idx: number) {
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "").toLowerCase();
 
@@ -729,18 +748,30 @@ export async function transcribeAudio(formData: FormData, idx: number) {
     "ztc_audio_media_fetch",
     ZTC_MEDIA_TIMEOUT_MS,
   );
-  const file = await toFile(buffer, `voice-message.${inferAudioExtension(contentType)}`);
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const transcript = await withZtcTimeout(
-    openai.audio.transcriptions.create({
-      file,
-      model: "gpt-4o-transcribe",
-    }),
-    "ztc_audio_transcription",
-    ZTC_TRANSCRIPTION_TIMEOUT_MS,
-  );
+  const [originalAudioUrl, transcript] = await Promise.all([
+    uploadOriginalAudioBuffer(buffer, contentType),
+    (async () => {
+      const file = await toFile(buffer, `voice-message.${inferAudioExtension(contentType)}`);
+      return withZtcTimeout(
+        openai.audio.transcriptions.create({
+          file,
+          model: "gpt-4o-transcribe",
+        }),
+        "ztc_audio_transcription",
+        ZTC_TRANSCRIPTION_TIMEOUT_MS,
+      );
+    })(),
+  ]);
 
-  return transcript.text?.trim() || "";
+  return {
+    text: transcript.text?.trim() || "",
+    originalAudioUrl,
+  };
+}
+
+export async function transcribeAudio(formData: FormData, idx: number) {
+  return (await transcribeAudioWithSource(formData, idx)).text;
 }
 
 export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> {
@@ -774,21 +805,17 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
     ZTC_VISION_TIMEOUT_MS,
   );
 
-  return normalizeDrawingExtraction(
-    parseJsonObject<DrawingExtraction>(response.choices[0]?.message?.content, {
-      isConstructionDrawing: false,
-      hasReadableProjectName: false,
-      hasReadableElementName: false,
-      hasReadableWorkList: false,
-      qualityOk: false,
-      projectName: null,
-      elementName: null,
-      totalAreaM2: null,
-      workList: [],
-      workItems: [],
-      issue: "Unable to read the drawing photo.",
-    }),
-  );
+  const content = response.choices[0]?.message?.content;
+  if (!content?.trim()) {
+    throw new Error("ZTC drawing extraction returned an empty response");
+  }
+
+  const parsed = parseJsonObject<DrawingExtraction | null>(content, null);
+  if (!parsed) {
+    throw new Error("ZTC drawing extraction returned invalid JSON");
+  }
+
+  return normalizeDrawingExtraction(parsed);
 }
 
 async function extractWorkInfo(
@@ -909,8 +936,9 @@ async function completeSession(args: {
   completedWork?: WorkExtraction | null;
   completedText?: string | null;
   finalComments?: string | null;
+  originalAudioUrl?: string | null;
 }) {
-  const { session, to, completedWork, completedText, finalComments } = args;
+  const { session, to, completedWork, completedText, finalComments, originalAudioUrl } = args;
   const now = new Date();
   const timeInvolved = calculateHours(session.Date, now);
   const amountCompleted =
@@ -935,6 +963,7 @@ async function completeSession(args: {
       Units: "m2",
       Comments_Custom_1: photoBatchMarker(),
       Comments: finalWorkerComment,
+      originalAudioUrl: session.originalAudioUrl ?? originalAudioUrl ?? undefined,
     },
   });
 
@@ -957,6 +986,7 @@ async function askForTlDiagonals(args: {
   session: OpenZtcSession;
   to: string | null;
   completedText?: string | null;
+  originalAudioUrl?: string | null;
 }) {
   const completedText = args.completedText?.trim() || "";
 
@@ -966,6 +996,7 @@ async function askForTlDiagonals(args: {
       Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({ completedText })}`,
       Units: "m2",
       Amounts: args.session.Amounts ?? undefined,
+      originalAudioUrl: args.session.originalAudioUrl ?? args.originalAudioUrl ?? undefined,
     },
   });
 
@@ -985,12 +1016,14 @@ async function finishSessionOrAskTlDiagonals(args: {
   to: string | null;
   completedWork?: WorkExtraction | null;
   completedText?: string | null;
+  originalAudioUrl?: string | null;
 }) {
   if (isTlWork(args.session.Works)) {
     await askForTlDiagonals({
       session: args.session,
       to: args.to,
       completedText: args.completedText,
+      originalAudioUrl: args.originalAudioUrl,
     });
     return;
   }
@@ -1519,8 +1552,9 @@ async function createAdditionalWorkSession(args: {
   worker: ZtcWorker;
   work: WorkExtraction;
   text: string;
+  originalAudioUrl?: string | null;
 }) {
-  const { worker, work, text } = args;
+  const { worker, work, text, originalAudioUrl } = args;
   const { workOptions } = await getZtcDropdownOptions();
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
@@ -1539,6 +1573,7 @@ async function createAdditionalWorkSession(args: {
       Amounts: work.amountCompleted ?? undefined,
       Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
+      originalAudioUrl: originalAudioUrl ?? undefined,
     },
   });
 
@@ -1555,8 +1590,9 @@ async function handleWorkText(args: {
   text: string;
   to: string | null;
   worker: ZtcWorker;
+  originalAudioUrl?: string | null;
 }) {
-  const { text, to, worker } = args;
+  const { text, to, worker, originalAudioUrl } = args;
   const openSession = await getOpenZtcSession(worker.id);
 
   if (openSession && isDiagonalPhotoMeasureFlow(openSession.Comments_Custom_1)) {
@@ -1586,7 +1622,7 @@ async function handleWorkText(args: {
       return;
     }
 
-    await createAdditionalWorkSession({ worker, work, text });
+    await createAdditionalWorkSession({ worker, work, text, originalAudioUrl });
     await sendZtcMessage(
       to,
       `Papilddarbs sākts${work.workOption ? `: ${work.workOption}` : ""}. Kad darbs ir pabeigts, atsūtiet foto un pasakiet, ka darbs ir pabeigts.`,
@@ -1620,6 +1656,7 @@ async function handleWorkText(args: {
           Amounts: session.Amounts ?? undefined,
           Units: "m2",
           Comments_Custom_1: `${FINISH_PENDING_PREFIX} ${text}`,
+          originalAudioUrl: session.originalAudioUrl ?? originalAudioUrl ?? undefined,
         },
       });
 
@@ -1641,6 +1678,7 @@ async function handleWorkText(args: {
       to,
       completedWork: work,
       completedText: text,
+      originalAudioUrl,
     });
     return;
   }
@@ -1678,6 +1716,7 @@ async function handleWorkText(args: {
       Amounts: amountM2 ?? undefined,
       Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
+      originalAudioUrl: session.originalAudioUrl ?? originalAudioUrl ?? undefined,
     },
   });
 
@@ -1847,8 +1886,13 @@ export async function handleZtcWorkerRoute(args: {
     }
 
     if (audioIdx >= 0) {
-      const transcript = await transcribeAudio(formData, audioIdx);
-      await handleWorkText({ text: transcript, to: from, worker });
+      const transcript = await transcribeAudioWithSource(formData, audioIdx);
+      await handleWorkText({
+        text: transcript.text,
+        to: from,
+        worker,
+        originalAudioUrl: transcript.originalAudioUrl,
+      });
       return;
     }
 
@@ -1873,13 +1917,17 @@ export async function handleZtcWorkerRoute(args: {
       await sendZtcMessage(
         from,
         imageIdx >= 0
-          ? "Foto apstrāde aizņēma pārāk ilgu laiku. Lūdzu, atsūtiet foto vēlreiz pēc brīža."
+          ? "Tīkla vai foto apstrādes kļūda. Lūdzu, atsūtiet foto vēlreiz."
           : "Ziņas apstrāde aizņēma pārāk ilgu laiku. Lūdzu, mēģiniet vēlreiz pēc brīža.",
       );
       return;
     }
 
-    await sendZtcMessage(from, "Atvainojiet, ZTC plūsma nevarēja apstrādāt šo ziņu. Lūdzu, mēģiniet vēlreiz.");
+    await sendZtcMessage(
+      from,
+      imageIdx >= 0
+        ? "Tīkla vai foto apstrādes kļūda. Lūdzu, atsūtiet foto vēlreiz."
+        : "Atvainojiet, ZTC plūsma nevarēja apstrādāt šo ziņu. Lūdzu, mēģiniet vēlreiz.",
+    );
   }
 }
-

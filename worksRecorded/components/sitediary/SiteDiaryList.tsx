@@ -46,6 +46,8 @@ import {
   ShieldCheck,
   Trash2,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
 
@@ -256,8 +258,10 @@ function ZtcRelatedImageGallery({
 }) {
   const [mounted, setMounted] = React.useState(false);
   const [currentIndex, setCurrentIndex] = React.useState(0);
+  const [zoom, setZoom] = React.useState(1);
 
   React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => setZoom(1), [currentIndex, photos]);
 
   const goPrev = React.useCallback(() => {
     if (!photos.length) return;
@@ -267,6 +271,9 @@ function ZtcRelatedImageGallery({
     if (!photos.length) return;
     setCurrentIndex((index) => (index + 1) % photos.length);
   }, [photos.length]);
+  const changeZoom = React.useCallback((delta: number) => {
+    setZoom((value) => Math.min(4, Math.max(1, Number((value + delta).toFixed(2)))));
+  }, []);
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -331,12 +338,40 @@ function ZtcRelatedImageGallery({
           <div className="text-base font-medium">{title}</div>
           {subtitle ? <div className="text-xs text-white/70">{subtitle}</div> : null}
         </div>
-        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-md">
+        <div className="absolute left-1/2 top-16 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/60 px-2 py-1 text-white">
+          <button
+            type="button"
+            onClick={() => changeZoom(-0.25)}
+            className="rounded-full p-1 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="Samazināt foto"
+          >
+            <ZoomOut className="h-5 w-5" />
+          </button>
+          <span className="min-w-12 text-center text-xs font-medium">{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            onClick={() => changeZoom(0.25)}
+            className="rounded-full p-1 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="Palielināt foto"
+          >
+            <ZoomIn className="h-5 w-5" />
+          </button>
+        </div>
+        <div
+          className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-md"
+          onWheel={(event) => {
+            if (!event.ctrlKey && !event.metaKey) return;
+            event.preventDefault();
+            changeZoom(event.deltaY > 0 ? -0.15 : 0.15);
+          }}
+        >
           <img
             src={currentPhoto.src}
             alt={currentPhoto.caption || title}
             className="max-h-full max-w-full select-none object-contain"
+            style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
             draggable={false}
+            onDoubleClick={() => setZoom((value) => (value > 1 ? 1 : 2))}
           />
         </div>
         {currentPhoto.caption ? (
@@ -2526,7 +2561,7 @@ export default function SiteDiaryCalendar({
 
                             if (isZtcSite) {
                               return (
-                                <Table className="table-fixed min-w-[1220px] text-xs">
+                                <Table className="table-fixed min-w-[1220px] text-sm">
                                   <TableHeader className="sticky top-0 z-10 bg-background">
                                     <TableRow className="hover:bg-transparent">
                                       <TableHead className="text-center" style={{ width: 44 }}>

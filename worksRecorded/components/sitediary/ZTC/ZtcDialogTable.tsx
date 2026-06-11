@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Trash2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   createZtcSiteDiaryRecords,
@@ -288,6 +288,7 @@ export function ZtcDialogTable({
   const isMobile = useMediaQuery("(max-width: 640px)");
 
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [fieldMap, setFieldMap] = useState<Record<string, any>>(defaultConfig);
@@ -498,6 +499,7 @@ export function ZtcDialogTable({
     const newRows = rowsToSave.filter((row) => !isUUID(row.id));
 
     try {
+      setSaving(true);
       for (const row of existingRows) {
         await updateZtcSiteDiaryRecord({
           ...stripUiFields(row),
@@ -520,6 +522,8 @@ export function ZtcDialogTable({
       onSaved?.();
     } catch (error: any) {
       toast.error(error?.message ?? toastMessages.somethingWentWrong);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -724,10 +728,13 @@ export function ZtcDialogTable({
   return (
     <form onSubmit={handleSubmit} className={className}>
       <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/95 pb-3 backdrop-blur">
-        <Button type="button" variant="outline" onClick={() => setRows((prev) => [...prev, newEmptyRow()])}>
+        <Button type="button" variant="outline" disabled={saving} onClick={() => setRows((prev) => [...prev, newEmptyRow()])}>
           {t.addRow || "Pievienot"}
         </Button>
-        <Button type="submit">{t.save || "Saglabāt"}</Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {t.save || "Saglabāt"}
+        </Button>
       </div>
 
       <ScrollArea className="w-full rounded-md border bg-background">
@@ -756,6 +763,7 @@ export function ZtcDialogTable({
                       type="button"
                       variant="ghost"
                       size="icon"
+                      disabled={saving}
                       onClick={() => handleDeleteRow(row)}
                     >
                       <Trash2 className="h-4 w-4" />
