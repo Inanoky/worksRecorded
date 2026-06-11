@@ -41,6 +41,7 @@ import {
   Filter,
   Images,
   Loader2,
+  Mic2,
   RefreshCw,
   Search,
   ShieldCheck,
@@ -107,7 +108,12 @@ import {
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
-import { updateZtcPayrollFields } from "@/components/sitediary/ZTC/actions";
+import {
+  getZtcDefaultTaskRates,
+  updateZtcDefaultTaskRates,
+  updateZtcPayrollFields,
+  type ZtcDefaultTaskRate,
+} from "@/components/sitediary/ZTC/actions";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -239,6 +245,29 @@ function getZtcRowKindLabel(row: DiaryRow) {
   return isZtcQualityRow(row) ? "QA" : "Darbs";
 }
 
+function parseDiaryAudioUrls(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return [];
+
+  if (normalized.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => String(item ?? "").trim())
+          .filter(Boolean);
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  return normalized
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 type ZtcImageDialogState = {
   title: string;
   subtitle?: string;
@@ -258,10 +287,21 @@ function ZtcRelatedImageGallery({
 }) {
   const [mounted, setMounted] = React.useState(false);
   const [currentIndex, setCurrentIndex] = React.useState(0);
-  const [zoom, setZoom] = React.useState(1);
+  const [scale, setScale] = React.useState(1);
+  const [tx, setTx] = React.useState(0);
+  const [ty, setTy] = React.useState(0);
+  const viewerRef = React.useRef<HTMLDivElement | null>(null);
+  const imgRef = React.useRef<HTMLImageElement | null>(null);
+  const baseSizeRef = React.useRef({ w: 0, h: 0 });
+  const MIN_SCALE = 1;
+  const MAX_SCALE = 8;
 
   React.useEffect(() => setMounted(true), []);
-  React.useEffect(() => setZoom(1), [currentIndex, photos]);
+  React.useEffect(() => {
+    setScale(1);
+    setTx(0);
+    setTy(0);
+  }, [currentIndex, photos]);
 
   const goPrev = React.useCallback(() => {
     if (!photos.length) return;
@@ -271,8 +311,65 @@ function ZtcRelatedImageGallery({
     if (!photos.length) return;
     setCurrentIndex((index) => (index + 1) % photos.length);
   }, [photos.length]);
-  const changeZoom = React.useCallback((delta: number) => {
-    setZoom((value) => Math.min(4, Math.max(1, Number((value + delta).toFixed(2)))));
+
+  const getCoverScale = React.useCallback(() => {
+    const viewer = viewerRef.current;
+    const base = baseSizeRef.current;
+    if (!viewer || !base.w || !base.h) return 1;
+    return Math.max(viewer.clientWidth / base.w, viewer.clientHeight / base.h);
+  }, []);
+
+  const clampTranslate = React.useCallback((nextScale: number, nx: number, ny: number) => {
+    const viewer = viewerRef.current;
+    const base = baseSizeRef.current;
+    if (!viewer || !base.w || !base.h) return { x: nx, y: ny };
+
+    const cover = getCoverScale();
+    if (nextScale <= Math.max(1, cover)) return { x: 0, y: 0 };
+
+    const maxX = Math.max(0, (base.w * nextScale - viewer.clientWidth) / 2);
+    const maxY = Math.max(0, (base.h * nextScale - viewer.clientHeight) / 2);
+
+    return {
+      x: Math.max(-maxX, Math.min(maxX, nx)),
+      y: Math.max(-maxY, Math.min(maxY, ny)),
+    };
+  }, [getCoverScale]);
+
+  const zoomAtPoint = React.useCallback((targetScale: number, clientX?: number, clientY?: number) => {
+    const viewer = viewerRef.current;
+    const cover = Math.max(1, getCoverScale());
+    const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, targetScale));
+
+    if (!viewer || nextScale <= cover) {
+      setScale(nextScale);
+      setTx(0);
+      setTy(0);
+      return;
+    }
+
+    const rect = viewer.getBoundingClientRect();
+    const cx = (clientX ?? rect.left + rect.width / 2) - (rect.left + rect.width / 2);
+    const cy = (clientY ?? rect.top + rect.height / 2) - (rect.top + rect.height / 2);
+    const startScale = scale < cover ? cover : scale;
+    const startTx = scale < cover ? 0 : tx;
+    const startTy = scale < cover ? 0 : ty;
+    const k = nextScale / startScale;
+    const clamped = clampTranslate(nextScale, cx - (cx - startTx) * k, cy - (cy - startTy) * k);
+
+    setScale(nextScale);
+    setTx(clamped.x);
+    setTy(clamped.y);
+  }, [clampTranslate, getCoverScale, scale, tx, ty]);
+
+  const handleImageLoaded = React.useCallback(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    const previousTransform = img.style.transform;
+    img.style.transform = "translate3d(0,0,0) scale(1)";
+    const rect = img.getBoundingClientRect();
+    baseSizeRef.current = { w: rect.width, h: rect.height };
+    img.style.transform = previousTransform;
   }, []);
 
   React.useEffect(() => {
@@ -341,16 +438,16 @@ function ZtcRelatedImageGallery({
         <div className="absolute left-1/2 top-16 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/60 px-2 py-1 text-white">
           <button
             type="button"
-            onClick={() => changeZoom(-0.25)}
+            onClick={() => zoomAtPoint(scale / 1.25)}
             className="rounded-full p-1 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Samazināt foto"
           >
             <ZoomOut className="h-5 w-5" />
           </button>
-          <span className="min-w-12 text-center text-xs font-medium">{Math.round(zoom * 100)}%</span>
+          <span className="min-w-12 text-center text-xs font-medium">{Math.round(scale * 100)}%</span>
           <button
             type="button"
-            onClick={() => changeZoom(0.25)}
+            onClick={() => zoomAtPoint(scale * 1.25)}
             className="rounded-full p-1 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Palielināt foto"
           >
@@ -358,20 +455,27 @@ function ZtcRelatedImageGallery({
           </button>
         </div>
         <div
-          className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-md"
+          ref={viewerRef}
+          className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden rounded-md"
           onWheel={(event) => {
-            if (!event.ctrlKey && !event.metaKey) return;
             event.preventDefault();
-            changeZoom(event.deltaY > 0 ? -0.15 : 0.15);
+            const factor = Math.pow(1.0015, -event.deltaY);
+            zoomAtPoint(scale * factor, event.clientX, event.clientY);
           }}
         >
           <img
+            ref={imgRef}
             src={currentPhoto.src}
             alt={currentPhoto.caption || title}
             className="max-h-full max-w-full select-none object-contain"
-            style={{ transform: `scale(${zoom})`, transformOrigin: "center" }}
+            style={{
+              transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
+              transformOrigin: "center",
+              cursor: scale > Math.max(1, getCoverScale()) ? "grab" : "zoom-in",
+            }}
             draggable={false}
-            onDoubleClick={() => setZoom((value) => (value > 1 ? 1 : 2))}
+            onLoad={handleImageLoaded}
+            onDoubleClick={(event) => zoomAtPoint(scale < 2 ? 2 : 1, event.clientX, event.clientY)}
           />
         </div>
         {currentPhoto.caption ? (
@@ -693,6 +797,10 @@ export default function SiteDiaryCalendar({
   const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
   const [payrollDirtyRowIds, setPayrollDirtyRowIds] = React.useState<Set<string>>(new Set());
   const [ztcImageDialog, setZtcImageDialog] = React.useState<ZtcImageDialogState>(null);
+  const [ztcRateDialogOpen, setZtcRateDialogOpen] = React.useState(false);
+  const [ztcDefaultRates, setZtcDefaultRates] = React.useState<ZtcDefaultTaskRate[]>([]);
+  const [ztcRateDraft, setZtcRateDraft] = React.useState<ZtcDefaultTaskRate[]>([]);
+  const [ztcRateSaving, setZtcRateSaving] = React.useState(false);
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
       setFilledDays([]);
@@ -719,6 +827,81 @@ export default function SiteDiaryCalendar({
     );
     return data;
   }, [bisUiEnabled, siteId]);
+
+  React.useEffect(() => {
+    if (!isZtcSite || !siteId) {
+      setZtcDefaultRates([]);
+      setZtcRateDraft([]);
+      return;
+    }
+
+    let cancelled = false;
+    getZtcDefaultTaskRates(siteId)
+      .then((rates) => {
+        if (cancelled) return;
+        setZtcDefaultRates(rates);
+        setZtcRateDraft(rates.length ? rates : [{ task: "", rate: "" }]);
+      })
+      .catch((error: any) => {
+        if (!cancelled) {
+          toast.error(error?.message ?? "Neizdevās ielādēt darbu likmes.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isZtcSite, siteId]);
+
+  const openZtcRateDialog = () => {
+    setZtcRateDraft(ztcDefaultRates.length ? ztcDefaultRates : [{ task: "", rate: "" }]);
+    setZtcRateDialogOpen(true);
+  };
+
+  const updateZtcRateDraft = (index: number, field: keyof ZtcDefaultTaskRate, value: string) => {
+    setZtcRateDraft((current) =>
+      current.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, [field]: value } : entry,
+      ),
+    );
+  };
+
+  const saveZtcRateDraft = async () => {
+    if (!siteId) return;
+
+    const normalizedRates = ztcRateDraft
+      .map((entry) => ({
+        task: entry.task.trim(),
+        rate: entry.rate.trim().replace(",", "."),
+      }))
+      .filter((entry) => entry.task || entry.rate);
+
+    const invalid = normalizedRates.find(
+      (entry) => !entry.task || !entry.rate || !Number.isFinite(Number(entry.rate)),
+    );
+    if (invalid) {
+      toast.error("Katrai darbu likmei jānorāda darbs un derīga likme.");
+      return;
+    }
+
+    try {
+      setZtcRateSaving(true);
+      const result = await updateZtcDefaultTaskRates({ siteId, rates: normalizedRates });
+      if (!result?.ok) {
+        toast.error("Neizdevās saglabāt darbu likmes.");
+        return;
+      }
+
+      setZtcDefaultRates(result.rates);
+      setZtcRateDraft(result.rates.length ? result.rates : [{ task: "", rate: "" }]);
+      setZtcRateDialogOpen(false);
+      toast.success("Darbu likmes saglabātas.");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Neizdevās saglabāt darbu likmes.");
+    } finally {
+      setZtcRateSaving(false);
+    }
+  };
 
   // Load filled days for calendar
   React.useEffect(() => {
@@ -1298,6 +1481,50 @@ export default function SiteDiaryCalendar({
     setElementFilter(normalizedElement);
   };
 
+  const renderZtcCommentPopoverContent = (row: DiaryRow) => {
+    const audioUrls = parseDiaryAudioUrls(row.originalAudioUrl);
+
+    return (
+      <div className="space-y-3">
+        {row.Comments ? (
+          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
+            {row.Comments}
+          </p>
+        ) : null}
+        {audioUrls.length > 0 ? (
+        <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <Mic2 className="h-3.5 w-3.5" />
+            <span>{audioUrls.length > 1 ? "Balss ziņas" : "Balss ziņa"}</span>
+          </div>
+          <div className="space-y-2">
+            {audioUrls.map((audioUrl, index) => (
+              <div key={`${audioUrl}-${index}`} className="space-y-1">
+                {audioUrls.length > 1 ? (
+                  <p className="text-[11px] font-medium text-muted-foreground">
+                    Balss ziņa {index + 1}
+                  </p>
+                ) : null}
+                <audio
+                  controls
+                  preload="metadata"
+                  src={audioUrl}
+                  className="w-full"
+                />
+              </div>
+            ))}
+          </div>
+          {row.originalUserComment ? (
+            <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
+              {row.originalUserComment}
+            </p>
+          ) : null}
+        </div>
+        ) : null}
+      </div>
+    );
+  };
+
   const openWeather = async (date: Date) => {
     if (!siteId) return;
     const dayISO = toLocalDateKey(date);
@@ -1809,9 +2036,14 @@ export default function SiteDiaryCalendar({
                   {t.exportToExcel}
                 </Button>
                 {isZtcSite ? (
-                  <Button variant="outline" onClick={exportZtcPayrollToExcel}>
-                    Algu Excel
-                  </Button>
+                  <>
+                    <Button variant="outline" onClick={openZtcRateDialog}>
+                      Darbu likmes
+                    </Button>
+                    <Button variant="outline" onClick={exportZtcPayrollToExcel}>
+                      Algu Excel
+                    </Button>
+                  </>
                 ) : null}
                 {bisUiEnabled ? (
                   <Button variant="outline" onClick={handleSyncBisRecords} disabled={bisSyncLoading}>
@@ -2424,9 +2656,27 @@ export default function SiteDiaryCalendar({
                               ) : null}
 
                               <div className="mt-1">
-                                <p className="line-clamp-2 overflow-hidden whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
-                                  {r.Comments || t.noComments}
-                                </p>
+                                {r.Comments || r.originalAudioUrl ? (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <button
+                                        type="button"
+                                        className="block w-full text-left"
+                                      >
+                                        <span className="line-clamp-2 overflow-hidden whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground hover:text-blue-700">
+                                          {r.Comments || "Balss ziņa"}
+                                        </span>
+                                      </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[calc(100vw-2rem)] max-w-2xl">
+                                      {renderZtcCommentPopoverContent(r)}
+                                    </PopoverContent>
+                                  </Popover>
+                                ) : (
+                                  <p className="line-clamp-2 overflow-hidden whitespace-pre-wrap break-words text-[11px] leading-snug text-foreground">
+                                    {t.noComments}
+                                  </p>
+                                )}
                               </div>
 
                               {bisUiEnabled ? (
@@ -2702,18 +2952,18 @@ export default function SiteDiaryCalendar({
                                             ) : null}
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 270 }}>
-                                            {row.Comments ? (
+                                            {row.Comments || row.originalAudioUrl ? (
                                               <Popover>
                                                 <PopoverTrigger asChild>
                                                   <button
                                                     type="button"
                                                     className="block w-full overflow-hidden text-left leading-snug line-clamp-2 whitespace-normal break-words hover:text-blue-700"
                                                   >
-                                                    {row.Comments}
+                                                    {row.Comments || "Balss ziņa"}
                                                   </button>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="max-w-lg whitespace-pre-wrap text-sm">
-                                                  {row.Comments}
+                                                <PopoverContent className="w-[calc(100vw-2rem)] max-w-2xl">
+                                                  {renderZtcCommentPopoverContent(row)}
                                                 </PopoverContent>
                                               </Popover>
                                             ) : (
@@ -3708,6 +3958,83 @@ export default function SiteDiaryCalendar({
             </div>
           </DialogContent>
         </Dialog>
+
+        {isZtcSite ? (
+          <Dialog open={ztcRateDialogOpen} onOpenChange={setZtcRateDialogOpen}>
+            <DialogContent className="w-[95vw] max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Darbu likmes</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+                  Norādiet noklusējuma likmi katram darbam. Saglabājot ierakstu, ZTC plūsma salīdzinās darbu nosaukumus arī tad, ja rasējumā tie nav uzrakstīti pilnīgi vienādi.
+                </div>
+
+                <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+                  {ztcRateDraft.map((entry, index) => (
+                    <div key={`${index}-${entry.task}`} className="grid gap-2 rounded-md border p-2 sm:grid-cols-[1fr_140px_40px]">
+                      <Input
+                        value={entry.task}
+                        maxLength={180}
+                        placeholder="Darbs, piemēram R2 - Batten, 45x45mm"
+                        onChange={(event) => updateZtcRateDraft(index, "task", event.target.value)}
+                      />
+                      <Input
+                        value={entry.rate}
+                        inputMode="decimal"
+                        maxLength={12}
+                        placeholder="Likme"
+                        onChange={(event) => updateZtcRateDraft(index, "rate", event.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={ztcRateSaving}
+                        onClick={() =>
+                          setZtcRateDraft((current) =>
+                            current.length <= 1
+                              ? [{ task: "", rate: "" }]
+                              : current.filter((_, entryIndex) => entryIndex !== index),
+                          )
+                        }
+                        aria-label="Dzēst likmi"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={ztcRateSaving}
+                    onClick={() => setZtcRateDraft((current) => [...current, { task: "", rate: "" }])}
+                  >
+                    Pievienot likmi
+                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={ztcRateSaving}
+                      onClick={() => setZtcRateDialogOpen(false)}
+                    >
+                      Atcelt
+                    </Button>
+                    <Button type="button" disabled={ztcRateSaving} onClick={saveZtcRateDraft}>
+                      {ztcRateSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Saglabāt
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        ) : null}
 
         {ztcImageDialog ? (
           <ZtcRelatedImageGallery

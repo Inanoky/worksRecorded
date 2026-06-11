@@ -48,6 +48,29 @@ function toDayRangeISO(date: Date) {
   return { startISO: start.toISOString(), endISO: end.toISOString() };
 }
 
+function parseAudioUrls(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return [];
+
+  if (normalized.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(normalized);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => String(item ?? "").trim())
+          .filter(Boolean);
+      }
+    } catch {
+      return [];
+    }
+  }
+
+  return normalized
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function ImageGallery({
   date,
   siteId,
@@ -506,6 +529,7 @@ export function ImageGallery({
                         const title = [time, record.Location, record.Works]
                           .filter(Boolean)
                           .join(" · ");
+                        const audioUrls = parseAudioUrls(record.originalAudioUrl);
 
                         return (
                           <div
@@ -522,12 +546,17 @@ export function ImageGallery({
                                 {record.originalUserComment}
                               </p>
                             ) : null}
-                            <audio
-                              controls
-                              preload="metadata"
-                              src={record.originalAudioUrl ?? undefined}
-                              className="w-full"
-                            />
+                            <div className="space-y-2">
+                              {audioUrls.map((audioUrl, index) => (
+                                <audio
+                                  key={`${audioUrl}-${index}`}
+                                  controls
+                                  preload="metadata"
+                                  src={audioUrl}
+                                  className="w-full"
+                                />
+                              ))}
+                            </div>
                           </div>
                         );
                       })}

@@ -84,6 +84,10 @@ type ZtcDropdownOptions = {
   workOptions: string[];
   unitOptions: string[];
 };
+type ZtcDefaultTaskRate = {
+  task: string;
+  rate: string;
+};
 
 let ztcDropdownOptionsCache:
   | { value: ZtcDropdownOptions; expiresAt: number }
@@ -178,6 +182,85 @@ function normalizeAllowedOption(value: string | null | undefined, allowed: strin
     allowed.find((option) => option.toLowerCase() === normalized.toLowerCase()) ??
     null
   );
+}
+
+function normalizePayrollTextNumber(value: unknown) {
+  if (value === "" || value === null || value === undefined) return null;
+  const normalized = String(value).trim().replace(",", ".");
+  if (!normalized) return null;
+  return Number.isFinite(Number(normalized)) ? normalized : null;
+}
+
+function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | undefined): ZtcDefaultTaskRate[] {
+  const rawRates = config?.otherSettings?.ztcDefaultTaskRates;
+  if (!Array.isArray(rawRates)) return [];
+
+  const rates: ZtcDefaultTaskRate[] = [];
+  const seen = new Set<string>();
+
+  for (const item of rawRates) {
+    const task = normalizeZtcWorkName((item as Record<string, unknown>)?.task as string | null | undefined);
+    const rate = normalizePayrollTextNumber((item as Record<string, unknown>)?.rate);
+    if (!task || rate == null) continue;
+
+    const key = task.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rates.push({ task, rate });
+  }
+
+  return rates;
+}
+
+function taskRateMatchTokens(value: string) {
+  const normalized = normalizeZtcWorkName(value);
+  const tokens = normalized
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^(r[1-5]|tl|l[1-5])\s*[-:/]?\s*/i, "")
+    .split(/[^a-z0-9]+/i)
+    .filter((token) => token.length >= 2);
+
+  if (/^tl(\b|\s*[-/:])/i.test(normalized)) {
+    tokens.push("karkass", "timber", "frame");
+  }
+  if (/\b(karkass|timber|frame)\b/i.test(normalized)) {
+    tokens.push("tl");
+  }
+
+  return Array.from(new Set(tokens));
+}
+
+async function getDefaultRateForWork(workName: string | null | undefined) {
+  const config = ((await getConfig(ZTC_SITE_ID)) ??
+    ztcSiteDiaryRecordsMap) as Record<string, any>;
+  const rates = getDefaultTaskRatesFromConfig(config);
+  const workTokens = new Set(taskRateMatchTokens(String(workName ?? "")));
+  if (!workTokens.size) return null;
+
+  let best: { rate: string; score: number } | null = null;
+
+  for (const entry of rates) {
+    const rateTokens = new Set(taskRateMatchTokens(entry.task));
+    if (!rateTokens.size) continue;
+
+    const overlap = [...rateTokens].filter((token) => workTokens.has(token)).length;
+    const exact =
+      normalizeZtcWorkName(entry.task).toLowerCase() ===
+      normalizeZtcWorkName(workName).toLowerCase();
+    const rawScore = overlap / Math.max(rateTokens.size, workTokens.size);
+    const tlSemanticMatch =
+      ["tl", "karkass", "timber", "frame"].some((token) => rateTokens.has(token)) &&
+      ["tl", "karkass", "timber", "frame"].some((token) => workTokens.has(token));
+    const score = exact ? 1 : tlSemanticMatch ? Math.max(rawScore, 0.8) : rawScore;
+
+    if (score >= 0.45 && (!best || score > best.score)) {
+      best = { rate: entry.rate, score };
+    }
+  }
+
+  return best?.rate ?? null;
 }
 
 function normalizeAllowedWorkOption(value: string | null | undefined, allowed: string[]) {
@@ -476,6 +559,33 @@ export function parseJsonObject<T>(value: string | null | undefined, fallback: T
 function readMarkerPayload(value: string | null | undefined, prefix: string) {
   if (!value?.startsWith(prefix)) return "";
   return value.slice(prefix.length).trim();
+}
+
+export function parseOriginalAudioUrls(value: string | null | undefined) {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) return [];
+
+  if (normalized.startsWith("[")) {
+    const parsed = parseJsonObject<unknown>(normalized, null);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map((item) => String(item ?? "").trim())
+        .filter(Boolean);
+    }
+  }
+
+  return normalized
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export function mergeOriginalAudioUrls(...values: Array<string | null | undefined>) {
+  const urls = values.flatMap(parseOriginalAudioUrls);
+  const uniqueUrls = Array.from(new Set(urls));
+  if (uniqueUrls.length === 0) return undefined;
+  if (uniqueUrls.length === 1) return uniqueUrls[0];
+  return JSON.stringify(uniqueUrls);
 }
 
 function parseDiagonalNumbers(text: string): [number, number] | null {
@@ -963,7 +1073,7 @@ async function completeSession(args: {
       Units: "m2",
       Comments_Custom_1: photoBatchMarker(),
       Comments: finalWorkerComment,
-      originalAudioUrl: session.originalAudioUrl ?? originalAudioUrl ?? undefined,
+      originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
     },
   });
 
@@ -996,7 +1106,7 @@ async function askForTlDiagonals(args: {
       Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({ completedText })}`,
       Units: "m2",
       Amounts: args.session.Amounts ?? undefined,
-      originalAudioUrl: args.session.originalAudioUrl ?? args.originalAudioUrl ?? undefined,
+      originalAudioUrl: mergeOriginalAudioUrls(args.session.originalAudioUrl, args.originalAudioUrl),
     },
   });
 
@@ -1559,6 +1669,7 @@ async function createAdditionalWorkSession(args: {
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
   const comments = await buildPolishedZtcUserComments({ startText: text });
+  const defaultRate = await getDefaultRateForWork(workOption);
 
   const created = await prisma.sitediaryrecords.create({
     data: {
@@ -1569,6 +1680,7 @@ async function createAdditionalWorkSession(args: {
       Date_Custom_1: now,
       Location: "Papilddarbi",
       Works: workOption,
+      Location_Custom_2: defaultRate,
       Units: "m2",
       Amounts: work.amountCompleted ?? undefined,
       Comments: comments,
@@ -1656,7 +1768,7 @@ async function handleWorkText(args: {
           Amounts: session.Amounts ?? undefined,
           Units: "m2",
           Comments_Custom_1: `${FINISH_PENDING_PREFIX} ${text}`,
-          originalAudioUrl: session.originalAudioUrl ?? originalAudioUrl ?? undefined,
+          originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
         },
       });
 
@@ -1706,17 +1818,19 @@ async function handleWorkText(args: {
 
   const amountM2 = getSessionWorkAmountM2(session, work.workOption);
   const comments = await buildPolishedZtcUserComments({ startText: text });
+  const defaultRate = await getDefaultRateForWork(work.workOption);
 
   const updated = await prisma.sitediaryrecords.update({
     where: { id: session.id },
     data: {
       Date: now,
       Works: work.workOption,
+      Location_Custom_2: session.Location_Custom_2 ?? defaultRate,
       Units: "m2",
       Amounts: amountM2 ?? undefined,
       Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
-      originalAudioUrl: session.originalAudioUrl ?? originalAudioUrl ?? undefined,
+      originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
     },
   });
 

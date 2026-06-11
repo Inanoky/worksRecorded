@@ -7,6 +7,7 @@ import {
   findMediaIndexes,
   formatExtractedWorksForMessage,
   isZtcTimeoutError,
+  mergeOriginalAudioUrls,
   parseJsonObject,
   polishZtcCommentText,
   sendZtcMessage,
@@ -247,7 +248,7 @@ async function completeQualitySession(args: {
       Comments_Custom_2: JSON.stringify(metadata),
       Photos: [args.payload.drawingPhotoUrl, ...qualityPhotoUrls],
       originalUserComment: `${workerFullName(args.worker)} : ${qualityText}`,
-      originalAudioUrl: args.payload.originalAudioUrl ?? undefined,
+      originalAudioUrl: mergeOriginalAudioUrls(args.payload.originalAudioUrl),
     },
   });
 
@@ -496,7 +497,7 @@ async function handleQualityText(args: {
   const nextPayload: QaPendingPayload = {
     ...payload,
     qualityText: args.text.trim(),
-    originalAudioUrl: payload.originalAudioUrl ?? args.originalAudioUrl ?? null,
+    originalAudioUrl: mergeOriginalAudioUrls(payload.originalAudioUrl, args.originalAudioUrl) ?? null,
   };
 
   await prisma.sitediaryrecords.update({

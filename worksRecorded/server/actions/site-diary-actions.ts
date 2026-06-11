@@ -106,6 +106,13 @@ export async function getConfig(siteId: string) {
 
     if (!savedMap) return baseMap;
 
+    baseMap.otherSettings = {
+      ...(baseMap.otherSettings ?? {}),
+      ...((savedMap.otherSettings && typeof savedMap.otherSettings === "object")
+        ? savedMap.otherSettings
+        : {}),
+    };
+
     for (const [fieldKey, fieldConfig] of Object.entries(savedMap)) {
       if (
         fieldConfig &&

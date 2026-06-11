@@ -7,6 +7,12 @@ import { getOrganizationIdByUserId, orgCheck } from "@/server/actions/shared-act
 
 const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+const ZTC_DEFAULT_TASK_RATES_KEY = "ztcDefaultTaskRates";
+
+export type ZtcDefaultTaskRate = {
+  task: string;
+  rate: string;
+};
 
 function ensureZtcSite(siteId: string | null | undefined) {
   if (siteId !== ZTC_SITE_ID) {
@@ -52,14 +58,98 @@ function normalizePayrollTextNumber(value: unknown) {
   return Number.isFinite(Number(normalized)) ? normalized : undefined;
 }
 
+function normalizeTaskName(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .replace(/^T\s*\d+(?=\s|[-/]|$)/i, "TL")
+    .replace(/^T(?!L)(?=\s|[-/]|$)/i, "TL");
+}
+
+function normalizeTaskRateEntries(value: unknown): ZtcDefaultTaskRate[] {
+  if (!Array.isArray(value)) return [];
+
+  const entries: ZtcDefaultTaskRate[] = [];
+  const seen = new Set<string>();
+
+  for (const item of value) {
+    const task = normalizeTaskName((item as Record<string, unknown>)?.task);
+    const rate = normalizePayrollTextNumber((item as Record<string, unknown>)?.rate);
+    if (!task || rate === undefined || rate === null) continue;
+
+    const key = task.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    entries.push({ task, rate });
+  }
+
+  return entries;
+}
+
+function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | undefined) {
+  return normalizeTaskRateEntries(config?.otherSettings?.[ZTC_DEFAULT_TASK_RATES_KEY]);
+}
+
+function taskMatchTokens(value: string) {
+  const normalized = normalizeTaskName(value);
+  const tokens = normalized
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/^(r[1-5]|tl|l[1-5])\s*[-:/]?\s*/i, "")
+    .split(/[^a-z0-9]+/i)
+    .filter((token) => token.length >= 2);
+
+  if (/^tl(\b|\s*[-/:])/i.test(normalized)) {
+    tokens.push("karkass", "timber", "frame");
+  }
+  if (/\b(karkass|timber|frame)\b/i.test(normalized)) {
+    tokens.push("tl");
+  }
+
+  return Array.from(new Set(tokens));
+}
+
+function findDefaultRateForTask(task: unknown, rates: ZtcDefaultTaskRate[]) {
+  const taskTokens = new Set(taskMatchTokens(String(task ?? "")));
+  if (!taskTokens.size) return null;
+
+  let best: { rate: string; score: number } | null = null;
+
+  for (const entry of rates) {
+    const rateTokens = new Set(taskMatchTokens(entry.task));
+    if (!rateTokens.size) continue;
+
+    const overlap = [...rateTokens].filter((token) => taskTokens.has(token)).length;
+    const score = overlap / Math.max(rateTokens.size, taskTokens.size);
+    const exact =
+      normalizeTaskName(entry.task).toLowerCase() ===
+      normalizeTaskName(String(task ?? "")).toLowerCase();
+    const tlSemanticMatch =
+      ["tl", "karkass", "timber", "frame"].some((token) => rateTokens.has(token)) &&
+      ["tl", "karkass", "timber", "frame"].some((token) => taskTokens.has(token));
+
+    const finalScore = exact ? 1 : tlSemanticMatch ? Math.max(score, 0.8) : score;
+    if (finalScore >= 0.45 && (!best || finalScore > best.score)) {
+      best = { rate: entry.rate, score: finalScore };
+    }
+  }
+
+  return best?.rate ?? null;
+}
+
 function sanitizeZtcRecordRow(row: Record<string, any>) {
+  const defaultRates = Array.isArray(row.__ztcDefaultTaskRates)
+    ? normalizeTaskRateEntries(row.__ztcDefaultTaskRates)
+    : [];
+  const defaultRate = findDefaultRateForTask(row.Works, defaultRates);
+
   return {
     Date: normalizeDate(row.Date) ?? null,
     Date_Custom_1: normalizeNullableDate(row.Date_Custom_1),
     Date_Custom_2: normalizeNullableDate(row.Date_Custom_2),
     Location: row.Location || null,
     Location_Custom_1: row.Location_Custom_1 || null,
-    Location_Custom_2: row.Location_Custom_2 || null,
+    Location_Custom_2: row.Location_Custom_2 || defaultRate || null,
     Works: row.Works || null,
     Works_Custom_1: row.Works_Custom_1 || null,
     Works_Custom_2: row.Works_Custom_2 || null,
@@ -132,6 +222,13 @@ async function loadZtcSiteDiaryConfig(siteId: string) {
       : null;
 
   if (!savedMap) return baseMap;
+
+  baseMap.otherSettings = {
+    ...(baseMap.otherSettings ?? {}),
+    ...((savedMap.otherSettings && typeof savedMap.otherSettings === "object")
+      ? savedMap.otherSettings
+      : {}),
+  };
 
   for (const [fieldKey, fieldConfig] of Object.entries(savedMap)) {
     if (
@@ -210,6 +307,43 @@ export async function getZtcSiteDiaryConfig(siteId: string) {
   return loadZtcSiteDiaryConfig(siteId);
 }
 
+export async function getZtcDefaultTaskRates(siteId: string) {
+  await requireZtcAccess(siteId);
+  const config = await loadZtcSiteDiaryConfig(siteId);
+  return getDefaultTaskRatesFromConfig(config);
+}
+
+export async function updateZtcDefaultTaskRates(args: {
+  siteId: string;
+  rates: ZtcDefaultTaskRate[];
+}) {
+  await requireZtcAccess(args.siteId);
+
+  const site = await prisma.site.findUnique({
+    where: { id: args.siteId },
+    select: { siteDiaryRecordsMap: true },
+  });
+  if (!site) throw new Error("ZTC objekts nav atrasts.");
+
+  const currentMap =
+    site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
+      ? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
+      : structuredClone(ztcSiteDiaryRecordsMap as Record<string, any>);
+
+  const rates = normalizeTaskRateEntries(args.rates);
+  currentMap.otherSettings = {
+    ...(currentMap.otherSettings ?? {}),
+    [ZTC_DEFAULT_TASK_RATES_KEY]: rates,
+  };
+
+  await prisma.site.update({
+    where: { id: args.siteId },
+    data: { siteDiaryRecordsMap: currentMap },
+  });
+
+  return { ok: true, rates };
+}
+
 export async function getZtcSiteDiaryRecords(args: { siteId: string; date: string }) {
   await requireZtcAccess(args.siteId);
   return loadZtcSiteDiaryRecords({ date: args.date });
@@ -231,12 +365,13 @@ export async function createZtcSiteDiaryRecords(args: {
   rows: Array<Record<string, any>>;
 }) {
   const user = await requireZtcAccess(args.siteId);
+  const defaultRates = await getZtcDefaultTaskRates(args.siteId);
 
   const rows = args.rows.map((row) => ({
     userId: user.id,
     siteId: ZTC_SITE_ID,
     organizationId: ZTC_ORGANIZATION_ID,
-    ...sanitizeZtcRecordRow(row),
+    ...sanitizeZtcRecordRow({ ...row, __ztcDefaultTaskRates: defaultRates }),
     Photos: [],
   }));
 
@@ -253,6 +388,7 @@ export async function updateZtcSiteDiaryRecord(args: {
 }) {
   await requireZtcAccess(args.siteId);
   const { id, siteId, _tempId, createdBy, ...row } = args;
+  const defaultRates = await getZtcDefaultTaskRates(siteId);
 
   const result = await prisma.sitediaryrecords.updateMany({
     where: {
@@ -260,7 +396,7 @@ export async function updateZtcSiteDiaryRecord(args: {
       siteId: ZTC_SITE_ID,
       organizationId: ZTC_ORGANIZATION_ID,
     },
-    data: sanitizeZtcRecordRow(row),
+    data: sanitizeZtcRecordRow({ ...row, __ztcDefaultTaskRates: defaultRates }),
   });
 
   if (result.count !== 1) {
