@@ -558,6 +558,156 @@ type BisApprover = {
   status: string | null;
 };
 
+type ZtcDefaultRatesDialogProps = {
+  open: boolean;
+  siteId: string | null;
+  rates: ZtcDefaultTaskRate[];
+  onOpenChange: (open: boolean) => void;
+  onSaved: (rates: ZtcDefaultTaskRate[]) => void;
+};
+
+const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
+  open,
+  siteId,
+  rates,
+  onOpenChange,
+  onSaved,
+}: ZtcDefaultRatesDialogProps) {
+  const [draft, setDraft] = React.useState<ZtcDefaultTaskRate[]>([{ task: "", rate: "" }]);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setDraft(rates.length ? rates.map((entry) => ({ ...entry })) : [{ task: "", rate: "" }]);
+  }, [open, rates]);
+
+  const updateDraft = React.useCallback(
+    (index: number, field: keyof ZtcDefaultTaskRate, value: string) => {
+      setDraft((current) =>
+        current.map((entry, entryIndex) =>
+          entryIndex === index ? { ...entry, [field]: value } : entry,
+        ),
+      );
+    },
+    [],
+  );
+
+  const removeDraftRow = React.useCallback((index: number) => {
+    setDraft((current) =>
+      current.length <= 1
+        ? [{ task: "", rate: "" }]
+        : current.filter((_, entryIndex) => entryIndex !== index),
+    );
+  }, []);
+
+  const saveDraft = React.useCallback(async () => {
+    if (!siteId) return;
+
+    const normalizedRates = draft
+      .map((entry) => ({
+        task: entry.task.trim(),
+        rate: entry.rate.trim().replace(",", "."),
+      }))
+      .filter((entry) => entry.task || entry.rate);
+
+    const invalid = normalizedRates.find(
+      (entry) => !entry.task || !entry.rate || !Number.isFinite(Number(entry.rate)),
+    );
+    if (invalid) {
+      toast.error("Katrai darbu likmei jānorāda darbs un derīga likme.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const result = await updateZtcDefaultTaskRates({ siteId, rates: normalizedRates });
+      if (!result?.ok) {
+        toast.error("Neizdevās saglabāt darbu likmes.");
+        return;
+      }
+
+      onSaved(result.rates);
+      onOpenChange(false);
+      toast.success("Darbu likmes saglabātas.");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Neizdevās saglabāt darbu likmes.");
+    } finally {
+      setSaving(false);
+    }
+  }, [draft, onOpenChange, onSaved, siteId]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[95vw] max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Darbu likmes</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+            Norādiet noklusējuma likmi katram darbam. Saglabājot ierakstu, ZTC plūsma salīdzinās darbu nosaukumus arī tad, ja rasējumā tie nav uzrakstīti pilnīgi vienādi.
+          </div>
+
+          <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+            {draft.map((entry, index) => (
+              <div key={index} className="grid gap-2 rounded-md border p-2 sm:grid-cols-[1fr_140px_40px]">
+                <Input
+                  value={entry.task}
+                  maxLength={180}
+                  placeholder="Darbs, piemēram R2 - Batten, 45x45mm"
+                  onChange={(event) => updateDraft(index, "task", event.target.value)}
+                />
+                <Input
+                  value={entry.rate}
+                  inputMode="decimal"
+                  maxLength={12}
+                  placeholder="Likme"
+                  onChange={(event) => updateDraft(index, "rate", event.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={saving}
+                  onClick={() => removeDraftRow(index)}
+                  aria-label="Dzēst likmi"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => setDraft((current) => [...current, { task: "", rate: "" }])}
+            >
+              Pievienot likmi
+            </Button>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving}
+                onClick={() => onOpenChange(false)}
+              >
+                Atcelt
+              </Button>
+              <Button type="button" disabled={saving} onClick={saveDraft}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Saglabāt
+              </Button>
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+});
+
 function getCalendarGrid(year: number, month: number) {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
@@ -799,8 +949,6 @@ export default function SiteDiaryCalendar({
   const [ztcImageDialog, setZtcImageDialog] = React.useState<ZtcImageDialogState>(null);
   const [ztcRateDialogOpen, setZtcRateDialogOpen] = React.useState(false);
   const [ztcDefaultRates, setZtcDefaultRates] = React.useState<ZtcDefaultTaskRate[]>([]);
-  const [ztcRateDraft, setZtcRateDraft] = React.useState<ZtcDefaultTaskRate[]>([]);
-  const [ztcRateSaving, setZtcRateSaving] = React.useState(false);
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
       setFilledDays([]);
@@ -831,7 +979,6 @@ export default function SiteDiaryCalendar({
   React.useEffect(() => {
     if (!isZtcSite || !siteId) {
       setZtcDefaultRates([]);
-      setZtcRateDraft([]);
       return;
     }
 
@@ -840,7 +987,6 @@ export default function SiteDiaryCalendar({
       .then((rates) => {
         if (cancelled) return;
         setZtcDefaultRates(rates);
-        setZtcRateDraft(rates.length ? rates : [{ task: "", rate: "" }]);
       })
       .catch((error: any) => {
         if (!cancelled) {
@@ -854,53 +1000,7 @@ export default function SiteDiaryCalendar({
   }, [isZtcSite, siteId]);
 
   const openZtcRateDialog = () => {
-    setZtcRateDraft(ztcDefaultRates.length ? ztcDefaultRates : [{ task: "", rate: "" }]);
     setZtcRateDialogOpen(true);
-  };
-
-  const updateZtcRateDraft = (index: number, field: keyof ZtcDefaultTaskRate, value: string) => {
-    setZtcRateDraft((current) =>
-      current.map((entry, entryIndex) =>
-        entryIndex === index ? { ...entry, [field]: value } : entry,
-      ),
-    );
-  };
-
-  const saveZtcRateDraft = async () => {
-    if (!siteId) return;
-
-    const normalizedRates = ztcRateDraft
-      .map((entry) => ({
-        task: entry.task.trim(),
-        rate: entry.rate.trim().replace(",", "."),
-      }))
-      .filter((entry) => entry.task || entry.rate);
-
-    const invalid = normalizedRates.find(
-      (entry) => !entry.task || !entry.rate || !Number.isFinite(Number(entry.rate)),
-    );
-    if (invalid) {
-      toast.error("Katrai darbu likmei jānorāda darbs un derīga likme.");
-      return;
-    }
-
-    try {
-      setZtcRateSaving(true);
-      const result = await updateZtcDefaultTaskRates({ siteId, rates: normalizedRates });
-      if (!result?.ok) {
-        toast.error("Neizdevās saglabāt darbu likmes.");
-        return;
-      }
-
-      setZtcDefaultRates(result.rates);
-      setZtcRateDraft(result.rates.length ? result.rates : [{ task: "", rate: "" }]);
-      setZtcRateDialogOpen(false);
-      toast.success("Darbu likmes saglabātas.");
-    } catch (error: any) {
-      toast.error(error?.message ?? "Neizdevās saglabāt darbu likmes.");
-    } finally {
-      setZtcRateSaving(false);
-    }
   };
 
   // Load filled days for calendar
@@ -3960,80 +4060,13 @@ export default function SiteDiaryCalendar({
         </Dialog>
 
         {isZtcSite ? (
-          <Dialog open={ztcRateDialogOpen} onOpenChange={setZtcRateDialogOpen}>
-            <DialogContent className="w-[95vw] max-w-3xl">
-              <DialogHeader>
-                <DialogTitle>Darbu likmes</DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-3">
-                <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-                  Norādiet noklusējuma likmi katram darbam. Saglabājot ierakstu, ZTC plūsma salīdzinās darbu nosaukumus arī tad, ja rasējumā tie nav uzrakstīti pilnīgi vienādi.
-                </div>
-
-                <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-                  {ztcRateDraft.map((entry, index) => (
-                    <div key={`${index}-${entry.task}`} className="grid gap-2 rounded-md border p-2 sm:grid-cols-[1fr_140px_40px]">
-                      <Input
-                        value={entry.task}
-                        maxLength={180}
-                        placeholder="Darbs, piemēram R2 - Batten, 45x45mm"
-                        onChange={(event) => updateZtcRateDraft(index, "task", event.target.value)}
-                      />
-                      <Input
-                        value={entry.rate}
-                        inputMode="decimal"
-                        maxLength={12}
-                        placeholder="Likme"
-                        onChange={(event) => updateZtcRateDraft(index, "rate", event.target.value)}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        disabled={ztcRateSaving}
-                        onClick={() =>
-                          setZtcRateDraft((current) =>
-                            current.length <= 1
-                              ? [{ task: "", rate: "" }]
-                              : current.filter((_, entryIndex) => entryIndex !== index),
-                          )
-                        }
-                        aria-label="Dzēst likmi"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={ztcRateSaving}
-                    onClick={() => setZtcRateDraft((current) => [...current, { task: "", rate: "" }])}
-                  >
-                    Pievienot likmi
-                  </Button>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={ztcRateSaving}
-                      onClick={() => setZtcRateDialogOpen(false)}
-                    >
-                      Atcelt
-                    </Button>
-                    <Button type="button" disabled={ztcRateSaving} onClick={saveZtcRateDraft}>
-                      {ztcRateSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                      Saglabāt
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <ZtcDefaultRatesDialog
+            open={ztcRateDialogOpen}
+            siteId={siteId}
+            rates={ztcDefaultRates}
+            onOpenChange={setZtcRateDialogOpen}
+            onSaved={setZtcDefaultRates}
+          />
         ) : null}
 
         {ztcImageDialog ? (
