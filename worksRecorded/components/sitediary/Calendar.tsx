@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import { getFilledDays, getSitediaryRecordsBySiteIdForExcel } from "@/server/actions/site-diary-actions";
-import * as XLSX from "xlsx";
 import { Label } from "@/components/ui/label";
 import { MessageCircle } from "lucide-react";
 import TourRunner from "@/components/joyride/TourRunner";
@@ -70,6 +69,7 @@ export default function SiteDiaryCalendar({ siteId }) {
   });
 
   async function exportToExcel() {
+    const XLSX = await import("xlsx");
     const rows = await getSitediaryRecordsBySiteIdForExcel(siteId);
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();

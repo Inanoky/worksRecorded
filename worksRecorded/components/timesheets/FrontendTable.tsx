@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import * as XLSX from "xlsx";
 import {
   flexRender,
   getCoreRowModel,
@@ -240,7 +239,8 @@ export function FrontendTable({
     initialState: { pagination: { pageSize } },
   });
 
-  function exportToExcel() {
+  async function exportToExcel() {
+    const XLSX = await import("xlsx");
     const rows = table.getFilteredRowModel().rows.map((row) => row.original);
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();

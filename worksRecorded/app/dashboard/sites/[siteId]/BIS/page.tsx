@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { revalidatePath } from "next/cache";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import MaterialsTableClient from "./Components/materials-table-client";
-import AiWidgetRag from "@/components/ai/AiChat";
+import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { ensureUserBisAccessToken, getBisBaseUrl, getSiteBisConfig, getUserBisTokenByUserId, refreshBisAccessToken, requireBisAccessTokenForSite } from "@/server/actions/BIS/service";
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
@@ -11,6 +11,7 @@ import { getWarehousePageMessages } from "@/lib/dashboard-i18n";
 import { normalizeMaterialConfigurationTemplates } from "@/lib/bis/material-configuration-templates";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
+import { createPerfTrace } from "@/lib/observability/perf";
 
 type BisApprover = {
   memberId: string;
@@ -1815,59 +1816,78 @@ export default async function MaterialsPage({
   params: Promise<{ siteId: string }>;
 }) {
   const { siteId } = await params;
-  const user = await requireUser();
-  const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+  const trace = createPerfTrace({ route: "/dashboard/sites/[siteId]/BIS", category: "action", siteId });
+
+  try {
+  const user = await trace.measure("auth", () => requireUser());
+  const organizationLanguage = await trace.measure("orgLanguage", () => getOrganizationLanguageByUserId(user.id));
   const t = getWarehousePageMessages(organizationLanguage);
 
-  const [site, userBisToken] = await Promise.all([
-    getSiteBisConfig(siteId),
-    ensureUserBisAccessToken(user.id),
-  ]);
+  const [site, userBisToken] = await trace.measure("bisConfig", () =>
+    Promise.all([
+      getSiteBisConfig(siteId),
+      ensureUserBisAccessToken(user.id),
+    ]),
+  );
 
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
 
-  const [materials, materialConfigurationData] = await Promise.all([
-    prisma.bISmaterialRecords.findMany({
-      where: { siteId },
-      orderBy: [{ invoiceDate: "desc" }, { name: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        quantity: true,
-        categoryId: true,
-        categoryName: true,
-        measurementUnitId: true,
-        measurementUnit: true,
-        cost: true,
-        invoiceNr: true,
-        invoiceDate: true,
-        materialDate: true,
-        costCode: true,
-        sourcePhoto: true,
-        declarationAttachment: true,
-        agreementAttachment: true,
-        BISId: true,
-        bisStatus: true,
-      },
-    }),
-    bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
-      console.error("Failed to load BIS material configurations", error);
-      const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).catch(() => []);
-      return {
+  const [materials, materialConfigurationData] = await trace.measure("initialData", () =>
+    Promise.all([
+      prisma.bISmaterialRecords.findMany({
+        where: { siteId },
+        orderBy: [{ invoiceDate: "desc" }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          quantity: true,
+          categoryId: true,
+          categoryName: true,
+          measurementUnitId: true,
+          measurementUnit: true,
+          cost: true,
+          invoiceNr: true,
+          invoiceDate: true,
+          materialDate: true,
+          costCode: true,
+          sourcePhoto: true,
+          declarationAttachment: true,
+          agreementAttachment: true,
+          BISId: true,
+          bisStatus: true,
+        },
+      }),
+      bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
+        console.error("Failed to load BIS material configurations", error);
+        const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).catch(() => []);
+        return {
+          materialConfigurations: organizationTemplates,
+          materialMeasures: [] as MaterialMeasure[],
+          materialTypes: [] as MaterialType[],
+        };
+      }) : fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).then((organizationTemplates) => ({
         materialConfigurations: organizationTemplates,
         materialMeasures: [] as MaterialMeasure[],
         materialTypes: [] as MaterialType[],
-      };
-    }) : fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).then((organizationTemplates) => ({
-      materialConfigurations: organizationTemplates,
-      materialMeasures: [] as MaterialMeasure[],
-      materialTypes: [] as MaterialType[],
-    })),
-  ]);
+      })),
+    ]),
+  );
 
   // Keep initial page render fast by using stored DB state only.
   // BIS live refresh stays available through explicit sync actions in the UI.
   const materialsWithBisState = materials.map(withoutWarehouseBisState);
+
+  trace.end({
+    status: 200,
+    extra: {
+      userId: user.id,
+      bisEnabled,
+      materialCount: materials.length,
+      materialConfigurationCount: materialConfigurationData.materialConfigurations.length,
+      materialMeasureCount: materialConfigurationData.materialMeasures.length,
+      materialTypeCount: materialConfigurationData.materialTypes.length,
+    },
+  });
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -1907,4 +1927,8 @@ export default async function MaterialsPage({
       <AiWidgetRag siteId={siteId} />
     </div>
   );
+  } catch (error) {
+    trace.fail(error, { status: 500 });
+    throw error;
+  }
 }

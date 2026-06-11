@@ -92,6 +92,7 @@
     "react-hook-form": "^7.62.0",
     "react-joyride": "^2.9.3",
     "react-markdown": "^10.1.0",
+    "react-phone-input-2": "^2.15.1",
     "react-rnd": "^10.5.2",
     "react-slugify": "^4.0.1",
     "react-wrap-balancer": "^1.1.1",

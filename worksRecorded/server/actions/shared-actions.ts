@@ -30,15 +30,15 @@ export async function getOrganizationIdByUserId(userId: string): Promise<string 
 
 
 
-export async function orgCheck (userId, paramSiteId){
-
-  const org = await getOrganizationIdByUserId(userId)
-
+export async function orgCheck(userId: string, paramSiteId: string) {
   const site = await prisma.site.findFirst({
-
     where: {
       id: paramSiteId,
-      organizationId: org // <-- key security check
+      organization: {
+        users: {
+          some: { id: userId },
+        },
+      },
     },
     select: { id: true, name: true },
   });

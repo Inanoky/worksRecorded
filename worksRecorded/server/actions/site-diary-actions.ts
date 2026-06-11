@@ -5,6 +5,7 @@ import { requireBisAccessTokenForSite, getBisBaseUrl } from "@/server/actions/BI
 import { requireUser } from "@/lib/utils/requireUser";
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 import { inspect } from "node:util";
+import { createPerfTrace } from "@/lib/observability/perf";
 
 import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
@@ -40,7 +41,13 @@ function extractBisUrlDebug(url: string) {
   }
 }
 
+function shouldLogVerboseBisApi() {
+  return process.env.BIS_VERBOSE_LOGS === "true";
+}
+
 function logBisRequest(label: string, method: string, url: string, body?: unknown) {
+  if (!shouldLogVerboseBisApi()) return;
+
   const urlDebug = extractBisUrlDebug(url);
   const requestLog = {
     method,
@@ -1262,13 +1269,20 @@ export async function deleteSiteDiaryRecord({ id }: { id: string }) {
 }
 
 export async function getSiteDiaryRecord({ siteId, date }) {
+  const trace = createPerfTrace({ route: "action.siteDiary.getRecord", category: "action", siteId });
+  const selectedDate = new Date(date);
+  const dateISO = Number.isNaN(selectedDate.getTime())
+    ? undefined
+    : selectedDate.toISOString().slice(0, 10);
+
   // Get records for the *same day* (ignoring time)
-  const start = new Date(date);
+  const start = new Date(selectedDate);
   start.setHours(0, 0, 0, 0);
-  const end = new Date(date);
+  const end = new Date(selectedDate);
   end.setHours(23, 59, 59, 999);
 
-  const records = await prisma.sitediaryrecords.findMany({
+  try {
+  const records = await trace.measure("recordsQuery", () => prisma.sitediaryrecords.findMany({
     where: {
       siteId,
       Date: {
@@ -1316,7 +1330,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       },
       // <<< END: NEW FIELDS
     },
-  });
+  }));
 
   // Helper function to build the full name from parts
   const formatCreatorName = (
@@ -1330,7 +1344,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
   };
 
   // Map to frontend row structure
-  return records.map((rec) => {
+  const rows = records.map((rec) => {
     let createdBy = "";
 
     if (rec.User) {
@@ -1374,12 +1388,32 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       // <<< NEW FIELD
     };
   });
+
+  trace.end({
+    status: 200,
+    extra: {
+      date: dateISO,
+      returnedCount: rows.length,
+    },
+  });
+
+  return rows;
+  } catch (error) {
+    trace.fail(error, {
+      status: 500,
+      extra: { date: dateISO },
+    });
+    throw error;
+  }
 }
 
 export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
   if (!siteId) throw new Error("Missing siteId");
 
-  const records = await prisma.sitediaryrecords.findMany({
+  const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", category: "action", siteId });
+
+  try {
+  const records = await trace.measure("recordsQuery", () => prisma.sitediaryrecords.findMany({
     where: { siteId },
     orderBy: [{ Date: "asc" }],
     select: {
@@ -1425,7 +1459,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
         },
       },
     },
-  });
+  }));
 
   const formatCreatorName = (
     firstName: string | null | undefined,
@@ -1437,7 +1471,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
     return parts.join(" ");
   };
 
-  return records.map((rec) => {
+  const rows = records.map((rec) => {
     let createdBy = "";
 
     if (rec.User) {
@@ -1482,6 +1516,17 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       createdBy: createdBy || "N/A",
     };
   });
+
+  trace.end({
+    status: 200,
+    extra: { returnedCount: rows.length },
+  });
+
+  return rows;
+  } catch (error) {
+    trace.fail(error, { status: 500 });
+    throw error;
+  }
 }
 
 export type BisPerformedWorkMaterialSelection = {
@@ -1581,7 +1626,14 @@ async function fetchBisRelatedResource(
 }
 
 export async function getBisCaseAvailableMaterials(siteId: string) {
-  const { accessToken, bisCaseId: bisCase, site } = await requireBisAccessTokenForSite(siteId);
+  const trace = createPerfTrace({ route: "action.siteDiary.getBisCaseAvailableMaterials", category: "action", siteId });
+  let bisCaseForLog: string | undefined;
+
+  try {
+  const { accessToken, bisCaseId: bisCase, site } = await trace.measure("bisAccess", () =>
+    requireBisAccessTokenForSite(siteId),
+  );
+  bisCaseForLog = bisCase;
 
   const baseUrl = getBisBaseUrl();
   const caseConstructionRoundId = site.bisConstructionRoundId;
@@ -1591,13 +1643,19 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
   const receivedProductsUrl = caseConstructionRoundId
     ? `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products?filter[case_construction_round_id_eq]=${encodeURIComponent(caseConstructionRoundId)}`
     : `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_received_construction_products`;
-  const availableReceivedItems = await fetchBisPagedList(
-    receivedProductsUrl,
-    accessToken,
+  const availableReceivedItems = await trace.measure(
+    "availableReceivedProducts",
+    () => fetchBisPagedList(
+      receivedProductsUrl,
+      accessToken,
+    ),
   );
-  const measureRows = await fetchBisPagedList(
-    `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
-    accessToken,
+  const measureRows = await trace.measure(
+    "measureClassifiers",
+    () => fetchBisPagedList(
+      `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures`,
+      accessToken,
+    ),
   );
   const measurementNameByCode = new Map<string, string>();
   for (const row of measureRows) {
@@ -1608,7 +1666,7 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
     }
   }
 
-  const resolvedReceivedItems = await Promise.all(
+  const resolvedReceivedItems = await trace.measure("receivedDetails", () => Promise.all(
     availableReceivedItems.map(async (item: any) => {
       const attributes = item?.attributes ?? {};
       const detailRelatedUrl = item?.relationships?.detail?.links?.related ?? null;
@@ -1657,16 +1715,18 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
         caseConstructionRoundId: attributes?.case_construction_round_id ?? null,
       };
     }),
-  );
+  ));
 
-  console.log("[SiteDiary BIS] Available received construction products loaded", {
-    siteId,
-    bisCase,
-    caseConstructionRoundId,
-    endpoint: receivedProductsUrl,
-    count: availableReceivedItems.length,
-    sample: resolvedReceivedItems.slice(0, 3),
-  });
+  if (shouldLogVerboseBisApi()) {
+    console.log("[SiteDiary BIS] Available received construction products loaded", {
+      siteId,
+      bisCase,
+      caseConstructionRoundId,
+      endpoint: receivedProductsUrl,
+      count: availableReceivedItems.length,
+      sample: resolvedReceivedItems.slice(0, 3),
+    });
+  }
 
   // Build metadata (label/unit) and total delivered quantity by construction_material_id.
   const approvedMaterialMeta = new Map<string, { label: string; measurementUnit: string | null }>();
@@ -1694,20 +1754,25 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
   }
 
   // 12I7-184: used materials list (quantity already used in logbook records)
-  const availableItems = await fetchBisPagedList(
-    `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials`,
-    accessToken,
+  const availableItems = await trace.measure(
+    "availableUsedMaterials",
+    () => fetchBisPagedList(
+      `${baseUrl}/bisp/api/portal/bis_cases/${bisCase}/logbook/available_used_materials`,
+      accessToken,
+    ),
   );
-  console.log("[SiteDiary BIS] Available used materials loaded", {
-    siteId,
-    bisCase,
-    count: availableItems.length,
-    sample: availableItems.slice(0, 3).map((item: any) => ({
-      id: item?.id ?? null,
-      construction_material_id: item?.attributes?.construction_material_id ?? null,
-      quantity: item?.attributes?.quantity ?? null,
-    })),
-  });
+  if (shouldLogVerboseBisApi()) {
+    console.log("[SiteDiary BIS] Available used materials loaded", {
+      siteId,
+      bisCase,
+      count: availableItems.length,
+      sample: availableItems.slice(0, 3).map((item: any) => ({
+        id: item?.id ?? null,
+        construction_material_id: item?.attributes?.construction_material_id ?? null,
+        quantity: item?.attributes?.quantity ?? null,
+      })),
+    });
+  }
 
   const usedByMaterial = new Map<string, number>();
   for (const item of availableItems) {
@@ -1741,16 +1806,35 @@ export async function getBisCaseAvailableMaterials(siteId: string) {
     .filter((item: any) => item && item.availableQuantity > 0)
     .sort((a: any, b: any) => String(a.label).localeCompare(String(b.label)));
 
-  console.log("[SiteDiary BIS] Final materials prepared for dialog", {
-    siteId,
-    bisCase,
-    deliveredMaterialCount: deliveredByMaterial.size,
-    usedMaterialCount: usedByMaterial.size,
-    finalCount: results.length,
-    sample: results.slice(0, 5),
+  if (shouldLogVerboseBisApi()) {
+    console.log("[SiteDiary BIS] Final materials prepared for dialog", {
+      siteId,
+      bisCase,
+      deliveredMaterialCount: deliveredByMaterial.size,
+      usedMaterialCount: usedByMaterial.size,
+      finalCount: results.length,
+      sample: results.slice(0, 5),
+    });
+  }
+
+  trace.end({
+    status: 200,
+    extra: {
+      bisCase,
+      receivedCount: availableReceivedItems.length,
+      usedCount: availableItems.length,
+      resultCount: results.length,
+    },
   });
 
   return results;
+  } catch (error) {
+    trace.fail(error, {
+      status: 500,
+      extra: { bisCase: bisCaseForLog },
+    });
+    throw error;
+  }
 }
 
 export async function getSiteGalleryAttachments(siteId: string) {
@@ -2631,27 +2715,31 @@ async function uploadLogbookAttachmentToBis({
 }
 
 export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {
+  const trace = createPerfTrace({ route: "action.siteDiary.getFilledDays", category: "action", siteId });
   const from = new Date(year, month, 1);
   const to = new Date(year, month + 1, 1);
 
-  // site diary records in month
-  const records = await prisma.sitediaryrecords.findMany({
-    where: {
-      siteId,
-      Date: { gte: from, lt: to },
-    },
-    select: { Date: true },
-  });
+  try {
+  const [records, photos] = await trace.measure("monthQueries", () => Promise.all([
+    // site diary records in month
+    prisma.sitediaryrecords.findMany({
+      where: {
+        siteId,
+        Date: { gte: from, lt: to },
+      },
+      select: { Date: true },
+    }),
 
-  // photos in month (with a valid URL)
-  const photos = await prisma.photos.findMany({
-    where: {
-      siteId,
-      Date: { gte: from, lt: to },
-      OR: [{ URL: { not: null } }, { fileUrl: { not: null } }],
-    },
-    select: { Date: true },
-  });
+    // photos in month (with a valid URL)
+    prisma.photos.findMany({
+      where: {
+        siteId,
+        Date: { gte: from, lt: to },
+        OR: [{ URL: { not: null } }, { fileUrl: { not: null } }],
+      },
+      select: { Date: true },
+    }),
+  ]));
 
   // Collect unique day numbers
   const daysSet = new Set<number>();
@@ -2664,7 +2752,30 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
     if (p.Date) daysSet.add(new Date(p.Date).getDate());
   });
 
-  return Array.from(daysSet).sort((a, b) => a - b);
+  const days = Array.from(daysSet).sort((a, b) => a - b);
+
+  trace.end({
+    status: 200,
+    extra: {
+      year,
+      month: month + 1,
+      recordCount: records.length,
+      photoCount: photos.length,
+      dayCount: days.length,
+    },
+  });
+
+  return days;
+  } catch (error) {
+    trace.fail(error, {
+      status: 500,
+      extra: {
+        year,
+        month: month + 1,
+      },
+    });
+    throw error;
+  }
 }
 
 
@@ -2793,55 +2904,75 @@ export async function getPhotosByDate({
   startISO,
   endISO,
 }: GetPhotosByDateArgs) {
+  const trace = createPerfTrace({ route: "action.siteDiary.getPhotosByDate", category: "action", siteId });
   const start = new Date(startISO);
   const end = new Date(endISO);
 
-  const [photos, audioRecords] = await Promise.all([
-    prisma.photos.findMany({
-      where: {
-        siteId: siteId ?? undefined,
-        Date: {
-          gte: start,
-          lt: end,
+  try {
+  const [photos, audioRecords] = await trace.measure("dateQueries", () => Promise.all([
+      prisma.photos.findMany({
+        where: {
+          siteId: siteId ?? undefined,
+          Date: {
+            gte: start,
+            lt: end,
+          },
         },
-      },
-      orderBy: { Date: "desc" },
-      select: {
-        id: true,
-        Date: true,
-        URL: true,
-        fileUrl: true,
-        Comment: true,
-        Location: true,
-        siteId: true,
-        userId: true,
-      },
-    }),
-    prisma.sitediaryrecords.findMany({
-      where: {
-        siteId: siteId ?? undefined,
-        Date: {
-          gte: start,
-          lt: end,
+        orderBy: { Date: "desc" },
+        select: {
+          id: true,
+          Date: true,
+          URL: true,
+          fileUrl: true,
+          Comment: true,
+          Location: true,
+          siteId: true,
+          userId: true,
         },
-        AND: [{ originalAudioUrl: { not: null } }, { originalAudioUrl: { not: "" } }],
-      },
-      orderBy: { Date: "desc" },
-      select: {
-        id: true,
-        Date: true,
-        Location: true,
-        Works: true,
-        originalUserComment: true,
-        originalAudioUrl: true,
-        siteId: true,
-        userId: true,
-        workerId: true,
-      },
-    }),
-  ]);
+      }),
+      prisma.sitediaryrecords.findMany({
+        where: {
+          siteId: siteId ?? undefined,
+          Date: {
+            gte: start,
+            lt: end,
+          },
+          AND: [{ originalAudioUrl: { not: null } }, { originalAudioUrl: { not: "" } }],
+        },
+        orderBy: { Date: "desc" },
+        select: {
+          id: true,
+          Date: true,
+          Location: true,
+          Works: true,
+          originalUserComment: true,
+          originalAudioUrl: true,
+          siteId: true,
+          userId: true,
+          workerId: true,
+        },
+      }),
+    ]),
+  );
+
+  trace.end({
+    status: 200,
+    extra: {
+      startISO,
+      endISO,
+      photoCount: photos.length,
+      audioRecordCount: audioRecords.length,
+    },
+  });
 
   return { photos, audioRecords };
+  } catch (error) {
+    trace.fail(error, {
+      status: 500,
+      extra: { startISO, endISO },
+    });
+    throw error;
+  }
 }
 
 export async function deletePhotoById(id: string) {
@@ -2885,6 +3016,7 @@ export async function getAllPhotos(
     const whereClause = {
       siteId: siteId,
       ...dateFilter,
+      AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }],
     };
 
     // 1. Fetch the photos for the current page
@@ -2909,10 +3041,8 @@ export async function getAllPhotos(
       where: whereClause,
     });
 
-    const filteredPhotos = photos.filter((photo) => photo.fileUrl !== null);
-
     return {
-      photos: filteredPhotos,
+      photos,
       totalCount: totalCount,
     };
   } catch (error) {
