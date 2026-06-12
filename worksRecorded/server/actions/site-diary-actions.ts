@@ -16,8 +16,6 @@ import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiary
 import {
   consumeWhatsappAudioSourceContext,
   getWhatsappSourceContext,
-  hasConsumedWhatsappSiteDiarySave,
-  markWhatsappSiteDiarySaveConsumed,
 } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
 
@@ -1003,7 +1001,6 @@ export async function saveSiteDiaryRecord({
   siteId,
   originalUserComment,
   originalAudioUrl,
-  originalAudioRecordId,
 }: {
   rows: any[];
   userId?: string;
@@ -1011,7 +1008,6 @@ export async function saveSiteDiaryRecord({
   siteId?: string;
   originalUserComment?: string;
   originalAudioUrl?: string | null;
-  originalAudioRecordId?: string | null;
 }) {
   const validRows = rows.filter((r) => r.Location || r.Works);
 
@@ -1027,18 +1023,7 @@ export async function saveSiteDiaryRecord({
     return { ok: false, message: "No records to insert" };
   }
 
-  if (!originalAudioUrl && !originalAudioRecordId && hasConsumedWhatsappSiteDiarySave()) {
-    console.warn("[originalAudioUrl][saveSiteDiaryRecord] ignored repeated save for consumed audio context", {
-      rowCount: validRows.length,
-      userId: userId ?? null,
-      workerId: workerId ?? null,
-      siteId: siteId ?? null,
-    });
-    return { ok: true, count: 0, message: "Audio diary already saved" };
-  }
-
   const whatsappAudioContext = consumeWhatsappAudioSourceContext();
-  const pendingAudioRecordId = originalAudioRecordId ?? whatsappAudioContext.originalAudioRecordId ?? null;
   const rawOriginalAudioUrl = originalAudioUrl ?? whatsappAudioContext.originalAudioUrl ?? null;
   const resolvedOriginalAudioUrl = resolvePersistableAudioUrl(rawOriginalAudioUrl);
 
@@ -1062,7 +1047,6 @@ export async function saveSiteDiaryRecord({
     siteId: siteId ?? null,
     hasOriginalAudioUrl: Boolean(resolvedOriginalAudioUrl),
     originalAudioUrlLength: resolvedOriginalAudioUrl?.length ?? 0,
-    hasOriginalAudioRecordId: Boolean(pendingAudioRecordId),
   });
 
   // NEW: Determine the entity and fetch the organization ID
@@ -1082,7 +1066,7 @@ export async function saveSiteDiaryRecord({
     fullName,
   );
 
-  let org = null;
+  let org: string | null = null;
   if (entityId) {
     // Assuming getOrganizationIdByWorkerId and getOrganizationIdByUserId exist
     // NEW: Use the appropriate lookup function based on whether workerId or userId is present
@@ -1157,40 +1141,13 @@ export async function saveSiteDiaryRecord({
     });
 
   try {
-    const pendingRecordId = pendingAudioRecordId;
-    let finalCount = 0;
-
-    if (pendingRecordId && toInsert.length > 0) {
-      console.log("[originalAudioUrl][saveSiteDiaryRecord] updating skeleton record", { pendingRecordId });
-      const firstRow = toInsert.shift()!;
-      const updateResult = await prisma.sitediaryrecords.updateMany({
-        where: {
-          id: pendingRecordId,
-          Works: "Processing voice message...",
-        },
-        data: firstRow,
-      });
-      if (updateResult.count === 0) {
-        console.warn("[originalAudioUrl][saveSiteDiaryRecord] skipped repeated skeleton update", {
-          pendingRecordId,
-        });
-        markWhatsappSiteDiarySaveConsumed();
-        return { ok: true, count: 0, message: "Audio diary already saved" };
-      }
-      finalCount++;
-    }
-
-    if (toInsert.length > 0) {
-      await prisma.sitediaryrecords.createMany({ data: toInsert });
-      finalCount += toInsert.length;
-    }
+    await prisma.sitediaryrecords.createMany({ data: toInsert });
+    const finalCount = toInsert.length;
 
     console.log("[originalAudioUrl][saveSiteDiaryRecord] completion", {
       finalCount,
-      hasPendingUpdate: Boolean(pendingRecordId),
     });
 
-    markWhatsappSiteDiarySaveConsumed();
     return { ok: true, count: finalCount }; //Multitenant
   } catch (err: any) {
     console.error("❌ [saveSiteDiaryRecord] error", err);

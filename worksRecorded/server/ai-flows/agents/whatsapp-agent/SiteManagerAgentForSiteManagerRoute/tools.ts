@@ -38,7 +38,6 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     console.log("Input:", { question, userId, siteId, date });
     console.log("[originalAudioUrl][siteManagerTool] received app context", {
       hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
-      hasOriginalAudioRecordId: Boolean(whatsappSourceContext.originalAudioRecordId),
       userId,
       siteId,
     });

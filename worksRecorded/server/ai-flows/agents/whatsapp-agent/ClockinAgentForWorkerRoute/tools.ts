@@ -144,7 +144,6 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
 
     console.log("[originalAudioUrl][workerTool] received app context", {
       hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
-      hasOriginalAudioRecordId: Boolean(whatsappSourceContext.originalAudioRecordId),
       workerId,
       siteId,
     });

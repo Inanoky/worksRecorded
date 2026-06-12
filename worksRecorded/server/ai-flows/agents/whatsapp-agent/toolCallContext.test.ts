@@ -32,7 +32,6 @@ describe("tool call context injection", () => {
             }),
         );
         expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
-        expect(toolCall.args).not.toHaveProperty("originalAudioRecordId");
     });
 
     it("strips LLM-provided audio URL from existing tool args", () => {
@@ -54,7 +53,6 @@ describe("tool call context injection", () => {
         });
 
         expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
-        expect(toolCall.args).not.toHaveProperty("originalAudioRecordId");
     });
 
     it("injects source comment into OpenAI-style site manager function arguments without audio metadata", () => {
@@ -86,7 +84,6 @@ describe("tool call context injection", () => {
             }),
         );
         expect(parsedArgs).not.toHaveProperty("originalAudioUrl");
-        expect(parsedArgs).not.toHaveProperty("originalAudioRecordId");
     });
 
     it("injects app context into LangChain-style worker diary toolCall.args without audio metadata", () => {
@@ -117,6 +114,5 @@ describe("tool call context injection", () => {
             }),
         );
         expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
-        expect(toolCall.args).not.toHaveProperty("originalAudioRecordId");
     });
 });

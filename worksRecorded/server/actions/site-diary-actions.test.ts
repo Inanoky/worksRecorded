@@ -139,11 +139,9 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     });
   });
 
-  it("updates skeleton record instead of creating new when originalAudioRecordId is in context", async () => {
-    updateManyMock.mockResolvedValue({ count: 1 });
-
+  it("creates all valid rows instead of updating an audio placeholder", async () => {
     const result = await runWithWhatsappSourceContext(
-      { originalAudioRecordId: "pending-1" },
+      { originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg" },
       () =>
         saveSiteDiaryRecord({
           rows: [
@@ -163,32 +161,27 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     );
 
     expect(result).toEqual({ ok: true, count: 2 });
-    
-    // First row should be updated
-    expect(updateManyMock).toHaveBeenCalledWith({
-      where: { id: "pending-1", Works: "Processing voice message..." },
-      data: expect.objectContaining({
-        Location: "Site A",
-        Works: "Concrete pour",
-      }),
-    });
-
-    // Second row should be created
+    expect(updateManyMock).not.toHaveBeenCalled();
     expect(createManyMock).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({
+          Location: "Site A",
+          Works: "Concrete pour",
+          originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
+        }),
+        expect.objectContaining({
           Location: "Site B",
           Works: "Painting",
+          originalAudioUrl: undefined,
         }),
       ],
     });
   });
 
-  it("does not overwrite a skeleton record after the audio context has already been consumed", async () => {
+  it("does not block repeated saves inside the same audio context", async () => {
     const first = await runWithWhatsappSourceContext(
       {
         originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
-        originalAudioRecordId: "pending-1",
       },
       async () => {
         const firstResult = await saveSiteDiaryRecord({
@@ -209,13 +202,23 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     );
 
     expect(first.firstResult).toEqual({ ok: true, count: 1 });
-    expect(first.secondResult).toEqual({
-      ok: true,
-      count: 0,
-      message: "Audio diary already saved",
-    });
-    expect(updateManyMock).toHaveBeenCalledTimes(1);
-    expect(createManyMock).not.toHaveBeenCalled();
+    expect(first.secondResult).toEqual({ ok: true, count: 1 });
+    expect(updateManyMock).not.toHaveBeenCalled();
+    expect(createManyMock).toHaveBeenCalledTimes(2);
+    expect(createManyMock.mock.calls[0][0].data[0]).toEqual(
+      expect.objectContaining({
+        Location: "Site A",
+        Works: "Concrete pour",
+        originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
+      }),
+    );
+    expect(createManyMock.mock.calls[1][0].data[0]).toEqual(
+      expect.objectContaining({
+        Location: "Site B",
+        Works: "Painting",
+        originalAudioUrl: undefined,
+      }),
+    );
   });
 
   it("returns photos and same-day audio diary records for the media dialog", async () => {

@@ -1,25 +1,11 @@
 const uploadFilesMock = jest.fn();
 const transcriptionCreateMock = jest.fn();
 const sendMessageMock = jest.fn();
-const skeletonRecordCreateMock = jest.fn();
 
 jest.mock("uploadthing/server", () => ({
   UTApi: jest.fn().mockImplementation(() => ({
     uploadFiles: uploadFilesMock,
   })),
-}));
-
-jest.mock("@/lib/utils/db", () => ({
-  prisma: {
-    sitediaryrecords: {
-      create: skeletonRecordCreateMock,
-    },
-  },
-}));
-
-jest.mock("@/server/actions/shared-actions", () => ({
-  getOrganizationIdByUserId: jest.fn(async () => "org-1"),
-  getOrganizationIdByWorkerId: jest.fn(async () => "org-worker-1"),
 }));
 
 jest.mock("openai", () => {
@@ -86,27 +72,19 @@ describe("handleAudio", () => {
     expect(stored).toEqual({
       buffer: Buffer.from("test audio bytes"),
       originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
-      skeletonRecordId: null,
     });
   });
 
-  it("creates a skeleton record when meta info is provided", async () => {
-    skeletonRecordCreateMock.mockResolvedValue({ id: "skeleton-123" });
-
+  it("does not create a diary placeholder record when meta info is provided", async () => {
     const stored = await storeWhatsAppAudioFromUrl("https://meta.test/audio.ogg", "audio/ogg", {
       userId: "user-1",
       siteId: "site-1",
     });
 
-    expect(skeletonRecordCreateMock).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        userId: "user-1",
-        siteId: "site-1",
-        originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
-        Works: "Processing voice message...",
-      }),
+    expect(stored).toEqual({
+      buffer: Buffer.from("test audio bytes"),
+      originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
     });
-    expect(stored.skeletonRecordId).toBe("skeleton-123");
   });
 
   it("returns null when upload response has no ufsUrl to persist", async () => {
@@ -130,11 +108,8 @@ describe("handleAudio", () => {
   it("uploads source audio, transcribes it, and exposes sourceAudioUrl through app context", async () => {
     const agent = jest.fn(async () => {
       expect(getWhatsappSourceContext().originalAudioUrl).toBe("https://ut.test.ufs.sh/f/voice.ogg");
-      expect(getWhatsappSourceContext().originalAudioRecordId).toBe("skeleton-123");
       return "AI response";
     });
-
-    skeletonRecordCreateMock.mockResolvedValue({ id: "skeleton-123" });
 
     const handled = await handleAudio({
       formData: audioFormData(),
@@ -159,7 +134,6 @@ describe("handleAudio", () => {
       "site-1",
       "user-1",
       "https://ut.test.ufs.sh/f/voice.ogg",
-      "skeleton-123",
     );
     expect(sendMessageMock).toHaveBeenCalledWith(
       "whatsapp:+37120000001",
@@ -186,6 +160,6 @@ describe("handleAudio", () => {
 
     expect(handled).toBe(true);
     expect(transcriptionCreateMock).toHaveBeenCalledTimes(1);
-    expect(agent).toHaveBeenCalledWith("Test transcript", "site-1", "user-1", null, null);
+    expect(agent).toHaveBeenCalledWith("Test transcript", "site-1", "user-1", null);
   });
 });

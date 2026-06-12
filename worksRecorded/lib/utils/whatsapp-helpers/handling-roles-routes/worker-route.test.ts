@@ -98,7 +98,6 @@ describe("handleWorkerMessage audio", () => {
       "Worker transcript",
       "worker-1",
       "https://ut.test.ufs.sh/f/worker-voice.ogg",
-      undefined,
     );
     expect(sendMessageMock).toHaveBeenCalledWith(
       "whatsapp:+37120000002",

@@ -5,5 +5,4 @@ export type AgentFn = (
   siteId: string | null,
   userId: string,
   originalAudioUrl?: string | null,
-  originalAudioRecordId?: string | null,
 ) => Promise<string>;

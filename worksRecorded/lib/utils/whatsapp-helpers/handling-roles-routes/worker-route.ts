@@ -77,7 +77,7 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
     if (MediaUrl0 && MediaContentType0.startsWith("audio")) {
       try {
         console.log("🎤 Audio message detected");
-        const { buffer: buf, originalAudioUrl, skeletonRecordId } = await storeWhatsAppAudioFromUrl(
+        const { buffer: buf, originalAudioUrl } = await storeWhatsAppAudioFromUrl(
           MediaUrl0, 
           MediaContentType0, 
           { workerId: worker.id, siteId: worker.siteId }
@@ -95,10 +95,9 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
         messageText = transcriptResult.text || "(No text recognized)";
         console.log("📝 Transcription result:", messageText);
 
-        // Update the routing context with the skeleton record ID
         const message = await runWithWhatsappSourceContext(
-          { originalAudioUrl: sourceAudioUrl, originalAudioRecordId: skeletonRecordId },
-          () => talkToClockInAgent(messageText, worker.id, sourceAudioUrl, skeletonRecordId),
+          { originalAudioUrl: sourceAudioUrl },
+          () => talkToClockInAgent(messageText, worker.id, sourceAudioUrl),
         );
         await sendMessage(from, message);
         return; // Important: return here because we've handled the audio message

@@ -5,8 +5,6 @@ import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
 import { getUploadThingUfsUrl } from "@/lib/utils/uploadthing-file-url";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
-import { prisma } from "@/lib/utils/db";
-import { getOrganizationIdByUserId, getOrganizationIdByWorkerId } from "@/server/actions/shared-actions";
 
 const WHATSAPP_SAFE_LIMIT = 1400;
 const utapi = new UTApi();
@@ -61,9 +59,9 @@ export async function uploadSourceAudio(buf: Buffer, contentType: string) {
 }
 
 export async function storeWhatsAppAudioFromUrl(
-  mediaUrl: string, 
+  mediaUrl: string,
   contentType: string,
-  meta?: { userId?: string | null; workerId?: string | null; siteId?: string | null }
+  _meta?: { userId?: string | null; workerId?: string | null; siteId?: string | null }
 ) {
   console.log("[originalAudioUrl][audioStorage] downloading source audio", {
     mediaUrl: describeUrlForLog(mediaUrl),
@@ -82,40 +80,9 @@ export async function storeWhatsAppAudioFromUrl(
     byteLength: buffer.length,
   });
 
-  let skeletonRecordId: string | null = null;
-  if (originalAudioUrl && meta && meta.siteId && (meta.userId || meta.workerId)) {
-    try {
-      const orgId = meta.workerId
-        ? await getOrganizationIdByWorkerId(meta.workerId)
-        : meta.userId
-          ? await getOrganizationIdByUserId(meta.userId)
-          : null;
-
-      const record = await prisma.sitediaryrecords.create({
-        data: {
-          userId: meta.userId || undefined,
-          workerId: meta.workerId || undefined,
-          siteId: meta.siteId,
-          organizationId: orgId || undefined,
-          originalAudioUrl,
-          Date: new Date(),
-          Works: "Processing voice message...",
-        },
-      });
-      skeletonRecordId = record.id;
-      console.log("[originalAudioUrl][audioStorage] skeleton record created", {
-        recordId: skeletonRecordId,
-        siteId: meta.siteId,
-      });
-    } catch (dbErr) {
-      console.error("❌ [audioStorage] failed to create skeleton record", dbErr);
-    }
-  }
-
   return {
     buffer,
     originalAudioUrl,
-    skeletonRecordId,
   };
 }
 
@@ -160,7 +127,7 @@ export async function handleAudio(args: {
 
   try {
     const siteId = user?.lastSelectedSiteIdforWhatsapp;
-    const { buffer: buf, originalAudioUrl: sourceAudioUrl, skeletonRecordId } = 
+    const { buffer: buf, originalAudioUrl: sourceAudioUrl } =
       await storeWhatsAppAudioFromUrl(mediaUrl0!, ct0, { userId: user?.id, siteId });
 
     const ext = inferAudioExtension(ct0);
@@ -177,8 +144,8 @@ export async function handleAudio(args: {
     });
 
     const aiMessage = await runWithWhatsappSourceContext(
-      { originalAudioUrl: sourceAudioUrl, originalAudioRecordId: skeletonRecordId },
-      () => agent(transcript, siteId, user.id, sourceAudioUrl, skeletonRecordId),
+      { originalAudioUrl: sourceAudioUrl },
+      () => agent(transcript, siteId, user.id, sourceAudioUrl),
     );
     console.log("[originalAudioUrl][handleAudio] agent returned", {
       sourceAudioUrl: describeUrlForLog(sourceAudioUrl),

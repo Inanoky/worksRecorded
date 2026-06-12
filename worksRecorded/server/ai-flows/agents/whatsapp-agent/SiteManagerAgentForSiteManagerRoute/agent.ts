@@ -54,8 +54,8 @@ async function setupCheckpointerOnce(checkpointer: PostgresCheckpointer) {
     await checkpointerSetupPromise;
 }
 
-export default async function talkToWhatsappAgent(question, siteId, userId, originalAudioUrl?: string | null, originalAudioRecordId?: string | null) {
-    console.log("=== talkToWhatsappAgent (Site Manager) called ===", { hasAudio: !!originalAudioUrl, hasRecordId: !!originalAudioRecordId });
+export default async function talkToWhatsappAgent(question, siteId, userId, originalAudioUrl?: string | null) {
+    console.log("=== talkToWhatsappAgent (Site Manager) called ===", { hasAudio: !!originalAudioUrl });
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
     const sourceComment = userFullName ? `${userFullName} : ${normalizedQuestion}` : normalizedQuestion;
@@ -80,7 +80,6 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
                         userId,
                         siteId,
                         originalAudioUrl: originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null,
-                        originalAudioRecordId: originalAudioRecordId ?? getWhatsappSourceContext().originalAudioRecordId ?? null,
                     });
                 } catch (e) {
                     console.error("Error modifying arguments for save_to_database:", e);
