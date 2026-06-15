@@ -1777,14 +1777,19 @@ export default function SiteDiaryCalendar({
     const payrollRows = monthRows.map((row) => {
       const payroll = getZtcPayrollValues(row);
       const payrollDate = row.Date ? new Date(row.Date) : null;
+      const monthKey = payrollDate && !Number.isNaN(payrollDate.getTime())
+        ? `${payrollDate.getFullYear()}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`
+        : "";
       return {
         Datums: payrollDate && !Number.isNaN(payrollDate.getTime()) ? payrollDate : undefined,
+        Mēnesis: monthKey,
         Darbinieks: row.createdBy ?? "",
         Projekts: row.Location ?? "",
         Elements: row.Location_Custom_1 ?? "",
         Darbi: row.Works ?? "",
         Stundas: payroll.hours,
         Apjoms: payroll.amountM2,
+        "Aprēķina apjoms": payroll.payrollQuantity ?? payroll.amountM2,
         Mērvienība: row.Units ?? "",
         Likme: payroll.rate,
         Koeficients: payroll.coefficient,
@@ -1793,7 +1798,68 @@ export default function SiteDiaryCalendar({
       };
     });
 
+    const summaryByWorkerMonth = new Map<
+      string,
+      {
+        Mēnesis: string;
+        Darbinieks: string;
+        "Ierakstu skaits": number;
+        Stundas: number;
+        "Aprēķina apjoms": number;
+        Bonuss: number;
+        Alga: number;
+      }
+    >();
+
+    payrollRows.forEach((row) => {
+      const month = row.Mēnesis || `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+      const worker = String(row.Darbinieks || "—").trim() || "—";
+      const key = `${month}::${worker}`;
+      const existing = summaryByWorkerMonth.get(key) ?? {
+        Mēnesis: month,
+        Darbinieks: worker,
+        "Ierakstu skaits": 0,
+        Stundas: 0,
+        "Aprēķina apjoms": 0,
+        Bonuss: 0,
+        Alga: 0,
+      };
+
+      existing["Ierakstu skaits"] += 1;
+      existing.Stundas += Number(row.Stundas) || 0;
+      existing["Aprēķina apjoms"] += Number(row["Aprēķina apjoms"]) || 0;
+      existing.Bonuss += Number(row.Bonuss) || 0;
+      existing.Alga += Number(row.Summa) || 0;
+      summaryByWorkerMonth.set(key, existing);
+    });
+
+    const summaryRows = Array.from(summaryByWorkerMonth.values())
+      .map((row) => ({
+        ...row,
+        Stundas: Number(row.Stundas.toFixed(2)),
+        "Aprēķina apjoms": Number(row["Aprēķina apjoms"].toFixed(2)),
+        Bonuss: Number(row.Bonuss.toFixed(2)),
+        Alga: Number(row.Alga.toFixed(2)),
+      }))
+      .sort((a, b) => {
+        const monthCompare = a.Mēnesis.localeCompare(b.Mēnesis, "lv");
+        if (monthCompare !== 0) return monthCompare;
+        return a.Darbinieks.localeCompare(b.Darbinieks, "lv");
+      });
+
     const workbook = XLSX.utils.book_new();
+    const summaryWorksheet = XLSX.utils.json_to_sheet(summaryRows);
+    summaryWorksheet["!cols"] = [
+      { wch: 12 },
+      { wch: 24 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 12 },
+    ];
+    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, "Mēneša kopsavilkums");
+
     const payrollWorksheet = XLSX.utils.json_to_sheet(payrollRows, { cellDates: true });
     const payrollRange = XLSX.utils.decode_range(payrollWorksheet["!ref"] ?? "A1:A1");
     for (let rowIndex = 1; rowIndex <= payrollRange.e.r; rowIndex += 1) {
@@ -1803,6 +1869,22 @@ export default function SiteDiaryCalendar({
         cell.z = "dd.mm.yyyy";
       }
     }
+    payrollWorksheet["!cols"] = [
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 24 },
+      { wch: 26 },
+      { wch: 18 },
+      { wch: 30 },
+      { wch: 10 },
+      { wch: 10 },
+      { wch: 16 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 10 },
+      { wch: 12 },
+    ];
     XLSX.utils.book_append_sheet(workbook, payrollWorksheet, "Algu ieraksti");
     XLSX.writeFile(
       workbook,
