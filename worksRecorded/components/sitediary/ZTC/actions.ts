@@ -152,6 +152,48 @@ function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | unde
   return normalizeProjectRates(config?.otherSettings?.[ZTC_DEFAULT_TASK_RATES_KEY]);
 }
 
+const ZTC_RATE_STOP_WORDS = new Set([
+  "papild",
+  "papildus",
+  "papilddetala",
+  "papilddetalas",
+  "detala",
+  "detalas",
+  "detalu",
+  "detali",
+  "gab",
+  "gabals",
+  "gabali",
+  "vieniba",
+  "vienibas",
+  "viens",
+  "viena",
+  "divi",
+  "divas",
+  "tris",
+  "cetri",
+  "cetras",
+  "pieci",
+]);
+
+function normalizeRateToken(token: string) {
+  const normalized = token
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (normalized.length < 2 || ZTC_RATE_STOP_WORDS.has(normalized)) return "";
+  return normalized;
+}
+
+function rateTokenVariants(token: string) {
+  const normalized = normalizeRateToken(token);
+  if (!normalized) return [];
+  const stem = normalized.replace(/(iem|am|us|as|es|is|ai|ei|am|em|i|a|e|u|s)$/i, "");
+  return Array.from(
+    new Set([normalized, stem.length >= 3 ? stem : normalized].filter(Boolean)),
+  );
+}
+
 function taskMatchTokens(value: string) {
   const normalized = normalizeTaskName(value);
   const tokens = normalized
@@ -160,7 +202,7 @@ function taskMatchTokens(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/^(r[1-5]|tl|l[1-5])\s*[-:/]?\s*/i, "")
     .split(/[^a-z0-9]+/i)
-    .filter((token) => token.length >= 2);
+    .flatMap(rateTokenVariants);
 
   if (/^tl(\b|\s*[-/:])/i.test(normalized)) {
     tokens.push("karkass", "timber", "frame");
@@ -172,7 +214,11 @@ function taskMatchTokens(value: string) {
   return Array.from(new Set(tokens));
 }
 
-function findDefaultRateForTask(task: unknown, rates: ZtcDefaultTaskRate[]) {
+function findDefaultRateForTask(
+  task: unknown,
+  rates: ZtcDefaultTaskRate[],
+  options: { category?: ZtcRateCategory } = {},
+) {
   const taskTokens = new Set(taskMatchTokens(String(task ?? "")));
   if (!taskTokens.size) return null;
 
@@ -190,9 +236,19 @@ function findDefaultRateForTask(task: unknown, rates: ZtcDefaultTaskRate[]) {
     const tlSemanticMatch =
       ["tl", "karkass", "timber", "frame"].some((token) => rateTokens.has(token)) &&
       ["tl", "karkass", "timber", "frame"].some((token) => taskTokens.has(token));
+    const detailTokenMatch =
+      options.category === "additionalDetails" &&
+      [...rateTokens].some((token) => taskTokens.has(token));
 
-    const finalScore = exact ? 1 : tlSemanticMatch ? Math.max(score, 0.8) : score;
-    if (finalScore >= 0.45 && (!best || finalScore > best.score)) {
+    const finalScore = exact
+      ? 1
+      : tlSemanticMatch
+        ? Math.max(score, 0.8)
+        : detailTokenMatch
+          ? Math.max(score, 0.55)
+          : score;
+    const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
+    if (finalScore >= threshold && (!best || finalScore > best.score)) {
       best = { rate: entry.rate, score: finalScore };
     }
   }
@@ -240,6 +296,7 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
   const defaultRate = findDefaultRateForTask(
     row.Works,
     getProjectCategoryRates(defaultRates, row.Location, category),
+    { category },
   );
   const units = row.Units || (category === "additionalDetails" ? "gab" : category === "additionalWorks" ? "st" : "m2");
 

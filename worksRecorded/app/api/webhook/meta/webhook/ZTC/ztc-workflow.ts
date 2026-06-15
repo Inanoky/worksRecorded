@@ -294,6 +294,56 @@ function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | unde
   return normalizeProjectRates(rawRates);
 }
 
+const ZTC_RATE_STOP_WORDS = new Set([
+  "papild",
+  "papildus",
+  "papilddetala",
+  "papilddetalas",
+  "detala",
+  "detalas",
+  "detalu",
+  "detali",
+  "gab",
+  "gabals",
+  "gabali",
+  "vieniba",
+  "vienibas",
+  "viens",
+  "viena",
+  "divi",
+  "divas",
+  "tris",
+  "cetri",
+  "cetras",
+  "pieci",
+]);
+
+function normalizeRateToken(token: string) {
+  const normalized = token
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (normalized.length < 2 || ZTC_RATE_STOP_WORDS.has(normalized)) return "";
+  return normalized;
+}
+
+function rateTokenVariants(token: string) {
+  const normalized = normalizeRateToken(token);
+  if (!normalized) return [];
+  const stem = normalized.replace(/(iem|am|us|as|es|is|ai|ei|am|em|i|a|e|u|s)$/i, "");
+  return Array.from(
+    new Set([normalized, stem.length >= 3 ? stem : normalized].filter(Boolean)),
+  );
+}
+
+function normalizeAdditionalDetailDescription(value: string | null | undefined) {
+  return normalizeZtcWorkName(value)
+    .replace(/^\s*\d+(?:[.,]\d+)?\s*/i, "")
+    .replace(/\b(gab\.?|gabali?|vienibas?|vienības?)\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function taskRateMatchTokens(value: string) {
   const normalized = normalizeZtcWorkName(value);
   const tokens = normalized
@@ -302,7 +352,7 @@ function taskRateMatchTokens(value: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/^(r[1-5]|tl|l[1-5])\s*[-:/]?\s*/i, "")
     .split(/[^a-z0-9]+/i)
-    .filter((token) => token.length >= 2);
+    .flatMap(rateTokenVariants);
 
   if (/^tl(\b|\s*[-/:])/i.test(normalized)) {
     tokens.push("karkass", "timber", "frame");
@@ -370,9 +420,19 @@ async function getDefaultRateForWork(
     const tlSemanticMatch =
       ["tl", "karkass", "timber", "frame"].some((token) => rateTokens.has(token)) &&
       ["tl", "karkass", "timber", "frame"].some((token) => workTokens.has(token));
-    const score = exact ? 1 : tlSemanticMatch ? Math.max(rawScore, 0.8) : rawScore;
+    const detailTokenMatch =
+      options.category === "additionalDetails" &&
+      [...rateTokens].some((token) => workTokens.has(token));
+    const score = exact
+      ? 1
+      : tlSemanticMatch
+        ? Math.max(rawScore, 0.8)
+        : detailTokenMatch
+          ? Math.max(rawScore, 0.55)
+          : rawScore;
 
-    if (score >= 0.45 && (!best || score > best.score)) {
+    const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
+    if (score >= threshold && (!best || score > best.score)) {
       best = { rate: entry.rate, score };
     }
   }
@@ -1145,7 +1205,7 @@ async function extractWorkInfo(
         {
           role: "system",
           content:
-            `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, additionalDetails array of {description string, quantity number|null}, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. Extract additionalDetails only when the worker reports extra parts/details used while finishing the main work, for example "papildus detaļas", "papilddetāļas", "vēl divas detaļas", "papildus 3 kronšteini". Use a concise detail description and quantity if spoken; if a detail is clearly mentioned without quantity use quantity null. Do not put normal work names into additionalDetails. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+            `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, additionalDetails array of {description string, quantity number|null}, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. Extract additionalDetails only when the worker reports extra parts/details used while finishing the main work, for example "papildus detaļas", "papilddetāļas", "vēl divas detaļas", "papildus 3 kronšteini". If two or more different detail types are mentioned, return a separate additionalDetails item for each type, for example "2 kronšteini un 4 skrūves" -> [{description:"kronšteini",quantity:2},{description:"skrūves",quantity:4}]. Use a concise detail description without the quantity words; if a detail is clearly mentioned without quantity use quantity null. Do not combine different detail types into one description. Do not put normal work names into additionalDetails. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
         },
         { role: "user", content: normalized },
       ],
@@ -1277,7 +1337,22 @@ async function createAdditionalDetailRows(args: {
   details: WorkExtraction["additionalDetails"];
   completedText?: string | null;
 }) {
-  const details = (args.details ?? []).filter((detail) => detail.description.trim());
+  const detailMap = new Map<string, { description: string; quantity: number | null }>();
+  for (const detail of args.details ?? []) {
+    const description = normalizeAdditionalDetailDescription(detail.description);
+    if (!description) continue;
+    const key = description.toLowerCase();
+    const existing = detailMap.get(key);
+    const quantity = positiveNumberOrNull(detail.quantity);
+    detailMap.set(key, {
+      description,
+      quantity:
+        existing?.quantity != null || quantity != null
+          ? (existing?.quantity ?? 0) + (quantity ?? 0)
+          : null,
+    });
+  }
+  const details = Array.from(detailMap.values());
   if (!details.length) return;
 
   const now = new Date();
