@@ -31,7 +31,7 @@ type QaQualityStatus = "accepted" | "accepted_with_defects" | "rejected" | "unkn
 
 type QaQualityEvaluation = {
   status: QaQualityStatus;
-  coefficient: "1" | "0.9" | null;
+  coefficient: "1" | "0.9" | "0" | null;
   summary: string | null;
   issue: string | null;
 };
@@ -122,7 +122,9 @@ function normalizeQualityEvaluation(value: Partial<QaQualityEvaluation> | null |
         ? "1"
         : status === "accepted_with_defects"
           ? "0.9"
-          : null,
+          : status === "rejected"
+            ? "0"
+            : null,
     summary: String(value?.summary ?? "").trim() || null,
     issue: String(value?.issue ?? "").trim() || null,
   };
@@ -217,7 +219,9 @@ async function propagateQualityCoefficient(args: {
       ? "1"
       : args.evaluation.status === "accepted_with_defects"
         ? "0.9"
-        : null;
+        : args.evaluation.status === "rejected"
+          ? "0"
+          : null;
 
   const result = await prisma.sitediaryrecords.updateMany({
     where: {
