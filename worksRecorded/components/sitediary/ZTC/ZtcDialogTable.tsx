@@ -425,7 +425,6 @@ export function ZtcDialogTable({
     rowsToSave.forEach((row, index) => {
       const label = `Rinda ${index + 1}`;
       const isAdditionalWork = row.Location === "Papilddarbi";
-      const isQualityWork = isZtcQualityRow(row);
       const amount = normalizeNumber(row.Amounts);
       const hours = normalizeNumber(row.TimeInvolved);
       const start = normalizeDate(row.Date);
@@ -465,12 +464,6 @@ export function ZtcDialogTable({
         validationErrors.push(`${label}: stundām jābūt pozitīvam skaitlim.`);
       }
 
-      if (!isAdditionalWork && !isQualityWork) {
-        const workOptions = getElementWorkOptions(row.Location_Custom_1);
-        if (workOptions.length && !workOptions.some((option) => option === row.Works)) {
-          validationErrors.push(`${label}: darbs neatbilst izvēlētajam elementam.`);
-        }
-      }
     });
 
     if (!rowsToSave.length) {
