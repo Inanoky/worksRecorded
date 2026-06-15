@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { createPortal } from "react-dom";
 import {
   Card,
   CardContent,
@@ -32,8 +31,6 @@ import {
 import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import {
   CalendarIcon,
-  ChevronLeft,
-  ChevronRight,
   Copy,
   CloudSun,
   Ellipsis,
@@ -41,14 +38,10 @@ import {
   Filter,
   Images,
   Loader2,
-  Mic2,
   RefreshCw,
   Search,
   ShieldCheck,
   Trash2,
-  X,
-  ZoomIn,
-  ZoomOut,
 } from "lucide-react";
 
 
@@ -108,12 +101,15 @@ import {
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
+import { ZtcCommentPopoverContent } from "@/components/sitediary/ZTC/ZtcCommentPopoverContent";
+import { useZtcSiteDiaryFlow } from "@/components/sitediary/ZTC/useZtcSiteDiaryFlow";
 import {
-  getZtcDefaultTaskRates,
-  updateZtcPayrollFields,
-  type ZtcProjectTaskRates,
-} from "@/components/sitediary/ZTC/actions";
-import { ZtcDefaultRatesDialog } from "@/components/sitediary/ZTC/ZtcDefaultRatesDialog";
+  ZTC_SITE_ID,
+  formatZtcMoney,
+  getZtcPayrollValues,
+  isZtcQualityRow,
+  splitZtcWorkerDisplayName,
+} from "@/components/sitediary/ZTC/ztc-site-diary-utils";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -172,348 +168,6 @@ type DiaryRow = {
   bisStatus?: string | null;
   [key: string]: any;
 };
-
-const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
-
-function parsePayrollNumber(value: unknown, fallback = 0) {
-  if (value === "" || value === null || value === undefined) return fallback;
-  const parsed = Number(String(value).replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function isZtcQualityRow(row: DiaryRow) {
-  try {
-    const parsed = JSON.parse(String(row.Comments_Custom_2 ?? ""));
-    return parsed?.type === "ztc_quality_check";
-  } catch {
-    return false;
-  }
-}
-
-function getZtcPayrollValues(row: DiaryRow) {
-  if (isZtcQualityRow(row)) {
-    return {
-      hours: 0,
-      amountM2: 0,
-      rate: 0,
-      coefficient: 0,
-      bonus: 0,
-      sum: 0,
-    };
-  }
-
-  const hours = parsePayrollNumber(row.TimeInvolved);
-  const amountM2 = parsePayrollNumber(row.Amounts);
-  const unit = String(row.Units ?? "m2").toLowerCase();
-  const payrollQuantity = unit === "st" ? hours : amountM2;
-  const rate = parsePayrollNumber(row.Location_Custom_2);
-  const coefficient = parsePayrollNumber(row.Works_Custom_2, 1);
-  const bonus = parsePayrollNumber(row.WorkersInvolved);
-  const sum = payrollQuantity * rate * coefficient + bonus;
-
-  return {
-    hours,
-    amountM2,
-    payrollQuantity,
-    rate,
-    coefficient,
-    bonus,
-    sum: Number(sum.toFixed(2)),
-  };
-}
-
-function formatMoney(value: number) {
-  return value.toLocaleString("lv-LV", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
-function splitWorkerDisplayName(value: string | null | undefined) {
-  const parts = String(value ?? "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return { name: "—", surname: "" };
-  return {
-    name: parts[0],
-    surname: parts.slice(1).join(" "),
-  };
-}
-
-function getZtcRowPhotos(row: DiaryRow) {
-  return (Array.isArray(row.Photos) ? row.Photos : [])
-    .map((url) => String(url ?? "").trim())
-    .filter(Boolean);
-}
-
-function getZtcRowKindLabel(row: DiaryRow) {
-  return isZtcQualityRow(row) ? "QA" : "Darbs";
-}
-
-function parseDiaryAudioUrls(value: string | null | undefined) {
-  const normalized = String(value ?? "").trim();
-  if (!normalized) return [];
-
-  if (normalized.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(normalized);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .map((item) => String(item ?? "").trim())
-          .filter(Boolean);
-      }
-    } catch {
-      return [];
-    }
-  }
-
-  return normalized
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-type ZtcImageDialogState = {
-  title: string;
-  subtitle?: string;
-  photos: Array<{ src: string; caption?: string }>;
-} | null;
-
-function ZtcRelatedImageGallery({
-  photos,
-  title,
-  subtitle,
-  onClose,
-}: {
-  photos: Array<{ src: string; caption?: string }>;
-  title: string;
-  subtitle?: string;
-  onClose: () => void;
-}) {
-  const [mounted, setMounted] = React.useState(false);
-  const [currentIndex, setCurrentIndex] = React.useState(0);
-  const [scale, setScale] = React.useState(1);
-  const [tx, setTx] = React.useState(0);
-  const [ty, setTy] = React.useState(0);
-  const viewerRef = React.useRef<HTMLDivElement | null>(null);
-  const imgRef = React.useRef<HTMLImageElement | null>(null);
-  const baseSizeRef = React.useRef({ w: 0, h: 0 });
-  const MIN_SCALE = 1;
-  const MAX_SCALE = 8;
-
-  React.useEffect(() => setMounted(true), []);
-  React.useEffect(() => {
-    setScale(1);
-    setTx(0);
-    setTy(0);
-  }, [currentIndex, photos]);
-
-  const goPrev = React.useCallback(() => {
-    if (!photos.length) return;
-    setCurrentIndex((index) => (index - 1 + photos.length) % photos.length);
-  }, [photos.length]);
-  const goNext = React.useCallback(() => {
-    if (!photos.length) return;
-    setCurrentIndex((index) => (index + 1) % photos.length);
-  }, [photos.length]);
-
-  const getCoverScale = React.useCallback(() => {
-    const viewer = viewerRef.current;
-    const base = baseSizeRef.current;
-    if (!viewer || !base.w || !base.h) return 1;
-    return Math.max(viewer.clientWidth / base.w, viewer.clientHeight / base.h);
-  }, []);
-
-  const clampTranslate = React.useCallback((nextScale: number, nx: number, ny: number) => {
-    const viewer = viewerRef.current;
-    const base = baseSizeRef.current;
-    if (!viewer || !base.w || !base.h) return { x: nx, y: ny };
-
-    const cover = getCoverScale();
-    if (nextScale <= Math.max(1, cover)) return { x: 0, y: 0 };
-
-    const maxX = Math.max(0, (base.w * nextScale - viewer.clientWidth) / 2);
-    const maxY = Math.max(0, (base.h * nextScale - viewer.clientHeight) / 2);
-
-    return {
-      x: Math.max(-maxX, Math.min(maxX, nx)),
-      y: Math.max(-maxY, Math.min(maxY, ny)),
-    };
-  }, [getCoverScale]);
-
-  const zoomAtPoint = React.useCallback((targetScale: number, clientX?: number, clientY?: number) => {
-    const viewer = viewerRef.current;
-    const cover = Math.max(1, getCoverScale());
-    const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, targetScale));
-
-    if (!viewer || nextScale <= cover) {
-      setScale(nextScale);
-      setTx(0);
-      setTy(0);
-      return;
-    }
-
-    const rect = viewer.getBoundingClientRect();
-    const cx = (clientX ?? rect.left + rect.width / 2) - (rect.left + rect.width / 2);
-    const cy = (clientY ?? rect.top + rect.height / 2) - (rect.top + rect.height / 2);
-    const startScale = scale < cover ? cover : scale;
-    const startTx = scale < cover ? 0 : tx;
-    const startTy = scale < cover ? 0 : ty;
-    const k = nextScale / startScale;
-    const clamped = clampTranslate(nextScale, cx - (cx - startTx) * k, cy - (cy - startTy) * k);
-
-    setScale(nextScale);
-    setTx(clamped.x);
-    setTy(clamped.y);
-  }, [clampTranslate, getCoverScale, scale, tx, ty]);
-
-  const handleImageLoaded = React.useCallback(() => {
-    const img = imgRef.current;
-    if (!img) return;
-    const previousTransform = img.style.transform;
-    img.style.transform = "translate3d(0,0,0) scale(1)";
-    const rect = img.getBoundingClientRect();
-    baseSizeRef.current = { w: rect.width, h: rect.height };
-    img.style.transform = previousTransform;
-  }, []);
-
-  React.useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-      if (event.key === "ArrowLeft") goPrev();
-      if (event.key === "ArrowRight") goNext();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goNext, goPrev, onClose]);
-
-  if (!mounted || !photos.length) return null;
-
-  const currentPhoto = photos[currentIndex];
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onClose();
-        }}
-        className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring"
-        aria-label="Aizvērt"
-      >
-        <X className="h-6 w-6" />
-      </button>
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          goPrev();
-        }}
-        className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring md:left-6"
-        aria-label="Iepriekšējais foto"
-      >
-        <ChevronLeft className="h-7 w-7" />
-      </button>
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          goNext();
-        }}
-        className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 focus:outline-none focus:ring-2 focus:ring-ring md:right-6"
-        aria-label="Nākamais foto"
-      >
-        <ChevronRight className="h-7 w-7" />
-      </button>
-
-      <div
-        className="flex h-[92vh] w-[92vw] max-w-[1400px] flex-col p-2"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-2 text-center text-white">
-          <div className="text-base font-medium">{title}</div>
-          {subtitle ? <div className="text-xs text-white/70">{subtitle}</div> : null}
-        </div>
-        <div className="absolute left-1/2 top-16 z-10 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/60 px-2 py-1 text-white">
-          <button
-            type="button"
-            onClick={() => zoomAtPoint(scale / 1.25)}
-            className="rounded-full p-1 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-ring"
-            aria-label="Samazināt foto"
-          >
-            <ZoomOut className="h-5 w-5" />
-          </button>
-          <span className="min-w-12 text-center text-xs font-medium">{Math.round(scale * 100)}%</span>
-          <button
-            type="button"
-            onClick={() => zoomAtPoint(scale * 1.25)}
-            className="rounded-full p-1 hover:bg-white/15 focus:outline-none focus:ring-2 focus:ring-ring"
-            aria-label="Palielināt foto"
-          >
-            <ZoomIn className="h-5 w-5" />
-          </button>
-        </div>
-        <div
-          ref={viewerRef}
-          className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden rounded-md"
-          onWheel={(event) => {
-            event.preventDefault();
-            const factor = Math.pow(1.0015, -event.deltaY);
-            zoomAtPoint(scale * factor, event.clientX, event.clientY);
-          }}
-        >
-          <img
-            ref={imgRef}
-            src={currentPhoto.src}
-            alt={currentPhoto.caption || title}
-            className="max-h-full max-w-full select-none object-contain"
-            style={{
-              transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
-              transformOrigin: "center",
-              cursor: scale > Math.max(1, getCoverScale()) ? "grab" : "zoom-in",
-            }}
-            draggable={false}
-            onLoad={handleImageLoaded}
-            onDoubleClick={(event) => zoomAtPoint(scale < 2 ? 2 : 1, event.clientX, event.clientY)}
-          />
-        </div>
-        {currentPhoto.caption ? (
-          <div className="mx-auto mt-3 max-h-24 max-w-4xl overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-black/40 px-3 py-2 text-center text-sm leading-snug text-white/90">
-            {currentPhoto.caption}
-          </div>
-        ) : null}
-        <div className="mt-1 text-center text-xs text-white/70">
-          {currentIndex + 1} / {photos.length}
-        </div>
-      </div>
-      {photos.length > 1 ? (
-        <div className="absolute bottom-3 left-1/2 flex max-w-[90vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-md bg-black/40 p-2">
-          {photos.map((photo, index) => (
-            <button
-              key={`${photo.src}-${index}`}
-              type="button"
-              className={cn(
-                "h-14 w-14 shrink-0 overflow-hidden rounded border",
-                index === currentIndex ? "border-white" : "border-white/20 opacity-70",
-              )}
-              onClick={(event) => {
-                event.stopPropagation();
-                setCurrentIndex(index);
-              }}
-            >
-              <img src={photo.src} alt="" className="h-full w-full object-cover" />
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>,
-    document.body,
-  );
-}
 
 type DayGroup = {
   key: string; // yyyy-mm-dd
@@ -797,11 +451,16 @@ export default function SiteDiaryCalendar({
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const bisUiEnabled = bisEnabled && showBisUi;
   const isZtcSite = siteId === ZTC_SITE_ID;
-  const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
-  const [payrollDirtyRowIds, setPayrollDirtyRowIds] = React.useState<Set<string>>(new Set());
-  const [ztcImageDialog, setZtcImageDialog] = React.useState<ZtcImageDialogState>(null);
-  const [ztcRateDialogOpen, setZtcRateDialogOpen] = React.useState(false);
-  const [ztcDefaultRates, setZtcDefaultRates] = React.useState<ZtcProjectTaskRates[]>([]);
+  const ztc = useZtcSiteDiaryFlow({
+    enabled: isZtcSite,
+    siteId,
+    rows,
+    setRows,
+    currentYear,
+    currentMonth,
+    setViewMode,
+    setElementFilter,
+  });
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
       setFilledDays([]);
@@ -828,45 +487,6 @@ export default function SiteDiaryCalendar({
     );
     return data;
   }, [bisUiEnabled, siteId]);
-
-  React.useEffect(() => {
-    if (!isZtcSite || !siteId) {
-      setZtcDefaultRates([]);
-      return;
-    }
-
-    let cancelled = false;
-    getZtcDefaultTaskRates(siteId)
-      .then((rates) => {
-        if (cancelled) return;
-        setZtcDefaultRates(rates);
-      })
-      .catch((error: any) => {
-        if (!cancelled) {
-          toast.error(error?.message ?? "Neizdevās ielādēt darbu likmes.");
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isZtcSite, siteId]);
-
-  const openZtcRateDialog = () => {
-    setZtcRateDialogOpen(true);
-  };
-
-  const ztcRateProjectOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(
-          rows
-            .map((row) => String(row.Location ?? "").trim())
-            .filter((project) => project && project !== "Papilddarbi"),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "lv")),
-    [rows],
-  );
 
   // Load filled days for calendar
   React.useEffect(() => {
@@ -1188,100 +808,6 @@ export default function SiteDiaryCalendar({
     });
   };
 
-  const updatePayrollDraft = (recordId: string, field: "rate" | "coefficient" | "bonus", value: string) => {
-    const dbField =
-      field === "rate"
-        ? "Location_Custom_2"
-        : field === "coefficient"
-          ? "Works_Custom_2"
-          : "WorkersInvolved";
-
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === recordId
-          ? {
-              ...row,
-              [dbField]: value,
-            }
-          : row,
-      ),
-    );
-    setPayrollDirtyRowIds((prev) => new Set(prev).add(recordId));
-  };
-
-  const savePayrollDraft = async (row: DiaryRow) => {
-    if (!isZtcSite || !siteId || !row.id) return;
-
-    const rateValue = String(row.Location_Custom_2 ?? "").trim();
-    const coefficientValue = String(row.Works_Custom_2 ?? "").trim();
-    const bonusValue = String(row.WorkersInvolved ?? "").trim();
-    const payrollFieldLabels: Record<string, string> = {
-      rate: "likmei",
-      coefficient: "koeficientam",
-      bonus: "bonusam",
-    };
-
-    const invalid = [
-      ["rate", rateValue],
-      ["coefficient", coefficientValue],
-      ["bonus", bonusValue],
-    ].find(([_, value]) => value && !Number.isFinite(Number(String(value).replace(",", "."))));
-
-    if (invalid) {
-      toast.error(`Algas ${payrollFieldLabels[invalid[0]] ?? "laukam"} jābūt derīgam skaitlim.`);
-      return;
-    }
-
-    try {
-      setPayrollSavingRowId(row.id);
-      const result = await updateZtcPayrollFields({
-        siteId,
-        id: row.id,
-        rate: rateValue,
-        coefficient: coefficientValue,
-        bonus: bonusValue,
-      });
-
-      if (!result?.ok) {
-        toast.error(result?.message ?? "Neizdevās saglabāt algas laukus.");
-      } else {
-        setPayrollDirtyRowIds((prev) => {
-          const next = new Set(prev);
-          next.delete(row.id as string);
-          return next;
-        });
-      }
-    } catch (error: any) {
-      toast.error(error?.message ?? "Neizdevās saglabāt algas laukus.");
-    } finally {
-      setPayrollSavingRowId(null);
-    }
-  };
-
-  const renderZtcPayrollInput = (
-    row: DiaryRow,
-    field: "rate" | "coefficient" | "bonus",
-    value: unknown,
-    widthClass = "w-20",
-  ) => {
-    if (!row.id || isZtcQualityRow(row)) return "—";
-    const saving = payrollSavingRowId === row.id;
-    return (
-      <Input
-        inputMode="decimal"
-        className={cn("h-8 px-2 text-right tabular-nums", widthClass)}
-        disabled={saving}
-        value={String(value ?? "")}
-        onChange={(event) => updatePayrollDraft(row.id as string, field, event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-          }
-        }}
-      />
-    );
-  };
-
   const handleBulkDeleteRecords = async () => {
     if (selectedRecordIds.size === 0) {
       toast.error(toastMessages.noRecordsSelected);
@@ -1357,136 +883,6 @@ export default function SiteDiaryCalendar({
     XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
   };
 
-  const exportZtcPayrollToExcel = async () => {
-    const XLSX = await import("xlsx");
-    const monthRows = rows.filter((row) => {
-      const date = new Date(row.Date);
-      return (
-        !Number.isNaN(date.getTime()) &&
-        date.getFullYear() === currentYear &&
-        date.getMonth() === currentMonth &&
-        !isZtcQualityRow(row)
-      );
-    });
-
-    const payrollRows = monthRows.map((row) => {
-      const payroll = getZtcPayrollValues(row);
-      const payrollDate = row.Date ? new Date(row.Date) : null;
-      const monthKey = payrollDate && !Number.isNaN(payrollDate.getTime())
-        ? `${payrollDate.getFullYear()}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`
-        : "";
-      return {
-        Datums: payrollDate && !Number.isNaN(payrollDate.getTime()) ? payrollDate : undefined,
-        Mēnesis: monthKey,
-        Darbinieks: row.createdBy ?? "",
-        Projekts: row.Location ?? "",
-        Elements: row.Location_Custom_1 ?? "",
-        Darbi: row.Works ?? "",
-        Stundas: payroll.hours,
-        Apjoms: payroll.amountM2,
-        "Aprēķina apjoms": payroll.payrollQuantity ?? payroll.amountM2,
-        Mērvienība: row.Units ?? "",
-        Likme: payroll.rate,
-        Koeficients: payroll.coefficient,
-        Bonuss: payroll.bonus,
-        Summa: payroll.sum,
-      };
-    });
-
-    const summaryByWorkerMonth = new Map<
-      string,
-      {
-        Mēnesis: string;
-        Darbinieks: string;
-        "Ierakstu skaits": number;
-        Stundas: number;
-        "Aprēķina apjoms": number;
-        Bonuss: number;
-        Alga: number;
-      }
-    >();
-
-    payrollRows.forEach((row) => {
-      const month = row.Mēnesis || `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
-      const worker = String(row.Darbinieks || "—").trim() || "—";
-      const key = `${month}::${worker}`;
-      const existing = summaryByWorkerMonth.get(key) ?? {
-        Mēnesis: month,
-        Darbinieks: worker,
-        "Ierakstu skaits": 0,
-        Stundas: 0,
-        "Aprēķina apjoms": 0,
-        Bonuss: 0,
-        Alga: 0,
-      };
-
-      existing["Ierakstu skaits"] += 1;
-      existing.Stundas += Number(row.Stundas) || 0;
-      existing["Aprēķina apjoms"] += Number(row["Aprēķina apjoms"]) || 0;
-      existing.Bonuss += Number(row.Bonuss) || 0;
-      existing.Alga += Number(row.Summa) || 0;
-      summaryByWorkerMonth.set(key, existing);
-    });
-
-    const summaryRows = Array.from(summaryByWorkerMonth.values())
-      .map((row) => ({
-        ...row,
-        Stundas: Number(row.Stundas.toFixed(2)),
-        "Aprēķina apjoms": Number(row["Aprēķina apjoms"].toFixed(2)),
-        Bonuss: Number(row.Bonuss.toFixed(2)),
-        Alga: Number(row.Alga.toFixed(2)),
-      }))
-      .sort((a, b) => {
-        const monthCompare = a.Mēnesis.localeCompare(b.Mēnesis, "lv");
-        if (monthCompare !== 0) return monthCompare;
-        return a.Darbinieks.localeCompare(b.Darbinieks, "lv");
-      });
-
-    const workbook = XLSX.utils.book_new();
-    const summaryWorksheet = XLSX.utils.json_to_sheet(summaryRows);
-    summaryWorksheet["!cols"] = [
-      { wch: 12 },
-      { wch: 24 },
-      { wch: 14 },
-      { wch: 12 },
-      { wch: 18 },
-      { wch: 12 },
-      { wch: 12 },
-    ];
-    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, "Mēneša kopsavilkums");
-
-    const payrollWorksheet = XLSX.utils.json_to_sheet(payrollRows, { cellDates: true });
-    const payrollRange = XLSX.utils.decode_range(payrollWorksheet["!ref"] ?? "A1:A1");
-    for (let rowIndex = 1; rowIndex <= payrollRange.e.r; rowIndex += 1) {
-      const cell = payrollWorksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })];
-      if (cell?.v instanceof Date) {
-        cell.t = "d";
-        cell.z = "dd.mm.yyyy";
-      }
-    }
-    payrollWorksheet["!cols"] = [
-      { wch: 12 },
-      { wch: 10 },
-      { wch: 24 },
-      { wch: 26 },
-      { wch: 18 },
-      { wch: 30 },
-      { wch: 10 },
-      { wch: 10 },
-      { wch: 16 },
-      { wch: 12 },
-      { wch: 10 },
-      { wch: 12 },
-      { wch: 10 },
-      { wch: 12 },
-    ];
-    XLSX.utils.book_append_sheet(workbook, payrollWorksheet, "Algu ieraksti");
-    XLSX.writeFile(
-      workbook,
-      `ZTC-Algu-aprekins-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.xlsx`,
-    );
-  };
-
   const openDayDialog = (date: Date) => {
     setDialogDate(date);
     setCalendarDate(date);
@@ -1496,81 +892,6 @@ export default function SiteDiaryCalendar({
   const openPhotos = (date: Date) => {
     setPhotosDate(date);
     setPhotosDialogOpen(true);
-  };
-
-  const openZtcRowImages = (row: DiaryRow) => {
-    const photos = getZtcRowPhotos(row);
-    if (!photos.length) {
-      toast.error("Šim ierakstam nav pievienotu foto.");
-      return;
-    }
-
-    setZtcImageDialog({
-      title: row.Works || getZtcRowKindLabel(row),
-      subtitle: [row.Location, row.Location_Custom_1, row.createdBy]
-        .map((part) => String(part ?? "").trim())
-        .filter(Boolean)
-        .join(" • "),
-      photos: photos.map((src) => ({
-        src,
-        caption: [row.Works, row.Location_Custom_1, row.createdBy, row.Comments]
-          .map((part) => String(part ?? "").trim())
-          .filter(Boolean)
-          .join(" • "),
-      })),
-    });
-  };
-
-  const openZtcElementDetails = (elementName: string | null | undefined) => {
-    const normalizedElement = String(elementName ?? "").trim();
-    if (!normalizedElement) return;
-
-    setViewMode("list");
-    setElementFilter(normalizedElement);
-  };
-
-  const renderZtcCommentPopoverContent = (row: DiaryRow) => {
-    const audioUrls = parseDiaryAudioUrls(row.originalAudioUrl);
-
-    return (
-      <div className="space-y-3">
-        {row.Comments ? (
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-            {row.Comments}
-          </p>
-        ) : null}
-        {audioUrls.length > 0 ? (
-        <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-            <Mic2 className="h-3.5 w-3.5" />
-            <span>{audioUrls.length > 1 ? "Balss ziņas" : "Balss ziņa"}</span>
-          </div>
-          <div className="space-y-2">
-            {audioUrls.map((audioUrl, index) => (
-              <div key={`${audioUrl}-${index}`} className="space-y-1">
-                {audioUrls.length > 1 ? (
-                  <p className="text-[11px] font-medium text-muted-foreground">
-                    Balss ziņa {index + 1}
-                  </p>
-                ) : null}
-                <audio
-                  controls
-                  preload="metadata"
-                  src={audioUrl}
-                  className="w-full"
-                />
-              </div>
-            ))}
-          </div>
-          {row.originalUserComment ? (
-            <p className="whitespace-pre-wrap break-words text-xs text-muted-foreground">
-              {row.originalUserComment}
-            </p>
-          ) : null}
-        </div>
-        ) : null}
-      </div>
-    );
   };
 
   const openWeather = async (date: Date) => {
@@ -2085,10 +1406,10 @@ export default function SiteDiaryCalendar({
                 </Button>
                 {isZtcSite ? (
                   <>
-                    <Button variant="outline" onClick={openZtcRateDialog}>
+                    <Button variant="outline" onClick={ztc.openRateDialog}>
                       Darbu likmes
                     </Button>
-                    <Button variant="outline" onClick={exportZtcPayrollToExcel}>
+                    <Button variant="outline" onClick={ztc.handlePayrollExcelExport}>
                       Algu Excel
                     </Button>
                   </>
@@ -2523,7 +1844,7 @@ export default function SiteDiaryCalendar({
                             </span>
                             {isZtcSite ? (
                               <span>
-                                Dienas summa: {formatMoney(ztcDayPayrollSum)}
+                                Dienas summa: {formatZtcMoney(ztcDayPayrollSum)}
                               </span>
                             ) : null}
                           </div>
@@ -2627,7 +1948,7 @@ export default function SiteDiaryCalendar({
                                 <button
                                   type="button"
                                   className="mt-1 block text-left text-[10px] font-medium text-blue-700 underline-offset-2 hover:underline"
-                                  onClick={() => openZtcElementDetails(r.Location_Custom_1)}
+                                  onClick={() => ztc.openElementDetails(r.Location_Custom_1)}
                                 >
                                   Elements: {r.Location_Custom_1}
                                 </button>
@@ -2638,7 +1959,7 @@ export default function SiteDiaryCalendar({
                                   <button
                                     type="button"
                                     className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
-                                    onClick={() => openZtcRowImages(r)}
+                                    onClick={() => ztc.openRowImages(r)}
                                   >
                                     {r.Works || t.noWorksRecorded}
                                   </button>
@@ -2670,30 +1991,30 @@ export default function SiteDiaryCalendar({
                                 <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground">
                                   <label className="space-y-1">
                                     <span>Likme</span>
-                                    {renderZtcPayrollInput(r, "rate", r.Location_Custom_2, "w-full")}
+                                    {ztc.renderPayrollInput(r, "rate", r.Location_Custom_2, "w-full")}
                                   </label>
                                   <label className="space-y-1">
                                     <span>Koef.</span>
-                                    {renderZtcPayrollInput(r, "coefficient", r.Works_Custom_2, "w-full")}
+                                    {ztc.renderPayrollInput(r, "coefficient", r.Works_Custom_2, "w-full")}
                                   </label>
                                   <label className="space-y-1">
                                     <span>Bonuss</span>
-                                    {renderZtcPayrollInput(r, "bonus", r.WorkersInvolved, "w-full")}
+                                    {ztc.renderPayrollInput(r, "bonus", r.WorkersInvolved, "w-full")}
                                   </label>
                                   <div className="space-y-1">
                                     <span>Summa</span>
                                     <div className="flex h-8 items-center justify-end rounded-md border bg-background px-2 font-medium text-foreground">
-                                      {formatMoney(getZtcPayrollValues(r).sum)}
+                                      {formatZtcMoney(getZtcPayrollValues(r).sum)}
                                     </div>
                                   </div>
-                                  {r.id && payrollDirtyRowIds.has(r.id) ? (
+                                  {r.id && ztc.payrollDirtyRowIds.has(r.id) ? (
                                       <Button
                                       size="sm"
                                       className="col-span-2 h-8"
-                                      disabled={payrollSavingRowId === r.id}
-                                      onClick={() => savePayrollDraft(r)}
+                                      disabled={ztc.payrollSavingRowId === r.id}
+                                      onClick={() => ztc.savePayrollDraft(r)}
                                     >
-                                      {payrollSavingRowId === r.id ? (
+                                      {ztc.payrollSavingRowId === r.id ? (
                                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                       ) : (
                                         "Saglabāt"
@@ -2717,7 +2038,7 @@ export default function SiteDiaryCalendar({
                                       </button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[calc(100vw-2rem)] max-w-2xl">
-                                      {renderZtcCommentPopoverContent(r)}
+                                      <ZtcCommentPopoverContent row={r} />
                                     </PopoverContent>
                                   </Popover>
                                 ) : (
@@ -2894,9 +2215,9 @@ export default function SiteDiaryCalendar({
                                   <TableBody>
                                     {group.rows.map((row, i) => {
                                       const payroll = getZtcPayrollValues(row);
-                                      const workerName = splitWorkerDisplayName(row.createdBy);
-                                      const payrollDirty = row.id ? payrollDirtyRowIds.has(row.id) : false;
-                                      const payrollSaving = row.id ? payrollSavingRowId === row.id : false;
+                                      const workerName = splitZtcWorkerDisplayName(row.createdBy);
+                                      const payrollDirty = row.id ? ztc.payrollDirtyRowIds.has(row.id) : false;
+                                      const payrollSaving = row.id ? ztc.payrollSavingRowId === row.id : false;
                                       const startTime = formatValueByConfig("Date", row.Date, defaultMap) || "—";
                                       const endTime = formatValueByConfig("Date_Custom_2", row.Date_Custom_2, defaultMap) || "—";
                                       const amount = row.Amounts === null || row.Amounts === undefined || row.Amounts === ""
@@ -2933,7 +2254,7 @@ export default function SiteDiaryCalendar({
                                                   <button
                                                     type="button"
                                                     className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
-                                                    onClick={() => openZtcElementDetails(row.Location_Custom_1)}
+                                                    onClick={() => ztc.openElementDetails(row.Location_Custom_1)}
                                                   >
                                                     {row.Location_Custom_1}
                                                   </button>
@@ -2947,7 +2268,7 @@ export default function SiteDiaryCalendar({
                                             <button
                                               type="button"
                                               className="line-clamp-2 whitespace-normal break-words text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
-                                              onClick={() => openZtcRowImages(row)}
+                                              onClick={() => ztc.openRowImages(row)}
                                             >
                                               {row.Works || "—"}
                                             </button>
@@ -2972,16 +2293,16 @@ export default function SiteDiaryCalendar({
                                             <div className="text-[11px] text-muted-foreground">{unit}</div>
                                           </TableCell>
                                           <TableCell className="px-1.5 py-2 text-right" style={{ width: 68 }}>
-                                            {renderZtcPayrollInput(row, "rate", row.Location_Custom_2, "w-full")}
+                                            {ztc.renderPayrollInput(row, "rate", row.Location_Custom_2, "w-full")}
                                           </TableCell>
                                           <TableCell className="px-1.5 py-2 text-right" style={{ width: 72 }}>
-                                            {renderZtcPayrollInput(row, "coefficient", row.Works_Custom_2, "w-full")}
+                                            {ztc.renderPayrollInput(row, "coefficient", row.Works_Custom_2, "w-full")}
                                           </TableCell>
                                           <TableCell className="px-1.5 py-2 text-right" style={{ width: 72 }}>
-                                            {renderZtcPayrollInput(row, "bonus", row.WorkersInvolved, "w-full")}
+                                            {ztc.renderPayrollInput(row, "bonus", row.WorkersInvolved, "w-full")}
                                           </TableCell>
                                           <TableCell className="px-3 py-3 text-right font-semibold tabular-nums" style={{ width: 82 }}>
-                                            {formatMoney(payroll.sum)}
+                                            {formatZtcMoney(payroll.sum)}
                                           </TableCell>
                                           <TableCell className="px-2 py-2 text-center" style={{ width: 72 }}>
                                             {payrollDirty ? (
@@ -2989,7 +2310,7 @@ export default function SiteDiaryCalendar({
                                                 size="sm"
                                                 className="h-8 px-3"
                                                 disabled={!row.id || payrollSaving}
-                                                onClick={() => savePayrollDraft(row)}
+                                                onClick={() => ztc.savePayrollDraft(row)}
                                               >
                                                 {payrollSaving ? (
                                                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -3011,7 +2332,7 @@ export default function SiteDiaryCalendar({
                                                   </button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-[calc(100vw-2rem)] max-w-2xl">
-                                                  {renderZtcCommentPopoverContent(row)}
+                                                  <ZtcCommentPopoverContent row={row} />
                                                 </PopoverContent>
                                               </Popover>
                                             ) : (
@@ -3291,16 +2612,16 @@ export default function SiteDiaryCalendar({
                                           {isZtcSite && field === "TimeInvolved" ? (
                                             <>
                                               <TableCell className="align-top px-2 py-2 text-right" style={{ width: 90 }}>
-                                                {renderZtcPayrollInput(originalRow, "rate", originalRow.Location_Custom_2)}
+                                                {ztc.renderPayrollInput(originalRow, "rate", originalRow.Location_Custom_2)}
                                               </TableCell>
                                               <TableCell className="align-top px-2 py-2 text-right" style={{ width: 105 }}>
-                                                {renderZtcPayrollInput(originalRow, "coefficient", originalRow.Works_Custom_2)}
+                                                {ztc.renderPayrollInput(originalRow, "coefficient", originalRow.Works_Custom_2)}
                                               </TableCell>
                                               <TableCell className="align-top px-2 py-2 text-right" style={{ width: 95 }}>
-                                                {renderZtcPayrollInput(originalRow, "bonus", originalRow.WorkersInvolved)}
+                                                {ztc.renderPayrollInput(originalRow, "bonus", originalRow.WorkersInvolved)}
                                               </TableCell>
                                               <TableCell className="align-top px-3 py-3 text-right font-medium" style={{ width: 95 }}>
-                                                {formatMoney(payroll.sum)}
+                                                {formatZtcMoney(payroll.sum)}
                                               </TableCell>
                                             </>
                                           ) : null}
@@ -4007,25 +3328,7 @@ export default function SiteDiaryCalendar({
           </DialogContent>
         </Dialog>
 
-        {isZtcSite ? (
-    <ZtcDefaultRatesDialog
-      open={ztcRateDialogOpen}
-      siteId={siteId}
-      rates={ztcDefaultRates}
-            projectOptions={ztcRateProjectOptions}
-            onOpenChange={setZtcRateDialogOpen}
-            onSaved={setZtcDefaultRates}
-          />
-        ) : null}
-
-        {ztcImageDialog ? (
-          <ZtcRelatedImageGallery
-            title={ztcImageDialog.title}
-            subtitle={ztcImageDialog.subtitle}
-            photos={ztcImageDialog.photos}
-            onClose={() => setZtcImageDialog(null)}
-          />
-        ) : null}
+        {ztc.dialogs}
 
         {/* Photos dialog with ImageGallery */}
         <Dialog open={photosDialogOpen} onOpenChange={setPhotosDialogOpen}>
