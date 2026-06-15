@@ -8,10 +8,21 @@ import { getOrganizationIdByUserId, orgCheck } from "@/server/actions/shared-act
 const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 const ZTC_DEFAULT_TASK_RATES_KEY = "ztcDefaultTaskRates";
+const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
+const ZTC_RATE_CATEGORIES = ["works", "additionalDetails", "additionalWorks"] as const;
+
+export type ZtcRateCategory = (typeof ZTC_RATE_CATEGORIES)[number];
 
 export type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
+};
+
+export type ZtcProjectTaskRates = {
+  projectName: string;
+  works: ZtcDefaultTaskRate[];
+  additionalDetails: ZtcDefaultTaskRate[];
+  additionalWorks: ZtcDefaultTaskRate[];
 };
 
 function ensureZtcSite(siteId: string | null | undefined) {
@@ -85,8 +96,60 @@ function normalizeTaskRateEntries(value: unknown): ZtcDefaultTaskRate[] {
   return entries;
 }
 
+function normalizeProjectRateName(value: unknown) {
+  const name = String(value ?? "").trim();
+  return name || ZTC_ALL_PROJECTS_RATE_NAME;
+}
+
+function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
+  if (Array.isArray(value)) {
+    const looksLikeProjectRates = value.some(
+      (item) =>
+        item &&
+        typeof item === "object" &&
+        ("projectName" in item || "works" in item || "additionalDetails" in item || "additionalWorks" in item),
+    );
+    if (looksLikeProjectRates) {
+      return normalizeProjectRates({ projects: value });
+    }
+
+    return [
+      {
+        projectName: ZTC_ALL_PROJECTS_RATE_NAME,
+        works: normalizeTaskRateEntries(value),
+        additionalDetails: [],
+        additionalWorks: [],
+      },
+    ];
+  }
+
+  const rawProjects = Array.isArray((value as Record<string, unknown> | null)?.projects)
+    ? ((value as Record<string, unknown>).projects as unknown[])
+    : [];
+  const projects = rawProjects.map((project) => {
+    const raw = project as Record<string, unknown>;
+    return {
+      projectName: normalizeProjectRateName(raw.projectName),
+      works: normalizeTaskRateEntries(raw.works),
+      additionalDetails: normalizeTaskRateEntries(raw.additionalDetails),
+      additionalWorks: normalizeTaskRateEntries(raw.additionalWorks),
+    };
+  });
+
+  return projects.length
+    ? projects
+    : [
+        {
+          projectName: ZTC_ALL_PROJECTS_RATE_NAME,
+          works: [],
+          additionalDetails: [],
+          additionalWorks: [],
+        },
+      ];
+}
+
 function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | undefined) {
-  return normalizeTaskRateEntries(config?.otherSettings?.[ZTC_DEFAULT_TASK_RATES_KEY]);
+  return normalizeProjectRates(config?.otherSettings?.[ZTC_DEFAULT_TASK_RATES_KEY]);
 }
 
 function taskMatchTokens(value: string) {
@@ -137,11 +200,48 @@ function findDefaultRateForTask(task: unknown, rates: ZtcDefaultTaskRate[]) {
   return best?.rate ?? null;
 }
 
+function getZtcRateCategoryForRow(row: Record<string, any>): ZtcRateCategory {
+  if (row.Works_Custom_1 === "Papilddetāļas") return "additionalDetails";
+  if (row.Location === "Papilddarbi" || row.Units === "st") return "additionalWorks";
+  return "works";
+}
+
+function getProjectCategoryRates(
+  projects: ZtcProjectTaskRates[],
+  projectName: string | null | undefined,
+  category: ZtcRateCategory,
+) {
+  const normalizedProject = normalizeProjectRateName(projectName).toLowerCase();
+  const projectRates = projects.find(
+    (project) => project.projectName.toLowerCase() === normalizedProject,
+  );
+  const allProjectRates = projects.find(
+    (project) => project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+  );
+
+  const merged = [...(allProjectRates?.[category] ?? [])];
+  for (const override of projectRates?.[category] ?? []) {
+    const index = merged.findIndex(
+      (entry) => normalizeTaskName(entry.task).toLowerCase() === normalizeTaskName(override.task).toLowerCase(),
+    );
+    if (index >= 0) {
+      merged[index] = override;
+    } else {
+      merged.push(override);
+    }
+  }
+
+  return merged;
+}
+
 function sanitizeZtcRecordRow(row: Record<string, any>) {
-  const defaultRates = Array.isArray(row.__ztcDefaultTaskRates)
-    ? normalizeTaskRateEntries(row.__ztcDefaultTaskRates)
-    : [];
-  const defaultRate = findDefaultRateForTask(row.Works, defaultRates);
+  const defaultRates = normalizeProjectRates(row.__ztcDefaultTaskRates);
+  const category = getZtcRateCategoryForRow(row);
+  const defaultRate = findDefaultRateForTask(
+    row.Works,
+    getProjectCategoryRates(defaultRates, row.Location, category),
+  );
+  const units = row.Units || (category === "additionalDetails" ? "gab" : category === "additionalWorks" ? "st" : "m2");
 
   return {
     Date: normalizeDate(row.Date) ?? null,
@@ -157,7 +257,7 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     Comments_Custom_1: row.Comments_Custom_1 || null,
     Comments_Custom_2: row.Comments_Custom_2 || null,
     originalUserComment: row.originalUserComment || null,
-    Units: "m2",
+    Units: units,
     Amounts: normalizeNumber(row.Amounts) ?? null,
     WorkersInvolved: normalizeNumber(row.WorkersInvolved) ?? null,
     TimeInvolved: normalizeNumber(row.TimeInvolved) ?? null,
@@ -195,7 +295,7 @@ function mapZtcRecord(rec: any) {
     Works: rec.Works || "",
     Works_Custom_1: rec.Works_Custom_1 || "",
     Works_Custom_2: rec.Works_Custom_2 || "",
-    Units: "m2",
+    Units: rec.Units || "m2",
     Amounts: rec.Amounts?.toString() || "",
     WorkersInvolved: rec.WorkersInvolved?.toString() || "",
     TimeInvolved: rec.TimeInvolved?.toString() || "",
@@ -315,7 +415,7 @@ export async function getZtcDefaultTaskRates(siteId: string) {
 
 export async function updateZtcDefaultTaskRates(args: {
   siteId: string;
-  rates: ZtcDefaultTaskRate[];
+  rates: ZtcProjectTaskRates[];
 }) {
   await requireZtcAccess(args.siteId);
 
@@ -330,10 +430,10 @@ export async function updateZtcDefaultTaskRates(args: {
       ? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
       : structuredClone(ztcSiteDiaryRecordsMap as Record<string, any>);
 
-  const rates = normalizeTaskRateEntries(args.rates);
+  const rates = normalizeProjectRates({ projects: args.rates });
   currentMap.otherSettings = {
     ...(currentMap.otherSettings ?? {}),
-    [ZTC_DEFAULT_TASK_RATES_KEY]: rates,
+    [ZTC_DEFAULT_TASK_RATES_KEY]: { projects: rates },
   };
 
   await prisma.site.update({

@@ -69,6 +69,10 @@ type WorkExtraction = {
   isFinish: boolean;
   isAdditionalWork: boolean;
   additionalWorkDescription: string | null;
+  additionalDetails?: Array<{
+    description: string;
+    quantity: number | null;
+  }>;
   workOption: string | null;
   amountCompleted: number | null;
   units: string | null;
@@ -90,9 +94,16 @@ type ZtcDropdownOptions = {
   workOptions: string[];
   unitOptions: string[];
 };
+type ZtcRateCategory = "works" | "additionalDetails" | "additionalWorks";
 type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
+};
+type ZtcProjectTaskRates = {
+  projectName: string;
+  works: ZtcDefaultTaskRate[];
+  additionalDetails: ZtcDefaultTaskRate[];
+  additionalWorks: ZtcDefaultTaskRate[];
 };
 
 let ztcDropdownOptionsCache:
@@ -117,10 +128,16 @@ type ZtcDrawingMetadata = {
 
 type ZtcDiagonalPayload = {
   completedText: string;
+  additionalDetails?: WorkExtraction["additionalDetails"];
   firstPhotoUrl?: string;
   firstMeasureMm?: number;
   secondPhotoUrl?: string;
   secondMeasureMm?: number;
+};
+
+type ZtcFinishPendingPayload = {
+  completedText: string;
+  additionalDetails?: WorkExtraction["additionalDetails"];
 };
 
 const utapi = new UTApi();
@@ -197,14 +214,16 @@ function normalizePayrollTextNumber(value: unknown) {
   return Number.isFinite(Number(normalized)) ? normalized : null;
 }
 
-function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | undefined): ZtcDefaultTaskRate[] {
-  const rawRates = config?.otherSettings?.ztcDefaultTaskRates;
-  if (!Array.isArray(rawRates)) return [];
+const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
+const ZTC_RATE_CATEGORIES: ZtcRateCategory[] = ["works", "additionalDetails", "additionalWorks"];
+
+function normalizeTaskRateEntries(value: unknown): ZtcDefaultTaskRate[] {
+  if (!Array.isArray(value)) return [];
 
   const rates: ZtcDefaultTaskRate[] = [];
   const seen = new Set<string>();
 
-  for (const item of rawRates) {
+  for (const item of value) {
     const task = normalizeZtcWorkName((item as Record<string, unknown>)?.task as string | null | undefined);
     const rate = normalizePayrollTextNumber((item as Record<string, unknown>)?.rate);
     if (!task || rate == null) continue;
@@ -216,6 +235,63 @@ function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | unde
   }
 
   return rates;
+}
+
+function normalizeProjectRateName(value: unknown) {
+  const name = String(value ?? "").trim();
+  return name || ZTC_ALL_PROJECTS_RATE_NAME;
+}
+
+function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
+  if (Array.isArray(value)) {
+    const looksLikeProjectRates = value.some(
+      (item) =>
+        item &&
+        typeof item === "object" &&
+        ("projectName" in item || "works" in item || "additionalDetails" in item || "additionalWorks" in item),
+    );
+    if (looksLikeProjectRates) {
+      return normalizeProjectRates({ projects: value });
+    }
+
+    return [
+      {
+        projectName: ZTC_ALL_PROJECTS_RATE_NAME,
+        works: normalizeTaskRateEntries(value),
+        additionalDetails: [],
+        additionalWorks: [],
+      },
+    ];
+  }
+
+  const rawProjects = Array.isArray((value as Record<string, unknown> | null)?.projects)
+    ? ((value as Record<string, unknown>).projects as unknown[])
+    : [];
+  const projects = rawProjects.map((project) => {
+    const raw = project as Record<string, unknown>;
+    return {
+      projectName: normalizeProjectRateName(raw.projectName),
+      works: normalizeTaskRateEntries(raw.works),
+      additionalDetails: normalizeTaskRateEntries(raw.additionalDetails),
+      additionalWorks: normalizeTaskRateEntries(raw.additionalWorks),
+    };
+  });
+
+  return projects.length
+    ? projects
+    : [
+        {
+          projectName: ZTC_ALL_PROJECTS_RATE_NAME,
+          works: [],
+          additionalDetails: [],
+          additionalWorks: [],
+        },
+      ];
+}
+
+function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | undefined): ZtcProjectTaskRates[] {
+  const rawRates = config?.otherSettings?.ztcDefaultTaskRates;
+  return normalizeProjectRates(rawRates);
 }
 
 function taskRateMatchTokens(value: string) {
@@ -238,10 +314,45 @@ function taskRateMatchTokens(value: string) {
   return Array.from(new Set(tokens));
 }
 
-async function getDefaultRateForWork(workName: string | null | undefined) {
+function getProjectCategoryRates(
+  projects: ZtcProjectTaskRates[],
+  projectName: string | null | undefined,
+  category: ZtcRateCategory,
+) {
+  const normalizedProject = normalizeProjectRateName(projectName).toLowerCase();
+  const projectRates = projects.find(
+    (project) => project.projectName.toLowerCase() === normalizedProject,
+  );
+  const allProjectRates = projects.find(
+    (project) => project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+  );
+
+  const merged = [...(allProjectRates?.[category] ?? [])];
+  for (const override of projectRates?.[category] ?? []) {
+    const index = merged.findIndex(
+      (entry) => normalizeZtcWorkName(entry.task).toLowerCase() === normalizeZtcWorkName(override.task).toLowerCase(),
+    );
+    if (index >= 0) {
+      merged[index] = override;
+    } else {
+      merged.push(override);
+    }
+  }
+
+  return merged;
+}
+
+async function getDefaultRateForWork(
+  workName: string | null | undefined,
+  options: { projectName?: string | null; category?: ZtcRateCategory } = {},
+) {
   const config = ((await getConfig(ZTC_SITE_ID)) ??
     ztcSiteDiaryRecordsMap) as Record<string, any>;
-  const rates = getDefaultTaskRatesFromConfig(config);
+  const rates = getProjectCategoryRates(
+    getDefaultTaskRatesFromConfig(config),
+    options.projectName,
+    options.category ?? "works",
+  );
   const workTokens = new Set(taskRateMatchTokens(String(workName ?? "")));
   if (!workTokens.size) return null;
 
@@ -290,7 +401,7 @@ function getFallbackOtherWorkOption(allowed: string[]) {
 }
 
 function hasPapilddarbiKeyword(text: string) {
-  return /\bpapild\w*/i.test(text);
+  return /\b(papild(?:us)?\s*dar\w*|papilddar\w*)\b/i.test(text);
 }
 
 function hasFrameKeyword(text: string) {
@@ -567,6 +678,19 @@ function readMarkerPayload(value: string | null | undefined, prefix: string) {
   return value.slice(prefix.length).trim();
 }
 
+function buildFinishPendingMarker(payload: ZtcFinishPendingPayload) {
+  return `${FINISH_PENDING_PREFIX} ${JSON.stringify(payload)}`;
+}
+
+function readFinishPendingPayload(value: string | null | undefined): ZtcFinishPendingPayload {
+  const raw = readMarkerPayload(value, FINISH_PENDING_PREFIX);
+  if (!raw) return { completedText: "" };
+  if (raw.startsWith("{")) {
+    return parseJsonObject<ZtcFinishPendingPayload>(raw, { completedText: "" });
+  }
+  return { completedText: raw };
+}
+
 export function parseOriginalAudioUrls(value: string | null | undefined) {
   const normalized = String(value ?? "").trim();
   if (!normalized) return [];
@@ -754,6 +878,10 @@ function parseZtcDrawingMetadata(value: string | null | undefined): ZtcDrawingMe
   } catch {
     return null;
   }
+}
+
+function hasZtcDrawingContext(session: Pick<OpenZtcSession, "Comments_Custom_2"> | null | undefined) {
+  return Boolean(parseZtcDrawingMetadata(session?.Comments_Custom_2));
 }
 
 export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingMetadata {
@@ -1000,6 +1128,7 @@ async function extractWorkInfo(
       isFinish: false,
       isAdditionalWork: false,
       additionalWorkDescription: null,
+      additionalDetails: [],
       workOption: null,
       amountCompleted: null,
       units: null,
@@ -1016,7 +1145,7 @@ async function extractWorkInfo(
         {
           role: "system",
           content:
-            `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+            `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, additionalDetails array of {description string, quantity number|null}, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. Extract additionalDetails only when the worker reports extra parts/details used while finishing the main work, for example "papildus detaļas", "papilddetāļas", "vēl divas detaļas", "papildus 3 kronšteini". Use a concise detail description and quantity if spoken; if a detail is clearly mentioned without quantity use quantity null. Do not put normal work names into additionalDetails. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
         },
         { role: "user", content: normalized },
       ],
@@ -1030,6 +1159,7 @@ async function extractWorkInfo(
     isFinish: false,
     isAdditionalWork: false,
     additionalWorkDescription: null,
+    additionalDetails: [],
     workOption: null,
     amountCompleted: null,
     units: null,
@@ -1039,6 +1169,17 @@ async function extractWorkInfo(
   return {
     ...extracted,
     isAdditionalWork: extracted.isAdditionalWork || hasPapilddarbiKeyword(normalized),
+    additionalDetails: Array.isArray(extracted.additionalDetails)
+      ? extracted.additionalDetails
+          .map((detail) => ({
+            description: String(detail?.description ?? "").trim(),
+            quantity:
+              detail?.quantity == null || !Number.isFinite(Number(detail.quantity))
+                ? null
+                : Number(detail.quantity),
+          }))
+          .filter((detail) => detail.description)
+      : [],
     workOption:
       normalizeAllowedWorkOption(extracted.workOption, effectiveWorkOptions) ??
       (hasFrameKeyword(normalized) && effectiveWorkOptions.filter(isTlWork).length === 1
@@ -1066,12 +1207,42 @@ async function getLatestZtcDrawingContext(workerId: string) {
       organizationId: ZTC_ORGANIZATION_ID,
       Location: { not: null },
       Location_Custom_1: { not: null },
-      NOT: {
-        Location: "Papilddarbi",
-      },
+      Comments_Custom_2: { contains: "ztc_drawing_context" },
+      NOT: [{ Location: "Papilddarbi" }, { Works_Custom_1: "Papilddetāļas" }],
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+async function ensureSessionHasDrawingContext(args: {
+  session: OpenZtcSession;
+  drawingContext: OpenZtcSession | null;
+  worker: ZtcWorker;
+}) {
+  const { session, drawingContext, worker } = args;
+  if (hasZtcDrawingContext(session) || !drawingContext) return session;
+
+  const repaired = await prisma.sitediaryrecords.update({
+    where: { id: session.id },
+    data: {
+      Location: drawingContext.Location,
+      Location_Custom_1: drawingContext.Location_Custom_1,
+      Works_Custom_1: drawingContext.Works_Custom_1,
+      Comments_Custom_2: drawingContext.Comments_Custom_2,
+      Photos: drawingContext.Photos?.[0] ? [drawingContext.Photos[0]] : session.Photos ?? [],
+    },
+  });
+
+  logZtcSession("session_drawing_context_repaired", {
+    session: repaired,
+    worker,
+    details: {
+      drawingContextRecordId: drawingContext.id,
+      previousMetadata: session.Comments_Custom_2,
+    },
+  });
+
+  return repaired;
 }
 
 async function getRecentCompletedPhotoBatchSession(workerId: string) {
@@ -1096,6 +1267,62 @@ function calculateHours(start: Date | null | undefined, end: Date) {
   return Number(hours.toFixed(2));
 }
 
+function positiveNumberOrNull(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+async function createAdditionalDetailRows(args: {
+  session: OpenZtcSession;
+  details: WorkExtraction["additionalDetails"];
+  completedText?: string | null;
+}) {
+  const details = (args.details ?? []).filter((detail) => detail.description.trim());
+  if (!details.length) return;
+
+  const now = new Date();
+  const rows = await Promise.all(
+    details.map(async (detail) => {
+      const defaultRate = await getDefaultRateForWork(detail.description, {
+        projectName: args.session.Location,
+        category: "additionalDetails",
+      });
+
+      return {
+        workerId: args.session.workerId,
+        siteId: ZTC_SITE_ID,
+        organizationId: ZTC_ORGANIZATION_ID,
+        Date: now,
+        Date_Custom_1: args.session.Date_Custom_1 ?? args.session.Date ?? now,
+        Date_Custom_2: now,
+        Location: args.session.Location,
+        Location_Custom_1: args.session.Location_Custom_1,
+        Works_Custom_1: "Papilddetāļas",
+        Works: detail.description,
+        Location_Custom_2: defaultRate,
+        Works_Custom_2: args.session.Works_Custom_2 ?? null,
+        Units: "gab",
+        Amounts: positiveNumberOrNull(detail.quantity) ?? 1,
+        TimeInvolved: 0,
+        Comments: args.completedText?.trim()
+          ? `Papilddetāļas: ${args.completedText.trim()}`
+          : "Papilddetāļas",
+        Comments_Custom_2: JSON.stringify({
+          type: "ztc_additional_detail",
+          parentSessionId: args.session.id,
+          projectName: args.session.Location,
+          elementName: args.session.Location_Custom_1,
+          mainWork: args.session.Works,
+        }),
+        originalUserComment: args.completedText?.trim() ?? null,
+        Photos: [],
+      };
+    }),
+  );
+
+  await prisma.sitediaryrecords.createMany({ data: rows });
+}
+
 async function completeSession(args: {
   session: OpenZtcSession;
   to: string | null;
@@ -1108,11 +1335,13 @@ async function completeSession(args: {
   const now = new Date();
   const timeInvolved = calculateHours(session.Date, now);
   const amountCompleted =
-    session.Amounts != null
-      ? session.Amounts
-      : completedWork?.amountCompleted != null
-        ? completedWork.amountCompleted
-        : null;
+    session.Location === "Papilddarbi"
+      ? timeInvolved
+      : session.Amounts != null
+        ? session.Amounts
+        : completedWork?.amountCompleted != null
+          ? completedWork.amountCompleted
+          : null;
   const finalWorkerComment = finalComments?.trim()
     ? await polishZtcCommentBlock(finalComments)
     : await buildPolishedZtcUserComments({
@@ -1126,7 +1355,7 @@ async function completeSession(args: {
       Date_Custom_2: now,
       TimeInvolved: timeInvolved,
       Amounts: amountCompleted ?? undefined,
-      Units: "m2",
+      Units: session.Location === "Papilddarbi" ? "st" : "m2",
       Comments_Custom_1: photoBatchMarker(),
       Comments: finalWorkerComment,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
@@ -1142,6 +1371,12 @@ async function completeSession(args: {
     },
   });
 
+  await createAdditionalDetailRows({
+    session,
+    details: completedWork?.additionalDetails ?? [],
+    completedText,
+  });
+
   await sendZtcMessage(
     to,
     `Darbs pabeigts un saglabāts: ${formatSessionWork(session) || "darbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.`,
@@ -1151,6 +1386,7 @@ async function completeSession(args: {
 async function askForTlDiagonals(args: {
   session: OpenZtcSession;
   to: string | null;
+  completedWork?: WorkExtraction | null;
   completedText?: string | null;
   originalAudioUrl?: string | null;
 }) {
@@ -1159,7 +1395,10 @@ async function askForTlDiagonals(args: {
   const updated = await prisma.sitediaryrecords.update({
     where: { id: args.session.id },
     data: {
-      Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({ completedText })}`,
+      Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({
+        completedText,
+        additionalDetails: args.completedWork?.additionalDetails ?? [],
+      })}`,
       Units: "m2",
       Amounts: args.session.Amounts ?? undefined,
       originalAudioUrl: mergeOriginalAudioUrls(args.session.originalAudioUrl, args.originalAudioUrl),
@@ -1188,6 +1427,7 @@ async function finishSessionOrAskTlDiagonals(args: {
     await askForTlDiagonals({
       session: args.session,
       to: args.to,
+      completedWork: args.completedWork,
       completedText: args.completedText,
       originalAudioUrl: args.originalAudioUrl,
     });
@@ -1387,6 +1627,17 @@ async function handleTlDiagonalMeasureText(args: {
     await completeSession({
       session: args.session,
       to: args.to,
+      completedWork: {
+        isGibberish: false,
+        isFinish: true,
+        isAdditionalWork: false,
+        additionalWorkDescription: null,
+        additionalDetails: payload.additionalDetails ?? [],
+        workOption: args.session.Works,
+        amountCompleted: null,
+        units: null,
+        issue: null,
+      },
       finalComments: buildDiagonalPhotoMeasureComment({
         session: args.session,
         payload,
@@ -1728,7 +1979,12 @@ async function createAdditionalWorkSession(args: {
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
   const comments = await buildPolishedZtcUserComments({ startText: text });
-  const defaultRate = await getDefaultRateForWork(workOption);
+  const defaultRate = await getDefaultRateForWork(
+    work.additionalWorkDescription || workOption,
+    {
+      category: "additionalWorks",
+    },
+  );
 
   const created = await prisma.sitediaryrecords.create({
     data: {
@@ -1740,7 +1996,7 @@ async function createAdditionalWorkSession(args: {
       Location: "Papilddarbi",
       Works: workOption,
       Location_Custom_2: defaultRate,
-      Units: "m2",
+      Units: "st",
       Amounts: work.amountCompleted ?? undefined,
       Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
@@ -1773,10 +2029,11 @@ async function handleWorkText(args: {
 
   const isAdditionalWorkRequest = hasPapilddarbiKeyword(text);
   const latestDrawingContext =
-    openSession || isAdditionalWorkRequest
+    isAdditionalWorkRequest || (openSession && hasZtcDrawingContext(openSession))
       ? null
       : await getLatestZtcDrawingContext(worker.id);
-  const workOptionsForSession = getSessionWorkOptions(openSession ?? latestDrawingContext);
+  const contextSession = hasZtcDrawingContext(openSession) ? openSession : latestDrawingContext;
+  const workOptionsForSession = getSessionWorkOptions(contextSession);
   const work = await extractWorkInfo(text, workOptionsForSession);
 
   if (work.isGibberish) {
@@ -1801,13 +2058,21 @@ async function handleWorkText(args: {
     return;
   }
 
-  const session = work.isFinish
+  let session = work.isFinish
     ? openSession
     : openSession ?? (await createSessionFromLatestDrawing(worker));
 
   if (!session) {
     await sendZtcMessage(to, "Lūdzu, sāciet ar skaidru ražošanas rasējuma foto.");
     return;
+  }
+
+  if (!work.isFinish) {
+    session = await ensureSessionHasDrawingContext({
+      session,
+      drawingContext: latestDrawingContext,
+      worker,
+    });
   }
 
   const now = new Date();
@@ -1825,8 +2090,11 @@ async function handleWorkText(args: {
         where: { id: session.id },
         data: {
           Amounts: session.Amounts ?? undefined,
-          Units: "m2",
-          Comments_Custom_1: `${FINISH_PENDING_PREFIX} ${text}`,
+          Units: session.Location === "Papilddarbi" ? "st" : "m2",
+          Comments_Custom_1: buildFinishPendingMarker({
+            completedText: text,
+            additionalDetails: work.additionalDetails ?? [],
+          }),
           originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
         },
       });
@@ -1877,7 +2145,10 @@ async function handleWorkText(args: {
 
   const amountM2 = getSessionWorkAmountM2(session, work.workOption);
   const comments = await buildPolishedZtcUserComments({ startText: text });
-  const defaultRate = await getDefaultRateForWork(work.workOption);
+  const defaultRate = await getDefaultRateForWork(work.workOption, {
+    projectName: session.Location,
+    category: "works",
+  });
 
   const updated = await prisma.sitediaryrecords.update({
     where: { id: session.id },
@@ -1979,10 +2250,7 @@ async function handleFinishedPhoto(args: {
   if (session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX)) {
     await sendTypingIndicator(to);
 
-    const completedText = session.Comments_Custom_1.replace(
-      FINISH_PENDING_PREFIX,
-      "",
-    ).trim();
+    const finishPayload = readFinishPendingPayload(session.Comments_Custom_1);
 
     await finishSessionOrAskTlDiagonals({
       session: {
@@ -1990,7 +2258,18 @@ async function handleFinishedPhoto(args: {
         Photos: nextPhotos,
       },
       to,
-      completedText,
+      completedWork: {
+        isGibberish: false,
+        isFinish: true,
+        isAdditionalWork: false,
+        additionalWorkDescription: null,
+        additionalDetails: finishPayload.additionalDetails ?? [],
+        workOption: session.Works,
+        amountCompleted: null,
+        units: null,
+        issue: null,
+      },
+      completedText: finishPayload.completedText,
     });
     return;
   }

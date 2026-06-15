@@ -113,6 +113,8 @@ import {
   updateZtcDefaultTaskRates,
   updateZtcPayrollFields,
   type ZtcDefaultTaskRate,
+  type ZtcProjectTaskRates,
+  type ZtcRateCategory,
 } from "@/components/sitediary/ZTC/actions";
 
 import { toast } from "sonner";
@@ -204,14 +206,17 @@ function getZtcPayrollValues(row: DiaryRow) {
 
   const hours = parsePayrollNumber(row.TimeInvolved);
   const amountM2 = parsePayrollNumber(row.Amounts);
+  const unit = String(row.Units ?? "m2").toLowerCase();
+  const payrollQuantity = unit === "st" ? hours : amountM2;
   const rate = parsePayrollNumber(row.Location_Custom_2);
   const coefficient = parsePayrollNumber(row.Works_Custom_2, 1);
   const bonus = parsePayrollNumber(row.WorkersInvolved);
-  const sum = amountM2 * rate * coefficient + bonus;
+  const sum = payrollQuantity * rate * coefficient + bonus;
 
   return {
     hours,
     amountM2,
+    payrollQuantity,
     rate,
     coefficient,
     bonus,
@@ -561,58 +566,162 @@ type BisApprover = {
 type ZtcDefaultRatesDialogProps = {
   open: boolean;
   siteId: string | null;
-  rates: ZtcDefaultTaskRate[];
+  rates: ZtcProjectTaskRates[];
+  projectOptions: string[];
   onOpenChange: (open: boolean) => void;
-  onSaved: (rates: ZtcDefaultTaskRate[]) => void;
+  onSaved: (rates: ZtcProjectTaskRates[]) => void;
 };
+
+const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
+const ZTC_RATE_CATEGORY_LABELS: Record<ZtcRateCategory, string> = {
+  works: "Darbi",
+  additionalDetails: "Papilddetāļas",
+  additionalWorks: "Papilddarbi",
+};
+const ZTC_RATE_CATEGORIES: ZtcRateCategory[] = ["works", "additionalDetails", "additionalWorks"];
+
+function emptyZtcProjectRates(projectName: string): ZtcProjectTaskRates {
+  return {
+    projectName,
+    works: [],
+    additionalDetails: [],
+    additionalWorks: [],
+  };
+}
+
+function normalizeZtcProjectRatesForUi(
+  rates: ZtcProjectTaskRates[],
+  projectOptions: string[],
+) {
+  const names = Array.from(
+    new Set([
+      ZTC_ALL_PROJECTS_RATE_NAME,
+      ...rates.map((project) => project.projectName).filter(Boolean),
+      ...projectOptions.filter(Boolean),
+    ]),
+  );
+
+  return names.map((name) => {
+    const existing = rates.find((project) => project.projectName === name);
+    return existing ? { ...emptyZtcProjectRates(name), ...existing } : emptyZtcProjectRates(name);
+  });
+}
 
 const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
   open,
   siteId,
   rates,
+  projectOptions,
   onOpenChange,
   onSaved,
 }: ZtcDefaultRatesDialogProps) {
-  const [draft, setDraft] = React.useState<ZtcDefaultTaskRate[]>([{ task: "", rate: "" }]);
+  const [draft, setDraft] = React.useState<ZtcProjectTaskRates[]>([
+    emptyZtcProjectRates(ZTC_ALL_PROJECTS_RATE_NAME),
+  ]);
+  const [selectedProject, setSelectedProject] = React.useState(ZTC_ALL_PROJECTS_RATE_NAME);
+  const [selectedCategory, setSelectedCategory] = React.useState<ZtcRateCategory>("works");
+  const [newProjectName, setNewProjectName] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
     if (!open) return;
-    setDraft(rates.length ? rates.map((entry) => ({ ...entry })) : [{ task: "", rate: "" }]);
-  }, [open, rates]);
+    const nextDraft = normalizeZtcProjectRatesForUi(rates, projectOptions);
+    setDraft(nextDraft);
+    setSelectedProject((current) =>
+      nextDraft.some((project) => project.projectName === current)
+        ? current
+        : ZTC_ALL_PROJECTS_RATE_NAME,
+    );
+  }, [open, projectOptions, rates]);
 
-  const updateDraft = React.useCallback(
-    (index: number, field: keyof ZtcDefaultTaskRate, value: string) => {
+  const allProjects = draft.find((project) => project.projectName === ZTC_ALL_PROJECTS_RATE_NAME) ??
+    emptyZtcProjectRates(ZTC_ALL_PROJECTS_RATE_NAME);
+  const selectedProjectRates = draft.find((project) => project.projectName === selectedProject) ??
+    emptyZtcProjectRates(selectedProject);
+  const isAllProjects = selectedProject === ZTC_ALL_PROJECTS_RATE_NAME;
+  const visibleRows = isAllProjects
+    ? selectedProjectRates[selectedCategory]
+    : allProjects[selectedCategory].map((master) => {
+        const override = selectedProjectRates[selectedCategory].find(
+          (entry) => entry.task.toLowerCase() === master.task.toLowerCase(),
+        );
+        return { task: master.task, rate: override?.rate ?? master.rate };
+      });
+
+  const setProjectCategoryRows = React.useCallback(
+    (projectName: string, category: ZtcRateCategory, rows: ZtcDefaultTaskRate[]) => {
       setDraft((current) =>
-        current.map((entry, entryIndex) =>
-          entryIndex === index ? { ...entry, [field]: value } : entry,
+        current.map((project) =>
+          project.projectName === projectName ? { ...project, [category]: rows } : project,
         ),
       );
     },
     [],
   );
 
+  const updateDraft = React.useCallback(
+    (index: number, field: keyof ZtcDefaultTaskRate, value: string) => {
+      if (isAllProjects) {
+        const rows = [...visibleRows];
+        rows[index] = { ...rows[index], [field]: value };
+        setProjectCategoryRows(selectedProject, selectedCategory, rows);
+        return;
+      }
+
+      const master = allProjects[selectedCategory][index];
+      if (!master || field !== "rate") return;
+      const currentRows = selectedProjectRates[selectedCategory];
+      const nextRows = currentRows.some((entry) => entry.task.toLowerCase() === master.task.toLowerCase())
+        ? currentRows.map((entry) =>
+            entry.task.toLowerCase() === master.task.toLowerCase()
+              ? { ...entry, rate: value }
+              : entry,
+          )
+        : [...currentRows, { task: master.task, rate: value }];
+      setProjectCategoryRows(selectedProject, selectedCategory, nextRows);
+    },
+    [allProjects, isAllProjects, selectedCategory, selectedProject, selectedProjectRates, setProjectCategoryRows, visibleRows],
+  );
+
   const removeDraftRow = React.useCallback((index: number) => {
-    setDraft((current) =>
-      current.length <= 1
-        ? [{ task: "", rate: "" }]
-        : current.filter((_, entryIndex) => entryIndex !== index),
-    );
-  }, []);
+    if (!isAllProjects) return;
+    const rows = visibleRows.length <= 1
+      ? [{ task: "", rate: "" }]
+      : visibleRows.filter((_, entryIndex) => entryIndex !== index);
+    setProjectCategoryRows(selectedProject, selectedCategory, rows);
+  }, [isAllProjects, selectedCategory, selectedProject, setProjectCategoryRows, visibleRows]);
+
+  const addProject = React.useCallback(() => {
+    const projectName = newProjectName.trim();
+    if (!projectName) {
+      toast.error("Norādiet projekta nosaukumu.");
+      return;
+    }
+    if (draft.some((project) => project.projectName.toLowerCase() === projectName.toLowerCase())) {
+      setSelectedProject(projectName);
+      setNewProjectName("");
+      return;
+    }
+    setDraft((current) => [...current, emptyZtcProjectRates(projectName)]);
+    setSelectedProject(projectName);
+    setNewProjectName("");
+  }, [draft, newProjectName]);
 
   const saveDraft = React.useCallback(async () => {
     if (!siteId) return;
 
-    const normalizedRates = draft
-      .map((entry) => ({
-        task: entry.task.trim(),
-        rate: entry.rate.trim().replace(",", "."),
-      }))
-      .filter((entry) => entry.task || entry.rate);
+    const normalizedRates = draft.map((project) => ({
+      projectName: project.projectName.trim() || ZTC_ALL_PROJECTS_RATE_NAME,
+      works: project.works.map((entry) => ({ task: entry.task.trim(), rate: entry.rate.trim().replace(",", ".") })).filter((entry) => entry.task || entry.rate),
+      additionalDetails: project.additionalDetails.map((entry) => ({ task: entry.task.trim(), rate: entry.rate.trim().replace(",", ".") })).filter((entry) => entry.task || entry.rate),
+      additionalWorks: project.additionalWorks.map((entry) => ({ task: entry.task.trim(), rate: entry.rate.trim().replace(",", ".") })).filter((entry) => entry.task || entry.rate),
+    }));
 
-    const invalid = normalizedRates.find(
-      (entry) => !entry.task || !entry.rate || !Number.isFinite(Number(entry.rate)),
-    );
+    const invalid = normalizedRates.flatMap((project) => [
+      ...project.works,
+      ...project.additionalDetails,
+      ...project.additionalWorks,
+    ]).find((entry) => !entry.task || !entry.rate || !Number.isFinite(Number(entry.rate)));
     if (invalid) {
       toast.error("Katrai darbu likmei jānorāda darbs un derīga likme.");
       return;
@@ -645,16 +754,57 @@ const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
 
         <div className="space-y-3">
           <div className="rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
-            Norādiet noklusējuma likmi katram darbam. Saglabājot ierakstu, ZTC plūsma salīdzinās darbu nosaukumus arī tad, ja rasējumā tie nav uzrakstīti pilnīgi vienādi.
+            Visi projekti nosaka darbu sarakstu un noklusējuma likmes. Konkrētam projektam var mainīt tikai likmi.
           </div>
 
+          <div className="grid gap-2 sm:grid-cols-[220px_1fr_auto]">
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
+              <SelectTrigger>
+                <SelectValue placeholder="Projekts" />
+              </SelectTrigger>
+              <SelectContent>
+                {draft.map((project) => (
+                  <SelectItem key={project.projectName} value={project.projectName}>
+                    {project.projectName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              value={newProjectName}
+              maxLength={120}
+              placeholder="Jauns projekts"
+              onChange={(event) => setNewProjectName(event.target.value)}
+            />
+            <Button type="button" variant="outline" onClick={addProject} disabled={saving}>
+              Pievienot projektu
+            </Button>
+          </div>
+
+          <Tabs value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as ZtcRateCategory)}>
+            <TabsList>
+              {ZTC_RATE_CATEGORIES.map((category) => (
+                <TabsTrigger key={category} value={category}>
+                  {ZTC_RATE_CATEGORY_LABELS[category]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+
           <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-            {draft.map((entry, index) => (
+            {visibleRows.map((entry, index) => (
               <div key={index} className="grid gap-2 rounded-md border p-2 sm:grid-cols-[1fr_140px_40px]">
                 <Input
                   value={entry.task}
                   maxLength={180}
-                  placeholder="Darbs, piemēram R2 - Batten, 45x45mm"
+                  disabled={!isAllProjects || saving}
+                  placeholder={
+                    selectedCategory === "additionalDetails"
+                      ? "Detaļa, piemēram Kronšteins"
+                      : selectedCategory === "additionalWorks"
+                        ? "Papilddarbs, piemēram Izkraušana"
+                        : "Darbs, piemēram R2 - Batten, 45x45mm"
+                  }
                   onChange={(event) => updateDraft(index, "task", event.target.value)}
                 />
                 <Input
@@ -668,7 +818,7 @@ const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  disabled={saving}
+                  disabled={saving || !isAllProjects}
                   onClick={() => removeDraftRow(index)}
                   aria-label="Dzēst likmi"
                 >
@@ -682,8 +832,13 @@ const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
             <Button
               type="button"
               variant="outline"
-              disabled={saving}
-              onClick={() => setDraft((current) => [...current, { task: "", rate: "" }])}
+              disabled={saving || !isAllProjects}
+              onClick={() =>
+                setProjectCategoryRows(selectedProject, selectedCategory, [
+                  ...visibleRows,
+                  { task: "", rate: "" },
+                ])
+              }
             >
               Pievienot likmi
             </Button>
@@ -948,7 +1103,7 @@ export default function SiteDiaryCalendar({
   const [payrollDirtyRowIds, setPayrollDirtyRowIds] = React.useState<Set<string>>(new Set());
   const [ztcImageDialog, setZtcImageDialog] = React.useState<ZtcImageDialogState>(null);
   const [ztcRateDialogOpen, setZtcRateDialogOpen] = React.useState(false);
-  const [ztcDefaultRates, setZtcDefaultRates] = React.useState<ZtcDefaultTaskRate[]>([]);
+  const [ztcDefaultRates, setZtcDefaultRates] = React.useState<ZtcProjectTaskRates[]>([]);
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
       setFilledDays([]);
@@ -1002,6 +1157,18 @@ export default function SiteDiaryCalendar({
   const openZtcRateDialog = () => {
     setZtcRateDialogOpen(true);
   };
+
+  const ztcRateProjectOptions = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          rows
+            .map((row) => String(row.Location ?? "").trim())
+            .filter((project) => project && project !== "Papilddarbi"),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "lv")),
+    [rows],
+  );
 
   // Load filled days for calendar
   React.useEffect(() => {
@@ -1514,7 +1681,8 @@ export default function SiteDiaryCalendar({
         Elements: row.Location_Custom_1 ?? "",
         Darbi: row.Works ?? "",
         Stundas: payroll.hours,
-        "Apjoms m2": payroll.amountM2,
+        Apjoms: payroll.amountM2,
+        Mērvienība: row.Units ?? "",
         Likme: payroll.rate,
         Koeficients: payroll.coefficient,
         Bonuss: payroll.bonus,
@@ -4064,6 +4232,7 @@ export default function SiteDiaryCalendar({
             open={ztcRateDialogOpen}
             siteId={siteId}
             rates={ztcDefaultRates}
+            projectOptions={ztcRateProjectOptions}
             onOpenChange={setZtcRateDialogOpen}
             onSaved={setZtcDefaultRates}
           />
