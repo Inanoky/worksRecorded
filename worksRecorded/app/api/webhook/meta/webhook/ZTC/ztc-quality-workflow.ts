@@ -1,3 +1,4 @@
+import OpenAI from "openai";
 import { prisma } from "@/lib/utils/db";
 import { getString } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import {
@@ -23,7 +24,17 @@ const QA_PENDING_PREFIX = "__ZTC_QA_PENDING__";
 const QA_COMPLETED_PHOTO_BATCH_PREFIX = "__ZTC_QA_COMPLETED_PHOTO_BATCH__";
 const QA_COMPLETED_PHOTO_BATCH_WINDOW_MS = 45_000;
 const QA_PENDING_PHOTO_PROMPT_WINDOW_MS = 45_000;
+const QA_TEXT_TIMEOUT_MS = 30_000;
 const QA_WORK_LABEL = "Kvalitātes kontrole";
+
+type QaQualityStatus = "accepted" | "accepted_with_defects" | "rejected" | "unknown";
+
+type QaQualityEvaluation = {
+  status: QaQualityStatus;
+  coefficient: "1" | "0.9" | null;
+  summary: string | null;
+  issue: string | null;
+};
 
 type QaPendingPayload = {
   drawingPhotoUrl: string;
@@ -81,6 +92,152 @@ function isUsefulQaText(text: string) {
 function shouldSendPendingPhotoPrompt(payload: QaPendingPayload, now = Date.now()) {
   const promptedAt = Number(payload.qualityPhotoPromptAt ?? 0);
   return !Number.isFinite(promptedAt) || promptedAt <= 0 || now - promptedAt >= QA_PENDING_PHOTO_PROMPT_WINDOW_MS;
+}
+
+function withQaTimeout<T>(promise: Promise<T>, label: string, timeoutMs: number) {
+  let timeout: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+      error.name = "ZtcTimeoutError";
+      reject(error);
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeout));
+}
+
+function normalizeQualityEvaluation(value: Partial<QaQualityEvaluation> | null | undefined): QaQualityEvaluation {
+  const status: QaQualityStatus =
+    value?.status === "accepted" ||
+    value?.status === "accepted_with_defects" ||
+    value?.status === "rejected"
+      ? value.status
+      : "unknown";
+
+  return {
+    status,
+    coefficient:
+      status === "accepted"
+        ? "1"
+        : status === "accepted_with_defects"
+          ? "0.9"
+          : null,
+    summary: String(value?.summary ?? "").trim() || null,
+    issue: String(value?.issue ?? "").trim() || null,
+  };
+}
+
+function fallbackQualityEvaluation(text: string): QaQualityEvaluation {
+  const normalized = text.toLowerCase();
+
+  if (/\b(nav\s+pie[ņn]em|nepie[ņn]em|neder|br[aā][ķk]|j[aā]p[aā]rtaisa|j[aā]labo|rejected|not\s+accepted|not\s+acceptable|брак|не\s+принят)/i.test(normalized)) {
+    return normalizeQualityEvaluation({
+      status: "rejected",
+      summary: "Kvalitāte nav pieņemama.",
+    });
+  }
+
+  if (/(defekt|boj[aā]j|tr[uū]kum|pie[ņn]em.*ar|akcept.*ar|accepted\s+with|defects?\s+acceptable)/i.test(normalized)) {
+    return normalizeQualityEvaluation({
+      status: "accepted_with_defects",
+      summary: "Kvalitāte pieņemta ar defektiem.",
+    });
+  }
+
+  if (/\b(k[aā]rt[iī]b[aā]|pie[ņn]emts|akcept[eē]ts|bez\s+defekt|atbilst|labi|ok|accepted|good)\b/i.test(normalized)) {
+    return normalizeQualityEvaluation({
+      status: "accepted",
+      summary: "Kvalitāte pieņemta.",
+    });
+  }
+
+  return normalizeQualityEvaluation({
+    status: "unknown",
+    issue: "Kvalitātes statuss nav skaidri nosakāms.",
+  });
+}
+
+async function evaluateQualityMessage(text: string): Promise<QaQualityEvaluation> {
+  const normalized = text.trim();
+  if (!normalized) return fallbackQualityEvaluation(normalized);
+
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await withQaTimeout(
+      openai.chat.completions.create({
+        model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "Evaluate a ZTC factory quality control message. Return only JSON with keys: status, summary, issue. status must be one of: accepted, accepted_with_defects, rejected, unknown. Use accepted when quality is OK/accepted/without defects. Use accepted_with_defects when defects are mentioned but the work is still accepted/acceptable. Use rejected when quality is not accepted, needs rework, has unacceptable defects, or is rejected. Use unknown only if the message does not clearly state quality outcome. Preserve Latvian meaning in summary.",
+          },
+          { role: "user", content: normalized },
+        ],
+      }),
+      "ztc_quality_message_evaluation",
+      QA_TEXT_TIMEOUT_MS,
+    );
+
+    const parsed = parseJsonObject<Partial<QaQualityEvaluation> | null>(
+      response.choices[0]?.message?.content,
+      null,
+    );
+    const evaluation = normalizeQualityEvaluation(parsed);
+    return evaluation.status === "unknown" ? fallbackQualityEvaluation(normalized) : evaluation;
+  } catch (error) {
+    console.warn("[ZTC QA] quality message evaluation failed", error);
+    return fallbackQualityEvaluation(normalized);
+  }
+}
+
+function qualityStatusLabel(status: QaQualityStatus) {
+  if (status === "accepted") return "Pieņemts";
+  if (status === "accepted_with_defects") return "Pieņemts ar defektiem";
+  if (status === "rejected") return "Nav pieņemts";
+  return "Nav skaidrs";
+}
+
+async function propagateQualityCoefficient(args: {
+  projectName: string | null | undefined;
+  elementName: string | null | undefined;
+  qaRecordId: string;
+  evaluation: QaQualityEvaluation;
+}) {
+  const projectName = String(args.projectName ?? "").trim();
+  const elementName = String(args.elementName ?? "").trim();
+  if (!projectName || !elementName || args.evaluation.status === "unknown") {
+    return { count: 0, coefficient: null as string | null };
+  }
+
+  const coefficient =
+    args.evaluation.status === "accepted"
+      ? "1"
+      : args.evaluation.status === "accepted_with_defects"
+        ? "0.9"
+        : null;
+
+  const result = await prisma.sitediaryrecords.updateMany({
+    where: {
+      siteId: ZTC_SITE_ID,
+      organizationId: ZTC_ORGANIZATION_ID,
+      Location: projectName,
+      Location_Custom_1: elementName,
+      Works: { not: null },
+      NOT: [
+        { id: args.qaRecordId },
+        { Works: QA_WORK_LABEL },
+        { Comments_Custom_2: { contains: "\"type\":\"ztc_quality_check\"" } },
+      ],
+    },
+    data: {
+      Works_Custom_2: coefficient,
+    },
+  });
+
+  return { count: result.count, coefficient };
 }
 
 async function uploadQualityImages(formData: FormData, idxs: number[], context: string) {
@@ -163,6 +320,8 @@ function buildQualityMetadata(args: {
   qualityPhotoUrls: string[];
   qualityText: string;
   checkedWork: string | null;
+  qualityEvaluation: QaQualityEvaluation;
+  coefficientPropagation?: { count: number; coefficient: string | null };
 }) {
   return {
     type: "ztc_quality_check",
@@ -174,6 +333,8 @@ function buildQualityMetadata(args: {
     elementName: args.payload.drawingMetadata.elements[0]?.elementName ?? "",
     checkedWork: args.checkedWork,
     qualityText: args.qualityText,
+    qualityEvaluation: args.qualityEvaluation,
+    coefficientPropagation: args.coefficientPropagation ?? null,
   };
 }
 
@@ -218,16 +379,13 @@ async function completeQualitySession(args: {
   if (!qualityText || qualityPhotoUrls.length === 0) return;
 
   const polishedQualityText = await polishZtcCommentText(qualityText);
+  const qualityEvaluation = await evaluateQualityMessage(polishedQualityText);
   const checkedWork = findCheckedWork(args.payload, polishedQualityText);
-  const metadata = buildQualityMetadata({
-    payload: args.payload,
-    qualityPhotoUrls,
-    qualityText: polishedQualityText,
-    checkedWork,
-  });
   const elementName = args.payload.drawingMetadata.elements[0]?.elementName ?? "";
   const comments = [
     `Kvalitātes kontrole: ${polishedQualityText}`,
+    `Vērtējums: ${qualityStatusLabel(qualityEvaluation.status)}`,
+    qualityEvaluation.coefficient ? `Koeficients: ${qualityEvaluation.coefficient}` : null,
     checkedWork ? `Darbs: ${checkedWork}` : null,
   ]
     .filter(Boolean)
@@ -245,10 +403,32 @@ async function completeQualitySession(args: {
       TimeInvolved: null,
       Comments: comments,
       Comments_Custom_1: makeCompletedPhotoBatchState(),
-      Comments_Custom_2: JSON.stringify(metadata),
       Photos: [args.payload.drawingPhotoUrl, ...qualityPhotoUrls],
       originalUserComment: `${workerFullName(args.worker)} : ${qualityText}`,
       originalAudioUrl: mergeOriginalAudioUrls(args.payload.originalAudioUrl),
+    },
+  });
+
+  const coefficientPropagation = await propagateQualityCoefficient({
+    projectName: updated.Location,
+    elementName: updated.Location_Custom_1,
+    qaRecordId: updated.id,
+    evaluation: qualityEvaluation,
+  });
+
+  const metadata = buildQualityMetadata({
+    payload: args.payload,
+    qualityPhotoUrls,
+    qualityText: polishedQualityText,
+    checkedWork,
+    qualityEvaluation,
+    coefficientPropagation,
+  });
+
+  await prisma.sitediaryrecords.update({
+    where: { id: updated.id },
+    data: {
+      Comments_Custom_2: JSON.stringify(metadata),
     },
   });
 
@@ -265,12 +445,19 @@ async function completeQualitySession(args: {
     project: updated.Location,
     element: updated.Location_Custom_1,
     checkedWork,
+    qualityStatus: qualityEvaluation.status,
+    coefficient: coefficientPropagation.coefficient,
+    affectedRecordCount: coefficientPropagation.count,
     qualityPhotoCount: qualityPhotoUrls.length,
   });
 
   await sendZtcMessage(
     args.to,
-    `Kvalitātes kontrole saglabāta.\nProjekts: ${updated.Location}\nElements: ${updated.Location_Custom_1}${checkedWork ? `\nDarbs: ${checkedWork}` : ""}`,
+    `Kvalitātes kontrole saglabāta.\nProjekts: ${updated.Location}\nElements: ${updated.Location_Custom_1}${checkedWork ? `\nDarbs: ${checkedWork}` : ""}\nVērtējums: ${qualityStatusLabel(qualityEvaluation.status)}${
+      qualityEvaluation.status === "unknown"
+        ? "\nKoeficients netika mainīts."
+        : `\nKoeficients: ${coefficientPropagation.coefficient ?? "tukšs"}\nAtjaunināti ieraksti: ${coefficientPropagation.count}`
+    }`,
   );
 }
 
