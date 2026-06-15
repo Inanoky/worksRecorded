@@ -472,6 +472,45 @@ function isTlWork(workName: string | null | undefined) {
   return /^TL(\b|\s*[-/])/i.test(normalizeZtcWorkName(workName));
 }
 
+function hasDiagonalMeasurementsInComments(value: string | null | undefined) {
+  const text = String(value ?? "");
+  return /Diagon[āa]le\s*1\s*:/i.test(text) && /Diagon[āa]le\s*2\s*:/i.test(text);
+}
+
+async function findExistingTlDiagonalReport(session: OpenZtcSession) {
+  if (!isTlWork(session.Works) || !session.Location || !session.Location_Custom_1) {
+    return null;
+  }
+
+  const relatedRows = await prisma.sitediaryrecords.findMany({
+    where: {
+      organizationId: ZTC_ORGANIZATION_ID,
+      Location: session.Location,
+      Location_Custom_1: session.Location_Custom_1,
+      Date_Custom_2: { not: null },
+      Comments: { contains: "Diagon" },
+      NOT: [{ id: session.id }],
+    },
+    orderBy: { Date_Custom_2: "desc" },
+    take: 20,
+    select: {
+      id: true,
+      workerId: true,
+      Location: true,
+      Location_Custom_1: true,
+      Works: true,
+      Comments: true,
+      Date_Custom_2: true,
+    },
+  });
+
+  return (
+    relatedRows.find(
+      (row) => isTlWork(row.Works) && hasDiagonalMeasurementsInComments(row.Comments),
+    ) ?? null
+  );
+}
+
 export function workerFullName(worker: ZtcWorker) {
   return [worker.name, worker.surname].filter(Boolean).join(" ").trim() || "Darbinieks";
 }
@@ -1499,6 +1538,21 @@ async function finishSessionOrAskTlDiagonals(args: {
   originalAudioUrl?: string | null;
 }) {
   if (isTlWork(args.session.Works)) {
+    const existingDiagonalReport = await findExistingTlDiagonalReport(args.session);
+    if (existingDiagonalReport) {
+      logZtcSession("tl_diagonal_flow_skipped_existing_report", {
+        session: args.session,
+        details: {
+          existingRecordId: existingDiagonalReport.id,
+          existingWorkerId: existingDiagonalReport.workerId,
+          existingCompletedAt: existingDiagonalReport.Date_Custom_2,
+        },
+      });
+
+      await completeSession(args);
+      return;
+    }
+
     await askForTlDiagonals({
       session: args.session,
       to: args.to,
