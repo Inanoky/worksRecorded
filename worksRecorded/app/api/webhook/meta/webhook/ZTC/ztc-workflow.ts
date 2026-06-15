@@ -75,6 +75,12 @@ type WorkExtraction = {
   issue: string | null;
 };
 
+type DiagonalMeasureExtraction = {
+  isValid: boolean;
+  measureMm: number | null;
+  issue: string | null;
+};
+
 type ZtcConfigField = {
   DropDownOptions?: Record<string, unknown>;
 };
@@ -627,6 +633,56 @@ function parseDiagonalMeasureMm(text: string): number | null {
     .filter((value) => Number.isFinite(value) && value > 0);
 
   return numbers[0] ?? null;
+}
+
+function normalizeDiagonalMeasureMm(value: unknown) {
+  const measure = Number(value);
+  if (!Number.isFinite(measure) || measure <= 0) return null;
+  return Math.round(measure);
+}
+
+async function extractDiagonalMeasureMm(text: string) {
+  const normalized = text.trim();
+  if (!normalized) return null;
+
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const response = await withZtcTimeout(
+      openai.chat.completions.create({
+        model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "Extract one timber frame diagonal measurement from a WhatsApp voice transcript. Return only JSON with keys: isValid boolean, measureMm number|null, issue string|null. The worker usually speaks Latvian, Russian, or English. Convert spoken numbers to digits. The required unit is millimeters. If the worker explicitly says meters or centimeters, convert to millimeters. If the transcript contains several numbers, choose the number that is the diagonal measurement, not a filler/count/order number. If no clear single diagonal measurement is present, return isValid=false and measureMm=null. Do not guess.",
+          },
+          {
+            role: "user",
+            content: `Transcript: ${normalized}`,
+          },
+        ],
+      }),
+      "ztc_diagonal_measure_extraction",
+      ZTC_TEXT_TIMEOUT_MS,
+    );
+
+    const extracted = parseJsonObject<DiagonalMeasureExtraction>(
+      response.choices[0]?.message?.content,
+      {
+        isValid: false,
+        measureMm: null,
+        issue: "Could not extract diagonal measurement.",
+      },
+    );
+    const measure = extracted.isValid ? normalizeDiagonalMeasureMm(extracted.measureMm) : null;
+    if (measure != null) return measure;
+  } catch (error) {
+    console.warn("[ZTC workflow] diagonal measure extraction failed", error);
+  }
+
+  const numericFallback = normalizeDiagonalMeasureMm(parseDiagonalMeasureMm(normalized));
+  return numericFallback != null && numericFallback >= 100 ? numericFallback : null;
 }
 
 function isDiagonalPhotoMeasureFlow(value: string | null | undefined) {
@@ -1266,6 +1322,7 @@ async function handleTlDiagonalMeasureText(args: {
   session: OpenZtcSession;
   text: string;
   to: string | null;
+  originalAudioUrl?: string | null;
 }) {
   const state = args.session.Comments_Custom_1;
 
@@ -1280,9 +1337,9 @@ async function handleTlDiagonalMeasureText(args: {
   }
 
   if (state?.startsWith(DIAGONAL_FIRST_MEASURE_PENDING_PREFIX)) {
-    const measure = parseDiagonalMeasureMm(args.text);
+    const measure = await extractDiagonalMeasureMm(args.text);
     if (measure == null) {
-      await sendZtcMessage(args.to, "Neatradu mērījumu. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm, piemēram: 5240.");
+      await sendZtcMessage(args.to, "Neatradu mērījumu. Lūdzu, atsūtiet balss ziņu ar pirmās diagonāles mērījumu milimetros, piemēram: 5240.");
       return;
     }
 
@@ -1295,6 +1352,7 @@ async function handleTlDiagonalMeasureText(args: {
       where: { id: args.session.id },
       data: {
         Comments_Custom_1: `${DIAGONAL_SECOND_PHOTO_PENDING_PREFIX} ${JSON.stringify(payload)}`,
+        originalAudioUrl: mergeOriginalAudioUrls(args.session.originalAudioUrl, args.originalAudioUrl),
       },
     });
 
@@ -1308,9 +1366,9 @@ async function handleTlDiagonalMeasureText(args: {
   }
 
   if (state?.startsWith(DIAGONAL_SECOND_MEASURE_PENDING_PREFIX)) {
-    const measure = parseDiagonalMeasureMm(args.text);
+    const measure = await extractDiagonalMeasureMm(args.text);
     if (measure == null) {
-      await sendZtcMessage(args.to, "Neatradu mērījumu. Lūdzu, ierakstiet otrās diagonāles mērījumu mm, piemēram: 5238.");
+      await sendZtcMessage(args.to, "Neatradu mērījumu. Lūdzu, atsūtiet balss ziņu ar otrās diagonāles mērījumu milimetros, piemēram: 5238.");
       return;
     }
 
@@ -1333,6 +1391,7 @@ async function handleTlDiagonalMeasureText(args: {
         session: args.session,
         payload,
       }),
+      originalAudioUrl: args.originalAudioUrl,
     });
   }
 }
@@ -1347,12 +1406,12 @@ async function handleTlDiagonalPhoto(args: {
   const state = args.session.Comments_Custom_1;
 
   if (state?.startsWith(DIAGONAL_FIRST_MEASURE_PENDING_PREFIX)) {
-    await sendZtcMessage(args.to, "Pirmās diagonāles foto jau ir saņemts. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm.");
+    await sendZtcMessage(args.to, "Pirmās diagonāles foto jau ir saņemts. Lūdzu, atsūtiet balss ziņu ar pirmās diagonāles mērījumu milimetros.");
     return;
   }
 
   if (state?.startsWith(DIAGONAL_SECOND_MEASURE_PENDING_PREFIX)) {
-    await sendZtcMessage(args.to, "Otrās diagonāles foto jau ir saņemts. Lūdzu, ierakstiet otrās diagonāles mērījumu mm.");
+    await sendZtcMessage(args.to, "Otrās diagonāles foto jau ir saņemts. Lūdzu, atsūtiet balss ziņu ar otrās diagonāles mērījumu milimetros.");
     return;
   }
 
@@ -1385,7 +1444,7 @@ async function handleTlDiagonalPhoto(args: {
       label: "Pirmā diagonāle",
     });
 
-    await sendZtcMessage(args.to, "Pirmās diagonāles foto saņemts. Lūdzu, ierakstiet pirmās diagonāles mērījumu mm, piemēram: 5240.");
+    await sendZtcMessage(args.to, "Pirmās diagonāles foto saņemts. Lūdzu, atsūtiet balss ziņu ar pirmās diagonāles mērījumu milimetros, piemēram: 5240.");
     return;
   }
 
@@ -1418,7 +1477,7 @@ async function handleTlDiagonalPhoto(args: {
       label: "Otrā diagonāle",
     });
 
-    await sendZtcMessage(args.to, "Otrās diagonāles foto saņemts. Lūdzu, ierakstiet otrās diagonāles mērījumu mm, piemēram: 5238.");
+    await sendZtcMessage(args.to, "Otrās diagonāles foto saņemts. Lūdzu, atsūtiet balss ziņu ar otrās diagonāles mērījumu milimetros, piemēram: 5238.");
   }
 }
 
@@ -1708,7 +1767,7 @@ async function handleWorkText(args: {
   const openSession = await getOpenZtcSession(worker.id);
 
   if (openSession && isDiagonalPhotoMeasureFlow(openSession.Comments_Custom_1)) {
-    await handleTlDiagonalMeasureText({ session: openSession, text, to });
+    await handleTlDiagonalMeasureText({ session: openSession, text, to, originalAudioUrl });
     return;
   }
 
