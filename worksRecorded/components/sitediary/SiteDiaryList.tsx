@@ -578,12 +578,8 @@ const ZTC_RATE_CATEGORY_LABELS: Record<ZtcRateCategory, string> = {
   additionalDetails: "Papilddetāļas",
   additionalWorks: "Papilddarbi",
 };
-const ZTC_RATE_CATEGORY_HELP: Record<ZtcRateCategory, string> = {
-  works: "Likmes ražošanas darbu rindām. Mērvienība: m2.",
-  additionalDetails: "Likmes papildus detaļu rindām. Mērvienība: gab.",
-  additionalWorks: "Likmes papilddarbu rindām. Mērvienība: st.",
-};
 const ZTC_RATE_CATEGORIES: ZtcRateCategory[] = ["works", "additionalDetails", "additionalWorks"];
+const ZTC_ADD_PROJECT_SELECT_VALUE = "__ztc_add_project__";
 
 function emptyZtcProjectRates(projectName: string): ZtcProjectTaskRates {
   return {
@@ -596,13 +592,11 @@ function emptyZtcProjectRates(projectName: string): ZtcProjectTaskRates {
 
 function normalizeZtcProjectRatesForUi(
   rates: ZtcProjectTaskRates[],
-  projectOptions: string[],
 ) {
   const names = Array.from(
     new Set([
       ZTC_ALL_PROJECTS_RATE_NAME,
       ...rates.map((project) => project.projectName).filter(Boolean),
-      ...projectOptions.filter(Boolean),
     ]),
   );
 
@@ -625,20 +619,22 @@ const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
   ]);
   const [selectedProject, setSelectedProject] = React.useState(ZTC_ALL_PROJECTS_RATE_NAME);
   const [selectedCategory, setSelectedCategory] = React.useState<ZtcRateCategory>("works");
+  const [addingProject, setAddingProject] = React.useState(false);
   const [newProjectName, setNewProjectName] = React.useState("");
   const [rateSearch, setRateSearch] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const newProjectInputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => {
     if (!open) return;
-    const nextDraft = normalizeZtcProjectRatesForUi(rates, projectOptions);
+    const nextDraft = normalizeZtcProjectRatesForUi(rates);
     setDraft(nextDraft);
     setSelectedProject((current) =>
       nextDraft.some((project) => project.projectName === current)
         ? current
         : ZTC_ALL_PROJECTS_RATE_NAME,
     );
-  }, [open, projectOptions, rates]);
+  }, [open, rates]);
 
   const allProjects = draft.find((project) => project.projectName === ZTC_ALL_PROJECTS_RATE_NAME) ??
     emptyZtcProjectRates(ZTC_ALL_PROJECTS_RATE_NAME);
@@ -662,6 +658,17 @@ const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     });
   const categoryCount = selectedProjectRates[selectedCategory]?.length ?? 0;
   const masterCategoryCount = allProjects[selectedCategory]?.length ?? 0;
+  const suggestedProjectNames = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          projectOptions
+            .map((project) => project.trim())
+            .filter((project) => project && project !== ZTC_ALL_PROJECTS_RATE_NAME),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "lv")),
+    [projectOptions],
+  );
 
   const setProjectCategoryRows = React.useCallback(
     (projectName: string, category: ZtcRateCategory, rows: ZtcDefaultTaskRate[]) => {
@@ -706,24 +713,39 @@ const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     setProjectCategoryRows(selectedProject, selectedCategory, rows);
   }, [isAllProjects, selectedCategory, selectedProject, setProjectCategoryRows, visibleRows]);
 
-  const addProject = React.useCallback(() => {
+  const addTypedProject = React.useCallback(() => {
     const projectName = newProjectName.trim();
     if (!projectName) {
-      toast.error("Norādiet projekta nosaukumu.");
+      toast.error("Ievadiet projekta nosaukumu.");
       return;
     }
+
     const existingProject = draft.find(
       (project) => project.projectName.toLowerCase() === projectName.toLowerCase(),
     );
     if (existingProject) {
       setSelectedProject(existingProject.projectName);
+      setAddingProject(false);
       setNewProjectName("");
       return;
     }
+
     setDraft((current) => [...current, emptyZtcProjectRates(projectName)]);
     setSelectedProject(projectName);
+    setAddingProject(false);
     setNewProjectName("");
   }, [draft, newProjectName]);
+
+  const handleProjectChange = React.useCallback((value: string) => {
+    if (value === ZTC_ADD_PROJECT_SELECT_VALUE) {
+      setAddingProject(true);
+      window.setTimeout(() => newProjectInputRef.current?.focus(), 0);
+      return;
+    }
+
+    setSelectedProject(value);
+    setAddingProject(false);
+  }, []);
 
   React.useEffect(() => {
     setRateSearch("");
@@ -769,32 +791,17 @@ const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-5xl">
-        <DialogHeader>
+      <DialogContent className="flex h-[86vh] w-[96vw] max-w-none flex-col overflow-hidden p-0 sm:max-w-[940px]">
+        <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>Darbu likmes</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="grid gap-3 rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground sm:grid-cols-3">
-            <div>
-              <div className="font-medium text-foreground">Visi projekti</div>
-              <div>Veido darbu sarakstu un noklusējuma likmes.</div>
-            </div>
-            <div>
-              <div className="font-medium text-foreground">Konkrēts projekts</div>
-              <div>Var mainīt tikai likmes, nevis darbu nosaukumus.</div>
-            </div>
-            <div>
-              <div className="font-medium text-foreground">{ZTC_RATE_CATEGORY_LABELS[selectedCategory]}</div>
-              <div>{ZTC_RATE_CATEGORY_HELP[selectedCategory]}</div>
-            </div>
-          </div>
-
-          <div className="grid gap-3 lg:grid-cols-[280px_1fr]">
-            <div className="space-y-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4">
+          <div className="grid gap-3 lg:grid-cols-[260px_1fr]">
+            <div className="space-y-1.5">
               <div className="text-xs font-medium uppercase text-muted-foreground">Projekts</div>
-              <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger>
+              <Select value={selectedProject} onValueChange={handleProjectChange}>
+                <SelectTrigger className="h-9">
                   <SelectValue placeholder="Projekts" />
                 </SelectTrigger>
                 <SelectContent>
@@ -803,133 +810,155 @@ const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                       {project.projectName}
                     </SelectItem>
                   ))}
+                  <SelectItem value={ZTC_ADD_PROJECT_SELECT_VALUE}>
+                    Pievienot projektu
+                  </SelectItem>
                 </SelectContent>
               </Select>
-              <div className="grid gap-2 sm:grid-cols-[1fr_auto] lg:grid-cols-1">
-                <Input
-                  value={newProjectName}
-                  maxLength={120}
-                  placeholder="Jauns projekts"
-                  onChange={(event) => setNewProjectName(event.target.value)}
-                />
-                <Button type="button" variant="outline" onClick={addProject} disabled={saving}>
-                  Pievienot projektu
-                </Button>
-              </div>
-              <div className="rounded-md border p-3 text-xs">
-                <div className="font-medium text-foreground">{selectedProject}</div>
-                <div className="mt-1 text-muted-foreground">
-                  {isAllProjects
-                    ? `${categoryCount} likmes šajā sadaļā`
-                    : `${masterCategoryCount} noklusējuma likmes, ${categoryCount} projekta korekcijas`}
+              {addingProject ? (
+                <div className="grid grid-cols-[1fr_auto] gap-2">
+                  <Input
+                    ref={newProjectInputRef}
+                    value={newProjectName}
+                    list="ztc-rate-project-suggestions"
+                    maxLength={120}
+                    placeholder="Projekta nosaukums"
+                    onChange={(event) => setNewProjectName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addTypedProject();
+                      }
+                      if (event.key === "Escape") {
+                        setAddingProject(false);
+                        setNewProjectName("");
+                      }
+                    }}
+                  />
+                  <Button type="button" variant="outline" onClick={addTypedProject} disabled={saving}>
+                    Pievienot
+                  </Button>
+                  <datalist id="ztc-rate-project-suggestions">
+                    {suggestedProjectNames.map((project) => (
+                      <option key={project} value={project} />
+                    ))}
+                  </datalist>
                 </div>
-              </div>
+              ) : null}
             </div>
 
-            <div className="space-y-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <Tabs value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as ZtcRateCategory)}>
-                  <TabsList>
-                    {ZTC_RATE_CATEGORIES.map((category) => (
-                      <TabsTrigger key={category} value={category}>
-                        {ZTC_RATE_CATEGORY_LABELS[category]}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-                <div className="relative sm:w-72">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={rateSearch}
-                    className="pl-8"
-                    placeholder="Meklēt likmi..."
-                    onChange={(event) => setRateSearch(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="overflow-hidden rounded-md border">
-                <div className="grid grid-cols-[1fr_140px_48px] border-b bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
-                  <div>{selectedCategory === "additionalDetails" ? "Detaļa" : "Darbs"}</div>
-                  <div className="text-right">Likme</div>
-                  <div />
-                </div>
-
-                <div className="max-h-[52vh] overflow-y-auto">
-                  {filteredRows.length ? (
-                    filteredRows.map(({ entry, index }) => (
-                      <div key={`${entry.task}-${index}`} className="grid gap-2 border-b p-2 last:border-b-0 sm:grid-cols-[1fr_140px_40px]">
-                        <Input
-                          value={entry.task}
-                          maxLength={180}
-                          disabled={!isAllProjects || saving}
-                          placeholder={
-                            selectedCategory === "additionalDetails"
-                              ? "Detaļa, piemēram Kronšteins"
-                              : selectedCategory === "additionalWorks"
-                                ? "Papilddarbs, piemēram Izkraušana"
-                                : "Darbs, piemēram R2 - Batten, 45x45mm"
-                          }
-                          onChange={(event) => updateDraft(index, "task", event.target.value)}
-                        />
-                        <Input
-                          value={entry.rate}
-                          inputMode="decimal"
-                          maxLength={12}
-                          placeholder="Likme"
-                          className="text-right"
-                          onChange={(event) => updateDraft(index, "rate", event.target.value)}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          disabled={saving || !isAllProjects}
-                          onClick={() => removeDraftRow(index)}
-                          aria-label="Dzēst likmi"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex min-h-32 items-center justify-center px-3 py-8 text-sm text-muted-foreground">
-                      {rateSearch ? "Nav atbilstošu likmju." : "Šajā sadaļā vēl nav likmju."}
-                    </div>
-                  )}
-                </div>
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium uppercase text-muted-foreground">Meklēt</div>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={rateSearch}
+                  className="h-9 pl-8"
+                  placeholder="Meklēt likmi..."
+                  onChange={(event) => setRateSearch(event.target.value)}
+                />
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+          <div className="flex items-center justify-between gap-3 border-b pb-2">
+            <Tabs value={selectedCategory} onValueChange={(value) => setSelectedCategory(value as ZtcRateCategory)}>
+              <TabsList className="h-9">
+                {ZTC_RATE_CATEGORIES.map((category) => (
+                  <TabsTrigger key={category} value={category} className="h-8">
+                    {ZTC_RATE_CATEGORY_LABELS[category]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <div className="shrink-0 text-xs text-muted-foreground">
+              {isAllProjects
+                ? `${categoryCount} likmes`
+                : `${masterCategoryCount} likmes, ${categoryCount} korekcijas`}
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden rounded-md border">
+            <div className="grid grid-cols-[minmax(0,1fr)_120px_44px] border-b bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+              <div>{selectedCategory === "additionalDetails" ? "Detaļa" : "Darbs"}</div>
+              <div className="text-right">Likme</div>
+              <div />
+            </div>
+
+            <div className="h-full overflow-y-auto pb-9">
+              {filteredRows.length ? (
+                filteredRows.map(({ entry, index }) => (
+                  <div key={`${entry.task}-${index}`} className="grid grid-cols-[minmax(0,1fr)_120px_44px] gap-2 border-b p-2 last:border-b-0">
+                    <Input
+                      value={entry.task}
+                      maxLength={180}
+                      disabled={!isAllProjects || saving}
+                      placeholder={
+                        selectedCategory === "additionalDetails"
+                          ? "Detaļa, piemēram Kronšteins"
+                          : selectedCategory === "additionalWorks"
+                            ? "Papilddarbs, piemēram Izkraušana"
+                            : "Darbs, piemēram R2 - Batten, 45x45mm"
+                      }
+                      onChange={(event) => updateDraft(index, "task", event.target.value)}
+                    />
+                    <Input
+                      value={entry.rate}
+                      inputMode="decimal"
+                      maxLength={12}
+                      placeholder="Likme"
+                      className="text-right"
+                      onChange={(event) => updateDraft(index, "rate", event.target.value)}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      disabled={saving || !isAllProjects}
+                      onClick={() => removeDraftRow(index)}
+                      aria-label="Dzēst likmi"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <div className="flex h-full min-h-32 items-center justify-center px-3 py-8 text-sm text-muted-foreground">
+                  {rateSearch ? "Nav atbilstošu likmju." : "Šajā sadaļā vēl nav likmju."}
+                </div>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        <div className="flex items-center justify-between gap-2 border-t px-6 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving || !isAllProjects}
+            onClick={() =>
+              setProjectCategoryRows(selectedProject, selectedCategory, [
+                ...visibleRows,
+                { task: "", rate: "" },
+              ])
+            }
+          >
+            Pievienot likmi
+          </Button>
+          <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
-              disabled={saving || !isAllProjects}
-              onClick={() =>
-                setProjectCategoryRows(selectedProject, selectedCategory, [
-                  ...visibleRows,
-                  { task: "", rate: "" },
-                ])
-              }
+              disabled={saving}
+              onClick={() => onOpenChange(false)}
             >
-              Pievienot likmi
+              Atcelt
             </Button>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={saving}
-                onClick={() => onOpenChange(false)}
-              >
-                Atcelt
-              </Button>
-              <Button type="button" disabled={saving} onClick={saveDraft}>
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Saglabāt
-              </Button>
-            </div>
+            <Button type="button" disabled={saving} onClick={saveDraft}>
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Saglabāt
+            </Button>
           </div>
         </div>
       </DialogContent>
