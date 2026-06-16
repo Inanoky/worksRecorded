@@ -8,14 +8,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/utils";
 import { Menu } from "lucide-react";
+import { useMemo } from "react";
 
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+const ZTC_HIDDEN_PROJECT_NAV_PATHS = new Set(["timesheets", "BIS"]);
 
 export function MobileMenu({ organizationLanguage }: { organizationLanguage?: string | null }) {
   const { projectId, projectName } = useProject();
   const pathname = usePathname();
-  const navLinks = getNavLinks(organizationLanguage);
-  const projectNavLinks = getProjectNavLinks(organizationLanguage);
+  const navLinks = useMemo(() => getNavLinks(organizationLanguage), [organizationLanguage]);
+  const projectNavLinks = useMemo(() => getProjectNavLinks(organizationLanguage), [organizationLanguage]);
+  const visibleProjectNavLinks = useMemo(
+    () =>
+      projectId === ZTC_SITE_ID
+        ? projectNavLinks.filter((item) => !ZTC_HIDDEN_PROJECT_NAV_PATHS.has(item.path))
+        : projectNavLinks,
+    [projectId, projectNavLinks],
+  );
   const productionJournalLabel =
     normalizeLanguageLabel(organizationLanguage) === "lv"
       ? "Ražošanas žurnāls"
@@ -51,7 +60,7 @@ export function MobileMenu({ organizationLanguage }: { organizationLanguage?: st
             <div className="px-2 py-1.5 text-sm font-semibold text-blue-600">
               {projectName}
             </div>
-            {projectNavLinks.map((item) => (
+            {visibleProjectNavLinks.map((item) => (
               <DropdownMenuItem key={item.name} asChild>
                 <Link
                   href={`/dashboard/sites/${projectId}/${item.path}`}

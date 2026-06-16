@@ -4,17 +4,25 @@ import Link from "next/link";
 import { getNavLinks, getProjectNavLinks } from "./NavLinks";
 import { cn } from "@/lib/utils/utils";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
 
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+const ZTC_HIDDEN_PROJECT_NAV_PATHS = new Set(["timesheets", "BIS"]);
 
 export function DashboardItems({ userEmail, organizationLanguage }: { userEmail?: string; organizationLanguage?: string | null }) {
   const { projectId, projectName, setProject } = useProject();
   const pathname = usePathname();
   const router = useRouter();
-  const navLinks = getNavLinks(organizationLanguage);
-  const projectNavLinks = getProjectNavLinks(organizationLanguage);
+  const navLinks = useMemo(() => getNavLinks(organizationLanguage), [organizationLanguage]);
+  const projectNavLinks = useMemo(() => getProjectNavLinks(organizationLanguage), [organizationLanguage]);
+  const visibleProjectNavLinks = useMemo(
+    () =>
+      projectId === ZTC_SITE_ID
+        ? projectNavLinks.filter((item) => !ZTC_HIDDEN_PROJECT_NAV_PATHS.has(item.path))
+        : projectNavLinks,
+    [projectId, projectNavLinks],
+  );
   const productionJournalLabel =
     normalizeLanguageLabel(organizationLanguage) === "lv"
       ? "Ražošanas žurnāls"
@@ -31,10 +39,10 @@ export function DashboardItems({ userEmail, organizationLanguage }: { userEmail?
       router.prefetch(item.href);
     });
     if (!projectId) return;
-    projectNavLinks.forEach((item) => {
+    visibleProjectNavLinks.forEach((item) => {
       router.prefetch(`/dashboard/sites/${projectId}/${item.path}`);
     });
-  }, [navLinks, projectId, projectNavLinks, router]);
+  }, [navLinks, projectId, router, visibleProjectNavLinks]);
 
 return (
     <div className="flex items-center w-full justify-between gap-3">
@@ -60,7 +68,7 @@ return (
 
         {/* Only show project nav links when in a project subroute */}
         {projectName && projectId && /^\/dashboard\/sites\/[^\/]+/.test(pathname) &&
-          projectNavLinks.map((item) => (
+          visibleProjectNavLinks.map((item) => (
             <Link
               href={`/dashboard/sites/${projectId}/${item.path}`}
               key={item.name}
