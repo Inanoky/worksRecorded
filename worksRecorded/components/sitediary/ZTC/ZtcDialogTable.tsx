@@ -23,10 +23,9 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  createZtcSiteDiaryRecords,
   deleteZtcSiteDiaryRecord,
   getZtcDialogPrefetchData,
-  updateZtcSiteDiaryRecord,
+  saveZtcSiteDiaryDialogRows,
 } from "@/components/sitediary/ZTC/actions";
 import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import defaultConfig from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
@@ -292,6 +291,7 @@ export function ZtcDialogTable({
   const [rows, setRows] = useState<any[]>([]);
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [fieldMap, setFieldMap] = useState<Record<string, any>>(defaultConfig);
+  const [dirtyRowKeys, setDirtyRowKeys] = useState<Set<string>>(new Set());
 
   const newEmptyRow = () => ({
     id: undefined as string | undefined,
@@ -364,6 +364,7 @@ export function ZtcDialogTable({
   };
 
   const handleChange = (rowKey: string, field: string, value: any) => {
+    setDirtyRowKeys((prev) => new Set(prev).add(rowKey));
     setRows((prev) =>
       prev.map((row) => {
         if (row.id !== rowKey && row._tempId !== rowKey) return row;
@@ -488,30 +489,31 @@ export function ZtcDialogTable({
       };
     };
 
-    const existingRows = rowsToSave.filter((row) => isUUID(row.id));
+    const existingRows = rowsToSave.filter((row) => isUUID(row.id) && dirtyRowKeys.has(row.id));
     const newRows = rowsToSave.filter((row) => !isUUID(row.id));
+
+    if (!existingRows.length && !newRows.length) {
+      toast.success("Nav jaunu izmaiņu, ko saglabāt.");
+      return;
+    }
 
     try {
       setSaving(true);
-      for (const row of existingRows) {
-        await updateZtcSiteDiaryRecord({
+      await saveZtcSiteDiaryDialogRows({
+        existingRows: existingRows.map((row) => ({
           ...stripUiFields(row),
-          siteId,
-        });
-      }
-
-      if (newRows.length) {
-        await createZtcSiteDiaryRecords({
-          rows: newRows.map((row) => {
-            const { id, ...rest } = stripUiFields(row);
-            return rest;
-          }),
-          siteId,
-        });
-      }
+          id: row.id,
+        })),
+        newRows: newRows.map((row) => {
+          const { id, ...rest } = stripUiFields(row);
+          return rest;
+        }),
+        siteId,
+      });
 
       invalidateCurrentPrefetchCache();
       toast.success(toastMessages.diarySaved(existingRows.length, newRows.length));
+      setDirtyRowKeys(new Set());
       onSaved?.();
     } catch (error: any) {
       toast.error(error?.message ?? toastMessages.somethingWentWrong);
@@ -631,6 +633,7 @@ export function ZtcDialogTable({
       const renderableFields = getRenderableFieldsOrdered(config);
       const fieldsToKeep = Array.from(new Set([...renderableFields, ...HIDDEN_FIELDS_TO_KEEP]));
 
+      setDirtyRowKeys(new Set());
       setFieldMap(config);
       setTableHeads(renderableFields);
       setRows(

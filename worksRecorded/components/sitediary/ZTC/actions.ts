@@ -541,6 +541,55 @@ export async function createZtcSiteDiaryRecords(args: {
   return { ok: true, count: rows.length };
 }
 
+export async function saveZtcSiteDiaryDialogRows(args: {
+  siteId: string;
+  existingRows: Array<Record<string, any> & { id: string }>;
+  newRows: Array<Record<string, any>>;
+}) {
+  const user = await requireZtcAccess(args.siteId);
+  const defaultRates = await getZtcDefaultTaskRates(args.siteId);
+
+  const existingRows = args.existingRows
+    .filter((row) => row.id)
+    .map((row) => {
+      const { id, siteId, _tempId, createdBy, ...data } = row;
+      return {
+        id,
+        data: sanitizeZtcRecordRow({ ...data, __ztcDefaultTaskRates: defaultRates }),
+      };
+    });
+
+  const newRows = args.newRows.map((row) => ({
+    userId: user.id,
+    siteId: ZTC_SITE_ID,
+    organizationId: ZTC_ORGANIZATION_ID,
+    ...sanitizeZtcRecordRow({ ...row, __ztcDefaultTaskRates: defaultRates }),
+    Photos: [],
+  }));
+
+  if (!existingRows.length && !newRows.length) {
+    return { ok: true, updated: 0, created: 0 };
+  }
+
+  await prisma.$transaction([
+    ...existingRows.map((row) =>
+      prisma.sitediaryrecords.updateMany({
+        where: {
+          id: row.id,
+          siteId: ZTC_SITE_ID,
+          organizationId: ZTC_ORGANIZATION_ID,
+        },
+        data: row.data,
+      }),
+    ),
+    ...(newRows.length
+      ? [prisma.sitediaryrecords.createMany({ data: newRows })]
+      : []),
+  ]);
+
+  return { ok: true, updated: existingRows.length, created: newRows.length };
+}
+
 export async function updateZtcSiteDiaryRecord(args: {
   siteId: string;
   id: string;
