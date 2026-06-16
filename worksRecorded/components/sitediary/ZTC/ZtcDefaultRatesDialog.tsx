@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -356,6 +357,9 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
       <DialogContent className="flex h-[86vh] w-[96vw] max-w-none flex-col overflow-hidden p-0 sm:max-w-[940px]">
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>Darbu likmes</DialogTitle>
+          <DialogDescription className="sr-only">
+            Pārvaldīt ZTC projektu, darbu, papilddetāļu un papilddarbu likmes.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4">

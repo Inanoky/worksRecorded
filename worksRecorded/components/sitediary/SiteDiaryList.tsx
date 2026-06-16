@@ -76,6 +76,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -2826,9 +2827,9 @@ export default function SiteDiaryCalendar({
             <DialogContent className="w-[99vw] max-w-[99vw] sm:max-w-[96vw] lg:max-w-[92vw] xl:max-w-[88vw] 2xl:max-w-[84vw] max-h-[96vh] overflow-y-auto p-6">
               <DialogHeader>
                 <DialogTitle>{t.selectBisMaterialsDialogTitle}</DialogTitle>
-                <p className="text-xs text-muted-foreground">
+                <DialogDescription className="text-xs text-muted-foreground">
                   {t.selectBisMaterialsDialogDescription}
-                </p>
+                </DialogDescription>
               </DialogHeader>
 
               {bisPickerLoading ? (
@@ -3156,9 +3157,9 @@ export default function SiteDiaryCalendar({
           <DialogContent className="max-w-xl">
             <DialogHeader>
               <DialogTitle>{t.sendSiteDiaryForApprovalTitle}</DialogTitle>
-              <p className="text-sm text-muted-foreground">
+              <DialogDescription className="text-sm text-muted-foreground">
                 {t.sendSiteDiaryForApprovalDescription}
-              </p>
+              </DialogDescription>
             </DialogHeader>
 
             <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
@@ -3212,9 +3213,9 @@ export default function SiteDiaryCalendar({
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Copy record to another date</DialogTitle>
-              <p className="text-sm text-muted-foreground">
+              <DialogDescription className="text-sm text-muted-foreground">
                 This creates a local copy only. If the original was sent to BIS, copied record must be sent again.
-              </p>
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3">
@@ -3248,6 +3249,9 @@ export default function SiteDiaryCalendar({
           <DialogContent className="w-[98vw] max-w-[98vw] lg:max-w-7xl max-h-[94vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{t.selectAttachmentsFromGalleryTitle}</DialogTitle>
+              <DialogDescription className="sr-only">
+                Select photos from the project gallery as BIS attachments.
+              </DialogDescription>
             </DialogHeader>
 
             {galleryAttachmentOptions.length === 0 ? (
@@ -3344,6 +3348,9 @@ export default function SiteDiaryCalendar({
                   })
                   : t.noDateSelected}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                View photos and audio connected with this site diary day.
+              </DialogDescription>
             </DialogHeader>
             <ImageGallery
               date={photosDate}
@@ -3367,6 +3374,9 @@ export default function SiteDiaryCalendar({
                   })
                   : t.noDateSelected}
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Weather details for the selected site diary day.
+              </DialogDescription>
             </DialogHeader>
 
             {weatherLoading ? (

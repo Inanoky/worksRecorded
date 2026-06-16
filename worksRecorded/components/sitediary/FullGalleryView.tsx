@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from "next/image";
+import { deletePhotoById } from "@/server/actions/site-diary-actions";
 
 // --- shadcn/ui Components ---
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +23,7 @@ import {
 interface Photo {
   id: string;
   fileUrl: string;
-  Date: Date | null;
+  Date: Date | string | null;
   Comment: string | null;
   Location: string | null;
 }
@@ -31,6 +32,13 @@ const PHOTOS_PER_PAGE = 30;
 const INITIAL_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.2;
+
+function formatPhotoDate(value: Photo["Date"]) {
+  if (!value) return "N/A";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleDateString("lv-LV");
+}
 
 // Helper style function for modal navigation buttons (anchored to the full backdrop)
 const navButtonStyle = (side: 'left' | 'right'): React.CSSProperties => ({
@@ -55,7 +63,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
   // --- State ---
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,6 +83,31 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
   
   const imageRef = useRef<HTMLImageElement>(null); 
   const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
+
+  const fetchPhotos = useCallback(async () => {
+    if (!siteId) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+      setSelectedPhotoIndex(null);
+      setSelectedPhotoIds(new Set());
+
+      const response = await fetch(`/api/sites/${encodeURIComponent(siteId)}/photos?page=${currentPage}`);
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to load photos");
+      }
+
+      setPhotos(result.photos as Photo[]);
+      setTotalPhotos(result.totalCount);
+    } catch (err) {
+      setError('Error loading photos. Please try again.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, siteId]);
 
   // --- Effects ---
 
@@ -95,32 +130,8 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 
   // 2. Data Fetching Logic (Triggers on siteId OR currentPage change)
   useEffect(() => {
-    async function fetchPhotos() {
-      if (!siteId) return;
-
-      try {
-        setLoading(true);
-        setError(null);
-        setSelectedPhotoIndex(null); 
-
-        const response = await fetch(`/api/sites/${encodeURIComponent(siteId)}/photos?page=${currentPage}`);
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result?.error || "Failed to load photos");
-        }
-
-        setPhotos(result.photos as Photo[]);
-        setTotalPhotos(result.totalCount);
-
-      } catch (err) {
-        setError('Error loading photos. Please try again.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchPhotos();
-  }, [siteId, currentPage]);
+  }, [fetchPhotos]);
 
   // 3. Navigation Handlers for Expanded View
   const navigate = useCallback((direction: 'prev' | 'next') => {
@@ -272,6 +283,75 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
     );
   }
 
+  const togglePhotoSelection = useCallback((photoId: string) => {
+    setSelectedPhotoIds((current) => {
+      const next = new Set(current);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else {
+        next.add(photoId);
+      }
+      return next;
+    });
+  }, []);
+
+  const deletePhotos = useCallback(
+    async (photoIds: string[]) => {
+      const ids = Array.from(new Set(photoIds)).filter(Boolean);
+      if (!ids.length || deleting) return;
+
+      const confirmed = window.confirm(
+        ids.length > 1
+          ? `Delete ${ids.length} selected photos?`
+          : "Delete this photo?",
+      );
+      if (!confirmed) return;
+
+      try {
+        setDeleting(true);
+        await Promise.all(ids.map((id) => deletePhotoById(id)));
+
+        setPhotos((current) => {
+          const deleteSet = new Set(ids);
+          const next = current.filter((photo) => !deleteSet.has(photo.id));
+          setSelectedPhotoIndex((index) => {
+            if (index == null) return null;
+            if (!next.length) return null;
+            return Math.min(index, next.length - 1);
+          });
+          return next;
+        });
+        setSelectedPhotoIds((current) => {
+          const next = new Set(current);
+          ids.forEach((id) => next.delete(id));
+          return next;
+        });
+        setTotalPhotos((current) => Math.max(0, current - ids.length));
+
+        const remainingOnPage = photos.filter((photo) => !ids.includes(photo.id)).length;
+        if (remainingOnPage === 0 && currentPage > 1) {
+          setCurrentPage((page) => Math.max(1, page - 1));
+        } else {
+          await fetchPhotos();
+        }
+      } catch (err) {
+        console.error("Failed to delete photos", err);
+        setError("Could not delete photos. Please try again.");
+      } finally {
+        setDeleting(false);
+      }
+    },
+    [currentPage, deleting, fetchPhotos, photos],
+  );
+
+  const selectAllCurrentPage = useCallback(() => {
+    setSelectedPhotoIds(new Set(photos.map((photo) => photo.id)));
+  }, [photos]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedPhotoIds(new Set());
+  }, []);
+
   // --- Render Status ---
   if (error) return <p className="text-red-500 p-4">{error}</p>;
 
@@ -282,7 +362,44 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
     <>
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Project Photo Gallery ({totalPhotos} Total Photos)</CardTitle>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Project Photo Gallery ({totalPhotos} Total Photos)</CardTitle>
+            {photos.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={deleting}
+                  onClick={selectAllCurrentPage}
+                >
+                  Select page
+                </Button>
+                {selectedPhotoIds.size > 0 ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={deleting}
+                      onClick={clearSelection}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      disabled={deleting}
+                      onClick={() => deletePhotos(Array.from(selectedPhotoIds))}
+                    >
+                      Delete selected ({selectedPhotoIds.size})
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent>
           
@@ -303,12 +420,24 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 
               {/* Gallery Grid */}
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-                {photos.map((photo, index) => (
+                {photos.map((photo, index) => {
+                  const selected = selectedPhotoIds.has(photo.id);
+                  return (
                   <div
                     key={photo.id}
                     onClick={() => setSelectedPhotoIndex(index)}
-                    className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded-md transition-all hover:opacity-75"
+                    className={`relative aspect-[4/3] cursor-pointer overflow-hidden rounded-md transition-all hover:opacity-75 ${selected ? "ring-2 ring-green-600" : ""}`}
                   >
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        togglePhotoSelection(photo.id);
+                      }}
+                      className="absolute left-2 top-2 z-10 rounded bg-black/65 px-2 py-1 text-xs font-medium text-white"
+                    >
+                      {selected ? "Selected" : "Select"}
+                    </button>
                     <Image
                       src={photo.fileUrl}
                       alt={photo.Comment || `Site Photo ${index + 1}`}
@@ -318,7 +447,8 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
                       title={photo.Comment || `Click to expand`}
                     />
                   </div>
-                ))}
+                  );
+                })}
               </div>
               
               {/* Pagination Controls (Below Grid) */}
@@ -391,6 +521,14 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
             >
               &times;
             </Button>
+            <Button
+              onClick={() => deletePhotos([currentPhoto.id])}
+              disabled={deleting}
+              variant="destructive"
+              className="absolute top-4 right-16 z-20 h-8"
+            >
+              Delete
+            </Button>
             
             {/* Reset Zoom Button */}
             {zoomLevel > INITIAL_ZOOM && (
@@ -426,7 +564,7 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
           {/* Photo Info Display */}
           <div className="mt-4 p-2 bg-black/50 rounded-lg" style={{ color: 'white', textAlign: 'center' }}>
             <p className="font-semibold">{currentPhoto.Comment}</p>
-            <p className="text-sm">Taken: {currentPhoto.Date?.toLocaleDateString() || 'N/A'} at {currentPhoto.Location || 'N/A'}</p>
+            <p className="text-sm">Taken: {formatPhotoDate(currentPhoto.Date)} at {currentPhoto.Location || 'N/A'}</p>
             <p className="text-xs mt-1">
                 Photo **{selectedPhotoIndex! + 1}** of **{photos.length}** (Page **{currentPage}** of **{totalPages}**)
             </p>
