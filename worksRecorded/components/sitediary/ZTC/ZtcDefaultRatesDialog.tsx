@@ -50,9 +50,10 @@ const ZTC_RATE_CATEGORIES: ZtcRateCategory[] = [
 ];
 const ZTC_ADD_PROJECT_SELECT_VALUE = "__ztc_add_project__";
 
-function emptyZtcProjectRates(projectName: string): ZtcProjectTaskRates {
+function emptyZtcProjectRates(projectName: string, manual = false): ZtcProjectTaskRates {
   return {
     projectName,
+    manual,
     works: [],
     additionalDetails: [],
     additionalWorks: [],
@@ -61,11 +62,27 @@ function emptyZtcProjectRates(projectName: string): ZtcProjectTaskRates {
 
 function normalizeZtcProjectRatesForUi(
   rates: ZtcProjectTaskRates[],
+  projectOptions: string[],
 ): ZtcProjectTaskRates[] {
+  const availableProjects = new Set(
+    projectOptions
+      .map((project) => project.trim())
+      .filter(Boolean)
+      .map((project) => project.toLowerCase()),
+  );
   const names = Array.from(
     new Set([
       ZTC_ALL_PROJECTS_RATE_NAME,
-      ...rates.map((project) => project.projectName).filter(Boolean),
+      ...projectOptions.map((project) => project.trim()).filter(Boolean),
+      ...rates
+        .map((project) => project.projectName)
+        .filter(
+          (project) =>
+            project &&
+            (project === ZTC_ALL_PROJECTS_RATE_NAME ||
+              rates.find((rateProject) => rateProject.projectName === project)?.manual === true ||
+              availableProjects.has(project.toLowerCase())),
+        ),
     ]),
   );
 
@@ -107,7 +124,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
 
   React.useEffect(() => {
     if (!open) return;
-    const nextDraft = normalizeZtcProjectRatesForUi(rates);
+    const nextDraft = normalizeZtcProjectRatesForUi(rates, projectOptions);
     draftRef.current = nextDraft;
     setDraft(nextDraft);
     setSelectedProject((current) =>
@@ -115,7 +132,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
         ? current
         : ZTC_ALL_PROJECTS_RATE_NAME,
     );
-  }, [open, rates]);
+  }, [open, projectOptions, rates]);
 
   const allProjects =
     draft.find((project) => project.projectName === ZTC_ALL_PROJECTS_RATE_NAME) ??
@@ -143,6 +160,17 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     });
   const categoryCount = selectedProjectRates[selectedCategory]?.length ?? 0;
   const masterCategoryCount = allProjects[selectedCategory]?.length ?? 0;
+  const recordProjectNameSet = React.useMemo(
+    () =>
+      new Set(
+        projectOptions
+          .map((project) => project.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    [projectOptions],
+  );
+  const canDeleteSelectedProject =
+    !isAllProjects && !recordProjectNameSet.has(selectedProject.toLowerCase());
   const suggestedProjectNames = React.useMemo(
     () =>
       Array.from(
@@ -268,7 +296,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
       return;
     }
 
-    setDraft((current) => [...current, emptyZtcProjectRates(projectName)]);
+    setDraft((current) => [...current, emptyZtcProjectRates(projectName, true)]);
     setSelectedProject(projectName);
     setAddingProject(false);
     setNewProjectName("");
@@ -286,6 +314,29 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     setAddingProject(false);
   }, [commitVisibleRateInputs]);
 
+  const deleteSelectedProject = React.useCallback(() => {
+    if (isAllProjects) return;
+    if (recordProjectNameSet.has(selectedProject.toLowerCase())) {
+      toast.error("Projektu nevar dzēst, jo tam ir žurnāla ieraksti.");
+      return;
+    }
+
+    const committedDraft = commitVisibleRateInputs();
+    const nextDraft = committedDraft.filter(
+      (project) => project.projectName !== selectedProject,
+    );
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
+    setSelectedProject(ZTC_ALL_PROJECTS_RATE_NAME);
+    setAddingProject(false);
+    setNewProjectName("");
+  }, [
+    commitVisibleRateInputs,
+    isAllProjects,
+    recordProjectNameSet,
+    selectedProject,
+  ]);
+
   React.useEffect(() => {
     setRateSearch("");
   }, [selectedCategory, selectedProject]);
@@ -296,6 +347,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     const committedDraft = commitVisibleRateInputs();
     const normalizedRates = committedDraft.map((project) => ({
       projectName: project.projectName.trim() || ZTC_ALL_PROJECTS_RATE_NAME,
+      manual: project.manual === true,
       works: project.works
         .map((entry) => ({
           task: entry.task.trim(),
@@ -368,21 +420,40 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
               <div className="text-xs font-medium uppercase text-muted-foreground">
                 Projekts
               </div>
-              <Select value={selectedProject} onValueChange={handleProjectChange}>
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Projekts" />
-                </SelectTrigger>
-                <SelectContent>
-                  {draft.map((project) => (
-                    <SelectItem key={project.projectName} value={project.projectName}>
-                      {project.projectName}
+              <div className="grid grid-cols-[1fr_auto] gap-2">
+                <Select value={selectedProject} onValueChange={handleProjectChange}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Projekts" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {draft.map((project) => (
+                      <SelectItem key={project.projectName} value={project.projectName}>
+                        {project.projectName}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={ZTC_ADD_PROJECT_SELECT_VALUE}>
+                      Pievienot projektu
                     </SelectItem>
-                  ))}
-                  <SelectItem value={ZTC_ADD_PROJECT_SELECT_VALUE}>
-                    Pievienot projektu
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={saving || !canDeleteSelectedProject}
+                  title={
+                    isAllProjects
+                      ? "Visi projekti nav dzēšams."
+                      : canDeleteSelectedProject
+                        ? "Dzēst projektu no likmēm"
+                        : "Projektu nevar dzēst, jo tam ir žurnāla ieraksti."
+                  }
+                  onClick={deleteSelectedProject}
+                  aria-label="Dzēst projektu"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
               {addingProject ? (
                 <div className="grid grid-cols-[1fr_auto] gap-2">
                   <Input

@@ -20,6 +20,7 @@ export type ZtcDefaultTaskRate = {
 
 export type ZtcProjectTaskRates = {
   projectName: string;
+  manual?: boolean;
   works: ZtcDefaultTaskRate[];
   additionalDetails: ZtcDefaultTaskRate[];
   additionalWorks: ZtcDefaultTaskRate[];
@@ -130,6 +131,7 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     const raw = project as Record<string, unknown>;
     return {
       projectName: normalizeProjectRateName(raw.projectName),
+      manual: raw.manual === true,
       works: normalizeTaskRateEntries(raw.works),
       additionalDetails: normalizeTaskRateEntries(raw.additionalDetails),
       additionalWorks: normalizeTaskRateEntries(raw.additionalWorks),
@@ -141,6 +143,7 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     : [
         {
           projectName: ZTC_ALL_PROJECTS_RATE_NAME,
+          manual: false,
           works: [],
           additionalDetails: [],
           additionalWorks: [],

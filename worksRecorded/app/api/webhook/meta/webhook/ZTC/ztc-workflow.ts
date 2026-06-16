@@ -82,6 +82,7 @@ type WorkExtraction = {
 type DiagonalMeasureExtraction = {
   isValid: boolean;
   measureMm: number | null;
+  normalizedText?: string | null;
   issue: string | null;
 };
 
@@ -396,6 +397,13 @@ async function getDefaultRateForWork(
   workName: string | null | undefined,
   options: { projectName?: string | null; category?: ZtcRateCategory } = {},
 ) {
+  return (await getDefaultRateMatchForWork(workName, options))?.rate ?? null;
+}
+
+async function getDefaultRateMatchForWork(
+  workName: string | null | undefined,
+  options: { projectName?: string | null; category?: ZtcRateCategory } = {},
+) {
   const config = ((await getConfig(ZTC_SITE_ID)) ??
     ztcSiteDiaryRecordsMap) as Record<string, any>;
   const rates = getProjectCategoryRates(
@@ -406,7 +414,7 @@ async function getDefaultRateForWork(
   const workTokens = new Set(taskRateMatchTokens(String(workName ?? "")));
   if (!workTokens.size) return null;
 
-  let best: { rate: string; score: number } | null = null;
+  let best: { task: string; rate: string; score: number } | null = null;
 
   for (const entry of rates) {
     const rateTokens = new Set(taskRateMatchTokens(entry.task));
@@ -433,11 +441,11 @@ async function getDefaultRateForWork(
 
     const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
     if (score >= threshold && (!best || score > best.score)) {
-      best = { rate: entry.rate, score };
+      best = { task: entry.task, rate: entry.rate, score };
     }
   }
 
-  return best?.rate ?? null;
+  return best;
 }
 
 function normalizeAllowedWorkOption(value: string | null | undefined, allowed: string[]) {
@@ -858,6 +866,31 @@ function parseDiagonalMeasureMm(text: string): number | null {
   return numbers[0] ?? null;
 }
 
+function pickDiagonalMeasureMmFromText(text: string) {
+  const normalized = text.toLowerCase();
+  const matches = normalized.match(/-?\d+(?:[.,]\d+)?/g) ?? [];
+  const numbers = matches
+    .map((match) => Number(match.replace(",", ".")))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  if (!numbers.length) return null;
+
+  const mentionsCentimeters = /\b(cm|centimetr\w*|centimetrs|centimetri|santimetr\w*)\b/i.test(normalized);
+  const mentionsMeters = /\b(m|metr\w*|metrs|metri|meter|meters)\b/i.test(normalized) && !mentionsCentimeters;
+
+  const converted = numbers.map((value) => {
+    if (mentionsMeters && value < 50) return value * 1000;
+    if (mentionsCentimeters && value < 2000) return value * 10;
+    return value;
+  });
+
+  return (
+    converted.find((value) => value >= 1000 && value <= 30000) ??
+    converted.find((value) => value >= 100) ??
+    converted[0] ??
+    null
+  );
+}
+
 function normalizeDiagonalMeasureMm(value: unknown) {
   const measure = Number(value);
   if (!Number.isFinite(measure) || measure <= 0) return null;
@@ -878,11 +911,16 @@ async function extractDiagonalMeasureMm(text: string) {
           {
             role: "system",
             content:
-              "Extract one timber frame diagonal measurement from a WhatsApp voice transcript. Return only JSON with keys: isValid boolean, measureMm number|null, issue string|null. The worker usually speaks Latvian, Russian, or English. Convert spoken numbers to digits. The required unit is millimeters. If the worker explicitly says meters or centimeters, convert to millimeters. If the transcript contains several numbers, choose the number that is the diagonal measurement, not a filler/count/order number. If no clear single diagonal measurement is present, return isValid=false and measureMm=null. Do not guess.",
+              "Convert a WhatsApp voice transcript into one timber frame diagonal measurement. Return only JSON with keys: isValid boolean, measureMm number|null, normalizedText string|null, issue string|null. The worker usually speaks Latvian, Russian, or English. The final unit must be millimeters. Convert spoken numbers to digits. If the worker dictates digits one by one, concatenate them into one number: 'pieci divi četri nulle', 'five two four zero', or 'пять два четыре ноль' means 5240. Convert meters and centimeters to millimeters. Ignore filler words, photo/order numbers, and words like first/second diagonal unless they are the only numbers. A realistic diagonal is usually between 1000 and 30000 mm. If no clear single measurement is present, return isValid=false and measureMm=null. Do not guess.",
           },
           {
             role: "user",
-            content: `Transcript: ${normalized}`,
+            content: `Voice transcript: ${normalized}
+
+Examples:
+- "pirmā diagonāle pieci divi četri nulle" -> {"isValid":true,"measureMm":5240,"normalizedText":"pirmā diagonāle 5240 mm","issue":null}
+- "otrā diagonāle five thousand two hundred thirty eight" -> {"isValid":true,"measureMm":5238,"normalizedText":"otrā diagonāle 5238 mm","issue":null}
+- "диагональ пять два три восемь" -> {"isValid":true,"measureMm":5238,"normalizedText":"diagonāle 5238 mm","issue":null}`,
           },
         ],
       }),
@@ -900,11 +938,16 @@ async function extractDiagonalMeasureMm(text: string) {
     );
     const measure = extracted.isValid ? normalizeDiagonalMeasureMm(extracted.measureMm) : null;
     if (measure != null) return measure;
+
+    const normalizedTextMeasure = normalizeDiagonalMeasureMm(
+      pickDiagonalMeasureMmFromText(extracted.normalizedText ?? ""),
+    );
+    if (extracted.isValid && normalizedTextMeasure != null) return normalizedTextMeasure;
   } catch (error) {
     console.warn("[ZTC workflow] diagonal measure extraction failed", error);
   }
 
-  const numericFallback = normalizeDiagonalMeasureMm(parseDiagonalMeasureMm(normalized));
+  const numericFallback = normalizeDiagonalMeasureMm(pickDiagonalMeasureMmFromText(normalized) ?? parseDiagonalMeasureMm(normalized));
   return numericFallback != null && numericFallback >= 100 ? numericFallback : null;
 }
 
@@ -1150,6 +1193,8 @@ export async function transcribeAudioWithSource(formData: FormData, idx: number)
         openai.audio.transcriptions.create({
           file,
           model: "gpt-4o-transcribe",
+          prompt:
+            "This is a ZTC factory WhatsApp voice note. Preserve diagonal measurements carefully. If the speaker says measurement digits one by one in Latvian, Russian, or English, transcribe them as digits when possible, for example 'pieci divi četri nulle' as '5240'.",
         }),
         "ztc_audio_transcription",
         ZTC_TRANSCRIPTION_TIMEOUT_MS,
@@ -2108,12 +2153,13 @@ async function createAdditionalWorkSession(args: {
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
   const comments = await buildPolishedZtcUserComments({ startText: text });
-  const defaultRate = await getDefaultRateForWork(
+  const defaultRateMatch = await getDefaultRateMatchForWork(
     work.additionalWorkDescription || workOption,
     {
       category: "additionalWorks",
     },
   );
+  const mappedWorkOption = defaultRateMatch?.task?.trim() || workOption;
 
   const created = await prisma.sitediaryrecords.create({
     data: {
@@ -2123,8 +2169,8 @@ async function createAdditionalWorkSession(args: {
       Date: now,
       Date_Custom_1: now,
       Location: "Papilddarbi",
-      Works: workOption,
-      Location_Custom_2: defaultRate,
+      Works: mappedWorkOption,
+      Location_Custom_2: defaultRateMatch?.rate ?? null,
       Units: "st",
       Amounts: work.amountCompleted ?? undefined,
       Comments: comments,
@@ -2136,7 +2182,12 @@ async function createAdditionalWorkSession(args: {
   logZtcSession("additional_work_started", {
     session: created,
     worker,
-    details: { startText: text },
+    details: {
+      startText: text,
+      extractedWork: work.additionalWorkDescription || workOption,
+      mappedWork: mappedWorkOption,
+      matchedRate: defaultRateMatch?.rate ?? null,
+    },
   });
 
   return created;
