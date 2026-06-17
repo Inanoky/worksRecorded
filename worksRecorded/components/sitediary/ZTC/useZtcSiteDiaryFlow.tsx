@@ -30,6 +30,7 @@ type UseZtcSiteDiaryFlowArgs<Row extends ZtcDiaryRow> = {
   currentYear: number;
   currentMonth: number;
   setViewMode: (mode: "calendar" | "list" | "gallery") => void;
+  setProjectFilter: (value: string) => void;
   setElementFilter: (value: string) => void;
 };
 
@@ -41,6 +42,7 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
   currentYear,
   currentMonth,
   setViewMode,
+  setProjectFilter,
   setElementFilter,
 }: UseZtcSiteDiaryFlowArgs<Row>) {
   const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
@@ -220,6 +222,18 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
     [setElementFilter, setViewMode],
   );
 
+  const openProjectDetails = React.useCallback(
+    (projectName: string | null | undefined) => {
+      const normalizedProject = String(projectName ?? "").trim();
+      if (!normalizedProject) return;
+
+      setViewMode("list");
+      setProjectFilter(normalizedProject);
+      setElementFilter("__ALL__");
+    },
+    [setElementFilter, setProjectFilter, setViewMode],
+  );
+
   const dialogs = enabled ? (
     <>
       <ZtcDefaultRatesDialog
@@ -251,6 +265,7 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
     openRateDialog: () => setRateDialogOpen(true),
     openRowImages,
     openElementDetails,
+    openProjectDetails,
     dialogs,
   };
 }

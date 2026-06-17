@@ -471,6 +471,7 @@ export default function SiteDiaryCalendar({
     currentYear,
     currentMonth,
     setViewMode,
+    setProjectFilter: setFloorFilter,
     setElementFilter,
   });
   const reloadFilledDays = React.useCallback(() => {
@@ -746,6 +747,31 @@ export default function SiteDiaryCalendar({
       }))
       .filter((group) => group.rows.length > 0);
   }, [dayGroups, keywordFilter]);
+
+  const ztcSelectedScopeSummary = React.useMemo(() => {
+    if (!isZtcSite || (floorFilter === "__ALL__" && elementFilter === "__ALL__")) {
+      return null;
+    }
+
+    const visibleRows = keywordMatchedDayGroups.flatMap((group) => group.rows);
+    const totals = visibleRows.reduce(
+      (acc, row) => {
+        const payroll = getZtcPayrollValues(row);
+        acc.hours += payroll.hours;
+        acc.money += payroll.sum;
+        return acc;
+      },
+      { hours: 0, money: 0 },
+    );
+
+    return {
+      project: floorFilter !== "__ALL__" ? floorFilter : null,
+      element: elementFilter !== "__ALL__" ? elementFilter : null,
+      rows: visibleRows.length,
+      hours: totals.hours,
+      money: totals.money,
+    };
+  }, [elementFilter, floorFilter, isZtcSite, keywordMatchedDayGroups]);
 
   const visibleRecordIds = React.useMemo(
     () =>
@@ -1808,6 +1834,50 @@ export default function SiteDiaryCalendar({
               </Card>
             )}
 
+            {ztcSelectedScopeSummary ? (
+              <div className="mb-4 rounded-md border bg-background px-3 py-3 shadow-sm sm:px-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-foreground">
+                      Kopa atlasitajam
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {ztcSelectedScopeSummary.project ? (
+                        <span className="rounded-md bg-muted px-2 py-1">
+                          Projekts: {ztcSelectedScopeSummary.project}
+                        </span>
+                      ) : null}
+                      {ztcSelectedScopeSummary.element ? (
+                        <span className="rounded-md bg-muted px-2 py-1">
+                          Elements: {ztcSelectedScopeSummary.element}
+                        </span>
+                      ) : null}
+                      <span className="rounded-md bg-muted px-2 py-1">
+                        Ieraksti: {ztcSelectedScopeSummary.rows}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm sm:min-w-[320px]">
+                    <div className="rounded-md border bg-muted/30 px-3 py-2">
+                      <div className="text-xs text-muted-foreground">Stundas</div>
+                      <div className="text-lg font-semibold tabular-nums">
+                        {ztcSelectedScopeSummary.hours.toLocaleString(dateLocale, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </div>
+                    </div>
+                    <div className="rounded-md border bg-muted/30 px-3 py-2">
+                      <div className="text-xs text-muted-foreground">Summa</div>
+                      <div className="text-lg font-semibold tabular-nums">
+                        {formatZtcMoney(ztcSelectedScopeSummary.money)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
             {!loading && keywordMatchedDayGroups.length === 0 && !error && (
               <Card className="border-dashed">
                 <CardContent className="py-8 text-center text-sm text-muted-foreground">
@@ -1954,9 +2024,19 @@ export default function SiteDiaryCalendar({
                                 </div>
                               ) : null}
                               <div className="flex flex-wrap items-baseline justify-between gap-1">
-                                <span className="font-medium">
-                                  {r.Location || t.noLocation}
-                                </span>
+                                {isZtcSite && r.Location ? (
+                                  <button
+                                    type="button"
+                                    className="font-medium underline-offset-2 hover:text-blue-700 hover:underline"
+                                    onClick={() => ztc.openProjectDetails(r.Location)}
+                                  >
+                                    {r.Location}
+                                  </button>
+                                ) : (
+                                  <span className="font-medium">
+                                    {r.Location || t.noLocation}
+                                  </span>
+                                )}
                                 <span className="text-[10px] text-muted-foreground">
                                   {r.Units && r.Amounts != null
                                     ? `${r.Amounts} ${r.Units}`
@@ -2271,7 +2351,17 @@ export default function SiteDiaryCalendar({
                                             <div className="space-y-1 leading-snug">
                                               <div className="line-clamp-2">
                                                 <span className="text-[11px] font-medium text-muted-foreground">Projekts: </span>
-                                                <span className="font-medium text-foreground">{row.Location || "—"}</span>
+                                                {row.Location ? (
+                                                  <button
+                                                    type="button"
+                                                    className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
+                                                    onClick={() => ztc.openProjectDetails(row.Location)}
+                                                  >
+                                                    {row.Location}
+                                                  </button>
+                                                ) : (
+                                                  <span className="font-medium text-foreground">—</span>
+                                                )}
                                               </div>
                                               <div className="line-clamp-1">
                                                 <span className="text-[11px] font-medium text-muted-foreground">Elements: </span>
