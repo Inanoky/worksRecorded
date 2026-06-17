@@ -224,10 +224,8 @@ export async function exportZtcPayrollToExcel({
     {
       Mēnesis: string;
       Darbinieks: string;
-      "Ierakstu skaits": number;
-      Stundas: number;
-      "Aprēķina apjoms": number;
-      Bonuss: number;
+      "Papilddarbu stundas": number;
+      "Darbu stundas": number;
       Alga: number;
     }
   >();
@@ -241,17 +239,16 @@ export async function exportZtcPayrollToExcel({
     const existing = summaryByWorkerMonth.get(key) ?? {
       Mēnesis: month,
       Darbinieks: worker,
-      "Ierakstu skaits": 0,
-      Stundas: 0,
-      "Aprēķina apjoms": 0,
-      Bonuss: 0,
+      "Papilddarbu stundas": 0,
+      "Darbu stundas": 0,
       Alga: 0,
     };
 
-    existing["Ierakstu skaits"] += 1;
-    existing.Stundas += Number(row.Stundas) || 0;
-    existing["Aprēķina apjoms"] += Number(row["Aprēķina apjoms"]) || 0;
-    existing.Bonuss += Number(row.Bonuss) || 0;
+    if (String(row.Projekts ?? "").trim() === "Papilddarbi") {
+      existing["Papilddarbu stundas"] += Number(row.Stundas) || 0;
+    } else {
+      existing["Darbu stundas"] += Number(row.Stundas) || 0;
+    }
     existing.Alga += Number(row.Summa) || 0;
     summaryByWorkerMonth.set(key, existing);
   });
@@ -259,9 +256,8 @@ export async function exportZtcPayrollToExcel({
   const summaryRows = Array.from(summaryByWorkerMonth.values())
     .map((row) => ({
       ...row,
-      Stundas: Number(row.Stundas.toFixed(2)),
-      "Aprēķina apjoms": Number(row["Aprēķina apjoms"].toFixed(2)),
-      Bonuss: Number(row.Bonuss.toFixed(2)),
+      "Papilddarbu stundas": Number(row["Papilddarbu stundas"].toFixed(2)),
+      "Darbu stundas": Number(row["Darbu stundas"].toFixed(2)),
       Alga: Number(row.Alga.toFixed(2)),
     }))
     .sort((a, b) => {
@@ -275,10 +271,8 @@ export async function exportZtcPayrollToExcel({
   summaryWorksheet["!cols"] = [
     { wch: 12 },
     { wch: 24 },
+    { wch: 20 },
     { wch: 14 },
-    { wch: 12 },
-    { wch: 18 },
-    { wch: 12 },
     { wch: 12 },
   ];
   XLSX.utils.book_append_sheet(workbook, summaryWorksheet, "Mēneša kopsavilkums");
