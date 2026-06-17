@@ -31,14 +31,14 @@ export function buildMetaRecipientPayload(recipient: MetaRecipient | string | nu
     return phone ? { to: phone } : null;
   }
 
+  const phone = normalizeMetaPhone(recipient.phone || recipient.raw);
+  if (phone) return { to: phone };
+
   const parentBsuid = recipient.parentBsuid?.trim();
   if (parentBsuid && isLikelyBsuid(parentBsuid)) return { recipient: parentBsuid };
 
   const bsuid = recipient.bsuid?.trim();
   if (bsuid && isLikelyBsuid(bsuid)) return { recipient: bsuid };
-
-  const phone = normalizeMetaPhone(recipient.phone || recipient.raw);
-  if (phone) return { to: phone };
 
   const raw = recipient.raw?.trim();
   if (raw && isLikelyBsuid(raw)) return { recipient: raw };

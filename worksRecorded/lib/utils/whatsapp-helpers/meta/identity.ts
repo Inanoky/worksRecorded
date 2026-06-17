@@ -39,6 +39,14 @@ function unique<T>(values: T[]) {
   return [...new Set(values.filter(Boolean))] as NonNullable<T>[];
 }
 
+function replyPhoneFrom(...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const phone = normalizeMetaPhone(value);
+    if (phone) return phone;
+  }
+  return null;
+}
+
 export function phoneLookupValues(phone: string | null | undefined) {
   const digits = normalizeMetaPhone(phone);
   if (!digits) return [];
@@ -203,10 +211,17 @@ export async function resolveMetaWhatsAppIdentity(identity: MetaWebhookIdentity)
     worker = storedIdentity?.worker || worker;
   }
 
-  const identityKey = identity.parentBsuid || identity.bsuid || identity.phone;
-  const replyTarget = identity.parentBsuid || identity.bsuid || identity.phone;
-  const fromForHandlers = identity.phone
-    ? `whatsapp:+${identity.phone}`
+  const replyPhone = replyPhoneFrom(
+    identity.phone,
+    storedIdentity?.phone,
+    storedIdentity?.waId,
+    user?.phone,
+    worker?.phone
+  );
+  const identityKey = identity.parentBsuid || identity.bsuid || replyPhone;
+  const replyTarget = replyPhone || identity.parentBsuid || identity.bsuid;
+  const fromForHandlers = replyPhone
+    ? `whatsapp:+${replyPhone}`
     : identity.parentBsuid || identity.bsuid || null;
 
   return {

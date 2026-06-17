@@ -259,6 +259,7 @@ jest.mock("@/lib/utils/whatsapp-helpers/handling-roles-routes/site-manager-route
 }));
 
 import { POST } from "@/app/api/webhook/meta/webhook/route";
+import { handleSiteManagerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/site-manager-route";
 
 function metaTextPayload(from: string, text: string) {
   return {
@@ -612,6 +613,11 @@ describe("Meta webhook -> site manager route flow", () => {
     expect(latest).toBeDefined();
     expect(latest?.userId).toBe(testUserId);
     expect(latest?.source).toBe("text");
+    expect(handleSiteManagerRoute).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        from: `whatsapp:+${fakeUserPhoneDigits}`,
+      })
+    );
     testState.diaryRecords = testState.diaryRecords.filter((r) => r.id !== latest?.id);
   });
 
@@ -809,4 +815,5 @@ describe("Meta webhook -> site manager route flow", () => {
 
 beforeEach(() => {
   (global.fetch as jest.Mock).mockClear();
+  (handleSiteManagerRoute as jest.Mock).mockClear();
 });

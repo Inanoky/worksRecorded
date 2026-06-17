@@ -440,7 +440,7 @@ async function runWhatsappRoutingForMeta(args: {
 
 function resolvedSafeReplyTarget(message: any, value: any, businessPhoneNumberId: string) {
   const identity = extractMetaWebhookIdentity({ value, message, businessPhoneNumberId });
-  return identity.parentBsuid || identity.bsuid || identity.phone;
+  return identity.phone || identity.parentBsuid || identity.bsuid;
 }
 
 async function handleContactsMessage(args: { value: any; message: any; businessPhoneNumberId: string }) {
@@ -560,15 +560,17 @@ export async function POST(req: Request): Promise<Response> {
           message,
           businessPhoneNumberId: business_phone_number_id,
         });
-        const user = webhookIdentity.parentBsuid || webhookIdentity.bsuid || webhookIdentity.phone;
+        const resolvedIdentity = await resolveMetaWhatsAppIdentity(webhookIdentity);
+        const user = resolvedIdentity.identityKey;
+        const replyRecipient = resolvedIdentity.replyTarget;
 
         // START BOOKING
-        if (text === "book" && user) {
+        if (text === "book" && user && replyRecipient) {
           await startSession(user);
 
           await sendMetaGraphMessage({
             businessPhoneNumberId: business_phone_number_id,
-            recipient: user,
+            recipient: replyRecipient,
             body: {
               text: {
                 body: "📅 Booking started.\n\nWhat service do you want?",
@@ -581,7 +583,7 @@ export async function POST(req: Request): Promise<Response> {
 
         const session = !handledByBooking && user ? await getSession(user) : null;
 
-        if (session && user) {
+        if (session && user && replyRecipient) {
           // STEP 1 — SERVICE
           if (session.step === "service") {
             await updateSession(user, {
@@ -591,7 +593,7 @@ export async function POST(req: Request): Promise<Response> {
 
             await sendMetaGraphMessage({
               businessPhoneNumberId: business_phone_number_id,
-              recipient: user,
+              recipient: replyRecipient,
               body: {
                 text: {
                   body: "Great 👍\n\nChoose a date (YYYY-MM-DD)",
@@ -611,7 +613,7 @@ export async function POST(req: Request): Promise<Response> {
 
             await sendMetaGraphMessage({
               businessPhoneNumberId: business_phone_number_id,
-              recipient: user,
+              recipient: replyRecipient,
               body: {
                 text: {
                   body: "Perfect.\n\nChoose a time (HH:MM)",
@@ -630,7 +632,7 @@ export async function POST(req: Request): Promise<Response> {
 
             await sendMetaGraphMessage({
               businessPhoneNumberId: business_phone_number_id,
-              recipient: user,
+              recipient: replyRecipient,
               body: {
                 text: {
                   body: `✅ Booking confirmed!\n\nService: ${session.service}\nDate: ${session.date}\nTime: ${text}\n\nWe will see you soon!`,
