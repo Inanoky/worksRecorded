@@ -22,6 +22,8 @@ import { PhoneRequiredDialog } from "@/components/dashboard/PhoneRequiredDialog"
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { saveUserPhone } from "@/server/actions/shared-actions";
 
+const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
+
 async function getData(orgId: string) {
   const [sites] = await Promise.all([
     prisma.site.findMany({
@@ -93,6 +95,7 @@ export default async function Welcome() {
   const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
   const t = getDashboardMessages(organizationLanguage);
   const { sites } = await getData(orgId);
+  const isZtcOrganization = orgId === ZTC_ORGANIZATION_ID;
 
   return (
     <>
@@ -100,17 +103,19 @@ export default async function Welcome() {
       <PhoneRequiredDialog needsPhone={needsPhone} action={setPhone} />
 
       {/* Tour only runs after phone is set */}
-      {!needsPhone && (
+      {!needsPhone && !isZtcOrganization && (
         <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_dashboard} stepName="steps_dashboard" />
       )}
 
-      <div className="flex w-full justify-end">
-        <Button asChild>
-          <Link href={"/dashboard/sites/new"} data-tour="create-project">
-            <PlusCircle className="mr-2 size-4" /> {t.createProject}
-          </Link>
-        </Button>
-      </div>
+      {!isZtcOrganization ? (
+        <div className="flex w-full justify-end">
+          <Button asChild>
+            <Link href={"/dashboard/sites/new"} data-tour="create-project">
+              <PlusCircle className="mr-2 size-4" /> {t.createProject}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
       <div>
         <h1 className="mb-5 text-2xl font-semibold">{t.yourSites}</h1>
@@ -145,6 +150,13 @@ export default async function Welcome() {
                 </CardFooter>
               </Card>
             ))}
+          </div>
+        ) : isZtcOrganization ? (
+          <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-8 text-center animate-in fade-in-50">
+            <h2 className="mt-2 text-xl font-semibold">{t.emptyTitle}</h2>
+            <p className="mt-2 max-w-sm text-center text-sm leading-tight text-muted-foreground">
+              {t.emptyDescription}
+            </p>
           </div>
         ) : (
           <EmptyState

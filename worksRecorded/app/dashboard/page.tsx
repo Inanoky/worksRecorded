@@ -19,6 +19,7 @@ import { getDashboardMessages } from "@/lib/dashboard-i18n";
 const SUPER_USER_IDS = new Set([
   process.env.SUPERADMIN
 ]);
+const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 
 async function getData(orgId: string | null, isSuperUser: boolean) {
   const [sites] = await Promise.all([
@@ -49,21 +50,31 @@ export default async function DashboardIndexPage() {
   const t = getDashboardMessages(organizationLanguage);
 
   const { sites } = await getData(org, isSuperUser);
+  const isZtcOrganization = org === ZTC_ORGANIZATION_ID;
+  const tourSteps = sites.length > 0
+    ? getJoyRideSteps(organizationLanguage).steps_dashboard_sites_open_project
+    : isZtcOrganization
+      ? []
+      : getJoyRideSteps(organizationLanguage).steps_dashboard_create_project_cta;
+  const tourStepName = sites.length > 0
+    ? "steps_dashboard_sites_open_project"
+    : "steps_dashboard_create_project_cta";
 
   return (
     <>
-      <TourRunner
-        steps={sites.length > 0 ? getJoyRideSteps(organizationLanguage).steps_dashboard_sites_open_project : getJoyRideSteps(organizationLanguage).steps_dashboard_create_project_cta}
-        stepName={sites.length > 0 ? "steps_dashboard_sites_open_project" : "steps_dashboard_create_project_cta"}
-      />
+      {tourSteps.length ? (
+        <TourRunner steps={tourSteps} stepName={tourStepName} />
+      ) : null}
 
-      <div className="flex w-full justify-end">
-        <Button asChild>
-          <Link href={"/dashboard/sites/new"} data-tour="create-project">
-            <PlusCircle className="mr-2 size-4" /> {t.createProject}
-          </Link>
-        </Button>
-      </div>
+      {!isZtcOrganization ? (
+        <div className="flex w-full justify-end">
+          <Button asChild>
+            <Link href={"/dashboard/sites/new"} data-tour="create-project">
+              <PlusCircle className="mr-2 size-4" /> {t.createProject}
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
       <div>
         <h1 className="text-2xl font-semibold mb-5">{t.yourSites}</h1>
@@ -94,6 +105,13 @@ export default async function DashboardIndexPage() {
                 </CardFooter>
               </Card>
             ))}
+          </div>
+        ) : isZtcOrganization ? (
+          <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-8 text-center animate-in fade-in-50">
+            <h2 className="mt-2 text-xl font-semibold">{t.emptyTitle}</h2>
+            <p className="mt-2 max-w-sm text-center text-sm leading-tight text-muted-foreground">
+              {t.emptyDescription}
+            </p>
           </div>
         ) : (
           <EmptyState

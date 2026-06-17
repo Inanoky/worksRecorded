@@ -49,6 +49,11 @@ const ZTC_RATE_CATEGORIES: ZtcRateCategory[] = [
   "additionalWorks",
 ];
 const ZTC_ADD_PROJECT_SELECT_VALUE = "__ztc_add_project__";
+const ZTC_RATE_CATEGORY_UNITS: Record<ZtcRateCategory, string> = {
+  works: "m2",
+  additionalDetails: "gab.",
+  additionalWorks: "st.",
+};
 
 function emptyZtcProjectRates(projectName: string, manual = false): ZtcProjectTaskRates {
   return {
@@ -534,9 +539,10 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
           </div>
 
           <div ref={ratesFormRef} className="min-h-0 flex-1 overflow-hidden rounded-md border">
-            <div className="grid grid-cols-[minmax(0,1fr)_120px_44px] border-b bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+            <div className="grid grid-cols-[minmax(0,1fr)_120px_72px_44px] border-b bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
               <div>{selectedCategory === "additionalDetails" ? "Detaļa" : "Darbs"}</div>
               <div className="text-right">Likme</div>
+              <div className="text-center">Mērv.</div>
               <div />
             </div>
 
@@ -545,7 +551,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                 filteredRows.map(({ entry, index }) => (
                   <div
                     key={`${entry.task}-${index}`}
-                    className="grid grid-cols-[minmax(0,1fr)_120px_44px] gap-2 border-b p-2 last:border-b-0"
+                    className="grid grid-cols-[minmax(0,1fr)_120px_72px_44px] gap-2 border-b p-2 last:border-b-0"
                   >
                     <Input
                       defaultValue={entry.task}
@@ -578,6 +584,9 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                       placeholder="Likme"
                       className="text-right"
                     />
+                    <div className="flex h-9 items-center justify-center rounded-md border bg-muted/40 px-2 text-sm font-medium text-muted-foreground">
+                      {ZTC_RATE_CATEGORY_UNITS[selectedCategory]}
+                    </div>
                     <Button
                       type="button"
                       variant="ghost"
