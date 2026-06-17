@@ -453,6 +453,16 @@ export default function SiteDiaryCalendar({
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const bisUiEnabled = bisEnabled && showBisUi;
   const isZtcSite = siteId === ZTC_SITE_ID;
+  const ztcDatePickerProps = React.useMemo(() => {
+    const year = new Date().getFullYear();
+    return isZtcSite
+      ? {
+          captionLayout: "dropdown" as const,
+          startMonth: new Date(year - 10, 0),
+          endMonth: new Date(year + 5, 11),
+        }
+      : {};
+  }, [isZtcSite]);
   const ztc = useZtcSiteDiaryFlow({
     enabled: isZtcSite,
     siteId,
@@ -1563,6 +1573,7 @@ export default function SiteDiaryCalendar({
                           selected={dateFrom || undefined}
                           onSelect={(d) => setDateFrom(d ?? null)}
                           initialFocus
+                          {...ztcDatePickerProps}
                         />
                       </PopoverContent>
                     </Popover>
@@ -1594,6 +1605,7 @@ export default function SiteDiaryCalendar({
                           selected={dateTo || undefined}
                           onSelect={(d) => setDateTo(d ?? null)}
                           initialFocus
+                          {...ztcDatePickerProps}
                         />
                       </PopoverContent>
                     </Popover>
