@@ -108,6 +108,7 @@ import {
   ZTC_SITE_ID,
   formatZtcMoney,
   getZtcPayrollValues,
+  getZtcQualityRowToneClass,
   isZtcQualityRow,
   splitZtcWorkerDisplayName,
 } from "@/components/sitediary/ZTC/ztc-site-diary-utils";
@@ -1924,7 +1925,10 @@ export default function SiteDiaryCalendar({
                           {group.rows.map((r, idx) => (
                             <div
                               key={r.id ?? `${group.key}-${idx}`}
-                              className="rounded-md border bg-muted/40 p-2 text-[11px]"
+                              className={cn(
+                                "rounded-md border bg-muted/40 p-2 text-[11px]",
+                                isZtcSite ? getZtcQualityRowToneClass(r) : "",
+                              )}
                             >
                               {r.id ? (
                                 <div className="mb-2 flex justify-end">
@@ -2233,7 +2237,13 @@ export default function SiteDiaryCalendar({
                                       const isSent = Boolean(row.BISId) || (row.id ? bisSentRowIds.has(row.id) : false);
 
                                       return (
-                                        <TableRow key={row.id ?? `${group.key}-${i}`} className="align-top hover:bg-muted/30">
+                                        <TableRow
+                                          key={row.id ?? `${group.key}-${i}`}
+                                          className={cn(
+                                            "align-top hover:bg-muted/30",
+                                            isZtcSite ? getZtcQualityRowToneClass(row) : "",
+                                          )}
+                                        >
                                           <TableCell className="px-2 py-3 text-center" style={{ width: 44 }}>
                                             {row.id ? (
                                               <Checkbox

@@ -43,6 +43,16 @@ export function isZtcQualityRow(row: ZtcDiaryRow) {
   }
 }
 
+export function getZtcQualityRowToneClass(row: ZtcDiaryRow) {
+  if (!isZtcQualityRow(row)) return "";
+
+  const coefficient = parseZtcPayrollNumber(row.Works_Custom_2, Number.NaN);
+  if (coefficient === 0) return "bg-red-50 hover:bg-red-100/70";
+  if (coefficient === 0.9) return "bg-yellow-50 hover:bg-yellow-100/70";
+  if (coefficient === 1) return "bg-green-50 hover:bg-green-100/70";
+  return "";
+}
+
 export function getZtcPayrollValues(row: ZtcDiaryRow) {
   if (isZtcQualityRow(row)) {
     return {
