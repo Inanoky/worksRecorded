@@ -34,7 +34,17 @@ export function parseZtcPayrollNumber(value: unknown, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function normalizeZtcText(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 export function isZtcQualityRow(row: ZtcDiaryRow) {
+  if (normalizeZtcText(row.Works) === "kvalitates kontrole") return true;
+
   try {
     const parsed = JSON.parse(String(row.Comments_Custom_2 ?? ""));
     return parsed?.type === "ztc_quality_check";
@@ -43,13 +53,22 @@ export function isZtcQualityRow(row: ZtcDiaryRow) {
   }
 }
 
+function getZtcQualityCoefficient(row: ZtcDiaryRow) {
+  const storedCoefficient = parseZtcPayrollNumber(row.Works_Custom_2, Number.NaN);
+  if (Number.isFinite(storedCoefficient)) return storedCoefficient;
+
+  const commentMatch = String(row.Comments ?? "").match(/koeficients\s*:\s*(-?\d+(?:[.,]\d+)?)/i);
+  const commentCoefficient = parseZtcPayrollNumber(commentMatch?.[1], Number.NaN);
+  return Number.isFinite(commentCoefficient) ? commentCoefficient : Number.NaN;
+}
+
 export function getZtcQualityRowToneClass(row: ZtcDiaryRow) {
   if (!isZtcQualityRow(row)) return "";
 
-  const coefficient = parseZtcPayrollNumber(row.Works_Custom_2, Number.NaN);
-  if (coefficient === 0) return "bg-red-50 hover:bg-red-100/70";
-  if (coefficient === 0.9) return "bg-yellow-50 hover:bg-yellow-100/70";
-  if (coefficient === 1) return "bg-green-50 hover:bg-green-100/70";
+  const coefficient = getZtcQualityCoefficient(row);
+  if (coefficient === 0) return "bg-red-100/70 hover:bg-red-100";
+  if (coefficient === 0.9) return "bg-yellow-100/70 hover:bg-yellow-100";
+  if (coefficient === 1) return "bg-green-100/70 hover:bg-green-100";
   return "";
 }
 
