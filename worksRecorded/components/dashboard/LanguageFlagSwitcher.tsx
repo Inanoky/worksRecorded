@@ -59,7 +59,7 @@ export function LanguageFlagSwitcher({ currentLanguage }: Props) {
           aria-label={`Language: ${activeOption.label}`}
           title={activeOption.label}
         >
-          <Image src={activeOption.src} alt={activeOption.label} width={20} height={20} className="rounded-full" />
+          <Image src={activeOption.src} alt={activeOption.label} width={20} height={20} className="h-5 w-5 rounded-full" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -72,7 +72,7 @@ export function LanguageFlagSwitcher({ currentLanguage }: Props) {
               className="flex items-center gap-2"
               disabled={isPending}
             >
-              <Image src={option.src} alt={option.label} width={18} height={18} className="rounded-full" />
+              <Image src={option.src} alt={option.label} width={18} height={18} className="h-[18px] w-[18px] rounded-full" />
               <span>{option.label}</span>
               {active ? <Check className="ml-auto h-4 w-4" /> : null}
             </DropdownMenuItem>

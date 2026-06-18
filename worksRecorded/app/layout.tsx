@@ -95,7 +95,7 @@ export default function RootLayout({
   
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
             
               <GoogleTagManager gtmId="GTM-TSLDCSGF" />
 

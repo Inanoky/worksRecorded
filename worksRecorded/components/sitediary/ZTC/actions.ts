@@ -11,6 +11,11 @@ import {
   ZTC_ONE_X_COEFFICIENT_TASK,
   ZTC_TWO_X_COEFFICIENT_TASK,
 } from "@/components/sitediary/ZTC/ztc-rate-constants";
+import {
+  normalizeZtcRateUnit,
+  resolveZtcAdditionalWorkUnit,
+  type ZtcRateUnit,
+} from "@/components/sitediary/ZTC/ztc-rate-units";
 
 const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -23,6 +28,7 @@ export type ZtcRateCategory = (typeof ZTC_RATE_CATEGORIES)[number];
 export type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
+  unit: ZtcRateUnit;
 };
 
 export type ZtcProjectTaskRates = {
@@ -84,7 +90,10 @@ function normalizeTaskName(value: unknown) {
     .replace(/^T(?!L)(?=\s|[-/]|$)/i, "TL");
 }
 
-function normalizeTaskRateEntries(value: unknown): ZtcDefaultTaskRate[] {
+function normalizeTaskRateEntries(
+  value: unknown,
+  fallbackUnit: ZtcRateUnit,
+): ZtcDefaultTaskRate[] {
   if (!Array.isArray(value)) return [];
 
   const entries: ZtcDefaultTaskRate[] = [];
@@ -93,12 +102,16 @@ function normalizeTaskRateEntries(value: unknown): ZtcDefaultTaskRate[] {
   for (const item of value) {
     const task = normalizeTaskName((item as Record<string, unknown>)?.task);
     const rate = normalizePayrollTextNumber((item as Record<string, unknown>)?.rate);
+    const unit = normalizeZtcRateUnit(
+      (item as Record<string, unknown>)?.unit,
+      fallbackUnit,
+    );
     if (!task || rate === undefined || rate === null) continue;
 
     const key = task.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    entries.push({ task, rate });
+    entries.push({ task, rate, unit });
   }
 
   return entries;
@@ -153,10 +166,12 @@ function ensureZtcComplexityCoefficientRows(
     {
       task: ZTC_ONE_X_COEFFICIENT_TASK,
       rate: oneX?.rate ?? ZTC_DEFAULT_ONE_X_COEFFICIENT,
+      unit: "m2",
     },
     {
       task: ZTC_TWO_X_COEFFICIENT_TASK,
       rate: twoX?.rate ?? ZTC_DEFAULT_TWO_X_COEFFICIENT,
+      unit: "m2",
     },
     ...normalWorks,
   ];
@@ -179,7 +194,7 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     return ensureZtcComplexityCoefficientRows([
       {
         projectName: ZTC_ALL_PROJECTS_RATE_NAME,
-        works: normalizeTaskRateEntries(value),
+        works: normalizeTaskRateEntries(value, "m2"),
         additionalDetails: [],
         additionalWorks: [],
       },
@@ -194,9 +209,9 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     return {
       projectName: normalizeProjectRateName(raw.projectName),
       manual: raw.manual === true,
-      works: normalizeTaskRateEntries(raw.works),
-      additionalDetails: normalizeTaskRateEntries(raw.additionalDetails),
-      additionalWorks: normalizeTaskRateEntries(raw.additionalWorks),
+      works: normalizeTaskRateEntries(raw.works, "m2"),
+      additionalDetails: normalizeTaskRateEntries(raw.additionalDetails, "gab"),
+      additionalWorks: normalizeTaskRateEntries(raw.additionalWorks, "st"),
     };
   });
 
@@ -436,7 +451,14 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     row.Works,
   );
   const defaultComplexity = getZtcComplexityForMarks(complexityMarks, defaultRates);
-  const units = row.Units || (category === "additionalDetails" ? "gab" : category === "additionalWorks" ? "st" : "m2");
+  const units =
+    category === "additionalWorks"
+      ? resolveZtcAdditionalWorkUnit({
+          configuredUnit: defaultRate?.unit,
+          reportedUnit: row.Units,
+        })
+      : row.Units ||
+        (category === "additionalDetails" ? "gab" : "m2");
 
   return {
     Date: normalizeDate(row.Date) ?? null,

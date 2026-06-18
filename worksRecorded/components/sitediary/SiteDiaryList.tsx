@@ -865,7 +865,7 @@ export default function SiteDiaryCalendar({
       setBulkDeleteLoading(true);
       const recordIds = Array.from(selectedRecordIds);
       const results = await Promise.allSettled(
-        recordIds.map((id) => deleteSiteDiaryRecord({ id })),
+        recordIds.map((id) => deleteSiteDiaryRecord({ id, siteId })),
       );
       const deletedIds = recordIds.filter((_, index) => results[index].status === "fulfilled");
       const failedCount = results.length - deletedIds.length;
@@ -1202,7 +1202,11 @@ export default function SiteDiaryCalendar({
 
     try {
       setCopyLoading(true);
-      await copySiteDiaryRecordToDate(copyTargetRow.id, copyTargetDate.toISOString());
+      await copySiteDiaryRecordToDate(
+        copyTargetRow.id,
+        copyTargetDate.toISOString(),
+        siteId,
+      );
       if (!siteId) return;
       await refreshRowsWithBisSync();
       reloadFilledDays();
@@ -1221,7 +1225,7 @@ export default function SiteDiaryCalendar({
     if (!confirmed) return;
 
     try {
-      await deleteSiteDiaryRecord({ id: row.id });
+      await deleteSiteDiaryRecord({ id: row.id, siteId });
       await refreshRowsWithBisSync({ skipSync: true });
       reloadFilledDays();
       toast.success(toastMessages.recordDeleted);

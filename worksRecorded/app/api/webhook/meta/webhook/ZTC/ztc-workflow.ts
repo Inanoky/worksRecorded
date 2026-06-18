@@ -16,6 +16,11 @@ import {
   ZTC_ONE_X_COEFFICIENT_TASK,
   ZTC_TWO_X_COEFFICIENT_TASK,
 } from "@/components/sitediary/ZTC/ztc-rate-constants";
+import {
+  normalizeZtcRateUnit,
+  resolveZtcAdditionalWorkUnit,
+  type ZtcRateUnit,
+} from "@/components/sitediary/ZTC/ztc-rate-units";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -107,6 +112,7 @@ type ZtcRateCategory = "works" | "additionalDetails" | "additionalWorks";
 type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
+  unit: ZtcRateUnit;
 };
 type ZtcProjectTaskRates = {
   projectName: string;
@@ -227,7 +233,10 @@ function normalizePayrollTextNumber(value: unknown) {
 const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
 const ZTC_RATE_CATEGORIES: ZtcRateCategory[] = ["works", "additionalDetails", "additionalWorks"];
 
-function normalizeTaskRateEntries(value: unknown): ZtcDefaultTaskRate[] {
+function normalizeTaskRateEntries(
+  value: unknown,
+  fallbackUnit: ZtcRateUnit,
+): ZtcDefaultTaskRate[] {
   if (!Array.isArray(value)) return [];
 
   const rates: ZtcDefaultTaskRate[] = [];
@@ -236,12 +245,16 @@ function normalizeTaskRateEntries(value: unknown): ZtcDefaultTaskRate[] {
   for (const item of value) {
     const task = normalizeZtcWorkName((item as Record<string, unknown>)?.task as string | null | undefined);
     const rate = normalizePayrollTextNumber((item as Record<string, unknown>)?.rate);
+    const unit = normalizeZtcRateUnit(
+      (item as Record<string, unknown>)?.unit,
+      fallbackUnit,
+    );
     if (!task || rate == null) continue;
 
     const key = task.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    rates.push({ task, rate });
+    rates.push({ task, rate, unit });
   }
 
   return rates;
@@ -295,10 +308,12 @@ function ensureZtcComplexityCoefficientRows(
     {
       task: ZTC_ONE_X_COEFFICIENT_TASK,
       rate: oneX?.rate ?? ZTC_DEFAULT_ONE_X_COEFFICIENT,
+      unit: "m2",
     },
     {
       task: ZTC_TWO_X_COEFFICIENT_TASK,
       rate: twoX?.rate ?? ZTC_DEFAULT_TWO_X_COEFFICIENT,
+      unit: "m2",
     },
     ...normalWorks,
   ];
@@ -321,7 +336,7 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     return ensureZtcComplexityCoefficientRows([
       {
         projectName: ZTC_ALL_PROJECTS_RATE_NAME,
-        works: normalizeTaskRateEntries(value),
+        works: normalizeTaskRateEntries(value, "m2"),
         additionalDetails: [],
         additionalWorks: [],
       },
@@ -335,9 +350,9 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     const raw = project as Record<string, unknown>;
     return {
       projectName: normalizeProjectRateName(raw.projectName),
-      works: normalizeTaskRateEntries(raw.works),
-      additionalDetails: normalizeTaskRateEntries(raw.additionalDetails),
-      additionalWorks: normalizeTaskRateEntries(raw.additionalWorks),
+      works: normalizeTaskRateEntries(raw.works, "m2"),
+      additionalDetails: normalizeTaskRateEntries(raw.additionalDetails, "gab"),
+      additionalWorks: normalizeTaskRateEntries(raw.additionalWorks, "st"),
     };
   });
 
@@ -479,7 +494,12 @@ async function getDefaultRateMatchForWork(
   const workTokens = new Set(taskRateMatchTokens(String(workName ?? "")));
   if (!workTokens.size) return null;
 
-  let best: { task: string; rate: string; score: number } | null = null;
+  let best: {
+    task: string;
+    rate: string;
+    unit: ZtcRateUnit;
+    score: number;
+  } | null = null;
 
   for (const entry of rates) {
     if (isZtcComplexityCoefficientTask(entry.task)) continue;
@@ -507,7 +527,7 @@ async function getDefaultRateMatchForWork(
 
     const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
     if (score >= threshold && (!best || score > best.score)) {
-      best = { task: entry.task, rate: entry.rate, score };
+      best = { task: entry.task, rate: entry.rate, unit: entry.unit, score };
     }
   }
 
@@ -1637,7 +1657,10 @@ async function completeSession(args: {
       Date_Custom_2: now,
       TimeInvolved: timeInvolved,
       Amounts: amountCompleted ?? undefined,
-      Units: session.Location === "Papilddarbi" ? "st" : "m2",
+      Units:
+        session.Location === "Papilddarbi"
+          ? session.Units ?? "st"
+          : "m2",
       Comments_Custom_1: photoBatchMarker(),
       Comments: finalWorkerComment,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
@@ -2294,7 +2317,10 @@ async function createAdditionalWorkSession(args: {
       Location: "Papilddarbi",
       Works: mappedWorkOption,
       Location_Custom_2: defaultRateMatch?.rate ?? null,
-      Units: "st",
+      Units: resolveZtcAdditionalWorkUnit({
+        configuredUnit: defaultRateMatch?.unit,
+        reportedUnit: work.units,
+      }),
       Amounts: work.amountCompleted ?? undefined,
       Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
@@ -2310,6 +2336,9 @@ async function createAdditionalWorkSession(args: {
       extractedWork: work.additionalWorkDescription || workOption,
       mappedWork: mappedWorkOption,
       matchedRate: defaultRateMatch?.rate ?? null,
+      configuredUnit: defaultRateMatch?.unit ?? "st",
+      reportedUnit: work.units,
+      savedUnit: created.Units,
     },
   });
 
@@ -2393,7 +2422,10 @@ async function handleWorkText(args: {
         where: { id: session.id },
         data: {
           Amounts: session.Amounts ?? undefined,
-          Units: session.Location === "Papilddarbi" ? "st" : "m2",
+          Units:
+            session.Location === "Papilddarbi"
+              ? session.Units ?? "st"
+              : "m2",
           Comments_Custom_1: buildFinishPendingMarker({
             completedText: text,
             additionalDetails: work.additionalDetails ?? [],

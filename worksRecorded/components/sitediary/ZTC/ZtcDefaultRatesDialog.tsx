@@ -30,6 +30,10 @@ import {
 import {
   isZtcComplexityCoefficientTask,
 } from "@/components/sitediary/ZTC/ztc-rate-constants";
+import {
+  ZTC_RATE_UNITS,
+  type ZtcRateUnit,
+} from "@/components/sitediary/ZTC/ztc-rate-units";
 
 type ZtcDefaultRatesDialogProps = {
   open: boolean;
@@ -68,10 +72,16 @@ function emptyZtcProjectRates(projectName: string, manual = false): ZtcProjectTa
   };
 }
 
-function emptyZtcTaskRate(): ZtcDefaultTaskRate {
+function emptyZtcTaskRate(category: ZtcRateCategory = "additionalWorks"): ZtcDefaultTaskRate {
   return {
     task: "",
     rate: "",
+    unit:
+      category === "works"
+        ? "m2"
+        : category === "additionalDetails"
+          ? "gab"
+          : "st",
   };
 }
 
@@ -164,7 +174,11 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
           const override = selectedProjectRates[selectedCategory].find(
             (entry) => entry.task.toLowerCase() === master.task.toLowerCase(),
           );
-          return { task: master.task, rate: override?.rate ?? master.rate };
+          return {
+            task: master.task,
+            rate: override?.rate ?? master.rate,
+            unit: override?.unit ?? master.unit,
+          };
         });
   const normalizedRateSearch = rateSearch.trim().toLowerCase();
   const filteredRows = visibleRows
@@ -248,7 +262,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
 
         if (projectName === ZTC_ALL_PROJECTS_RATE_NAME) {
           const rows = project[category];
-          if (!rows[index]) rows[index] = emptyZtcTaskRate();
+          if (!rows[index]) rows[index] = emptyZtcTaskRate(category);
           rows[index] = { ...rows[index], [field]: input.value };
           return;
         }
@@ -261,7 +275,13 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
         if (existingIndex >= 0) {
           rows[existingIndex] = { ...rows[existingIndex], rate: input.value };
         } else {
-          rows.push({ task: masterTask, rate: input.value });
+          const masterUnit =
+            next
+              .find((entry) => entry.projectName === ZTC_ALL_PROJECTS_RATE_NAME)
+              ?.[category].find(
+                (entry) => entry.task.toLowerCase() === masterTask.toLowerCase(),
+              )?.unit ?? "st";
+          rows.push({ task: masterTask, rate: input.value, unit: masterUnit });
         }
       });
 
@@ -281,7 +301,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
       if (isZtcComplexityCoefficientTask(committedRows[index]?.task ?? "")) return;
       const rows =
         committedRows.length <= 1
-          ? [emptyZtcTaskRate()]
+          ? [emptyZtcTaskRate(selectedCategory)]
           : committedRows.filter((_, entryIndex) => entryIndex !== index);
       setProjectCategoryRows(selectedProject, selectedCategory, rows);
     },
@@ -359,6 +379,42 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     setRateSearch("");
   }, [selectedCategory, selectedProject]);
 
+  const setAdditionalWorkUnit = React.useCallback(
+    (index: number, task: string, unit: ZtcRateUnit) => {
+      const committedDraft = commitVisibleRateInputs();
+      const next = committedDraft.map((project) => {
+        if (project.projectName !== selectedProject) return project;
+
+        const rows = [...project.additionalWorks];
+        if (isAllProjects) {
+          rows[index] = {
+            ...(rows[index] ?? emptyZtcTaskRate("additionalWorks")),
+            unit,
+          };
+        } else {
+          const existingIndex = rows.findIndex(
+            (entry) => entry.task.toLowerCase() === task.toLowerCase(),
+          );
+          if (existingIndex >= 0) {
+            rows[existingIndex] = { ...rows[existingIndex], unit };
+          } else {
+            rows.push({
+              task,
+              rate: visibleRows[index]?.rate ?? "",
+              unit,
+            });
+          }
+        }
+
+        return { ...project, additionalWorks: rows };
+      });
+
+      draftRef.current = next;
+      setDraft(next);
+    },
+    [commitVisibleRateInputs, isAllProjects, selectedProject, visibleRows],
+  );
+
   const saveDraft = React.useCallback(async () => {
     if (!siteId) return;
 
@@ -370,18 +426,21 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
         .map((entry) => ({
           task: entry.task.trim(),
           rate: entry.rate.trim().replace(",", "."),
+          unit: entry.unit,
         }))
         .filter((entry) => entry.task || entry.rate),
       additionalDetails: project.additionalDetails
         .map((entry) => ({
           task: entry.task.trim(),
           rate: entry.rate.trim().replace(",", "."),
+          unit: entry.unit,
         }))
         .filter((entry) => entry.task || entry.rate),
       additionalWorks: project.additionalWorks
         .map((entry) => ({
           task: entry.task.trim(),
           rate: entry.rate.trim().replace(",", "."),
+          unit: entry.unit,
         }))
         .filter((entry) => entry.task || entry.rate),
     }));
@@ -603,11 +662,37 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                       placeholder="Likme"
                       className="text-right"
                     />
-                    <div className="flex h-9 items-center justify-center rounded-md border bg-muted/40 px-2 text-sm font-medium text-muted-foreground">
-                      {isZtcComplexityCoefficientTask(entry.task)
-                        ? "x"
-                        : ZTC_RATE_CATEGORY_UNITS[selectedCategory]}
-                    </div>
+                    {selectedCategory === "additionalWorks" &&
+                    !isZtcComplexityCoefficientTask(entry.task) ? (
+                      <Select
+                        value={entry.unit}
+                        disabled={saving}
+                        onValueChange={(unit) =>
+                          setAdditionalWorkUnit(
+                            index,
+                            entry.task,
+                            unit as ZtcRateUnit,
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Mērv." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ZTC_RATE_UNITS.map((unit) => (
+                            <SelectItem key={unit} value={unit}>
+                              {unit}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="flex h-9 items-center justify-center rounded-md border bg-muted/40 px-2 text-sm font-medium text-muted-foreground">
+                        {isZtcComplexityCoefficientTask(entry.task)
+                          ? "x"
+                          : ZTC_RATE_CATEGORY_UNITS[selectedCategory]}
+                      </div>
+                    )}
                     {isZtcComplexityCoefficientTask(entry.task) ? (
                       <div />
                     ) : (
@@ -648,7 +733,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
               const committedRows = committedProject?.[selectedCategory] ?? visibleRows;
               setProjectCategoryRows(selectedProject, selectedCategory, [
                 ...committedRows,
-                emptyZtcTaskRate(),
+                emptyZtcTaskRate(selectedCategory),
               ]);
             }}
           >

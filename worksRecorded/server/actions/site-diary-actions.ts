@@ -1224,11 +1224,19 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
   }
 }
 
-export async function deleteSiteDiaryRecord({ id }: { id: string }) {
+export async function deleteSiteDiaryRecord({
+  id,
+  siteId,
+}: {
+  id: string;
+  siteId?: string | null;
+}) {
   // id is the Prisma row ID (UUID)
-  await prisma.sitediaryrecords.delete({
-    where: { id },
-  });
+  if (siteId === ZTC_SITE_ID) {
+    await prisma.ztcRecords.delete({ where: { id } });
+  } else {
+    await prisma.sitediaryrecords.delete({ where: { id } });
+  }
   return { success: true };
 }
 
@@ -1246,13 +1254,13 @@ export async function getSiteDiaryRecord({ siteId, date }) {
   end.setHours(23, 59, 59, 999);
 
   try {
-  const records = await trace.measure("recordsQuery", () => prisma.sitediaryrecords.findMany({
+  const recordQuery = {
     where: {
       siteId,
-      Date: {
-        gte: start,
-        lte: end,
-      },
+      OR: [
+        { Date: { gte: start, lte: end } },
+        { Date_Custom_1: { gte: start, lte: end } },
+      ],
     },
     // Pick only the fields you use in your row
     select: {
@@ -1294,7 +1302,12 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       },
       // <<< END: NEW FIELDS
     },
-  }));
+  };
+  const records = await trace.measure("recordsQuery", () =>
+    siteId === ZTC_SITE_ID
+      ? prisma.ztcRecords.findMany(recordQuery)
+      : prisma.sitediaryrecords.findMany(recordQuery),
+  );
 
   // Helper function to build the full name from parts
   const formatCreatorName = (
@@ -1375,11 +1388,9 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
   if (!siteId) throw new Error("Missing siteId");
 
   const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", category: "action", siteId });
-
-  try {
-  const records = await trace.measure("recordsQuery", () => prisma.sitediaryrecords.findMany({
+  const query = {
     where: { siteId },
-    orderBy: [{ Date: "asc" }],
+    orderBy: [{ Date: "asc" as const }],
     select: {
       id: true,
       createdAt: true,
@@ -1423,7 +1434,14 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
         },
       },
     },
-  }));
+  };
+
+  try {
+  const records = await trace.measure("recordsQuery", () =>
+    siteId === ZTC_SITE_ID
+      ? prisma.ztcRecords.findMany(query)
+      : prisma.sitediaryrecords.findMany(query),
+  );
 
   const formatCreatorName = (
     firstName: string | null | undefined,
@@ -2439,12 +2457,16 @@ export async function submitSiteDiaryRecordToBisApproval(
   };
 }
 
-export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO: string) {
+export async function copySiteDiaryRecordToDate(
+  recordId: string,
+  targetDateISO: string,
+  siteId?: string | null,
+) {
   if (!recordId) throw new Error("Missing site diary record id");
   if (!targetDateISO) throw new Error("Missing target date");
 
   const user = await requireUser();
-  const source = await prisma.sitediaryrecords.findUnique({
+  const sourceQuery = {
     where: { id: recordId },
     select: {
       userId: true,
@@ -2470,7 +2492,11 @@ export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO:
       TimeInvolved: true,
       Photos: true,
     },
-  });
+  };
+  const useZtcRecords = siteId === ZTC_SITE_ID;
+  const source = useZtcRecords
+    ? await prisma.ztcRecords.findUnique(sourceQuery)
+    : await prisma.sitediaryrecords.findUnique(sourceQuery);
 
   if (!source?.siteId) {
     throw new Error("Source site diary record not found");
@@ -2483,8 +2509,7 @@ export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO:
     throw new Error("Invalid target date");
   }
 
-  const copied = await prisma.sitediaryrecords.create({
-    data: {
+  const copyData = {
       userId: source.userId,
       workerId: source.workerId,
       siteId: source.siteId,
@@ -2510,9 +2535,10 @@ export async function copySiteDiaryRecordToDate(recordId: string, targetDateISO:
       Photos: source.Photos,
       BISId: null,
       bisStatus: null,
-    },
-    select: { id: true },
-  });
+  };
+  const copied = useZtcRecords
+    ? await prisma.ztcRecords.create({ data: copyData, select: { id: true } })
+    : await prisma.sitediaryrecords.create({ data: copyData, select: { id: true } });
 
   return { id: copied.id };
 }
@@ -2682,17 +2708,29 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
   const trace = createPerfTrace({ route: "action.siteDiary.getFilledDays", category: "action", siteId });
   const from = new Date(year, month, 1);
   const to = new Date(year, month + 1, 1);
+  const recordsPromise =
+    siteId === ZTC_SITE_ID
+      ? prisma.ztcRecords.findMany({
+          where: {
+            siteId,
+            OR: [
+              { Date: { gte: from, lt: to } },
+              { Date_Custom_1: { gte: from, lt: to } },
+            ],
+          },
+          select: { Date: true, Date_Custom_1: true },
+        })
+      : prisma.sitediaryrecords.findMany({
+          where: {
+            siteId,
+            Date: { gte: from, lt: to },
+          },
+          select: { Date: true, Date_Custom_1: true },
+        });
 
   try {
   const [records, photos] = await trace.measure("monthQueries", () => Promise.all([
-    // site diary records in month
-    prisma.sitediaryrecords.findMany({
-      where: {
-        siteId,
-        Date: { gte: from, lt: to },
-      },
-      select: { Date: true },
-    }),
+    recordsPromise,
 
     // photos in month (with a valid URL)
     prisma.photos.findMany({
@@ -2710,6 +2748,7 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
 
   records.forEach((rec) => {
     if (rec.Date) daysSet.add(new Date(rec.Date).getDate());
+    if (rec.Date_Custom_1) daysSet.add(new Date(rec.Date_Custom_1).getDate());
   });
 
   photos.forEach((p) => {
