@@ -32,6 +32,7 @@ function getPrismaQueryOperation(query: string) {
 
 function getPrismaTableGroup(query: string) {
   if (query.includes('"BISmaterialRecords"')) return "bis_material_records";
+  if (query.includes('"ZTCrecords"')) return "ztc_records";
   if (query.includes('"sitediaryrecords"')) return "site_diary_records";
   if (query.includes('"photos"')) return "photos";
   if (query.includes('"BisToken"')) return "bis_token";

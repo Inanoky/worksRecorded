@@ -29,6 +29,7 @@ model Organization {
       invoiceItems InvoiceItems[]
       documents Documents[]
       sitediaryrecords sitediaryrecords[]
+      ztcRecords ZtcRecords[]
       sitediarysettings sitediarysettings[]
       photos photos[]
       workers workers[]
@@ -68,6 +69,7 @@ model User {
   Invoices         Invoices[]
   Documents        Documents[]
   sitediaryrecords sitediaryrecords[] // one user can have many site diary records
+  ztcRecords       ZtcRecords[]
   projectdiaryrecord projectdiaryrecord[]
   Subscription      Subscription?
   sitediarysettings sitediarysettings[]
@@ -114,6 +116,7 @@ model Site {
   photos            photos[] // on site can have many photos
   timelog           timelog[] // on site can have timelogs
   sitediaryrecords  sitediaryrecords[] // one site can have many site diary records
+  ztcRecords        ZtcRecords[]
   BISmaterialRecords BISmaterialRecords[] //on site can have many BIS material records. 
   
   sitediarysettings sitediarysettings? //One site can have one site diary setting
@@ -246,7 +249,7 @@ model sitediaryrecords {
   Amounts         Float?
   BISId String?
   bisStatus String?
-  WorkersInvolved Int?
+  WorkersInvolved Float?
   TimeInvolved    Float?
   Photos          String[]
    organizationId String?
@@ -255,6 +258,42 @@ model sitediaryrecords {
   createdAt       DateTime  @default(now())
   
 
+}
+
+model ZtcRecords {
+  id                String        @id @default(uuid())
+  User              User?         @relation(fields: [userId], references: [id])
+  userId            String?
+  Worker            workers?      @relation(fields: [workerId], references: [id])
+  workerId          String?
+  Site              Site?         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  siteId            String?
+  Date              DateTime?
+  Date_Custom_1     DateTime?
+  Date_Custom_2     DateTime?
+  Location          String?
+  Location_Custom_1 String?
+  Location_Custom_2 String?
+  Works             String?
+  Works_Custom_1    String?
+  Works_Custom_2    String?
+  Comments          String?
+  Comments_Custom_1 String?
+  Comments_Custom_2 String?
+  originalUserComment String?
+  originalAudioUrl  String?
+  Units             String?
+  Amounts           Float?
+  BISId             String?
+  bisStatus         String?
+  WorkersInvolved   Float?
+  TimeInvolved      Float?
+  Photos            String[]
+  organizationId    String?
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt         DateTime      @default(now())
+
+  @@map("ZTCrecords")
 }
 
 model sitediarysettings {
@@ -308,6 +347,7 @@ model workers {
   timelog timelog[]
   photos photos[]
   sitediaryrecords sitediaryrecords[]
+  ztcRecords ZtcRecords[]
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   reminderTime   DateTime?

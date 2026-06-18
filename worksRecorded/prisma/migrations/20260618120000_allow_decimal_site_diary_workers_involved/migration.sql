@@ -1,0 +1,3 @@
+ALTER TABLE "sitediaryrecords"
+ALTER COLUMN "WorkersInvolved" TYPE DOUBLE PRECISION
+USING "WorkersInvolved"::DOUBLE PRECISION;

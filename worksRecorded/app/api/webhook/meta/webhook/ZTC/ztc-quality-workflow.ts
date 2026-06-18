@@ -223,7 +223,7 @@ async function propagateQualityCoefficient(args: {
           ? "0"
           : null;
 
-  const result = await prisma.sitediaryrecords.updateMany({
+  const result = await prisma.ztcRecords.updateMany({
     where: {
       siteId: ZTC_SITE_ID,
       organizationId: ZTC_ORGANIZATION_ID,
@@ -266,7 +266,7 @@ async function uploadQualityImages(formData: FormData, idxs: number[], context: 
 }
 
 function getPendingQaSession(workerId: string) {
-  return prisma.sitediaryrecords.findFirst({
+  return prisma.ztcRecords.findFirst({
     where: {
       workerId,
       organizationId: ZTC_ORGANIZATION_ID,
@@ -279,7 +279,7 @@ function getPendingQaSession(workerId: string) {
 
 async function getRecentCompletedQaSession(workerId: string) {
   const cutoff = new Date(Date.now() - QA_COMPLETED_PHOTO_BATCH_WINDOW_MS);
-  const session = await prisma.sitediaryrecords.findFirst({
+  const session = await prisma.ztcRecords.findFirst({
     where: {
       workerId,
       organizationId: ZTC_ORGANIZATION_ID,
@@ -395,7 +395,7 @@ async function completeQualitySession(args: {
     .filter(Boolean)
     .join("\n");
 
-  const updated = await prisma.sitediaryrecords.update({
+  const updated = await prisma.ztcRecords.update({
     where: { id: args.session.id },
     data: {
       Date_Custom_2: new Date(),
@@ -429,7 +429,7 @@ async function completeQualitySession(args: {
     coefficientPropagation,
   });
 
-  await prisma.sitediaryrecords.update({
+  await prisma.ztcRecords.update({
     where: { id: updated.id },
     data: {
       Comments_Custom_2: JSON.stringify(metadata),
@@ -519,7 +519,7 @@ async function appendPhotosToRecentCompletedQaSession(args: {
     qualityPhotoUrls: nextQualityPhotoUrls,
   };
 
-  await prisma.sitediaryrecords.update({
+  await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Photos: nextPhotos,
@@ -582,7 +582,7 @@ async function handleQualityDrawingPhoto(args: {
     qualityPhotoUrls: [],
   };
 
-  const created = await prisma.sitediaryrecords.create({
+  const created = await prisma.ztcRecords.create({
     data: {
       workerId: args.worker.id,
       siteId: ZTC_SITE_ID,
@@ -643,7 +643,7 @@ async function handleQualityPhotos(args: {
     qualityPhotoPromptAt: shouldPrompt ? now : payload.qualityPhotoPromptAt ?? null,
   };
 
-  await prisma.sitediaryrecords.update({
+  await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Comments_Custom_1: makePendingState(nextPayload),
@@ -691,7 +691,7 @@ async function handleQualityText(args: {
     originalAudioUrl: mergeOriginalAudioUrls(payload.originalAudioUrl, args.originalAudioUrl) ?? null,
   };
 
-  await prisma.sitediaryrecords.update({
+  await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Comments_Custom_1: makePendingState(nextPayload),

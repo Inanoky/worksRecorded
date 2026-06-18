@@ -548,7 +548,7 @@ async function loadZtcSiteDiaryRecords(args: { date: string }) {
   const end = new Date(args.date);
   end.setHours(23, 59, 59, 999);
 
-  const records = await prisma.sitediaryrecords.findMany({
+  const records = await prisma.ztcRecords.findMany({
     where: {
       siteId: ZTC_SITE_ID,
       organizationId: ZTC_ORGANIZATION_ID,
@@ -672,7 +672,7 @@ export async function createZtcSiteDiaryRecords(args: {
 
   if (!rows.length) return { ok: false, message: "Nav ierakstu, ko pievienot." };
 
-  await prisma.sitediaryrecords.createMany({ data: rows });
+  await prisma.ztcRecords.createMany({ data: rows });
   return { ok: true, count: rows.length };
 }
 
@@ -708,7 +708,7 @@ export async function saveZtcSiteDiaryDialogRows(args: {
 
   await prisma.$transaction([
     ...existingRows.map((row) =>
-      prisma.sitediaryrecords.updateMany({
+      prisma.ztcRecords.updateMany({
         where: {
           id: row.id,
           siteId: ZTC_SITE_ID,
@@ -718,7 +718,7 @@ export async function saveZtcSiteDiaryDialogRows(args: {
       }),
     ),
     ...(newRows.length
-      ? [prisma.sitediaryrecords.createMany({ data: newRows })]
+      ? [prisma.ztcRecords.createMany({ data: newRows })]
       : []),
   ]);
 
@@ -734,7 +734,7 @@ export async function updateZtcSiteDiaryRecord(args: {
   const { id, siteId, _tempId, createdBy, ...row } = args;
   const defaultRates = await getZtcDefaultTaskRates(siteId);
 
-  const result = await prisma.sitediaryrecords.updateMany({
+  const result = await prisma.ztcRecords.updateMany({
     where: {
       id,
       siteId: ZTC_SITE_ID,
@@ -747,14 +747,14 @@ export async function updateZtcSiteDiaryRecord(args: {
     return { ok: false, message: "ZTC ieraksts nav atrasts." };
   }
 
-  const record = await prisma.sitediaryrecords.findUnique({ where: { id } });
+  const record = await prisma.ztcRecords.findUnique({ where: { id } });
   return { ok: true, record };
 }
 
 export async function deleteZtcSiteDiaryRecord(args: { siteId: string; id: string }) {
   await requireZtcAccess(args.siteId);
 
-  await prisma.sitediaryrecords.deleteMany({
+  await prisma.ztcRecords.deleteMany({
     where: {
       id: args.id,
       siteId: ZTC_SITE_ID,
@@ -790,7 +790,7 @@ export async function updateZtcPayrollFields(args: {
     return { ok: false, message: "Sarežģītības koeficientam jābūt derīgam skaitlim." };
   }
 
-  const result = await prisma.sitediaryrecords.updateMany({
+  const result = await prisma.ztcRecords.updateMany({
     where: {
       id: args.id,
       siteId: ZTC_SITE_ID,

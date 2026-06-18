@@ -556,7 +556,7 @@ async function findExistingTlDiagonalReport(session: OpenZtcSession) {
     return null;
   }
 
-  const relatedRows = await prisma.sitediaryrecords.findMany({
+  const relatedRows = await prisma.ztcRecords.findMany({
     where: {
       organizationId: ZTC_ORGANIZATION_ID,
       Location: session.Location,
@@ -1457,7 +1457,7 @@ async function extractWorkInfo(
 }
 
 async function getOpenZtcSession(workerId: string) {
-  return prisma.sitediaryrecords.findFirst({
+  return prisma.ztcRecords.findFirst({
     where: {
       workerId,
       organizationId: ZTC_ORGANIZATION_ID,
@@ -1468,7 +1468,7 @@ async function getOpenZtcSession(workerId: string) {
 }
 
 async function getLatestZtcDrawingContext(workerId: string) {
-  return prisma.sitediaryrecords.findFirst({
+  return prisma.ztcRecords.findFirst({
     where: {
       workerId,
       organizationId: ZTC_ORGANIZATION_ID,
@@ -1489,7 +1489,7 @@ async function ensureSessionHasDrawingContext(args: {
   const { session, drawingContext, worker } = args;
   if (hasZtcDrawingContext(session) || !drawingContext) return session;
 
-  const repaired = await prisma.sitediaryrecords.update({
+  const repaired = await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Location: drawingContext.Location,
@@ -1514,7 +1514,7 @@ async function ensureSessionHasDrawingContext(args: {
 
 async function getRecentCompletedPhotoBatchSession(workerId: string) {
   const cutoff = new Date(Date.now() - PHOTO_BATCH_CONFIRM_WINDOW_MS);
-  const session = await prisma.sitediaryrecords.findFirst({
+  const session = await prisma.ztcRecords.findFirst({
     where: {
       workerId,
       organizationId: ZTC_ORGANIZATION_ID,
@@ -1602,7 +1602,7 @@ async function createAdditionalDetailRows(args: {
     }),
   );
 
-  await prisma.sitediaryrecords.createMany({ data: rows });
+  await prisma.ztcRecords.createMany({ data: rows });
 }
 
 async function completeSession(args: {
@@ -1631,7 +1631,7 @@ async function completeSession(args: {
       finishText: completedText,
     });
 
-  const updated = await prisma.sitediaryrecords.update({
+  const updated = await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Date_Custom_2: now,
@@ -1674,7 +1674,7 @@ async function askForTlDiagonals(args: {
 }) {
   const completedText = args.completedText?.trim() || "";
 
-  const updated = await prisma.sitediaryrecords.update({
+  const updated = await prisma.ztcRecords.update({
     where: { id: args.session.id },
     data: {
       Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({
@@ -1753,7 +1753,7 @@ async function handleDiagonalMeasurementText(args: {
     diagonalB: diagonals[1],
   };
 
-  await prisma.sitediaryrecords.update({
+  await prisma.ztcRecords.update({
     where: { id: args.session.id },
     data: {
       Comments_Custom_1: `${DIAGONALS_CONFIRM_PREFIX} ${JSON.stringify(payload)}`,
@@ -1796,7 +1796,7 @@ async function handleDiagonalConfirmationText(args: {
   }
 
   if (isNegativeConfirmation(args.text)) {
-    await prisma.sitediaryrecords.update({
+    await prisma.ztcRecords.update({
       where: { id: args.session.id },
       data: {
         Comments_Custom_1: `${DIAGONALS_PENDING_PREFIX} ${payload.completedText}`,
@@ -1885,7 +1885,7 @@ async function handleTlDiagonalMeasureText(args: {
       firstMeasureMm: measure,
     };
 
-    const updated = await prisma.sitediaryrecords.update({
+    const updated = await prisma.ztcRecords.update({
       where: { id: args.session.id },
       data: {
         Comments_Custom_1: `${DIAGONAL_SECOND_PHOTO_PENDING_PREFIX} ${JSON.stringify(payload)}`,
@@ -1971,7 +1971,7 @@ async function handleTlDiagonalPhoto(args: {
     };
     const nextPhotos = [...(args.session.Photos ?? []), image.publicUrl];
 
-    const updated = await prisma.sitediaryrecords.update({
+    const updated = await prisma.ztcRecords.update({
       where: { id: args.session.id },
       data: {
         Photos: nextPhotos,
@@ -2004,7 +2004,7 @@ async function handleTlDiagonalPhoto(args: {
     };
     const nextPhotos = [...(args.session.Photos ?? []), image.publicUrl];
 
-    const updated = await prisma.sitediaryrecords.update({
+    const updated = await prisma.ztcRecords.update({
       where: { id: args.session.id },
       data: {
         Photos: nextPhotos,
@@ -2082,7 +2082,7 @@ async function appendPhotosToRecentCompletedSession(args: {
 
   const nextPhotos = [...(session.Photos ?? []), ...uploadedUrls];
 
-  const updated = await prisma.sitediaryrecords.update({
+  const updated = await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Photos: nextPhotos,
@@ -2182,7 +2182,7 @@ async function handleDrawingPhoto(args: {
   const drawingMetadata = JSON.stringify(buildDrawingMetadata(extraction));
 
   if (existing && !existing.Works) {
-    const updated = await prisma.sitediaryrecords.update({
+    const updated = await prisma.ztcRecords.update({
       where: { id: existing.id },
       data: {
         Date_Custom_1: new Date(),
@@ -2204,7 +2204,7 @@ async function handleDrawingPhoto(args: {
       },
     });
   } else {
-    const created = await prisma.sitediaryrecords.create({
+    const created = await prisma.ztcRecords.create({
       data: {
         workerId: worker.id,
         siteId: ZTC_SITE_ID,
@@ -2240,7 +2240,7 @@ async function createSessionFromLatestDrawing(worker: ZtcWorker) {
   const previous = await getLatestZtcDrawingContext(worker.id);
   if (!previous) return null;
 
-  const created = await prisma.sitediaryrecords.create({
+  const created = await prisma.ztcRecords.create({
     data: {
       workerId: worker.id,
       siteId: ZTC_SITE_ID,
@@ -2284,7 +2284,7 @@ async function createAdditionalWorkSession(args: {
   );
   const mappedWorkOption = defaultRateMatch?.task?.trim() || workOption;
 
-  const created = await prisma.sitediaryrecords.create({
+  const created = await prisma.ztcRecords.create({
     data: {
       workerId: worker.id,
       siteId: ZTC_SITE_ID,
@@ -2389,7 +2389,7 @@ async function handleWorkText(args: {
     }
 
     if (!hasCompletedWorkPhoto(session)) {
-      const updated = await prisma.sitediaryrecords.update({
+      const updated = await prisma.ztcRecords.update({
         where: { id: session.id },
         data: {
           Amounts: session.Amounts ?? undefined,
@@ -2455,7 +2455,7 @@ async function handleWorkText(args: {
   });
   const complexity = await getComplexityForMarks(complexityMarks);
 
-  const updated = await prisma.sitediaryrecords.update({
+  const updated = await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Date: now,
@@ -2532,7 +2532,7 @@ async function handleFinishedPhoto(args: {
     ? session.Comments_Custom_1
     : photoBatchMarker();
 
-  await prisma.sitediaryrecords.update({
+  await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Photos: nextPhotos,
