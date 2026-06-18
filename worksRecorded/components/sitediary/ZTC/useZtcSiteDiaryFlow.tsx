@@ -20,7 +20,7 @@ import {
   type ZtcImageDialogState,
 } from "@/components/sitediary/ZTC/ztc-site-diary-utils";
 
-type ZtcPayrollField = "rate" | "coefficient" | "bonus";
+type ZtcPayrollField = "rate" | "coefficient" | "complexity";
 
 type UseZtcSiteDiaryFlowArgs<Row extends ZtcDiaryRow> = {
   enabled: boolean;
@@ -116,17 +116,17 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
 
       const rateValue = String(row.Location_Custom_2 ?? "").trim();
       const coefficientValue = String(row.Works_Custom_2 ?? "").trim();
-      const bonusValue = String(row.WorkersInvolved ?? "").trim();
+      const complexityValue = String(row.WorkersInvolved ?? "").trim();
       const payrollFieldLabels: Record<string, string> = {
         rate: "likmei",
         coefficient: "koeficientam",
-        bonus: "bonusam",
+        complexity: "sarežģītībai",
       };
 
       const invalid = [
         ["rate", rateValue],
         ["coefficient", coefficientValue],
-        ["bonus", bonusValue],
+        ["complexity", complexityValue],
       ].find(
         ([_, value]) =>
           value && !Number.isFinite(Number(String(value).replace(",", "."))),
@@ -146,7 +146,7 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
           id: row.id,
           rate: rateValue,
           coefficient: coefficientValue,
-          bonus: bonusValue,
+          complexity: complexityValue,
         });
 
         if (!result?.ok) {

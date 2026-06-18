@@ -4,6 +4,13 @@ import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getOrganizationIdByUserId, orgCheck } from "@/server/actions/shared-actions";
+import {
+  isZtcComplexityCoefficientTask,
+  ZTC_DEFAULT_ONE_X_COEFFICIENT,
+  ZTC_DEFAULT_TWO_X_COEFFICIENT,
+  ZTC_ONE_X_COEFFICIENT_TASK,
+  ZTC_TWO_X_COEFFICIENT_TASK,
+} from "@/components/sitediary/ZTC/ztc-rate-constants";
 
 const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -102,6 +109,61 @@ function normalizeProjectRateName(value: unknown) {
   return name || ZTC_ALL_PROJECTS_RATE_NAME;
 }
 
+function ensureZtcComplexityCoefficientRows(
+  projects: ZtcProjectTaskRates[],
+): ZtcProjectTaskRates[] {
+  const sanitizedProjects = projects.map((project) => ({
+    ...project,
+    works:
+      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase()
+        ? project.works
+        : project.works.filter((entry) => !isZtcComplexityCoefficientTask(entry.task)),
+  }));
+  let allProjects = sanitizedProjects.find(
+    (project) =>
+      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+  );
+
+  if (!allProjects) {
+    allProjects = {
+      projectName: ZTC_ALL_PROJECTS_RATE_NAME,
+      manual: false,
+      works: [],
+      additionalDetails: [],
+      additionalWorks: [],
+    };
+    sanitizedProjects.unshift(allProjects);
+  }
+
+  const normalWorks = allProjects.works.filter(
+    (entry) => !isZtcComplexityCoefficientTask(entry.task),
+  );
+  const oneX = allProjects.works.find(
+    (entry) =>
+      normalizeTaskName(entry.task).toLowerCase() ===
+      ZTC_ONE_X_COEFFICIENT_TASK.toLowerCase(),
+  );
+  const twoX = allProjects.works.find(
+    (entry) =>
+      normalizeTaskName(entry.task).toLowerCase() ===
+      ZTC_TWO_X_COEFFICIENT_TASK.toLowerCase(),
+  );
+
+  allProjects.works = [
+    {
+      task: ZTC_ONE_X_COEFFICIENT_TASK,
+      rate: oneX?.rate ?? ZTC_DEFAULT_ONE_X_COEFFICIENT,
+    },
+    {
+      task: ZTC_TWO_X_COEFFICIENT_TASK,
+      rate: twoX?.rate ?? ZTC_DEFAULT_TWO_X_COEFFICIENT,
+    },
+    ...normalWorks,
+  ];
+
+  return sanitizedProjects;
+}
+
 function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
   if (Array.isArray(value)) {
     const looksLikeProjectRates = value.some(
@@ -114,14 +176,14 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
       return normalizeProjectRates({ projects: value });
     }
 
-    return [
+    return ensureZtcComplexityCoefficientRows([
       {
         projectName: ZTC_ALL_PROJECTS_RATE_NAME,
         works: normalizeTaskRateEntries(value),
         additionalDetails: [],
         additionalWorks: [],
       },
-    ];
+    ]);
   }
 
   const rawProjects = Array.isArray((value as Record<string, unknown> | null)?.projects)
@@ -138,9 +200,10 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     };
   });
 
-  return projects.length
-    ? projects
-    : [
+  return ensureZtcComplexityCoefficientRows(
+    projects.length
+      ? projects
+      : [
         {
           projectName: ZTC_ALL_PROJECTS_RATE_NAME,
           manual: false,
@@ -148,7 +211,8 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
           additionalDetails: [],
           additionalWorks: [],
         },
-      ];
+      ],
+  );
 }
 
 function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | undefined) {
@@ -225,9 +289,10 @@ function findDefaultRateForTask(
   const taskTokens = new Set(taskMatchTokens(String(task ?? "")));
   if (!taskTokens.size) return null;
 
-  let best: { rate: string; score: number } | null = null;
+  let best: { entry: ZtcDefaultTaskRate; score: number } | null = null;
 
   for (const entry of rates) {
+    if (isZtcComplexityCoefficientTask(entry.task)) continue;
     const rateTokens = new Set(taskMatchTokens(entry.task));
     if (!rateTokens.size) continue;
 
@@ -252,11 +317,11 @@ function findDefaultRateForTask(
           : score;
     const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
     if (finalScore >= threshold && (!best || finalScore > best.score)) {
-      best = { rate: entry.rate, score: finalScore };
+      best = { entry, score: finalScore };
     }
   }
 
-  return best?.rate ?? null;
+  return best?.entry ?? null;
 }
 
 function getZtcRateCategoryForRow(row: Record<string, any>): ZtcRateCategory {
@@ -293,6 +358,70 @@ function getProjectCategoryRates(
   return merged;
 }
 
+function getZtcDrawingComplexityMarks(
+  metadataValue: unknown,
+  elementName: unknown,
+  taskName: unknown,
+): 0 | 1 | 2 {
+  if (typeof metadataValue !== "string" || !metadataValue.trim()) return 0;
+
+  try {
+    const metadata = JSON.parse(metadataValue) as {
+      type?: string;
+      elements?: Array<{
+        elementName?: string | null;
+        works?: Array<{
+          name?: string | null;
+          complexityMarks?: number | null;
+        }>;
+      }>;
+    };
+    if (metadata.type !== "ztc_drawing_context" || !Array.isArray(metadata.elements)) {
+      return 0;
+    }
+
+    const normalizedElement = String(elementName ?? "").trim().toLowerCase();
+    const normalizedTask = normalizeTaskName(taskName).toLowerCase();
+    const element = metadata.elements.find(
+      (entry) => String(entry.elementName ?? "").trim().toLowerCase() === normalizedElement,
+    );
+    const work = element?.works?.find(
+      (entry) => normalizeTaskName(entry.name).toLowerCase() === normalizedTask,
+    );
+    return Number(work?.complexityMarks) >= 2
+      ? 2
+      : Number(work?.complexityMarks) === 1
+        ? 1
+        : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function getZtcComplexityForMarks(
+  marks: 0 | 1 | 2,
+  projects: ZtcProjectTaskRates[],
+) {
+  const allProjectRates = projects.find(
+    (project) =>
+      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+  );
+  const task =
+    marks === 2
+      ? ZTC_TWO_X_COEFFICIENT_TASK
+      : marks === 1
+        ? ZTC_ONE_X_COEFFICIENT_TASK
+        : null;
+  if (!task) return 1;
+
+  const configured = allProjectRates?.works.find(
+    (entry) => normalizeTaskName(entry.task).toLowerCase() === task.toLowerCase(),
+  );
+  const fallback =
+    marks === 2 ? ZTC_DEFAULT_TWO_X_COEFFICIENT : ZTC_DEFAULT_ONE_X_COEFFICIENT;
+  return normalizeNumber(configured?.rate) ?? Number(fallback);
+}
+
 function sanitizeZtcRecordRow(row: Record<string, any>) {
   const defaultRates = normalizeProjectRates(row.__ztcDefaultTaskRates);
   const category = getZtcRateCategoryForRow(row);
@@ -301,6 +430,12 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     getProjectCategoryRates(defaultRates, row.Location, category),
     { category },
   );
+  const complexityMarks = getZtcDrawingComplexityMarks(
+    row.Comments_Custom_2,
+    row.Location_Custom_1,
+    row.Works,
+  );
+  const defaultComplexity = getZtcComplexityForMarks(complexityMarks, defaultRates);
   const units = row.Units || (category === "additionalDetails" ? "gab" : category === "additionalWorks" ? "st" : "m2");
 
   return {
@@ -309,7 +444,7 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     Date_Custom_2: normalizeNullableDate(row.Date_Custom_2),
     Location: row.Location || null,
     Location_Custom_1: row.Location_Custom_1 || null,
-    Location_Custom_2: row.Location_Custom_2 || defaultRate || null,
+    Location_Custom_2: row.Location_Custom_2 || defaultRate?.rate || null,
     Works: row.Works || null,
     Works_Custom_1: row.Works_Custom_1 || null,
     Works_Custom_2: row.Works_Custom_2 || null,
@@ -319,7 +454,7 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     originalUserComment: row.originalUserComment || null,
     Units: units,
     Amounts: normalizeNumber(row.Amounts) ?? null,
-    WorkersInvolved: normalizeNumber(row.WorkersInvolved) ?? null,
+    WorkersInvolved: normalizeNumber(row.WorkersInvolved) ?? defaultComplexity,
     TimeInvolved: normalizeNumber(row.TimeInvolved) ?? null,
   };
 }
@@ -635,13 +770,13 @@ export async function updateZtcPayrollFields(args: {
   id: string;
   rate?: string | number | null;
   coefficient?: string | number | null;
-  bonus?: string | number | null;
+  complexity?: string | number | null;
 }) {
   await requireZtcAccess(args.siteId);
 
   const rate = normalizePayrollTextNumber(args.rate);
   const coefficient = normalizePayrollTextNumber(args.coefficient);
-  const bonus = normalizeNumber(args.bonus);
+  const complexity = normalizeNumber(args.complexity);
 
   if (rate === undefined) {
     return { ok: false, message: "Algas likmei jābūt derīgam skaitlim." };
@@ -651,8 +786,8 @@ export async function updateZtcPayrollFields(args: {
     return { ok: false, message: "Algas koeficientam jābūt derīgam skaitlim." };
   }
 
-  if (args.bonus !== "" && args.bonus != null && bonus === undefined) {
-    return { ok: false, message: "Algas bonusam jābūt derīgam skaitlim." };
+  if (args.complexity !== "" && args.complexity != null && complexity === undefined) {
+    return { ok: false, message: "Sarežģītības koeficientam jābūt derīgam skaitlim." };
   }
 
   const result = await prisma.sitediaryrecords.updateMany({
@@ -664,7 +799,7 @@ export async function updateZtcPayrollFields(args: {
     data: {
       Location_Custom_2: rate,
       Works_Custom_2: coefficient,
-      WorkersInvolved: bonus ?? null,
+      WorkersInvolved: complexity ?? null,
     },
   });
 

@@ -2119,8 +2119,8 @@ export default function SiteDiaryCalendar({
                                     {ztc.renderPayrollInput(r, "coefficient", r.Works_Custom_2, "w-full")}
                                   </label>
                                   <label className="space-y-1">
-                                    <span>Bonuss</span>
-                                    {ztc.renderPayrollInput(r, "bonus", r.WorkersInvolved, "w-full")}
+                                    <span>Sarežģītība</span>
+                                    {ztc.renderPayrollInput(r, "complexity", r.WorkersInvolved, "w-full")}
                                   </label>
                                   <div className="space-y-1">
                                     <span>Summa</span>
@@ -2320,7 +2320,7 @@ export default function SiteDiaryCalendar({
                                       <TableHead className="text-right" style={{ width: 76 }}>Daudz. / mērv.</TableHead>
                                       <TableHead className="px-2 text-right text-[11px]" style={{ width: 68 }}>Likme</TableHead>
                                       <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Koef.</TableHead>
-                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Bonuss</TableHead>
+                                      <TableHead className="px-2 text-right text-[11px]" style={{ width: 92 }}>Sarežģītība</TableHead>
                                       <TableHead className="text-right" style={{ width: 82 }}>Summa</TableHead>
                                       <TableHead className="text-center" style={{ width: 72 }}>Saglabāt</TableHead>
                                       <TableHead style={{ width: 270 }}>Komentāri</TableHead>
@@ -2435,8 +2435,8 @@ export default function SiteDiaryCalendar({
                                           <TableCell className="px-1.5 py-2 text-right" style={{ width: 72 }}>
                                             {ztc.renderPayrollInput(row, "coefficient", row.Works_Custom_2, "w-full")}
                                           </TableCell>
-                                          <TableCell className="px-1.5 py-2 text-right" style={{ width: 72 }}>
-                                            {ztc.renderPayrollInput(row, "bonus", row.WorkersInvolved, "w-full")}
+                                          <TableCell className="px-1.5 py-2 text-right" style={{ width: 92 }}>
+                                            {ztc.renderPayrollInput(row, "complexity", row.WorkersInvolved, "w-full")}
                                           </TableCell>
                                           <TableCell className="px-3 py-3 text-right font-semibold tabular-nums" style={{ width: 82 }}>
                                             {formatZtcMoney(payroll.sum)}
@@ -2631,7 +2631,7 @@ export default function SiteDiaryCalendar({
                                             <>
                                               <TableHead className="text-right" style={{ width: 90 }}>Likme</TableHead>
                                               <TableHead className="text-right" style={{ width: 105 }}>Koeficients</TableHead>
-                                              <TableHead className="text-right" style={{ width: 95 }}>Bonuss</TableHead>
+                                              <TableHead className="text-right" style={{ width: 105 }}>Sarežģītība</TableHead>
                                               <TableHead className="text-right" style={{ width: 95 }}>Summa</TableHead>
                                             </>
                                           ) : null}
@@ -2755,7 +2755,7 @@ export default function SiteDiaryCalendar({
                                                 {ztc.renderPayrollInput(originalRow, "coefficient", originalRow.Works_Custom_2)}
                                               </TableCell>
                                               <TableCell className="align-top px-2 py-2 text-right" style={{ width: 95 }}>
-                                                {ztc.renderPayrollInput(originalRow, "bonus", originalRow.WorkersInvolved)}
+                                                {ztc.renderPayrollInput(originalRow, "complexity", originalRow.WorkersInvolved)}
                                               </TableCell>
                                               <TableCell className="align-top px-3 py-3 text-right font-medium" style={{ width: 95 }}>
                                                 {formatZtcMoney(payroll.sum)}

@@ -79,7 +79,7 @@ export function getZtcPayrollValues(row: ZtcDiaryRow) {
       amountM2: 0,
       rate: 0,
       coefficient: 0,
-      bonus: 0,
+      complexity: 0,
       sum: 0,
       payrollQuantity: 0,
     };
@@ -91,15 +91,15 @@ export function getZtcPayrollValues(row: ZtcDiaryRow) {
   const payrollQuantity = unit === "st" ? hours : amountM2;
   const rate = parseZtcPayrollNumber(row.Location_Custom_2);
   const coefficient = parseZtcPayrollNumber(row.Works_Custom_2, 1);
-  const bonus = parseZtcPayrollNumber(row.WorkersInvolved);
-  const sum = payrollQuantity * rate * coefficient + bonus;
+  const complexity = parseZtcPayrollNumber(row.WorkersInvolved, 1);
+  const sum = payrollQuantity * rate * coefficient * complexity;
 
   return {
     hours,
     amountM2,
     rate,
     coefficient,
-    bonus,
+    complexity,
     sum: Number(sum.toFixed(2)),
     payrollQuantity,
   };
@@ -214,7 +214,7 @@ export async function exportZtcPayrollToExcel({
       Mērvienība: row.Units ?? "",
       Likme: payroll.rate,
       Koeficients: payroll.coefficient,
-      Bonuss: payroll.bonus,
+      Sarežģītība: payroll.complexity,
       Summa: payroll.sum,
     };
   });

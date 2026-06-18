@@ -27,6 +27,9 @@ import {
   type ZtcProjectTaskRates,
   type ZtcRateCategory,
 } from "@/components/sitediary/ZTC/actions";
+import {
+  isZtcComplexityCoefficientTask,
+} from "@/components/sitediary/ZTC/ztc-rate-constants";
 
 type ZtcDefaultRatesDialogProps = {
   open: boolean;
@@ -62,6 +65,13 @@ function emptyZtcProjectRates(projectName: string, manual = false): ZtcProjectTa
     works: [],
     additionalDetails: [],
     additionalWorks: [],
+  };
+}
+
+function emptyZtcTaskRate(): ZtcDefaultTaskRate {
+  return {
+    task: "",
+    rate: "",
   };
 }
 
@@ -148,12 +158,14 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
   const isAllProjects = selectedProject === ZTC_ALL_PROJECTS_RATE_NAME;
   const visibleRows = isAllProjects
     ? selectedProjectRates[selectedCategory]
-    : allProjects[selectedCategory].map((master) => {
-        const override = selectedProjectRates[selectedCategory].find(
-          (entry) => entry.task.toLowerCase() === master.task.toLowerCase(),
-        );
-        return { task: master.task, rate: override?.rate ?? master.rate };
-      });
+    : allProjects[selectedCategory]
+        .filter((master) => !isZtcComplexityCoefficientTask(master.task))
+        .map((master) => {
+          const override = selectedProjectRates[selectedCategory].find(
+            (entry) => entry.task.toLowerCase() === master.task.toLowerCase(),
+          );
+          return { task: master.task, rate: override?.rate ?? master.rate };
+        });
   const normalizedRateSearch = rateSearch.trim().toLowerCase();
   const filteredRows = visibleRows
     .map((entry, index) => ({ entry, index }))
@@ -236,7 +248,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
 
         if (projectName === ZTC_ALL_PROJECTS_RATE_NAME) {
           const rows = project[category];
-          if (!rows[index]) rows[index] = { task: "", rate: "" };
+          if (!rows[index]) rows[index] = emptyZtcTaskRate();
           rows[index] = { ...rows[index], [field]: input.value };
           return;
         }
@@ -266,9 +278,10 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
         (project) => project.projectName === selectedProject,
       );
       const committedRows = committedProject?.[selectedCategory] ?? visibleRows;
+      if (isZtcComplexityCoefficientTask(committedRows[index]?.task ?? "")) return;
       const rows =
         committedRows.length <= 1
-          ? [{ task: "", rate: "" }]
+          ? [emptyZtcTaskRate()]
           : committedRows.filter((_, entryIndex) => entryIndex !== index);
       setProjectCategoryRows(selectedProject, selectedCategory, rows);
     },
@@ -381,7 +394,9 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
       ])
       .find(
         (entry) =>
-          !entry.task || !entry.rate || !Number.isFinite(Number(entry.rate)),
+          !entry.task ||
+          !entry.rate ||
+          !Number.isFinite(Number(entry.rate)),
       );
     if (invalid) {
       toast.error("Katrai darbu likmei jānorāda darbs un derīga likme.");
@@ -562,7 +577,11 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                       data-ztc-index={index}
                       data-ztc-task={entry.task}
                       maxLength={180}
-                      disabled={!isAllProjects || saving}
+                      disabled={
+                        !isAllProjects ||
+                        saving ||
+                        isZtcComplexityCoefficientTask(entry.task)
+                      }
                       placeholder={
                         selectedCategory === "additionalDetails"
                           ? "Detaļa, piemēram Kronšteins"
@@ -585,18 +604,24 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                       className="text-right"
                     />
                     <div className="flex h-9 items-center justify-center rounded-md border bg-muted/40 px-2 text-sm font-medium text-muted-foreground">
-                      {ZTC_RATE_CATEGORY_UNITS[selectedCategory]}
+                      {isZtcComplexityCoefficientTask(entry.task)
+                        ? "x"
+                        : ZTC_RATE_CATEGORY_UNITS[selectedCategory]}
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      disabled={saving || !isAllProjects}
-                      onClick={() => removeDraftRow(index)}
-                      aria-label="Dzēst likmi"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {isZtcComplexityCoefficientTask(entry.task) ? (
+                      <div />
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={saving || !isAllProjects}
+                        onClick={() => removeDraftRow(index)}
+                        aria-label="Dzēst likmi"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 ))
               ) : (
@@ -623,7 +648,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
               const committedRows = committedProject?.[selectedCategory] ?? visibleRows;
               setProjectCategoryRows(selectedProject, selectedCategory, [
                 ...committedRows,
-                { task: "", rate: "" },
+                emptyZtcTaskRate(),
               ]);
             }}
           >

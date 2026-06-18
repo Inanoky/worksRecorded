@@ -725,7 +725,7 @@ export function ZtcDialogTable({
     <form onSubmit={handleSubmit} className={className}>
       <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/95 pb-3 backdrop-blur">
         <Button type="button" variant="outline" disabled={saving} onClick={() => setRows((prev) => [...prev, newEmptyRow()])}>
-          {t.addRow || "Pievienot"}
+          Pievienot
         </Button>
         <Button type="submit" disabled={saving}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}

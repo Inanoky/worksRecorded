@@ -9,6 +9,13 @@ import { sendMessage, sendTypingIndicator } from "@/lib/utils/whatsapp-helpers/s
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
+import {
+  isZtcComplexityCoefficientTask,
+  ZTC_DEFAULT_ONE_X_COEFFICIENT,
+  ZTC_DEFAULT_TWO_X_COEFFICIENT,
+  ZTC_ONE_X_COEFFICIENT_TASK,
+  ZTC_TWO_X_COEFFICIENT_TASK,
+} from "@/components/sitediary/ZTC/ztc-rate-constants";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -60,6 +67,7 @@ export type DrawingExtraction = {
   workItems: Array<{
     name: string;
     amountM2: number | null;
+    complexityMarks: 0 | 1 | 2;
   }>;
   issue: string | null;
 };
@@ -123,6 +131,7 @@ type ZtcDrawingMetadata = {
     works: Array<{
       name: string;
       amountM2: number | null;
+      complexityMarks: 0 | 1 | 2;
     }>;
   }>;
 };
@@ -243,6 +252,60 @@ function normalizeProjectRateName(value: unknown) {
   return name || ZTC_ALL_PROJECTS_RATE_NAME;
 }
 
+function ensureZtcComplexityCoefficientRows(
+  projects: ZtcProjectTaskRates[],
+): ZtcProjectTaskRates[] {
+  const sanitizedProjects = projects.map((project) => ({
+    ...project,
+    works:
+      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase()
+        ? project.works
+        : project.works.filter((entry) => !isZtcComplexityCoefficientTask(entry.task)),
+  }));
+  let allProjects = sanitizedProjects.find(
+    (project) =>
+      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+  );
+
+  if (!allProjects) {
+    allProjects = {
+      projectName: ZTC_ALL_PROJECTS_RATE_NAME,
+      works: [],
+      additionalDetails: [],
+      additionalWorks: [],
+    };
+    sanitizedProjects.unshift(allProjects);
+  }
+
+  const normalWorks = allProjects.works.filter(
+    (entry) => !isZtcComplexityCoefficientTask(entry.task),
+  );
+  const oneX = allProjects.works.find(
+    (entry) =>
+      normalizeZtcWorkName(entry.task).toLowerCase() ===
+      ZTC_ONE_X_COEFFICIENT_TASK.toLowerCase(),
+  );
+  const twoX = allProjects.works.find(
+    (entry) =>
+      normalizeZtcWorkName(entry.task).toLowerCase() ===
+      ZTC_TWO_X_COEFFICIENT_TASK.toLowerCase(),
+  );
+
+  allProjects.works = [
+    {
+      task: ZTC_ONE_X_COEFFICIENT_TASK,
+      rate: oneX?.rate ?? ZTC_DEFAULT_ONE_X_COEFFICIENT,
+    },
+    {
+      task: ZTC_TWO_X_COEFFICIENT_TASK,
+      rate: twoX?.rate ?? ZTC_DEFAULT_TWO_X_COEFFICIENT,
+    },
+    ...normalWorks,
+  ];
+
+  return sanitizedProjects;
+}
+
 function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
   if (Array.isArray(value)) {
     const looksLikeProjectRates = value.some(
@@ -255,14 +318,14 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
       return normalizeProjectRates({ projects: value });
     }
 
-    return [
+    return ensureZtcComplexityCoefficientRows([
       {
         projectName: ZTC_ALL_PROJECTS_RATE_NAME,
         works: normalizeTaskRateEntries(value),
         additionalDetails: [],
         additionalWorks: [],
       },
-    ];
+    ]);
   }
 
   const rawProjects = Array.isArray((value as Record<string, unknown> | null)?.projects)
@@ -278,16 +341,18 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     };
   });
 
-  return projects.length
-    ? projects
-    : [
+  return ensureZtcComplexityCoefficientRows(
+    projects.length
+      ? projects
+      : [
         {
           projectName: ZTC_ALL_PROJECTS_RATE_NAME,
           works: [],
           additionalDetails: [],
           additionalWorks: [],
         },
-      ];
+      ],
+  );
 }
 
 function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | undefined): ZtcProjectTaskRates[] {
@@ -417,6 +482,7 @@ async function getDefaultRateMatchForWork(
   let best: { task: string; rate: string; score: number } | null = null;
 
   for (const entry of rates) {
+    if (isZtcComplexityCoefficientTask(entry.task)) continue;
     const rateTokens = new Set(taskRateMatchTokens(entry.task));
     if (!rateTokens.size) continue;
 
@@ -990,6 +1056,13 @@ function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction
             item?.amountM2 == null || !Number.isFinite(Number(item.amountM2))
               ? null
               : Number(item.amountM2),
+          complexityMarks: (
+            Number(item?.complexityMarks) >= 2
+              ? 2
+              : Number(item?.complexityMarks) === 1
+                ? 1
+                : 0
+          ) as 0 | 1 | 2,
         }))
         .filter((item) => item.name)
     : [];
@@ -1032,6 +1105,7 @@ export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingM
     : extraction.workList.map((name) => ({
         name: normalizeZtcWorkName(name),
         amountM2: extraction.totalAreaM2,
+        complexityMarks: 0 as const,
       }));
 
   return {
@@ -1045,6 +1119,7 @@ export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingM
         works: worksSource.map((work) => ({
           name: normalizeZtcWorkName(work.name),
           amountM2: work.amountM2 ?? extraction.totalAreaM2,
+          complexityMarks: work.complexityMarks,
         })),
       },
     ],
@@ -1079,15 +1154,63 @@ function getSessionWorkAmountM2(session: OpenZtcSession, workName: string | null
   return work?.amountM2 ?? element?.totalAreaM2 ?? null;
 }
 
+function getSessionWorkComplexityMarks(
+  session: OpenZtcSession,
+  workName: string | null | undefined,
+): 0 | 1 | 2 {
+  const normalizedWork = normalizeZtcWorkName(workName).toLowerCase();
+  if (!normalizedWork) return 0;
+
+  const metadata = parseZtcDrawingMetadata(session.Comments_Custom_2);
+  const element = metadata?.elements.find(
+    (item) =>
+      item.elementName.toLowerCase() ===
+      String(session.Location_Custom_1 ?? "").trim().toLowerCase(),
+  );
+  const work = element?.works.find(
+    (item) => normalizeZtcWorkName(item.name).toLowerCase() === normalizedWork,
+  );
+
+  return work?.complexityMarks === 2 ? 2 : work?.complexityMarks === 1 ? 1 : 0;
+}
+
+async function getComplexityForMarks(marks: 0 | 1 | 2) {
+  if (marks === 0) return "1";
+
+  const config = ((await getConfig(ZTC_SITE_ID)) ??
+    ztcSiteDiaryRecordsMap) as Record<string, any>;
+  const projects = getDefaultTaskRatesFromConfig(config);
+  const allProjectRates = projects.find(
+    (project) =>
+      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+  );
+  const coefficientTask =
+    marks === 2 ? ZTC_TWO_X_COEFFICIENT_TASK : ZTC_ONE_X_COEFFICIENT_TASK;
+  const configured = allProjectRates?.works.find(
+    (entry) =>
+      normalizeZtcWorkName(entry.task).toLowerCase() ===
+      coefficientTask.toLowerCase(),
+  );
+  const fallback =
+    marks === 2 ? ZTC_DEFAULT_TWO_X_COEFFICIENT : ZTC_DEFAULT_ONE_X_COEFFICIENT;
+
+  return configured?.rate ?? fallback;
+}
+
 export function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
   const items = extraction.workItems.length
     ? extraction.workItems
-    : extraction.workList.map((name) => ({ name, amountM2: extraction.totalAreaM2 }));
+    : extraction.workList.map((name) => ({
+        name,
+        amountM2: extraction.totalAreaM2,
+        complexityMarks: 0 as const,
+      }));
 
   return items
     .map((item, index) => {
       const amount = item.amountM2 ?? extraction.totalAreaM2;
-      return `${index + 1}. ${normalizeZtcWorkName(item.name)}${amount != null ? ` - ${amount} m2` : ""}`;
+      const marks = item.complexityMarks > 0 ? ` - ${"X ".repeat(item.complexityMarks).trim()}` : "";
+      return `${index + 1}. ${normalizeZtcWorkName(item.name)}${amount != null ? ` - ${amount} m2` : ""}${marks}`;
     })
     .join("\n");
 }
@@ -1222,14 +1345,14 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
         {
           role: "system",
           content:
-            "You validate ZTC factory drawing photos. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null}, issue string|null. Accept only readable precast/timber element production drawings. Ignore the large drawing views, dimensions, revision stamp, designer names, legends, and unrelated notes unless needed to confirm it is a drawing. Extract only from the framed tables at the bottom of the drawing: (1) the lower-left work list frame, (2) the area/info square immediately to the right of that work list, and (3) the right title block with project and drawing info. The work list is the lower-left frame and uses prefixes in this order when present: R5, R4, R3, R2, R1, TL, L1, L2, L3, L4, L5. Extract only rows from that lower-left work frame with a visible description after the hyphen; omit empty prefix rows. Preserve the exact drawing order. Include the prefix in the work name, for example \"R2 - Batten, 45x45mm\" or \"TL - 45x245 / Mineral wool\". ZTC drawings always use TL for timber frame work: normalize any prefix T, T1, or similar OCR mistake to TL, and never return T1. The total area is in the adjacent square/table to the right of the work list, usually labelled like \"Aptuvena panela kvadratura - 15.87m2\"; extract that number as totalAreaM2. If work-specific areas are not explicitly stated in the work list, set every workItems amountM2 to totalAreaM2. Project name must be extracted only from the value immediately after the exact title-block label \"Project name:\" or \"Project name :\". If that label or value is unreadable, set hasReadableProjectName=false and projectName=null. Element name must come from the exact title-block label \"Drawing name:\" when visible. Reject ordinary photos, selfies, documents without this drawing/title-block context, drawings without a readable project name, element name, work list, or total area, and unreadable/blurry photos. Preserve Latvian diacritics and original spelling in extracted names; do not transliterate.",
+            "You validate ZTC factory drawing photos. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null, complexityMarks 0|1|2}, issue string|null. Accept only readable precast/timber element production drawings. Ignore the large drawing views, dimensions, revision stamp, designer names, legends, and unrelated notes unless needed to confirm it is a drawing. Extract only from the framed tables at the bottom of the drawing: (1) the lower-left work list frame, including the two narrow handwritten-mark squares immediately to the left of each task row, (2) the area/info square immediately to the right of that work list, and (3) the right title block with project and drawing info. For each task, complexityMarks is 0 when both small squares are empty, 1 when exactly one square contains a clearly handwritten X, and 2 when both squares contain a clearly handwritten X. Count marks only in the two small squares aligned with that exact task row. Do not count printed grid lines, letters in task codes, checkmarks, dimension marks, or marks from adjacent rows. The work list uses prefixes in this order when present: R5, R4, R3, R2, R1, TL, L1, L2, L3, L4, L5. Extract only rows from that lower-left work frame with a visible description after the hyphen; omit empty prefix rows. Preserve the exact drawing order. Include the prefix in the work name, for example \"R2 - Batten, 45x45mm\" or \"TL - 45x245 / Mineral wool\". ZTC drawings always use TL for timber frame work: normalize any prefix T, T1, or similar OCR mistake to TL, and never return T1. The total area is in the adjacent square/table to the right of the work list, usually labelled like \"Aptuvena panela kvadratura - 15.87m2\"; extract that number as totalAreaM2. If work-specific areas are not explicitly stated in the work list, set every workItems amountM2 to totalAreaM2. Project name must be extracted only from the value immediately after the exact title-block label \"Project name:\" or \"Project name :\". If that label or value is unreadable, set hasReadableProjectName=false and projectName=null. Element name must come from the exact title-block label \"Drawing name:\" when visible. Reject ordinary photos, selfies, documents without this drawing/title-block context, drawings without a readable project name, element name, work list, or total area, and unreadable/blurry photos. Preserve Latvian diacritics and original spelling in extracted names; do not transliterate.",
         },
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: "Check this WhatsApp photo. Read only the bottom ZTC drawing tables: lower-left work list, adjacent total area square, and right title block. Return project name, drawing/element name, total area in m2, and the ordered work list.",
+              text: "Check this WhatsApp photo. Read only the bottom ZTC drawing tables: lower-left work list with its two handwritten X squares per task row, adjacent total area square, and right title block. Return project name, drawing/element name, total area in m2, and the ordered work list with 0, 1, or 2 complexity marks for each task.",
             },
             {
               type: "image_url",
@@ -2324,18 +2447,21 @@ async function handleWorkText(args: {
   }
 
   const amountM2 = getSessionWorkAmountM2(session, work.workOption);
+  const complexityMarks = getSessionWorkComplexityMarks(session, work.workOption);
   const comments = await buildPolishedZtcUserComments({ startText: text });
-  const defaultRate = await getDefaultRateForWork(work.workOption, {
+  const defaultRateMatch = await getDefaultRateMatchForWork(work.workOption, {
     projectName: session.Location,
     category: "works",
   });
+  const complexity = await getComplexityForMarks(complexityMarks);
 
   const updated = await prisma.sitediaryrecords.update({
     where: { id: session.id },
     data: {
       Date: now,
       Works: work.workOption,
-      Location_Custom_2: session.Location_Custom_2 ?? defaultRate,
+      Location_Custom_2: session.Location_Custom_2 ?? defaultRateMatch?.rate ?? null,
+      WorkersInvolved: Number(complexity),
       Units: "m2",
       Amounts: amountM2 ?? undefined,
       Comments: comments,
@@ -2347,12 +2473,18 @@ async function handleWorkText(args: {
   logZtcSession("work_started", {
     session: updated,
     worker,
-    details: { startText: text, amountM2 },
+    details: {
+      startText: text,
+      amountM2,
+      complexityMarks,
+      complexity,
+      matchedRate: defaultRateMatch?.rate ?? null,
+    },
   });
 
   await sendZtcMessage(
     to,
-    `Sākts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nApjoms: ${amountM2 ?? 0} m2\nKad darbs ir pabeigts, atsūtiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
+    `Sākts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nApjoms: ${amountM2 ?? 0} m2\nSarežģītība: ${complexity}${complexityMarks ? ` (${complexityMarks} X)` : ""}\nKad darbs ir pabeigts, atsūtiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
   );
 }
 
