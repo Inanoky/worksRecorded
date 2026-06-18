@@ -41,6 +41,8 @@ import { getSiteSettingsMessages } from "@/lib/dashboard-i18n";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 
+const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
+
 export default async function SettingsSiteRoute({
   params,
   searchParams,
@@ -65,6 +67,8 @@ export default async function SettingsSiteRoute({
     notFound();
   }
 
+  const isZtcOrganization = orgId === ZTC_ORGANIZATION_ID;
+
   const [
     ,
     site,
@@ -78,14 +82,16 @@ export default async function SettingsSiteRoute({
     prisma.site.findUnique({
       where: { id: siteId },
     }),
-    getSiteBisConfig(siteId),
+    isZtcOrganization ? Promise.resolve(null) : getSiteBisConfig(siteId),
     prisma.sitediarysettings.findUnique({
       where: { siteId },
       select: { fileUrl: true, schema: true },
     }),
     getDataForReminderTable(orgId),
     getReminderTimes(orgId),
-    getUserBisTokenByUserId(user.id),
+    isZtcOrganization
+      ? Promise.resolve(null)
+      : getUserBisTokenByUserId(user.id),
   ]);
 
   console.log(`this is page.tsx ${remindersData}`);
@@ -247,29 +253,33 @@ export default async function SettingsSiteRoute({
 
       <div data-tour="settings-image"><UploadImageForm siteId={siteId} organizationLanguage={organizationLanguage} /></div>
 
-      <div data-tour="settings-bis"><BisIntegrationCard
-        organizationLanguage={organizationLanguage}
-        siteId={siteId}
-        isConnected={isBisConnected}
-        selectedCase={{
-          id: siteBisConfig?.bisCaseId ?? null,
-          caseNumber: siteBisConfig?.bisCaseNumber ?? null,
-          name: siteBisConfig?.bisCaseName ?? null,
-          stage: siteBisConfig?.bisCaseStage ?? null,
-        }}
-        selectedConstructionRound={{
-          id: siteBisConfig?.bisConstructionRoundId ?? null,
-          name: siteBisConfig?.bisConstructionRoundName ?? null,
-          roundNumber: siteBisConfig?.bisConstructionRoundNumber ?? null,
-          status: siteBisConfig?.bisConstructionRoundStatus ?? null,
-        }}
-        availableCases={availableBisCases}
-        availableConstructionRounds={availableBisConstructionRounds}
-        statusMessage={statusMessage}
-        hasManualAuthorizationCode={Boolean(
-          process.env.BIS_AUTHORIZATION_CODE
-        )}
-      /></div>
+      {!isZtcOrganization ? (
+        <div data-tour="settings-bis">
+          <BisIntegrationCard
+            organizationLanguage={organizationLanguage}
+            siteId={siteId}
+            isConnected={isBisConnected}
+            selectedCase={{
+              id: siteBisConfig?.bisCaseId ?? null,
+              caseNumber: siteBisConfig?.bisCaseNumber ?? null,
+              name: siteBisConfig?.bisCaseName ?? null,
+              stage: siteBisConfig?.bisCaseStage ?? null,
+            }}
+            selectedConstructionRound={{
+              id: siteBisConfig?.bisConstructionRoundId ?? null,
+              name: siteBisConfig?.bisConstructionRoundName ?? null,
+              roundNumber: siteBisConfig?.bisConstructionRoundNumber ?? null,
+              status: siteBisConfig?.bisConstructionRoundStatus ?? null,
+            }}
+            availableCases={availableBisCases}
+            availableConstructionRounds={availableBisConstructionRounds}
+            statusMessage={statusMessage}
+            hasManualAuthorizationCode={Boolean(
+              process.env.BIS_AUTHORIZATION_CODE
+            )}
+          />
+        </div>
+      ) : null}
 
       <div data-tour="settings-site-info"><UpdateSiteForm
         organizationLanguage={organizationLanguage}
@@ -281,6 +291,7 @@ export default async function SettingsSiteRoute({
           geofenceMapLink: site?.geofenceMapLink ?? "",
         }}
         parsedPolygon={parsedPolygon}
+        hideSiteArea={isZtcOrganization}
       /></div>
 
       <Card data-tour="settings-danger-zone" className="border-red-500 bg-red-500/10">

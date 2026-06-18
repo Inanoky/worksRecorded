@@ -26,6 +26,7 @@ type UpdateSiteFormProps = {
   };
   parsedPolygon: Point[];
   organizationLanguage?: string | null;
+  hideSiteArea?: boolean;
 };
 
 export function UpdateSiteForm({
@@ -33,6 +34,7 @@ export function UpdateSiteForm({
   site,
   parsedPolygon,
   organizationLanguage,
+  hideSiteArea = false,
 }: UpdateSiteFormProps) {
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteSettingsMessages(language);
@@ -122,18 +124,20 @@ export function UpdateSiteForm({
             />
           </div>
 
-          <div>
-            <label className="block mb-2 text-sm font-medium">
-              {t.siteArea}
-            </label>
-            <GeoMap
-              initialPolygon={parsedPolygon}
-              initialMapLink={site.geofenceMapLink}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              {t.siteAreaHint}
-            </p>
-          </div>
+          {!hideSiteArea ? (
+            <div>
+              <label className="block mb-2 text-sm font-medium">
+                {t.siteArea}
+              </label>
+              <GeoMap
+                initialPolygon={parsedPolygon}
+                initialMapLink={site.geofenceMapLink}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {t.siteAreaHint}
+              </p>
+            </div>
+          ) : null}
         </div>
 
         <CardFooter>
