@@ -759,9 +759,12 @@ export default function SiteDiaryCalendar({
         const payroll = getZtcPayrollValues(row);
         acc.hours += payroll.hours;
         acc.money += payroll.sum;
+        if (elementFilter !== "__ALL__" && payroll.amountM2 > acc.elementM2) {
+          acc.elementM2 = payroll.amountM2;
+        }
         return acc;
       },
-      { hours: 0, money: 0 },
+      { hours: 0, money: 0, elementM2: 0 },
     );
 
     return {
@@ -770,6 +773,7 @@ export default function SiteDiaryCalendar({
       rows: visibleRows.length,
       hours: totals.hours,
       money: totals.money,
+      elementM2: elementFilter !== "__ALL__" ? totals.elementM2 : null,
     };
   }, [elementFilter, floorFilter, isZtcSite, keywordMatchedDayGroups]);
 
@@ -1857,7 +1861,25 @@ export default function SiteDiaryCalendar({
                       </span>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-sm sm:min-w-[320px]">
+                  <div
+                    className={cn(
+                      "grid gap-2 text-sm",
+                      ztcSelectedScopeSummary.elementM2 != null
+                        ? "grid-cols-1 sm:grid-cols-3 sm:min-w-[460px]"
+                        : "grid-cols-1 sm:grid-cols-2 sm:min-w-[320px]",
+                    )}
+                  >
+                    {ztcSelectedScopeSummary.elementM2 != null ? (
+                      <div className="rounded-md border bg-muted/30 px-3 py-2">
+                        <div className="text-xs text-muted-foreground">m2</div>
+                        <div className="text-lg font-semibold tabular-nums">
+                          {ztcSelectedScopeSummary.elementM2.toLocaleString(dateLocale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="rounded-md border bg-muted/30 px-3 py-2">
                       <div className="text-xs text-muted-foreground">Stundas</div>
                       <div className="text-lg font-semibold tabular-nums">
