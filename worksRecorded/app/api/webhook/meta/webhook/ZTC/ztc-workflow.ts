@@ -21,6 +21,7 @@ import {
   resolveZtcAdditionalWorkUnit,
   type ZtcRateUnit,
 } from "@/components/sitediary/ZTC/ztc-rate-units";
+import { rebalanceZtcCompletedTaskAmounts } from "@/components/sitediary/ZTC/ztc-task-amount-allocation";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -1675,6 +1676,25 @@ async function completeSession(args: {
       comments: finalWorkerComment,
     },
   });
+
+  try {
+    const allocationResult = await rebalanceZtcCompletedTaskAmounts({
+      recordId: updated.id,
+      fallbackTotalAmount: amountCompleted,
+    });
+
+    if (allocationResult.updated > 1) {
+      logZtcSession("task_amounts_rebalanced", {
+        session: updated,
+        details: allocationResult,
+      });
+    }
+  } catch (error) {
+    console.error("[ZTC] Failed to rebalance completed task amounts", {
+      recordId: updated.id,
+      error,
+    });
+  }
 
   await createAdditionalDetailRows({
     session,
