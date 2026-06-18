@@ -62,13 +62,72 @@ function getZtcQualityCoefficient(row: ZtcDiaryRow) {
   return Number.isFinite(commentCoefficient) ? commentCoefficient : Number.NaN;
 }
 
+function getZtcQualityElementKey(row: ZtcDiaryRow) {
+  const project = normalizeZtcText(row.Location);
+  const element = normalizeZtcText(row.Location_Custom_1);
+  return project && element ? `${project}::${element}` : "";
+}
+
+function getZtcQualityRowTime(row: ZtcDiaryRow) {
+  const value = new Date(row.createdAt ?? row.Date).getTime();
+  return Number.isNaN(value) ? 0 : value;
+}
+
+export type ZtcQualityDisplayState = {
+  toneClass: string;
+  hasResolvedDefect: boolean;
+};
+
+export function buildZtcQualityDisplayStateByRowId(rows: ZtcDiaryRow[]) {
+  const states = new Map<string, ZtcQualityDisplayState>();
+  const qualityRowsByElement = new Map<
+    string,
+    Array<{ row: ZtcDiaryRow; rowId: string; time: number }>
+  >();
+
+  rows.forEach((row) => {
+    if (!row.id) return;
+    states.set(row.id, { toneClass: "", hasResolvedDefect: false });
+    if (!isZtcQualityRow(row)) return;
+
+    const elementKey = getZtcQualityElementKey(row);
+    if (!elementKey) return;
+    const timeline = qualityRowsByElement.get(elementKey) ?? [];
+    timeline.push({ row, rowId: row.id, time: getZtcQualityRowTime(row) });
+    qualityRowsByElement.set(elementKey, timeline);
+  });
+
+  qualityRowsByElement.forEach((timeline) => {
+    timeline.sort((a, b) => a.time - b.time);
+
+    timeline.forEach((entry, index) => {
+      const coefficient = getZtcQualityCoefficient(entry.row);
+      if (coefficient !== 0 && coefficient !== 0.9) return;
+
+      const laterAccepted = timeline
+        .slice(index + 1)
+        .some((candidate) => getZtcQualityCoefficient(candidate.row) === 1);
+
+      states.set(entry.rowId, {
+        toneClass: laterAccepted
+          ? ""
+          : coefficient === 0
+            ? "bg-red-100/70 hover:bg-red-100"
+            : "bg-yellow-100/70 hover:bg-yellow-100",
+        hasResolvedDefect: laterAccepted,
+      });
+    });
+  });
+
+  return states;
+}
+
 export function getZtcQualityRowToneClass(row: ZtcDiaryRow) {
   if (!isZtcQualityRow(row)) return "";
 
   const coefficient = getZtcQualityCoefficient(row);
   if (coefficient === 0) return "bg-red-100/70 hover:bg-red-100";
   if (coefficient === 0.9) return "bg-yellow-100/70 hover:bg-yellow-100";
-  if (coefficient === 1) return "bg-green-100/70 hover:bg-green-100";
   return "";
 }
 

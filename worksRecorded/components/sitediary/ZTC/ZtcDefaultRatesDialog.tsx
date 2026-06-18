@@ -494,19 +494,26 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
         </DialogHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 py-4">
-          <div className="grid gap-3 lg:grid-cols-[260px_1fr]">
-            <div className="space-y-1.5">
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
+            <div className="min-w-0 space-y-1.5">
               <div className="text-xs font-medium uppercase text-muted-foreground">
                 Projekts
               </div>
-              <div className="grid grid-cols-[1fr_auto] gap-2">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
                 <Select value={selectedProject} onValueChange={handleProjectChange}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Projekts" />
+                  <SelectTrigger className="h-9 min-w-0 max-w-full overflow-hidden">
+                    <SelectValue
+                      className="min-w-0 flex-1 truncate text-left"
+                      placeholder="Projekts"
+                    />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-w-[min(90vw,32rem)]">
                     {draft.map((project) => (
-                      <SelectItem key={project.projectName} value={project.projectName}>
+                      <SelectItem
+                        key={project.projectName}
+                        value={project.projectName}
+                        className="whitespace-normal break-words"
+                      >
                         {project.projectName}
                       </SelectItem>
                     ))}

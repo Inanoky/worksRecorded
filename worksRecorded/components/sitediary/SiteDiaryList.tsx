@@ -106,6 +106,7 @@ import { ZtcCommentPopoverContent } from "@/components/sitediary/ZTC/ZtcCommentP
 import { useZtcSiteDiaryFlow } from "@/components/sitediary/ZTC/useZtcSiteDiaryFlow";
 import {
   ZTC_SITE_ID,
+  buildZtcQualityDisplayStateByRowId,
   formatZtcMoney,
   getZtcPayrollValues,
   getZtcQualityRowToneClass,
@@ -453,6 +454,13 @@ export default function SiteDiaryCalendar({
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const bisUiEnabled = bisEnabled && showBisUi;
   const isZtcSite = siteId === ZTC_SITE_ID;
+  const ztcQualityDisplayStateByRowId = React.useMemo(
+    () =>
+      isZtcSite
+        ? buildZtcQualityDisplayStateByRowId(rows)
+        : new Map(),
+    [isZtcSite, rows],
+  );
   const ztcDatePickerProps = React.useMemo(() => {
     const year = new Date().getFullYear();
     return isZtcSite
@@ -2035,7 +2043,11 @@ export default function SiteDiaryCalendar({
                               key={r.id ?? `${group.key}-${idx}`}
                               className={cn(
                                 "rounded-md border bg-muted/40 p-2 text-[11px]",
-                                isZtcSite ? getZtcQualityRowToneClass(r) : "",
+                                isZtcSite
+                                  ? r.id
+                                    ? ztcQualityDisplayStateByRowId.get(r.id)?.toneClass ?? ""
+                                    : getZtcQualityRowToneClass(r)
+                                  : "",
                               )}
                             >
                               {r.id ? (
@@ -2086,7 +2098,20 @@ export default function SiteDiaryCalendar({
                                     className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
                                     onClick={() => ztc.openRowImages(r)}
                                   >
-                                    {r.Works || t.noWorksRecorded}
+                                    <span className="inline-flex items-center gap-1">
+                                      {r.Works || t.noWorksRecorded}
+                                      {r.id &&
+                                      ztcQualityDisplayStateByRowId.get(r.id)
+                                        ?.hasResolvedDefect ? (
+                                        <span
+                                          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white"
+                                          title="Iepriekš konstatēts defekts, kas vēlāk novērsts un pieņemts"
+                                          aria-label="Iepriekš konstatēts un novērsts defekts"
+                                        >
+                                          !
+                                        </span>
+                                      ) : null}
+                                    </span>
                                   </button>
                                 ) : (
                                   <div className="font-semibold">
@@ -2359,7 +2384,11 @@ export default function SiteDiaryCalendar({
                                           key={row.id ?? `${group.key}-${i}`}
                                           className={cn(
                                             "align-top hover:bg-muted/30",
-                                            isZtcSite ? getZtcQualityRowToneClass(row) : "",
+                                            isZtcSite
+                                              ? row.id
+                                                ? ztcQualityDisplayStateByRowId.get(row.id)?.toneClass ?? ""
+                                                : getZtcQualityRowToneClass(row)
+                                              : "",
                                           )}
                                         >
                                           <TableCell className="px-2 py-3 text-center" style={{ width: 44 }}>
@@ -2406,13 +2435,26 @@ export default function SiteDiaryCalendar({
                                             </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 175 }}>
-                                            <button
-                                              type="button"
-                                              className="line-clamp-2 whitespace-normal break-words text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
-                                              onClick={() => ztc.openRowImages(row)}
-                                            >
-                                              {row.Works || "—"}
-                                            </button>
+                                            <div className="flex items-start gap-1">
+                                              <button
+                                                type="button"
+                                                className="line-clamp-2 min-w-0 whitespace-normal break-words text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
+                                                onClick={() => ztc.openRowImages(row)}
+                                              >
+                                                {row.Works || "—"}
+                                              </button>
+                                              {row.id &&
+                                              ztcQualityDisplayStateByRowId.get(row.id)
+                                                ?.hasResolvedDefect ? (
+                                                <span
+                                                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold leading-none text-white"
+                                                  title="Iepriekš konstatēts defekts, kas vēlāk novērsts un pieņemts"
+                                                  aria-label="Iepriekš konstatēts un novērsts defekts"
+                                                >
+                                                  !
+                                                </span>
+                                              ) : null}
+                                            </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 105 }}>
                                             <div className="leading-snug">
