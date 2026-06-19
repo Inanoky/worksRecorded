@@ -85,8 +85,8 @@ export async function sendFirstProjectWelcomeTemplateIfNeeded(args: { siteId: st
 
 const onboardingText =
   orgLanguage === "lv"
-    ? "Šajā čatā ar balsi pastāstiet, kas notika būvobjektā — ziņas saglabāsies jūsu projektā. Lai mainītu projektu, rakstiet “Change”. Tavs projekts : "
-    : "In this chat, you can describe what happened on the construction site by voice — messages will be saved in your project. Your project : ";
+    ? "Lai mainītu projektu, rakstiet “Projekts”. Vari sūtīt ziņas par to, kas notiek objektā, kā arī bildes.  Tavs projekts :"
+    : "To change project write here “Change”. Your project : ";
   
   
   
