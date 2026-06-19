@@ -104,6 +104,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { ZtcCommentPopoverContent } from "@/components/sitediary/ZTC/ZtcCommentPopoverContent";
 import { useZtcSiteDiaryFlow } from "@/components/sitediary/ZTC/useZtcSiteDiaryFlow";
+import { exportForma2ToExcel } from "@/components/sitediary/forma2-export";
 import {
   ZTC_SITE_ID,
   buildZtcQualityDisplayStateByRowId,
@@ -933,6 +934,10 @@ export default function SiteDiaryCalendar({
     XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
   };
 
+  const exportForma2 = async () => {
+    await exportForma2ToExcel(rows);
+  };
+
   const openDayDialog = (date: Date) => {
     setDialogDate(date);
     setCalendarDate(date);
@@ -1460,6 +1465,11 @@ export default function SiteDiaryCalendar({
                 <Button variant="outline" onClick={exportToExcel}>
                   {t.exportToExcel}
                 </Button>
+                {!isZtcSite ? (
+                  <Button variant="outline" onClick={exportForma2}>
+                    Forma 2
+                  </Button>
+                ) : null}
                 {isZtcSite ? (
                   <>
                     <Button variant="outline" onClick={ztc.openRateDialog}>
