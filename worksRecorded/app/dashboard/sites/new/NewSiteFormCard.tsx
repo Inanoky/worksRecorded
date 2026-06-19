@@ -61,6 +61,7 @@ export default function NewSiteFormCard({ organizationLanguage }: Props) {
                   name={fields.name.name}
                   key={fields.name.key}
                   defaultValue={fields.name.initialValue}
+                  maxLength={100}
                   placeholder={language === "lv" ? "Projekta nosaukums" : "Project name"}
                 />
                 <p className="text-red-500 text-small">{fields.name.errors}</p>

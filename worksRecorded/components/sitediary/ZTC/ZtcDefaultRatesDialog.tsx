@@ -169,7 +169,6 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
   const visibleRows = isAllProjects
     ? selectedProjectRates[selectedCategory]
     : allProjects[selectedCategory]
-        .filter((master) => !isZtcComplexityCoefficientTask(master.task))
         .map((master) => {
           const override = selectedProjectRates[selectedCategory].find(
             (entry) => entry.task.toLowerCase() === master.task.toLowerCase(),

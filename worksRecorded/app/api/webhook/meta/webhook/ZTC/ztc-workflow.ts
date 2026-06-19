@@ -10,7 +10,9 @@ import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiary
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 import {
+  getZtcComplexityCoefficient,
   isZtcComplexityCoefficientTask,
+  ZTC_ALL_PROJECTS_RATE_NAME,
   ZTC_DEFAULT_ONE_X_COEFFICIENT,
   ZTC_DEFAULT_TWO_X_COEFFICIENT,
   ZTC_ONE_X_COEFFICIENT_TASK,
@@ -231,7 +233,6 @@ function normalizePayrollTextNumber(value: unknown) {
   return Number.isFinite(Number(normalized)) ? normalized : null;
 }
 
-const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
 const ZTC_RATE_CATEGORIES: ZtcRateCategory[] = ["works", "additionalDetails", "additionalWorks"];
 
 function normalizeTaskRateEntries(
@@ -269,13 +270,7 @@ function normalizeProjectRateName(value: unknown) {
 function ensureZtcComplexityCoefficientRows(
   projects: ZtcProjectTaskRates[],
 ): ZtcProjectTaskRates[] {
-  const sanitizedProjects = projects.map((project) => ({
-    ...project,
-    works:
-      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase()
-        ? project.works
-        : project.works.filter((entry) => !isZtcComplexityCoefficientTask(entry.task)),
-  }));
+  const sanitizedProjects = projects.map((project) => ({ ...project }));
   let allProjects = sanitizedProjects.find(
     (project) =>
       project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
@@ -1195,27 +1190,16 @@ function getSessionWorkComplexityMarks(
   return work?.complexityMarks === 2 ? 2 : work?.complexityMarks === 1 ? 1 : 0;
 }
 
-async function getComplexityForMarks(marks: 0 | 1 | 2) {
+async function getComplexityForMarks(
+  marks: 0 | 1 | 2,
+  projectName: string | null | undefined,
+) {
   if (marks === 0) return "1";
 
   const config = ((await getConfig(ZTC_SITE_ID)) ??
     ztcSiteDiaryRecordsMap) as Record<string, any>;
   const projects = getDefaultTaskRatesFromConfig(config);
-  const allProjectRates = projects.find(
-    (project) =>
-      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
-  );
-  const coefficientTask =
-    marks === 2 ? ZTC_TWO_X_COEFFICIENT_TASK : ZTC_ONE_X_COEFFICIENT_TASK;
-  const configured = allProjectRates?.works.find(
-    (entry) =>
-      normalizeZtcWorkName(entry.task).toLowerCase() ===
-      coefficientTask.toLowerCase(),
-  );
-  const fallback =
-    marks === 2 ? ZTC_DEFAULT_TWO_X_COEFFICIENT : ZTC_DEFAULT_ONE_X_COEFFICIENT;
-
-  return configured?.rate ?? fallback;
+  return getZtcComplexityCoefficient({ marks, projectName, projects });
 }
 
 export function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
@@ -2505,7 +2489,10 @@ async function handleWorkText(args: {
     projectName: session.Location,
     category: "works",
   });
-  const complexity = await getComplexityForMarks(complexityMarks);
+  const complexity = await getComplexityForMarks(
+    complexityMarks,
+    session.Location,
+  );
 
   const updated = await prisma.ztcRecords.update({
     where: { id: session.id },

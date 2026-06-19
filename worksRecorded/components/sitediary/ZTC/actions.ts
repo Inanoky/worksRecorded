@@ -5,7 +5,9 @@ import { requireUser } from "@/lib/utils/requireUser";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getOrganizationIdByUserId, orgCheck } from "@/server/actions/shared-actions";
 import {
+  getZtcComplexityCoefficient,
   isZtcComplexityCoefficientTask,
+  ZTC_ALL_PROJECTS_RATE_NAME,
   ZTC_DEFAULT_ONE_X_COEFFICIENT,
   ZTC_DEFAULT_TWO_X_COEFFICIENT,
   ZTC_ONE_X_COEFFICIENT_TASK,
@@ -20,7 +22,6 @@ import {
 const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 const ZTC_DEFAULT_TASK_RATES_KEY = "ztcDefaultTaskRates";
-const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
 const ZTC_RATE_CATEGORIES = ["works", "additionalDetails", "additionalWorks"] as const;
 
 export type ZtcRateCategory = (typeof ZTC_RATE_CATEGORIES)[number];
@@ -125,13 +126,7 @@ function normalizeProjectRateName(value: unknown) {
 function ensureZtcComplexityCoefficientRows(
   projects: ZtcProjectTaskRates[],
 ): ZtcProjectTaskRates[] {
-  const sanitizedProjects = projects.map((project) => ({
-    ...project,
-    works:
-      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase()
-        ? project.works
-        : project.works.filter((entry) => !isZtcComplexityCoefficientTask(entry.task)),
-  }));
+  const sanitizedProjects = projects.map((project) => ({ ...project }));
   let allProjects = sanitizedProjects.find(
     (project) =>
       project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
@@ -416,25 +411,11 @@ function getZtcDrawingComplexityMarks(
 function getZtcComplexityForMarks(
   marks: 0 | 1 | 2,
   projects: ZtcProjectTaskRates[],
+  projectName: string | null | undefined,
 ) {
-  const allProjectRates = projects.find(
-    (project) =>
-      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+  return Number(
+    getZtcComplexityCoefficient({ marks, projectName, projects }),
   );
-  const task =
-    marks === 2
-      ? ZTC_TWO_X_COEFFICIENT_TASK
-      : marks === 1
-        ? ZTC_ONE_X_COEFFICIENT_TASK
-        : null;
-  if (!task) return 1;
-
-  const configured = allProjectRates?.works.find(
-    (entry) => normalizeTaskName(entry.task).toLowerCase() === task.toLowerCase(),
-  );
-  const fallback =
-    marks === 2 ? ZTC_DEFAULT_TWO_X_COEFFICIENT : ZTC_DEFAULT_ONE_X_COEFFICIENT;
-  return normalizeNumber(configured?.rate) ?? Number(fallback);
 }
 
 function sanitizeZtcRecordRow(row: Record<string, any>) {
@@ -450,7 +431,11 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     row.Location_Custom_1,
     row.Works,
   );
-  const defaultComplexity = getZtcComplexityForMarks(complexityMarks, defaultRates);
+  const defaultComplexity = getZtcComplexityForMarks(
+    complexityMarks,
+    defaultRates,
+    row.Location,
+  );
   const units =
     category === "additionalWorks"
       ? resolveZtcAdditionalWorkUnit({
