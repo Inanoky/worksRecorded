@@ -49,7 +49,11 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     console.log("✅ Config loaded:", map ? "DB config" : "Default config");
 
     // 2️⃣ Build schemas
-    const { schema: SiteDiaryRecordSchema, fieldMap } =
+    const {
+      schema: SiteDiaryRecordSchema,
+      fieldMap,
+      dropdownValueMaps,
+    } =
       buildZodSchemaFromConfig(mapToUse);
 
     const SiteDiaryRecordsSchema = z.object({
@@ -90,7 +94,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
     // 5️⃣ Map to DB rows
     const rows = response.records.map((r, i) => {
-      const mapped = mapToDbFields(r, fieldMap);
+      const mapped = mapToDbFields(r, fieldMap, dropdownValueMaps);
 
       console.log(`🧩 Mapped row ${i + 1}:`, mapped);
 

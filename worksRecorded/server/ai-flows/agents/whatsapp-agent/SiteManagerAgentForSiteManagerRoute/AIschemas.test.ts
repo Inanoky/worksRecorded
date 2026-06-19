@@ -1,4 +1,7 @@
-import { buildZodSchemaFromConfig } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/AIschemas";
+import {
+  buildZodSchemaFromConfig,
+  mapToDbFields,
+} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/AIschemas";
 
 describe("buildZodSchemaFromConfig", () => {
   it("keeps safe dropdown values as a strict enum", () => {
@@ -17,8 +20,8 @@ describe("buildZodSchemaFromConfig", () => {
     expect(schema.safeParse({ Darbi: "Nezināms darbs" }).success).toBe(false);
   });
 
-  it("falls back to a string when a dropdown option contains a quote", () => {
-    const { schema } = buildZodSchemaFromConfig({
+  it("uses a safe enum alias and maps it back when an option contains a quote", () => {
+    const { schema, fieldMap, dropdownValueMaps } = buildZodSchemaFromConfig({
       Works: {
         Type: "dropdown",
         DisplayName: "Darbi",
@@ -29,7 +32,14 @@ describe("buildZodSchemaFromConfig", () => {
       },
     });
 
-    expect(schema.safeParse({ Darbi: 'Caurule 2"' }).success).toBe(true);
+    const parsed = schema.safeParse({ Darbi: "Caurule 2 inch" });
+    expect(parsed.success).toBe(true);
     expect(schema.safeParse({ Darbi: "Ceļa apmales" }).success).toBe(true);
+    expect(schema.safeParse({ Darbi: "Izdomāts darbs" }).success).toBe(false);
+
+    if (!parsed.success) throw new Error("Expected safe alias to parse");
+    expect(
+      mapToDbFields(parsed.data, fieldMap, dropdownValueMaps),
+    ).toEqual({ Works: 'Caurule 2"' });
   });
 });
