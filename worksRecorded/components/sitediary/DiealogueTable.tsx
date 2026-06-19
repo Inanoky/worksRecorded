@@ -374,6 +374,7 @@ export function DialogTable({
   const isMobile = useMediaQuery("(max-width: 640px)");
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [defaultMap, setMap] = useState<Record<string, any>>(defaultConfig);
 
@@ -517,6 +518,11 @@ export function DialogTable({
 
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
+      setDirtyRowIds((current) => {
+        const next = new Set(current);
+        next.delete(row.id);
+        return next;
+      });
 
       toast.success(toastMessages.diaryRowDeleted);
       onSaved?.();
@@ -527,12 +533,18 @@ export function DialogTable({
   };
 
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
+    const existingRowId = rows.find(
+      (row) => row.id === rowIdOrTemp || row._tempId === rowIdOrTemp,
+    )?.id;
 
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
       )
     );
+    if (existingRowId) {
+      setDirtyRowIds((current) => new Set(current).add(existingRowId));
+    }
   };
 
   //-------------------------------------------------------------Hanlde Submit----------------------------------------------
@@ -555,7 +567,9 @@ export function DialogTable({
 
 
 
-    const existingRows = cleanRows.filter((r) => isUUID(r.id));
+    const existingRows = cleanRows.filter(
+      (r) => isUUID(r.id) && dirtyRowIds.has(r.id),
+    );
 
     console.log(`existing rows ${existingRows}`)
 
@@ -614,6 +628,11 @@ export function DialogTable({
 
         await updateSiteDiaryRecord(payload);
         updatedCount += 1;
+        setDirtyRowIds((current) => {
+          const next = new Set(current);
+          next.delete(String(r.id));
+          return next;
+        });
       } catch (err: any) {
         toast.error(toastMessages.updateDiaryRowFailed(String(r.id), err?.message ?? toastMessages.somethingWentWrong));
         return;
@@ -1090,6 +1109,7 @@ export function DialogTable({
 
       console.dir(formattedRows)
       setRows(nextRows);
+      setDirtyRowIds(new Set());
 
       setLoading(false);
     })();
