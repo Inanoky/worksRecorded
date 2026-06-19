@@ -159,8 +159,11 @@ export async function updateSiteDiaryDropdownOptions(args: {
   const normalizedOptions = Array.from(
     new Set(args.options.map((option) => option.trim()).filter(Boolean)),
   );
-  if (normalizedOptions.some((option) => option.length > 50)) {
-    throw new Error("Each option must be 50 characters or less");
+  const maxOptionLength = args.siteId === ZTC_SITE_ID ? 50 : 200;
+  if (normalizedOptions.some((option) => option.length > maxOptionLength)) {
+    throw new Error(
+      `Each option must be ${maxOptionLength} characters or less`,
+    );
   }
 
   const nextDropdownOptions = Object.fromEntries(

@@ -86,7 +86,7 @@ export const allowedUnits = [
 
 const MAX_FREE_TEXT = 100;
 const MAX_NUM = 1_000_000_000;
-const MAX_MANAGE_OPTION_LENGTH = 50;
+const MAX_MANAGE_OPTION_LENGTH = 200;
 
 const coerceOptionalFloat = (v: unknown) => {
   if (v === "" || v === undefined || v === null) return undefined;
@@ -1090,6 +1090,7 @@ export function DialogTable({
             <Input
               value={newManageOption}
               onChange={(event) => setNewManageOption(event.target.value)}
+              maxLength={MAX_MANAGE_OPTION_LENGTH}
               placeholder={t.addNewOption}
             />
             <Button type="button" variant="outline" onClick={appendManageOption}>
@@ -1109,6 +1110,7 @@ export function DialogTable({
                         <Input
                           value={editingValue}
                           onChange={(event) => setEditingValue(event.target.value)}
+                          maxLength={MAX_MANAGE_OPTION_LENGTH}
                           className="h-8"
                         />
                       ) : (
