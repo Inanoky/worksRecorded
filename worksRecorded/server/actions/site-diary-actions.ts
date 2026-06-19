@@ -1265,9 +1265,11 @@ export async function getSiteDiaryRecord({ siteId, date }) {
         { Date_Custom_1: { gte: start, lte: end } },
       ],
     },
+    orderBy: [{ createdAt: "desc" as const }],
     // Pick only the fields you use in your row
     select: {
       id: true,
+      createdAt: true,
       Date: true,
       Date_Custom_1: true,
       Date_Custom_2: true,
@@ -1340,6 +1342,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
 
     return {
       id: rec.id,
+      createdAt: rec.createdAt,
       Date: rec.Date,
       Date_Custom_1: rec.Date_Custom_1,
       Date_Custom_2: rec.Date_Custom_2,

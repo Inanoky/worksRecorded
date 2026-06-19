@@ -20,8 +20,13 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { Check, ChevronsUpDown, Pencil, Search, Trash2, X } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +48,125 @@ import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+
+type SearchableWorksSelectProps = {
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  width: string | number;
+  selectLabel: string;
+  searchLabel: string;
+  noOptionsLabel: string;
+  manageLabel?: string;
+  onChange: (value: string) => void;
+  onManage?: () => void;
+};
+
+function SearchableWorksSelect({
+  value,
+  options,
+  width,
+  selectLabel,
+  searchLabel,
+  noOptionsLabel,
+  manageLabel,
+  onChange,
+  onManage,
+}: SearchableWorksSelectProps) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const normalizedSearch = search.trim().toLocaleLowerCase("lv");
+  const filteredOptions = options.filter((option) =>
+    option.label.toLocaleLowerCase("lv").includes(normalizedSearch),
+  );
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="min-w-0 justify-between font-normal"
+          style={{ width }}
+        >
+          <span className="truncate text-left">{value || selectLabel}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        collisionPadding={12}
+        className="w-[var(--radix-popover-trigger-width)] min-w-[260px] max-w-[min(90vw,32rem)] overflow-hidden p-0"
+      >
+        <div className="flex items-center border-b px-3">
+          <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={searchLabel}
+            className="h-10 border-0 px-0 shadow-none focus-visible:ring-0"
+            autoFocus
+          />
+        </div>
+        <div
+          className="max-h-[min(18rem,var(--radix-popover-content-available-height))] overflow-y-auto overscroll-contain"
+          onWheel={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            event.currentTarget.scrollTop += event.deltaY;
+          }}
+        >
+          <div className="p-1">
+            {onManage ? (
+              <button
+                type="button"
+                className="flex w-full items-center rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
+                onClick={() => {
+                  setOpen(false);
+                  onManage();
+                }}
+              >
+                ⚙ {manageLabel}
+              </button>
+            ) : null}
+            {filteredOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className="flex w-full min-w-0 items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
+                onClick={() => {
+                  onChange(option.label);
+                  setOpen(false);
+                }}
+              >
+                <Check
+                  className={`mt-0.5 h-4 w-4 shrink-0 ${
+                    value === option.label ? "opacity-100" : "opacity-0"
+                  }`}
+                />
+                <span className="min-w-0 whitespace-normal break-words">
+                  {option.label}
+                </span>
+              </button>
+            ))}
+            {filteredOptions.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                {noOptionsLabel}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 
 //--------Loading config------------
@@ -738,6 +862,26 @@ export function DialogTable({
           value: currentValue,
           label: currentValue,
         });
+      }
+
+      if (field === "Works") {
+        return (
+          <SearchableWorksSelect
+            value={currentValue}
+            options={options}
+            width={isMobile ? "100%" : getCellWidthByKey(field, defaultMap)}
+            selectLabel={t.select}
+            searchLabel={t.searchOption}
+            noOptionsLabel={t.noOptionsFound}
+            manageLabel={t.manageOptions}
+            onChange={(value) => handleChange(rowKey, field, value)}
+            onManage={
+              isManageableDropdownField(field)
+                ? () => openManageDialog(field, optionsList)
+                : undefined
+            }
+          />
+        );
       }
 
 
