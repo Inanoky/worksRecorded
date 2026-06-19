@@ -407,6 +407,7 @@ type SiteDiaryDialogMessages = {
   loading: string;
   addTask: string;
   saveDiary: string;
+  saving: string;
   task: string;
   deleteTaskAria: string;
   createdBy: string;
@@ -1367,6 +1368,7 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     loading: "Loading…",
     addTask: "Add task",
     saveDiary: "Save diary",
+    saving: "Saving…",
     task: "Task",
     deleteTaskAria: "Delete task",
     createdBy: "Created by",
@@ -1435,6 +1437,7 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     loading: "Ielādē...",
     addTask: "Pievienot uzdevumu",
     saveDiary: "Saglabāt žurnālu",
+    saving: "Saglabā…",
     task: "Uzdevums",
     deleteTaskAria: "Dzēst uzdevumu",
     createdBy: "Izveidoja",

@@ -20,7 +20,15 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, ChevronsUpDown, Pencil, Search, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Loader2,
+  Pencil,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Popover,
@@ -365,6 +373,7 @@ export function DialogTable({
   //---------------------------------------State---------------------------------------
   const isMobile = useMediaQuery("(max-width: 640px)");
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [defaultMap, setMap] = useState<Record<string, any>>(defaultConfig);
 
@@ -530,11 +539,15 @@ export function DialogTable({
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    if (isSaving) return;
 
 
     const validated = validateRows(rows, toastMessages);
     if (!validated.ok) return;
 
+    setIsSaving(true);
+
+    try {
     const cleanRows = validated.rows; // <-- use this
 
     console.dir(cleanRows);
@@ -639,6 +652,9 @@ export function DialogTable({
 
     toast.success(toastMessages.diarySaved(updatedCount, createdCount));
     onSaved?.();
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
@@ -1103,12 +1119,20 @@ export function DialogTable({
           type="button"
           variant="outline"
           onClick={handleAddRow}
+          disabled={isSaving}
           className="w-full sm:w-auto"
         >
           {t.addTask}
         </Button>
-        <Button type="submit" className="w-full sm:w-auto">
-          {t.saveDiary}
+        <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
+          {isSaving ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {t.saving}
+            </>
+          ) : (
+            t.saveDiary
+          )}
         </Button>
       </div>
 
