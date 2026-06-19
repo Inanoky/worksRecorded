@@ -1104,22 +1104,25 @@ export function DialogTable({
                 .map((option, index) => ({ option, index }))
                 .filter(({ option }) => option.toLowerCase().includes(manageSearch.trim().toLowerCase()))
                 .map(({ option, index }) => (
-                  <div key={`${option}-${index}`} className="flex min-w-0 items-center justify-between gap-2 overflow-hidden rounded-md border p-2">
-                    <div className="min-w-0 flex-1">
+                  <div
+                    key={`${option}-${index}`}
+                    className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md border p-2"
+                  >
+                    <div className="min-w-0 overflow-hidden">
                       {editingIndex === index ? (
                         <Input
                           value={editingValue}
                           onChange={(event) => setEditingValue(event.target.value)}
                           maxLength={MAX_MANAGE_OPTION_LENGTH}
-                          className="h-8"
+                          className="h-8 min-w-0 w-full"
                         />
                       ) : (
-                        <p className="truncate text-sm" title={option}>
+                        <p className="block max-w-full truncate text-sm" title={option}>
                           {option}
                         </p>
                       )}
                     </div>
-                    <div className="ml-2 flex shrink-0 items-center gap-1 pr-2">
+                    <div className="flex shrink-0 items-center gap-1">
                       {editingIndex === index ? (
                         <>
                           <Button type="button" size="icon" variant="ghost" onClick={saveEditedManageOption} aria-label={t.saveOption}>
