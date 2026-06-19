@@ -21,9 +21,22 @@ type MapField = {
 
 type ConfigMap = Record<string, MapField>;
 
+function isSafeStructuredOutputEnumValue(value: string) {
+  return !/["\\\u0000-\u001f]/.test(value);
+}
+
 function enumFromDropdown(field: MapField) {
   const values = Object.values(field.DropDownOptions ?? {});
   if (!values.length) return z.string();
+
+  // OpenAI strict structured outputs reject some characters inside enum
+  // literals (for example a double quote in a user-managed work option).
+  // Falling back to a string keeps the extraction request valid instead of
+  // preventing the whole WhatsApp record from being saved.
+  if (values.some((value) => !isSafeStructuredOutputEnumValue(value))) {
+    return z.string().max(2000);
+  }
+
   return z.enum(values as [string, ...string[]]);
 }
 
