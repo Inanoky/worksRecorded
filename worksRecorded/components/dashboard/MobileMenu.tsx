@@ -13,11 +13,20 @@ import { useMemo } from "react";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 const ZTC_HIDDEN_PROJECT_NAV_PATHS = new Set(["timesheets", "BIS"]);
 
-export function MobileMenu({ organizationLanguage }: { organizationLanguage?: string | null }) {
+export function MobileMenu({
+  organizationLanguage,
+  canAccessAiContext = false,
+}: {
+  organizationLanguage?: string | null;
+  canAccessAiContext?: boolean;
+}) {
   const { projectId, projectName } = useProject();
   const pathname = usePathname();
   const navLinks = useMemo(() => getNavLinks(organizationLanguage), [organizationLanguage]);
-  const projectNavLinks = useMemo(() => getProjectNavLinks(organizationLanguage), [organizationLanguage]);
+  const projectNavLinks = useMemo(
+    () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
+    [canAccessAiContext, organizationLanguage],
+  );
   const visibleProjectNavLinks = useMemo(
     () =>
       projectId === ZTC_SITE_ID

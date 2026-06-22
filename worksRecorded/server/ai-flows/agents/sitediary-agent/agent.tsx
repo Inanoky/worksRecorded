@@ -6,15 +6,30 @@ import { ChatOpenAI } from "@langchain/openai";
 
 import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
-import {tools, toolNode} from "@/server/ai-flows/agents/sitediary-agent/Tools" 
+import {tools, toolNode} from "@/server/ai-flows/agents/sitediary-agent/Tools"
 import {systemPrompt} from "@/server/ai-flows/agents/sitediary-agent/Prompts";
 import { siteDiaryAgentModel } from "@/server/ai-flows/ai-models-settings";
+import {
+    buildAiRunContext,
+    getSiteDiaryAgentThreadId,
+    summarizeForTrace,
+} from "@/server/ai-flows/ai-run-context";
 
 
 
 
 
 export default async function SiteDiaryAgent(question,siteId){
+const aiContext = buildAiRunContext({
+    flow: "site-diary-agent",
+    threadId: getSiteDiaryAgentThreadId(siteId),
+    siteId,
+    channel: "agent",
+    model: siteDiaryAgentModel,
+    metadata: {
+        questionPreview: summarizeForTrace(question),
+    },
+});
 
 //--------------------------State----------------------------------
 
@@ -43,7 +58,10 @@ const agentNode = async (state) => {
     ;
 
 
-    const response = await llm.invoke(messages);
+    const response = await llm.invoke(messages, {
+        ...aiContext.runnableConfig,
+        runName: "SiteDiaryAgentModel",
+    });
 
 
         return {
@@ -92,13 +110,16 @@ const agentNode = async (state) => {
 
 
     const checkpointer = PostgresSaver.fromConnString(
-        process.env.DATABASE_URL
+        process.env.DATABASE_URL!
     );
 
 
     await checkpointer.setup();
     
-    const config = {configurable: {thread_id: `${siteId}_SiteDiaryAgent`}};
+    const config = {
+        configurable: {thread_id: aiContext.threadId},
+        ...aiContext.runnableConfig,
+    };
 
 
 
@@ -123,6 +144,8 @@ const agentNode = async (state) => {
             finalState = value;
         }
     }
+
+    if (!finalState?.messages?.length) return "No site diary agent response.";
 
     //return the last AI message
     return finalState.messages[finalState.messages.length - 1].content;

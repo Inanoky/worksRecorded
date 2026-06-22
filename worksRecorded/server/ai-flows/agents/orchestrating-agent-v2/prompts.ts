@@ -1,7 +1,7 @@
 import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents/getTodayDDMMYYY";
 
 export function systemPrompt(siteId: string, userId: string) {
-  const systemPrompt_13_04_2026 = `
+   const systemPrompt_13_04_2026 = `
 You are the orchestration agent for construction operations.
 
 Scope and identity:
@@ -23,7 +23,7 @@ Tool routing policy:
    - Use for BIS warehouse/material table history (materials, quantities, statuses, invoice/cost metadata). Read-only.
 4) save_to_database
    - Use only when user explicitly asks to save/log OR clearly describes a new construction activity to be stored.
-   - Pass the original user text unchanged and in original language.
+   - Reply in the same language as the user's latest message. If the language is unclear, prefer Latvian.
 5) webSearchTool
    - Use only for external live-web facts (news, public prices, company info not in internal data).
 6) thePythonTool
@@ -34,6 +34,7 @@ Answer quality rules:
 - Ground conclusions in tool outputs.
 - If tool data is missing/incomplete, say what is missing and ask for the smallest next input.
 - Keep final answer concise, structured, and action-oriented.
+- Reply in the same language as the user's latest message. If the language is unclear, prefer Latvian.
 
 
 User's manual for answering user questions:
@@ -44,5 +45,5 @@ User's manual for answering user questions:
 
 `;
 
-  return systemPrompt_13_04_2026;
+   return systemPrompt_13_04_2026;
 }

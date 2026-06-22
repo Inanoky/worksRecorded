@@ -225,15 +225,19 @@ or manual PDF byte construction, IGNORE those parts and follow these rules inste
 });
 
 
-export const tools = [
-
+export const readOnlyTools = [
   siteDiaryRecordsTool,
   timeSheetsAgent,
   bisMaterialRecordsTool,
-   siteDiaryToDatabaseTool,
-   webSearchTool,
-   thePythonTool
-  ]
+];
 
+export const tools = [
+  ...readOnlyTools,
+  siteDiaryToDatabaseTool,
+  webSearchTool,
+  thePythonTool,
+]
+
+export const readOnlyToolNode = new ToolNode<typeof GraphState.State>(readOnlyTools)
 export const toolNode = new ToolNode<typeof GraphState.State>(tools)
 

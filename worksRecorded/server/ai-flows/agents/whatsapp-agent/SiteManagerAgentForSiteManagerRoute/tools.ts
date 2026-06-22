@@ -12,6 +12,10 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import {
+  buildAiRunContext,
+  summarizeForTrace,
+} from "@/server/ai-flows/ai-run-context";
 
 export const allowedUnits = [
   "m", "m2", "m3", "tn", "kg",
@@ -33,6 +37,19 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
   async func({ question, userId, siteId, date, originalUserComment }) {
     const whatsappSourceContext = getWhatsappSourceContext();
+    const aiContext = buildAiRunContext({
+      flow: "structured-site-diary-save",
+      threadId: `structured-site-diary-save:${siteId}:${userId}`,
+      siteId,
+      userId,
+      channel: "tool",
+      model: "gpt-5.4",
+      metadata: {
+        date,
+        hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
+        originalUserCommentPreview: summarizeForTrace(originalUserComment),
+      },
+    });
 
     console.log("▶️ TOOL START");
     console.log("Input:", { question, userId, siteId, date });
@@ -79,15 +96,18 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     // 4️⃣ Call LLM
     console.log("🤖 Calling LLM...");
 
-    const response = await structuredLlm.invoke([
-      // Always parse the actual user-provided message, not the static tool question label.
-      new HumanMessage(`${originalUserComment} Date is : ${date}`),
-      new SystemMessage(
-        `${await systemPromptSaveToDatabaseFunction(userId, client)}\n` +
-        `today is : ${date}\n` +
-        `${siteId}`
-      ),
-    ]);
+    const response = await structuredLlm.invoke(
+      [
+        // Always parse the actual user-provided message, not the static tool question label.
+        new HumanMessage(`${originalUserComment} Date is : ${date}`),
+        new SystemMessage(
+          `${await systemPromptSaveToDatabaseFunction(userId, client)}\n` +
+          `today is : ${date}\n` +
+          `${siteId}`
+        ),
+      ],
+      aiContext.runnableConfig,
+    );
 
     console.log("📥 LLM response:");
     console.log(JSON.stringify(response, null, 2));

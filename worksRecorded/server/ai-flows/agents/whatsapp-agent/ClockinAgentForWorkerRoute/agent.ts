@@ -11,6 +11,11 @@ import { getWorkerFullNameById } from "@/server/actions/whatsapp-actions";
 import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 import { injectWorkerToolCallContext } from "@/server/ai-flows/agents/whatsapp-agent/toolCallContext";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import {
+    buildAiRunContext,
+    getWorkerThreadId,
+    summarizeForTrace,
+} from "@/server/ai-flows/ai-run-context";
 
 function isInvalidToolResultsError(error: unknown): boolean {
     const maybeError = error as any;
@@ -29,6 +34,19 @@ export default async function talkToClockInAgent(question, workerId, originalAud
     const workerFullName = (await getWorkerFullNameById(workerId))?.trim();
     const normalizedQuestion = question.trim();
     const sourceComment = workerFullName ? `${workerFullName} : ${normalizedQuestion}` : normalizedQuestion;
+    const aiContext = buildAiRunContext({
+        flow: "whatsapp-worker",
+        threadId: getWorkerThreadId(workerId),
+        siteId,
+        workerId,
+        channel: "whatsapp",
+        model: clickInAgentForWorkersModel,
+        metadata: {
+            workerStatus: status,
+            hasOriginalAudioUrl: Boolean(originalAudioUrl),
+            questionPreview: summarizeForTrace(question),
+        },
+    });
 
     console.log(`Worker is currently ${status}`)
 
@@ -101,7 +119,10 @@ export default async function talkToClockInAgent(question, workerId, originalAud
         }).bindTools(tools);
 
         try {
-            const response = await llm.invoke(safeMessages);
+            const response = await llm.invoke(safeMessages, {
+                ...aiContext.runnableConfig,
+                runName: "WhatsAppWorkerModel",
+            });
 
             console.log("agent node - LLM response:", response);
 
@@ -148,11 +169,14 @@ export default async function talkToClockInAgent(question, workerId, originalAud
         .addConditionalEdges("tools", shouldContinueAfterTools, ["agent", END])
 
     const checkpointer = PostgresSaver.fromConnString(
-        process.env.DATABASE_URL
+        process.env.DATABASE_URL!
     );
 
     await checkpointer.setup();
-    const config = { configurable: { thread_id: workerId} };
+    const config = {
+        configurable: { thread_id: aiContext.threadId },
+        ...aiContext.runnableConfig,
+    };
 
 
     const graph = workflow.compile({ checkpointer });
@@ -174,6 +198,7 @@ export default async function talkToClockInAgent(question, workerId, originalAud
     for await (const output of await graph.stream(inputs, config)) {
         console.log("Step/Run full output:", JSON.stringify(output, null, 2));
         for (const [key, value] of Object.entries(output)) {
+            if (!value?.messages?.length) continue;
             lastMsg = value.messages[value.messages.length - 1];
             finalState = value;
             console.log(`Current node: ${key}`);

@@ -10,6 +10,11 @@ import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
 import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 import { injectSiteManagerToolCallContext } from "@/server/ai-flows/agents/whatsapp-agent/toolCallContext";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import {
+    buildAiRunContext,
+    getSiteManagerThreadId,
+    summarizeForTrace,
+} from "@/server/ai-flows/ai-run-context";
 
 type PostgresCheckpointer = ReturnType<typeof PostgresSaver.fromConnString>;
 
@@ -59,6 +64,18 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
     const sourceComment = userFullName ? `${userFullName} : ${normalizedQuestion}` : normalizedQuestion;
+    const aiContext = buildAiRunContext({
+        flow: "whatsapp-site-manager",
+        threadId: getSiteManagerThreadId(siteId, userId),
+        siteId,
+        userId,
+        channel: "whatsapp",
+        model: siteManagerAgentForSiteManagerRouteModelModel,
+        metadata: {
+            hasOriginalAudioUrl: Boolean(originalAudioUrl),
+            questionPreview: summarizeForTrace(question),
+        },
+    });
 
     const state = Annotation.Root({
         messages: Annotation<BaseMessage[]>({
@@ -112,7 +129,10 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
         }).bindTools(tools);
 
         try {
-            const response = await llm.invoke(safeMessages);
+            const response = await llm.invoke(safeMessages, {
+                ...aiContext.runnableConfig,
+                runName: "WhatsAppSiteManagerModel",
+            });
 
             return {
                 messages: [response]
@@ -143,7 +163,8 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
 
     await setupCheckpointerOnce(checkpointer);
     const config = {
-      configurable: { thread_id: `siteManager:${siteId}:${userId}` },
+      configurable: { thread_id: aiContext.threadId },
+      ...aiContext.runnableConfig,
     };
 
     const graph = workflow.compile({ checkpointer });

@@ -112,4 +112,21 @@ export async function handleWorkerMessage(phone: string, formData: FormData) {
       }
     }
   }
+
+  if (messageText.trim()) {
+    try {
+      const message = await talkToClockInAgent(messageText, worker.id);
+      await sendMessage(from, message);
+      return;
+    } catch (err) {
+      console.error("[handleWorkerMessage] worker agent failed", err);
+      await sendMessage(
+        from,
+        "WorkRecorded: Sorry, there was a temporary issue. Please send your message one more time."
+      );
+      return;
+    }
+  }
+
+  await sendMessage(from, "Received your message.");
 }

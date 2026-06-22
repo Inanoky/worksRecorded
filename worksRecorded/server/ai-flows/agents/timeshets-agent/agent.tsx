@@ -9,12 +9,27 @@ import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import {tools, toolNode} from "@/server/ai-flows/agents/timeshets-agent/Tools"
 import {systemPrompt} from "@/server/ai-flows/agents/timeshets-agent/prompts";
 import { timeSheetsAgentModel, } from "@/server/ai-flows/ai-models-settings";
+import {
+    buildAiRunContext,
+    getTimesheetsAgentThreadId,
+    summarizeForTrace,
+} from "@/server/ai-flows/ai-run-context";
 
 
 
 
 
 export default async function TimesheetsAgent(question,siteId){
+const aiContext = buildAiRunContext({
+    flow: "timesheets-agent",
+    threadId: getTimesheetsAgentThreadId(siteId),
+    siteId,
+    channel: "agent",
+    model: timeSheetsAgentModel,
+    metadata: {
+        questionPreview: summarizeForTrace(question),
+    },
+});
 
 //--------------------------State----------------------------------
 
@@ -43,7 +58,10 @@ const agentNode = async (state) => {
     ;
 
 
-    const response = await llm.invoke(messages);
+    const response = await llm.invoke(messages, {
+        ...aiContext.runnableConfig,
+        runName: "TimesheetsAgentModel",
+    });
 
 
         return {
@@ -92,13 +110,16 @@ const agentNode = async (state) => {
 
 
     const checkpointer = PostgresSaver.fromConnString(
-        process.env.DATABASE_URL
+        process.env.DATABASE_URL!
     );
 
 
     await checkpointer.setup();
     
-    const config = {configurable: {thread_id: `${siteId}_Timesheets-agent`}}; // Unique thread ID per site
+    const config = {
+        configurable: {thread_id: aiContext.threadId},
+        ...aiContext.runnableConfig,
+    }; // Unique thread ID per site
 
 
 
@@ -123,6 +144,8 @@ const agentNode = async (state) => {
             finalState = value;
         }
     }
+
+    if (!finalState?.messages?.length) return "No timesheets agent response.";
 
     //return the last AI message
     return finalState.messages[finalState.messages.length - 1].content;

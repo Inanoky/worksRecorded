@@ -108,7 +108,13 @@ export async function POST(request: Request) {
       composePrompt(message, attachments, nativeFileContext),
     );
     promptChars = prompt.length;
-    const result = await trace.measure("ai", () => OrchestratingAgentV2(prompt, body.siteId));
+    const result = await trace.measure("ai", () =>
+      OrchestratingAgentV2(prompt, body.siteId, {
+        attachmentCount,
+        nativeAttachmentCount,
+        promptChars,
+      }),
+    );
 
     trace.end({
       status: 200,

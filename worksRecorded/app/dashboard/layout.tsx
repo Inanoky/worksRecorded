@@ -19,6 +19,7 @@ import { ProjectProvider } from "@/components/providers/ProjectProvider";
 import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
+import { hasAiContextAccess } from "@/lib/utils/ai-context-access";
 import { getOrganizationLanguageByUserId, getUserEmailByUserId } from "@/server/actions/shared-actions";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 
@@ -34,6 +35,7 @@ export default async function DashboardLayout({
     getOrganizationLanguageByUserId(user.id),
   ]);
   const t = getDashboardMessages(organizationLanguage);
+  const canAccessAiContext = hasAiContextAccess(userId);
 
   return (
     <ProjectProvider userId={userId}>
@@ -58,7 +60,10 @@ export default async function DashboardLayout({
           <div className="flex items-center gap-3 min-w-0">
             {/* Mobile menu button - only shows on small screens */}
             <div className="lg:hidden">
-              <MobileMenu organizationLanguage={organizationLanguage} />
+              <MobileMenu
+                organizationLanguage={organizationLanguage}
+                canAccessAiContext={canAccessAiContext}
+              />
             </div>
 
             {/* Logo - smaller on mobile */}
@@ -71,7 +76,11 @@ export default async function DashboardLayout({
 
           {/* Navigation - hidden on mobile, shown on desktop */}
           <nav className="hidden lg:flex gap-2 items-center flex-1 min-w-0 ml-3">
-            <DashboardItems userEmail={email} organizationLanguage={organizationLanguage} />
+            <DashboardItems
+              userEmail={email}
+              organizationLanguage={organizationLanguage}
+              canAccessAiContext={canAccessAiContext}
+            />
           </nav>
           </div>
 

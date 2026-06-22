@@ -15,6 +15,10 @@ import { prisma } from "@/lib/utils/db";
 import { getMetaReplyContext, sendClockInCard } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { createClockInToken } from "@/lib/utils/clock-in-link";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import {
+  buildAiRunContext,
+  summarizeForTrace,
+} from "@/server/ai-flows/ai-run-context";
 
 async function buildSystemPromptSaveToDatabase(workerId: string) {
   const organizationLanguage = await getOrganizationLanguageByWorkerId(workerId);
@@ -141,6 +145,19 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
   }),
   async func({ question, workerId, siteId, date, originalUserComment }: { question: string; workerId: string, siteId: string, date: string, originalUserComment: string }) {
     const whatsappSourceContext = getWhatsappSourceContext();
+    const aiContext = buildAiRunContext({
+      flow: "structured-worker-diary-save",
+      threadId: `structured-worker-diary-save:${siteId}:${workerId}`,
+      siteId,
+      workerId,
+      channel: "tool",
+      model: "gpt-5.1",
+      metadata: {
+        date,
+        hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
+        originalUserCommentPreview: summarizeForTrace(originalUserComment),
+      },
+    });
 
     console.log("[originalAudioUrl][workerTool] received app context", {
       hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
@@ -178,13 +195,13 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
 
 
     );
-    const response = await structuredLlm.invoke([
-      new HumanMessage(`${question}`),
-      new SystemMessage(`${await buildSystemPromptSaveToDatabase(workerId)} \n today is : ${date} \n ${siteId} `)
-
-
-
-    ]);
+    const response = await structuredLlm.invoke(
+      [
+        new HumanMessage(`${question}`),
+        new SystemMessage(`${await buildSystemPromptSaveToDatabase(workerId)} \n today is : ${date} \n ${siteId} `)
+      ],
+      aiContext.runnableConfig,
+    );
 
 // 5️⃣ Map to DB rows
     const rows = response.records.map((r, i) => {

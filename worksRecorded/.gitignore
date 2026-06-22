@@ -15,6 +15,7 @@
 
 # testing
 /coverage
+/.ai-eval-results
 
 # next.js
 /.next/

@@ -7,8 +7,24 @@ import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { tools, toolNode } from "@/server/ai-flows/agents/bis-materials-agent/Tools";
 import { systemPrompt } from "@/server/ai-flows/agents/bis-materials-agent/Prompts";
 import { siteDiaryAgentModel } from "@/server/ai-flows/ai-models-settings";
+import {
+  buildAiRunContext,
+  getBisMaterialsAgentThreadId,
+  summarizeForTrace,
+} from "@/server/ai-flows/ai-run-context";
 
 export default async function BisMaterialsAgent(question, siteId) {
+  const aiContext = buildAiRunContext({
+    flow: "bis-materials-agent",
+    threadId: getBisMaterialsAgentThreadId(siteId),
+    siteId,
+    channel: "agent",
+    model: siteDiaryAgentModel,
+    metadata: {
+      questionPreview: summarizeForTrace(question),
+    },
+  });
+
   const state = Annotation.Root({
     messages: Annotation<BaseMessage[]>({
       reducer: (x, y) => x.concat(y),
@@ -23,7 +39,10 @@ export default async function BisMaterialsAgent(question, siteId) {
       model: siteDiaryAgentModel,
     }).bindTools(tools);
 
-    const response = await llm.invoke(messages);
+    const response = await llm.invoke(messages, {
+      ...aiContext.runnableConfig,
+      runName: "BisMaterialsAgentModel",
+    });
 
     return {
       messages: [response],
@@ -48,10 +67,13 @@ export default async function BisMaterialsAgent(question, siteId) {
     .addConditionalEdges("agentNode", shouldContinue, ["tools", END])
     .addEdge("tools", "agentNode");
 
-  const checkpointer = PostgresSaver.fromConnString(process.env.DATABASE_URL);
+  const checkpointer = PostgresSaver.fromConnString(process.env.DATABASE_URL!);
   await checkpointer.setup();
 
-  const config = { configurable: { thread_id: `${siteId}_BisMaterialsAgent` } };
+  const config = {
+    configurable: { thread_id: aiContext.threadId },
+    ...aiContext.runnableConfig,
+  };
   const graph = workflow.compile({ checkpointer });
 
   const inputs = {
@@ -68,6 +90,8 @@ export default async function BisMaterialsAgent(question, siteId) {
       finalState = value;
     }
   }
+
+  if (!finalState?.messages?.length) return "No BIS materials agent response.";
 
   return finalState.messages[finalState.messages.length - 1].content;
 }
