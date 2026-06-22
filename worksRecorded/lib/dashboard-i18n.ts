@@ -30,6 +30,7 @@ type SiteDiaryListMessages = {
   recordViaWhatsApp: string;
   recordViaWhatsAppShort: string;
   exportToExcel: string;
+  refreshRecords: string;
   refreshing: string;
   refreshBisSync: string;
   filters: string;
@@ -607,6 +608,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     recordViaWhatsApp: "Record site work via WhatsApp",
     recordViaWhatsAppShort: "Record via WhatsApp",
     exportToExcel: "Export to Excel",
+    refreshRecords: "Refresh records",
     refreshing: "Refreshing...",
     refreshBisSync: "Refresh BIS sync",
     filters: "Filters",
@@ -709,6 +711,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     recordViaWhatsApp: "Reģistrēt būvdarbus WhatsApp",
     recordViaWhatsAppShort: "Reģistrēt WhatsApp",
     exportToExcel: "Eksportēt uz Excel",
+    refreshRecords: "Atjaunot ierakstus",
     refreshing: "Atjauno...",
     refreshBisSync: "Atjaunot BIS sinhronizāciju",
     filters: "Filtri",

@@ -448,6 +448,7 @@ export default function SiteDiaryCalendar({
   const [bisMeasurementOptions, setBisMeasurementOptions] = React.useState<Array<{ id: string; name: string }>>([]);
   const [bisResponsiblePersonOptions, setBisResponsiblePersonOptions] = React.useState<BisResponsiblePersonOption[]>([]);
   const [selectedBisResponsiblePersonKey, setSelectedBisResponsiblePersonKey] = React.useState<string>("");
+  const [recordsRefreshLoading, setRecordsRefreshLoading] = React.useState(false);
   const [bisSyncLoading, setBisSyncLoading] = React.useState(false);
   const [galleryAttachmentPage, setGalleryAttachmentPage] = React.useState(1);
   const [showBisUi, setShowBisUi] = React.useState(true);
@@ -1282,6 +1283,26 @@ export default function SiteDiaryCalendar({
     }
   };
 
+  const handleRefreshRecords = async () => {
+    if (!siteId) {
+      toast.error(toastMessages.missingSiteId);
+      return;
+    }
+
+    try {
+      setRecordsRefreshLoading(true);
+      setError(null);
+      await refreshRowsWithBisSync({ skipSync: true });
+      reloadFilledDays();
+    } catch (e: any) {
+      const message = e?.message ?? "Failed to refresh site diary records";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setRecordsRefreshLoading(false);
+    }
+  };
+
   const handleSendRowToBis = async () => {
     if (!selectedRowForBis?.id) {
       toast.error(toastMessages.missingSelectedRecordId);
@@ -1485,7 +1506,12 @@ export default function SiteDiaryCalendar({
                     <RefreshCw className={cn("mr-2 h-4 w-4", bisSyncLoading ? "animate-spin" : "")} />
                     {bisSyncLoading ? t.refreshing : t.refreshBisSync}
                   </Button>
-                ) : null}
+                ) : (
+                  <Button variant="outline" onClick={handleRefreshRecords} disabled={recordsRefreshLoading}>
+                    <RefreshCw className={cn("mr-2 h-4 w-4", recordsRefreshLoading ? "animate-spin" : "")} />
+                    {recordsRefreshLoading ? t.refreshing : t.refreshRecords}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
