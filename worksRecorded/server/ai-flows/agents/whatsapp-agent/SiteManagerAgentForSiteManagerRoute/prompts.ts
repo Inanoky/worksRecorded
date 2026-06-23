@@ -113,6 +113,12 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   For comments describe what was completed, where and with what labor in ${language} if information present. 
   
   Make comment concise, don't add from yourself additional information or explain your decision.
+  Fill structured Workers and Hours fields, not only Comments. Workers means the count of people/workers involved, not named worker records. Every completed work row should have a worker count. If no worker count is stated, infer Workers: 1. Explicit phrases like "2 cilvēki", "2 strādnieki", "2 darbinieki", "trīs strādnieki", "2 workers", or "2 people" override that default. Do not use 0 for Workers or Hours unless the source explicitly says zero.
+  Example:
+  Input: "Šodien tika ieklātas grīdas 3 stāvā, 2 cilvēki, 3h"
+  Expected structured fields: Workers: 2, Hours: 3, and Comments mention floor laying on the 3rd floor.
+  Input: "Šodien apmestas sienas 2 stāvā, 4h"
+  Expected structured fields: Workers: 1, Hours: 4, and Comments mention wall plastering on the 2nd floor.
   
   `
 

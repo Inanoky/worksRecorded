@@ -1,4 +1,5 @@
 "use server"
+import { AsyncLocalStorage } from "node:async_hooks";
 import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
@@ -19,6 +20,44 @@ import {
 type PostgresCheckpointer = ReturnType<typeof PostgresSaver.fromConnString>;
 
 let checkpointerSetupPromise: Promise<void> | null = null;
+
+type SiteManagerAgentRunOptions = {
+    threadId?: string;
+    traceMetadata?: Record<string, string | number | boolean | null | undefined>;
+    model?: string;
+};
+
+export type SiteManagerAgentRunDetails = {
+    content: string;
+    requestedModel: string;
+    actualModel: string | null;
+    tokenUsage: unknown;
+    usageMetadata: unknown;
+    responseMetadata: unknown;
+    finishReason: string | null;
+};
+
+type SiteManagerAgentRunContext = SiteManagerAgentRunOptions & {
+    details: SiteManagerAgentRunDetails | null;
+};
+
+const siteManagerAgentRunStorage = new AsyncLocalStorage<SiteManagerAgentRunContext>();
+
+export async function runWithSiteManagerAgentEvalContext<T>(
+    options: SiteManagerAgentRunOptions,
+    fn: () => Promise<T>,
+) {
+    const context: SiteManagerAgentRunContext = {
+        ...options,
+        details: null,
+    };
+
+    const result = await siteManagerAgentRunStorage.run(context, fn);
+    return {
+        result,
+        details: context.details,
+    };
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
     return value && typeof value === "object" && !Array.isArray(value)
@@ -61,19 +100,22 @@ async function setupCheckpointerOnce(checkpointer: PostgresCheckpointer) {
 
 export default async function talkToWhatsappAgent(question, siteId, userId, originalAudioUrl?: string | null) {
     console.log("=== talkToWhatsappAgent (Site Manager) called ===", { hasAudio: !!originalAudioUrl });
+    const runContext = siteManagerAgentRunStorage.getStore();
+    const requestedModel = runContext?.model ?? siteManagerAgentForSiteManagerRouteModelModel;
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
     const sourceComment = userFullName ? `${userFullName} : ${normalizedQuestion}` : normalizedQuestion;
     const aiContext = buildAiRunContext({
         flow: "whatsapp-site-manager",
-        threadId: getSiteManagerThreadId(siteId, userId),
+        threadId: runContext?.threadId ?? getSiteManagerThreadId(siteId, userId),
         siteId,
         userId,
         channel: "whatsapp",
-        model: siteManagerAgentForSiteManagerRouteModelModel,
+        model: requestedModel,
         metadata: {
             hasOriginalAudioUrl: Boolean(originalAudioUrl),
             questionPreview: summarizeForTrace(question),
+            ...(runContext?.traceMetadata ?? {}),
         },
     });
 
@@ -124,7 +166,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
 
         const llm = new ChatOpenAI({
             temperature: siteManagerAgentForSiteManagerRouteModelModelTemperature,
-            model: siteManagerAgentForSiteManagerRouteModelModel,
+            model: requestedModel,
             reasoning: { effort: "low" },
         }).bindTools(tools);
 
@@ -190,8 +232,35 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
 
     if (finalState && finalState.messages && finalState.messages.length > 0) {
         const lastContentMsg = finalState.messages.findLast((msg: BaseMessage) => typeof msg.content === "string" && msg.content.length > 0);
-        return lastContentMsg ? lastContentMsg.content : "Completed action with no response.";
+        const content = lastContentMsg ? String(lastContentMsg.content) : "Completed action with no response.";
+        const responseMetadata = (lastContentMsg as any)?.response_metadata ?? null;
+        const usageMetadata = (lastContentMsg as any)?.usage_metadata ?? null;
+
+        if (runContext) {
+            runContext.details = {
+                content,
+                requestedModel,
+                actualModel: responseMetadata?.model_name ?? null,
+                tokenUsage: usageMetadata ?? responseMetadata?.tokenUsage ?? null,
+                usageMetadata,
+                responseMetadata,
+                finishReason: responseMetadata?.finish_reason ?? null,
+            };
+        }
+
+        return content;
     } else {
+        if (runContext) {
+            runContext.details = {
+                content: "",
+                requestedModel,
+                actualModel: null,
+                tokenUsage: null,
+                usageMetadata: null,
+                responseMetadata: null,
+                finishReason: null,
+            };
+        }
         return null;
     }
 }

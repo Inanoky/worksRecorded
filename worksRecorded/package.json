@@ -11,6 +11,7 @@
     "test:smoke": "bun run test/app-smoke-tests.ts",
     "test:start": "bun run test/startTest.ts",
     "eval:ai:dashboard": "tsx test/ai-evals/run-dashboard-eval.ts",
+    "eval:ai:whatsapp-site-manager": "tsx test/ai-evals/run-whatsapp-site-manager-eval.ts",
     "postinstall": "prisma generate",
     "test": "jest"
   },

@@ -78,6 +78,53 @@ function formatOriginalUserComment(originalUserComment?: string, fullName?: stri
   return `${normalizedFullName} : ${normalizedComment}`;
 }
 
+function toNullableNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return null;
+  const numberValue = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(numberValue) ? numberValue : null;
+}
+
+const savedSiteDiaryRecordSelect = {
+  id: true,
+  siteId: true,
+  userId: true,
+  workerId: true,
+  Location: true,
+  Works: true,
+  Comments: true,
+  originalUserComment: true,
+  originalAudioUrl: true,
+  Amounts: true,
+  WorkersInvolved: true,
+  TimeInvolved: true,
+  createdAt: true,
+} as const;
+
+const numericSiteDiaryFields = ["Amounts", "WorkersInvolved", "TimeInvolved"] as const;
+
+type NumericSiteDiaryField = (typeof numericSiteDiaryFields)[number];
+type NormalizedSiteDiaryInsertRow = Record<string, any> & Record<NumericSiteDiaryField, number | null>;
+type SavedSiteDiaryRecordForIntegrity = Record<string, any> & Record<NumericSiteDiaryField, number | null>;
+
+function numbersMatch(expected: number, actual: unknown) {
+  return typeof actual === "number" && Number.isFinite(actual) && Math.abs(actual - expected) < 0.01;
+}
+
+function findNumericPersistenceMismatch(
+  expected: NormalizedSiteDiaryInsertRow,
+  actual: SavedSiteDiaryRecordForIntegrity,
+) {
+  return numericSiteDiaryFields.find((field) => {
+    const expectedValue = expected[field];
+    if (expectedValue === null) return false;
+    return !numbersMatch(expectedValue, actual[field]);
+  });
+}
+
+function numericRepairData(row: NormalizedSiteDiaryInsertRow) {
+  return Object.fromEntries(numericSiteDiaryFields.map((field) => [field, row[field]]));
+}
+
 function getCreatorNameFromOriginalComment(originalUserComment?: string | null) {
   const match = originalUserComment?.trim().match(/^(.+?)\s+:\s+/);
   return match?.[1]?.trim() ?? "";
@@ -1089,7 +1136,7 @@ export async function saveSiteDiaryRecord({
 
   // Make sure requireUser() is not triggering a redirect!
   // Defensive: Only save if at least one row with location or works
-  const toInsert = validRows
+  const toInsert: NormalizedSiteDiaryInsertRow[] = validRows
     .map((row, idx) => {
       const out = {
         // UPDATE: Conditionally set userId or workerId
@@ -1118,10 +1165,9 @@ export async function saveSiteDiaryRecord({
         originalAudioUrl: idx === 0 ? resolvedOriginalAudioUrl || undefined : undefined,
 
         Units: row.Units || undefined,
-        Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
-        WorkersInvolved:
-          row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
-        TimeInvolved: row.TimeInvolved !== "" ? Number(row.TimeInvolved) : undefined,
+        Amounts: toNullableNumber(row.Amounts),
+        WorkersInvolved: toNullableNumber(row.WorkersInvolved),
+        TimeInvolved: toNullableNumber(row.TimeInvolved),
         Photos: [],
       };
 
@@ -1144,17 +1190,62 @@ export async function saveSiteDiaryRecord({
     });
 
   try {
-    await prisma.sitediaryrecords.createMany({ data: toInsert });
-    const finalCount = toInsert.length;
+    const records = await prisma.$transaction(async (tx) => {
+      const insertedRecords = [];
+
+      for (const row of toInsert) {
+        const created = await tx.sitediaryrecords.create({
+          data: row,
+          select: savedSiteDiaryRecordSelect,
+        });
+
+        const mismatchedField = findNumericPersistenceMismatch(row, created);
+        if (!mismatchedField) {
+          insertedRecords.push(created);
+          continue;
+        }
+
+        console.warn("[saveSiteDiaryRecord] repairing numeric persistence mismatch", {
+          recordId: created.id,
+          field: mismatchedField,
+          expected: row[mismatchedField],
+          actual: created[mismatchedField],
+        });
+
+        const repaired = await tx.sitediaryrecords.update({
+          where: { id: created.id },
+          data: numericRepairData(row),
+          select: savedSiteDiaryRecordSelect,
+        });
+
+        const stillMismatchedField = findNumericPersistenceMismatch(row, repaired);
+        if (stillMismatchedField) {
+          throw new Error(
+            `Numeric persistence mismatch for ${stillMismatchedField}: expected ${row[stillMismatchedField]}, got ${repaired[stillMismatchedField]}`,
+          );
+        }
+
+        insertedRecords.push(repaired);
+      }
+
+      return insertedRecords;
+    });
+    const finalCount = records.length;
 
     console.log("[originalAudioUrl][saveSiteDiaryRecord] completion", {
       finalCount,
     });
 
-    return { ok: true, count: finalCount }; //Multitenant
+    return {
+      ok: true,
+      count: finalCount,
+      recordIds: records.map((record) => record.id),
+      records,
+      normalizedInsertRows: toInsert,
+    }; //Multitenant
   } catch (err: any) {
     console.error("❌ [saveSiteDiaryRecord] error", err);
-    return { ok: false, message: err.message };
+    return { ok: false, message: err.message, normalizedInsertRows: toInsert };
   }
 }
 
@@ -1182,10 +1273,9 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
       Comments_Custom_1: row.Comments_Custom_1 || undefined,
       Comments_Custom_2: row.Comments_Custom_2 || undefined,
       Units: row.Units || undefined,
-      Amounts: row.Amounts !== "" ? Number(row.Amounts) : undefined,
-      WorkersInvolved:
-        row.WorkersInvolved !== "" ? Number(row.WorkersInvolved) : undefined,
-      TimeInvolved: row.TimeInvolved !== "" ? Number(row.TimeInvolved) : undefined,
+      Amounts: toNullableNumber(row.Amounts),
+      WorkersInvolved: toNullableNumber(row.WorkersInvolved),
+      TimeInvolved: toNullableNumber(row.TimeInvolved),
       Photos: [],
     };
     console.log(`Prepared insert row ${idx}:`, out);

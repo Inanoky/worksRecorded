@@ -11,6 +11,7 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
+import { recordStructuredSaveTrace } from "./structuredSaveTrace";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import {
   buildAiRunContext,
@@ -134,6 +135,17 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     });
 
     console.log("✅ Save result:", result);
+
+    recordStructuredSaveTrace({
+      siteId,
+      userId,
+      date,
+      originalUserComment,
+      rawRecords: response.records,
+      mappedRows: rows,
+      normalizedInsertRows: result?.normalizedInsertRows ?? [],
+      persistedRecords: result?.records ?? [],
+    });
 
     if (!result?.ok) {
       return `Failed to save site diary entry: ${result?.message ?? "Unknown error"}`;

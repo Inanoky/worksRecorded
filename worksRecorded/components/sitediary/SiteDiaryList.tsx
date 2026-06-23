@@ -1799,7 +1799,7 @@ export default function SiteDiaryCalendar({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {keywordMatchedDayGroups.length > 0 ? (
                       <div className="inline-flex items-center gap-2 rounded-md border px-2 py-1 text-xs sm:text-sm">
                         <Checkbox
@@ -1813,26 +1813,6 @@ export default function SiteDiaryCalendar({
                           {selectedVisibleCount}/{visibleRecordIds.length}
                         </span>
                       </div>
-                    ) : null}
-                    {selectedRecordIds.size > 0 ? (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={bulkDeleteLoading}
-                        onClick={handleBulkDeleteRecords}
-                      >
-                        {bulkDeleteLoading ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            Deleting...
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 className="mr-1 h-3.5 w-3.5" />
-                            Delete selected ({selectedRecordIds.size})
-                          </>
-                        )}
-                      </Button>
                     ) : null}
                     {bisEnabled ? (
                       <button
@@ -1873,6 +1853,29 @@ export default function SiteDiaryCalendar({
                       </div>
                     )}
                   </div>
+                  {selectedRecordIds.size > 0 ? (
+                    <div className="mt-3 flex justify-end border-t pt-3">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="w-full sm:w-auto"
+                        disabled={bulkDeleteLoading}
+                        onClick={handleBulkDeleteRecords}
+                      >
+                        {bulkDeleteLoading ? (
+                          <>
+                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="mr-1 h-3.5 w-3.5" />
+                            Delete selected ({selectedRecordIds.size})
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : null}
                 </div>
               </CardContent>
             </Card>

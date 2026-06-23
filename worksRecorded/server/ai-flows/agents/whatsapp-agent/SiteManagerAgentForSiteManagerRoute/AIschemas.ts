@@ -70,9 +70,34 @@ function enumFromDropdown(field: MapField) {
   };
 }
 
-function withAiDescription(schema: z.ZodTypeAny, field: MapField) {
-  const d = field.customSettings?.aiDescription?.trim();
-  return d ? schema.describe(d) : schema;
+function defaultAiDescription(dbKey: string, displayKey: string) {
+  const normalizedDbKey = dbKey.toLowerCase();
+  const normalizedDisplayKey = displayKey.toLowerCase();
+
+  if (normalizedDbKey === "workersinvolved" || normalizedDisplayKey === "workers") {
+    return "Number of workers or people involved in this activity, not named worker records. Every completed work row should have a worker count. Extract explicit counts from phrases like '2 workers', '2 people', '2 cilvēki', '2 strādnieki', 'trīs strādnieki', or 'darbinieki: 2'. If work was performed and no worker count is stated, default to 1 worker. Do not use 0 unless the source explicitly says zero workers.";
+  }
+
+  if (normalizedDbKey === "timeinvolved" || normalizedDisplayKey === "hours") {
+    return "Total work duration in hours for this activity. Extract from phrases like '3h', '3 h', '3 hours', or '7 h'. Leave null if unknown.";
+  }
+
+  if (normalizedDbKey === "amounts" || normalizedDisplayKey === "amounts") {
+    return "Completed work quantity or amount. This is not worker count and not work duration hours. Leave null if the completed quantity is unknown.";
+  }
+
+  return null;
+}
+
+function withFieldDescription(
+  schema: z.ZodTypeAny,
+  field: MapField,
+  dbKey: string,
+  displayKey: string,
+) {
+  const explicitDescription = field.customSettings?.aiDescription?.trim();
+  const description = explicitDescription || defaultAiDescription(dbKey, displayKey);
+  return description ? schema.describe(description) : schema;
 }
 
 function safeKey(name: string) {
@@ -130,7 +155,7 @@ export function buildZodSchemaFromConfig(config: ConfigMap) {
     const displayRaw = field.DisplayName?.trim() || dbKey;
     const displayKey = safeKey(displayRaw);
 
-    shape[displayKey] = withAiDescription(fieldSchema.schema, field);
+    shape[displayKey] = withFieldDescription(fieldSchema.schema, field, dbKey, displayKey);
     fieldMap[displayKey] = dbKey;
     if (fieldSchema.valueMap && Object.keys(fieldSchema.valueMap).length > 0) {
       dropdownValueMaps[displayKey] = fieldSchema.valueMap;
