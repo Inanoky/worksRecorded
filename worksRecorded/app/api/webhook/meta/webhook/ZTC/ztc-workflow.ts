@@ -39,6 +39,7 @@ const PHOTO_BATCH_CONFIRM_PREFIX = "__ZTC_PHOTO_BATCH_CONFIRM__";
 const DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX =
   "__ZTC_DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK__";
 const PHOTO_BATCH_CONFIRM_WINDOW_MS = 45_000;
+const TL_WORK_PHOTO_BATCH_GRACE_MS = 30_000;
 const ZTC_MEDIA_TIMEOUT_MS = 30_000;
 const ZTC_UPLOAD_TIMEOUT_MS = 30_000;
 const ZTC_VISION_TIMEOUT_MS = 120_000;
@@ -151,6 +152,7 @@ type ZtcDrawingMetadata = {
 type ZtcDiagonalPayload = {
   completedText: string;
   additionalDetails?: WorkExtraction["additionalDetails"];
+  workPhotoBatchGraceUntil?: number;
   firstPhotoUrl?: string;
   firstMeasureMm?: number;
   secondPhotoUrl?: string;
@@ -1069,6 +1071,15 @@ function readDiagonalPhotoMeasurePayload(
   });
 }
 
+function isTlWorkPhotoBatchGraceActive(session: Pick<OpenZtcSession, "Comments_Custom_1">) {
+  const state = session.Comments_Custom_1;
+  if (!state?.startsWith(DIAGONAL_FIRST_PHOTO_PENDING_PREFIX)) return false;
+
+  const payload = readDiagonalPhotoMeasurePayload(state, DIAGONAL_FIRST_PHOTO_PENDING_PREFIX);
+  const graceUntil = Number(payload.workPhotoBatchGraceUntil ?? 0);
+  return Number.isFinite(graceUntil) && graceUntil > Date.now();
+}
+
 function buildDiagonalPhotoMeasureComment(args: {
   session: OpenZtcSession;
   payload: ZtcDiagonalPayload;
@@ -1760,10 +1771,11 @@ async function createAdditionalDetailRows(args: {
   const now = new Date();
   const rows = await Promise.all(
     details.map(async (detail) => {
-      const defaultRate = await getDefaultRateForWork(detail.description, {
+      const defaultRateMatch = await getDefaultRateMatchForWork(detail.description, {
         projectName: args.session.Location,
         category: "additionalDetails",
       });
+      const mappedDescription = defaultRateMatch?.task?.trim() || detail.description;
 
       return {
         workerId: args.session.workerId,
@@ -1775,10 +1787,10 @@ async function createAdditionalDetailRows(args: {
         Location: args.session.Location,
         Location_Custom_1: args.session.Location_Custom_1,
         Works_Custom_1: "Papilddetāļas",
-        Works: detail.description,
-        Location_Custom_2: defaultRate,
+        Works: mappedDescription,
+        Location_Custom_2: defaultRateMatch?.rate ?? null,
         Works_Custom_2: args.session.Works_Custom_2 ?? null,
-        Units: "gab",
+        Units: defaultRateMatch?.unit ?? "gab",
         Amounts: positiveNumberOrNull(detail.quantity) ?? 1,
         TimeInvolved: 0,
         Comments: args.completedText?.trim()
@@ -1790,6 +1802,8 @@ async function createAdditionalDetailRows(args: {
           projectName: args.session.Location,
           elementName: args.session.Location_Custom_1,
           mainWork: args.session.Works,
+          extractedWork: detail.description,
+          matchedRateTask: defaultRateMatch?.task ?? null,
         }),
         originalUserComment: args.completedText?.trim() ?? null,
         Photos: [],
@@ -1903,6 +1917,7 @@ async function askForTlDiagonals(args: {
       Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({
         completedText,
         additionalDetails: args.completedWork?.additionalDetails ?? [],
+        workPhotoBatchGraceUntil: Date.now() + TL_WORK_PHOTO_BATCH_GRACE_MS,
       })}`,
       Units: "m2",
       Amounts: args.session.Amounts ?? undefined,
@@ -2365,6 +2380,53 @@ async function appendPhotosToRecentCompletedSession(args: {
       addedPhotoCount: uploadedUrls.length,
       photoUrls: uploadedUrls,
       reason: appendDecision.reason,
+    },
+  });
+
+  return true;
+}
+
+async function appendTlWorkPhotosDuringDiagonalGrace(args: {
+  formData: FormData;
+  idxs: number[];
+  worker: ZtcWorker;
+  session: OpenZtcSession;
+}) {
+  if (!isTlWorkPhotoBatchGraceActive(args.session)) return false;
+
+  const images = await uploadZtcImages(args.formData, args.idxs, "tl_completion_album_late_photos");
+  const uploadedUrls = images.map((image) => image.publicUrl);
+  if (uploadedUrls.length === 0) {
+    logZtcSession("tl_completion_album_late_photos_append_skipped", {
+      session: args.session,
+      worker: args.worker,
+      details: { requestedPhotoCount: args.idxs.length },
+    });
+    return true;
+  }
+
+  const nextPhotos = [...(args.session.Photos ?? []), ...uploadedUrls];
+  const updated = await prisma.ztcRecords.update({
+    where: { id: args.session.id },
+    data: { Photos: nextPhotos },
+  });
+
+  await Promise.all(
+    uploadedUrls.map((publicUrl) =>
+      saveCompletedWorkPhoto({
+        worker: args.worker,
+        publicUrl,
+        session: args.session,
+      }),
+    ),
+  );
+
+  logZtcSession("tl_completion_album_late_photos_appended_as_work_photos", {
+    session: updated,
+    worker: args.worker,
+    details: {
+      addedPhotoCount: uploadedUrls.length,
+      photoUrls: uploadedUrls,
     },
   });
 
@@ -2835,6 +2897,17 @@ async function handleFinishedPhoto(args: {
   }
 
   if (isDiagonalPhotoMeasureFlow(session.Comments_Custom_1)) {
+    if (
+      await appendTlWorkPhotosDuringDiagonalGrace({
+        formData,
+        idxs,
+        worker,
+        session,
+      })
+    ) {
+      return;
+    }
+
     await handleTlDiagonalPhoto({ formData, idx: firstIdx, to, worker, session });
     return;
   }

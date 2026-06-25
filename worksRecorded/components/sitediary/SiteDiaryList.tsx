@@ -872,15 +872,15 @@ export default function SiteDiaryCalendar({
         if (isZtcSite) {
           const ztcTime = (value: unknown) => {
             const parsed = new Date(value as any).getTime();
-            return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+            return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
           };
-          const dateDiff = ztcTime(a.Date) - ztcTime(b.Date);
+          const dateDiff = ztcTime(b.Date) - ztcTime(a.Date);
           if (dateDiff !== 0) return dateDiff;
-          const customDateDiff = ztcTime(a.Date_Custom_1) - ztcTime(b.Date_Custom_1);
+          const customDateDiff = ztcTime(b.Date_Custom_1) - ztcTime(a.Date_Custom_1);
           if (customDateDiff !== 0) return customDateDiff;
-          const createdDiff = ztcTime(a.createdAt) - ztcTime(b.createdAt);
+          const createdDiff = ztcTime(b.createdAt) - ztcTime(a.createdAt);
           if (createdDiff !== 0) return createdDiff;
-          return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+          return String(b.id ?? "").localeCompare(String(a.id ?? ""));
         }
 
         const timeA = new Date(a.createdAt ?? a.Date).getTime();
