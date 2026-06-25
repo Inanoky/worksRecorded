@@ -2961,7 +2961,8 @@ async function handleFinishedPhoto(args: {
   }
 
   const alreadyConfirmedPhotoBatch = isRecentPhotoBatchConfirmation(session.Comments_Custom_1);
-  if (!alreadyConfirmedPhotoBatch) {
+  const alreadyAcknowledgedByBatchCollector = Number(getString(formData, "MetaBatchSize") || "0") > 0;
+  if (!alreadyConfirmedPhotoBatch && !alreadyAcknowledgedByBatchCollector) {
     await sendZtcMessage(to, "Foto saņemts, lūdzu uzgaidiet...");
   }
 
