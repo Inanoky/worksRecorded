@@ -1448,7 +1448,7 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
   const openaiStartedAt = Date.now();
   const response = await withZtcTimeout(
     openai.chat.completions.create({
-      model: process.env.ZTC_VISION_MODEL || "gpt-5.4-mini",
+      model: process.env.ZTC_VISION_MODEL || "gpt-5.4-nano",
       response_format: { type: "json_object" },
       messages: [
         {
@@ -1475,7 +1475,7 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
     ZTC_VISION_TIMEOUT_MS,
   );
   logZtcTiming("drawing_extraction_openai", openaiStartedAt, {
-    model: process.env.ZTC_VISION_MODEL || "gpt-5.4-mini",
+    model: process.env.ZTC_VISION_MODEL || "gpt-5.4-nano",
     imageSource: imageUrl.startsWith("data:") ? "data_url" : "url",
   });
 
