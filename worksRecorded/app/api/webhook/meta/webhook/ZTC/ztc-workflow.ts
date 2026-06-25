@@ -2280,23 +2280,60 @@ async function saveCompletedWorkPhoto(args: {
   });
 }
 
+function shouldAutoAppendToRecentCompletedSession(args: {
+  imageCount: number;
+  caption?: string | null;
+}) {
+  if (args.imageCount > 1) {
+    return { shouldAppend: true, reason: "multiple_images_same_message" };
+  }
+
+  const normalizedCaption = String(args.caption ?? "").trim().toLowerCase();
+  if (
+    /\b(papildu|vel|v[eē]l|extra|additional|late)\b/i.test(normalizedCaption) &&
+    /\b(foto|photo|bild|att[eē]l)\w*\b/i.test(normalizedCaption)
+  ) {
+    return { shouldAppend: true, reason: "caption_requests_extra_photo_append" };
+  }
+
+  return { shouldAppend: false, reason: "single_image_prefers_new_drawing_flow" };
+}
+
 async function appendPhotosToRecentCompletedSession(args: {
   formData: FormData;
   idxs: number[];
   worker: ZtcWorker;
+  caption?: string | null;
 }) {
   const session = await getRecentCompletedPhotoBatchSession(args.worker.id);
   if (!session) return false;
 
-  await sendZtcMessage(getString(args.formData, "From"), "Foto saņemts, lūdzu uzgaidiet...");
+  const appendDecision = shouldAutoAppendToRecentCompletedSession({
+    imageCount: args.idxs.length,
+    caption: args.caption,
+  });
+  if (!appendDecision.shouldAppend) {
+    logZtcSession("recent_completed_work_photo_append_skipped_for_new_drawing_check", {
+      session,
+      worker: args.worker,
+      details: {
+        reason: appendDecision.reason,
+        requestedPhotoCount: args.idxs.length,
+        caption: args.caption ?? "",
+      },
+    });
+    return false;
+  }
+
+  await sendZtcMessage(getString(args.formData, "From"), "Foto saņemts, pievienoju iepriekš pabeigtajam darbam...");
 
   const images = await uploadZtcImages(args.formData, args.idxs, "recent_completed_append");
   const uploadedUrls = images.map((image) => image.publicUrl);
   if (uploadedUrls.length === 0) {
-    logZtcSession("completed_work_late_photos_append_skipped", {
+    logZtcSession("recent_completed_work_photo_append_upload_skipped", {
       session,
       worker: args.worker,
-      details: { requestedPhotoCount: args.idxs.length },
+      details: { requestedPhotoCount: args.idxs.length, reason: appendDecision.reason },
     });
     return true;
   }
@@ -2321,10 +2358,14 @@ async function appendPhotosToRecentCompletedSession(args: {
     ),
   );
 
-  logZtcSession("completed_work_late_photos_appended", {
+  logZtcSession("recent_completed_work_photos_appended", {
     session: updated,
     worker: args.worker,
-    details: { addedPhotoCount: uploadedUrls.length, photoUrls: uploadedUrls },
+    details: {
+      addedPhotoCount: uploadedUrls.length,
+      photoUrls: uploadedUrls,
+      reason: appendDecision.reason,
+    },
   });
 
   return true;
@@ -2926,8 +2967,8 @@ export async function handleZtcWorkerRoute(args: {
       if (openSession?.Works) {
         outcome = "finished_photo";
         await handleFinishedPhoto({ formData, idxs: imageIndexes, to: from, worker, caption: body });
-      } else if (await appendPhotosToRecentCompletedSession({ formData, idxs: imageIndexes, worker })) {
-        // The worker sent multiple completion photos as separate WhatsApp messages.
+      } else if (await appendPhotosToRecentCompletedSession({ formData, idxs: imageIndexes, worker, caption: body })) {
+        // Multi-image completion upload, or a caption explicitly saying this is an extra photo.
         outcome = "appended_recent_completed_photos";
       } else {
         outcome = "drawing_photo";
