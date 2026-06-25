@@ -31,6 +31,8 @@ import {
 import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import {
   CalendarIcon,
+  Check,
+  ChevronsUpDown,
   Copy,
   CloudSun,
   Ellipsis,
@@ -178,6 +180,119 @@ type DayGroup = {
   date: Date;
   rows: DiaryRow[];
 };
+
+type SearchableFilterSelectOption = {
+  value: string;
+  label: string;
+};
+
+function SearchableFilterSelect({
+  value,
+  onValueChange,
+  options,
+  allLabel,
+  placeholder,
+  searchPlaceholder,
+  className,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: SearchableFilterSelectOption[];
+  allLabel: string;
+  placeholder: string;
+  searchPlaceholder: string;
+  className?: string;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const normalizedSearch = search.trim().toLocaleLowerCase("lv");
+  const filteredOptions = options.filter((option) =>
+    option.label.toLocaleLowerCase("lv").includes(normalizedSearch),
+  );
+  const selectedLabel =
+    value === "__ALL__"
+      ? allLabel
+      : options.find((option) => option.value === value)?.label ?? value ?? placeholder;
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          role="combobox"
+          aria-expanded={open}
+          className={cn("h-9 w-full justify-between text-left font-normal", className)}
+        >
+          <span className={cn("truncate", value === "__ALL__" && "text-muted-foreground")}>
+            {selectedLabel || placeholder}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        collisionPadding={12}
+        className="w-[var(--radix-popover-trigger-width)] min-w-[240px] max-w-[min(90vw,30rem)] overflow-hidden p-0"
+      >
+        <div className="flex items-center border-b px-3">
+          <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={searchPlaceholder}
+            className="h-10 border-0 px-0 shadow-none focus-visible:ring-0"
+            autoFocus
+          />
+        </div>
+        <div
+          className="max-h-[min(18rem,var(--radix-popover-content-available-height))] overflow-y-auto overscroll-contain p-1"
+          onWheel={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <button
+            type="button"
+            className="flex w-full min-w-0 items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
+            onClick={() => {
+              onValueChange("__ALL__");
+              setOpen(false);
+            }}
+          >
+            <Check className={`mt-0.5 h-4 w-4 shrink-0 ${value === "__ALL__" ? "opacity-100" : "opacity-0"}`} />
+            <span className="min-w-0 truncate">{allLabel}</span>
+          </button>
+          {filteredOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="flex w-full min-w-0 items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
+              onClick={() => {
+                onValueChange(option.value);
+                setOpen(false);
+              }}
+            >
+              <Check className={`mt-0.5 h-4 w-4 shrink-0 ${value === option.value ? "opacity-100" : "opacity-0"}`} />
+              <span className="min-w-0 whitespace-normal break-words">{option.label}</span>
+            </button>
+          ))}
+          {filteredOptions.length === 0 ? (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              Nav atrasts
+            </p>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 type BisMaterialOption = {
   id: string;
@@ -635,10 +750,31 @@ export default function SiteDiaryCalendar({
   const worksOptions = React.useMemo(() => {
     const set = new Set<string>();
     rows.forEach((r) => {
+      if (
+        isZtcSite &&
+        floorFilter !== "__ALL__" &&
+        String(r.Location ?? "").trim() !== floorFilter
+      ) {
+        return;
+      }
+      if (
+        isZtcSite &&
+        elementFilter !== "__ALL__" &&
+        String(r.Location_Custom_1 ?? "").trim() !== elementFilter
+      ) {
+        return;
+      }
       if (r.Works && String(r.Works).trim()) set.add(String(r.Works).trim());
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [rows]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
+  }, [rows, isZtcSite, floorFilter, elementFilter]);
+
+  React.useEffect(() => {
+    if (!isZtcSite || workFilter === "__ALL__") return;
+    if (!worksOptions.includes(workFilter)) {
+      setWorkFilter("__ALL__");
+    }
+  }, [isZtcSite, workFilter, worksOptions]);
 
   // Floor filter options (based on Location)
   const floorOptions = React.useMemo(() => {
@@ -654,12 +790,26 @@ export default function SiteDiaryCalendar({
   const elementOptions = React.useMemo(() => {
     const set = new Set<string>();
     rows.forEach((r) => {
+      if (
+        isZtcSite &&
+        floorFilter !== "__ALL__" &&
+        String(r.Location ?? "").trim() !== floorFilter
+      ) {
+        return;
+      }
       if (r.Location_Custom_1 && String(r.Location_Custom_1).trim()) {
         set.add(String(r.Location_Custom_1).trim());
       }
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
-  }, [rows]);
+  }, [rows, isZtcSite, floorFilter]);
+
+  React.useEffect(() => {
+    if (!isZtcSite || elementFilter === "__ALL__") return;
+    if (!elementOptions.includes(elementFilter)) {
+      setElementFilter("__ALL__");
+    }
+  }, [isZtcSite, elementFilter, elementOptions]);
 
   const workerOptions = React.useMemo(() => {
     const set = new Set<string>();
@@ -719,6 +869,20 @@ export default function SiteDiaryCalendar({
     }
     Object.values(res).forEach((group) => {
       group.rows.sort((a, b) => {
+        if (isZtcSite) {
+          const ztcTime = (value: unknown) => {
+            const parsed = new Date(value as any).getTime();
+            return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+          };
+          const dateDiff = ztcTime(a.Date) - ztcTime(b.Date);
+          if (dateDiff !== 0) return dateDiff;
+          const customDateDiff = ztcTime(a.Date_Custom_1) - ztcTime(b.Date_Custom_1);
+          if (customDateDiff !== 0) return customDateDiff;
+          const createdDiff = ztcTime(a.createdAt) - ztcTime(b.createdAt);
+          if (createdDiff !== 0) return createdDiff;
+          return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+        }
+
         const timeA = new Date(a.createdAt ?? a.Date).getTime();
         const timeB = new Date(b.createdAt ?? b.Date).getTime();
 
@@ -730,7 +894,7 @@ export default function SiteDiaryCalendar({
       });
     });
     return Object.values(res).sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [filteredRows]);
+  }, [filteredRows, isZtcSite]);
 
   // Client-side keyword filtering, scoped to rows (not day buckets)
   const keywordMatchedDayGroups: DayGroup[] = React.useMemo(() => {
@@ -1690,61 +1854,45 @@ export default function SiteDiaryCalendar({
 
                     {isZtcSite ? (
                       <>
-                        <Select value={floorFilter} onValueChange={(val) => setFloorFilter(val)}>
-                          <SelectTrigger className="h-9 w-full text-sm sm:w-[190px]">
-                            <SelectValue placeholder="Projekts" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__ALL__">Visi projekti</SelectItem>
-                            {floorOptions.map((f) => (
-                              <SelectItem key={f} value={f}>
-                                {f}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableFilterSelect
+                          value={floorFilter}
+                          onValueChange={setFloorFilter}
+                          options={floorOptions.map((value) => ({ value, label: value }))}
+                          allLabel="Visi projekti"
+                          placeholder="Projekts"
+                          searchPlaceholder="Meklēt projektu..."
+                          className="sm:w-[190px]"
+                        />
 
-                        <Select value={elementFilter} onValueChange={(val) => setElementFilter(val)}>
-                          <SelectTrigger className="h-9 w-full text-sm sm:w-[170px]">
-                            <SelectValue placeholder="Elements" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__ALL__">Visi elementi</SelectItem>
-                            {elementOptions.map((element) => (
-                              <SelectItem key={element} value={element}>
-                                {element}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableFilterSelect
+                          value={elementFilter}
+                          onValueChange={setElementFilter}
+                          options={elementOptions.map((value) => ({ value, label: value }))}
+                          allLabel="Visi elementi"
+                          placeholder="Elements"
+                          searchPlaceholder="Meklēt elementu..."
+                          className="sm:w-[170px]"
+                        />
 
-                        <Select value={workerFilter} onValueChange={(val) => setWorkerFilter(val)}>
-                          <SelectTrigger className="h-9 w-full text-sm sm:w-[170px]">
-                            <SelectValue placeholder="Darbinieks" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__ALL__">Visi darbinieki</SelectItem>
-                            {workerOptions.map((worker) => (
-                              <SelectItem key={worker} value={worker}>
-                                {worker}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableFilterSelect
+                          value={workerFilter}
+                          onValueChange={setWorkerFilter}
+                          options={workerOptions.map((value) => ({ value, label: value }))}
+                          allLabel="Visi darbinieki"
+                          placeholder="Darbinieks"
+                          searchPlaceholder="Meklēt darbinieku..."
+                          className="sm:w-[170px]"
+                        />
 
-                        <Select value={workFilter} onValueChange={(val) => setWorkFilter(val)}>
-                          <SelectTrigger className="h-9 w-full text-sm sm:w-[190px]">
-                            <SelectValue placeholder="Darbi" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__ALL__">Visi darbi</SelectItem>
-                            {worksOptions.map((w) => (
-                              <SelectItem key={w} value={w}>
-                                {w}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableFilterSelect
+                          value={workFilter}
+                          onValueChange={setWorkFilter}
+                          options={worksOptions.map((value) => ({ value, label: value }))}
+                          allLabel="Visi darbi"
+                          placeholder="Darbi"
+                          searchPlaceholder="Meklēt darbu..."
+                          className="sm:w-[190px]"
+                        />
                       </>
                     ) : (
                       <>

@@ -12,15 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Loader2, Trash2 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown, Loader2, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   deleteZtcSiteDiaryRecord,
@@ -55,6 +53,93 @@ type ZtcDialogPrefetchCacheEntry = {
   config: Record<string, any>;
   rows: any[];
 };
+
+type ZtcSelectOption = {
+  value: string;
+  label: string;
+};
+
+function SearchableZtcSelect({
+  value,
+  options,
+  placeholder,
+  width,
+  onChange,
+}: {
+  value: string;
+  options: ZtcSelectOption[];
+  placeholder: string;
+  width: string | number;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const normalizedSearch = search.trim().toLocaleLowerCase("lv");
+  const filteredOptions = options.filter((option) =>
+    option.label.toLocaleLowerCase("lv").includes(normalizedSearch),
+  );
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setSearch("");
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-9 min-w-0 justify-between font-normal"
+          style={{ width, minWidth: width }}
+        >
+          <span className="truncate text-left">{value || placeholder}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        collisionPadding={12}
+        className="w-[var(--radix-popover-trigger-width)] min-w-[260px] max-w-[min(90vw,34rem)] overflow-hidden p-0"
+      >
+        <div className="flex items-center border-b px-3">
+          <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Meklēt..."
+            className="h-10 border-0 px-0 shadow-none focus-visible:ring-0"
+            autoFocus
+          />
+        </div>
+        <div className="max-h-[min(18rem,var(--radix-popover-content-available-height))] overflow-y-auto overscroll-contain p-1">
+          {filteredOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="flex w-full min-w-0 items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
+              onClick={() => {
+                onChange(option.label);
+                setOpen(false);
+              }}
+            >
+              <Check className={`mt-0.5 h-4 w-4 shrink-0 ${value === option.label ? "opacity-100" : "opacity-0"}`} />
+              <span className="min-w-0 whitespace-normal break-words">{option.label}</span>
+            </button>
+          ))}
+          {filteredOptions.length === 0 ? (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+              Nav atrasts
+            </p>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 const ztcDialogPrefetchCache = new Map<string, ZtcDialogPrefetchCacheEntry>();
 
@@ -578,21 +663,16 @@ export function ZtcDialogTable({
           : options;
 
       return (
-        <Select
+        <SearchableZtcSelect
           value={currentValue}
-          onValueChange={(value) => handleChange(rowKey, field, value)}
-        >
-          <SelectTrigger className="justify-between" style={{ width, minWidth: width }}>
-            <SelectValue placeholder={t.select} />
-          </SelectTrigger>
-          <SelectContent>
-            {mergedOptions.map((option) => (
-              <SelectItem key={option.value} value={option.label}>
-                {field === "Units" ? t.unitLabels[option.label] ?? option.label : option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          options={mergedOptions.map((option) => ({
+            value: option.value,
+            label: field === "Units" ? t.unitLabels[option.label] ?? option.label : option.label,
+          }))}
+          placeholder={t.select}
+          width={width}
+          onChange={(value) => handleChange(rowKey, field, value)}
+        />
       );
     }
 
@@ -722,7 +802,7 @@ export function ZtcDialogTable({
   if (loading) return <div className="p-4">{t.loading}</div>;
 
   return (
-    <form onSubmit={handleSubmit} className={className}>
+    <form onSubmit={handleSubmit} className={`${className ?? ""} flex min-h-0 flex-1 flex-col`}>
       <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/95 pb-3 backdrop-blur">
         <Button type="button" variant="outline" disabled={saving} onClick={() => setRows((prev) => [...prev, newEmptyRow()])}>
           Pievienot
@@ -733,7 +813,7 @@ export function ZtcDialogTable({
         </Button>
       </div>
 
-      <ScrollArea className="w-full rounded-md border bg-background">
+      <ScrollArea className="h-[calc(100dvh-13rem)] min-h-[280px] w-full rounded-md border bg-background sm:h-[calc(100dvh-17rem)]">
         <Table className="min-w-max">
           <TableHeader>
             <TableRow className="bg-muted/60 hover:bg-muted/60">

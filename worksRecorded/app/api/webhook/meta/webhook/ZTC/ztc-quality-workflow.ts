@@ -636,7 +636,7 @@ async function handleQualityDrawingPhoto(args: {
     return;
   }
 
-  await sendZtcMessage(args.to, "Rasējuma foto saņemts kvalitātes kontrolei, apstrādāju...");
+  await sendZtcMessage(args.to, "Rasējuma foto saņemts kvalitātes kontrolei, lūdzu uzgaidiet...");
   const { image, extraction } = await uploadAndExtractDrawingInfo(args.formData, args.idx);
 
   if (
@@ -842,7 +842,7 @@ export async function handleZtcQualityRoute(args: {
     }
 
     if (audioIdx >= 0) {
-      await sendZtcMessage(from, "Balss ziņa saņemta, pārrakstu...");
+      await sendZtcMessage(from, "Balss ziņa saņemta, lūdzu uzgaidiet...");
       const transcript = await transcribeAudioWithSource(formData, audioIdx);
       await handleQualityText({
         text: transcript.text,

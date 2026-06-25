@@ -9,6 +9,8 @@ import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import FullPhotoGallery from "@/components/sitediary/FullGalleryViewLazy";
 
+const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+
 
 
 export default async function Home({
@@ -23,6 +25,7 @@ export default async function Home({
   if (!siteCheck) {
     notFound();
   }
+  const showAiWidget = siteId !== ZTC_SITE_ID;
 
 
 
@@ -37,7 +40,7 @@ export default async function Home({
       <SiteDiaryCalendar siteId={siteId} 
        />
  
-    <AiWidgetRag siteId={siteId} />
+    {showAiWidget ? <AiWidgetRag siteId={siteId} /> : null}
   
 
       <FullPhotoGallery siteId={siteId}/>

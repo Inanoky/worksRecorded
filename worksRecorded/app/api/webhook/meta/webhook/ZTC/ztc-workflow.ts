@@ -2288,7 +2288,7 @@ async function appendPhotosToRecentCompletedSession(args: {
   const session = await getRecentCompletedPhotoBatchSession(args.worker.id);
   if (!session) return false;
 
-  await sendZtcMessage(getString(args.formData, "From"), "Foto saņemts, saglabāju...");
+  await sendZtcMessage(getString(args.formData, "From"), "Foto saņemts, lūdzu uzgaidiet...");
 
   const images = await uploadZtcImages(args.formData, args.idxs, "recent_completed_append");
   const uploadedUrls = images.map((image) => image.publicUrl);
@@ -2349,7 +2349,7 @@ async function handleDrawingPhoto(args: {
     details: { mediaIndex: idx },
   });
 
-  await sendZtcMessage(to, "Rasējuma foto saņemts, apstrādāju...");
+  await sendZtcMessage(to, "Rasējuma foto saņemts, lūdzu uzgaidiet...");
 
   logZtcSession("drawing_photo_upload_started", {
     worker,
@@ -2798,7 +2798,7 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
-  await sendZtcMessage(to, "Foto saņemts, saglabāju...");
+  await sendZtcMessage(to, "Foto saņemts, lūdzu uzgaidiet...");
 
   const images = await uploadZtcImages(formData, idxs, "completed_work_photos");
   const uploadedUrls = images.map((image) => image.publicUrl);
@@ -2937,7 +2937,7 @@ export async function handleZtcWorkerRoute(args: {
     }
 
     if (audioIdx >= 0) {
-      await sendZtcMessage(from, "Balss ziņa saņemta, pārrakstu...");
+      await sendZtcMessage(from, "Balss ziņa saņemta, lūdzu uzgaidiet...");
       const transcript = await transcribeAudioWithSource(formData, audioIdx);
       await handleWorkText({
         text: transcript.text,
