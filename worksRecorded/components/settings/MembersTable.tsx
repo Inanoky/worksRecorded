@@ -58,6 +58,7 @@ type MembersTableProps = {
   organizationLanguage?: string | null;
   hideReminders?: boolean;
   hidePhone?: boolean;
+  hideRole?: boolean;
   titleVariant?: "default" | "adminPanel";
 };
 
@@ -72,16 +73,23 @@ function getColumns(
   t: ReturnType<typeof getSettingsUiMessages>,
   hideReminders: boolean,
   hidePhone: boolean,
+  hideRole: boolean,
 ): ColumnDef<Member, any>[] {
   const columns: ColumnDef<Member, any>[] = [
     { accessorKey: "email", header: t.emailColumn },
     { accessorKey: "firstName", header: t.firstNameColumn },
     { accessorKey: "lastName", header: t.lastNameColumn },
-    { accessorKey: "role", header: t.roleColumn },
     { accessorKey: "status", header: t.statusColumn },
   ];
   if (!hidePhone) {
     columns.splice(3, 0, { accessorKey: "phone", header: t.phoneColumn });
+  }
+  if (!hideRole) {
+    const statusIndex = columns.findIndex((column) => column.accessorKey === "status");
+    columns.splice(statusIndex >= 0 ? statusIndex : columns.length, 0, {
+      accessorKey: "role",
+      header: t.roleColumn,
+    });
   }
   if (!hideReminders) {
     columns.push(
@@ -170,6 +178,7 @@ export function MembersTable({
   organizationLanguage,
   hideReminders = false,
   hidePhone = false,
+  hideRole = false,
   titleVariant = "default",
 }: MembersTableProps) {
   const router = useRouter();
@@ -177,8 +186,8 @@ export function MembersTable({
   const t = getSettingsUiMessages(language);
   const toastMessages = getToastMessages(language);
   const columns = React.useMemo(
-    () => getColumns(t, hideReminders, hidePhone),
-    [t, hideReminders, hidePhone],
+    () => getColumns(t, hideReminders, hidePhone, hideRole),
+    [t, hideReminders, hidePhone, hideRole],
   );
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
@@ -198,7 +207,7 @@ export function MembersTable({
       firstName: fd.get("firstName")?.toString(),
       lastName: fd.get("lastName")?.toString(),
       phone: hidePhone ? undefined : fd.get("phone")?.toString(), // may be "+digits"
-      role: fd.get("role")?.toString() as Role | undefined,
+      role: hideRole ? undefined : fd.get("role")?.toString() as Role | undefined,
       reminderTime: fd.get("reminderTime")?.toString(),
       remindersEnabled: (() => {
         const v = fd.get("remindersEnabled");
@@ -220,7 +229,7 @@ export function MembersTable({
       ...(parsed.firstName !== undefined ? { firstName: parsed.firstName } : {}),
       ...(parsed.lastName  !== undefined ? { lastName:  parsed.lastName }  : {}),
       ...(!hidePhone && parsed.phone !== undefined ? { phone: parsed.phone } : {}),
-      ...(parsed.role      !== undefined ? { role:      parsed.role }       : {}),
+      ...(!hideRole && parsed.role !== undefined ? { role: parsed.role } : {}),
       ...(!hideReminders && parsed.reminderTime !== undefined ? { reminderTime: parsed.reminderTime } : {}),
       ...(!hideReminders && parsed.remindersEnabled !== undefined ? { remindersEnabled: parsed.remindersEnabled } : {}),
       ...(!hideReminders && parsed.reminderText !== undefined ? { reminderText: parsed.reminderText } : {}),
@@ -267,7 +276,7 @@ export function MembersTable({
         firstName: rowData.firstName ?? "",
         lastName:  rowData.lastName  ?? "",
         ...(!hidePhone ? { phone: sanitizePhoneDigits(rowData.phone ?? "") } : {}),
-        role:  rowData.role ?? null,
+        ...(!hideRole ? { role: rowData.role ?? null } : {}),
         ...(!hideReminders
           ? {
               reminderTime: toHHmm(rowData.reminderTime),
@@ -410,7 +419,7 @@ export function MembersTable({
               fd.set("phone", digits); // <-- save without '+'
             }
 
-            if (patch.role != null) fd.set("role", String(patch.role));
+            if (!hideRole && patch.role != null) fd.set("role", String(patch.role));
 
             if (!hideReminders && patch.reminderTime != null && patch.reminderTime !== "") {
               fd.set("reminderTime", new Date(`1970-01-01T${patch.reminderTime}:00.000Z`).toISOString());
