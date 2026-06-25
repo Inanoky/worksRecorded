@@ -5,7 +5,7 @@ import {
   fetchWhatsAppMediaAsBuffer,
   getString,
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { sendMessage, sendTypingIndicator } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
@@ -84,6 +84,7 @@ type WorkExtraction = {
   isGibberish: boolean;
   isFinish: boolean;
   isAdditionalWork: boolean;
+  polishedText?: string | null;
   additionalWorkDescription: string | null;
   additionalDetails?: Array<{
     description: string;
@@ -671,11 +672,6 @@ function photoBatchMarker(now = Date.now()) {
 }
 
 export async function sendZtcMessage(to: string | null, message: string) {
-  try {
-    await sendTypingIndicator(to);
-  } catch (error) {
-    console.warn("[ZTC workflow] typing indicator failed", error);
-  }
   await sendMessage(to, message);
 }
 
@@ -1220,7 +1216,12 @@ export function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
     .join("\n");
 }
 
-export async function uploadMediaImage(formData: FormData, idx: number) {
+type FetchedMediaImage = {
+  buffer: Buffer;
+  contentType: string;
+};
+
+async function fetchMediaImage(formData: FormData, idx: number): Promise<FetchedMediaImage> {
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
   const contentType = (getString(formData, `MediaContentType${idx}`) || "image/jpeg").toLowerCase();
 
@@ -1231,6 +1232,12 @@ export async function uploadMediaImage(formData: FormData, idx: number) {
     "ztc_image_media_fetch",
     ZTC_MEDIA_TIMEOUT_MS,
   );
+
+  return { buffer, contentType };
+}
+
+async function uploadFetchedMediaImage(image: FetchedMediaImage) {
+  const { buffer, contentType } = image;
   const ext = contentType.split("/")[1] || "jpg";
   const file = new File([buffer], `ztc_whatsapp_${Date.now()}.${ext}`, {
     type: contentType,
@@ -1257,6 +1264,21 @@ export async function uploadMediaImage(formData: FormData, idx: number) {
     publicUrl,
     contentType,
   };
+}
+
+export async function uploadMediaImage(formData: FormData, idx: number) {
+  return uploadFetchedMediaImage(await fetchMediaImage(formData, idx));
+}
+
+export async function uploadAndExtractDrawingInfo(formData: FormData, idx: number) {
+  const imageBytes = await fetchMediaImage(formData, idx);
+  const imageDataUrl = `data:${imageBytes.contentType};base64,${imageBytes.buffer.toString("base64")}`;
+  const [image, extraction] = await Promise.all([
+    uploadFetchedMediaImage(imageBytes),
+    extractDrawingInfo(imageDataUrl),
+  ]);
+
+  return { image, extraction };
 }
 
 async function uploadZtcImages(formData: FormData, idxs: number[], context: string) {
@@ -1417,7 +1439,7 @@ async function extractWorkInfo(
         {
           role: "system",
           content:
-            `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, additionalWorkDescription string|null, additionalDetails array of {description string, quantity number|null}, workOption string|null, amountCompleted number|null, units string|null, issue string|null. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. Extract additionalDetails only when the worker reports extra parts/details used while finishing the main work, for example "papildus detaļas", "papilddetāļas", "vēl divas detaļas", "papildus 3 kronšteini". If two or more different detail types are mentioned, return a separate additionalDetails item for each type, for example "2 kronšteini un 4 skrūves" -> [{description:"kronšteini",quantity:2},{description:"skrūves",quantity:4}]. Use a concise detail description without the quantity words; if a detail is clearly mentioned without quantity use quantity null. Do not combine different detail types into one description. Do not put normal work names into additionalDetails. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
+            `Classify a short worker WhatsApp transcript. Return only JSON with keys: isGibberish boolean, isFinish boolean, isAdditionalWork boolean, polishedText string|null, additionalWorkDescription string|null, additionalDetails array of {description string, quantity number|null}, workOption string|null, amountCompleted number|null, units string|null, issue string|null. For polishedText, correct the worker comment in Latvian while preserving the original meaning, technical terms, project names, element names, work codes, numbers, units, and names; do not add details. Mark gibberish for random words, empty/noisy transcripts, or text with no understandable work meaning. Mark isFinish true if the worker says work is finished/done/completed. Mark isAdditionalWork true when the worker says "Papilddarbi", "papilddarbs", "saku papilddarbu", or a close Latvian derivative meaning additional work. For additionalWorkDescription, remove the additional-work keyword and keep the actual work description if present. Extract additionalDetails only when the worker reports extra parts/details used while finishing the main work, for example "papildus detaļas", "papilddetāļas", "vēl divas detaļas", "papildus 3 kronšteini". If two or more different detail types are mentioned, return a separate additionalDetails item for each type, for example "2 kronšteini un 4 skrūves" -> [{description:"kronšteini",quantity:2},{description:"skrūves",quantity:4}]. Use a concise detail description without the quantity words; if a detail is clearly mentioned without quantity use quantity null. Do not combine different detail types into one description. Do not put normal work names into additionalDetails. For workOption, choose exactly one label from this allowed Darbi list if it clearly matches the worker's activity: ${JSON.stringify(effectiveWorkOptions)}. A drawing work prefixed with "TL" means timber frame / timberkarkass / karkass; when the worker says karkass, koka karkass, timber frame, or frame, match the most relevant TL option and return its exact label. Treat T and T1 prefixes as TL, and never return a T1 work option. If none clearly match, return null for workOption. For units, choose exactly one label from this allowed Mervieniba list if the worker mentions a completed quantity unit: ${JSON.stringify(unitOptions)}. If no allowed unit clearly matches, return null for units. Do not invent work options or unit values. If the worker says how much was completed, extract the numeric amount but only set units from the allowed list. Normalize obvious spoken numbers to digits, for example 'twelve panels' with allowed unit 'gab' -> amountCompleted 12, units 'gab', '8 square meters' with allowed unit 'm2' -> amountCompleted 8, units 'm2'. If no completed quantity is mentioned, use null for both amountCompleted and units.`,
         },
         { role: "user", content: normalized },
       ],
@@ -1441,6 +1463,7 @@ async function extractWorkInfo(
   return {
     ...extracted,
     isAdditionalWork: extracted.isAdditionalWork || hasPapilddarbiKeyword(normalized),
+    polishedText: String(extracted.polishedText ?? "").trim() || normalized,
     additionalDetails: Array.isArray(extracted.additionalDetails)
       ? extracted.additionalDetails
           .map((detail) => ({
@@ -1631,6 +1654,11 @@ async function completeSession(args: {
           : null;
   const finalWorkerComment = finalComments?.trim()
     ? await polishZtcCommentBlock(finalComments)
+    : completedWork?.polishedText?.trim()
+      ? buildZtcUserComments({
+          startText: getSessionStartMessage(session),
+          finishText: completedWork.polishedText,
+        })
     : await buildPolishedZtcUserComments({
       startText: getSessionStartMessage(session),
       finishText: completedText,
@@ -1661,6 +1689,11 @@ async function completeSession(args: {
     },
   });
 
+  await sendZtcMessage(
+    to,
+    `Darbs pabeigts un saglabāts: ${formatSessionWork(session) || "darbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.`,
+  );
+
   try {
     const allocationResult = await rebalanceZtcCompletedTaskAmounts({
       recordId: updated.id,
@@ -1686,10 +1719,6 @@ async function completeSession(args: {
     completedText,
   });
 
-  await sendZtcMessage(
-    to,
-    `Darbs pabeigts un saglabāts: ${formatSessionWork(session) || "darbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.`,
-  );
 }
 
 async function askForTlDiagonals(args: {
@@ -1946,8 +1975,6 @@ async function handleTlDiagonalMeasureText(args: {
       details: { measureMm: measure },
     });
 
-    await sendTypingIndicator(args.to);
-
     await completeSession({
       session: args.session,
       to: args.to,
@@ -2094,7 +2121,7 @@ async function appendPhotosToRecentCompletedSession(args: {
   const session = await getRecentCompletedPhotoBatchSession(args.worker.id);
   if (!session) return false;
 
-  await sendTypingIndicator(getString(args.formData, "From"));
+  await sendZtcMessage(getString(args.formData, "From"), "Foto saņemts, saglabāju...");
 
   const images = await uploadZtcImages(args.formData, args.idxs, "recent_completed_append");
   const uploadedUrls = images.map((image) => image.publicUrl);
@@ -2155,13 +2182,13 @@ async function handleDrawingPhoto(args: {
     details: { mediaIndex: idx },
   });
 
-  await sendTypingIndicator(to);
+  await sendZtcMessage(to, "Rasējuma foto saņemts, apstrādāju...");
 
   logZtcSession("drawing_photo_upload_started", {
     worker,
     details: { mediaIndex: idx },
   });
-  const image = await uploadMediaImage(formData, idx);
+  const { image, extraction } = await uploadAndExtractDrawingInfo(formData, idx);
   logZtcSession("drawing_photo_upload_completed", {
     worker,
     details: { mediaIndex: idx, publicUrl: image.publicUrl, contentType: image.contentType },
@@ -2171,7 +2198,6 @@ async function handleDrawingPhoto(args: {
     worker,
     details: { imageUrl: image.publicUrl },
   });
-  const extraction = await extractDrawingInfo(image.publicUrl);
   logZtcSession("drawing_extraction_completed", {
     worker,
     details: {
@@ -2302,7 +2328,9 @@ async function createAdditionalWorkSession(args: {
   const { workOptions } = await getZtcDropdownOptions();
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
-  const comments = await buildPolishedZtcUserComments({ startText: text });
+  const comments = work.polishedText?.trim()
+    ? buildZtcUserComments({ startText: work.polishedText })
+    : await buildPolishedZtcUserComments({ startText: text });
   const defaultRateMatch = await getDefaultRateMatchForWork(
     work.additionalWorkDescription || workOption,
     {
@@ -2414,8 +2442,6 @@ async function handleWorkText(args: {
   const now = new Date();
 
   if (work.isFinish) {
-    await sendTypingIndicator(to);
-
     if (!session.Works) {
       await sendZtcMessage(to, "Rasējums ir saņemts, bet vēl nav darba sākšanas ziņas. Lūdzu, pasakiet vai uzrakstiet, kādu darbu sākat.");
       return;
@@ -2431,7 +2457,7 @@ async function handleWorkText(args: {
               ? session.Units ?? "st"
               : "m2",
           Comments_Custom_1: buildFinishPendingMarker({
-            completedText: text,
+            completedText: work.polishedText?.trim() || text,
             additionalDetails: work.additionalDetails ?? [],
           }),
           originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
@@ -2455,7 +2481,7 @@ async function handleWorkText(args: {
       session,
       to,
       completedWork: work,
-      completedText: text,
+      completedText: work.polishedText?.trim() || text,
       originalAudioUrl,
     });
     return;
@@ -2484,7 +2510,9 @@ async function handleWorkText(args: {
 
   const amountM2 = getSessionWorkAmountM2(session, work.workOption);
   const complexityMarks = getSessionWorkComplexityMarks(session, work.workOption);
-  const comments = await buildPolishedZtcUserComments({ startText: text });
+  const comments = work.polishedText?.trim()
+    ? buildZtcUserComments({ startText: work.polishedText })
+    : await buildPolishedZtcUserComments({ startText: text });
   const defaultRateMatch = await getDefaultRateMatchForWork(work.workOption, {
     projectName: session.Location,
     category: "works",
@@ -2553,7 +2581,7 @@ async function handleFinishedPhoto(args: {
     return;
   }
 
-  await sendTypingIndicator(to);
+  await sendZtcMessage(to, "Foto saņemts, saglabāju...");
 
   const images = await uploadZtcImages(formData, idxs, "completed_work_photos");
   const uploadedUrls = images.map((image) => image.publicUrl);
@@ -2599,8 +2627,6 @@ async function handleFinishedPhoto(args: {
   );
 
   if (session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX)) {
-    await sendTypingIndicator(to);
-
     const finishPayload = readFinishPendingPayload(session.Comments_Custom_1);
 
     await finishSessionOrAskTlDiagonals({
@@ -2689,6 +2715,7 @@ export async function handleZtcWorkerRoute(args: {
     }
 
     if (audioIdx >= 0) {
+      await sendZtcMessage(from, "Balss ziņa saņemta, pārrakstu...");
       const transcript = await transcribeAudioWithSource(formData, audioIdx);
       await handleWorkText({
         text: transcript.text,

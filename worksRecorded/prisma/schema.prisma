@@ -293,6 +293,8 @@ model ZtcRecords {
   organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt         DateTime      @default(now())
 
+  @@index([workerId, organizationId, Date_Custom_2, createdAt], map: "ZTCrecords_worker_org_completed_created_idx")
+  @@index([organizationId, Location, Location_Custom_1], map: "ZTCrecords_org_location_element_idx")
   @@map("ZTCrecords")
 }
 
@@ -357,6 +359,8 @@ model workers {
   createdAt       DateTime  @default(now())
   whatsappIdentities WhatsAppIdentity[]
 
+  @@index([phone], map: "workers_phone_idx")
+  @@index([organizationId, phone], map: "workers_org_phone_idx")
  
 }
 

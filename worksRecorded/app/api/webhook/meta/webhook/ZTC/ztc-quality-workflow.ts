@@ -3,16 +3,15 @@ import { prisma } from "@/lib/utils/db";
 import { getString } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import {
   buildDrawingMetadata,
-  extractDrawingInfo,
   findFirstMediaIndex,
   findMediaIndexes,
   formatExtractedWorksForMessage,
   isZtcTimeoutError,
   mergeOriginalAudioUrls,
   parseJsonObject,
-  polishZtcCommentText,
   sendZtcMessage,
   transcribeAudioWithSource,
+  uploadAndExtractDrawingInfo,
   uploadMediaImage,
   workerFullName,
   ZTC_ORGANIZATION_ID,
@@ -160,9 +159,17 @@ function fallbackQualityEvaluation(text: string): QaQualityEvaluation {
   });
 }
 
-async function evaluateQualityMessage(text: string): Promise<QaQualityEvaluation> {
+async function analyzeQualityMessage(text: string): Promise<{
+  polishedText: string;
+  evaluation: QaQualityEvaluation;
+}> {
   const normalized = text.trim();
-  if (!normalized) return fallbackQualityEvaluation(normalized);
+  if (!normalized) {
+    return {
+      polishedText: "",
+      evaluation: fallbackQualityEvaluation(normalized),
+    };
+  }
 
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -174,24 +181,33 @@ async function evaluateQualityMessage(text: string): Promise<QaQualityEvaluation
           {
             role: "system",
             content:
-              "Evaluate a ZTC factory quality control message. Return only JSON with keys: status, summary, issue. status must be one of: accepted, accepted_with_defects, rejected, unknown. Use accepted when quality is OK/accepted/without defects. Use accepted_with_defects when defects are mentioned but the work is still accepted/acceptable. Use rejected when quality is not accepted, needs rework, has unacceptable defects, or is rejected. Use unknown only if the message does not clearly state quality outcome. Preserve Latvian meaning in summary.",
+              "Correct and evaluate a ZTC factory quality control message in one pass. Return only JSON with keys: polishedText, status, summary, issue. polishedText must preserve the original meaning, technical terms, project names, element names, work codes, numbers, units, and names; do not add details. status must be one of: accepted, accepted_with_defects, rejected, unknown. Use accepted when quality is OK/accepted/without defects. Use accepted_with_defects when defects are mentioned but the work is still accepted/acceptable. Use rejected when quality is not accepted, needs rework, has unacceptable defects, or is rejected. Use unknown only if the message does not clearly state quality outcome. Preserve Latvian meaning in summary.",
           },
           { role: "user", content: normalized },
         ],
       }),
-      "ztc_quality_message_evaluation",
+      "ztc_quality_message_analysis",
       QA_TEXT_TIMEOUT_MS,
     );
 
-    const parsed = parseJsonObject<Partial<QaQualityEvaluation> | null>(
-      response.choices[0]?.message?.content,
-      null,
-    );
+    const parsed = parseJsonObject<
+      (Partial<QaQualityEvaluation> & { polishedText?: string | null }) | null
+    >(response.choices[0]?.message?.content, null);
+    const polishedText = String(parsed?.polishedText ?? "").trim() || normalized;
     const evaluation = normalizeQualityEvaluation(parsed);
-    return evaluation.status === "unknown" ? fallbackQualityEvaluation(normalized) : evaluation;
+
+    return {
+      polishedText,
+      evaluation: evaluation.status === "unknown"
+        ? fallbackQualityEvaluation(polishedText)
+        : evaluation,
+    };
   } catch (error) {
-    console.warn("[ZTC QA] quality message evaluation failed", error);
-    return fallbackQualityEvaluation(normalized);
+    console.warn("[ZTC QA] quality message analysis failed", error);
+    return {
+      polishedText: normalized,
+      evaluation: fallbackQualityEvaluation(normalized),
+    };
   }
 }
 
@@ -382,8 +398,8 @@ async function completeQualitySession(args: {
   const qualityPhotoUrls = args.payload.qualityPhotoUrls ?? [];
   if (!qualityText || qualityPhotoUrls.length === 0) return;
 
-  const polishedQualityText = await polishZtcCommentText(qualityText);
-  const qualityEvaluation = await evaluateQualityMessage(polishedQualityText);
+  const { polishedText: polishedQualityText, evaluation: qualityEvaluation } =
+    await analyzeQualityMessage(qualityText);
   const checkedWork = findCheckedWork(args.payload, polishedQualityText);
   const elementName = args.payload.drawingMetadata.elements[0]?.elementName ?? "";
   const comments = [
@@ -412,6 +428,15 @@ async function completeQualitySession(args: {
       originalAudioUrl: mergeOriginalAudioUrls(args.payload.originalAudioUrl),
     },
   });
+
+  await sendZtcMessage(
+    args.to,
+    `Kvalitātes kontrole saglabāta.\nProjekts: ${updated.Location}\nElements: ${updated.Location_Custom_1}${checkedWork ? `\nDarbs: ${checkedWork}` : ""}\nVērtējums: ${qualityStatusLabel(qualityEvaluation.status)}${
+      qualityEvaluation.status === "unknown"
+        ? "\nKoeficients netika mainīts."
+        : `\nKoeficients: ${qualityEvaluation.coefficient ?? "tukšs"}\nSaistītie ieraksti tiek atjaunināti.`
+    }`,
+  );
 
   const coefficientPropagation = await propagateQualityCoefficient({
     projectName: updated.Location,
@@ -455,14 +480,6 @@ async function completeQualitySession(args: {
     qualityPhotoCount: qualityPhotoUrls.length,
   });
 
-  await sendZtcMessage(
-    args.to,
-    `Kvalitātes kontrole saglabāta.\nProjekts: ${updated.Location}\nElements: ${updated.Location_Custom_1}${checkedWork ? `\nDarbs: ${checkedWork}` : ""}\nVērtējums: ${qualityStatusLabel(qualityEvaluation.status)}${
-      qualityEvaluation.status === "unknown"
-        ? "\nKoeficients netika mainīts."
-        : `\nKoeficients: ${coefficientPropagation.coefficient ?? "tukšs"}\nAtjaunināti ieraksti: ${coefficientPropagation.count}`
-    }`,
-  );
 }
 
 async function appendPhotosToRecentCompletedQaSession(args: {
@@ -556,8 +573,8 @@ async function handleQualityDrawingPhoto(args: {
     return;
   }
 
-  const image = await uploadMediaImage(args.formData, args.idx);
-  const extraction = await extractDrawingInfo(image.publicUrl);
+  await sendZtcMessage(args.to, "Rasējuma foto saņemts kvalitātes kontrolei, apstrādāju...");
+  const { image, extraction } = await uploadAndExtractDrawingInfo(args.formData, args.idx);
 
   if (
     !extraction.isConstructionDrawing ||
@@ -737,6 +754,7 @@ export async function handleZtcQualityRoute(args: {
     }
 
     if (audioIdx >= 0) {
+      await sendZtcMessage(from, "Balss ziņa saņemta, pārrakstu...");
       const transcript = await transcribeAudioWithSource(formData, audioIdx);
       await handleQualityText({
         text: transcript.text,

@@ -39,7 +39,7 @@ import {
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
-const LOCK_TTL_MS = 90_000;
+const LOCK_TTL_MS = 180_000;
 const ROUTING_LOCK_WAIT_MS = 120_000;
 const ROUTING_LOCK_RETRY_MS = 500;
 const PROCESSED_MESSAGE_TTL_MS = 10 * 60_000;
@@ -360,18 +360,17 @@ async function runWhatsappRoutingForMeta(args: {
     lockHeld = true;
     lockKey = identityKey;
 
-    const worker = phone
-      ? await prisma.workers.findFirst({
-          where: { phone },
-        })
-      : null;
+    const worker = resolved.worker?.id
+      ? resolved.worker
+      : phone
+        ? await prisma.workers.findFirst({
+            where: { phone },
+          })
+        : null;
 
     if (worker) {
       if (worker.organizationId === ZTC_ORGANIZATION_ID) {
-        const roleRows = await prisma.$queryRaw<Array<{ role: string | null }>>`
-          SELECT role FROM "workers" WHERE id = ${worker.id} LIMIT 1
-        `;
-        if (isZtcQualityWorkerRole(roleRows[0]?.role)) {
+        if (isZtcQualityWorkerRole(worker.role)) {
           await handleZtcQualityRoute({ worker: worker as any, formData });
           return;
         }
@@ -380,14 +379,10 @@ async function runWhatsappRoutingForMeta(args: {
         return;
       }
 
-      await handleWorkerRoute({ phone, formData });
-      return;
-    }
-
-    const resolvedWorker = resolved.worker;
-
-    if (resolvedWorker?.phone) {
-      await handleWorkerRoute({ phone: resolvedWorker.phone, formData });
+      const workerPhone = worker.phone || phone;
+      if (workerPhone) {
+        await handleWorkerRoute({ phone: workerPhone, formData });
+      }
       return;
     }
 
