@@ -7,6 +7,7 @@ import {
   findMediaIndexes,
   formatExtractedWorksForMessage,
   isZtcTimeoutError,
+  logZtcTiming,
   mergeOriginalAudioUrls,
   parseJsonObject,
   sendZtcMessage,
@@ -163,8 +164,14 @@ async function analyzeQualityMessage(text: string): Promise<{
   polishedText: string;
   evaluation: QaQualityEvaluation;
 }> {
+  const startedAt = Date.now();
   const normalized = text.trim();
   if (!normalized) {
+    logZtcTiming("qa_message_analysis_total", startedAt, {
+      textLength: 0,
+      status: "unknown",
+      fallback: true,
+    });
     return {
       polishedText: "",
       evaluation: fallbackQualityEvaluation(normalized),
@@ -173,6 +180,7 @@ async function analyzeQualityMessage(text: string): Promise<{
 
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openaiStartedAt = Date.now();
     const response = await withQaTimeout(
       openai.chat.completions.create({
         model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
@@ -189,6 +197,10 @@ async function analyzeQualityMessage(text: string): Promise<{
       "ztc_quality_message_analysis",
       QA_TEXT_TIMEOUT_MS,
     );
+    logZtcTiming("qa_message_analysis_openai", openaiStartedAt, {
+      model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+      textLength: normalized.length,
+    });
 
     const parsed = parseJsonObject<
       (Partial<QaQualityEvaluation> & { polishedText?: string | null }) | null
@@ -196,18 +208,35 @@ async function analyzeQualityMessage(text: string): Promise<{
     const polishedText = String(parsed?.polishedText ?? "").trim() || normalized;
     const evaluation = normalizeQualityEvaluation(parsed);
 
-    return {
+    const result = {
       polishedText,
       evaluation: evaluation.status === "unknown"
         ? fallbackQualityEvaluation(polishedText)
         : evaluation,
     };
+    logZtcTiming("qa_message_analysis_total", startedAt, {
+      textLength: normalized.length,
+      polishedTextLength: result.polishedText.length,
+      status: result.evaluation.status,
+      coefficient: result.evaluation.coefficient,
+    });
+
+    return result;
   } catch (error) {
     console.warn("[ZTC QA] quality message analysis failed", error);
-    return {
+    const result = {
       polishedText: normalized,
       evaluation: fallbackQualityEvaluation(normalized),
     };
+    logZtcTiming("qa_message_analysis_total", startedAt, {
+      textLength: normalized.length,
+      polishedTextLength: result.polishedText.length,
+      status: result.evaluation.status,
+      coefficient: result.evaluation.coefficient,
+      fallback: true,
+    });
+
+    return result;
   }
 }
 
@@ -392,6 +421,7 @@ async function completeQualitySession(args: {
   to: string | null;
   payload: QaPendingPayload;
 }) {
+  const startedAt = Date.now();
   if (!args.session) return;
 
   const qualityText = args.payload.qualityText?.trim() ?? "";
@@ -411,6 +441,7 @@ async function completeQualitySession(args: {
     .filter(Boolean)
     .join("\n");
 
+  const dbUpdateStartedAt = Date.now();
   const updated = await prisma.ztcRecords.update({
     where: { id: args.session.id },
     data: {
@@ -428,6 +459,12 @@ async function completeQualitySession(args: {
       originalAudioUrl: mergeOriginalAudioUrls(args.payload.originalAudioUrl),
     },
   });
+  logZtcTiming("qa_session_complete_db_update", dbUpdateStartedAt, {
+    workerId: args.worker.id,
+    sessionId: args.session.id,
+    status: qualityEvaluation.status,
+    qualityPhotoCount: qualityPhotoUrls.length,
+  });
 
   await sendZtcMessage(
     args.to,
@@ -438,11 +475,19 @@ async function completeQualitySession(args: {
     }`,
   );
 
+  const propagationStartedAt = Date.now();
   const coefficientPropagation = await propagateQualityCoefficient({
     projectName: updated.Location,
     elementName: updated.Location_Custom_1,
     qaRecordId: updated.id,
     evaluation: qualityEvaluation,
+  });
+  logZtcTiming("qa_coefficient_propagation", propagationStartedAt, {
+    workerId: args.worker.id,
+    sessionId: updated.id,
+    status: qualityEvaluation.status,
+    coefficient: coefficientPropagation.coefficient,
+    affectedRecordCount: coefficientPropagation.count,
   });
 
   const metadata = buildQualityMetadata({
@@ -454,17 +499,28 @@ async function completeQualitySession(args: {
     coefficientPropagation,
   });
 
+  const metadataStartedAt = Date.now();
   await prisma.ztcRecords.update({
     where: { id: updated.id },
     data: {
       Comments_Custom_2: JSON.stringify(metadata),
     },
   });
+  logZtcTiming("qa_metadata_db_update", metadataStartedAt, {
+    workerId: args.worker.id,
+    sessionId: updated.id,
+  });
 
+  const photosStartedAt = Date.now();
   await saveQualityPhotos({
     worker: args.worker,
     payload: args.payload,
     urls: qualityPhotoUrls,
+  });
+  logZtcTiming("qa_save_quality_photos", photosStartedAt, {
+    workerId: args.worker.id,
+    sessionId: updated.id,
+    qualityPhotoCount: qualityPhotoUrls.length,
   });
 
   console.log("[ZTC QA]", {
@@ -480,6 +536,13 @@ async function completeQualitySession(args: {
     qualityPhotoCount: qualityPhotoUrls.length,
   });
 
+  logZtcTiming("complete_quality_session_total", startedAt, {
+    workerId: args.worker.id,
+    sessionId: updated.id,
+    status: qualityEvaluation.status,
+    qualityPhotoCount: qualityPhotoUrls.length,
+    affectedRecordCount: coefficientPropagation.count,
+  });
 }
 
 async function appendPhotosToRecentCompletedQaSession(args: {
@@ -689,15 +752,20 @@ async function handleQualityText(args: {
   worker: ZtcWorker;
   originalAudioUrl?: string | null;
 }) {
+  const startedAt = Date.now();
+  let outcome = "started";
+  try {
   const session = await getPendingQaSession(args.worker.id);
   const payload = readPendingPayload(session?.Comments_Custom_1);
 
   if (!session || !payload) {
+    outcome = "missing_pending_session";
     await sendZtcMessage(args.to, "Lūdzu, sāciet kvalitātes kontroli ar ražošanas rasējuma foto.");
     return;
   }
 
   if (!isUsefulQaText(args.text)) {
+    outcome = "not_useful_text";
     await sendZtcMessage(args.to, "Neizdevās saprast kvalitātes aprakstu. Lūdzu, mēģiniet vēlreiz ar balss ziņu vai tekstu.");
     return;
   }
@@ -708,11 +776,17 @@ async function handleQualityText(args: {
     originalAudioUrl: mergeOriginalAudioUrls(payload.originalAudioUrl, args.originalAudioUrl) ?? null,
   };
 
+  const dbUpdateStartedAt = Date.now();
   await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Comments_Custom_1: makePendingState(nextPayload),
     },
+  });
+  logZtcTiming("qa_text_pending_db_update", dbUpdateStartedAt, {
+    workerId: args.worker.id,
+    sessionId: session.id,
+    textLength: args.text.trim().length,
   });
 
   if ((nextPayload.qualityPhotoUrls ?? []).length > 0) {
@@ -722,16 +796,26 @@ async function handleQualityText(args: {
       to: args.to,
       payload: nextPayload,
     });
+    outcome = "completed_quality_session";
     return;
   }
 
+  outcome = "waiting_for_quality_photos";
   await sendZtcMessage(args.to, "Kvalitātes apraksts saņemts. Lūdzu, atsūtiet kvalitātes kontroles foto.");
+  } finally {
+    logZtcTiming("handle_quality_text_total", startedAt, {
+      workerId: args.worker.id,
+      textLength: args.text.trim().length,
+      outcome,
+    });
+  }
 }
 
 export async function handleZtcQualityRoute(args: {
   formData: FormData;
   worker: ZtcWorker;
 }) {
+  const startedAt = Date.now();
   const { formData, worker } = args;
   const from = getString(formData, "From");
   const body = (getString(formData, "Body") || "").trim();
@@ -739,15 +823,19 @@ export async function handleZtcQualityRoute(args: {
   const imageIndexes = findMediaIndexes(formData, numMedia, "image/");
   const imageIdx = imageIndexes[0] ?? -1;
   const audioIdx = findFirstMediaIndex(formData, numMedia, "audio/");
+  let outcome = "started";
 
   try {
     if (imageIndexes.length > 0) {
       const pending = await getPendingQaSession(worker.id);
       if (pending) {
+        outcome = "quality_photos";
         await handleQualityPhotos({ formData, idxs: imageIndexes, to: from, worker, caption: body });
       } else if (await appendPhotosToRecentCompletedQaSession({ formData, idxs: imageIndexes, worker })) {
         // Additional QA photos sent as separate WhatsApp messages were attached silently.
+        outcome = "appended_recent_completed_qa_photos";
       } else {
+        outcome = "quality_drawing_photo";
         await handleQualityDrawingPhoto({ formData, idx: imageIdx, to: from, worker });
       }
       return;
@@ -762,16 +850,20 @@ export async function handleZtcQualityRoute(args: {
         worker,
         originalAudioUrl: transcript.originalAudioUrl,
       });
+      outcome = "audio_quality_text";
       return;
     }
 
     if (body) {
       await handleQualityText({ text: body, to: from, worker });
+      outcome = "body_quality_text";
       return;
     }
 
+    outcome = "empty_message";
     await sendZtcMessage(from, "Lūdzu, sāciet kvalitātes kontroli ar ražošanas rasējuma foto.");
   } catch (error) {
+    outcome = "error";
     console.error("[ZTC QA] failed", error);
     await sendZtcMessage(
       from,
@@ -779,5 +871,14 @@ export async function handleZtcQualityRoute(args: {
         ? "Tīkla vai foto apstrādes kļūda. Lūdzu, atsūtiet foto vēlreiz."
         : "Atvainojiet, kvalitātes kontroles plūsma nevarēja apstrādāt šo ziņu. Lūdzu, mēģiniet vēlreiz.",
     );
+  } finally {
+    logZtcTiming("handle_ztc_quality_route_total", startedAt, {
+      workerId: worker.id,
+      outcome,
+      numMedia,
+      imageCount: imageIndexes.length,
+      hasAudio: audioIdx >= 0,
+      hasBody: Boolean(body),
+    });
   }
 }

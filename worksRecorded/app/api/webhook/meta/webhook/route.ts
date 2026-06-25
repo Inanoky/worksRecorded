@@ -49,6 +49,18 @@ const processedMetaMessages =
 
 (globalThis as any).__processedMetaMessages = processedMetaMessages;
 
+function logMetaWebhookTiming(
+  event: string,
+  startedAt: number,
+  details: Record<string, unknown> = {},
+) {
+  console.log("[Meta webhook timing]", {
+    event,
+    durationMs: Date.now() - startedAt,
+    ...details,
+  });
+}
+
 function isUniqueViolation(e: any) {
   return e?.code === "P2002";
 }
@@ -247,6 +259,7 @@ async function getMetaMediaInfo(mediaId: string): Promise<{ url: string; mimeTyp
 }
 
 async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdentity): Promise<FormData> {
+  const startedAt = Date.now();
   const formData = new FormData();
   const textBody = typeof message?.text?.body === "string" ? message.text.body : "";
   const imageCaption =
@@ -268,7 +281,15 @@ async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdenti
   formData.set("NumMedia", numMedia);
 
   if (hasImage) {
+    const mediaStartedAt = Date.now();
     const mediaInfo = await getMetaMediaInfo(message.image.id);
+    logMetaWebhookTiming("meta_image_media_info", mediaStartedAt, {
+      messageId: message?.id ?? null,
+      mediaId: message.image.id,
+      hasUrl: Boolean(mediaInfo?.url),
+      selectedUrl: describeUrlForLog(mediaInfo?.url),
+    });
+
     if (mediaInfo) {
       formData.set("MediaUrl0", mediaInfo.url);
       formData.set("MediaContentType0", mediaInfo.mimeType);
@@ -277,7 +298,15 @@ async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdenti
   }
 
   if (hasAudio) {
+    const mediaStartedAt = Date.now();
     const mediaInfo = await getMetaMediaInfo(message.audio.id);
+    logMetaWebhookTiming("meta_audio_media_info", mediaStartedAt, {
+      messageId: message?.id ?? null,
+      mediaId: message.audio?.id,
+      hasUrl: Boolean(mediaInfo?.url),
+      selectedUrl: describeUrlForLog(mediaInfo?.url),
+    });
+
     const mediaUrl = mediaInfo?.url || (typeof message.audio?.url === "string" ? message.audio.url : "");
     const mimeType =
       mediaInfo?.mimeType ||
@@ -304,6 +333,14 @@ async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdenti
     }
   }
 
+  logMetaWebhookTiming("to_whatsapp_form_data", startedAt, {
+    messageId: message?.id ?? null,
+    type: message?.type ?? null,
+    hasImage,
+    hasAudio,
+    numMedia,
+  });
+
   return formData;
 }
 
@@ -312,13 +349,25 @@ async function runWhatsappRoutingForMeta(args: {
   value: any;
   businessPhoneNumberId: string;
 }) {
+  const routingStartedAt = Date.now();
   const { message, value, businessPhoneNumberId } = args;
+  const messageIdForLog = message?.id ?? null;
+  let routeOutcome = "started";
   const webhookIdentity = extractMetaWebhookIdentity({
     value,
     message,
     businessPhoneNumberId,
   });
+  const resolveStartedAt = Date.now();
   const resolved = await resolveMetaWhatsAppIdentity(webhookIdentity);
+  logMetaWebhookTiming("resolve_meta_identity", resolveStartedAt, {
+    messageId: messageIdForLog,
+    identityKey: resolved.identityKey,
+    hasUser: Boolean(resolved.user),
+    hasWorker: Boolean(resolved.worker),
+    replyTarget: resolved.replyTarget,
+  });
+
   const formData = await toWhatsAppFormData(message, resolved);
 
   let lockHeld = false;
@@ -336,9 +385,18 @@ async function runWhatsappRoutingForMeta(args: {
       return;
     }
 
+    const normalizeStartedAt = Date.now();
     const phone = await normalizePhone(waId, from);
+    logMetaWebhookTiming("normalize_phone", normalizeStartedAt, {
+      messageId,
+      waId,
+      from,
+      phone,
+    });
+
     const identityKey = resolved.identityKey || waId || from;
     if (!identityKey) {
+      routeOutcome = "missing_identity";
       console.warn("Meta webhook message has no usable phone or BSUID", {
         messageId: message?.id,
         type: message?.type,
@@ -346,8 +404,16 @@ async function runWhatsappRoutingForMeta(args: {
       return;
     }
 
+    const lockStartedAt = Date.now();
     const acquired = await acquireRoutingLock(identityKey, messageId);
+    logMetaWebhookTiming("routing_lock_acquire", lockStartedAt, {
+      messageId,
+      identityKey,
+      acquired,
+    });
+
     if (!acquired) {
+      routeOutcome = "lock_timeout";
       console.warn("Meta webhook routing lock timed out", {
         identityKey,
         messageId,
@@ -360,6 +426,7 @@ async function runWhatsappRoutingForMeta(args: {
     lockHeld = true;
     lockKey = identityKey;
 
+    const workerLookupStartedAt = Date.now();
     const worker = resolved.worker?.id
       ? resolved.worker
       : phone
@@ -367,28 +434,56 @@ async function runWhatsappRoutingForMeta(args: {
             where: { phone },
           })
         : null;
+    logMetaWebhookTiming("worker_lookup", workerLookupStartedAt, {
+      messageId,
+      phone,
+      reusedResolvedWorker: Boolean(resolved.worker?.id),
+      hasWorker: Boolean(worker),
+      workerId: worker?.id ?? null,
+      organizationId: worker?.organizationId ?? null,
+      role: worker?.role ?? null,
+    });
 
     if (worker) {
       if (worker.organizationId === ZTC_ORGANIZATION_ID) {
         if (isZtcQualityWorkerRole(worker.role)) {
+          const handlerStartedAt = Date.now();
           await handleZtcQualityRoute({ worker: worker as any, formData });
+          routeOutcome = "ztc_quality_worker";
+          logMetaWebhookTiming("ztc_quality_route", handlerStartedAt, {
+            messageId,
+            workerId: worker.id,
+          });
           return;
         }
 
+        const handlerStartedAt = Date.now();
         await handleZtcWorkerRoute({ worker, formData });
+        routeOutcome = "ztc_worker";
+        logMetaWebhookTiming("ztc_worker_route", handlerStartedAt, {
+          messageId,
+          workerId: worker.id,
+        });
         return;
       }
 
       const workerPhone = worker.phone || phone;
       if (workerPhone) {
+        const handlerStartedAt = Date.now();
         await handleWorkerRoute({ phone: workerPhone, formData });
+        logMetaWebhookTiming("legacy_worker_route", handlerStartedAt, {
+          messageId,
+          workerId: worker.id,
+        });
       }
+      routeOutcome = "legacy_worker";
       return;
     }
 
     const user = resolved.user;
 
     if (!user) {
+      routeOutcome = "unregistered_contact";
       if (resolved.webhookIdentity.bsuid && !resolved.webhookIdentity.phone && resolved.replyTarget) {
         await sendMetaContactRequest({
           businessPhoneNumberId,
@@ -408,8 +503,15 @@ async function runWhatsappRoutingForMeta(args: {
       return;
     }
 
+    const handlerStartedAt = Date.now();
     await handleSiteManagerRoute({ from, formData, user });
+    routeOutcome = "site_manager";
+    logMetaWebhookTiming("site_manager_route", handlerStartedAt, {
+      messageId,
+      userId: user.id,
+    });
   } catch (err) {
+    routeOutcome = "error";
     console.error("runWhatsappRoutingForMeta error", err);
 
     const fallbackTarget = resolvedSafeReplyTarget(message, value, businessPhoneNumberId);
@@ -426,10 +528,21 @@ async function runWhatsappRoutingForMeta(args: {
     }
   } finally {
     if (lockHeld && lockKey) {
+      const releaseStartedAt = Date.now();
       await releaseTextLock(lockKey).catch((e) => {
         console.error("releaseTextLock error", e);
       });
+      logMetaWebhookTiming("routing_lock_release", releaseStartedAt, {
+        messageId: messageIdForLog,
+        identityKey: lockKey,
+      });
     }
+
+    logMetaWebhookTiming("run_whatsapp_routing_for_meta_total", routingStartedAt, {
+      messageId: messageIdForLog,
+      type: message?.type ?? null,
+      outcome: routeOutcome,
+    });
   }
 }
 
