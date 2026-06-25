@@ -3,6 +3,18 @@ import { normalizeMetaPhone } from "@/lib/utils/whatsapp-helpers/meta/sender";
 
 const prismaAny = prisma as any;
 
+function logMetaIdentityTiming(
+  event: string,
+  startedAt: number,
+  details: Record<string, unknown> = {},
+) {
+  console.log("[Meta identity timing]", {
+    event,
+    durationMs: Date.now() - startedAt,
+    ...details,
+  });
+}
+
 export type MetaWebhookIdentity = {
   phone: string | null;
   waId: string | null;
@@ -80,6 +92,7 @@ export function extractMetaWebhookIdentity(args: {
 }
 
 async function findExistingIdentity(identity: MetaWebhookIdentity) {
+  const startedAt = Date.now();
   const OR: Record<string, unknown>[] = [];
 
   if (identity.parentBsuid) {
@@ -103,29 +116,70 @@ async function findExistingIdentity(identity: MetaWebhookIdentity) {
     });
   }
 
-  if (!OR.length || !prismaAny.whatsAppIdentity) return null;
+  if (!OR.length || !prismaAny.whatsAppIdentity) {
+    logMetaIdentityTiming("find_existing_identity", startedAt, {
+      businessPhoneNumberId: identity.businessPhoneNumberId,
+      lookupCount: OR.length,
+      found: false,
+      skipped: true,
+    });
+    return null;
+  }
 
-  return prismaAny.whatsAppIdentity.findFirst({
+  const existing = await prismaAny.whatsAppIdentity.findFirst({
     where: { OR },
     include: {
       user: { include: { organization: { include: { sites: true } } } },
       worker: true,
     },
   });
+
+  logMetaIdentityTiming("find_existing_identity", startedAt, {
+    businessPhoneNumberId: identity.businessPhoneNumberId,
+    lookupCount: OR.length,
+    found: Boolean(existing),
+    identityId: existing?.id ?? null,
+    hasUser: Boolean(existing?.user),
+    hasWorker: Boolean(existing?.worker),
+  });
+
+  return existing;
 }
 
 async function findWorkerByPhone(phone: string | null) {
+  const startedAt = Date.now();
   const values = phoneLookupValues(phone);
-  if (!values.length) return null;
-  return prisma.workers.findFirst({
+  if (!values.length) {
+    logMetaIdentityTiming("find_worker_by_phone", startedAt, {
+      lookupCount: 0,
+      found: false,
+      skipped: true,
+    });
+    return null;
+  }
+  const worker = await prisma.workers.findFirst({
     where: { OR: values.map((value) => ({ phone: value })) },
   });
+  logMetaIdentityTiming("find_worker_by_phone", startedAt, {
+    lookupCount: values.length,
+    found: Boolean(worker),
+    workerId: worker?.id ?? null,
+  });
+  return worker;
 }
 
 async function findUserByPhone(phone: string | null) {
+  const startedAt = Date.now();
   const values = phoneLookupValues(phone);
-  if (!values.length) return null;
-  return prisma.user.findFirst({
+  if (!values.length) {
+    logMetaIdentityTiming("find_user_by_phone", startedAt, {
+      lookupCount: 0,
+      found: false,
+      skipped: true,
+    });
+    return null;
+  }
+  const user = await prisma.user.findFirst({
     where: { OR: values.map((value) => ({ phone: value })) },
     include: {
       organization: {
@@ -135,6 +189,12 @@ async function findUserByPhone(phone: string | null) {
       },
     },
   });
+  logMetaIdentityTiming("find_user_by_phone", startedAt, {
+    lookupCount: values.length,
+    found: Boolean(user),
+    userId: user?.id ?? null,
+  });
+  return user;
 }
 
 function identityData(identity: MetaWebhookIdentity, links?: { userId?: string | null; workerId?: string | null }) {
@@ -153,45 +213,91 @@ function identityData(identity: MetaWebhookIdentity, links?: { userId?: string |
   };
 }
 
-async function upsertIdentity(identity: MetaWebhookIdentity, links?: { userId?: string | null; workerId?: string | null }) {
+function nextIdentityUpdateData(
+  existing: any,
+  data: ReturnType<typeof identityData>,
+  links?: { userId?: string | null; workerId?: string | null },
+) {
+  const userId = links?.userId ?? existing.userId;
+  const workerId = links?.workerId ?? existing.workerId;
+
+  return {
+    provider: data.provider,
+    phone: data.phone || existing.phone,
+    waId: data.waId || existing.waId,
+    bsuid: data.bsuid || existing.bsuid,
+    parentBsuid: data.parentBsuid || existing.parentBsuid,
+    username: data.username || existing.username,
+    businessPhoneNumberId: data.businessPhoneNumberId || existing.businessPhoneNumberId,
+    wabaId: data.wabaId || existing.wabaId,
+    userId,
+    workerId,
+    status: userId || workerId ? "active" : "pending",
+  };
+}
+
+function isIdentityUpdateNoop(existing: any, next: ReturnType<typeof nextIdentityUpdateData>) {
+  return Object.entries(next).every(([key, value]) => existing?.[key] === value);
+}
+
+async function upsertIdentity(
+  identity: MetaWebhookIdentity,
+  links?: { userId?: string | null; workerId?: string | null },
+  existingIdentity?: any | null,
+) {
+  const startedAt = Date.now();
   if (!prismaAny.whatsAppIdentity) return null;
 
-  const existing = await findExistingIdentity(identity);
+  const existing = existingIdentity ?? await findExistingIdentity(identity);
   const data = identityData(identity, links);
 
   if (existing) {
-    return prismaAny.whatsAppIdentity.update({
+    const next = nextIdentityUpdateData(existing, data, links);
+    if (isIdentityUpdateNoop(existing, next)) {
+      logMetaIdentityTiming("upsert_identity", startedAt, {
+        action: "skip_noop_update",
+        identityId: existing.id,
+        hasUser: Boolean(existing.user),
+        hasWorker: Boolean(existing.worker),
+      });
+      return existing;
+    }
+
+    const updated = await prismaAny.whatsAppIdentity.update({
       where: { id: existing.id },
-      data: {
-        provider: data.provider,
-        phone: data.phone || existing.phone,
-        waId: data.waId || existing.waId,
-        bsuid: data.bsuid || existing.bsuid,
-        parentBsuid: data.parentBsuid || existing.parentBsuid,
-        username: data.username || existing.username,
-        businessPhoneNumberId: data.businessPhoneNumberId || existing.businessPhoneNumberId,
-        wabaId: data.wabaId || existing.wabaId,
-        userId: links?.userId ?? existing.userId,
-        workerId: links?.workerId ?? existing.workerId,
-        status: links?.userId || links?.workerId || existing.userId || existing.workerId ? "active" : "pending",
-      },
+      data: next,
       include: {
         user: { include: { organization: { include: { sites: true } } } },
         worker: true,
       },
     });
+    logMetaIdentityTiming("upsert_identity", startedAt, {
+      action: "update",
+      identityId: updated.id,
+      hasUser: Boolean(updated.user),
+      hasWorker: Boolean(updated.worker),
+    });
+    return updated;
   }
 
-  return prismaAny.whatsAppIdentity.create({
+  const created = await prismaAny.whatsAppIdentity.create({
     data,
     include: {
       user: { include: { organization: { include: { sites: true } } } },
       worker: true,
     },
   });
+  logMetaIdentityTiming("upsert_identity", startedAt, {
+    action: "create",
+    identityId: created.id,
+    hasUser: Boolean(created.user),
+    hasWorker: Boolean(created.worker),
+  });
+  return created;
 }
 
 export async function resolveMetaWhatsAppIdentity(identity: MetaWebhookIdentity): Promise<ResolvedWhatsAppIdentity> {
+  const startedAt = Date.now();
   const existing = await findExistingIdentity(identity);
   let user = existing?.user || null;
   let worker = existing?.worker || null;
@@ -206,7 +312,7 @@ export async function resolveMetaWhatsAppIdentity(identity: MetaWebhookIdentity)
     storedIdentity = await upsertIdentity(identity, {
       userId: user?.id || existing?.userId || null,
       workerId: worker?.id || existing?.workerId || null,
-    });
+    }, existing);
     user = storedIdentity?.user || user;
     worker = storedIdentity?.worker || worker;
   }
@@ -224,7 +330,7 @@ export async function resolveMetaWhatsAppIdentity(identity: MetaWebhookIdentity)
     ? `whatsapp:+${replyPhone}`
     : identity.parentBsuid || identity.bsuid || null;
 
-  return {
+  const resolved = {
     identity: storedIdentity,
     user,
     worker,
@@ -233,6 +339,18 @@ export async function resolveMetaWhatsAppIdentity(identity: MetaWebhookIdentity)
     replyTarget,
     fromForHandlers,
   };
+
+  logMetaIdentityTiming("resolve_meta_whatsapp_identity_total", startedAt, {
+    businessPhoneNumberId: identity.businessPhoneNumberId,
+    hasExistingIdentity: Boolean(existing),
+    hasStoredIdentity: Boolean(storedIdentity),
+    hasUser: Boolean(user),
+    hasWorker: Boolean(worker),
+    identityKey,
+    replyTarget,
+  });
+
+  return resolved;
 }
 
 export async function applyMetaUserIdUpdate(args: {
