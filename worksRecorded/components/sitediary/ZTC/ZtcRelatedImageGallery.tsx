@@ -35,12 +35,39 @@ export function ZtcRelatedImageGallery({
   const baseSizeRef = React.useRef({ w: 0, h: 0 });
   const MIN_SCALE = 1;
   const MAX_SCALE = 8;
+  const THUMBNAIL_WINDOW = 8;
 
   React.useEffect(() => setMounted(true), []);
   React.useEffect(() => {
     setScale(1);
     setTx(0);
     setTy(0);
+  }, [currentIndex, photos]);
+
+  React.useEffect(() => {
+    if (!photos.length) return;
+    const indexes = [
+      currentIndex,
+      (currentIndex + 1) % photos.length,
+      (currentIndex - 1 + photos.length) % photos.length,
+    ];
+
+    const preloads = Array.from(new Set(indexes))
+      .map((index) => photos[index]?.src)
+      .filter(Boolean)
+      .map((src) => {
+        const image = new window.Image();
+        image.decoding = "async";
+        image.src = src;
+        return image;
+      });
+
+    return () => {
+      preloads.forEach((image) => {
+        image.onload = null;
+        image.onerror = null;
+      });
+    };
   }, [currentIndex, photos]);
 
   const goPrev = React.useCallback(() => {
@@ -138,6 +165,15 @@ export function ZtcRelatedImageGallery({
   if (!mounted || !photos.length) return null;
 
   const currentPhoto = photos[currentIndex];
+  const visibleThumbnailIndexes = photos
+    .map((_, index) => index)
+    .filter((index) => {
+      const distance = Math.min(
+        Math.abs(index - currentIndex),
+        photos.length - Math.abs(index - currentIndex),
+      );
+      return distance <= THUMBNAIL_WINDOW;
+    });
 
   return createPortal(
     <div
@@ -222,6 +258,9 @@ export function ZtcRelatedImageGallery({
             ref={imgRef}
             src={currentPhoto.src}
             alt={currentPhoto.caption || title}
+            loading="eager"
+            fetchPriority="high"
+            decoding="async"
             className="max-h-full max-w-full select-none object-contain"
             style={{
               transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
@@ -246,7 +285,9 @@ export function ZtcRelatedImageGallery({
       </div>
       {photos.length > 1 ? (
         <div className="absolute bottom-3 left-1/2 flex max-w-[90vw] -translate-x-1/2 gap-2 overflow-x-auto rounded-md bg-black/40 p-2">
-          {photos.map((photo, index) => (
+          {visibleThumbnailIndexes.map((index) => {
+            const photo = photos[index];
+            return (
             <button
               key={`${photo.src}-${index}`}
               type="button"
@@ -261,9 +302,16 @@ export function ZtcRelatedImageGallery({
                 setCurrentIndex(index);
               }}
             >
-              <img src={photo.src} alt="" className="h-full w-full object-cover" />
+              <img
+                src={photo.src}
+                alt=""
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
             </button>
-          ))}
+            );
+          })}
         </div>
       ) : null}
     </div>,

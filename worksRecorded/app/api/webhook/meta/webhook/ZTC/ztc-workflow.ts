@@ -36,6 +36,8 @@ const DIAGONAL_SECOND_MEASURE_PENDING_PREFIX = "__ZTC_DIAGONAL_SECOND_MEASURE_PE
 const DIAGONALS_PENDING_PREFIX = "__ZTC_DIAGONALS_PENDING__";
 const DIAGONALS_CONFIRM_PREFIX = "__ZTC_DIAGONALS_CONFIRM__";
 const PHOTO_BATCH_CONFIRM_PREFIX = "__ZTC_PHOTO_BATCH_CONFIRM__";
+const DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX =
+  "__ZTC_DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK__";
 const PHOTO_BATCH_CONFIRM_WINDOW_MS = 45_000;
 const ZTC_MEDIA_TIMEOUT_MS = 30_000;
 const ZTC_UPLOAD_TIMEOUT_MS = 30_000;
@@ -1080,6 +1082,9 @@ function buildDiagonalPhotoMeasureComment(args: {
 }
 
 function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction {
+  const isNonEmptyDrawingWork = (work: string) =>
+    !/^(?:L\d\/B\d|R\d\/T\d|TL|L0)\s*-\s*$/i.test(normalizeZtcWorkName(work));
+
   const workItems = Array.isArray(value.workItems)
     ? value.workItems
         .map((item) => ({
@@ -1096,10 +1101,12 @@ function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction
                 : 0
           ) as 0 | 1 | 2,
         }))
-        .filter((item) => item.name)
+        .filter((item) => item.name && isNonEmptyDrawingWork(item.name))
     : [];
   const workList = Array.isArray(value.workList)
-    ? value.workList.map((work) => normalizeZtcWorkName(work)).filter(Boolean)
+    ? value.workList
+        .map((work) => normalizeZtcWorkName(work))
+        .filter((work) => work && isNonEmptyDrawingWork(work))
     : [];
 
   return {
@@ -1634,10 +1641,39 @@ async function getLatestZtcDrawingContext(workerId: string) {
       Location: { not: null },
       Location_Custom_1: { not: null },
       Comments_Custom_2: { contains: "ztc_drawing_context" },
-      NOT: [{ Location: "Papilddarbi" }, { Works_Custom_1: "Papilddetāļas" }],
+      NOT: [
+        { Location: "Papilddarbi" },
+        { Works_Custom_1: "Papilddetāļas" },
+        { Comments_Custom_1: { startsWith: DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX } },
+      ],
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+async function closeOpenDrawingContextsForStandaloneAdditionalWork(worker: ZtcWorker, now: Date) {
+  const result = await prisma.ztcRecords.updateMany({
+    where: {
+      workerId: worker.id,
+      organizationId: ZTC_ORGANIZATION_ID,
+      Date_Custom_2: null,
+      Works: null,
+      Comments_Custom_2: { contains: "ztc_drawing_context" },
+    },
+    data: {
+      Date_Custom_2: now,
+      Comments_Custom_1: `${DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX} ${now.toISOString()}`,
+    },
+  });
+
+  if (result.count > 0) {
+    logZtcSession("drawing_contexts_closed_for_standalone_additional_work", {
+      worker,
+      details: {
+        closedCount: result.count,
+      },
+    });
+  }
 }
 
 async function ensureSessionHasDrawingContext(args: {
@@ -2459,6 +2495,7 @@ async function createAdditionalWorkSession(args: {
   const { workOptions } = await getZtcDropdownOptions();
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
+  await closeOpenDrawingContextsForStandaloneAdditionalWork(worker, now);
   const comments = work.polishedText?.trim()
     ? buildZtcUserComments({ startText: work.polishedText })
     : await buildPolishedZtcUserComments({ startText: text });

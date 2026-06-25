@@ -473,14 +473,13 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
       }
 
       onSaved(result.rates);
-      onOpenChange(false);
       toast.success("Darbu likmes saglabātas.");
     } catch (error: any) {
       toast.error(error?.message ?? "Neizdevās saglabāt darbu likmes.");
     } finally {
       setSaving(false);
     }
-  }, [commitVisibleRateInputs, onOpenChange, onSaved, siteId]);
+  }, [commitVisibleRateInputs, onSaved, siteId]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
