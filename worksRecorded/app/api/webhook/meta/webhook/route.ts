@@ -278,6 +278,7 @@ async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdenti
   formData.set("MetaUsername", resolved.webhookIdentity.username ?? "");
   formData.set("Body", body);
   formData.set("MessageId", message?.id ?? "");
+  formData.set("MessageTimestamp", message?.timestamp ?? "");
   formData.set("NumMedia", numMedia);
 
   if (hasImage) {

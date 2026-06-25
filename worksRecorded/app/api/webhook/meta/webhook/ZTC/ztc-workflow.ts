@@ -152,6 +152,7 @@ type ZtcDrawingMetadata = {
 type ZtcDiagonalPayload = {
   completedText: string;
   additionalDetails?: WorkExtraction["additionalDetails"];
+  workPhotoBatchPromptedAt?: number;
   workPhotoBatchGraceUntil?: number;
   firstPhotoUrl?: string;
   firstMeasureMm?: number;
@@ -1071,13 +1072,30 @@ function readDiagonalPhotoMeasurePayload(
   });
 }
 
-function isTlWorkPhotoBatchGraceActive(session: Pick<OpenZtcSession, "Comments_Custom_1">) {
+function getMetaMessageTimestampMs(formData: FormData) {
+  const raw = getString(formData, "MessageTimestamp");
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+}
+
+function isTlWorkPhotoBatchGraceActive(
+  session: Pick<OpenZtcSession, "Comments_Custom_1">,
+  formData: FormData,
+) {
   const state = session.Comments_Custom_1;
   if (!state?.startsWith(DIAGONAL_FIRST_PHOTO_PENDING_PREFIX)) return false;
 
   const payload = readDiagonalPhotoMeasurePayload(state, DIAGONAL_FIRST_PHOTO_PENDING_PREFIX);
   const graceUntil = Number(payload.workPhotoBatchGraceUntil ?? 0);
-  return Number.isFinite(graceUntil) && graceUntil > Date.now();
+  if (!Number.isFinite(graceUntil) || graceUntil <= Date.now()) return false;
+
+  const promptedAt = Number(payload.workPhotoBatchPromptedAt ?? 0);
+  const messageTimestampMs = getMetaMessageTimestampMs(formData);
+  if (!Number.isFinite(promptedAt) || promptedAt <= 0 || messageTimestampMs == null) {
+    return false;
+  }
+
+  return messageTimestampMs <= promptedAt + 1000;
 }
 
 function buildDiagonalPhotoMeasureComment(args: {
@@ -1910,6 +1928,7 @@ async function askForTlDiagonals(args: {
   originalAudioUrl?: string | null;
 }) {
   const completedText = args.completedText?.trim() || "";
+  const promptedAt = Date.now();
 
   const updated = await prisma.ztcRecords.update({
     where: { id: args.session.id },
@@ -1917,7 +1936,8 @@ async function askForTlDiagonals(args: {
       Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({
         completedText,
         additionalDetails: args.completedWork?.additionalDetails ?? [],
-        workPhotoBatchGraceUntil: Date.now() + TL_WORK_PHOTO_BATCH_GRACE_MS,
+        workPhotoBatchPromptedAt: promptedAt,
+        workPhotoBatchGraceUntil: promptedAt + TL_WORK_PHOTO_BATCH_GRACE_MS,
       })}`,
       Units: "m2",
       Amounts: args.session.Amounts ?? undefined,
@@ -1927,7 +1947,7 @@ async function askForTlDiagonals(args: {
 
   logZtcSession("tl_diagonal_flow_started", {
     session: updated,
-    details: { completedText },
+    details: { completedText, workPhotoBatchPromptedAt: promptedAt },
   });
 
   await sendZtcMessage(
@@ -2392,7 +2412,7 @@ async function appendTlWorkPhotosDuringDiagonalGrace(args: {
   worker: ZtcWorker;
   session: OpenZtcSession;
 }) {
-  if (!isTlWorkPhotoBatchGraceActive(args.session)) return false;
+  if (!isTlWorkPhotoBatchGraceActive(args.session, args.formData)) return false;
 
   const images = await uploadZtcImages(args.formData, args.idxs, "tl_completion_album_late_photos");
   const uploadedUrls = images.map((image) => image.publicUrl);
@@ -2427,6 +2447,7 @@ async function appendTlWorkPhotosDuringDiagonalGrace(args: {
     details: {
       addedPhotoCount: uploadedUrls.length,
       photoUrls: uploadedUrls,
+      messageTimestamp: getString(args.formData, "MessageTimestamp"),
     },
   });
 
