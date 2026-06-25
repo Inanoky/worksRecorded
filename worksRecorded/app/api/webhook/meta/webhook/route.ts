@@ -414,6 +414,8 @@ async function stageZtcImageBatch(args: {
   worker: { id: string; organizationId?: string | null };
   mode: ZtcImageBatchMode;
   formData: FormData;
+  businessPhoneNumberId: string;
+  ackRecipient?: string | null;
 }) {
   if (!isSingleMetaImageFormData(args.formData)) {
     return { ready: true as const, formData: args.formData, batchId: null, batchSize: 1 };
@@ -428,7 +430,7 @@ async function stageZtcImageBatch(args: {
   };
 
   const stageStartedAt = Date.now();
-  await prisma.$executeRaw`
+  const stagedRows = await prisma.$queryRaw<Array<{ itemCount: number | bigint }>>`
     INSERT INTO "ZtcInboundMediaBatch" (
       "id",
       "batchKey",
@@ -474,13 +476,30 @@ async function stageZtcImageBatch(args: {
       "lastMessageId" = EXCLUDED."lastMessageId",
       "processAfter" = EXCLUDED."processAfter",
       "updatedAt" = NOW()
+    RETURNING jsonb_array_length("items") AS "itemCount"
   `;
+  const stagedItemCount = Number(stagedRows[0]?.itemCount ?? 0);
   logMetaWebhookTiming("ztc_image_batch_stage", stageStartedAt, {
     batchKey,
     mode: args.mode,
     workerId: args.worker.id,
     messageId,
+    stagedItemCount,
   });
+
+  if (stagedItemCount === 1 && args.ackRecipient) {
+    await sendMetaGraphMessage({
+      businessPhoneNumberId: args.businessPhoneNumberId,
+      recipient: args.ackRecipient,
+      body: {
+        text: {
+          body: "Foto saņemts. Bildes tiek saglabātas, lūdzu uzgaidiet...",
+        },
+      },
+    }).catch((error) => {
+      console.error("ZTC image batch acknowledgement failed", error);
+    });
+  }
 
   await sleep(ZTC_IMAGE_BATCH_QUIET_MS);
 
@@ -647,6 +666,8 @@ async function runWhatsappRoutingForMeta(args: {
         worker,
         mode,
         formData,
+        businessPhoneNumberId,
+        ackRecipient: resolved.replyTarget || from,
       });
 
       if (!batchDecision.ready) {
