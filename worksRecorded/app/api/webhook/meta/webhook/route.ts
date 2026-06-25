@@ -2,6 +2,7 @@
 // Next.js App Router webhook endpoint (GET verify + POST events)
 export const maxDuration = 300;
 
+import { randomUUID } from "crypto";
 import { prisma } from "@/lib/utils/db";
 import {
   getString,
@@ -43,6 +44,8 @@ const LOCK_TTL_MS = 180_000;
 const ROUTING_LOCK_WAIT_MS = 120_000;
 const ROUTING_LOCK_RETRY_MS = 500;
 const PROCESSED_MESSAGE_TTL_MS = 10 * 60_000;
+const ZTC_IMAGE_BATCH_QUIET_MS = 5_000;
+const ZTC_IMAGE_BATCH_STALE_MS = 2 * 60_000;
 const processedMetaMessages =
   (globalThis as any).__processedMetaMessages ||
   new Map<string, number>();
@@ -345,6 +348,219 @@ async function toWhatsAppFormData(message: any, resolved: ResolvedWhatsAppIdenti
   return formData;
 }
 
+type ZtcImageBatchMode = "ztc_worker" | "ztc_quality";
+
+type SerializedZtcImageMessage = {
+  messageId: string;
+  receivedAt: string;
+  entries: Array<[string, string]>;
+};
+
+function serializeFormData(formData: FormData): Array<[string, string]> {
+  return Array.from(formData.entries()).map(([key, value]) => [
+    key,
+    typeof value === "string" ? value : String(value),
+  ]);
+}
+
+function getSerializedEntry(item: SerializedZtcImageMessage, key: string) {
+  return item.entries.find(([entryKey]) => entryKey === key)?.[1] ?? "";
+}
+
+function buildBatchedImageFormData(items: SerializedZtcImageMessage[]) {
+  const formData = new FormData();
+  const first = items[0];
+  if (!first) return formData;
+
+  for (const [key, value] of first.entries) {
+    if (/^Media(?:Url|ContentType|Provider)\d+$/i.test(key)) continue;
+    if (key === "NumMedia" || key === "MessageId" || key === "MessageTimestamp" || key === "Body") continue;
+    formData.set(key, value);
+  }
+
+  const body = items
+    .map((item) => getSerializedEntry(item, "Body").trim())
+    .find(Boolean) ?? "";
+  const messageIds = items.map((item) => item.messageId).filter(Boolean);
+  const timestamps = items
+    .map((item) => Number(getSerializedEntry(item, "MessageTimestamp")))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  formData.set("Body", body);
+  formData.set("MessageId", messageIds.join(","));
+  formData.set("MessageTimestamp", timestamps.length > 0 ? String(Math.min(...timestamps)) : "");
+  formData.set("MetaBatchMessageIds", JSON.stringify(messageIds));
+  formData.set("MetaBatchSize", String(items.length));
+  formData.set("NumMedia", String(items.length));
+
+  items.forEach((item, index) => {
+    formData.set(`MediaUrl${index}`, getSerializedEntry(item, "MediaUrl0"));
+    formData.set(`MediaContentType${index}`, getSerializedEntry(item, "MediaContentType0"));
+    formData.set(`MediaProvider${index}`, getSerializedEntry(item, "MediaProvider0"));
+  });
+
+  return formData;
+}
+
+function isSingleMetaImageFormData(formData: FormData) {
+  return (
+    getString(formData, "NumMedia") === "1" &&
+    getString(formData, "MediaContentType0").startsWith("image/")
+  );
+}
+
+async function stageZtcImageBatch(args: {
+  identityKey: string;
+  worker: { id: string; organizationId?: string | null };
+  mode: ZtcImageBatchMode;
+  formData: FormData;
+}) {
+  if (!isSingleMetaImageFormData(args.formData)) {
+    return { ready: true as const, formData: args.formData, batchId: null, batchSize: 1 };
+  }
+
+  const messageId = getString(args.formData, "MessageId");
+  const batchKey = `${args.mode}:${args.identityKey}`;
+  const item: SerializedZtcImageMessage = {
+    messageId,
+    receivedAt: new Date().toISOString(),
+    entries: serializeFormData(args.formData),
+  };
+
+  const stageStartedAt = Date.now();
+  await prisma.$executeRaw`
+    INSERT INTO "ZtcInboundMediaBatch" (
+      "id",
+      "batchKey",
+      "workerId",
+      "organizationId",
+      "mode",
+      "status",
+      "items",
+      "firstReceivedAt",
+      "lastReceivedAt",
+      "lastMessageId",
+      "processAfter",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES (
+      ${randomUUID()},
+      ${batchKey},
+      ${args.worker.id},
+      ${args.worker.organizationId ?? null},
+      ${args.mode},
+      'collecting',
+      ${JSON.stringify([item])}::jsonb,
+      NOW(),
+      NOW(),
+      ${messageId || null},
+      NOW() + (${ZTC_IMAGE_BATCH_QUIET_MS}::int * INTERVAL '1 millisecond'),
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT ("batchKey") DO UPDATE SET
+      "workerId" = EXCLUDED."workerId",
+      "organizationId" = EXCLUDED."organizationId",
+      "mode" = EXCLUDED."mode",
+      "status" = 'collecting',
+      "items" = CASE
+        WHEN "ZtcInboundMediaBatch"."status" = 'collecting'
+          AND "ZtcInboundMediaBatch"."updatedAt" > NOW() - (${ZTC_IMAGE_BATCH_STALE_MS}::int * INTERVAL '1 millisecond')
+        THEN "ZtcInboundMediaBatch"."items" || EXCLUDED."items"
+        ELSE EXCLUDED."items"
+      END,
+      "lastReceivedAt" = NOW(),
+      "lastMessageId" = EXCLUDED."lastMessageId",
+      "processAfter" = EXCLUDED."processAfter",
+      "updatedAt" = NOW()
+  `;
+  logMetaWebhookTiming("ztc_image_batch_stage", stageStartedAt, {
+    batchKey,
+    mode: args.mode,
+    workerId: args.worker.id,
+    messageId,
+  });
+
+  await sleep(ZTC_IMAGE_BATCH_QUIET_MS);
+
+  const rows = await prisma.$queryRaw<Array<{
+    id: string;
+    items: unknown;
+    lastMessageId: string | null;
+    processAfter: Date;
+  }>>`
+    SELECT "id", "items", "lastMessageId", "processAfter"
+    FROM "ZtcInboundMediaBatch"
+    WHERE "batchKey" = ${batchKey}
+      AND "status" = 'collecting'
+    LIMIT 1
+  `;
+
+  const row = rows[0];
+  if (!row || row.lastMessageId !== messageId) {
+    console.log("[Meta webhook timing]", {
+      event: "ztc_image_batch_deferred_to_later_image",
+      batchKey,
+      mode: args.mode,
+      workerId: args.worker.id,
+      messageId,
+      latestMessageId: row?.lastMessageId ?? null,
+    });
+    return { ready: false as const };
+  }
+
+  const processAfterMs = new Date(row.processAfter).getTime();
+  if (Number.isFinite(processAfterMs) && processAfterMs > Date.now()) {
+    await sleep(Math.min(processAfterMs - Date.now(), ZTC_IMAGE_BATCH_QUIET_MS));
+  }
+
+  const claimedRows = await prisma.$queryRaw<Array<{ id: string; items: unknown }>>`
+    UPDATE "ZtcInboundMediaBatch"
+    SET "status" = 'processing',
+        "updatedAt" = NOW()
+    WHERE "id" = ${row.id}
+      AND "status" = 'collecting'
+      AND "lastMessageId" = ${messageId || null}
+    RETURNING "id", "items"
+  `;
+
+  const claimed = claimedRows[0];
+  if (!claimed) {
+    return { ready: false as const };
+  }
+
+  const items = Array.isArray(claimed.items)
+    ? (claimed.items as SerializedZtcImageMessage[])
+    : [];
+  const batchedFormData = buildBatchedImageFormData(items);
+
+  console.log("[Meta webhook timing]", {
+    event: "ztc_image_batch_ready",
+    batchKey,
+    mode: args.mode,
+    workerId: args.worker.id,
+    batchId: claimed.id,
+    batchSize: items.length,
+    messageIds: items.map((image) => image.messageId).filter(Boolean),
+  });
+
+  return {
+    ready: true as const,
+    formData: batchedFormData,
+    batchId: claimed.id,
+    batchSize: items.length,
+  };
+}
+
+async function deleteZtcImageBatch(batchId: string | null | undefined) {
+  if (!batchId) return;
+  await prisma.$executeRaw`
+    DELETE FROM "ZtcInboundMediaBatch"
+    WHERE "id" = ${batchId}
+  `;
+}
+
 async function runWhatsappRoutingForMeta(args: {
   message: any;
   value: any;
@@ -369,18 +585,19 @@ async function runWhatsappRoutingForMeta(args: {
     replyTarget: resolved.replyTarget,
   });
 
-  const formData = await toWhatsAppFormData(message, resolved);
+  let formData = await toWhatsAppFormData(message, resolved);
 
   let lockHeld = false;
   let lockKey: string | null = null;
+  let ztcImageBatchId: string | null = null;
 
   try {
     const smsStatus = getString(formData, "SmsStatus");
     const from = getString(formData, "From");
     const waId = getString(formData, "WaId");
     const numMediaRaw = getString(formData, "NumMedia");
-    const numMedia = Number(numMediaRaw || "0");
-    const messageId = getString(formData, "MessageId") || null;
+    let numMedia = Number(numMediaRaw || "0");
+    let messageId = getString(formData, "MessageId") || null;
 
     if (smsStatus && smsStatus.toLowerCase() !== "received") {
       return;
@@ -405,6 +622,44 @@ async function runWhatsappRoutingForMeta(args: {
       return;
     }
 
+    const workerLookupStartedAt = Date.now();
+    const worker = resolved.worker?.id
+      ? resolved.worker
+      : phone
+        ? await prisma.workers.findFirst({
+            where: { phone },
+          })
+        : null;
+    logMetaWebhookTiming("worker_lookup", workerLookupStartedAt, {
+      messageId,
+      phone,
+      reusedResolvedWorker: Boolean(resolved.worker?.id),
+      hasWorker: Boolean(worker),
+      workerId: worker?.id ?? null,
+      organizationId: worker?.organizationId ?? null,
+      role: worker?.role ?? null,
+    });
+
+    if (worker?.organizationId === ZTC_ORGANIZATION_ID && isSingleMetaImageFormData(formData)) {
+      const mode: ZtcImageBatchMode = isZtcQualityWorkerRole(worker.role) ? "ztc_quality" : "ztc_worker";
+      const batchDecision = await stageZtcImageBatch({
+        identityKey,
+        worker,
+        mode,
+        formData,
+      });
+
+      if (!batchDecision.ready) {
+        routeOutcome = "ztc_image_batch_deferred";
+        return;
+      }
+
+      formData = batchDecision.formData;
+      ztcImageBatchId = batchDecision.batchId;
+      numMedia = Number(getString(formData, "NumMedia") || "0") || 0;
+      messageId = getString(formData, "MessageId") || messageId;
+    }
+
     const lockStartedAt = Date.now();
     const acquired = await acquireRoutingLock(identityKey, messageId);
     logMetaWebhookTiming("routing_lock_acquire", lockStartedAt, {
@@ -426,24 +681,6 @@ async function runWhatsappRoutingForMeta(args: {
 
     lockHeld = true;
     lockKey = identityKey;
-
-    const workerLookupStartedAt = Date.now();
-    const worker = resolved.worker?.id
-      ? resolved.worker
-      : phone
-        ? await prisma.workers.findFirst({
-            where: { phone },
-          })
-        : null;
-    logMetaWebhookTiming("worker_lookup", workerLookupStartedAt, {
-      messageId,
-      phone,
-      reusedResolvedWorker: Boolean(resolved.worker?.id),
-      hasWorker: Boolean(worker),
-      workerId: worker?.id ?? null,
-      organizationId: worker?.organizationId ?? null,
-      role: worker?.role ?? null,
-    });
 
     if (worker) {
       if (worker.organizationId === ZTC_ORGANIZATION_ID) {
@@ -528,6 +765,12 @@ async function runWhatsappRoutingForMeta(args: {
       });
     }
   } finally {
+    if (ztcImageBatchId) {
+      await deleteZtcImageBatch(ztcImageBatchId).catch((e) => {
+        console.error("deleteZtcImageBatch error", e);
+      });
+    }
+
     if (lockHeld && lockKey) {
       const releaseStartedAt = Date.now();
       await releaseTextLock(lockKey).catch((e) => {
