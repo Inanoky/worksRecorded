@@ -132,13 +132,13 @@ The WhatsApp JSON report includes:
 
 - per-case selected record and created record IDs
 - per-case `structuredSaveTrace` with raw structured LLM records, mapped DB rows, normalized insert rows, and persisted records
-- deterministic status, heuristic score, and optional judge result
+- deterministic status, heuristic score, and optional judge result, including advisory `improvements`
 - requested model, actual provider model, token usage, and finish reason when available
 - latency summary: `totalMs`, `averageMs`, `slowestCase`, `casesOverThreshold`
 
 ## What The Judge Is
 
-The judge is an optional second model call that grades the answer as `pass`, `warn`, or `fail`. It is useful for fuzzy checks like grounding, tone, hallucination risk, and answer quality. It is slower and costs extra, so normal runs can skip it.
+The judge is an optional second model call that grades the answer as `pass`, `warn`, or `fail`. It also returns an `improvements` array for concise advisory suggestions. These suggestions are report metadata only; they do not affect pass/fail status unless the judge status itself is `warn` or `fail`.
 
 Use deterministic validators for hard rules. Use the judge for quality review.
 

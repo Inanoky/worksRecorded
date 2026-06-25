@@ -13,6 +13,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
 import { recordStructuredSaveTrace } from "./structuredSaveTrace";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import { getSiteManagerAgentRunContext } from "./runContext";
 import {
   buildAiRunContext,
   summarizeForTrace,
@@ -38,6 +39,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
   async func({ question, userId, siteId, date, originalUserComment }) {
     const whatsappSourceContext = getWhatsappSourceContext();
+    const runContext = getSiteManagerAgentRunContext();
     const aiContext = buildAiRunContext({
       flow: "structured-site-diary-save",
       threadId: `structured-site-diary-save:${siteId}:${userId}`,
@@ -49,7 +51,9 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
         date,
         hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
         originalUserCommentPreview: summarizeForTrace(originalUserComment),
+        ...(runContext?.traceMetadata ?? {}),
       },
+      tags: runContext?.traceTags,
     });
 
     console.log("▶️ TOOL START");
@@ -132,6 +136,7 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
       userId,
       siteId,
       originalUserComment,
+      evalMetadata: runContext?.evalRecordMetadata,
     });
 
     console.log("✅ Save result:", result);

@@ -97,6 +97,7 @@ const savedSiteDiaryRecordSelect = {
   Amounts: true,
   WorkersInvolved: true,
   TimeInvolved: true,
+  evalMetadata: true,
   createdAt: true,
 } as const;
 
@@ -1051,6 +1052,7 @@ export async function saveSiteDiaryRecord({
   siteId,
   originalUserComment,
   originalAudioUrl,
+  evalMetadata,
 }: {
   rows: any[];
   userId?: string;
@@ -1058,6 +1060,7 @@ export async function saveSiteDiaryRecord({
   siteId?: string;
   originalUserComment?: string;
   originalAudioUrl?: string | null;
+  evalMetadata?: Record<string, unknown>;
 }) {
   const validRows = rows.filter((r) => r.Location || r.Works);
 
@@ -1168,6 +1171,7 @@ export async function saveSiteDiaryRecord({
         Amounts: toNullableNumber(row.Amounts),
         WorkersInvolved: toNullableNumber(row.WorkersInvolved),
         TimeInvolved: toNullableNumber(row.TimeInvolved),
+        evalMetadata: evalMetadata ?? undefined,
         Photos: [],
       };
 
@@ -1191,7 +1195,7 @@ export async function saveSiteDiaryRecord({
 
   try {
     const records = await prisma.$transaction(async (tx) => {
-      const insertedRecords = [];
+      const insertedRecords: any[] = [];
 
       for (const row of toInsert) {
         const created = await tx.sitediaryrecords.create({

@@ -29,6 +29,7 @@ type JudgeStatus = "pass" | "warn" | "fail" | "skipped";
 type JudgeResult = {
   status: JudgeStatus;
   explanation: string;
+  improvements: string[];
 };
 
 type CaseRunResult = {
@@ -93,11 +94,15 @@ const JudgeSchema = {
       return {
         status: item.status,
         explanation: String(item.explanation ?? ""),
+        improvements: Array.isArray(item.improvements)
+          ? item.improvements.filter((improvement) => typeof improvement === "string")
+          : [],
       };
     }
     return {
       status: "warn",
       explanation: "Judge returned an unrecognized status.",
+      improvements: [],
     };
   },
 };
@@ -163,6 +168,7 @@ function parseJudgeJson(value: string): JudgeResult {
     return {
       status: "warn",
       explanation: `Judge response was not valid JSON: ${preview(value, 300)}`,
+      improvements: [],
     };
   }
 }
@@ -308,15 +314,29 @@ async function findCreatedRecords(args: {
   userId: string;
   startedAt: Date;
   inputText: string;
+  runId: string;
+  caseId: string;
 }) {
   return prisma.sitediaryrecords.findMany({
     where: {
       siteId: args.siteId,
       userId: args.userId,
       createdAt: { gte: args.startedAt },
-      originalUserComment: {
-        contains: args.inputText,
-      },
+      OR: [
+        {
+          AND: [
+            { evalMetadata: { path: ["isEval"], equals: true } },
+            { evalMetadata: { path: ["flow"], equals: "whatsapp-site-manager" } },
+            { evalMetadata: { path: ["runId"], equals: args.runId } },
+            { evalMetadata: { path: ["caseId"], equals: args.caseId } },
+          ],
+        },
+        {
+          originalUserComment: {
+            contains: args.inputText,
+          },
+        },
+      ],
     },
     orderBy: { createdAt: "desc" },
     select: {
@@ -331,6 +351,7 @@ async function findCreatedRecords(args: {
       originalAudioUrl: true,
       WorkersInvolved: true,
       TimeInvolved: true,
+      evalMetadata: true,
       createdAt: true,
     },
   });
@@ -340,7 +361,20 @@ async function cleanupPreviousEvalCaseRows(args: {
   siteId: string;
   userId: string;
   inputText: string;
+  caseId: string;
 }) {
+  await prisma.sitediaryrecords.deleteMany({
+    where: {
+      siteId: args.siteId,
+      userId: args.userId,
+      AND: [
+        { evalMetadata: { path: ["isEval"], equals: true } },
+        { evalMetadata: { path: ["flow"], equals: "whatsapp-site-manager" } },
+        { evalMetadata: { path: ["caseId"], equals: args.caseId } },
+      ],
+    },
+  });
+
   await prisma.sitediaryrecords.deleteMany({
     where: {
       siteId: args.siteId,
@@ -355,8 +389,20 @@ async function cleanupPreviousEvalCaseRows(args: {
 async function cleanupEvalRows(args: {
   businessPhoneNumberId: string;
   recordIds: string[];
+  runId: string;
+  caseId: string;
 }) {
   const prismaAny = prisma as any;
+  await prisma.sitediaryrecords.deleteMany({
+    where: {
+      AND: [
+        { evalMetadata: { path: ["isEval"], equals: true } },
+        { evalMetadata: { path: ["flow"], equals: "whatsapp-site-manager" } },
+        { evalMetadata: { path: ["runId"], equals: args.runId } },
+        { evalMetadata: { path: ["caseId"], equals: args.caseId } },
+      ],
+    },
+  });
   await prisma.sitediaryrecords.deleteMany({
     where: {
       id: { in: args.recordIds },
@@ -385,7 +431,7 @@ async function judgeRecord(args: {
       {
         role: "system",
         content:
-          "You judge regression-test saved records for a construction SaaS WhatsApp site-manager assistant. Return strict JSON with status pass, warn, or fail and a short explanation. Fail fabricated details, wrong quantities, missing core facts, or unsafe persistence behavior.",
+          'You judge regression-test saved records for a construction SaaS WhatsApp site-manager assistant. Return strict JSON shaped as {"status":"pass"|"warn"|"fail","explanation":"...","improvements":["..."]}. Keep improvements advisory and concise. Use an empty improvements array when no useful improvement is needed. Fail fabricated details, wrong quantities, missing core facts, or unsafe persistence behavior.',
       },
       {
         role: "user",
@@ -457,12 +503,33 @@ async function main() {
         senderPhone,
         bsuid,
       });
+      const evalTraceMetadata = {
+        evalRunId: runId,
+        evalCaseId: evalCase.id,
+        evalMode: "real-meta-webhook-regression",
+        webhookMessageId: prepared.messageId,
+      };
+      const evalTraceTags = [
+        "eval",
+        "eval:whatsapp-site-manager",
+        `eval-run:${runId}`,
+        `eval-case:${evalCase.id}`,
+      ];
+      const evalRecordMetadata = {
+        isEval: true,
+        flow: "whatsapp-site-manager",
+        runId,
+        caseId: evalCase.id,
+        messageId: prepared.messageId,
+        createdBy: "ai-eval-runner",
+      };
 
       try {
         await cleanupPreviousEvalCaseRows({
           siteId,
           userId,
           inputText: prepared.inputText,
+          caseId: evalCase.id,
         });
 
         await seedEvalIdentity({
@@ -479,12 +546,9 @@ async function main() {
             {
               threadId,
               model: agentModel,
-              traceMetadata: {
-                evalRunId: runId,
-                evalCaseId: evalCase.id,
-                evalMode: "real-meta-webhook-regression",
-                webhookMessageId: prepared.messageId,
-              },
+              traceMetadata: evalTraceMetadata,
+              traceTags: evalTraceTags,
+              evalRecordMetadata,
             },
             () =>
               POST({
@@ -504,6 +568,8 @@ async function main() {
           userId,
           startedAt: caseStartedAt,
           inputText: prepared.inputText,
+          runId,
+          caseId: evalCase.id,
         });
         const persistedRecords = getPersistedEvalRecordsFromTrace(tracedRun.entries);
         createdRecordIds = Array.from(
@@ -534,6 +600,7 @@ async function main() {
             : {
                 status: "skipped" as const,
                 explanation: "Run with --judge or AI_EVAL_ENABLE_JUDGE=true to enable LLM judging.",
+                improvements: [],
               };
 
         results.push({
@@ -566,6 +633,8 @@ async function main() {
         await cleanupEvalRows({
           businessPhoneNumberId,
           recordIds: createdRecordIds,
+          runId,
+          caseId: evalCase.id,
         });
       }
     }

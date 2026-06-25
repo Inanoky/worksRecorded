@@ -3,6 +3,10 @@ import {
   recordStructuredSaveTrace,
   runWithStructuredSaveTrace,
 } from "./structuredSaveTrace";
+import {
+  getSiteManagerAgentRunContext,
+  runWithSiteManagerAgentEvalContext,
+} from "./runContext";
 
 describe("structured save trace", () => {
   it("captures structured save trace entries only inside trace context", async () => {
@@ -28,8 +32,21 @@ describe("structured save trace", () => {
         originalUserComment: "Šodien tika ieklātas grīdas 3 stāvā, 2 cilvēki, 3h",
         rawRecords: [{ Workers: 2, Hours: 3 }],
         mappedRows: [{ WorkersInvolved: 2, TimeInvolved: 3 }],
-        normalizedInsertRows: [{ WorkersInvolved: 2, TimeInvolved: 3 }],
-        persistedRecords: [{ id: "record-1", WorkersInvolved: 2, TimeInvolved: 3 }],
+        normalizedInsertRows: [
+          {
+            WorkersInvolved: 2,
+            TimeInvolved: 3,
+            evalMetadata: { isEval: true, runId: "run-1", caseId: "case-1" },
+          },
+        ],
+        persistedRecords: [
+          {
+            id: "record-1",
+            WorkersInvolved: 2,
+            TimeInvolved: 3,
+            evalMetadata: { isEval: true, runId: "run-1", caseId: "case-1" },
+          },
+        ],
       });
 
       return "ok";
@@ -44,9 +61,70 @@ describe("structured save trace", () => {
         originalUserComment: "Šodien tika ieklātas grīdas 3 stāvā, 2 cilvēki, 3h",
         rawRecords: [{ Workers: 2, Hours: 3 }],
         mappedRows: [{ WorkersInvolved: 2, TimeInvolved: 3 }],
-        normalizedInsertRows: [{ WorkersInvolved: 2, TimeInvolved: 3 }],
-        persistedRecords: [{ id: "record-1", WorkersInvolved: 2, TimeInvolved: 3 }],
+        normalizedInsertRows: [
+          {
+            WorkersInvolved: 2,
+            TimeInvolved: 3,
+            evalMetadata: { isEval: true, runId: "run-1", caseId: "case-1" },
+          },
+        ],
+        persistedRecords: [
+          {
+            id: "record-1",
+            WorkersInvolved: 2,
+            TimeInvolved: 3,
+            evalMetadata: { isEval: true, runId: "run-1", caseId: "case-1" },
+          },
+        ],
       },
     ]);
+  });
+
+  it("exposes eval tags and record metadata through the site-manager run context", async () => {
+    await runWithSiteManagerAgentEvalContext(
+      {
+        traceMetadata: {
+          evalRunId: "run-1",
+          evalCaseId: "case-1",
+          evalMode: "real-meta-webhook-regression",
+          webhookMessageId: "wamid.eval.run-1.case-1",
+        },
+        traceTags: [
+          "eval",
+          "eval:whatsapp-site-manager",
+          "eval-run:run-1",
+          "eval-case:case-1",
+        ],
+        evalRecordMetadata: {
+          isEval: true,
+          flow: "whatsapp-site-manager",
+          runId: "run-1",
+          caseId: "case-1",
+          messageId: "wamid.eval.run-1.case-1",
+          createdBy: "ai-eval-runner",
+        },
+      },
+      async () => {
+        expect(getSiteManagerAgentRunContext()).toEqual(
+          expect.objectContaining({
+            traceMetadata: expect.objectContaining({
+              evalRunId: "run-1",
+              evalCaseId: "case-1",
+            }),
+            traceTags: expect.arrayContaining([
+              "eval",
+              "eval:whatsapp-site-manager",
+              "eval-run:run-1",
+              "eval-case:case-1",
+            ]),
+            evalRecordMetadata: expect.objectContaining({
+              isEval: true,
+              runId: "run-1",
+              caseId: "case-1",
+            }),
+          }),
+        );
+      },
+    );
   });
 });

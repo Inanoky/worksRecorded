@@ -15,6 +15,7 @@ export type SavedSiteDiaryRecord = {
   originalAudioUrl: string | null;
   WorkersInvolved: number | null;
   TimeInvolved: number | null;
+  evalMetadata?: unknown;
   createdAt: Date;
 };
 

@@ -1,5 +1,4 @@
 "use server"
-import { AsyncLocalStorage } from "node:async_hooks";
 import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
@@ -16,48 +15,18 @@ import {
     getSiteManagerThreadId,
     summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import {
+    getSiteManagerAgentRunContext,
+    runWithSiteManagerAgentEvalContext,
+    type SiteManagerAgentRunDetails,
+} from "./runContext";
+
+export { runWithSiteManagerAgentEvalContext };
+export type { SiteManagerAgentRunDetails };
 
 type PostgresCheckpointer = ReturnType<typeof PostgresSaver.fromConnString>;
 
 let checkpointerSetupPromise: Promise<void> | null = null;
-
-type SiteManagerAgentRunOptions = {
-    threadId?: string;
-    traceMetadata?: Record<string, string | number | boolean | null | undefined>;
-    model?: string;
-};
-
-export type SiteManagerAgentRunDetails = {
-    content: string;
-    requestedModel: string;
-    actualModel: string | null;
-    tokenUsage: unknown;
-    usageMetadata: unknown;
-    responseMetadata: unknown;
-    finishReason: string | null;
-};
-
-type SiteManagerAgentRunContext = SiteManagerAgentRunOptions & {
-    details: SiteManagerAgentRunDetails | null;
-};
-
-const siteManagerAgentRunStorage = new AsyncLocalStorage<SiteManagerAgentRunContext>();
-
-export async function runWithSiteManagerAgentEvalContext<T>(
-    options: SiteManagerAgentRunOptions,
-    fn: () => Promise<T>,
-) {
-    const context: SiteManagerAgentRunContext = {
-        ...options,
-        details: null,
-    };
-
-    const result = await siteManagerAgentRunStorage.run(context, fn);
-    return {
-        result,
-        details: context.details,
-    };
-}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
     return value && typeof value === "object" && !Array.isArray(value)
@@ -100,7 +69,7 @@ async function setupCheckpointerOnce(checkpointer: PostgresCheckpointer) {
 
 export default async function talkToWhatsappAgent(question, siteId, userId, originalAudioUrl?: string | null) {
     console.log("=== talkToWhatsappAgent (Site Manager) called ===", { hasAudio: !!originalAudioUrl });
-    const runContext = siteManagerAgentRunStorage.getStore();
+    const runContext = getSiteManagerAgentRunContext();
     const requestedModel = runContext?.model ?? siteManagerAgentForSiteManagerRouteModelModel;
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
@@ -117,6 +86,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
             questionPreview: summarizeForTrace(question),
             ...(runContext?.traceMetadata ?? {}),
         },
+        tags: runContext?.traceTags,
     });
 
     const state = Annotation.Root({
