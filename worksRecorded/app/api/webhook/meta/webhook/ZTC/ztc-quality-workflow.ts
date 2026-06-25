@@ -329,8 +329,8 @@ async function getRecentCompletedQaSession(workerId: string) {
       workerId,
       organizationId: ZTC_ORGANIZATION_ID,
       Date_Custom_2: { gte: cutoff },
+      Works: QA_WORK_LABEL,
       Comments_Custom_1: { startsWith: QA_COMPLETED_PHOTO_BATCH_PREFIX },
-      Comments_Custom_2: { contains: "\"type\":\"ztc_quality_check\"" },
     },
     orderBy: { Date_Custom_2: "desc" },
   });
@@ -441,6 +441,14 @@ async function completeQualitySession(args: {
     .filter(Boolean)
     .join("\n");
 
+  const initialMetadata = buildQualityMetadata({
+    payload: args.payload,
+    qualityPhotoUrls,
+    qualityText: polishedQualityText,
+    checkedWork,
+    qualityEvaluation,
+  });
+
   const dbUpdateStartedAt = Date.now();
   const updated = await prisma.ztcRecords.update({
     where: { id: args.session.id },
@@ -454,6 +462,7 @@ async function completeQualitySession(args: {
       TimeInvolved: null,
       Comments: comments,
       Comments_Custom_1: makeCompletedPhotoBatchState(),
+      Comments_Custom_2: JSON.stringify(initialMetadata),
       Photos: [args.payload.drawingPhotoUrl, ...qualityPhotoUrls],
       originalUserComment: `${workerFullName(args.worker)} : ${qualityText}`,
       originalAudioUrl: mergeOriginalAudioUrls(args.payload.originalAudioUrl),
@@ -558,7 +567,15 @@ async function appendPhotosToRecentCompletedQaSession(args: {
     drawingPhotoUrl?: string;
     qualityPhotoUrls?: string[];
   }>(session.Comments_Custom_2, {});
-  if (metadata.type !== "ztc_quality_check") return false;
+  if (metadata.type !== "ztc_quality_check") {
+    console.warn("[ZTC QA]", {
+      event: "quality_recent_completed_append_suppressed_missing_metadata",
+      sitediaryrecordId: session.id,
+      workerId: args.worker.id,
+      requestedPhotoCount: args.idxs.length,
+    });
+    return true;
+  }
 
   const images = await uploadQualityImages(args.formData, args.idxs, "recent_completed_append");
   const uploadedUrls = images.map((image) => image.publicUrl);
