@@ -46,6 +46,12 @@ const ROUTING_LOCK_RETRY_MS = 500;
 const PROCESSED_MESSAGE_TTL_MS = 10 * 60_000;
 const ZTC_IMAGE_BATCH_QUIET_MS = 5_000;
 const ZTC_IMAGE_BATCH_STALE_MS = 2 * 60_000;
+const ZTC_DIAGONAL_STATE_PREFIXES = [
+  "__ZTC_DIAGONAL_FIRST_PHOTO_PENDING__",
+  "__ZTC_DIAGONAL_FIRST_MEASURE_PENDING__",
+  "__ZTC_DIAGONAL_SECOND_PHOTO_PENDING__",
+  "__ZTC_DIAGONAL_SECOND_MEASURE_PENDING__",
+];
 const processedMetaMessages =
   (globalThis as any).__processedMetaMessages ||
   new Map<string, number>();
@@ -409,6 +415,37 @@ function isSingleMetaImageFormData(formData: FormData) {
   );
 }
 
+function isZtcDiagonalState(state: string | null | undefined) {
+  return ZTC_DIAGONAL_STATE_PREFIXES.some((prefix) => state?.startsWith(prefix));
+}
+
+async function shouldSendZtcImageBatchAcknowledgement(args: {
+  workerId: string;
+  mode: ZtcImageBatchMode;
+}) {
+  const activeSession = await prisma.ztcRecords.findFirst({
+    where: {
+      workerId: args.workerId,
+      Date_Custom_2: null,
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      Works: true,
+      Comments_Custom_1: true,
+    },
+  });
+
+  if (!activeSession) return false;
+  if (isZtcDiagonalState(activeSession.Comments_Custom_1)) return false;
+
+  if (args.mode === "ztc_quality") {
+    return activeSession.Comments_Custom_1?.startsWith("__ZTC_QA_PENDING__") ?? false;
+  }
+
+  return Boolean(activeSession.Works);
+}
+
 async function stageZtcImageBatch(args: {
   identityKey: string;
   worker: { id: string; organizationId?: string | null };
@@ -487,7 +524,15 @@ async function stageZtcImageBatch(args: {
     stagedItemCount,
   });
 
-  if (stagedItemCount === 1 && args.ackRecipient) {
+  const shouldSendAck =
+    stagedItemCount === 1 &&
+    args.ackRecipient &&
+    (await shouldSendZtcImageBatchAcknowledgement({
+      workerId: args.worker.id,
+      mode: args.mode,
+    }));
+
+  if (shouldSendAck) {
     await sendMetaGraphMessage({
       businessPhoneNumberId: args.businessPhoneNumberId,
       recipient: args.ackRecipient,
@@ -498,6 +543,14 @@ async function stageZtcImageBatch(args: {
       },
     }).catch((error) => {
       console.error("ZTC image batch acknowledgement failed", error);
+    });
+  } else if (stagedItemCount === 1) {
+    console.log("[Meta webhook timing]", {
+      event: "ztc_image_batch_ack_suppressed",
+      batchKey,
+      mode: args.mode,
+      workerId: args.worker.id,
+      messageId,
     });
   }
 
