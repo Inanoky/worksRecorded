@@ -78,10 +78,51 @@ function makeCompletedPhotoBatchState(now = Date.now()) {
   return `${QA_COMPLETED_PHOTO_BATCH_PREFIX} ${now}`;
 }
 
-function isRecentCompletedPhotoBatch(value: string | null | undefined, now = Date.now()) {
-  if (!value?.startsWith(QA_COMPLETED_PHOTO_BATCH_PREFIX)) return false;
+function readCompletedPhotoBatchAt(value: string | null | undefined) {
+  if (!value?.startsWith(QA_COMPLETED_PHOTO_BATCH_PREFIX)) return null;
   const savedAt = Number(value.slice(QA_COMPLETED_PHOTO_BATCH_PREFIX.length).trim());
+  return Number.isFinite(savedAt) ? savedAt : null;
+}
+
+function isRecentCompletedPhotoBatch(value: string | null | undefined, now = Date.now()) {
+  const savedAt = readCompletedPhotoBatchAt(value);
   return Number.isFinite(savedAt) && now - savedAt < QA_COMPLETED_PHOTO_BATCH_WINDOW_MS;
+}
+
+function getMetaMessageTimestampMs(formData: FormData) {
+  const raw = getString(formData, "MessageTimestamp");
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+}
+
+function hasExtraPhotoCaption(caption: string | null | undefined) {
+  const normalizedCaption = String(caption ?? "").trim().toLowerCase();
+  return (
+    /\b(papildu|vel|v[eē]l|extra|additional|late)\b/i.test(normalizedCaption) &&
+    /\b(foto|photo|bild|att[eē]l)\w*\b/i.test(normalizedCaption)
+  );
+}
+
+function shouldAppendToRecentCompletedQaSession(args: {
+  session: Awaited<ReturnType<typeof getRecentCompletedQaSession>>;
+  formData: FormData;
+  caption?: string | null;
+}) {
+  if (hasExtraPhotoCaption(args.caption)) {
+    return { shouldAppend: true, reason: "caption_requests_extra_qa_photo_append" };
+  }
+
+  const completedAt = readCompletedPhotoBatchAt(args.session?.Comments_Custom_1);
+  const messageTimestampMs = getMetaMessageTimestampMs(args.formData);
+  if (completedAt == null || messageTimestampMs == null) {
+    return { shouldAppend: false, reason: "missing_timestamp_prefers_new_qa_drawing_flow" };
+  }
+
+  if (messageTimestampMs <= completedAt + 1000) {
+    return { shouldAppend: true, reason: "image_sent_before_or_at_qa_completion" };
+  }
+
+  return { shouldAppend: false, reason: "image_sent_after_qa_completion_prefers_new_drawing_flow" };
 }
 
 function isUsefulQaText(text: string) {
@@ -329,8 +370,8 @@ async function getRecentCompletedQaSession(workerId: string) {
       workerId,
       organizationId: ZTC_ORGANIZATION_ID,
       Date_Custom_2: { gte: cutoff },
+      Works: QA_WORK_LABEL,
       Comments_Custom_1: { startsWith: QA_COMPLETED_PHOTO_BATCH_PREFIX },
-      Comments_Custom_2: { contains: "\"type\":\"ztc_quality_check\"" },
     },
     orderBy: { Date_Custom_2: "desc" },
   });
@@ -441,6 +482,14 @@ async function completeQualitySession(args: {
     .filter(Boolean)
     .join("\n");
 
+  const initialMetadata = buildQualityMetadata({
+    payload: args.payload,
+    qualityPhotoUrls,
+    qualityText: polishedQualityText,
+    checkedWork,
+    qualityEvaluation,
+  });
+
   const dbUpdateStartedAt = Date.now();
   const updated = await prisma.ztcRecords.update({
     where: { id: args.session.id },
@@ -454,6 +503,7 @@ async function completeQualitySession(args: {
       TimeInvolved: null,
       Comments: comments,
       Comments_Custom_1: makeCompletedPhotoBatchState(),
+      Comments_Custom_2: JSON.stringify(initialMetadata),
       Photos: [args.payload.drawingPhotoUrl, ...qualityPhotoUrls],
       originalUserComment: `${workerFullName(args.worker)} : ${qualityText}`,
       originalAudioUrl: mergeOriginalAudioUrls(args.payload.originalAudioUrl),
@@ -549,16 +599,44 @@ async function appendPhotosToRecentCompletedQaSession(args: {
   formData: FormData;
   idxs: number[];
   worker: ZtcWorker;
+  caption?: string | null;
 }) {
   const session = await getRecentCompletedQaSession(args.worker.id);
   if (!session) return false;
+
+  const appendDecision = shouldAppendToRecentCompletedQaSession({
+    session,
+    formData: args.formData,
+    caption: args.caption,
+  });
+  if (!appendDecision.shouldAppend) {
+    console.log("[ZTC QA]", {
+      event: "quality_recent_completed_photo_append_skipped_for_new_drawing_check",
+      sitediaryrecordId: session.id,
+      workerId: args.worker.id,
+      requestedPhotoCount: args.idxs.length,
+      reason: appendDecision.reason,
+      messageTimestamp: getString(args.formData, "MessageTimestamp"),
+      caption: args.caption ?? "",
+    });
+    return false;
+  }
 
   const metadata = parseJsonObject<{
     type?: string;
     drawingPhotoUrl?: string;
     qualityPhotoUrls?: string[];
   }>(session.Comments_Custom_2, {});
-  if (metadata.type !== "ztc_quality_check") return false;
+  if (metadata.type !== "ztc_quality_check") {
+    console.warn("[ZTC QA]", {
+      event: "quality_recent_completed_append_suppressed_missing_metadata",
+      sitediaryrecordId: session.id,
+      workerId: args.worker.id,
+      requestedPhotoCount: args.idxs.length,
+      reason: appendDecision.reason,
+    });
+    return true;
+  }
 
   const images = await uploadQualityImages(args.formData, args.idxs, "recent_completed_append");
   const uploadedUrls = images.map((image) => image.publicUrl);
@@ -568,6 +646,7 @@ async function appendPhotosToRecentCompletedQaSession(args: {
       sitediaryrecordId: session.id,
       workerId: args.worker.id,
       requestedPhotoCount: args.idxs.length,
+      reason: appendDecision.reason,
     });
     return true;
   }
@@ -619,6 +698,8 @@ async function appendPhotosToRecentCompletedQaSession(args: {
     sitediaryrecordId: session.id,
     workerId: args.worker.id,
     addedPhotoCount: uploadedUrls.length,
+    reason: appendDecision.reason,
+    messageTimestamp: getString(args.formData, "MessageTimestamp"),
   });
 
   return true;
@@ -831,8 +912,8 @@ export async function handleZtcQualityRoute(args: {
       if (pending) {
         outcome = "quality_photos";
         await handleQualityPhotos({ formData, idxs: imageIndexes, to: from, worker, caption: body });
-      } else if (await appendPhotosToRecentCompletedQaSession({ formData, idxs: imageIndexes, worker })) {
-        // Additional QA photos sent as separate WhatsApp messages were attached silently.
+      } else if (await appendPhotosToRecentCompletedQaSession({ formData, idxs: imageIndexes, worker, caption: body })) {
+        // QA album spillover, or a caption explicitly saying this is an extra QA photo.
         outcome = "appended_recent_completed_qa_photos";
       } else {
         outcome = "quality_drawing_photo";

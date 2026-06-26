@@ -57,6 +57,8 @@ type MembersTableProps = {
   orgId?: string;
   organizationLanguage?: string | null;
   hideReminders?: boolean;
+  hidePhone?: boolean;
+  hideRole?: boolean;
   titleVariant?: "default" | "adminPanel";
 };
 
@@ -67,15 +69,28 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "site manager", label: "Site manager" },
 ];
 
-function getColumns(t: ReturnType<typeof getSettingsUiMessages>, hideReminders: boolean): ColumnDef<Member, any>[] {
+function getColumns(
+  t: ReturnType<typeof getSettingsUiMessages>,
+  hideReminders: boolean,
+  hidePhone: boolean,
+  hideRole: boolean,
+): ColumnDef<Member, any>[] {
   const columns: ColumnDef<Member, any>[] = [
     { accessorKey: "email", header: t.emailColumn },
     { accessorKey: "firstName", header: t.firstNameColumn },
     { accessorKey: "lastName", header: t.lastNameColumn },
-    { accessorKey: "phone", header: t.phoneColumn },
-    { accessorKey: "role", header: t.roleColumn },
     { accessorKey: "status", header: t.statusColumn },
   ];
+  if (!hidePhone) {
+    columns.splice(3, 0, { accessorKey: "phone", header: t.phoneColumn });
+  }
+  if (!hideRole) {
+    const statusIndex = columns.findIndex((column) => column.accessorKey === "status");
+    columns.splice(statusIndex >= 0 ? statusIndex : columns.length, 0, {
+      accessorKey: "role",
+      header: t.roleColumn,
+    });
+  }
   if (!hideReminders) {
     columns.push(
       { accessorKey: "reminderTime", header: t.reminderTimeColumn },
@@ -162,13 +177,18 @@ export function MembersTable({
   orgId,
   organizationLanguage,
   hideReminders = false,
+  hidePhone = false,
+  hideRole = false,
   titleVariant = "default",
 }: MembersTableProps) {
   const router = useRouter();
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSettingsUiMessages(language);
   const toastMessages = getToastMessages(language);
-  const columns = React.useMemo(() => getColumns(t, hideReminders), [t, hideReminders]);
+  const columns = React.useMemo(
+    () => getColumns(t, hideReminders, hidePhone, hideRole),
+    [t, hideReminders, hidePhone, hideRole],
+  );
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [rowSelection, setRowSelection] = React.useState({});
   const [editRowId, setEditRowId] = React.useState<string | null>(null);
@@ -186,8 +206,8 @@ export function MembersTable({
     const raw = {
       firstName: fd.get("firstName")?.toString(),
       lastName: fd.get("lastName")?.toString(),
-      phone: fd.get("phone")?.toString(), // may be "+digits"
-      role: fd.get("role")?.toString() as Role | undefined,
+      phone: hidePhone ? undefined : fd.get("phone")?.toString(), // may be "+digits"
+      role: hideRole ? undefined : fd.get("role")?.toString() as Role | undefined,
       reminderTime: fd.get("reminderTime")?.toString(),
       remindersEnabled: (() => {
         const v = fd.get("remindersEnabled");
@@ -208,8 +228,8 @@ export function MembersTable({
     const patch: Partial<Member> = {
       ...(parsed.firstName !== undefined ? { firstName: parsed.firstName } : {}),
       ...(parsed.lastName  !== undefined ? { lastName:  parsed.lastName }  : {}),
-      ...(parsed.phone     !== undefined ? { phone:     parsed.phone }     : {}),
-      ...(parsed.role      !== undefined ? { role:      parsed.role }       : {}),
+      ...(!hidePhone && parsed.phone !== undefined ? { phone: parsed.phone } : {}),
+      ...(!hideRole && parsed.role !== undefined ? { role: parsed.role } : {}),
       ...(!hideReminders && parsed.reminderTime !== undefined ? { reminderTime: parsed.reminderTime } : {}),
       ...(!hideReminders && parsed.remindersEnabled !== undefined ? { remindersEnabled: parsed.remindersEnabled } : {}),
       ...(!hideReminders && parsed.reminderText !== undefined ? { reminderText: parsed.reminderText } : {}),
@@ -255,9 +275,8 @@ export function MembersTable({
       [rowData.id]: {
         firstName: rowData.firstName ?? "",
         lastName:  rowData.lastName  ?? "",
-        // store only digits in draft state
-        phone: sanitizePhoneDigits(rowData.phone ?? ""),
-        role:  rowData.role ?? null,
+        ...(!hidePhone ? { phone: sanitizePhoneDigits(rowData.phone ?? "") } : {}),
+        ...(!hideRole ? { role: rowData.role ?? null } : {}),
         ...(!hideReminders
           ? {
               reminderTime: toHHmm(rowData.reminderTime),
@@ -393,14 +412,14 @@ export function MembersTable({
             if (patch.firstName != null) fd.set("firstName", String(patch.firstName).trim().slice(0, 15));
             if (patch.lastName  != null) fd.set("lastName",  String(patch.lastName).trim().slice(0, 15));
 
-            if (patch.phone != null) {
+            if (!hidePhone && patch.phone != null) {
               // draft keeps digits only; display uses '+'
               const digits = sanitizePhoneDigits(String(patch.phone));
               // for UI we show +; for DB we save without '+'
               fd.set("phone", digits); // <-- save without '+'
             }
 
-            if (patch.role != null) fd.set("role", String(patch.role));
+            if (!hideRole && patch.role != null) fd.set("role", String(patch.role));
 
             if (!hideReminders && patch.reminderTime != null && patch.reminderTime !== "") {
               fd.set("reminderTime", new Date(`1970-01-01T${patch.reminderTime}:00.000Z`).toISOString());

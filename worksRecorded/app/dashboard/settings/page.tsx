@@ -49,6 +49,8 @@ export default async function SettingsSiteRoute() {
         orgId={orgId}
         organizationLanguage={currentLanguage}
         hideReminders={isZtcOrganization}
+        hidePhone={isZtcOrganization}
+        hideRole={isZtcOrganization}
         titleVariant={isZtcOrganization ? "adminPanel" : "default"}
       />
       <WorkersSettingsTable

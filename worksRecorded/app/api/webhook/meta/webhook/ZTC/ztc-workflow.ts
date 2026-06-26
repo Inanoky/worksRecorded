@@ -39,6 +39,7 @@ const PHOTO_BATCH_CONFIRM_PREFIX = "__ZTC_PHOTO_BATCH_CONFIRM__";
 const DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX =
   "__ZTC_DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK__";
 const PHOTO_BATCH_CONFIRM_WINDOW_MS = 45_000;
+const TL_WORK_PHOTO_BATCH_GRACE_MS = 30_000;
 const ZTC_MEDIA_TIMEOUT_MS = 30_000;
 const ZTC_UPLOAD_TIMEOUT_MS = 30_000;
 const ZTC_VISION_TIMEOUT_MS = 120_000;
@@ -151,6 +152,8 @@ type ZtcDrawingMetadata = {
 type ZtcDiagonalPayload = {
   completedText: string;
   additionalDetails?: WorkExtraction["additionalDetails"];
+  workPhotoBatchPromptedAt?: number;
+  workPhotoBatchGraceUntil?: number;
   firstPhotoUrl?: string;
   firstMeasureMm?: number;
   secondPhotoUrl?: string;
@@ -1069,6 +1072,32 @@ function readDiagonalPhotoMeasurePayload(
   });
 }
 
+function getMetaMessageTimestampMs(formData: FormData) {
+  const raw = getString(formData, "MessageTimestamp");
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+}
+
+function isTlWorkPhotoBatchGraceActive(
+  session: Pick<OpenZtcSession, "Comments_Custom_1">,
+  formData: FormData,
+) {
+  const state = session.Comments_Custom_1;
+  if (!state?.startsWith(DIAGONAL_FIRST_PHOTO_PENDING_PREFIX)) return false;
+
+  const payload = readDiagonalPhotoMeasurePayload(state, DIAGONAL_FIRST_PHOTO_PENDING_PREFIX);
+  const graceUntil = Number(payload.workPhotoBatchGraceUntil ?? 0);
+  if (!Number.isFinite(graceUntil) || graceUntil <= Date.now()) return false;
+
+  const promptedAt = Number(payload.workPhotoBatchPromptedAt ?? 0);
+  const messageTimestampMs = getMetaMessageTimestampMs(formData);
+  if (!Number.isFinite(promptedAt) || promptedAt <= 0 || messageTimestampMs == null) {
+    return false;
+  }
+
+  return messageTimestampMs <= promptedAt + 1000;
+}
+
 function buildDiagonalPhotoMeasureComment(args: {
   session: OpenZtcSession;
   payload: ZtcDiagonalPayload;
@@ -1760,10 +1789,11 @@ async function createAdditionalDetailRows(args: {
   const now = new Date();
   const rows = await Promise.all(
     details.map(async (detail) => {
-      const defaultRate = await getDefaultRateForWork(detail.description, {
+      const defaultRateMatch = await getDefaultRateMatchForWork(detail.description, {
         projectName: args.session.Location,
         category: "additionalDetails",
       });
+      const mappedDescription = defaultRateMatch?.task?.trim() || detail.description;
 
       return {
         workerId: args.session.workerId,
@@ -1775,10 +1805,10 @@ async function createAdditionalDetailRows(args: {
         Location: args.session.Location,
         Location_Custom_1: args.session.Location_Custom_1,
         Works_Custom_1: "Papilddetāļas",
-        Works: detail.description,
-        Location_Custom_2: defaultRate,
+        Works: mappedDescription,
+        Location_Custom_2: defaultRateMatch?.rate ?? null,
         Works_Custom_2: args.session.Works_Custom_2 ?? null,
-        Units: "gab",
+        Units: defaultRateMatch?.unit ?? "gab",
         Amounts: positiveNumberOrNull(detail.quantity) ?? 1,
         TimeInvolved: 0,
         Comments: args.completedText?.trim()
@@ -1790,6 +1820,8 @@ async function createAdditionalDetailRows(args: {
           projectName: args.session.Location,
           elementName: args.session.Location_Custom_1,
           mainWork: args.session.Works,
+          extractedWork: detail.description,
+          matchedRateTask: defaultRateMatch?.task ?? null,
         }),
         originalUserComment: args.completedText?.trim() ?? null,
         Photos: [],
@@ -1896,6 +1928,7 @@ async function askForTlDiagonals(args: {
   originalAudioUrl?: string | null;
 }) {
   const completedText = args.completedText?.trim() || "";
+  const promptedAt = Date.now();
 
   const updated = await prisma.ztcRecords.update({
     where: { id: args.session.id },
@@ -1903,6 +1936,8 @@ async function askForTlDiagonals(args: {
       Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify({
         completedText,
         additionalDetails: args.completedWork?.additionalDetails ?? [],
+        workPhotoBatchPromptedAt: promptedAt,
+        workPhotoBatchGraceUntil: promptedAt + TL_WORK_PHOTO_BATCH_GRACE_MS,
       })}`,
       Units: "m2",
       Amounts: args.session.Amounts ?? undefined,
@@ -1912,7 +1947,7 @@ async function askForTlDiagonals(args: {
 
   logZtcSession("tl_diagonal_flow_started", {
     session: updated,
-    details: { completedText },
+    details: { completedText, workPhotoBatchPromptedAt: promptedAt },
   });
 
   await sendZtcMessage(
@@ -2175,12 +2210,28 @@ async function handleTlDiagonalPhoto(args: {
   const state = args.session.Comments_Custom_1;
 
   if (state?.startsWith(DIAGONAL_FIRST_MEASURE_PENDING_PREFIX)) {
-    await sendZtcMessage(args.to, "Pirmās diagonāles foto jau ir saņemts. Lūdzu, atsūtiet balss ziņu ar pirmās diagonāles mērījumu milimetros.");
+    logZtcSession("tl_diagonal_extra_photo_suppressed_waiting_for_first_measure", {
+      session: args.session,
+      worker: args.worker,
+      details: {
+        messageId: getString(args.formData, "MessageId"),
+        messageTimestamp: getString(args.formData, "MessageTimestamp"),
+        mediaIndex: args.idx,
+      },
+    });
     return;
   }
 
   if (state?.startsWith(DIAGONAL_SECOND_MEASURE_PENDING_PREFIX)) {
-    await sendZtcMessage(args.to, "Otrās diagonāles foto jau ir saņemts. Lūdzu, atsūtiet balss ziņu ar otrās diagonāles mērījumu milimetros.");
+    logZtcSession("tl_diagonal_extra_photo_suppressed_waiting_for_second_measure", {
+      session: args.session,
+      worker: args.worker,
+      details: {
+        messageId: getString(args.formData, "MessageId"),
+        messageTimestamp: getString(args.formData, "MessageTimestamp"),
+        mediaIndex: args.idx,
+      },
+    });
     return;
   }
 
@@ -2280,23 +2331,71 @@ async function saveCompletedWorkPhoto(args: {
   });
 }
 
+function shouldAutoAppendToRecentCompletedSession(args: {
+  session: OpenZtcSession;
+  formData: FormData;
+  imageCount: number;
+  caption?: string | null;
+}) {
+  if (args.imageCount > 1) {
+    return { shouldAppend: true, reason: "multiple_images_same_message" };
+  }
+
+  const normalizedCaption = String(args.caption ?? "").trim().toLowerCase();
+  if (
+    /\b(papildu|vel|v[eē]l|extra|additional|late)\b/i.test(normalizedCaption) &&
+    /\b(foto|photo|bild|att[eē]l)\w*\b/i.test(normalizedCaption)
+  ) {
+    return { shouldAppend: true, reason: "caption_requests_extra_photo_append" };
+  }
+
+  const completedAt = readPhotoBatchConfirmAt(args.session.Comments_Custom_1);
+  const messageTimestampMs = getMetaMessageTimestampMs(args.formData);
+  if (completedAt != null && messageTimestampMs != null && messageTimestampMs <= completedAt + 1000) {
+    return { shouldAppend: true, reason: "image_sent_before_or_at_completion" };
+  }
+
+  return { shouldAppend: false, reason: "single_image_prefers_new_drawing_flow" };
+}
+
 async function appendPhotosToRecentCompletedSession(args: {
   formData: FormData;
   idxs: number[];
   worker: ZtcWorker;
+  caption?: string | null;
 }) {
   const session = await getRecentCompletedPhotoBatchSession(args.worker.id);
   if (!session) return false;
 
-  await sendZtcMessage(getString(args.formData, "From"), "Foto saņemts, lūdzu uzgaidiet...");
+  const appendDecision = shouldAutoAppendToRecentCompletedSession({
+    session,
+    formData: args.formData,
+    imageCount: args.idxs.length,
+    caption: args.caption,
+  });
+  if (!appendDecision.shouldAppend) {
+    logZtcSession("recent_completed_work_photo_append_skipped_for_new_drawing_check", {
+      session,
+      worker: args.worker,
+      details: {
+        reason: appendDecision.reason,
+        requestedPhotoCount: args.idxs.length,
+        caption: args.caption ?? "",
+        messageTimestamp: getString(args.formData, "MessageTimestamp"),
+      },
+    });
+    return false;
+  }
+
+  await sendZtcMessage(getString(args.formData, "From"), "Foto saņemts, pievienoju iepriekš pabeigtajam darbam...");
 
   const images = await uploadZtcImages(args.formData, args.idxs, "recent_completed_append");
   const uploadedUrls = images.map((image) => image.publicUrl);
   if (uploadedUrls.length === 0) {
-    logZtcSession("completed_work_late_photos_append_skipped", {
+    logZtcSession("recent_completed_work_photo_append_upload_skipped", {
       session,
       worker: args.worker,
-      details: { requestedPhotoCount: args.idxs.length },
+      details: { requestedPhotoCount: args.idxs.length, reason: appendDecision.reason },
     });
     return true;
   }
@@ -2321,10 +2420,62 @@ async function appendPhotosToRecentCompletedSession(args: {
     ),
   );
 
-  logZtcSession("completed_work_late_photos_appended", {
+  logZtcSession("recent_completed_work_photos_appended", {
     session: updated,
     worker: args.worker,
-    details: { addedPhotoCount: uploadedUrls.length, photoUrls: uploadedUrls },
+    details: {
+      addedPhotoCount: uploadedUrls.length,
+      photoUrls: uploadedUrls,
+      reason: appendDecision.reason,
+    },
+  });
+
+  return true;
+}
+
+async function appendTlWorkPhotosDuringDiagonalGrace(args: {
+  formData: FormData;
+  idxs: number[];
+  worker: ZtcWorker;
+  session: OpenZtcSession;
+}) {
+  if (!isTlWorkPhotoBatchGraceActive(args.session, args.formData)) return false;
+
+  const images = await uploadZtcImages(args.formData, args.idxs, "tl_completion_album_late_photos");
+  const uploadedUrls = images.map((image) => image.publicUrl);
+  if (uploadedUrls.length === 0) {
+    logZtcSession("tl_completion_album_late_photos_append_skipped", {
+      session: args.session,
+      worker: args.worker,
+      details: { requestedPhotoCount: args.idxs.length },
+    });
+    return true;
+  }
+
+  const nextPhotos = [...(args.session.Photos ?? []), ...uploadedUrls];
+  const updated = await prisma.ztcRecords.update({
+    where: { id: args.session.id },
+    data: { Photos: nextPhotos },
+  });
+
+  await Promise.all(
+    uploadedUrls.map((publicUrl) =>
+      saveCompletedWorkPhoto({
+        worker: args.worker,
+        publicUrl,
+        session: args.session,
+      }),
+    ),
+  );
+
+  logZtcSession("tl_completion_album_late_photos_appended_as_work_photos", {
+    session: updated,
+    worker: args.worker,
+    details: {
+      addedPhotoCount: uploadedUrls.length,
+      photoUrls: uploadedUrls,
+      messageTimestamp: getString(args.formData, "MessageTimestamp"),
+    },
   });
 
   return true;
@@ -2794,11 +2945,26 @@ async function handleFinishedPhoto(args: {
   }
 
   if (isDiagonalPhotoMeasureFlow(session.Comments_Custom_1)) {
+    if (
+      await appendTlWorkPhotosDuringDiagonalGrace({
+        formData,
+        idxs,
+        worker,
+        session,
+      })
+    ) {
+      return;
+    }
+
     await handleTlDiagonalPhoto({ formData, idx: firstIdx, to, worker, session });
     return;
   }
 
-  await sendZtcMessage(to, "Foto saņemts, lūdzu uzgaidiet...");
+  const alreadyConfirmedPhotoBatch = isRecentPhotoBatchConfirmation(session.Comments_Custom_1);
+  const alreadyAcknowledgedByBatchCollector = Number(getString(formData, "MetaBatchSize") || "0") > 0;
+  if (!alreadyConfirmedPhotoBatch && !alreadyAcknowledgedByBatchCollector) {
+    await sendZtcMessage(to, "Foto saņemts, lūdzu uzgaidiet...");
+  }
 
   const images = await uploadZtcImages(formData, idxs, "completed_work_photos");
   const uploadedUrls = images.map((image) => image.publicUrl);
@@ -2808,7 +2974,6 @@ async function handleFinishedPhoto(args: {
   }
 
   const nextPhotos = [...(session.Photos ?? []), ...uploadedUrls];
-  const alreadyConfirmedPhotoBatch = isRecentPhotoBatchConfirmation(session.Comments_Custom_1);
   const shouldPreservePendingState =
     session.Comments_Custom_1?.startsWith(FINISH_PENDING_PREFIX) ||
     isDiagonalPhotoMeasureFlow(session.Comments_Custom_1);
@@ -2926,8 +3091,8 @@ export async function handleZtcWorkerRoute(args: {
       if (openSession?.Works) {
         outcome = "finished_photo";
         await handleFinishedPhoto({ formData, idxs: imageIndexes, to: from, worker, caption: body });
-      } else if (await appendPhotosToRecentCompletedSession({ formData, idxs: imageIndexes, worker })) {
-        // The worker sent multiple completion photos as separate WhatsApp messages.
+      } else if (await appendPhotosToRecentCompletedSession({ formData, idxs: imageIndexes, worker, caption: body })) {
+        // Multi-image completion upload, or a caption explicitly saying this is an extra photo.
         outcome = "appended_recent_completed_photos";
       } else {
         outcome = "drawing_photo";

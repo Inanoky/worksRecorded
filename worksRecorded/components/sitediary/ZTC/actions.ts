@@ -444,6 +444,11 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
         })
       : row.Units ||
         (category === "additionalDetails" ? "gab" : "m2");
+  const works =
+    (category === "additionalWorks" || category === "additionalDetails") &&
+    defaultRate?.task?.trim()
+      ? defaultRate.task.trim()
+      : row.Works || null;
 
   return {
     Date: normalizeDate(row.Date) ?? null,
@@ -452,7 +457,7 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     Location: row.Location || null,
     Location_Custom_1: row.Location_Custom_1 || null,
     Location_Custom_2: row.Location_Custom_2 || defaultRate?.rate || null,
-    Works: row.Works || null,
+    Works: works,
     Works_Custom_1: row.Works_Custom_1 || null,
     Works_Custom_2: row.Works_Custom_2 || null,
     Comments: row.Comments || null,
@@ -564,7 +569,7 @@ async function loadZtcSiteDiaryRecords(args: { date: string }) {
         { Date_Custom_1: { gte: start, lte: end } },
       ],
     },
-    orderBy: [{ Date: "asc" }, { Date_Custom_1: "asc" }, { createdAt: "asc" }],
+    orderBy: [{ Date: "desc" }, { Date_Custom_1: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
       Date: true,
