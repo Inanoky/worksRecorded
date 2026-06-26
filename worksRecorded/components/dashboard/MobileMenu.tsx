@@ -16,15 +16,17 @@ const ZTC_HIDDEN_PROJECT_NAV_PATHS = new Set(["timesheets", "BIS"]);
 export function MobileMenu({
   organizationLanguage,
   canAccessAiContext = false,
+  canAccessAiEvals = false,
 }: {
   organizationLanguage?: string | null;
   canAccessAiContext?: boolean;
+  canAccessAiEvals?: boolean;
 }) {
   const { projectId, projectName } = useProject();
   const pathname = usePathname();
   const navLinks = useMemo(
-    () => getNavLinks(organizationLanguage, { canAccessAiContext }),
-    [canAccessAiContext, organizationLanguage],
+    () => getNavLinks(organizationLanguage, { canAccessAiEvals }),
+    [canAccessAiEvals, organizationLanguage],
   );
   const projectNavLinks = useMemo(
     () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),

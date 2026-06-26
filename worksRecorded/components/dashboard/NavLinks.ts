@@ -1,7 +1,7 @@
 import { Bot, ChartNoAxesCombined, HardHat, Wrench, ReceiptText, Clock8, Package } from "lucide-react";
 import { getNavigationMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
-export function getNavLinks(language?: string | null, options?: { canAccessAiContext?: boolean }) {
+export function getNavLinks(language?: string | null, options?: { canAccessAiEvals?: boolean }) {
   const t = getNavigationMessages(normalizeOrganizationLanguage(language));
 
   const links = [
@@ -9,7 +9,7 @@ export function getNavLinks(language?: string | null, options?: { canAccessAiCon
     { name: t.organizationSettings, href: "/dashboard/settings", icon: Wrench },
   ];
 
-  if (options?.canAccessAiContext) {
+  if (options?.canAccessAiEvals) {
     links.push({ name: "AI Evals", href: "/dev/ai-evals", icon: ChartNoAxesCombined });
   }
 
