@@ -1,5 +1,5 @@
 "use server"
-import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
+import {Annotation, END, START, StateGraph, messagesStateReducer} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
@@ -7,7 +7,6 @@ import { systemPromptFunction} from "@/server/ai-flows/agents/whatsapp-agent/Sit
 import {toolNode, tools} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
 import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSiteManagerRouteModelModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
-import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 import { injectSiteManagerToolCallContext } from "@/server/ai-flows/agents/whatsapp-agent/toolCallContext";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import {
@@ -15,6 +14,11 @@ import {
     getSiteManagerThreadId,
     summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import {
+    buildControlledMemoryMessagesUpdate,
+    getControlledMemoryMetadata,
+    prepareControlledModelMessages,
+} from "@/server/ai-flows/controlled-memory";
 import {
     getSiteManagerAgentRunContext,
     runWithSiteManagerAgentEvalContext,
@@ -91,7 +95,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
 
     const state = Annotation.Root({
         messages: Annotation<BaseMessage[]>({
-            reducer: (x, y) => x.concat(y),
+            reducer: messagesStateReducer,
             default: () => [],
         }),
     });
@@ -124,13 +128,14 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
 
     const agent = async (state) => {
         const { messages } = state;
-        const sanitized = sanitizeCheckpointHistory(messages);
-        const safeMessages = sanitized.messages;
-        if (safeMessages.length !== messages.length) {
-            console.warn("site-manager agent - sanitized checkpoint history before model call", {
-                before: messages.length,
-                after: safeMessages.length,
-                ...sanitized.stats,
+        const controlled = prepareControlledModelMessages(messages);
+        const safeMessages = controlled.messages;
+        if (
+            controlled.stats.compactedCount > 0 ||
+            controlled.stats.preparedCount !== controlled.stats.originalCount
+        ) {
+            console.warn("site-manager agent - controlled checkpoint history before model call", {
+                ...controlled.stats,
             });
         }
 
@@ -144,10 +149,14 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
             const response = await llm.invoke(safeMessages, {
                 ...aiContext.runnableConfig,
                 runName: "WhatsAppSiteManagerModel",
+                metadata: {
+                    ...aiContext.runnableConfig.metadata,
+                    ...getControlledMemoryMetadata(controlled.stats),
+                },
             });
 
             return {
-                messages: [response]
+                messages: buildControlledMemoryMessagesUpdate(safeMessages, response)
             };
         } catch (error) {
             console.error("site-manager agent - model invocation failed", error);

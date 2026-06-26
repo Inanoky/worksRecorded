@@ -1,7 +1,7 @@
 "use server"
 
 //C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\componentsFrontend\AI\BuvconsultAgent\InvoicesAgent\InvoicesAgent.tsx
-import {Annotation, END, START, StateGraph, } from "@langchain/langgraph";
+import {Annotation, END, START, StateGraph, messagesStateReducer, } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 
 import {BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
@@ -14,6 +14,11 @@ import {
     getTimesheetsAgentThreadId,
     summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import {
+    buildControlledMemoryMessagesUpdate,
+    getControlledMemoryMetadata,
+    prepareControlledModelMessages,
+} from "@/server/ai-flows/controlled-memory";
 
 
 
@@ -35,7 +40,7 @@ const aiContext = buildAiRunContext({
 
 const state = Annotation.Root({
     messages: Annotation<BaseMessage[]>({
-    reducer: (x, y) => x.concat(y),
+    reducer: messagesStateReducer,
     default: () => [], }),
     });
 
@@ -50,6 +55,8 @@ const state = Annotation.Root({
 const agentNode = async (state) => {
 
     const { messages } = state;
+    const controlled = prepareControlledModelMessages(messages);
+    const safeMessages = controlled.messages;
 
     const llm = new ChatOpenAI({
        
@@ -57,15 +64,18 @@ const agentNode = async (state) => {
     }).bindTools(tools);
     ;
 
-
-    const response = await llm.invoke(messages, {
+    const response = await llm.invoke(safeMessages, {
         ...aiContext.runnableConfig,
         runName: "TimesheetsAgentModel",
+        metadata: {
+            ...aiContext.runnableConfig.metadata,
+            ...getControlledMemoryMetadata(controlled.stats),
+        },
     });
 
 
         return {
-        messages: [response]
+        messages: buildControlledMemoryMessagesUpdate(safeMessages, response)
          };
 };
 

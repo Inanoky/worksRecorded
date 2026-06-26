@@ -1,5 +1,6 @@
 import { ExternalLink, Search, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import { ResetCheckpointButton } from "@/components/ai-context/ResetCheckpointButton";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Table,
   TableBody,
   TableCell,
@@ -19,7 +25,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAiContextDiagnostics } from "@/server/actions/ai-context-actions";
+import {
+  getAiContextDiagnostics,
+  getDashboardAiContextInspection,
+} from "@/server/actions/ai-context-actions";
 
 function formatDate(value: string | null) {
   if (!value) return "No checkpoint";
@@ -40,6 +49,44 @@ function stringifyMetadata(value: unknown) {
   }
 }
 
+function getToolModeBadgeVariant(toolMode: string) {
+  if (toolMode === "read-only") return "secondary";
+  if (toolMode === "structured-save") return "outline";
+  return "default";
+}
+
+function getFlagBadgeVariant(severity: string) {
+  if (severity === "critical") return "destructive";
+  if (severity === "warning") return "outline";
+  return "secondary";
+}
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en-GB").format(value);
+}
+
+function PolicyDetailsPopover({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs">
+          Details
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 space-y-3 text-sm">
+        <div className="font-medium">{title}</div>
+        {children}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default async function AiContextPage({
   params,
 }: {
@@ -47,6 +94,10 @@ export default async function AiContextPage({
 }) {
   const { siteId } = await params;
   const diagnostics = await getAiContextDiagnostics(siteId);
+  const dashboardThread = diagnostics.threads.find((thread) => thread.flowName === "dashboard-chat");
+  const dashboardInspection = dashboardThread
+    ? await getDashboardAiContextInspection(siteId, dashboardThread.id)
+    : null;
   const flowTags = [
     "flow:dashboard-chat",
     "flow:whatsapp-site-manager",
@@ -129,6 +180,150 @@ export default async function AiContextPage({
         </Card>
       </div>
 
+      {dashboardInspection ? (
+        <Card className="rounded-lg">
+          <CardHeader>
+            <CardTitle>Dashboard Context Inspector</CardTitle>
+            <CardDescription>
+              Read-only view of the context stack for the dashboard agent before any compaction.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid gap-3 md:grid-cols-4">
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Thread</div>
+                <code className="mt-1 block truncate text-xs">{dashboardInspection.threadId}</code>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Estimated tokens</div>
+                <div className="mt-1 text-lg font-semibold">
+                  {formatCompactNumber(dashboardInspection.totals.estimatedTokens)}
+                </div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Stored checkpoints</div>
+                <div className="mt-1 text-lg font-semibold">{dashboardInspection.checkpointCount}</div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Latest memory</div>
+                <div className="mt-1 text-sm">
+                  {dashboardInspection.latestCheckpointAgeDays === null
+                    ? "No checkpoint"
+                    : `${dashboardInspection.latestCheckpointAgeDays} day(s) old`}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-4">
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Controlled memory savings</div>
+                <div className="mt-1 text-lg font-semibold">
+                  ~{formatCompactNumber(dashboardInspection.controlledMemory.tokensSaved)} tokens
+                </div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Compacted tool outputs</div>
+                <div className="mt-1 text-lg font-semibold">
+                  {dashboardInspection.controlledMemory.compactedCount}
+                </div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Largest stored tool payload</div>
+                <div className="mt-1 text-lg font-semibold">
+                  {formatCompactNumber(dashboardInspection.controlledMemory.storedLargestToolMessageChars)}
+                </div>
+              </div>
+              <div className="rounded-md border p-3">
+                <div className="text-xs text-muted-foreground">Stored raw payload status</div>
+                <div className="mt-1 text-sm">
+                  {dashboardInspection.controlledMemory.hasLargeRawStoredToolPayload
+                    ? "Large payload remains"
+                    : "No large payload detected"}
+                </div>
+              </div>
+            </div>
+
+            {dashboardInspection.controlledMemory.compactedTools.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {dashboardInspection.controlledMemory.compactedTools.map((tool) => (
+                  <Badge key={tool} variant="outline">
+                    {tool}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap gap-2">
+              <Badge variant={getToolModeBadgeVariant(dashboardInspection.policy.toolMode)}>
+                {dashboardInspection.policy.toolModeLabel}
+              </Badge>
+              <Badge variant="outline">Scope: {dashboardInspection.policy.memoryScopeLabel}</Badge>
+              <Badge variant="outline">Risk: {dashboardInspection.policy.mutationRisk}</Badge>
+            </div>
+
+            {dashboardInspection.flags.length > 0 ? (
+              <div className="space-y-2">
+                {dashboardInspection.flags.map((flag) => (
+                  <div key={flag.id} className="flex flex-col gap-1 rounded-md border p-3 text-sm md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="font-medium">{flag.label}</div>
+                      <div className="text-muted-foreground">{flag.detail}</div>
+                    </div>
+                    <Badge variant={getFlagBadgeVariant(flag.severity)}>{flag.severity}</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border p-3 text-sm text-muted-foreground">
+                No obvious context garbage flags from the current checkpoint metrics.
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="text-sm font-medium">Context Stack</div>
+              {dashboardInspection.layers.map((layer) => {
+                const weight =
+                  dashboardInspection.totals.chars > 0
+                    ? Math.max(4, Math.round((layer.chars / dashboardInspection.totals.chars) * 100))
+                    : 0;
+
+                return (
+                  <div key={layer.id} className="rounded-md border p-3">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">{layer.label}</span>
+                          <Badge variant="secondary">{layer.kind}</Badge>
+                          {typeof layer.count === "number" ? (
+                            <Badge variant="outline">Count: {layer.count}</Badge>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 text-sm text-muted-foreground">{layer.description}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">Source: {layer.source}</div>
+                      </div>
+                      <div className="shrink-0 text-left text-sm md:text-right">
+                        <div>{formatCompactNumber(layer.chars)} chars</div>
+                        <div className="text-muted-foreground">
+                          ~{formatCompactNumber(layer.estimatedTokens)} tokens
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-foreground/70" style={{ width: `${weight}%` }} />
+                    </div>
+                    {layer.preview ? (
+                      <div className="mt-2 rounded-md bg-muted p-2 text-xs text-muted-foreground">
+                        {layer.preview}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Checkpoint Threads</CardTitle>
@@ -143,6 +338,7 @@ export default async function AiContextPage({
                 <TableHead>Context</TableHead>
                 <TableHead>Flow</TableHead>
                 <TableHead>Thread ID</TableHead>
+                <TableHead>Memory</TableHead>
                 <TableHead className="text-right">Checkpoints</TableHead>
                 <TableHead className="text-right">Writes</TableHead>
                 <TableHead className="text-right">Blobs</TableHead>
@@ -155,11 +351,64 @@ export default async function AiContextPage({
                 <TableRow key={thread.id}>
                   <TableCell>
                     <div className="font-medium">{thread.label}</div>
-                    <div className="text-xs text-muted-foreground">{thread.owner}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">{thread.owner}</Badge>
+                      {thread.contextPolicy.notes ? (
+                        <PolicyDetailsPopover title={`${thread.label} memory note`}>
+                          <p className="text-muted-foreground">{thread.contextPolicy.notes}</p>
+                        </PolicyDetailsPopover>
+                      ) : null}
+                    </div>
                   </TableCell>
-                  <TableCell>{thread.flow}</TableCell>
+                  <TableCell>
+                    <div>{thread.flow}</div>
+                    <code className="text-xs text-muted-foreground">{thread.flowName}</code>
+                    <div className="mt-2">
+                      <Badge variant={getToolModeBadgeVariant(thread.contextPolicy.toolMode)}>
+                        {thread.contextPolicy.toolModeLabel}
+                      </Badge>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <code className="block max-w-[280px] truncate text-xs">{thread.id}</code>
+                    <PolicyDetailsPopover title="Thread ID pattern">
+                      <div className="space-y-2">
+                        <p className="text-muted-foreground">
+                          This is the LangGraph checkpoint key used for short-term memory.
+                        </p>
+                        <code className="block rounded-md bg-muted p-2 text-xs">
+                          {thread.contextPolicy.threadIdPattern}
+                        </code>
+                      </div>
+                    </PolicyDetailsPopover>
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-[180px] text-sm">{thread.contextPolicy.memoryScopeLabel}</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Badge variant="outline">{thread.contextPolicy.memoryScope}</Badge>
+                      <PolicyDetailsPopover title={`${thread.label} context sources`}>
+                        <div className="space-y-3">
+                          <div>
+                            <div className="text-xs font-medium uppercase text-muted-foreground">
+                              Context sources
+                            </div>
+                            <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+                              {thread.contextPolicy.contextSources.map((source) => (
+                                <li key={source}>{source}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <div className="text-xs font-medium uppercase text-muted-foreground">
+                              Reset meaning
+                            </div>
+                            <p className="mt-1 text-muted-foreground">
+                              {thread.contextPolicy.resetExplanation}
+                            </p>
+                          </div>
+                        </div>
+                      </PolicyDetailsPopover>
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">{thread.checkpointCount}</TableCell>
                   <TableCell className="text-right">{thread.writeCount}</TableCell>

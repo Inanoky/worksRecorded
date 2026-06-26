@@ -1,0 +1,8 @@
+{
+  "node_version": "20",
+  "dependencies": ["."],
+  "env": ".env",
+  "graphs": {
+    "dashboardAgent": "./src/graph.ts:dashboardAgent"
+  }
+}

@@ -104,4 +104,48 @@ export const dashboardEvalCases: DashboardEvalCase[] = DashboardEvalSuiteSchema.
       },
     ],
   },
+  {
+    id: "dashboard-history-compaction-query",
+    intent: "Verify the agent can still answer and reference broad site summary across turns even with history compaction.",
+    turns: [
+      {
+        prompt:
+          "Izskati pēdējos objekta dienasgrāmatas ierakstus šim projektam un sniedz īsu kopsavilkumu par to, kas ir darīts. Neko nesaglabā.",
+        requiredAny: ["dienasgr", "kopsav", "darīt", "veikt", "nav ierakstu", "ierakst"],
+        forbidden: ["saved successfully", "saglabāts veiksmīgi"],
+        expectedLanguage: "lv",
+        minChars: 30,
+      },
+      {
+        prompt:
+          "Kādu pēdējo dienasgrāmatas darbību tu tikko apkopoji iepriekšējā ziņā? Atbildi vienā teikumā.",
+        requiredAny: ["darb", "veikt", "kopsav", "ierakst", "nav"],
+        forbidden: ["saved successfully", "saglabāts veiksmīgi"],
+        expectedLanguage: "lv",
+        minChars: 20,
+      },
+    ],
+  },
+  {
+    id: "controlled-memory-long-history",
+    intent: "Verify repeated read-only tool use keeps follow-up context while controlled memory can compact old tool outputs.",
+    turns: [
+      {
+        prompt:
+          "Tikai lasīšanas režīma pārbaude: apskati pēdējos objekta dienasgrāmatas ierakstus un nosauc divas galvenās darbu kategorijas, ja tās redzamas. Neko nesaglabā.",
+        requiredAny: ["dienasgr", "darbu", "kategor", "apdare", "finishing", "beton", "nav"],
+        forbidden: ["saved successfully", "saglabāts veiksmīgi"],
+        expectedLanguage: "lv",
+        minChars: 30,
+      },
+      {
+        prompt:
+          "Atkārto īsi, kādas divas darbu kategorijas tu tikko minēji. Neizmanto saglabāšanu.",
+        requiredAny: ["kategor", "apdare", "finishing", "beton", "minēju", "nav"],
+        forbidden: ["saved successfully", "saglabāts veiksmīgi"],
+        expectedLanguage: "lv",
+        minChars: 20,
+      },
+    ],
+  },
 ]);

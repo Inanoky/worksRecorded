@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { GraphState } from "@/server/ai-flows/agents/shared-between-agents/state";
 import { nukeBackslashes, SQLexecute } from "@/server/ai-flows/agents/sitediary-agent/helpers";
+import { summarizeSqlRowsForTool } from "@/server/ai-flows/controlled-memory";
 
 export const postreSQL_bis_material_records_database_query_tool = new DynamicStructuredTool({
   name: "postreSQL_bis_material_records_database_query_tool",
@@ -18,9 +19,10 @@ export const postreSQL_bis_material_records_database_query_tool = new DynamicStr
     console.log("Tool input:", clearedSQL_query);
 
     const { result: rows } = await SQLexecute(clearedSQL_query);
-    const safe = JSON.stringify(rows, (_, v) => (typeof v === "bigint" ? v.toString() : v));
-
-    return safe;
+    return summarizeSqlRowsForTool(
+      rows,
+      "postreSQL_bis_material_records_database_query_tool",
+    );
   },
 });
 

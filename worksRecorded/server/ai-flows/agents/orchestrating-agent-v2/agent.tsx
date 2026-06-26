@@ -1,6 +1,6 @@
 "use server"
 
-import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
+import { Annotation, END, START, StateGraph, messagesStateReducer } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
@@ -12,19 +12,24 @@ import {
 } from "@/server/ai-flows/agents/orchestrating-agent-v2/tools";
 import { systemPrompt } from "@/server/ai-flows/agents/orchestrating-agent-v2/prompts";
 import { orchestratingAgentV2ModelModel } from "@/server/ai-flows/ai-models-settings";
+import { prepareDashboardModelMessages } from "./messageHistory";
 import { requireUser } from "@/lib/utils/requireUser";
 import {
   buildAiRunContext,
   getOrchestratingThreadId,
   summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import {
+  buildControlledMemoryMessagesUpdate,
+  getControlledMemoryMetadata,
+} from "@/server/ai-flows/controlled-memory";
 
 const DEBUG_AGENT = process.env.NODE_ENV !== "production";
 const MAX_GRAPH_RECURSION = 8;
 
 const state = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
-    reducer: (x, y) => x.concat(y),
+    reducer: messagesStateReducer,
     default: () => [],
   }),
 });
@@ -51,17 +56,37 @@ export type OrchestratingAgentRunDetails = {
 };
 
 function createAgentNode(agentTools, model = orchestratingAgentV2ModelModel) {
-  return async (currentState) => {
+  return async (currentState, config?: any) => {
     const { messages } = currentState;
+
+    const { messages: preparedMessages, stats } = prepareDashboardModelMessages(messages);
+
+    if (stats.compactedCount > 0) {
+      console.warn("dashboard agent - compacted tool messages in history before model call", {
+        originalCount: stats.originalCount,
+        preparedCount: stats.preparedCount,
+        compactedCount: stats.compactedCount,
+        charsBefore: stats.beforeChars,
+        charsAfter: stats.afterChars,
+      });
+    }
 
     const llm = new ChatOpenAI({
       model,
     }).bindTools(agentTools);
 
-    const response = await llm.invoke(messages);
+    const runConfig = {
+      ...config,
+      metadata: {
+        ...config?.metadata,
+        ...getControlledMemoryMetadata(stats),
+      },
+    };
+
+    const response = await llm.invoke(preparedMessages, runConfig);
 
     return {
-      messages: [response],
+      messages: buildControlledMemoryMessagesUpdate(preparedMessages, response),
     };
   };
 }

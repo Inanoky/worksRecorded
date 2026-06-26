@@ -13,6 +13,7 @@
     "eval:ai:dashboard": "tsx test/ai-evals/run-dashboard-eval.ts",
     "eval:ai:whatsapp-site-manager": "tsx test/ai-evals/run-whatsapp-site-manager-eval.ts",
     "eval:ai:whatsapp-worker": "tsx test/ai-evals/run-whatsapp-worker-eval.ts",
+    "langgraph:dev": "npx -y @langchain/langgraph-cli@0.0.71 dev",
     "postinstall": "prisma generate",
     "test": "jest"
   },

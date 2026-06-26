@@ -1,5 +1,5 @@
 "use server"
-import {Annotation, END, START, StateGraph} from "@langchain/langgraph";
+import {Annotation, END, START, StateGraph, messagesStateReducer} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
@@ -8,7 +8,6 @@ import { CLOCK_IN_CARD_SENT_TOKEN, toolNode, tools } from "@/server/ai-flows/age
 import { getSiteIdByWorkerId, isWorkerClockedIn} from "@/server/actions/timesheets-actions";
 import { clickInAgentForWorkersModel, clockInAgentForWorkersModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getWorkerFullNameById } from "@/server/actions/whatsapp-actions";
-import { sanitizeCheckpointHistory } from "@/server/ai-flows/agents/whatsapp-agent/messageHistory";
 import { injectWorkerToolCallContext } from "@/server/ai-flows/agents/whatsapp-agent/toolCallContext";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import {
@@ -16,6 +15,11 @@ import {
     getWorkerThreadId,
     summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import {
+    buildControlledMemoryMessagesUpdate,
+    getControlledMemoryMetadata,
+    prepareControlledModelMessages,
+} from "@/server/ai-flows/controlled-memory";
 import {
     getWorkerAgentRunContext,
     runWithWorkerAgentEvalContext,
@@ -89,7 +93,7 @@ export default async function talkToClockInAgent(question, workerId, originalAud
 
     const state = Annotation.Root({
         messages: Annotation<BaseMessage[]>({
-            reducer: (x, y) => x.concat(y),
+            reducer: messagesStateReducer,
             default: () => [],
         }),
     });
@@ -134,13 +138,14 @@ export default async function talkToClockInAgent(question, workerId, originalAud
 
     const agent = async (state) => {
         const { messages } = state;
-        const sanitized = sanitizeCheckpointHistory(messages as any[]);
-        const safeMessages = sanitized.messages;
-        if (safeMessages.length !== messages.length) {
-            console.warn("agent node - sanitized checkpoint history before model call", {
-                before: messages.length,
-                after: safeMessages.length,
-                ...sanitized.stats,
+        const controlled = prepareControlledModelMessages(messages as any[]);
+        const safeMessages = controlled.messages;
+        if (
+            controlled.stats.compactedCount > 0 ||
+            controlled.stats.preparedCount !== controlled.stats.originalCount
+        ) {
+            console.warn("agent node - controlled checkpoint history before model call", {
+                ...controlled.stats,
             });
         }
         console.log("agent node - messages to model:", safeMessages);
@@ -154,13 +159,17 @@ export default async function talkToClockInAgent(question, workerId, originalAud
             const response = await llm.invoke(safeMessages, {
                 ...aiContext.runnableConfig,
                 runName: "WhatsAppWorkerModel",
+                metadata: {
+                    ...aiContext.runnableConfig.metadata,
+                    ...getControlledMemoryMetadata(controlled.stats),
+                },
             });
             lastAiResponse = response;
 
             console.log("agent node - LLM response:", response);
 
             return {
-                messages: [response]
+                messages: buildControlledMemoryMessagesUpdate(safeMessages, response)
             };
         } catch (error) {
             console.error("agent node - model invocation failed", error);
