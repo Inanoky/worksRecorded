@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 
-import { isLocalAiEvalUiEnabledForHost } from "@/lib/ai-evals/local-gate";
+import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
 import { loadEvalReports } from "@/lib/ai-evals/report-loader";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  if (!isLocalAiEvalUiEnabledForHost(request.headers.get("host"))) {
+export async function GET() {
+  if (!isAiEvalUiEnabled()) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

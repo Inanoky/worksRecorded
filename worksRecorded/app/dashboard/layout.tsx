@@ -20,6 +20,7 @@ import { MobileMenu } from "../../components/dashboard/MobileMenu";
 import { requireUser } from "../../lib/utils/requireUser";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { hasAiContextAccess, hasAiEvalAccess } from "@/lib/utils/ai-context-access";
+import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
 import { getOrganizationLanguageByUserId, getUserEmailByUserId } from "@/server/actions/shared-actions";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
 
@@ -36,7 +37,7 @@ export default async function DashboardLayout({
   ]);
   const t = getDashboardMessages(organizationLanguage);
   const canAccessAiContext = hasAiContextAccess(userId);
-  const canAccessAiEvals = hasAiEvalAccess(userId);
+  const canAccessAiEvals = hasAiEvalAccess(userId) && isAiEvalUiEnabled();
 
   return (
     <ProjectProvider userId={userId}>

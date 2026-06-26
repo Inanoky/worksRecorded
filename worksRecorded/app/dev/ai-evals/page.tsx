@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowLeft, Clock, Filter, Gauge, Search, Sparkles } from
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { requireLocalAiEvalUi } from "@/lib/ai-evals/local-gate";
+import { requireAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
 import {
   type AnomalySeverity,
   type EvalStatus,
@@ -219,7 +219,7 @@ function ItemDetail({ item }: { item: NormalizedEvalItem }) {
 }
 
 export default async function AiEvalViewerPage({ searchParams }: PageProps) {
-  await requireLocalAiEvalUi();
+  requireAiEvalUiEnabled();
 
   const params = (await searchParams) ?? {};
   const flow = readParam(params.flow) ?? "all";
