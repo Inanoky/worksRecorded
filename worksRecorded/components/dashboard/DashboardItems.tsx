@@ -22,7 +22,10 @@ export function DashboardItems({
   const { projectId, projectName, setProject } = useProject();
   const pathname = usePathname();
   const router = useRouter();
-  const navLinks = useMemo(() => getNavLinks(organizationLanguage), [organizationLanguage]);
+  const navLinks = useMemo(
+    () => getNavLinks(organizationLanguage, { canAccessAiContext }),
+    [canAccessAiContext, organizationLanguage],
+  );
   const projectNavLinks = useMemo(
     () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
     [canAccessAiContext, organizationLanguage],

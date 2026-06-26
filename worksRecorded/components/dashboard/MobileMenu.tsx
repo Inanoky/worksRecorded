@@ -22,7 +22,10 @@ export function MobileMenu({
 }) {
   const { projectId, projectName } = useProject();
   const pathname = usePathname();
-  const navLinks = useMemo(() => getNavLinks(organizationLanguage), [organizationLanguage]);
+  const navLinks = useMemo(
+    () => getNavLinks(organizationLanguage, { canAccessAiContext }),
+    [canAccessAiContext, organizationLanguage],
+  );
   const projectNavLinks = useMemo(
     () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
     [canAccessAiContext, organizationLanguage],

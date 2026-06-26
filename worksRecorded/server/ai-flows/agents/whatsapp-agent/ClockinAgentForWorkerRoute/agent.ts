@@ -16,6 +16,14 @@ import {
     getWorkerThreadId,
     summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import {
+    getWorkerAgentRunContext,
+    runWithWorkerAgentEvalContext,
+    type WorkerAgentRunDetails,
+} from "./runContext";
+
+export { runWithWorkerAgentEvalContext };
+export type { WorkerAgentRunDetails };
 
 function isInvalidToolResultsError(error: unknown): boolean {
     const maybeError = error as any;
@@ -24,8 +32,29 @@ function isInvalidToolResultsError(error: unknown): boolean {
     return message.includes("INVALID_TOOL_RESULTS") || message.includes("tool_call_id");
 }
 
+function buildWorkerAgentRunDetails(args: {
+    content: string;
+    requestedModel: string;
+    message?: BaseMessage | null;
+}): WorkerAgentRunDetails {
+    const responseMetadata = (args.message as any)?.response_metadata ?? null;
+    const usageMetadata = (args.message as any)?.usage_metadata ?? null;
+
+    return {
+        content: args.content,
+        requestedModel: args.requestedModel,
+        actualModel: responseMetadata?.model_name ?? null,
+        tokenUsage: usageMetadata ?? responseMetadata?.tokenUsage ?? null,
+        usageMetadata,
+        responseMetadata,
+        finishReason: responseMetadata?.finish_reason ?? null,
+    };
+}
+
 export default async function talkToClockInAgent(question, workerId, originalAudioUrl?: string | null) {
     console.log("=== talkToWhatsappAgent (Worker) called ===", { hasAudio: !!originalAudioUrl });
+    const runContext = getWorkerAgentRunContext();
+    const requestedModel = runContext?.model ?? clickInAgentForWorkersModel;
 
     const siteId = await getSiteIdByWorkerId(workerId)
     console.log(siteId)
@@ -34,18 +63,21 @@ export default async function talkToClockInAgent(question, workerId, originalAud
     const workerFullName = (await getWorkerFullNameById(workerId))?.trim();
     const normalizedQuestion = question.trim();
     const sourceComment = workerFullName ? `${workerFullName} : ${normalizedQuestion}` : normalizedQuestion;
+    let lastAiResponse: BaseMessage | null = null;
     const aiContext = buildAiRunContext({
         flow: "whatsapp-worker",
-        threadId: getWorkerThreadId(workerId),
+        threadId: runContext?.threadId ?? getWorkerThreadId(workerId),
         siteId,
         workerId,
         channel: "whatsapp",
-        model: clickInAgentForWorkersModel,
+        model: requestedModel,
         metadata: {
             workerStatus: status,
             hasOriginalAudioUrl: Boolean(originalAudioUrl),
             questionPreview: summarizeForTrace(question),
+            ...(runContext?.traceMetadata ?? {}),
         },
+        tags: runContext?.traceTags,
     });
 
     console.log(`Worker is currently ${status}`)
@@ -115,7 +147,7 @@ export default async function talkToClockInAgent(question, workerId, originalAud
 
         const llm = new ChatOpenAI({
             temperature: clockInAgentForWorkersModelTemperature,
-            model: clickInAgentForWorkersModel,
+            model: requestedModel,
         }).bindTools(tools);
 
         try {
@@ -123,6 +155,7 @@ export default async function talkToClockInAgent(question, workerId, originalAud
                 ...aiContext.runnableConfig,
                 runName: "WhatsAppWorkerModel",
             });
+            lastAiResponse = response;
 
             console.log("agent node - LLM response:", response);
 
@@ -168,9 +201,11 @@ export default async function talkToClockInAgent(question, workerId, originalAud
         .addConditionalEdges("agent", shouldContinue, ["tools", END])
         .addConditionalEdges("tools", shouldContinueAfterTools, ["agent", END])
 
-    const checkpointer = PostgresSaver.fromConnString(
-        process.env.DATABASE_URL!
-    );
+    if (!process.env.DATABASE_URL) {
+        throw new Error("DATABASE_URL is required for worker WhatsApp agent checkpointing");
+    }
+
+    const checkpointer = PostgresSaver.fromConnString(process.env.DATABASE_URL);
 
     await checkpointer.setup();
     const config = {
@@ -221,6 +256,13 @@ export default async function talkToClockInAgent(question, workerId, originalAud
         });
 
         if (hasClockInCardSignal) {
+            if (runContext) {
+                runContext.details = buildWorkerAgentRunDetails({
+                    content: "",
+                    requestedModel,
+                    message: lastAiResponse,
+                });
+            }
             return "";
         }
 
@@ -230,10 +272,30 @@ export default async function talkToClockInAgent(question, workerId, originalAud
         );
 
         const content = lastContentMsg ? lastContentMsg.content : "Completed action with no response.";
+
+        if (runContext) {
+            runContext.details = buildWorkerAgentRunDetails({
+                content: String(content),
+                requestedModel,
+                message: lastContentMsg ?? lastAiResponse,
+            });
+        }
+
         console.log("AI content:", content);
         return content;
     } else {
         console.log("No final AI message content produced.");
+        if (runContext) {
+            runContext.details = {
+                content: "",
+                requestedModel,
+                actualModel: null,
+                tokenUsage: null,
+                usageMetadata: null,
+                responseMetadata: null,
+                finishReason: null,
+            };
+        }
         return "Sorry, I ran into an error processing your request.";
     }
 }
