@@ -28,6 +28,24 @@ function normalizeTaskName(value: unknown) {
     .replace(/^t(?!l)(?=\s|[-/]|$)/i, "tl");
 }
 
+export function getZtcTaskIdentityKey(value: unknown) {
+  const normalized = normalizeTaskName(value);
+  const codeMatch = normalized.match(
+    /^\s*((?:[lr]\s*\d\s*\/\s*[bt]\s*\d)|tl|l\s*0)(?=\s|[-/]|$)/i,
+  );
+
+  if (codeMatch?.[1]) {
+    return codeMatch[1].replace(/\s+/g, "").toLowerCase();
+  }
+
+  return normalized
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .trim()
+    .toLowerCase();
+}
+
 function positiveNumber(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -71,7 +89,7 @@ function getOriginalTaskAmount(args: {
   taskName: string;
 }) {
   const normalizedElement = normalizeText(args.elementName);
-  const normalizedTask = normalizeTaskName(args.taskName);
+  const normalizedTask = getZtcTaskIdentityKey(args.taskName);
 
   for (const value of args.metadataValues) {
     if (!value) continue;
@@ -90,7 +108,7 @@ function getOriginalTaskAmount(args: {
           normalizeText(candidate.elementName) === normalizedElement,
       );
       const work = element?.works?.find(
-        (candidate) => normalizeTaskName(candidate.name) === normalizedTask,
+        (candidate) => getZtcTaskIdentityKey(candidate.name) === normalizedTask,
       );
       const amount =
         positiveNumber(work?.amountM2) ??
@@ -160,10 +178,10 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
     orderBy: [{ Date_Custom_2: "asc" }, { createdAt: "asc" }],
   });
 
-  const normalizedTask = normalizeTaskName(anchor.Works);
+  const normalizedTask = getZtcTaskIdentityKey(anchor.Works);
   const matchingRows = candidates.filter(
     (row) =>
-      normalizeTaskName(row.Works) === normalizedTask &&
+      getZtcTaskIdentityKey(row.Works) === normalizedTask &&
       normalizeText(row.Works_Custom_1) !== "papilddetāļas" &&
       normalizeText(row.Units) !== "st",
   );
@@ -191,7 +209,14 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
   );
   const allocations =
     distinctWorkers.size >= 2
-      ? allocateZtcTaskAmountByTime(originalAmount, matchingRows)
+      ? allocateZtcTaskAmountByTime(
+          originalAmount,
+          matchingRows.map((row) => ({
+            id: row.id,
+            workerId: row.workerId ?? row.userId,
+            hours: row.TimeInvolved,
+          })),
+        )
       : matchingRows.map((row) => ({ id: row.id, amount: originalAmount }));
 
   await prisma.$transaction(

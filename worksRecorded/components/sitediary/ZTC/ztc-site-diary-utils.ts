@@ -28,6 +28,14 @@ export type ZtcImageDialogState = {
   photos: Array<{ src: string; caption?: string }>;
 } | null;
 
+type ZtcDrawingMetadata = {
+  type?: string;
+  elements?: Array<{
+    elementName?: string | null;
+    totalAreaM2?: number | string | null;
+  }>;
+};
+
 export function parseZtcPayrollNumber(value: unknown, fallback = 0) {
   if (value === "" || value === null || value === undefined) return fallback;
   const parsed = Number(String(value).replace(",", "."));
@@ -40,6 +48,41 @@ function normalizeZtcText(value: unknown) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+}
+
+function parsePositiveZtcNumber(value: unknown) {
+  const parsed = parseZtcPayrollNumber(value, Number.NaN);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function parseZtcDrawingMetadata(value: unknown): ZtcDrawingMetadata | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  try {
+    const parsed = JSON.parse(value) as ZtcDrawingMetadata;
+    if (parsed?.type !== "ztc_drawing_context" || !Array.isArray(parsed.elements)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function getZtcElementTotalAreaM2(rows: ZtcDiaryRow[], elementName: string | null | undefined) {
+  const normalizedElement = normalizeZtcText(elementName);
+  if (!normalizedElement) return null;
+
+  for (const row of rows) {
+    const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
+    const element = metadata?.elements?.find(
+      (candidate) => normalizeZtcText(candidate.elementName) === normalizedElement,
+    );
+    const area = parsePositiveZtcNumber(element?.totalAreaM2);
+    if (area != null) return area;
+  }
+
+  return null;
 }
 
 export function isZtcQualityRow(row: ZtcDiaryRow) {

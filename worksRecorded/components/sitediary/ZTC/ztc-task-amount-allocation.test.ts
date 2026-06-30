@@ -1,4 +1,7 @@
-import { allocateZtcTaskAmountByTime } from "@/components/sitediary/ZTC/ztc-task-amount-allocation";
+import {
+  allocateZtcTaskAmountByTime,
+  getZtcTaskIdentityKey,
+} from "@/components/sitediary/ZTC/ztc-task-amount-allocation";
 
 describe("allocateZtcTaskAmountByTime", () => {
   it("splits the task quantity proportionally to each worker's time", () => {
@@ -38,5 +41,25 @@ describe("allocateZtcTaskAmountByTime", () => {
       { id: "worker-a", amount: 4 },
       { id: "worker-b", amount: 4 },
     ]);
+  });
+});
+
+describe("getZtcTaskIdentityKey", () => {
+  it("uses the drawing row code instead of OCR-sensitive description text", () => {
+    expect(getZtcTaskIdentityKey("R2/T2 - Gipškartona plāksne GKF 15 mm")).toBe(
+      getZtcTaskIdentityKey("R2 / T2 - Gipskartona plaksne GKF15mm"),
+    );
+  });
+
+  it("keeps different drawing row codes in different task buckets", () => {
+    expect(getZtcTaskIdentityKey("R2/T2 - Gipškartona plāksne GKF 15 mm")).not.toBe(
+      getZtcTaskIdentityKey("R3/T3 - Gipškartona plāksne GKF 15 mm"),
+    );
+  });
+
+  it("normalizes standalone timber-frame OCR prefixes to TL", () => {
+    expect(getZtcTaskIdentityKey("T1 - Koka karkass 245 mm")).toBe(
+      getZtcTaskIdentityKey("TL - Koka karkass 245 mm"),
+    );
   });
 });

@@ -111,6 +111,7 @@ import {
   ZTC_SITE_ID,
   buildZtcQualityDisplayStateByRowId,
   formatZtcMoney,
+  getZtcElementTotalAreaM2,
   getZtcPayrollValues,
   getZtcQualityRowToneClass,
   isZtcQualityRow,
@@ -928,12 +929,16 @@ export default function SiteDiaryCalendar({
     }
 
     const visibleRows = keywordMatchedDayGroups.flatMap((group) => group.rows);
+    const elementTotalAreaM2 =
+      elementFilter !== "__ALL__"
+        ? getZtcElementTotalAreaM2(rows, elementFilter)
+        : null;
     const totals = visibleRows.reduce(
       (acc, row) => {
         const payroll = getZtcPayrollValues(row);
         acc.hours += payroll.hours;
         acc.money += payroll.sum;
-        if (elementFilter !== "__ALL__" && payroll.amountM2 > acc.elementM2) {
+        if (elementFilter !== "__ALL__" && elementTotalAreaM2 == null && payroll.amountM2 > acc.elementM2) {
           acc.elementM2 = payroll.amountM2;
         }
         return acc;
@@ -947,9 +952,9 @@ export default function SiteDiaryCalendar({
       rows: visibleRows.length,
       hours: totals.hours,
       money: totals.money,
-      elementM2: elementFilter !== "__ALL__" ? totals.elementM2 : null,
+      elementM2: elementFilter !== "__ALL__" ? elementTotalAreaM2 ?? totals.elementM2 : null,
     };
-  }, [elementFilter, floorFilter, isZtcSite, keywordMatchedDayGroups]);
+  }, [elementFilter, floorFilter, isZtcSite, keywordMatchedDayGroups, rows]);
 
   const visibleRecordIds = React.useMemo(
     () =>

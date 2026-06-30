@@ -23,7 +23,10 @@ import {
   resolveZtcAdditionalWorkUnit,
   type ZtcRateUnit,
 } from "@/components/sitediary/ZTC/ztc-rate-units";
-import { rebalanceZtcCompletedTaskAmounts } from "@/components/sitediary/ZTC/ztc-task-amount-allocation";
+import {
+  getZtcTaskIdentityKey,
+  rebalanceZtcCompletedTaskAmounts,
+} from "@/components/sitediary/ZTC/ztc-task-amount-allocation";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -1165,6 +1168,93 @@ function parseZtcDrawingMetadata(value: string | null | undefined): ZtcDrawingMe
 
 function hasZtcDrawingContext(session: Pick<OpenZtcSession, "Comments_Custom_2"> | null | undefined) {
   return Boolean(parseZtcDrawingMetadata(session?.Comments_Custom_2));
+}
+
+function getDrawingElementMetadata(
+  metadata: ZtcDrawingMetadata | null,
+  elementName: string | null | undefined,
+) {
+  const normalizedElement = String(elementName ?? "").trim().toLowerCase();
+  if (!metadata || !normalizedElement) return null;
+
+  return (
+    metadata.elements.find(
+      (element) =>
+        String(element.elementName ?? "").trim().toLowerCase() === normalizedElement,
+    ) ?? null
+  );
+}
+
+function canonicalizeDrawingExtractionFromMetadata(
+  extraction: DrawingExtraction,
+  metadata: ZtcDrawingMetadata | null,
+) {
+  const element = getDrawingElementMetadata(metadata, extraction.elementName);
+  if (!element?.works?.length) return extraction;
+
+  const canonicalWorks = new Map(
+    element.works
+      .map((work) => [getZtcTaskIdentityKey(work.name), work] as const)
+      .filter(([key, work]) => key && work.name),
+  );
+  if (!canonicalWorks.size) return extraction;
+
+  const canonicalizeWorkItem = (
+    item: DrawingExtraction["workItems"][number],
+  ): DrawingExtraction["workItems"][number] => {
+    const canonical = canonicalWorks.get(getZtcTaskIdentityKey(item.name));
+    if (!canonical?.name) return item;
+
+    return {
+      ...item,
+      name: normalizeZtcWorkName(canonical.name),
+    };
+  };
+
+  const workItems = extraction.workItems.map(canonicalizeWorkItem);
+  const workList = extraction.workList.map((workName) => {
+    const canonical = canonicalWorks.get(getZtcTaskIdentityKey(workName));
+    return normalizeZtcWorkName(canonical?.name ?? workName);
+  });
+
+  return {
+    ...extraction,
+    workItems,
+    workList: workList.length ? workList : workItems.map((item) => item.name),
+  };
+}
+
+async function canonicalizeDrawingExtractionFromPreviousContext(
+  extraction: DrawingExtraction,
+) {
+  const projectName = String(extraction.projectName ?? "").trim();
+  const elementName = String(extraction.elementName ?? "").trim();
+  if (!projectName || !elementName) return extraction;
+
+  const previousContexts = await prisma.ztcRecords.findMany({
+    where: {
+      siteId: ZTC_SITE_ID,
+      organizationId: ZTC_ORGANIZATION_ID,
+      Location: projectName,
+      Location_Custom_1: elementName,
+      Comments_Custom_2: { contains: "ztc_drawing_context" },
+    },
+    orderBy: [{ Date_Custom_1: "desc" }, { createdAt: "desc" }],
+    take: 10,
+    select: {
+      Comments_Custom_2: true,
+    },
+  });
+
+  for (const context of previousContexts) {
+    const canonicalized = canonicalizeDrawingExtractionFromMetadata(
+      extraction,
+      parseZtcDrawingMetadata(context.Comments_Custom_2),
+    );
+    if (canonicalized !== extraction) return canonicalized;
+  }
+
+  return extraction;
 }
 
 export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingMetadata {
@@ -2549,16 +2639,17 @@ async function handleDrawingPhoto(args: {
     return;
   }
 
-  const drawingWorks = extraction.workList.join("; ");
-  const drawingMetadata = JSON.stringify(buildDrawingMetadata(extraction));
+  const canonicalExtraction = await canonicalizeDrawingExtractionFromPreviousContext(extraction);
+  const drawingWorks = canonicalExtraction.workList.join("; ");
+  const drawingMetadata = JSON.stringify(buildDrawingMetadata(canonicalExtraction));
 
   if (existing && !existing.Works) {
     const updated = await prisma.ztcRecords.update({
       where: { id: existing.id },
       data: {
         Date_Custom_1: new Date(),
-        Location: extraction.projectName,
-        Location_Custom_1: extraction.elementName,
+        Location: canonicalExtraction.projectName,
+        Location_Custom_1: canonicalExtraction.elementName,
         Works_Custom_1: drawingWorks,
         Comments_Custom_2: drawingMetadata,
         Comments: null,
@@ -2571,7 +2662,7 @@ async function handleDrawingPhoto(args: {
       worker,
       details: {
         drawingPhotoUrl: image.publicUrl,
-        extractedWorks: extraction.workList,
+        extractedWorks: canonicalExtraction.workList,
       },
     });
   } else {
@@ -2581,8 +2672,8 @@ async function handleDrawingPhoto(args: {
         siteId: ZTC_SITE_ID,
         organizationId: ZTC_ORGANIZATION_ID,
         Date_Custom_1: new Date(),
-        Location: extraction.projectName,
-        Location_Custom_1: extraction.elementName,
+        Location: canonicalExtraction.projectName,
+        Location_Custom_1: canonicalExtraction.elementName,
         Works_Custom_1: drawingWorks,
         Comments_Custom_2: drawingMetadata,
         Comments: null,
@@ -2596,14 +2687,14 @@ async function handleDrawingPhoto(args: {
       worker,
       details: {
         drawingPhotoUrl: image.publicUrl,
-        extractedWorks: extraction.workList,
+        extractedWorks: canonicalExtraction.workList,
       },
     });
   }
 
   await sendZtcMessage(
     to,
-    `Rasējums pieņemts.\nProjekts: ${extraction.projectName}\nElementa numurs: ${extraction.elementName}\nPlatība: ${extraction.totalAreaM2} m2\nDarbi:\n${formatExtractedWorksForMessage(extraction)}\n\nTagad atsūtiet balss ziņu vai tekstu ar darbu, ko sākat darīt.`,
+    `Rasējums pieņemts.\nProjekts: ${canonicalExtraction.projectName}\nElementa numurs: ${canonicalExtraction.elementName}\nPlatība: ${canonicalExtraction.totalAreaM2} m2\nDarbi:\n${formatExtractedWorksForMessage(canonicalExtraction)}\n\nTagad atsūtiet balss ziņu vai tekstu ar darbu, ko sākat darīt.`,
   );
 }
 
