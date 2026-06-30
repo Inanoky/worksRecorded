@@ -15,7 +15,6 @@ import {
 } from "@/components/sitediary/ZTC/ztc-rate-constants";
 import {
   normalizeZtcRateUnit,
-  resolveZtcAdditionalWorkUnit,
   type ZtcRateUnit,
 } from "@/components/sitediary/ZTC/ztc-rate-units";
 import { findZtcDefaultRateForTask } from "@/components/sitediary/ZTC/ztc-rate-matching";
@@ -410,6 +409,41 @@ function getZtcComplexityForMarks(
   );
 }
 
+function getZtcElementAreaM2FromMetadata(
+  metadataValue: unknown,
+  elementName: unknown,
+) {
+  if (typeof metadataValue !== "string" || !metadataValue.trim()) return null;
+
+  try {
+    const metadata = JSON.parse(metadataValue) as {
+      type?: string;
+      elements?: Array<{
+        elementName?: string | null;
+        totalAreaM2?: number | string | null;
+      }>;
+    };
+    if (metadata.type !== "ztc_drawing_context" || !Array.isArray(metadata.elements)) {
+      return null;
+    }
+
+    const normalizedElement = String(elementName ?? "").trim().toLowerCase();
+    const element = metadata.elements.find(
+      (entry) => String(entry.elementName ?? "").trim().toLowerCase() === normalizedElement,
+    );
+    const area = Number(String(element?.totalAreaM2 ?? "").replace(",", "."));
+    return Number.isFinite(area) && area > 0 ? area : null;
+  } catch {
+    return null;
+  }
+}
+
+function calculateZtcHours(start: Date | null | undefined, end: Date | null | undefined) {
+  if (!start || !end) return null;
+  const hours = (end.getTime() - start.getTime()) / 3_600_000;
+  return Number.isFinite(hours) && hours >= 0 ? Number(hours.toFixed(2)) : null;
+}
+
 function sanitizeZtcRecordRow(row: Record<string, any>) {
   const defaultRates = normalizeProjectRates(row.__ztcDefaultTaskRates);
   const category = getZtcRateCategoryForRow(row);
@@ -428,14 +462,32 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     defaultRates,
     row.Location,
   );
+  const startDate = normalizeDate(row.Date) ?? null;
+  const endDate = normalizeNullableDate(row.Date_Custom_2);
+  const isElementRelatedAdditionalWork =
+    category === "additionalWorks" &&
+    defaultRate?.relatesToElement === true &&
+    row.Location &&
+    row.Location !== "Papilddarbi" &&
+    row.Location_Custom_1;
+  const elementAreaM2 = isElementRelatedAdditionalWork
+    ? getZtcElementAreaM2FromMetadata(row.Comments_Custom_2, row.Location_Custom_1)
+    : null;
+  const timeInvolved =
+    normalizeNumber(row.TimeInvolved) ?? calculateZtcHours(startDate, endDate);
   const units =
     category === "additionalWorks"
-      ? resolveZtcAdditionalWorkUnit({
-          configuredUnit: defaultRate?.unit,
-          reportedUnit: row.Units,
-        })
+      ? isElementRelatedAdditionalWork
+        ? "m2"
+        : "st"
       : row.Units ||
         (category === "additionalDetails" ? "gab" : "m2");
+  const amounts =
+    category === "additionalWorks"
+      ? isElementRelatedAdditionalWork
+        ? elementAreaM2 ?? normalizeNumber(row.Amounts) ?? null
+        : timeInvolved ?? normalizeNumber(row.Amounts) ?? null
+      : normalizeNumber(row.Amounts) ?? null;
   const works =
     (category === "additionalWorks" || category === "additionalDetails") &&
     defaultRate?.task?.trim()
@@ -443,9 +495,9 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
       : row.Works || null;
 
   return {
-    Date: normalizeDate(row.Date) ?? null,
+    Date: startDate,
     Date_Custom_1: normalizeNullableDate(row.Date_Custom_1),
-    Date_Custom_2: normalizeNullableDate(row.Date_Custom_2),
+    Date_Custom_2: endDate,
     Location: row.Location || null,
     Location_Custom_1: row.Location_Custom_1 || null,
     Location_Custom_2: row.Location_Custom_2 || defaultRate?.rate || null,
@@ -457,9 +509,9 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     Comments_Custom_2: row.Comments_Custom_2 || null,
     originalUserComment: row.originalUserComment || null,
     Units: units,
-    Amounts: normalizeNumber(row.Amounts) ?? null,
+    Amounts: amounts,
     WorkersInvolved: normalizeNumber(row.WorkersInvolved) ?? defaultComplexity,
-    TimeInvolved: normalizeNumber(row.TimeInvolved) ?? null,
+    TimeInvolved: timeInvolved,
   };
 }
 

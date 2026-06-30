@@ -20,7 +20,6 @@ import {
 } from "@/components/sitediary/ZTC/ztc-rate-constants";
 import {
   normalizeZtcRateUnit,
-  resolveZtcAdditionalWorkUnit,
   type ZtcRateUnit,
 } from "@/components/sitediary/ZTC/ztc-rate-units";
 import { findZtcDefaultRateForTask } from "@/components/sitediary/ZTC/ztc-rate-matching";
@@ -615,6 +614,17 @@ function isAdditionalWorkSession(
   session: Pick<OpenZtcSession, "Location" | "Works_Custom_1"> | null | undefined,
 ) {
   return session?.Location === "Papilddarbi" || session?.Works_Custom_1 === "Papilddarbi";
+}
+
+function isElementRelatedAdditionalWorkSession(
+  session: Pick<OpenZtcSession, "Location" | "Location_Custom_1" | "Works_Custom_1"> | null | undefined,
+) {
+  return Boolean(
+    session?.Works_Custom_1 === "Papilddarbi" &&
+      session.Location &&
+      session.Location !== "Papilddarbi" &&
+      session.Location_Custom_1,
+  );
 }
 
 function hasCompletedWorkPhoto(session: Pick<OpenZtcSession, "Location" | "Works_Custom_1" | "Photos">) {
@@ -1305,6 +1315,14 @@ function getSessionWorkAmountM2(session: OpenZtcSession, workName: string | null
   return work?.amountM2 ?? element?.totalAreaM2 ?? null;
 }
 
+function getSessionElementAreaM2(
+  session: Pick<OpenZtcSession, "Comments_Custom_2" | "Location_Custom_1">,
+) {
+  const metadata = parseZtcDrawingMetadata(session.Comments_Custom_2);
+  const element = getDrawingElementMetadata(metadata, session.Location_Custom_1);
+  return element?.totalAreaM2 ?? null;
+}
+
 function getSessionWorkComplexityMarks(
   session: OpenZtcSession,
   workName: string | null | undefined,
@@ -1927,9 +1945,19 @@ async function completeSession(args: {
   const now = new Date();
   const timeInvolved = calculateHours(session.Date, now);
   const isAdditionalWork = isAdditionalWorkSession(session);
-  const sessionUnit = session.Units ?? (isAdditionalWork ? "st" : "m2");
+  const isElementRelatedAdditionalWork = isElementRelatedAdditionalWorkSession(session);
+  const elementAreaM2 = isElementRelatedAdditionalWork
+    ? getSessionElementAreaM2(session)
+    : null;
+  const sessionUnit = isElementRelatedAdditionalWork
+    ? "m2"
+    : isAdditionalWork
+      ? "st"
+      : session.Units ?? "m2";
   const amountCompleted =
-    isAdditionalWork && String(sessionUnit).toLowerCase() === "st"
+    isElementRelatedAdditionalWork
+      ? elementAreaM2 ?? session.Amounts ?? null
+      : isAdditionalWork
       ? timeInvolved
       : session.Amounts != null
         ? session.Amounts
@@ -1966,6 +1994,7 @@ async function completeSession(args: {
     details: {
       timeInvolved,
       amountCompleted,
+      unit: sessionUnit,
       comments: finalWorkerComment,
     },
   });
@@ -2745,6 +2774,10 @@ async function createAdditionalWorkSession(args: {
   const shouldAttachToElement =
     relatesToElement &&
     Boolean(drawingContext?.Location && drawingContext?.Location_Custom_1);
+  const elementAreaM2 =
+    shouldAttachToElement && drawingContext
+      ? getSessionElementAreaM2(drawingContext)
+      : null;
   if (!shouldAttachToElement) {
     await closeOpenDrawingContextsForStandaloneAdditionalWork(worker, now);
   }
@@ -2762,11 +2795,8 @@ async function createAdditionalWorkSession(args: {
       Photos: shouldAttachToElement && drawingContext?.Photos?.[0] ? [drawingContext.Photos[0]] : [],
       Works: mappedWorkOption,
       Location_Custom_2: defaultRateMatch?.rate ?? null,
-      Units: resolveZtcAdditionalWorkUnit({
-        configuredUnit: defaultRateMatch?.unit,
-        reportedUnit: work.units,
-      }),
-      Amounts: work.amountCompleted ?? undefined,
+      Units: shouldAttachToElement ? "m2" : "st",
+      Amounts: shouldAttachToElement ? elementAreaM2 ?? undefined : undefined,
       Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
       originalAudioUrl: originalAudioUrl ?? undefined,
@@ -2792,6 +2822,7 @@ async function createAdditionalWorkSession(args: {
       attachedToElement: shouldAttachToElement,
       projectName: shouldAttachToElement ? drawingContext?.Location : null,
       elementName: shouldAttachToElement ? drawingContext?.Location_Custom_1 : null,
+      elementAreaM2,
       configuredUnit: defaultRateMatch?.unit ?? "st",
       reportedUnit: work.units,
       savedUnit: created.Units,
@@ -2888,14 +2919,16 @@ async function handleWorkText(args: {
 
     if (!hasCompletedWorkPhoto(session)) {
       const dbStartedAt = Date.now();
+      const pendingUnits = isElementRelatedAdditionalWorkSession(session)
+        ? "m2"
+        : isAdditionalWorkSession(session)
+          ? "st"
+          : "m2";
       const updated = await prisma.ztcRecords.update({
         where: { id: session.id },
         data: {
           Amounts: session.Amounts ?? undefined,
-          Units:
-            isAdditionalWorkSession(session)
-              ? session.Units ?? "st"
-              : "m2",
+          Units: pendingUnits,
           Comments_Custom_1: buildFinishPendingMarker({
             completedText: work.polishedText?.trim() || text,
             additionalDetails: work.additionalDetails ?? [],
