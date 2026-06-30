@@ -247,6 +247,14 @@ function hasAnyRowValue(row: any) {
   ].some((field) => normalizeOption(row[field]));
 }
 
+function isCompletedZtcDiaryRow(row: any) {
+  return Boolean(
+    normalizeOption(row.Date) &&
+      normalizeOption(row.Date_Custom_2) &&
+      normalizeOption(row.Works),
+  );
+}
+
 function isValidDateValue(value: unknown) {
   if (!value) return false;
   const parsed = value instanceof Date ? value : new Date(String(value));
@@ -712,13 +720,14 @@ export function ZtcDialogTable({
       const config = (data.config ?? defaultConfig) as Record<string, any>;
       const renderableFields = getRenderableFieldsOrdered(config);
       const fieldsToKeep = Array.from(new Set([...renderableFields, ...HIDDEN_FIELDS_TO_KEEP]));
+      const completedRows = data.rows.filter(isCompletedZtcDiaryRow);
 
       setDirtyRowKeys(new Set());
       setFieldMap(config);
       setTableHeads(renderableFields);
       setRows(
-        data.rows.length
-          ? data.rows.map((row: any) => ({
+        completedRows.length
+          ? completedRows.map((row: any) => ({
               id: row.id ?? undefined,
               _tempId: crypto.randomUUID(),
               createdBy: row.createdBy ?? "",

@@ -1352,13 +1352,24 @@ export async function getSiteDiaryRecord({ siteId, date }) {
 
   try {
   const recordQuery = {
-    where: {
-      siteId,
-      OR: [
-        { Date: { gte: start, lte: end } },
-        { Date_Custom_1: { gte: start, lte: end } },
-      ],
-    },
+    where:
+      siteId === ZTC_SITE_ID
+        ? {
+            siteId,
+            Date_Custom_2: { not: null },
+            NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+            OR: [
+              { Date: { gte: start, lte: end } },
+              { Date_Custom_1: { gte: start, lte: end } },
+            ],
+          }
+        : {
+            siteId,
+            OR: [
+              { Date: { gte: start, lte: end } },
+              { Date_Custom_1: { gte: start, lte: end } },
+            ],
+          },
     orderBy: [{ createdAt: "desc" as const }],
     // Pick only the fields you use in your row
     select: {
@@ -1491,7 +1502,11 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
   const query = {
     where:
       siteId === ZTC_SITE_ID
-        ? { siteId, Date_Custom_2: { not: null } }
+        ? {
+            siteId,
+            Date_Custom_2: { not: null },
+            NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+          }
         : { siteId },
     orderBy: [{ Date: "asc" as const }],
     select: {
@@ -2816,6 +2831,8 @@ export async function getFilledDays({ siteId, year, month }: Args): Promise<numb
       ? prisma.ztcRecords.findMany({
           where: {
             siteId,
+            Date_Custom_2: { not: null },
+            NOT: [{ Date: null }, { Works: null }, { Works: "" }],
             OR: [
               { Date: { gte: from, lt: to } },
               { Date_Custom_1: { gte: from, lt: to } },
