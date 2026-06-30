@@ -9,21 +9,14 @@ import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import {
-  getBisMaterialsAgentThreadId,
-  getOrchestratingThreadId,
-  getSiteDiaryAgentThreadId,
-  getSiteManagerThreadId,
-  getTimesheetsAgentThreadId,
-  getWorkerThreadId,
-} from "@/server/ai-flows/ai-run-context";
-
-type ThreadCandidate = {
-  id: string;
-  label: string;
-  flow: string;
-  owner: string;
-  resettable: boolean;
-};
+  buildDashboardContextInspection,
+  inspectCheckpointShape,
+} from "@/server/ai-flows/ai-context-inspection";
+import {
+  buildAiContextThreadCandidates,
+  type AiContextThreadCandidate,
+} from "@/server/ai-flows/ai-context-thread-candidates";
+import { systemPrompt as dashboardSystemPrompt } from "@/server/ai-flows/agents/orchestrating-agent-v2/prompts";
 
 type RawCheckpointSummary = {
   threadId: string;
@@ -33,6 +26,19 @@ type RawCheckpointSummary = {
   latestCheckpointId: string | null;
   latestCheckpointTs: string | null;
   latestMetadata: unknown;
+};
+
+type RawLatestCheckpointInspection = {
+  checkpointId: string;
+  checkpointTs: string | null;
+  metadata: unknown;
+  checkpoint: unknown;
+};
+
+type RawCheckpointWriteInspection = {
+  writeCount: number | bigint | null;
+  writeBytes: number | bigint | null;
+  largestWriteBytes: number | bigint | null;
 };
 
 function toNumber(value: number | bigint | null | undefined) {
@@ -58,62 +64,17 @@ async function requireSiteAccess(siteId: string) {
   return { user, site };
 }
 
-async function getThreadCandidates(siteId: string, userId: string): Promise<ThreadCandidate[]> {
+async function getThreadCandidates(
+  siteId: string,
+  userId: string,
+): Promise<AiContextThreadCandidate[]> {
   const workers = await prisma.workers.findMany({
     where: { siteId },
     select: { id: true, name: true, surname: true, phone: true },
     orderBy: [{ name: "asc" }, { surname: "asc" }],
   });
 
-  const workerThreads = workers.map((worker) => {
-    const fullName = [worker.name, worker.surname].filter(Boolean).join(" ").trim();
-    return {
-      id: getWorkerThreadId(worker.id),
-      label: fullName || worker.phone || worker.id,
-      flow: "WhatsApp worker",
-      owner: "Worker",
-      resettable: true,
-    };
-  });
-
-  return [
-    {
-      id: getOrchestratingThreadId(siteId, userId),
-      label: "Dashboard generic chat",
-      flow: "Dashboard chat",
-      owner: "Current user",
-      resettable: true,
-    },
-    {
-      id: getSiteManagerThreadId(siteId, userId),
-      label: "WhatsApp site manager",
-      flow: "WhatsApp site manager",
-      owner: "Current user",
-      resettable: true,
-    },
-    {
-      id: getSiteDiaryAgentThreadId(siteId),
-      label: "Site diary read agent",
-      flow: "Specialist read agent",
-      owner: "Project",
-      resettable: true,
-    },
-    {
-      id: getTimesheetsAgentThreadId(siteId),
-      label: "Timesheets read agent",
-      flow: "Specialist read agent",
-      owner: "Project",
-      resettable: true,
-    },
-    {
-      id: getBisMaterialsAgentThreadId(siteId),
-      label: "BIS materials read agent",
-      flow: "Specialist read agent",
-      owner: "Project",
-      resettable: true,
-    },
-    ...workerThreads,
-  ];
+  return buildAiContextThreadCandidates(siteId, userId, workers);
 }
 
 async function getCheckpointSummaries(threadIds: string[]) {
@@ -208,6 +169,67 @@ export async function getAiContextDiagnostics(siteId: string) {
       };
     }),
   };
+}
+
+export async function getDashboardAiContextInspection(siteId: string, threadId: string) {
+  if (!siteId || !threadId) {
+    throw new Error("Missing siteId or threadId.");
+  }
+
+  const { user } = await requireSiteAccess(siteId);
+  const candidates = await getThreadCandidates(siteId, user.id);
+  const thread = candidates.find(
+    (candidate) => candidate.id === threadId && candidate.flowName === "dashboard-chat",
+  );
+
+  if (!thread) {
+    throw new Error("This dashboard checkpoint thread is not inspectable for the current project.");
+  }
+
+  const summaryByThreadId = await getCheckpointSummaries([threadId]);
+  const summary = summaryByThreadId.get(threadId);
+
+  const [latestCheckpoint] = await prisma.$queryRaw<RawLatestCheckpointInspection[]>(Prisma.sql`
+    SELECT
+      checkpoint_id AS "checkpointId",
+      checkpoint->>'ts' AS "checkpointTs",
+      metadata,
+      checkpoint
+    FROM "checkpoints"
+    WHERE thread_id = ${threadId}
+    ORDER BY COALESCE(checkpoint->>'ts', '') DESC, checkpoint_id DESC
+    LIMIT 1
+  `);
+
+  const [writeInspection] = await prisma.$queryRaw<RawCheckpointWriteInspection[]>(Prisma.sql`
+    SELECT
+      COUNT(*)::int AS "writeCount",
+      COALESCE(SUM(octet_length(blob)), 0)::int AS "writeBytes",
+      COALESCE(MAX(octet_length(blob)), 0)::int AS "largestWriteBytes"
+    FROM "checkpoint_writes"
+    WHERE thread_id = ${threadId}
+  `);
+
+  const checkpointShape = inspectCheckpointShape(latestCheckpoint?.checkpoint ?? null);
+
+  return buildDashboardContextInspection({
+    threadId,
+    policy: thread.contextPolicy,
+    checkpointCount: toNumber(summary?.checkpointCount),
+    writeCount: toNumber(summary?.writeCount ?? writeInspection?.writeCount),
+    blobCount: toNumber(summary?.blobCount),
+    latestCheckpointId: latestCheckpoint?.checkpointId ?? summary?.latestCheckpointId ?? null,
+    latestCheckpointTs: latestCheckpoint?.checkpointTs ?? summary?.latestCheckpointTs ?? null,
+    latestMetadata: latestCheckpoint?.metadata ?? summary?.latestMetadata ?? null,
+    checkpointChars: checkpointShape.chars,
+    checkpointMessageCount: checkpointShape.messageCount,
+    checkpointSystemMessageCount: checkpointShape.systemMessageCount,
+    checkpointToolMessageCount: checkpointShape.toolMessageCount,
+    checkpointLargestToolMessageChars: checkpointShape.largestToolMessageChars,
+    writeBytes: toNumber(writeInspection?.writeBytes),
+    largestWriteBytes: toNumber(writeInspection?.largestWriteBytes),
+    systemPrompt: dashboardSystemPrompt(siteId, user.id),
+  });
 }
 
 export async function resetAiCheckpointThreadAction(formData: FormData) {

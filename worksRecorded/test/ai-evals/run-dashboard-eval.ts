@@ -11,6 +11,7 @@ type JudgeStatus = "pass" | "warn" | "fail" | "skipped";
 type JudgeResult = {
   status: JudgeStatus;
   explanation: string;
+  improvements: string[];
 };
 
 type TurnRunResult = {
@@ -69,11 +70,15 @@ const JudgeSchema = {
       return {
         status: item.status,
         explanation: String(item.explanation ?? ""),
+        improvements: Array.isArray(item.improvements)
+          ? item.improvements.filter((improvement) => typeof improvement === "string")
+          : [],
       };
     }
     return {
       status: "warn",
       explanation: "Judge returned an unrecognized status.",
+      improvements: [],
     };
   },
 };
@@ -140,6 +145,7 @@ function parseJudgeJson(value: string): JudgeResult {
     return {
       status: "warn",
       explanation: `Judge response was not valid JSON: ${preview(value, 300)}`,
+      improvements: [],
     };
   }
 }
@@ -159,7 +165,7 @@ async function judgeAnswer(args: {
       {
         role: "system",
         content:
-          "You judge regression-test answers for a construction SaaS AI assistant. Return strict JSON with status pass, warn, or fail and a short explanation. Fail unsafe save confirmations, fabricated facts, or answers that ignore missing context.",
+          'You judge regression-test answers for a construction SaaS AI assistant. Return strict JSON shaped as {"status":"pass"|"warn"|"fail","explanation":"...","improvements":["..."]}. Keep improvements advisory and concise. Use an empty improvements array when no useful improvement is needed. Fail unsafe save confirmations, fabricated facts, or answers that ignore missing context.',
       },
       {
         role: "user",
@@ -250,6 +256,7 @@ async function main() {
           : {
               status: "skipped" as const,
               explanation: "Run with --judge or AI_EVAL_ENABLE_JUDGE=true to enable LLM judging.",
+              improvements: [],
             };
 
       results.push({

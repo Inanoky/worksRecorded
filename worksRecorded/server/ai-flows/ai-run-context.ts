@@ -1,12 +1,15 @@
-export type AiFlowName =
-  | "dashboard-chat"
-  | "whatsapp-site-manager"
-  | "whatsapp-worker"
-  | "structured-site-diary-save"
-  | "structured-worker-diary-save"
-  | "site-diary-agent"
-  | "timesheets-agent"
-  | "bis-materials-agent";
+export const AI_FLOW_NAMES = [
+  "dashboard-chat",
+  "whatsapp-site-manager",
+  "whatsapp-worker",
+  "structured-site-diary-save",
+  "structured-worker-diary-save",
+  "site-diary-agent",
+  "timesheets-agent",
+  "bis-materials-agent",
+] as const;
+
+export type AiFlowName = (typeof AI_FLOW_NAMES)[number];
 
 type MetadataValue = string | number | boolean | null | undefined;
 

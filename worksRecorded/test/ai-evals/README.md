@@ -6,15 +6,18 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 
 - Dashboard chat flow: `dashboard-chat` / `OrchestratingAgentV2`.
 - WhatsApp site-manager flow: `whatsapp-site-manager` via the real Meta webhook route.
+- WhatsApp worker flow: `whatsapp-worker` / `ClockinAgentForWorkerRoute` via the real Meta webhook route.
 - Main language expectation: Latvian.
 - One English compatibility case is kept intentionally.
 - Dashboard eval prompts use read-only tools only.
 - WhatsApp site-manager evals write temporary site diary records and delete records created by the eval run.
 - Results are saved locally in `.ai-eval-results/dashboard-*.json`.
 - WhatsApp site-manager results are saved locally in `.ai-eval-results/whatsapp-site-manager-*.json`.
+- WhatsApp worker results are saved locally in `.ai-eval-results/whatsapp-worker-*.json`.
 - `.ai-eval-results` is ignored by git.
 - Real eval runs use thread IDs like `eval:dashboard-chat:<siteId>:<caseId>:<runId>`.
 - WhatsApp site-manager eval runs use thread IDs like `eval:whatsapp-site-manager:<siteId>:<caseId>:<runId>`.
+- WhatsApp worker eval runs use thread IDs like `eval:whatsapp-worker:<siteId>:<workerId>:<caseId>:<runId>`.
 
 ## Commands
 
@@ -30,11 +33,18 @@ Validate WhatsApp site-manager fixture/schema loading only:
 npm run eval:ai:whatsapp-site-manager -- --dry-run
 ```
 
+Validate WhatsApp worker fixture/schema loading only:
+
+```bash
+npm run eval:ai:whatsapp-worker -- --dry-run
+```
+
 Run validator unit tests:
 
 ```bash
 npm test -- test/ai-evals/validators.test.ts
 npm test -- test/ai-evals/whatsapp-site-manager-validators.test.ts
+npm test -- test/ai-evals/whatsapp-worker-validators.test.ts
 ```
 
 Run real dashboard AI evals after loading `.env`:
@@ -55,6 +65,15 @@ set +a
 npm run eval:ai:whatsapp-site-manager
 ```
 
+Run real WhatsApp worker AI evals after loading `.env`:
+
+```bash
+set -a
+source .env
+set +a
+npm run eval:ai:whatsapp-worker
+```
+
 Run with optional LLM judge:
 
 ```bash
@@ -69,6 +88,7 @@ AI_EVAL_AGENT_MODEL=gpt-5.4-mini
 AI_EVAL_JUDGE_MODEL=gpt-4.1-mini
 AI_EVAL_SLOW_TURN_MS=15000
 AI_EVAL_WHATSAPP_PHONE=37129391891
+AI_EVAL_WORKER_ID=...
 ```
 
 Required env vars for real evals:
@@ -87,6 +107,15 @@ WhatsApp site-manager preconditions:
 - The eval user's `lastSelectedSiteIdforWhatsapp` must equal `AI_EVAL_SITE_ID`.
 - `AI_EVAL_SITE_ID` must have a site diary settings schema.
 - The runner creates a temporary Meta `WhatsAppIdentity` for the eval run and mocks outbound Graph API calls, so it does not send real WhatsApp replies.
+
+WhatsApp worker preconditions:
+
+- `AI_EVAL_WORKER_ID` must exist.
+- The eval worker must be assigned to `AI_EVAL_SITE_ID`.
+- The eval worker must have a phone number.
+- `AI_EVAL_SITE_ID` must have a site diary settings schema.
+- The runner creates a temporary Meta `WhatsAppIdentity` for the eval run and mocks outbound Graph API calls, so it does not send real WhatsApp replies or clock-in cards.
+- The runner temporarily changes the eval worker clocked-in state per case, then restores the original state.
 
 ## How Results Work
 
@@ -132,13 +161,21 @@ The WhatsApp JSON report includes:
 
 - per-case selected record and created record IDs
 - per-case `structuredSaveTrace` with raw structured LLM records, mapped DB rows, normalized insert rows, and persisted records
-- deterministic status, heuristic score, and optional judge result
+- deterministic status, heuristic score, and optional judge result, including advisory `improvements`
+- requested model, actual provider model, token usage, and finish reason when available
+- latency summary: `totalMs`, `averageMs`, `slowestCase`, `casesOverThreshold`
+
+The WhatsApp worker JSON report includes:
+
+- per-case webhook message ID, answer, status, thread ID, and `latencyMs`
+- captured outbound Graph API message payloads, including mocked clock-in cards
+- created worker diary record IDs and touched timelog IDs
 - requested model, actual provider model, token usage, and finish reason when available
 - latency summary: `totalMs`, `averageMs`, `slowestCase`, `casesOverThreshold`
 
 ## What The Judge Is
 
-The judge is an optional second model call that grades the answer as `pass`, `warn`, or `fail`. It is useful for fuzzy checks like grounding, tone, hallucination risk, and answer quality. It is slower and costs extra, so normal runs can skip it.
+The judge is an optional second model call that grades the answer as `pass`, `warn`, or `fail`. It also returns an `improvements` array for concise advisory suggestions. These suggestions are report metadata only; they do not affect pass/fail status unless the judge status itself is `warn` or `fail`.
 
 Use deterministic validators for hard rules. Use the judge for quality review.
 
@@ -242,7 +279,6 @@ Update `validators.ts` when text matching is too strict or too loose.
 - Add a cleanup script for eval checkpoint rows by `eval:dashboard-chat:` prefix.
 - Add a cleanup script for eval checkpoint rows by `eval:whatsapp-site-manager:` prefix.
 - Add a real audio webhook fixture for WhatsApp site-manager audio evals.
-- Add dedicated flows for worker clock-in.
 - Add a small HTML/CLI summary for comparing two report files before and after prompt/context changes.
 
 Next WhatsApp site-manager edge cases to add:

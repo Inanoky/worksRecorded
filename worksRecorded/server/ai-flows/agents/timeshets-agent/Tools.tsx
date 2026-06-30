@@ -4,6 +4,7 @@ import { z } from "zod";
 import {ToolNode} from "@langchain/langgraph/prebuilt"
 import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
 import { nukeBackslashes, SQLexecute } from "@/server/ai-flows/agents/sitediary-agent/helpers" 
+import { summarizeSqlRowsForTool } from "@/server/ai-flows/controlled-memory";
 
 
 
@@ -28,10 +29,10 @@ export const timesheets_records_postgreSQL_database_query_tool= new DynamicStruc
                 console.log("Tool input:", clearedSQL_query)
 
                 const { result: rows } = await SQLexecute(clearedSQL_query); 
-                const safe = JSON.stringify(rows, (_, v) => (typeof v === "bigint" ? v.toString() : v));
-           
-
-                return safe
+                return summarizeSqlRowsForTool(
+                  rows,
+                  "timesheets_records_postgreSQL_database_query_tool",
+                )
 
 
 

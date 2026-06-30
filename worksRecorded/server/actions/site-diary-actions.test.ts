@@ -67,6 +67,7 @@ function buildCreatedRow(row: any, index = createdRowIndex++) {
     Amounts: row.Amounts ?? null,
     WorkersInvolved: row.WorkersInvolved ?? null,
     TimeInvolved: row.TimeInvolved ?? null,
+    evalMetadata: row.evalMetadata ?? null,
     createdAt: new Date(`2026-06-23T00:00:0${index}.000Z`),
   };
 }
@@ -166,9 +167,44 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         Amounts: null,
         WorkersInvolved: null,
         TimeInvolved: null,
+        evalMetadata: undefined,
       }),
       select: expect.any(Object),
     });
+  });
+
+  it("stores eval metadata only when provided", async () => {
+    const evalMetadata = {
+      isEval: true,
+      flow: "whatsapp-site-manager",
+      runId: "run-1",
+      caseId: "case-1",
+      messageId: "wamid.eval.run-1.case-1",
+      createdBy: "ai-eval-runner",
+    };
+
+    const result = await saveSiteDiaryRecord({
+      rows: [
+        {
+          Location: "Site A",
+          Works: "Concrete pour",
+        },
+      ],
+      userId: "user-1",
+      siteId: "site-1",
+      originalUserComment: "Concrete pour",
+      evalMetadata,
+    });
+
+    expectSuccessfulSave(result, 1);
+    expect(createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        evalMetadata,
+      }),
+      select: expect.any(Object),
+    });
+    expect((result as any).records[0].evalMetadata).toEqual(evalMetadata);
+    expect((result as any).normalizedInsertRows[0].evalMetadata).toEqual(evalMetadata);
   });
 
   it("normalizes blank and invalid numeric fields to null", async () => {

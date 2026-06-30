@@ -14,15 +14,20 @@ export function DashboardItems({
   userEmail,
   organizationLanguage,
   canAccessAiContext = false,
+  canAccessAiEvals = false,
 }: {
   userEmail?: string | null;
   organizationLanguage?: string | null;
   canAccessAiContext?: boolean;
+  canAccessAiEvals?: boolean;
 }) {
   const { projectId, projectName, setProject } = useProject();
   const pathname = usePathname();
   const router = useRouter();
-  const navLinks = useMemo(() => getNavLinks(organizationLanguage), [organizationLanguage]);
+  const navLinks = useMemo(
+    () => getNavLinks(organizationLanguage, { canAccessAiEvals }),
+    [canAccessAiEvals, organizationLanguage],
+  );
   const projectNavLinks = useMemo(
     () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
     [canAccessAiContext, organizationLanguage],

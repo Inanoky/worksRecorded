@@ -1,13 +1,19 @@
-import { Bot, HardHat, Wrench, ReceiptText, Clock8, Package } from "lucide-react";
+import { Bot, ChartNoAxesCombined, HardHat, Wrench, ReceiptText, Clock8, Package } from "lucide-react";
 import { getNavigationMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
-export function getNavLinks(language?: string | null) {
+export function getNavLinks(language?: string | null, options?: { canAccessAiEvals?: boolean }) {
   const t = getNavigationMessages(normalizeOrganizationLanguage(language));
 
-  return [
+  const links = [
     { name: t.projects, href: "/dashboard/sites", icon: HardHat },
     { name: t.organizationSettings, href: "/dashboard/settings", icon: Wrench },
   ];
+
+  if (options?.canAccessAiEvals) {
+    links.push({ name: "AI Evals", href: "/dev/ai-evals", icon: ChartNoAxesCombined });
+  }
+
+  return links;
 }
 
 export function getProjectNavLinks(language?: string | null, options?: { canAccessAiContext?: boolean }) {

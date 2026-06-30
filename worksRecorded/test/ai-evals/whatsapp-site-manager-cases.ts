@@ -109,4 +109,40 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
         minHeuristicScore: 0.75,
       },
     },
+    {
+      id: "latvian-multiple-works-total-hours-no-split",
+      intent:
+        "Verify multiple mentioned works with one total duration stay as one site diary record when the duration cannot be safely split.",
+      notes:
+        "Protects against duplicating or arbitrarily splitting total hours across pipes, sewer, and radiator work.",
+      webhook: textWebhookFixture({
+        senderKey: "eval-site-manager-total-hours-no-split",
+        body: "Ūdens trubas plus kanalizācija, ūdens radiatori, divpadsmit stundas.",
+        timestamp: "1782197595",
+      }),
+      expected: {
+        requiredTextSignals: ["ūdens", "kanaliz", "radiator"],
+        workersInvolved: 1,
+        timeInvolved: 12,
+        minHeuristicScore: 0.75,
+      },
+    },
+    {
+      id: "latvian-word-number-workers",
+      intent:
+        "Verify Latvian word-number worker counts override the default one-worker inference.",
+      notes:
+        "Covers non-digit worker extraction from phrases like trīs strādnieki.",
+      webhook: textWebhookFixture({
+        senderKey: "eval-site-manager-word-number-workers",
+        body: "Šodien montēti pārseguma paneļi 1 stāvā, trīs strādnieki, 6h",
+        timestamp: "1782197605",
+      }),
+      expected: {
+        requiredTextSignals: ["pārseg", "paneļ", "1", "stāv"],
+        workersInvolved: 3,
+        timeInvolved: 6,
+        minHeuristicScore: 0.75,
+      },
+    },
   ]);

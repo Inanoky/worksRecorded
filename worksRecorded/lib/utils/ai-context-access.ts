@@ -15,3 +15,10 @@ export function hasAiContextAccess(userId: string | null | undefined) {
 
   return allowedUserIds.has(userId) || userId === superAdminId;
 }
+
+export function hasAiEvalAccess(userId: string | null | undefined) {
+  if (!userId) return false;
+
+  const allowedUserIds = parseUserIds(process.env.AI_CONTEXT_ALLOWED_USER_IDS);
+  return allowedUserIds.has(userId);
+}

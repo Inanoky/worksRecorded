@@ -1,4 +1,5 @@
 import {
+  hasWhatsappSiteManagerEvalMetadata,
   selectNewestEvalRecord,
   selectRecordsForWhatsappEval,
 } from "./whatsapp-site-manager-runner-utils";
@@ -17,6 +18,7 @@ function record(id: string, createdAt: string): SavedSiteDiaryRecord {
     originalAudioUrl: null,
     WorkersInvolved: 2,
     TimeInvolved: 3,
+    evalMetadata: null,
     createdAt: new Date(createdAt),
   };
 }
@@ -49,5 +51,33 @@ describe("WhatsApp site-manager eval runner utils", () => {
 
     expect(records).toEqual([persisted]);
     expect(selectNewestEvalRecord(records)?.WorkersInvolved).toBe(2);
+  });
+
+  it("identifies WhatsApp site-manager eval metadata by run and case", () => {
+    const evalRecord = {
+      ...record("eval-record", "2026-06-23T07:45:00.000Z"),
+      evalMetadata: {
+        isEval: true,
+        flow: "whatsapp-site-manager",
+        runId: "run-1",
+        caseId: "case-1",
+        messageId: "wamid.eval.run-1.case-1",
+        createdBy: "ai-eval-runner",
+      },
+    };
+
+    expect(
+      hasWhatsappSiteManagerEvalMetadata(evalRecord, {
+        runId: "run-1",
+        caseId: "case-1",
+      }),
+    ).toBe(true);
+    expect(
+      hasWhatsappSiteManagerEvalMetadata(evalRecord, {
+        runId: "run-1",
+        caseId: "other-case",
+      }),
+    ).toBe(false);
+    expect(hasWhatsappSiteManagerEvalMetadata(record("normal-record", "2026-06-23T07:45:00.000Z"))).toBe(false);
   });
 });

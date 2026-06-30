@@ -1,26 +1,19 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import {ToolNode} from "@langchain/langgraph/prebuilt"
-import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
+import { GraphState } from "@/server/ai-flows/agents/shared-between-agents/state";
 
 import SiteDiaryAgent from "@/server/ai-flows/agents/sitediary-agent/agent";
 import TimesheetsAgent from "@/server/ai-flows/agents/timeshets-agent/agent";
 import BisMaterialsAgent from "@/server/ai-flows/agents/bis-materials-agent/agent";
 import { siteDiaryToDatabaseTool } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
+import { summarizeToolOutput } from "@/server/ai-flows/controlled-memory";
 
 import OpenAI from "openai";
 
-
-// ⬅️ new helper
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 });
-
-
-
-
-
-
 
 export const siteDiaryRecordsTool = new DynamicStructuredTool({
   name: "siteDiaryRecordsTool",
@@ -30,14 +23,10 @@ export const siteDiaryRecordsTool = new DynamicStructuredTool({
     siteId: z.string(),
   }),
   async func({ prompt, siteId }) {
-
-      const result = await SiteDiaryAgent(prompt, siteId);
-    // console.log("[general_sql_agent] Tool returned:", result);
+    const result = await SiteDiaryAgent(prompt, siteId);
     return result;
-
   },
 });
-
 
 export const timeSheetsAgent = new DynamicStructuredTool({
   name: "timeSheetsTool",
@@ -47,11 +36,8 @@ export const timeSheetsAgent = new DynamicStructuredTool({
     siteId: z.string(),
   }),
   async func({ prompt, siteId }) {
-
-      const result = await TimesheetsAgent(prompt, siteId);
-    // console.log("[general_sql_agent] Tool returned:", result);
+    const result = await TimesheetsAgent(prompt, siteId);
     return result;
-
   },
 });
 
@@ -68,7 +54,6 @@ export const bisMaterialRecordsTool = new DynamicStructuredTool({
   },
 });
 
-
 export const webSearchTool = new DynamicStructuredTool({
   name: "webSearchTool",
   description: "This tool has access to the live web for up-to-date info, news, prices, and company data.",
@@ -79,18 +64,10 @@ export const webSearchTool = new DynamicStructuredTool({
   }),
   async func({ userQuestion }) {
     const response = await client.responses.create({
-      model: "gpt-5.1", // or "o4-mini", "gpt-4.1", etc.
+      model: "gpt-5.1",
       tools: [
         {
           type: "web_search",
-          // Optional:
-          // filters: { allowed_domains: ["ec.europa.eu", "likumi.lv"] },
-          // user_location: {
-          //   type: "approximate",
-          //   country: "LV",
-          //   city: "Riga",
-          //   region: "Riga",
-          // },
         },
       ],
       tool_choice: "auto",
@@ -101,8 +78,6 @@ export const webSearchTool = new DynamicStructuredTool({
     return response.output_text ?? "No result from web search.";
   },
 });
-
-
 
 export const thePythonTool = new DynamicStructuredTool({
   name: "thePythonTool",
@@ -163,7 +138,6 @@ or manual PDF byte construction, IGNORE those parts and follow these rules inste
     try {
       const outputs: any[] = (resp as any).output ?? [];
 
-      // 1) Prefer container_file_citation annotations
       for (const item of outputs) {
         if (item?.type !== "message") continue;
         const contentArr: any[] = item.content ?? [];
@@ -183,7 +157,6 @@ or manual PDF byte construction, IGNORE those parts and follow these rules inste
         if (fileId && containerId) break;
       }
 
-      // 2) Fallback – list container files if no citation found
       if (!fileId || !containerId) {
         const fileList = await client.containers.files.list(container.id, {
           limit: 10,
@@ -224,20 +197,54 @@ or manual PDF byte construction, IGNORE those parts and follow these rules inste
   },
 });
 
+function wrapToolForTracking(tool: any) {
+  const originalFunc = tool.func;
+  if (!originalFunc) return tool;
+
+  tool.func = async (args: any, runManager: any) => {
+    const start = Date.now();
+    try {
+      const result = await originalFunc.call(tool, args, runManager);
+      const durationMs = Date.now() - start;
+      const size = typeof result === "string" ? result.length : JSON.stringify(result ?? "").length;
+      const checkpointResult =
+        typeof result === "string" && size > 12000
+          ? summarizeToolOutput(tool.name, result, size)
+          : result;
+
+      if (size > 10000) {
+        console.warn(`⚠️ [TOOL OUTPUT ALERT] Tool "${tool.name}" returned a large payload of size ${size} characters (approx. ${Math.ceil(size / 4)} tokens) in ${durationMs}ms`, {
+          toolName: tool.name,
+          args,
+          size,
+          durationMs,
+          preview: typeof result === "string" ? result.slice(0, 300) : String(result).slice(0, 300),
+        });
+      } else {
+        console.log(`[TOOL OUTPUT INFO] Tool "${tool.name}" returned size ${size} chars in ${durationMs}ms`);
+      }
+      return checkpointResult;
+    } catch (error) {
+      const durationMs = Date.now() - start;
+      console.error(`❌ [TOOL ERROR] Tool "${tool.name}" failed after ${durationMs}ms:`, error);
+      throw error;
+    }
+  };
+  return tool;
+}
 
 export const readOnlyTools = [
   siteDiaryRecordsTool,
   timeSheetsAgent,
   bisMaterialRecordsTool,
-];
+].map(wrapToolForTracking);
 
 export const tools = [
   ...readOnlyTools,
   siteDiaryToDatabaseTool,
   webSearchTool,
   thePythonTool,
-]
+].map(wrapToolForTracking);
 
-export const readOnlyToolNode = new ToolNode<typeof GraphState.State>(readOnlyTools)
-export const toolNode = new ToolNode<typeof GraphState.State>(tools)
-
+export const readOnlyToolNode = new ToolNode<typeof GraphState.State>(readOnlyTools);
+export const toolNode = new ToolNode<typeof GraphState.State>(tools);

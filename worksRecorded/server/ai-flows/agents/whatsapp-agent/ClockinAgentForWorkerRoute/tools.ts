@@ -19,6 +19,7 @@ import {
   buildAiRunContext,
   summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import { getWorkerAgentRunContext } from "./runContext";
 
 async function buildSystemPromptSaveToDatabase(workerId: string) {
   const organizationLanguage = await getOrganizationLanguageByWorkerId(workerId);
@@ -145,6 +146,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
   }),
   async func({ question, workerId, siteId, date, originalUserComment }: { question: string; workerId: string, siteId: string, date: string, originalUserComment: string }) {
     const whatsappSourceContext = getWhatsappSourceContext();
+    const runContext = getWorkerAgentRunContext();
     const aiContext = buildAiRunContext({
       flow: "structured-worker-diary-save",
       threadId: `structured-worker-diary-save:${siteId}:${workerId}`,
@@ -156,7 +158,9 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
         date,
         hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
         originalUserCommentPreview: summarizeForTrace(originalUserComment),
+        ...(runContext?.traceMetadata ?? {}),
       },
+      tags: runContext?.traceTags,
     });
 
     console.log("[originalAudioUrl][workerTool] received app context", {
@@ -218,6 +222,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
           workerId,
           siteId,
           originalUserComment,
+          evalMetadata: runContext?.evalRecordMetadata,
         });
 
 

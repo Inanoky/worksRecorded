@@ -1,6 +1,6 @@
 "use server"
 
-import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
+import { Annotation, END, START, StateGraph, messagesStateReducer } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { BaseMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
@@ -12,6 +12,11 @@ import {
   getBisMaterialsAgentThreadId,
   summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import {
+  buildControlledMemoryMessagesUpdate,
+  getControlledMemoryMetadata,
+  prepareControlledModelMessages,
+} from "@/server/ai-flows/controlled-memory";
 
 export default async function BisMaterialsAgent(question, siteId) {
   const aiContext = buildAiRunContext({
@@ -27,25 +32,31 @@ export default async function BisMaterialsAgent(question, siteId) {
 
   const state = Annotation.Root({
     messages: Annotation<BaseMessage[]>({
-      reducer: (x, y) => x.concat(y),
+      reducer: messagesStateReducer,
       default: () => [],
     }),
   });
 
   const agentNode = async (state) => {
     const { messages } = state;
+    const controlled = prepareControlledModelMessages(messages);
+    const safeMessages = controlled.messages;
 
     const llm = new ChatOpenAI({
       model: siteDiaryAgentModel,
     }).bindTools(tools);
 
-    const response = await llm.invoke(messages, {
+    const response = await llm.invoke(safeMessages, {
       ...aiContext.runnableConfig,
       runName: "BisMaterialsAgentModel",
+      metadata: {
+        ...aiContext.runnableConfig.metadata,
+        ...getControlledMemoryMetadata(controlled.stats),
+      },
     });
 
     return {
-      messages: [response],
+      messages: buildControlledMemoryMessagesUpdate(safeMessages, response),
     };
   };
 
