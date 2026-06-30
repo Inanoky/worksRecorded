@@ -1489,7 +1489,10 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
 
   const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", category: "action", siteId });
   const query = {
-    where: { siteId },
+    where:
+      siteId === ZTC_SITE_ID
+        ? { siteId, Date_Custom_2: { not: null } }
+        : { siteId },
     orderBy: [{ Date: "asc" as const }],
     select: {
       id: true,

@@ -544,6 +544,7 @@ async function loadZtcSiteDiaryRecords(args: { date: string }) {
     where: {
       siteId: ZTC_SITE_ID,
       organizationId: ZTC_ORGANIZATION_ID,
+      Date_Custom_2: { not: null },
       OR: [
         { Date: { gte: start, lte: end } },
         { Date_Custom_1: { gte: start, lte: end } },
