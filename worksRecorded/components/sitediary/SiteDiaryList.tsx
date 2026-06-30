@@ -117,6 +117,7 @@ import {
   isZtcQualityRow,
   splitZtcWorkerDisplayName,
 } from "@/components/sitediary/ZTC/ztc-site-diary-utils";
+import { formatZtcRowsForExcel } from "@/components/sitediary/ZTC/ztc-excel-export";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -1098,7 +1099,8 @@ export default function SiteDiaryCalendar({
   // Export ONLY currently filtered rows
   const exportToExcel = async () => {
     const XLSX = await import("xlsx");
-    const worksheet = XLSX.utils.json_to_sheet(filteredRows);
+    const exportRows = isZtcSite ? formatZtcRowsForExcel(filteredRows) : filteredRows;
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
     XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");

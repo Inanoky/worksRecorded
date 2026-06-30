@@ -9,6 +9,8 @@ import { getFilledDays, getSitediaryRecordsBySiteIdForExcel } from "@/server/act
 import { Label } from "@/components/ui/label";
 import { MessageCircle } from "lucide-react";
 import TourRunner from "@/components/joyride/TourRunner";
+import { formatZtcRowsForExcel } from "@/components/sitediary/ZTC/ztc-excel-export";
+import { ZTC_SITE_ID } from "@/components/sitediary/ZTC/ztc-site-diary-utils";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WhatsAppIcon = ({ size = 22 }) => (
@@ -71,7 +73,8 @@ export default function SiteDiaryCalendar({ siteId }) {
   async function exportToExcel() {
     const XLSX = await import("xlsx");
     const rows = await getSitediaryRecordsBySiteIdForExcel(siteId);
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const exportRows = siteId === ZTC_SITE_ID ? formatZtcRowsForExcel(rows) : rows;
+    const worksheet = XLSX.utils.json_to_sheet(exportRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
     XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
