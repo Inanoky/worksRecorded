@@ -31,8 +31,12 @@ export function ZtcRelatedImageGallery({
   const [tx, setTx] = React.useState(0);
   const [ty, setTy] = React.useState(0);
   const viewerRef = React.useRef<HTMLDivElement | null>(null);
+  const imageViewportRef = React.useRef<HTMLDivElement | null>(null);
   const imgRef = React.useRef<HTMLImageElement | null>(null);
   const baseSizeRef = React.useRef({ w: 0, h: 0 });
+  const isPanningRef = React.useRef(false);
+  const panStartRef = React.useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const startTranslateRef = React.useRef<{ tx: number; ty: number }>({ tx: 0, ty: 0 });
   const MIN_SCALE = 1;
   const MAX_SCALE = 8;
   const THUMBNAIL_WINDOW = 8;
@@ -42,6 +46,7 @@ export function ZtcRelatedImageGallery({
     setScale(1);
     setTx(0);
     setTy(0);
+    isPanningRef.current = false;
   }, [currentIndex, photos]);
 
   React.useEffect(() => {
@@ -80,67 +85,32 @@ export function ZtcRelatedImageGallery({
     setCurrentIndex((index) => (index + 1) % photos.length);
   }, [photos.length]);
 
-  const getCoverScale = React.useCallback(() => {
-    const viewer = viewerRef.current;
+  function getCoverScale() {
+    const viewer = imageViewportRef.current ?? viewerRef.current;
     const base = baseSizeRef.current;
     if (!viewer || !base.w || !base.h) return 1;
     return Math.max(viewer.clientWidth / base.w, viewer.clientHeight / base.h);
-  }, []);
+  }
 
-  const clampTranslate = React.useCallback(
-    (nextScale: number, nx: number, ny: number) => {
-      const viewer = viewerRef.current;
-      const base = baseSizeRef.current;
-      if (!viewer || !base.w || !base.h) return { x: nx, y: ny };
+  function clampTranslate(nextScale: number, nx: number, ny: number) {
+    const viewer = imageViewportRef.current ?? viewerRef.current;
+    const base = baseSizeRef.current;
+    if (!viewer || !base.w || !base.h) return { x: nx, y: ny };
 
-      const cover = getCoverScale();
-      if (nextScale <= Math.max(1, cover)) return { x: 0, y: 0 };
+    if (nextScale <= MIN_SCALE) return { x: 0, y: 0 };
 
-      const maxX = Math.max(0, (base.w * nextScale - viewer.clientWidth) / 2);
-      const maxY = Math.max(0, (base.h * nextScale - viewer.clientHeight) / 2);
+    const vw = viewer.clientWidth;
+    const vh = viewer.clientHeight;
+    const dispW = base.w * nextScale;
+    const dispH = base.h * nextScale;
+    const maxX = Math.max(0, (dispW - vw) / 2);
+    const maxY = Math.max(0, (dispH - vh) / 2);
 
-      return {
-        x: Math.max(-maxX, Math.min(maxX, nx)),
-        y: Math.max(-maxY, Math.min(maxY, ny)),
-      };
-    },
-    [getCoverScale],
-  );
-
-  const zoomAtPoint = React.useCallback(
-    (targetScale: number, clientX?: number, clientY?: number) => {
-      const viewer = viewerRef.current;
-      const cover = Math.max(1, getCoverScale());
-      const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, targetScale));
-
-      if (!viewer || nextScale <= cover) {
-        setScale(nextScale);
-        setTx(0);
-        setTy(0);
-        return;
-      }
-
-      const rect = viewer.getBoundingClientRect();
-      const cx =
-        (clientX ?? rect.left + rect.width / 2) - (rect.left + rect.width / 2);
-      const cy =
-        (clientY ?? rect.top + rect.height / 2) - (rect.top + rect.height / 2);
-      const startScale = scale < cover ? cover : scale;
-      const startTx = scale < cover ? 0 : tx;
-      const startTy = scale < cover ? 0 : ty;
-      const k = nextScale / startScale;
-      const clamped = clampTranslate(
-        nextScale,
-        cx - (cx - startTx) * k,
-        cy - (cy - startTy) * k,
-      );
-
-      setScale(nextScale);
-      setTx(clamped.x);
-      setTy(clamped.y);
-    },
-    [clampTranslate, getCoverScale, scale, tx, ty],
-  );
+    return {
+      x: Math.max(-maxX, Math.min(maxX, nx)),
+      y: Math.max(-maxY, Math.min(maxY, ny)),
+    };
+  }
 
   const handleImageLoaded = React.useCallback(() => {
     const img = imgRef.current;
@@ -151,6 +121,179 @@ export function ZtcRelatedImageGallery({
     baseSizeRef.current = { w: rect.width, h: rect.height };
     img.style.transform = previousTransform;
   }, []);
+
+  function handleWheel(event: React.WheelEvent) {
+    event.preventDefault();
+    if (!viewerRef.current) return;
+
+    const factor = Math.pow(1.0015, -event.deltaY);
+    const target = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
+
+    if (target <= MIN_SCALE) {
+      setScale(target);
+      setTx(0);
+      setTy(0);
+      return;
+    }
+
+    const startScale = Math.max(MIN_SCALE, scale);
+    const startTx = scale <= MIN_SCALE ? 0 : tx;
+    const startTy = scale <= MIN_SCALE ? 0 : ty;
+
+    const viewerRect = (imageViewportRef.current ?? viewerRef.current).getBoundingClientRect();
+    const cx = event.clientX - (viewerRect.left + viewerRect.width / 2);
+    const cy = event.clientY - (viewerRect.top + viewerRect.height / 2);
+
+    const k = target / startScale;
+    const nx = cx - (cx - startTx) * k;
+    const ny = cy - (cy - startTy) * k;
+
+    const clamped = clampTranslate(target, nx, ny);
+    setScale(target);
+    setTx(clamped.x);
+    setTy(clamped.y);
+  }
+
+  function zoomAtPoint(targetScale: number, clientX?: number, clientY?: number) {
+    if (!viewerRef.current) return;
+
+    const target = Math.max(MIN_SCALE, Math.min(MAX_SCALE, targetScale));
+
+    if (target <= MIN_SCALE) {
+      setScale(target);
+      setTx(0);
+      setTy(0);
+      return;
+    }
+
+    const viewerRect = (imageViewportRef.current ?? viewerRef.current).getBoundingClientRect();
+    const cx =
+      (clientX ?? viewerRect.left + viewerRect.width / 2) -
+      (viewerRect.left + viewerRect.width / 2);
+    const cy =
+      (clientY ?? viewerRect.top + viewerRect.height / 2) -
+      (viewerRect.top + viewerRect.height / 2);
+    const startScale = Math.max(MIN_SCALE, scale);
+    const startTx = scale <= MIN_SCALE ? 0 : tx;
+    const startTy = scale <= MIN_SCALE ? 0 : ty;
+
+    const k = target / startScale;
+    const nx = cx - (cx - startTx) * k;
+    const ny = cy - (cy - startTy) * k;
+    const clamped = clampTranslate(target, nx, ny);
+    setScale(target);
+    setTx(clamped.x);
+    setTy(clamped.y);
+  }
+
+  function handleDoubleClick(event: React.MouseEvent) {
+    event.preventDefault();
+    let target: number;
+
+    if (scale < 2 - 0.01) target = 2;
+    else target = 1;
+
+    zoomAtPoint(target, event.clientX, event.clientY);
+  }
+
+  function startPan(clientX: number, clientY: number) {
+    if (scale <= MIN_SCALE) return;
+    isPanningRef.current = true;
+    panStartRef.current = { x: clientX, y: clientY };
+    startTranslateRef.current = { tx, ty };
+  }
+
+  function movePan(clientX: number, clientY: number) {
+    if (!isPanningRef.current) return;
+    const dx = clientX - panStartRef.current.x;
+    const dy = clientY - panStartRef.current.y;
+    const nx = startTranslateRef.current.tx + dx;
+    const ny = startTranslateRef.current.ty + dy;
+    const clamped = clampTranslate(scale, nx, ny);
+    setTx(clamped.x);
+    setTy(clamped.y);
+  }
+
+  function endPan() {
+    isPanningRef.current = false;
+  }
+
+  const touchState = React.useRef({
+    pinching: false,
+    startDist: 0,
+    startScale: 1,
+    midX: 0,
+    midY: 0,
+  });
+
+  function dist(a: React.Touch, b: React.Touch) {
+    const dx = a.clientX - b.clientX;
+    const dy = a.clientY - b.clientY;
+    return Math.hypot(dx, dy);
+  }
+
+  function handleTouchStart(event: React.TouchEvent) {
+    if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      startPan(touch.clientX, touch.clientY);
+    } else if (event.touches.length === 2 && viewerRef.current) {
+      event.preventDefault();
+      const [touchOne, touchTwo] = [event.touches[0], event.touches[1]];
+      touchState.current.pinching = true;
+      touchState.current.startDist = dist(touchOne, touchTwo);
+      touchState.current.startScale = scale;
+
+      const viewerRect = viewerRef.current.getBoundingClientRect();
+      touchState.current.midX =
+        (touchOne.clientX + touchTwo.clientX) / 2 -
+        (viewerRect.left + viewerRect.width / 2);
+      touchState.current.midY =
+        (touchOne.clientY + touchTwo.clientY) / 2 -
+        (viewerRect.top + viewerRect.height / 2);
+    }
+  }
+
+  function handleTouchMove(event: React.TouchEvent) {
+    if (touchState.current.pinching && event.touches.length === 2) {
+      event.preventDefault();
+      const [touchOne, touchTwo] = [event.touches[0], event.touches[1]];
+      const newDist = dist(touchOne, touchTwo);
+      let newScale =
+        (touchState.current.startScale * newDist) /
+        (touchState.current.startDist || 1);
+      newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, newScale));
+
+      if (newScale <= MIN_SCALE) {
+        setScale(newScale);
+        setTx(0);
+        setTy(0);
+        return;
+      }
+
+      const startScale = Math.max(MIN_SCALE, touchState.current.startScale);
+      const startTx = scale <= MIN_SCALE ? 0 : tx;
+      const startTy = scale <= MIN_SCALE ? 0 : ty;
+
+      const k = newScale / startScale;
+      const nx =
+        touchState.current.midX - (touchState.current.midX - startTx) * k;
+      const ny =
+        touchState.current.midY - (touchState.current.midY - startTy) * k;
+
+      const clamped = clampTranslate(newScale, nx, ny);
+      setScale(newScale);
+      setTx(clamped.x);
+      setTy(clamped.y);
+    } else if (event.touches.length === 1) {
+      const touch = event.touches[0];
+      movePan(touch.clientX, touch.clientY);
+    }
+  }
+
+  function handleTouchEnd() {
+    touchState.current.pinching = false;
+    endPan();
+  }
 
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -217,8 +360,30 @@ export function ZtcRelatedImageGallery({
       </button>
 
       <div
+        ref={viewerRef}
         className="flex h-[92vh] w-[92vw] max-w-[1400px] flex-col p-2"
         onClick={(event) => event.stopPropagation()}
+        onWheel={handleWheel}
+        onDoubleClick={handleDoubleClick}
+        onMouseDown={(event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          startPan(event.clientX, event.clientY);
+        }}
+        onMouseMove={(event) => movePan(event.clientX, event.clientY)}
+        onMouseUp={endPan}
+        onMouseLeave={endPan}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          cursor:
+            scale > MIN_SCALE
+              ? isPanningRef.current
+                ? "grabbing"
+                : "grab"
+              : "zoom-in",
+        }}
       >
         <div className="mb-2 text-center text-white">
           <div className="text-base font-medium">{title}</div>
@@ -246,13 +411,8 @@ export function ZtcRelatedImageGallery({
           </button>
         </div>
         <div
-          ref={viewerRef}
+          ref={imageViewportRef}
           className="relative flex min-h-0 flex-1 touch-none items-center justify-center overflow-hidden rounded-md"
-          onWheel={(event) => {
-            event.preventDefault();
-            const factor = Math.pow(1.0015, -event.deltaY);
-            zoomAtPoint(scale * factor, event.clientX, event.clientY);
-          }}
         >
           <img
             ref={imgRef}
@@ -264,14 +424,13 @@ export function ZtcRelatedImageGallery({
             className="max-h-full max-w-full select-none object-contain"
             style={{
               transform: `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`,
-              transformOrigin: "center",
-              cursor: scale > Math.max(1, getCoverScale()) ? "grab" : "zoom-in",
+              transformOrigin: "center center",
+              transition: isPanningRef.current
+                ? "none"
+                : "transform 120ms ease-out",
             }}
             draggable={false}
             onLoad={handleImageLoaded}
-            onDoubleClick={(event) =>
-              zoomAtPoint(scale < 2 ? 2 : 1, event.clientX, event.clientY)
-            }
           />
         </div>
         {currentPhoto.caption ? (

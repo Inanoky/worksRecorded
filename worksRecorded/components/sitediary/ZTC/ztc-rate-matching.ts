@@ -63,9 +63,7 @@ function rateTokenVariants(token: string) {
   const normalized = normalizeRateToken(token);
   if (!normalized) return [];
   const stem = normalized.replace(/(iem|am|us|as|es|is|ai|ei|am|em|i|a|e|u|s)$/i, "");
-  return Array.from(
-    new Set([normalized, stem.length >= 3 ? stem : normalized].filter(Boolean)),
-  );
+  return [stem.length >= 4 ? stem : normalized];
 }
 
 export function ztcRateMatchTokens(value: string) {
@@ -106,6 +104,7 @@ export function findZtcDefaultRateForTask(
 
     const overlap = [...rateTokens].filter((token) => taskTokens.has(token)).length;
     const rawScore = overlap / Math.max(rateTokens.size, taskTokens.size);
+    const rateCoverageScore = overlap / rateTokens.size;
     const exact =
       normalizeZtcRateTaskName(entry.task).toLowerCase() ===
       normalizeZtcRateTaskName(String(task ?? "")).toLowerCase();
@@ -123,7 +122,9 @@ export function findZtcDefaultRateForTask(
         ? Math.max(rawScore, 0.8)
         : detailTokenMatch
           ? Math.max(rawScore, 0.55)
-          : rawScore;
+          : rateCoverageScore >= 0.75
+            ? Math.max(rawScore, 0.7 + Math.min(overlap, 4) * 0.05)
+            : rawScore;
     const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
     if (score >= threshold && (!best || score > best.score)) {
       best = { entry, score };
