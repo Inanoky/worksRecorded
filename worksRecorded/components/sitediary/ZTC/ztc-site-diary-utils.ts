@@ -8,6 +8,7 @@ export type ZtcDiaryRow = {
   Location_Custom_1?: string | null;
   Location_Custom_2?: string | number | null;
   Works?: string | null;
+  Works_Custom_1?: string | null;
   Works_Custom_2?: string | number | null;
   Units?: string | null;
   Amounts?: number | string | null;
@@ -94,6 +95,10 @@ export function isZtcQualityRow(row: ZtcDiaryRow) {
   } catch {
     return false;
   }
+}
+
+export function isZtcAdditionalWorkRow(row: ZtcDiaryRow) {
+  return row.Location === "Papilddarbi" || row.Works_Custom_1 === "Papilddarbi";
 }
 
 function getZtcQualityCoefficient(row: ZtcDiaryRow) {
@@ -332,11 +337,14 @@ export async function exportZtcPayrollToExcel({
     }
   >();
 
-  payrollRows.forEach((row) => {
+  monthRows.forEach((row) => {
+    const payroll = getZtcPayrollValues(row);
+    const payrollDate = row.Date ? new Date(row.Date) : null;
     const month =
-      row.Mēnesis ||
-      `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
-    const worker = String(row.Darbinieks || "—").trim() || "—";
+      payrollDate && !Number.isNaN(payrollDate.getTime())
+        ? `${payrollDate.getFullYear()}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`
+        : `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+    const worker = String(row.createdBy || "—").trim() || "—";
     const key = `${month}::${worker}`;
     const existing = summaryByWorkerMonth.get(key) ?? {
       Mēnesis: month,
@@ -346,12 +354,12 @@ export async function exportZtcPayrollToExcel({
       Alga: 0,
     };
 
-    if (String(row.Projekts ?? "").trim() === "Papilddarbi") {
-      existing["Papilddarbu stundas"] += Number(row.Stundas) || 0;
+    if (isZtcAdditionalWorkRow(row)) {
+      existing["Papilddarbu stundas"] += Number(payroll.hours) || 0;
     } else {
-      existing["Darbu stundas"] += Number(row.Stundas) || 0;
+      existing["Darbu stundas"] += Number(payroll.hours) || 0;
     }
-    existing.Alga += Number(row.Summa) || 0;
+    existing.Alga += Number(payroll.sum) || 0;
     summaryByWorkerMonth.set(key, existing);
   });
 

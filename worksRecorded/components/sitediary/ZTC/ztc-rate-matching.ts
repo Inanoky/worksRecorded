@@ -7,6 +7,7 @@ export type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
   unit: ZtcRateUnit;
+  relatesToElement?: boolean;
 };
 
 const ZTC_RATE_STOP_WORDS = new Set([

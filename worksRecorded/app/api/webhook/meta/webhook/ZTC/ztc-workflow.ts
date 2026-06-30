@@ -124,6 +124,7 @@ type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
   unit: ZtcRateUnit;
+  relatesToElement?: boolean;
 };
 type ZtcProjectTaskRates = {
   projectName: string;
@@ -261,12 +262,14 @@ function normalizeTaskRateEntries(
       (item as Record<string, unknown>)?.unit,
       fallbackUnit,
     );
+    const relatesToElement =
+      (item as Record<string, unknown>)?.relatesToElement === true;
     if (!task || rate == null) continue;
 
     const key = task.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    rates.push({ task, rate, unit });
+    rates.push({ task, rate, unit, relatesToElement });
   }
 
   return rates;
@@ -484,7 +487,12 @@ function getProjectCategoryRates(
       (entry) => normalizeZtcWorkName(entry.task).toLowerCase() === normalizeZtcWorkName(override.task).toLowerCase(),
     );
     if (index >= 0) {
-      merged[index] = override;
+      merged[index] = {
+        ...merged[index],
+        ...override,
+        relatesToElement:
+          override.relatesToElement ?? merged[index]?.relatesToElement,
+      };
     } else {
       merged.push(override);
     }
@@ -603,9 +611,15 @@ function formatSessionWork(session: Pick<OpenZtcSession, "Location" | "Location_
     .join(", ");
 }
 
-function hasCompletedWorkPhoto(session: Pick<OpenZtcSession, "Location" | "Photos">) {
+function isAdditionalWorkSession(
+  session: Pick<OpenZtcSession, "Location" | "Works_Custom_1"> | null | undefined,
+) {
+  return session?.Location === "Papilddarbi" || session?.Works_Custom_1 === "Papilddarbi";
+}
+
+function hasCompletedWorkPhoto(session: Pick<OpenZtcSession, "Location" | "Works_Custom_1" | "Photos">) {
   const photoCount = session.Photos?.length ?? 0;
-  return session.Location === "Papilddarbi" ? photoCount >= 1 : photoCount >= 2;
+  return isAdditionalWorkSession(session) ? photoCount >= 1 : photoCount >= 2;
 }
 
 function logZtcSession(
@@ -1912,8 +1926,10 @@ async function completeSession(args: {
   const { session, to, completedWork, completedText, finalComments, originalAudioUrl } = args;
   const now = new Date();
   const timeInvolved = calculateHours(session.Date, now);
+  const isAdditionalWork = isAdditionalWorkSession(session);
+  const sessionUnit = session.Units ?? (isAdditionalWork ? "st" : "m2");
   const amountCompleted =
-    session.Location === "Papilddarbi"
+    isAdditionalWork && String(sessionUnit).toLowerCase() === "st"
       ? timeInvolved
       : session.Amounts != null
         ? session.Amounts
@@ -1938,10 +1954,7 @@ async function completeSession(args: {
       Date_Custom_2: now,
       TimeInvolved: timeInvolved,
       Amounts: amountCompleted ?? undefined,
-      Units:
-        session.Location === "Papilddarbi"
-          ? session.Units ?? "st"
-          : "m2",
+      Units: sessionUnit,
       Comments_Custom_1: photoBatchMarker(),
       Comments: finalWorkerComment,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
@@ -2711,31 +2724,42 @@ async function createAdditionalWorkSession(args: {
   work: WorkExtraction;
   text: string;
   originalAudioUrl?: string | null;
+  drawingContext?: OpenZtcSession | null;
 }) {
-  const { worker, work, text, originalAudioUrl } = args;
+  const { worker, work, text, originalAudioUrl, drawingContext } = args;
   const { workOptions } = await getZtcDropdownOptions();
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
-  await closeOpenDrawingContextsForStandaloneAdditionalWork(worker, now);
   const comments = work.polishedText?.trim()
     ? buildZtcUserComments({ startText: work.polishedText })
     : await buildPolishedZtcUserComments({ startText: text });
   const defaultRateMatch = await getDefaultRateMatchForWork(
     work.additionalWorkDescription || workOption,
     {
+      projectName: drawingContext?.Location,
       category: "additionalWorks",
     },
   );
   const mappedWorkOption = defaultRateMatch?.task?.trim() || workOption;
+  const relatesToElement = defaultRateMatch?.relatesToElement === true;
+  const shouldAttachToElement =
+    relatesToElement &&
+    Boolean(drawingContext?.Location && drawingContext?.Location_Custom_1);
+  if (!shouldAttachToElement) {
+    await closeOpenDrawingContextsForStandaloneAdditionalWork(worker, now);
+  }
 
-  const created = await prisma.ztcRecords.create({
-    data: {
+  const data = {
       workerId: worker.id,
       siteId: ZTC_SITE_ID,
       organizationId: ZTC_ORGANIZATION_ID,
       Date: now,
       Date_Custom_1: now,
-      Location: "Papilddarbi",
+      Location: shouldAttachToElement ? drawingContext?.Location : "Papilddarbi",
+      Location_Custom_1: shouldAttachToElement ? drawingContext?.Location_Custom_1 : null,
+      Works_Custom_1: shouldAttachToElement ? "Papilddarbi" : null,
+      Comments_Custom_2: shouldAttachToElement ? drawingContext?.Comments_Custom_2 : null,
+      Photos: shouldAttachToElement && drawingContext?.Photos?.[0] ? [drawingContext.Photos[0]] : [],
       Works: mappedWorkOption,
       Location_Custom_2: defaultRateMatch?.rate ?? null,
       Units: resolveZtcAdditionalWorkUnit({
@@ -2746,8 +2770,15 @@ async function createAdditionalWorkSession(args: {
       Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
       originalAudioUrl: originalAudioUrl ?? undefined,
-    },
-  });
+  };
+
+  const created =
+    shouldAttachToElement && drawingContext && !drawingContext.Works
+      ? await prisma.ztcRecords.update({
+          where: { id: drawingContext.id },
+          data,
+        })
+      : await prisma.ztcRecords.create({ data });
 
   logZtcSession("additional_work_started", {
     session: created,
@@ -2757,6 +2788,10 @@ async function createAdditionalWorkSession(args: {
       extractedWork: work.additionalWorkDescription || workOption,
       mappedWork: mappedWorkOption,
       matchedRate: defaultRateMatch?.rate ?? null,
+      relatesToElement,
+      attachedToElement: shouldAttachToElement,
+      projectName: shouldAttachToElement ? drawingContext?.Location : null,
+      elementName: shouldAttachToElement ? drawingContext?.Location_Custom_1 : null,
       configuredUnit: defaultRateMatch?.unit ?? "st",
       reportedUnit: work.units,
       savedUnit: created.Units,
@@ -2786,7 +2821,7 @@ async function handleWorkText(args: {
 
   const isAdditionalWorkRequest = hasPapilddarbiKeyword(text);
   const latestDrawingContext =
-    isAdditionalWorkRequest || (openSession && hasZtcDrawingContext(openSession))
+    openSession && hasZtcDrawingContext(openSession)
       ? null
       : await getLatestZtcDrawingContext(worker.id);
   const contextSession = hasZtcDrawingContext(openSession) ? openSession : latestDrawingContext;
@@ -2800,7 +2835,7 @@ async function handleWorkText(args: {
   }
 
   if (work.isAdditionalWork && !work.isFinish) {
-    if (openSession?.Location === "Papilddarbi" && openSession.Works) {
+    if (openSession?.Works) {
       outcome = "additional_work_already_active";
       await sendZtcMessage(
         to,
@@ -2809,7 +2844,13 @@ async function handleWorkText(args: {
       return;
     }
 
-    await createAdditionalWorkSession({ worker, work, text, originalAudioUrl });
+    await createAdditionalWorkSession({
+      worker,
+      work,
+      text,
+      originalAudioUrl,
+      drawingContext: contextSession,
+    });
     outcome = "additional_work_started";
     await sendZtcMessage(
       to,
@@ -2852,7 +2893,7 @@ async function handleWorkText(args: {
         data: {
           Amounts: session.Amounts ?? undefined,
           Units:
-            session.Location === "Papilddarbi"
+            isAdditionalWorkSession(session)
               ? session.Units ?? "st"
               : "m2",
           Comments_Custom_1: buildFinishPendingMarker({

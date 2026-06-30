@@ -31,6 +31,7 @@ export type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
   unit: ZtcRateUnit;
+  relatesToElement?: boolean;
 };
 
 export type ZtcProjectTaskRates = {
@@ -108,12 +109,14 @@ function normalizeTaskRateEntries(
       (item as Record<string, unknown>)?.unit,
       fallbackUnit,
     );
+    const relatesToElement =
+      (item as Record<string, unknown>)?.relatesToElement === true;
     if (!task || rate === undefined || rate === null) continue;
 
     const key = task.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    entries.push({ task, rate, unit });
+    entries.push({ task, rate, unit, relatesToElement });
   }
 
   return entries;
@@ -314,9 +317,13 @@ function findDefaultRateForTask(
   return findZtcDefaultRateForTask(task, rates, options)?.entry ?? null;
 }
 
+function isZtcAdditionalWorkRow(row: Record<string, any>) {
+  return row.Location === "Papilddarbi" || row.Works_Custom_1 === "Papilddarbi";
+}
+
 function getZtcRateCategoryForRow(row: Record<string, any>): ZtcRateCategory {
   if (row.Works_Custom_1 === "Papilddetāļas") return "additionalDetails";
-  if (row.Location === "Papilddarbi" || row.Units === "st") return "additionalWorks";
+  if (isZtcAdditionalWorkRow(row) || row.Units === "st") return "additionalWorks";
   return "works";
 }
 
@@ -339,7 +346,12 @@ function getProjectCategoryRates(
       (entry) => normalizeTaskName(entry.task).toLowerCase() === normalizeTaskName(override.task).toLowerCase(),
     );
     if (index >= 0) {
-      merged[index] = override;
+      merged[index] = {
+        ...merged[index],
+        ...override,
+        relatesToElement:
+          override.relatesToElement ?? merged[index]?.relatesToElement,
+      };
     } else {
       merged.push(override);
     }

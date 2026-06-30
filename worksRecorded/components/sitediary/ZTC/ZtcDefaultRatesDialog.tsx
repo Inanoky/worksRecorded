@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -177,6 +178,8 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
             task: master.task,
             rate: override?.rate ?? master.rate,
             unit: override?.unit ?? master.unit,
+            relatesToElement:
+              override?.relatesToElement ?? master.relatesToElement ?? false,
           };
         });
   const normalizedRateSearch = rateSearch.trim().toLowerCase();
@@ -280,7 +283,22 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
               ?.[category].find(
                 (entry) => entry.task.toLowerCase() === masterTask.toLowerCase(),
               )?.unit ?? "st";
-          rows.push({ task: masterTask, rate: input.value, unit: masterUnit });
+          const masterRelatesToElement =
+            category === "additionalWorks"
+              ? next
+                  .find((entry) => entry.projectName === ZTC_ALL_PROJECTS_RATE_NAME)
+                  ?.[category].find(
+                    (entry) => entry.task.toLowerCase() === masterTask.toLowerCase(),
+                  )?.relatesToElement === true
+              : undefined;
+          rows.push({
+            task: masterTask,
+            rate: input.value,
+            unit: masterUnit,
+            ...(masterRelatesToElement !== undefined
+              ? { relatesToElement: masterRelatesToElement }
+              : {}),
+          });
         }
       });
 
@@ -401,6 +419,46 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
               task,
               rate: visibleRows[index]?.rate ?? "",
               unit,
+              relatesToElement: visibleRows[index]?.relatesToElement === true,
+            });
+          }
+        }
+
+        return { ...project, additionalWorks: rows };
+      });
+
+      draftRef.current = next;
+      setDraft(next);
+    },
+    [commitVisibleRateInputs, isAllProjects, selectedProject, visibleRows],
+  );
+
+  const setAdditionalWorkRelatesToElement = React.useCallback(
+    (index: number, task: string, relatesToElement: boolean) => {
+      const committedDraft = commitVisibleRateInputs();
+      const next = committedDraft.map((project) => {
+        if (project.projectName !== selectedProject) return project;
+
+        const rows = [...project.additionalWorks];
+        if (isAllProjects) {
+          rows[index] = {
+            ...(rows[index] ?? emptyZtcTaskRate("additionalWorks")),
+            relatesToElement,
+          };
+        } else {
+          const existingIndex = rows.findIndex(
+            (entry) => entry.task.toLowerCase() === task.toLowerCase(),
+          );
+          if (existingIndex >= 0) {
+            rows[existingIndex] = { ...rows[existingIndex], relatesToElement };
+          } else {
+            const master =
+              visibleRows[index] ?? emptyZtcTaskRate("additionalWorks");
+            rows.push({
+              task,
+              rate: master.rate ?? "",
+              unit: master.unit ?? "st",
+              relatesToElement,
             });
           }
         }
@@ -440,6 +498,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
           task: entry.task.trim(),
           rate: entry.rate.trim().replace(",", "."),
           unit: entry.unit,
+          relatesToElement: entry.relatesToElement === true,
         }))
         .filter((entry) => entry.task || entry.rate),
     }));
@@ -618,10 +677,19 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
           </div>
 
           <div ref={ratesFormRef} className="min-h-0 flex-1 overflow-hidden rounded-md border">
-            <div className="grid grid-cols-[minmax(0,1fr)_120px_72px_44px] border-b bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+            <div
+              className={`grid ${
+                selectedCategory === "additionalWorks"
+                  ? "grid-cols-[minmax(0,1fr)_120px_72px_128px_44px]"
+                  : "grid-cols-[minmax(0,1fr)_120px_72px_44px]"
+              } border-b bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground`}
+            >
               <div>{selectedCategory === "additionalDetails" ? "Detaļa" : "Darbs"}</div>
               <div className="text-right">Likme</div>
               <div className="text-center">Mērv.</div>
+              {selectedCategory === "additionalWorks" ? (
+                <div className="text-center">Pie elementa</div>
+              ) : null}
               <div />
             </div>
 
@@ -630,7 +698,11 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                 filteredRows.map(({ entry, index }) => (
                   <div
                     key={`${entry.task}-${index}`}
-                    className="grid grid-cols-[minmax(0,1fr)_120px_72px_44px] gap-2 border-b p-2 last:border-b-0"
+                    className={`grid ${
+                      selectedCategory === "additionalWorks"
+                        ? "grid-cols-[minmax(0,1fr)_120px_72px_128px_44px]"
+                        : "grid-cols-[minmax(0,1fr)_120px_72px_44px]"
+                    } gap-2 border-b p-2 last:border-b-0`}
                   >
                     <Input
                       defaultValue={entry.task}
@@ -698,6 +770,25 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                           : ZTC_RATE_CATEGORY_UNITS[selectedCategory]}
                       </div>
                     )}
+                    {selectedCategory === "additionalWorks" ? (
+                      <label className="flex h-9 items-center justify-center gap-2 rounded-md border bg-background px-2 text-xs text-muted-foreground">
+                        <Checkbox
+                          checked={entry.relatesToElement === true}
+                          disabled={
+                            saving || isZtcComplexityCoefficientTask(entry.task)
+                          }
+                          onCheckedChange={(checked) =>
+                            setAdditionalWorkRelatesToElement(
+                              index,
+                              entry.task,
+                              checked === true,
+                            )
+                          }
+                          aria-label="Papilddarbs attiecas uz projektu un elementu"
+                        />
+                        <span>Jā</span>
+                      </label>
+                    ) : null}
                     {isZtcComplexityCoefficientTask(entry.task) ? (
                       <div />
                     ) : (

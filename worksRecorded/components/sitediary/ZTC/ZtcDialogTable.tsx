@@ -255,6 +255,10 @@ function isCompletedZtcDiaryRow(row: any) {
   );
 }
 
+function isZtcAdditionalWorkRow(row: any) {
+  return row?.Location === "Papilddarbi" || row?.Works_Custom_1 === "Papilddarbi";
+}
+
 function isValidDateValue(value: unknown) {
   if (!value) return false;
   const parsed = value instanceof Date ? value : new Date(String(value));
@@ -338,7 +342,7 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
     const rowWorks = splitDrawingWorkList(row.Works_Custom_1);
     if (
       rowElement &&
-      row.Location !== "Papilddarbi" &&
+      !isZtcAdditionalWorkRow(row) &&
       !isZtcQualityRow(row) &&
       rowWorks.length
     ) {
@@ -433,7 +437,7 @@ export function ZtcDialogTable({
       }
     }
 
-    if (field === "Works" && row.Location !== "Papilddarbi") {
+    if (field === "Works" && !isZtcAdditionalWorkRow(row)) {
       if (isZtcQualityRow(row)) {
         return [{ value: ZTC_QUALITY_WORK_LABEL, label: ZTC_QUALITY_WORK_LABEL }];
       }
@@ -478,7 +482,7 @@ export function ZtcDialogTable({
           if (workOptions.length) next.Units = "m2";
         }
 
-        if (field === "Works" && next.Location !== "Papilddarbi") {
+        if (field === "Works" && !isZtcAdditionalWorkRow(next)) {
           if (isZtcQualityRow(next)) return next;
 
           const amountM2 = getWorkAmountM2(next.Location_Custom_1, value);
@@ -518,7 +522,7 @@ export function ZtcDialogTable({
 
     rowsToSave.forEach((row, index) => {
       const label = `Rinda ${index + 1}`;
-      const isAdditionalWork = row.Location === "Papilddarbi";
+      const isAdditionalWork = isZtcAdditionalWorkRow(row);
       const amount = normalizeNumber(row.Amounts);
       const hours = normalizeNumber(row.TimeInvolved);
       const start = normalizeDate(row.Date);
@@ -575,7 +579,7 @@ export function ZtcDialogTable({
         ...dbRow,
         Date_Custom_1: normalizeDate(dbRow.Date_Custom_1),
         Date_Custom_2: normalizeDate(dbRow.Date_Custom_2),
-        Units: "m2",
+        Units: isZtcAdditionalWorkRow(dbRow) ? dbRow.Units : "m2",
         Amounts: normalizeNumber(dbRow.Amounts),
         TimeInvolved: normalizeNumber(dbRow.TimeInvolved),
         WorkersInvolved: normalizeNumber(dbRow.WorkersInvolved),
