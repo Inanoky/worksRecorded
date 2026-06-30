@@ -18,6 +18,7 @@ import {
   resolveZtcAdditionalWorkUnit,
   type ZtcRateUnit,
 } from "@/components/sitediary/ZTC/ztc-rate-units";
+import { findZtcDefaultRateForTask } from "@/components/sitediary/ZTC/ztc-rate-matching";
 
 const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -241,6 +242,10 @@ const ZTC_RATE_STOP_WORDS = new Set([
   "gab",
   "gabals",
   "gabali",
+  "mm",
+  "cm",
+  "m",
+  "m2",
   "vieniba",
   "vienibas",
   "viens",
@@ -258,7 +263,13 @@ function normalizeRateToken(token: string) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
-  if (normalized.length < 2 || ZTC_RATE_STOP_WORDS.has(normalized)) return "";
+  if (
+    normalized.length < 2 ||
+    /^\d+(?:[.,]\d+)?$/.test(normalized) ||
+    ZTC_RATE_STOP_WORDS.has(normalized)
+  ) {
+    return "";
+  }
   return normalized;
 }
 
@@ -273,6 +284,10 @@ function rateTokenVariants(token: string) {
 
 function taskMatchTokens(value: string) {
   const normalized = normalizeTaskName(value);
+  const normalizedSearchText = normalized
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
   const tokens = normalized
     .toLowerCase()
     .normalize("NFD")
@@ -282,10 +297,10 @@ function taskMatchTokens(value: string) {
     .flatMap(rateTokenVariants);
 
   if (/^tl(\b|\s*[-/:])/i.test(normalized)) {
-    tokens.push("karkass", "timber", "frame");
+    tokens.push("karkas", "karkass", "timber", "frame");
   }
-  if (/\b(karkass|timber|frame)\b/i.test(normalized)) {
-    tokens.push("tl");
+  if (/\b(karkas\w*|timber|frame)\b/i.test(normalizedSearchText)) {
+    tokens.push("tl", "karkas", "karkass");
   }
 
   return Array.from(new Set(tokens));
@@ -296,42 +311,7 @@ function findDefaultRateForTask(
   rates: ZtcDefaultTaskRate[],
   options: { category?: ZtcRateCategory } = {},
 ) {
-  const taskTokens = new Set(taskMatchTokens(String(task ?? "")));
-  if (!taskTokens.size) return null;
-
-  let best: { entry: ZtcDefaultTaskRate; score: number } | null = null;
-
-  for (const entry of rates) {
-    if (isZtcComplexityCoefficientTask(entry.task)) continue;
-    const rateTokens = new Set(taskMatchTokens(entry.task));
-    if (!rateTokens.size) continue;
-
-    const overlap = [...rateTokens].filter((token) => taskTokens.has(token)).length;
-    const score = overlap / Math.max(rateTokens.size, taskTokens.size);
-    const exact =
-      normalizeTaskName(entry.task).toLowerCase() ===
-      normalizeTaskName(String(task ?? "")).toLowerCase();
-    const tlSemanticMatch =
-      ["tl", "karkass", "timber", "frame"].some((token) => rateTokens.has(token)) &&
-      ["tl", "karkass", "timber", "frame"].some((token) => taskTokens.has(token));
-    const detailTokenMatch =
-      options.category === "additionalDetails" &&
-      [...rateTokens].some((token) => taskTokens.has(token));
-
-    const finalScore = exact
-      ? 1
-      : tlSemanticMatch
-        ? Math.max(score, 0.8)
-        : detailTokenMatch
-          ? Math.max(score, 0.55)
-          : score;
-    const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
-    if (finalScore >= threshold && (!best || finalScore > best.score)) {
-      best = { entry, score: finalScore };
-    }
-  }
-
-  return best?.entry ?? null;
+  return findZtcDefaultRateForTask(task, rates, options)?.entry ?? null;
 }
 
 function getZtcRateCategoryForRow(row: Record<string, any>): ZtcRateCategory {

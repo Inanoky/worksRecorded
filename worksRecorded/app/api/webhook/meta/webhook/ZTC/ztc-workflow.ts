@@ -23,6 +23,7 @@ import {
   resolveZtcAdditionalWorkUnit,
   type ZtcRateUnit,
 } from "@/components/sitediary/ZTC/ztc-rate-units";
+import { findZtcDefaultRateForTask } from "@/components/sitediary/ZTC/ztc-rate-matching";
 import {
   getZtcTaskIdentityKey,
   rebalanceZtcCompletedTaskAmounts,
@@ -392,6 +393,10 @@ const ZTC_RATE_STOP_WORDS = new Set([
   "gab",
   "gabals",
   "gabali",
+  "mm",
+  "cm",
+  "m",
+  "m2",
   "vieniba",
   "vienibas",
   "viens",
@@ -409,7 +414,13 @@ function normalizeRateToken(token: string) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
-  if (normalized.length < 2 || ZTC_RATE_STOP_WORDS.has(normalized)) return "";
+  if (
+    normalized.length < 2 ||
+    /^\d+(?:[.,]\d+)?$/.test(normalized) ||
+    ZTC_RATE_STOP_WORDS.has(normalized)
+  ) {
+    return "";
+  }
   return normalized;
 }
 
@@ -432,6 +443,10 @@ function normalizeAdditionalDetailDescription(value: string | null | undefined) 
 
 function taskRateMatchTokens(value: string) {
   const normalized = normalizeZtcWorkName(value);
+  const normalizedSearchText = normalized
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
   const tokens = normalized
     .toLowerCase()
     .normalize("NFD")
@@ -441,10 +456,10 @@ function taskRateMatchTokens(value: string) {
     .flatMap(rateTokenVariants);
 
   if (/^tl(\b|\s*[-/:])/i.test(normalized)) {
-    tokens.push("karkass", "timber", "frame");
+    tokens.push("karkas", "karkass", "timber", "frame");
   }
-  if (/\b(karkass|timber|frame)\b/i.test(normalized)) {
-    tokens.push("tl");
+  if (/\b(karkas\w*|timber|frame)\b/i.test(normalizedSearchText)) {
+    tokens.push("tl", "karkas", "karkass");
   }
 
   return Array.from(new Set(tokens));
@@ -496,47 +511,11 @@ async function getDefaultRateMatchForWork(
     options.projectName,
     options.category ?? "works",
   );
-  const workTokens = new Set(taskRateMatchTokens(String(workName ?? "")));
-  if (!workTokens.size) return null;
+  const best = findZtcDefaultRateForTask(workName, rates, {
+    category: options.category,
+  });
 
-  let best: {
-    task: string;
-    rate: string;
-    unit: ZtcRateUnit;
-    score: number;
-  } | null = null;
-
-  for (const entry of rates) {
-    if (isZtcComplexityCoefficientTask(entry.task)) continue;
-    const rateTokens = new Set(taskRateMatchTokens(entry.task));
-    if (!rateTokens.size) continue;
-
-    const overlap = [...rateTokens].filter((token) => workTokens.has(token)).length;
-    const exact =
-      normalizeZtcWorkName(entry.task).toLowerCase() ===
-      normalizeZtcWorkName(workName).toLowerCase();
-    const rawScore = overlap / Math.max(rateTokens.size, workTokens.size);
-    const tlSemanticMatch =
-      ["tl", "karkass", "timber", "frame"].some((token) => rateTokens.has(token)) &&
-      ["tl", "karkass", "timber", "frame"].some((token) => workTokens.has(token));
-    const detailTokenMatch =
-      options.category === "additionalDetails" &&
-      [...rateTokens].some((token) => workTokens.has(token));
-    const score = exact
-      ? 1
-      : tlSemanticMatch
-        ? Math.max(rawScore, 0.8)
-        : detailTokenMatch
-          ? Math.max(rawScore, 0.55)
-          : rawScore;
-
-    const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
-    if (score >= threshold && (!best || score > best.score)) {
-      best = { task: entry.task, rate: entry.rate, unit: entry.unit, score };
-    }
-  }
-
-  return best;
+  return best ? { ...best.entry, score: best.score } : null;
 }
 
 function normalizeAllowedWorkOption(value: string | null | undefined, allowed: string[]) {
