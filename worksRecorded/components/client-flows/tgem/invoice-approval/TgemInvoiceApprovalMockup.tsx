@@ -18,7 +18,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils/utils";
 import { TGEM_MOCK_INVOICES } from "@/components/client-flows/tgem/invoice-approval/mock-data";
 import type {
@@ -87,6 +96,7 @@ export function TgemInvoiceApprovalMockup() {
   const [selectedInvoiceId, setSelectedInvoiceId] = React.useState(TGEM_MOCK_INVOICES[0]?.id);
   const [query, setQuery] = React.useState("");
   const [comment, setComment] = React.useState("");
+  const [viewMode, setViewMode] = React.useState<"approval" | "list">("approval");
   const [localStatusByInvoiceId, setLocalStatusByInvoiceId] = React.useState<
     Record<string, TgemInvoice["status"]>
   >({});
@@ -134,6 +144,18 @@ export function TgemInvoiceApprovalMockup() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={viewMode}
+            onValueChange={(value) => {
+              if (value === "approval" || value === "list") setViewMode(value);
+            }}
+          >
+            <ToggleGroupItem value="approval">Approval</ToggleGroupItem>
+            <ToggleGroupItem value="list">All invoices</ToggleGroupItem>
+          </ToggleGroup>
           <Button variant="outline" size="sm" onClick={() => updateSelectedStatus("Needs review")}>
             <RotateCcw className="mr-2 h-4 w-4" />
             Reset
@@ -149,6 +171,16 @@ export function TgemInvoiceApprovalMockup() {
         </div>
       </div>
 
+      {viewMode === "list" ? (
+        <AllInvoicesList
+          invoices={filteredInvoices}
+          statusByInvoiceId={localStatusByInvoiceId}
+          onSelectInvoice={(invoiceId) => {
+            setSelectedInvoiceId(invoiceId);
+            setViewMode("approval");
+          }}
+        />
+      ) : (
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(25rem,0.9fr)_minmax(34rem,1.1fr)]">
         <section className="min-h-0 rounded-md border bg-background shadow-sm">
           <div className="grid min-h-0 h-full grid-rows-[auto_minmax(0,1fr)]">
@@ -315,7 +347,112 @@ export function TgemInvoiceApprovalMockup() {
           </div>
         </section>
       </div>
+      )}
     </div>
+  );
+}
+
+function AllInvoicesList({
+  invoices,
+  statusByInvoiceId,
+  onSelectInvoice,
+}: {
+  invoices: TgemInvoice[];
+  statusByInvoiceId: Record<string, TgemInvoice["status"]>;
+  onSelectInvoice: (invoiceId: string) => void;
+}) {
+  const totalAmount = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
+  const pendingCount = invoices.filter(
+    (invoice) => (statusByInvoiceId[invoice.id] ?? invoice.status) !== "Approved",
+  ).length;
+
+  return (
+    <section className="min-h-0 flex-1 rounded-md border bg-background shadow-sm">
+      <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold">All invoices</h2>
+          <p className="text-xs text-muted-foreground">Mock invoice register for TGEM approval flow</p>
+        </div>
+        <div className="grid gap-2 text-sm sm:grid-cols-3">
+          <div className="rounded-md border px-3 py-2">
+            <div className="text-xs text-muted-foreground">Invoices</div>
+            <div className="font-semibold">{invoices.length}</div>
+          </div>
+          <div className="rounded-md border px-3 py-2">
+            <div className="text-xs text-muted-foreground">Pending</div>
+            <div className="font-semibold">{pendingCount}</div>
+          </div>
+          <div className="rounded-md border px-3 py-2">
+            <div className="text-xs text-muted-foreground">Total</div>
+            <div className="font-semibold">
+              {formatMoney(totalAmount, invoices[0]?.currency ?? "EUR")}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <ScrollArea className="h-[calc(100dvh-17rem)] min-h-[24rem]">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            <TableRow>
+              <TableHead>Invoice</TableHead>
+              <TableHead>Supplier</TableHead>
+              <TableHead>Project</TableHead>
+              <TableHead>Due date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Risk</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {invoices.map((invoice) => {
+              const status = statusByInvoiceId[invoice.id] ?? invoice.status;
+              return (
+                <TableRow key={invoice.id}>
+                  <TableCell>
+                    <div className="font-medium">{invoice.number}</div>
+                    <div className="text-xs text-muted-foreground">{invoice.contract}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-[16rem] truncate">{invoice.supplier}</div>
+                    <div className="text-xs text-muted-foreground">{invoice.supplierRegNo}</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-[14rem] truncate">{invoice.project}</div>
+                    <div className="text-xs text-muted-foreground">{invoice.reference}</div>
+                  </TableCell>
+                  <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={cn("rounded-md", statusClass(status))}>
+                      {status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={cn("rounded-md", riskClass(invoice.risk))}>
+                      {invoice.risk}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    {formatMoney(invoice.total, invoice.currency)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onSelectInvoice(invoice.id)}
+                    >
+                      Review
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </ScrollArea>
+    </section>
   );
 }
 
