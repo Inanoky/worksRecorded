@@ -119,6 +119,7 @@ import {
   getZtcQualityRowToneClass,
   isZtcQualityRow,
   splitZtcWorkerDisplayName,
+  exportZtcProductivityToExcel,
 } from "@/components/sitediary/ZTC/ztc-site-diary-utils";
 import { formatZtcRowsForExcel } from "@/components/sitediary/ZTC/ztc-excel-export";
 
@@ -1197,6 +1198,11 @@ export default function SiteDiaryCalendar({
     XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
   };
 
+  const exportZtcProductivity = async () => {
+    const visibleRows = keywordMatchedDayGroups.flatMap((group) => group.rows);
+    await exportZtcProductivityToExcel({ rows: visibleRows });
+  };
+
   const exportForma2 = async () => {
     await exportForma2ToExcel(rows);
   };
@@ -1760,6 +1766,9 @@ export default function SiteDiaryCalendar({
                     </Button>
                     <Button variant="outline" onClick={ztc.handlePayrollExcelExport}>
                       Algu Excel
+                    </Button>
+                    <Button variant="outline" onClick={exportZtcProductivity}>
+                      Produktivitāte
                     </Button>
                   </>
                 ) : null}

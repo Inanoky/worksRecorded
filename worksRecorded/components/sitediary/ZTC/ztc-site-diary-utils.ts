@@ -317,6 +317,23 @@ export function buildZtcImageDialogState(row: ZtcDiaryRow): ZtcImageDialogState 
   };
 }
 
+function parseZtcDate(value: unknown) {
+  if (!value) return null;
+  const date = new Date(value as string | Date);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function getZtcLocalDayKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function roundZtcHours(value: number) {
+  return Number(Math.max(0, value).toFixed(2));
+}
+
 export async function exportZtcPayrollToExcel({
   rows,
   currentYear,
@@ -458,5 +475,133 @@ export async function exportZtcPayrollToExcel({
   XLSX.writeFile(
     workbook,
     `ZTC-Algu-aprekins-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.xlsx`,
+  );
+}
+
+export async function exportZtcProductivityToExcel({
+  rows,
+}: {
+  rows: ZtcDiaryRow[];
+}) {
+  const XLSX = await import("xlsx");
+  const exportRows = rows.filter((row) => {
+    const start = parseZtcDate(row.Date);
+    const end = parseZtcDate(row.Date_Custom_2);
+    return start && end && !isZtcQualityRow(row);
+  });
+
+  const groups = new Map<
+    string,
+    {
+      day: Date;
+      worker: string;
+      start: Date;
+      finish: Date;
+      effectiveHours: number;
+    }
+  >();
+
+  exportRows.forEach((row) => {
+    const start = parseZtcDate(row.Date);
+    const finish = parseZtcDate(row.Date_Custom_2);
+    if (!start || !finish) return;
+
+    const worker = String(row.createdBy || "").trim() || "N/A";
+    const dayKey = getZtcLocalDayKey(start);
+    const key = `${dayKey}::${worker}`;
+    const existing = groups.get(key);
+    const effectiveHours = parseZtcPayrollNumber(row.TimeInvolved);
+
+    if (!existing) {
+      groups.set(key, {
+        day: new Date(start.getFullYear(), start.getMonth(), start.getDate()),
+        worker,
+        start,
+        finish,
+        effectiveHours,
+      });
+      return;
+    }
+
+    if (start.getTime() < existing.start.getTime()) {
+      existing.start = start;
+    }
+    if (finish.getTime() > existing.finish.getTime()) {
+      existing.finish = finish;
+    }
+    existing.effectiveHours += effectiveHours;
+  });
+
+  const productivityRows = Array.from(groups.values())
+    .sort((a, b) => {
+      const dayCompare = a.day.getTime() - b.day.getTime();
+      if (dayCompare !== 0) return dayCompare;
+      const workerCompare = a.worker.localeCompare(b.worker, "lv");
+      if (workerCompare !== 0) return workerCompare;
+      return a.start.getTime() - b.start.getTime();
+    })
+    .map((group) => {
+      const totalHours = roundZtcHours(
+        (group.finish.getTime() - group.start.getTime()) / 3_600_000,
+      );
+      const effectiveHours = roundZtcHours(group.effectiveHours);
+      const workerName = splitZtcWorkerDisplayName(group.worker);
+
+      return {
+        Datums: group.day,
+        Vārds: workerName.name,
+        Uzvārds: workerName.surname,
+        "Dienas sākums": group.start,
+        "Dienas beigas": group.finish,
+        "Kopējais laiks": totalHours,
+        "Efektīvais laiks": effectiveHours,
+        "Neuzskaitītais laiks": roundZtcHours(totalHours - effectiveHours),
+      };
+    });
+
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet(productivityRows, {
+    cellDates: true,
+  });
+  const range = XLSX.utils.decode_range(worksheet["!ref"] ?? "A1:A1");
+  for (let rowIndex = 1; rowIndex <= range.e.r; rowIndex += 1) {
+    const dayCell = worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })];
+    const startCell = worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 3 })];
+    const finishCell = worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 4 })];
+
+    if (dayCell?.v instanceof Date) {
+      dayCell.t = "d";
+      dayCell.z = "dd.mm.yyyy";
+    }
+    [startCell, finishCell].forEach((cell) => {
+      if (cell?.v instanceof Date) {
+        cell.t = "d";
+        cell.z = "hh:mm";
+      }
+    });
+  }
+  worksheet["!cols"] = [
+    { wch: 12 },
+    { wch: 18 },
+    { wch: 22 },
+    { wch: 12 },
+    { wch: 12 },
+    { wch: 12 },
+    { wch: 14 },
+    { wch: 12 },
+  ];
+
+  const dateKeys = productivityRows
+    .map((row) => (row.Datums instanceof Date ? getZtcLocalDayKey(row.Datums) : ""))
+    .filter(Boolean);
+  const filenameDatePart =
+    dateKeys.length > 0
+      ? `${dateKeys[0]}_${dateKeys[dateKeys.length - 1]}`
+      : "empty";
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Produktivitate");
+  XLSX.writeFile(
+    workbook,
+    `ZTC-Produktivitate-${filenameDatePart}.xlsx`,
   );
 }
