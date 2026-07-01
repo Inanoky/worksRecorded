@@ -289,6 +289,8 @@ model ZtcRecords {
   bisStatus         String?
   WorkersInvolved   Float?
   TimeInvolved      Float?
+  pausedAt          DateTime?
+  pauseIntervals    Json?
   Photos            String[]
   organizationId    String?
   organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)

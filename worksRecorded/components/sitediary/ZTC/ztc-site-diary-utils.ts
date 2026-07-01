@@ -14,6 +14,8 @@ export type ZtcDiaryRow = {
   Amounts?: number | string | null;
   WorkersInvolved?: number | string | null;
   TimeInvolved?: number | string | null;
+  pausedAt?: string | Date | null;
+  pauseIntervals?: unknown;
   Comments?: string | null;
   Comments_Custom_2?: string | null;
   originalUserComment?: string | null;
@@ -37,6 +39,11 @@ type ZtcDrawingMetadata = {
   }>;
 };
 
+export type ZtcPauseInterval = {
+  start: Date;
+  end: Date;
+};
+
 export function parseZtcPayrollNumber(value: unknown, fallback = 0) {
   if (value === "" || value === null || value === undefined) return fallback;
   const parsed = Number(String(value).replace(",", "."));
@@ -54,6 +61,39 @@ function normalizeZtcText(value: unknown) {
 function parsePositiveZtcNumber(value: unknown) {
   const parsed = parseZtcPayrollNumber(value, Number.NaN);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+export function getZtcPauseIntervals(value: unknown): ZtcPauseInterval[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const start = new Date(String((item as Record<string, unknown>).start ?? ""));
+      const end = new Date(String((item as Record<string, unknown>).end ?? ""));
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+      if (end.getTime() < start.getTime()) return null;
+      return { start, end };
+    })
+    .filter((item): item is ZtcPauseInterval => Boolean(item));
+}
+
+export function getZtcActivePauseStartedAt(row: ZtcDiaryRow) {
+  if (!row.pausedAt) return null;
+  const date = new Date(row.pausedAt);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+export function getZtcPauseHours(row: ZtcDiaryRow) {
+  const intervals = getZtcPauseIntervals(row.pauseIntervals);
+  const activeStartedAt = getZtcActivePauseStartedAt(row);
+  const now = new Date();
+  const totalMilliseconds = intervals.reduce(
+    (sum, interval) => sum + (interval.end.getTime() - interval.start.getTime()),
+    activeStartedAt ? now.getTime() - activeStartedAt.getTime() : 0,
+  );
+
+  return Math.max(0, Number((totalMilliseconds / 3_600_000).toFixed(2)));
 }
 
 function parseZtcDrawingMetadata(value: unknown): ZtcDrawingMetadata | null {

@@ -719,7 +719,9 @@ function normalizeCommentLabel(value: string) {
   return value
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ");
 }
 
 function stripCommentLabel(value: string, label: string) {
@@ -1859,6 +1861,165 @@ function calculateHours(start: Date | null | undefined, end: Date) {
   return Number(hours.toFixed(2));
 }
 
+type ZtcPauseInterval = {
+  start: string;
+  end: string;
+};
+
+function normalizeZtcCommand(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isPauseCommand(text: string) {
+  return normalizeZtcCommand(text) === "pauze";
+}
+
+function isResumeCommand(text: string) {
+  return normalizeZtcCommand(text) === "turpinu";
+}
+
+function normalizePauseIntervals(value: unknown): ZtcPauseInterval[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const start = new Date(String((item as Record<string, unknown>).start ?? ""));
+      const end = new Date(String((item as Record<string, unknown>).end ?? ""));
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+      if (end.getTime() < start.getTime()) return null;
+      return {
+        start: start.toISOString(),
+        end: end.toISOString(),
+      };
+    })
+    .filter((item): item is ZtcPauseInterval => Boolean(item));
+}
+
+function closeActivePauseInterval(
+  session: Pick<OpenZtcSession, "pausedAt" | "pauseIntervals">,
+  now: Date,
+) {
+  const intervals = normalizePauseIntervals(session.pauseIntervals);
+  if (!session.pausedAt) return intervals;
+
+  const pauseStart = new Date(session.pausedAt);
+  if (Number.isNaN(pauseStart.getTime()) || now.getTime() < pauseStart.getTime()) {
+    return intervals;
+  }
+
+  return [
+    ...intervals,
+    {
+      start: pauseStart.toISOString(),
+      end: now.toISOString(),
+    },
+  ];
+}
+
+function calculatePauseHours(intervals: ZtcPauseInterval[]) {
+  const milliseconds = intervals.reduce((sum, interval) => {
+    const start = new Date(interval.start).getTime();
+    const end = new Date(interval.end).getTime();
+    if (Number.isNaN(start) || Number.isNaN(end) || end < start) return sum;
+    return sum + (end - start);
+  }, 0);
+
+  return milliseconds / 3_600_000;
+}
+
+function calculateEffectiveHours(
+  session: Pick<OpenZtcSession, "Date" | "pausedAt" | "pauseIntervals">,
+  end: Date,
+) {
+  const grossHours = calculateHours(session.Date, end);
+  if (grossHours == null) return undefined;
+
+  const pauseHours = calculatePauseHours(closeActivePauseInterval(session, end));
+  const effectiveHours = grossHours - pauseHours;
+  if (!Number.isFinite(effectiveHours) || effectiveHours < 0) return 0;
+  return Number(effectiveHours.toFixed(2));
+}
+
+async function pauseZtcSession(args: {
+  session: OpenZtcSession;
+  worker: ZtcWorker;
+  to: string | null;
+}) {
+  const { session, worker, to } = args;
+  if (!session.Works) {
+    await sendZtcMessage(to, "Pauzi var sākt tikai aktīvam darbam. Lūdzu, vispirms sāciet darbu.");
+    return;
+  }
+
+  if (session.pausedAt) {
+    await sendZtcMessage(to, `Darbs jau ir pauzē: ${formatSessionWork(session) || "darbs"}.`);
+    return;
+  }
+
+  const now = new Date();
+  const updated = await prisma.ztcRecords.update({
+    where: { id: session.id },
+    data: { pausedAt: now },
+  });
+
+  logZtcSession("session_paused", {
+    session: updated,
+    worker,
+    details: { pausedAt: now.toISOString() },
+  });
+
+  await sendZtcMessage(to, `Pauze sākta: ${formatSessionWork(session) || "darbs"}.`);
+}
+
+async function resumeZtcSession(args: {
+  session: OpenZtcSession;
+  worker: ZtcWorker;
+  to: string | null;
+}) {
+  const { session, worker, to } = args;
+  if (!session.Works) {
+    await sendZtcMessage(to, "Nav aktīva darba, ko turpināt.");
+    return;
+  }
+
+  if (!session.pausedAt) {
+    await sendZtcMessage(to, `Darbs nav pauzē: ${formatSessionWork(session) || "darbs"}.`);
+    return;
+  }
+
+  const now = new Date();
+  const intervals = closeActivePauseInterval(session, now);
+  const pauseStart = new Date(session.pausedAt);
+  const pausedHours = Number(((now.getTime() - pauseStart.getTime()) / 3_600_000).toFixed(2));
+  const updated = await prisma.ztcRecords.update({
+    where: { id: session.id },
+    data: {
+      pausedAt: null,
+      pauseIntervals: intervals,
+    },
+  });
+
+  logZtcSession("session_resumed", {
+    session: updated,
+    worker,
+    details: {
+      resumedAt: now.toISOString(),
+      pauseHours: pausedHours,
+      pauseCount: intervals.length,
+    },
+  });
+
+  await sendZtcMessage(
+    to,
+    `Darbs turpināts: ${formatSessionWork(session) || "darbs"}. Pauzes laiks: ${pausedHours} stundas.`,
+  );
+}
+
 function positiveNumberOrNull(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
@@ -1943,7 +2104,9 @@ async function completeSession(args: {
 }) {
   const { session, to, completedWork, completedText, finalComments, originalAudioUrl } = args;
   const now = new Date();
-  const timeInvolved = calculateHours(session.Date, now);
+  const pauseIntervals = closeActivePauseInterval(session, now);
+  const pauseHours = calculatePauseHours(pauseIntervals);
+  const timeInvolved = calculateEffectiveHours(session, now);
   const isAdditionalWork = isAdditionalWorkSession(session);
   const isElementRelatedAdditionalWork = isElementRelatedAdditionalWorkSession(session);
   const elementAreaM2 = isElementRelatedAdditionalWork
@@ -1981,6 +2144,8 @@ async function completeSession(args: {
     data: {
       Date_Custom_2: now,
       TimeInvolved: timeInvolved,
+      pausedAt: null,
+      pauseIntervals,
       Amounts: amountCompleted ?? undefined,
       Units: sessionUnit,
       Comments_Custom_1: photoBatchMarker(),
@@ -1993,6 +2158,8 @@ async function completeSession(args: {
     session: updated,
     details: {
       timeInvolved,
+      pauseHours: Number(pauseHours.toFixed(2)),
+      pauseCount: pauseIntervals.length,
       amountCompleted,
       unit: sessionUnit,
       comments: finalWorkerComment,
@@ -2843,6 +3010,28 @@ async function handleWorkText(args: {
   try {
   const { text, to, worker, originalAudioUrl } = args;
   const openSession = await getOpenZtcSession(worker.id);
+
+  if (isPauseCommand(text)) {
+    if (!openSession) {
+      outcome = "pause_without_session";
+      await sendZtcMessage(to, "Nav aktīva darba, ko pauzēt.");
+      return;
+    }
+    outcome = "session_paused";
+    await pauseZtcSession({ session: openSession, worker, to });
+    return;
+  }
+
+  if (isResumeCommand(text)) {
+    if (!openSession) {
+      outcome = "resume_without_session";
+      await sendZtcMessage(to, "Nav aktīva darba, ko turpināt.");
+      return;
+    }
+    outcome = "session_resumed";
+    await resumeZtcSession({ session: openSession, worker, to });
+    return;
+  }
 
   if (openSession && isDiagonalPhotoMeasureFlow(openSession.Comments_Custom_1)) {
     outcome = "diagonal_photo_measure_flow";

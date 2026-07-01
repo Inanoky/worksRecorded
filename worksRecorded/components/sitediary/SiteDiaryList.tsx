@@ -111,7 +111,10 @@ import {
   ZTC_SITE_ID,
   buildZtcQualityDisplayStateByRowId,
   formatZtcMoney,
+  getZtcActivePauseStartedAt,
   getZtcElementTotalAreaM2,
+  getZtcPauseHours,
+  getZtcPauseIntervals,
   getZtcPayrollValues,
   getZtcQualityRowToneClass,
   isZtcQualityRow,
@@ -167,6 +170,8 @@ type DiaryRow = {
   Amounts?: number | string | null;
   WorkersInvolved?: number | string | null;
   TimeInvolved?: number | string | null;
+  pausedAt?: string | Date | null;
+  pauseIntervals?: unknown;
   Comments?: string | null;
   originalUserComment?: string | null;
   originalAudioUrl?: string | null;
@@ -182,6 +187,92 @@ type DayGroup = {
   date: Date;
   rows: DiaryRow[];
 };
+
+function formatZtcPauseTime(date: Date, dateLocale: string) {
+  return date.toLocaleString(dateLocale, {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function ZtcHoursWithPausePopover({
+  row,
+  value,
+  dateLocale,
+}: {
+  row: DiaryRow;
+  value: React.ReactNode;
+  dateLocale: string;
+}) {
+  const intervals = getZtcPauseIntervals(row.pauseIntervals);
+  const activePauseStartedAt = getZtcActivePauseStartedAt(row);
+  const pauseHours = getZtcPauseHours(row);
+  const hasPause = intervals.length > 0 || Boolean(activePauseStartedAt);
+
+  if (!hasPause) {
+    return <div className="line-clamp-4">{value}</div>;
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="line-clamp-4 text-left font-medium text-foreground underline decoration-dotted underline-offset-2"
+        >
+          {value}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 text-sm">
+        <div className="space-y-3">
+          <div>
+            <div className="text-xs font-medium uppercase text-muted-foreground">
+              Pauzes
+            </div>
+            <div className="mt-1 font-medium">
+              Kopā pauzē: {pauseHours.toLocaleString(dateLocale)} st
+            </div>
+          </div>
+          {activePauseStartedAt ? (
+            <div className="rounded-md border bg-muted/30 p-2">
+              <div className="text-xs text-muted-foreground">Aktīva pauze no</div>
+              <div className="font-medium">
+                {formatZtcPauseTime(activePauseStartedAt, dateLocale)}
+              </div>
+            </div>
+          ) : null}
+          {intervals.length ? (
+            <div className="space-y-1">
+              {intervals.map((interval, index) => {
+                const hours = Math.max(
+                  0,
+                  (interval.end.getTime() - interval.start.getTime()) / 3_600_000,
+                );
+                return (
+                  <div
+                    key={`${interval.start.toISOString()}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-md border px-2 py-1.5 text-xs"
+                  >
+                    <span>
+                      {formatZtcPauseTime(interval.start, dateLocale)} -{" "}
+                      {formatZtcPauseTime(interval.end, dateLocale)}
+                    </span>
+                    <span className="font-medium">
+                      {Number(hours.toFixed(2)).toLocaleString(dateLocale)} st
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 type SearchableFilterSelectOption = {
   value: string;
@@ -2977,13 +3068,25 @@ export default function SiteDiaryCalendar({
                                               row[field] === "" ? (
                                               "—"
                                             ) : (
-                                              <div className="line-clamp-4">
-                                                {formatValueByConfig(
-                                                  field,
-                                                  row[field],
-                                                  defaultMap,
-                                                )}
-                                              </div>
+                                              isZtcSite && field === "TimeInvolved" ? (
+                                                <ZtcHoursWithPausePopover
+                                                  row={originalRow}
+                                                  value={formatValueByConfig(
+                                                    field,
+                                                    row[field],
+                                                    defaultMap,
+                                                  )}
+                                                  dateLocale={dateLocale}
+                                                />
+                                              ) : (
+                                                <div className="line-clamp-4">
+                                                  {formatValueByConfig(
+                                                    field,
+                                                    row[field],
+                                                    defaultMap,
+                                                  )}
+                                                </div>
+                                              )
                                             )}
                                           </TableCell>
                                           {isZtcSite && field === "TimeInvolved" ? (

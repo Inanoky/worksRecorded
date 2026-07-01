@@ -1389,6 +1389,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       Amounts: true,
       WorkersInvolved: true,
       TimeInvolved: true,
+      ...(siteId === ZTC_SITE_ID ? { pausedAt: true, pauseIntervals: true } : {}),
       Comments: true,
       Comments_Custom_1: true,
       Comments_Custom_2: true,
@@ -1464,6 +1465,8 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       Amounts: rec.Amounts?.toString() || "",
       WorkersInvolved: rec.WorkersInvolved?.toString() || "",
       TimeInvolved: rec.TimeInvolved?.toString() || "",
+      pausedAt: "pausedAt" in rec ? rec.pausedAt || null : null,
+      pauseIntervals: "pauseIntervals" in rec ? rec.pauseIntervals ?? [] : [],
 
       Comments: rec.Comments || "",
       Comments_Custom_1: rec.Comments_Custom_1 || "",
@@ -1532,6 +1535,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       Amounts: true,
       WorkersInvolved: true,
       TimeInvolved: true,
+      ...(siteId === ZTC_SITE_ID ? { pausedAt: true, pauseIntervals: true } : {}),
       Photos: true,
       BISId: true,
       bisStatus: true,
@@ -1606,6 +1610,8 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       Amounts: rec.Amounts?.toString() || "",
       WorkersInvolved: rec.WorkersInvolved?.toString() || "",
       TimeInvolved: rec.TimeInvolved?.toString() || "",
+      pausedAt: "pausedAt" in rec ? rec.pausedAt || null : null,
+      pauseIntervals: "pauseIntervals" in rec ? rec.pauseIntervals ?? [] : [],
 
       Photos: rec.Photos ?? [],
       BISId: rec.BISId || null,
