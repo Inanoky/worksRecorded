@@ -8,11 +8,11 @@ import {
   Clock3,
   FileText,
   GitBranch,
+  GripVertical,
   MessageSquare,
   Plus,
   RotateCcw,
   Search,
-  ShieldCheck,
   Users,
   X,
 } from "lucide-react";
@@ -372,43 +372,57 @@ export function TgemInvoiceApprovalMockup() {
 }
 
 function ApprovalFlowSetup() {
-  const workflowSteps = [
+  const [project, setProject] = React.useState("TGEM Office Reconstruction");
+  const [draggedStepId, setDraggedStepId] = React.useState<string | null>(null);
+  const [workflowSteps, setWorkflowSteps] = React.useState([
     {
+      id: "step-project-manager",
       role: "Project manager",
       person: "Laura Berzina",
-      condition: "All invoices",
-      deadline: "2 working days",
-      backup: "Edgars Kalnins",
     },
     {
+      id: "step-cost-controller",
       role: "Cost controller",
       person: "Miks Ozols",
-      condition: "Amount over 5 000 EUR",
-      deadline: "1 working day",
-      backup: "Ieva Jansone",
     },
     {
+      id: "step-finance",
       role: "Finance",
       person: "Anna Liepa",
-      condition: "After project approval",
-      deadline: "2 working days",
-      backup: "Janis Krumins",
     },
-    {
-      role: "Board approval",
-      person: "Janis Krumins",
-      condition: "Amount over 25 000 EUR",
-      deadline: "3 working days",
-      backup: "Laura Berzina",
-    },
+  ]);
+
+  const availablePeople = [
+    { person: "Edgars Kalnins", role: "Site manager" },
+    { person: "Ieva Jansone", role: "Quantity surveyor" },
+    { person: "Janis Krumins", role: "Board approval" },
+    { person: "Nora Peterson", role: "Accountant" },
   ];
 
-  const projectRules = [
-    ["Project", "TGEM Office Reconstruction"],
-    ["Default workflow", "Construction invoice approval"],
-    ["Auto-start approval", "When OCR validation is complete"],
-    ["Escalation", "Notify backup after missed deadline"],
-  ];
+  const reorderStep = (targetStepId: string) => {
+    if (!draggedStepId || draggedStepId === targetStepId) return;
+    setWorkflowSteps((currentSteps) => {
+      const fromIndex = currentSteps.findIndex((step) => step.id === draggedStepId);
+      const toIndex = currentSteps.findIndex((step) => step.id === targetStepId);
+      if (fromIndex < 0 || toIndex < 0) return currentSteps;
+      const nextSteps = [...currentSteps];
+      const [movedStep] = nextSteps.splice(fromIndex, 1);
+      nextSteps.splice(toIndex, 0, movedStep);
+      return nextSteps;
+    });
+    setDraggedStepId(null);
+  };
+
+  const addPerson = (person: string, role: string) => {
+    setWorkflowSteps((currentSteps) => [
+      ...currentSteps,
+      {
+        id: `step-${person.toLowerCase().replace(/\s+/g, "-")}-${currentSteps.length}`,
+        person,
+        role,
+      },
+    ]);
+  };
 
   return (
     <section className="min-h-0 flex-1 rounded-md border bg-background shadow-sm">
@@ -419,13 +433,10 @@ function ApprovalFlowSetup() {
             <h2 className="text-base font-semibold">Approval flow setup</h2>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Mock project-level routing rules for invoice approval.
+            Select a project and arrange people in the approval order.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="sm">
-            Duplicate workflow
-          </Button>
           <Button type="button" size="sm">
             Save workflow
           </Button>
@@ -433,111 +444,104 @@ function ApprovalFlowSetup() {
       </div>
 
       <ScrollArea className="h-[calc(100dvh-15rem)] min-h-[28rem]">
-        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(24rem,0.9fr)_minmax(32rem,1.1fr)]">
+        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(22rem,0.75fr)_minmax(32rem,1.25fr)]">
           <div className="space-y-4">
             <div className="rounded-md border p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold">Project workflow</h3>
-                  <p className="text-xs text-muted-foreground">Select how invoices enter approval.</p>
-                </div>
-                <Badge variant="outline" className="rounded-md border-emerald-200 bg-emerald-50 text-emerald-700">
-                  Active
-                </Badge>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Workflow name" value="Construction invoice approval" />
-                <Field label="Project" value="TGEM Office Reconstruction" />
-                <Field label="Applies to" value="Supplier invoices" />
-                <Field label="Currency" value="EUR" />
-              </div>
+              <label className="text-sm font-semibold" htmlFor="workflow-project">
+                Project
+              </label>
+              <select
+                id="workflow-project"
+                value={project}
+                onChange={(event) => setProject(event.target.value)}
+                className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm"
+              >
+                <option>TGEM Office Reconstruction</option>
+                <option>TGEM Warehouse Extension</option>
+                <option>TGEM Service Building</option>
+              </select>
             </div>
 
             <div className="rounded-md border p-4">
               <div className="mb-3 flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-blue-600" />
-                <h3 className="text-sm font-semibold">Rules</h3>
+                <Users className="h-4 w-4 text-blue-600" />
+                <h3 className="text-sm font-semibold">People</h3>
               </div>
               <div className="space-y-2">
-                {projectRules.map(([label, value]) => (
-                  <div key={label} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                    <span className="text-sm text-muted-foreground">{label}</span>
-                    <span className="text-right text-sm font-medium">{value}</span>
-                  </div>
+                {availablePeople.map((person) => (
+                  <button
+                    key={person.person}
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition hover:border-blue-300 hover:bg-blue-50/50"
+                    onClick={() => addPerson(person.person, person.role)}
+                  >
+                    <span>
+                      <span className="block text-sm font-medium">{person.person}</span>
+                      <span className="block text-xs text-muted-foreground">{person.role}</span>
+                    </span>
+                    <Plus className="h-4 w-4 text-blue-600" />
+                  </button>
                 ))}
-              </div>
-            </div>
-
-            <div className="rounded-md border p-4">
-              <h3 className="text-sm font-semibold">Amount thresholds</h3>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field label="Skip cost controller below" value="5 000 EUR" />
-                <Field label="Board approval above" value="25 000 EUR" />
-                <Field label="Low risk auto-pass" value="Enabled" />
-                <Field label="High risk routing" value="Always require PM" />
               </div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="rounded-md border p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-600" />
-                    <h3 className="text-sm font-semibold">Approval steps</h3>
-                  </div>
-                  <p className="text-xs text-muted-foreground">Order, conditions, approvers, and backups.</p>
+          <div className="rounded-md border p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <GitBranch className="h-4 w-4 text-blue-600" />
+                  <h3 className="text-sm font-semibold">Approval order</h3>
                 </div>
-                <Button type="button" variant="outline" size="sm">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add step
-                </Button>
+                <p className="text-xs text-muted-foreground">{project}</p>
               </div>
-
-              <div className="space-y-3">
-                {workflowSteps.map((step, index) => (
-                  <div key={step.role} className="rounded-md border bg-muted/20 p-3">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full border bg-background text-xs font-semibold">
-                            {index + 1}
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold">{step.role}</div>
-                            <div className="text-xs text-muted-foreground">{step.condition}</div>
-                          </div>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="w-fit rounded-md border-blue-200 bg-blue-50 text-blue-700">
-                        {step.deadline}
-                      </Badge>
-                    </div>
-                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                      <Field label="Approver" value={step.person} />
-                      <Field label="Backup" value={step.backup} />
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Badge variant="outline" className="rounded-md border-blue-200 bg-blue-50 text-blue-700">
+                {workflowSteps.length} steps
+              </Badge>
             </div>
 
-            <div className="rounded-md border p-4">
-              <h3 className="text-sm font-semibold">Notifications</h3>
-              <div className="mt-3 grid gap-2 text-sm">
-                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                  <span>Notify approver when invoice is assigned</span>
-                  <input type="checkbox" checked readOnly className="h-4 w-4" />
-                </label>
-                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                  <span>Send reminder one day before deadline</span>
-                  <input type="checkbox" checked readOnly className="h-4 w-4" />
-                </label>
-                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-                  <span>Escalate overdue invoices to backup approver</span>
-                  <input type="checkbox" checked readOnly className="h-4 w-4" />
-                </label>
+            <div className="space-y-3">
+              {workflowSteps.map((step, index) => (
+                <div
+                  key={step.id}
+                  draggable
+                  onDragStart={() => setDraggedStepId(step.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => reorderStep(step.id)}
+                  onDragEnd={() => setDraggedStepId(null)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-md border bg-background p-3 shadow-sm transition",
+                    draggedStepId === step.id ? "border-blue-300 bg-blue-50/70 opacity-80" : "hover:border-blue-300",
+                  )}
+                >
+                  <GripVertical className="h-5 w-5 shrink-0 cursor-grab text-muted-foreground" />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border bg-muted text-sm font-semibold">
+                    {index + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold">{step.person}</div>
+                    <div className="truncate text-xs text-muted-foreground">{step.role}</div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setWorkflowSteps((currentSteps) =>
+                        currentSteps.filter((currentStep) => currentStep.id !== step.id),
+                      )
+                    }
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-md border bg-muted/30 p-3 text-sm">
+              <div className="font-semibold">Invoice approval path</div>
+              <div className="mt-1 text-muted-foreground">
+                {workflowSteps.map((step) => step.person).join(" -> ")}
               </div>
             </div>
           </div>
@@ -650,6 +654,7 @@ function AllInvoicesList({
     </section>
   );
 }
+
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
