@@ -40,7 +40,7 @@ export async function orgCheck(userId: string, paramSiteId: string) {
         },
       },
     },
-    select: { id: true, name: true },
+    select: { id: true, name: true, organizationId: true },
   });
 
     if (!site) {
@@ -48,6 +48,15 @@ export async function orgCheck(userId: string, paramSiteId: string) {
   }
 
   return site; // site exists and belongs to org
+}
+
+export async function getSiteOrganizationIdBySiteId(siteId: string): Promise<string | null> {
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { organizationId: true },
+  });
+
+  return site?.organizationId ?? null;
 }
 
 

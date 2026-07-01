@@ -1,5 +1,4 @@
 // app/[...]/page.tsx  (Server Component)
-import SiteDiaryCalendar from "@/components/sitediary/Calendar";
 import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
@@ -8,8 +7,9 @@ import { notFound } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import FullPhotoGallery from "@/components/sitediary/FullGalleryViewLazy";
-
-const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+import { ClientFlowSiteDiary } from "@/components/client-flows/ClientFlowSiteDiary";
+import { resolveClientFlow } from "@/lib/client-flows/resolve-client-flow";
+import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
 
 
 
@@ -25,7 +25,11 @@ export default async function Home({
   if (!siteCheck) {
     notFound();
   }
-  const showAiWidget = siteId !== ZTC_SITE_ID;
+  const flowId = resolveClientFlow({
+    organizationId: siteCheck.organizationId ?? null,
+    siteId,
+  });
+  const showAiWidget = flowId === CLIENT_FLOW_IDS.DEFAULT;
 
 
 
@@ -37,8 +41,7 @@ export default async function Home({
          <TourRunner steps={getJoyRideSteps("en").steps_dashboard_siteid_site_diary} stepName="steps_dashboard_siteid_site_diary"/>
    
               
-      <SiteDiaryCalendar siteId={siteId} 
-       />
+      <ClientFlowSiteDiary flowId={flowId} siteId={siteId} />
  
     {showAiWidget ? <AiWidgetRag siteId={siteId} /> : null}
   
