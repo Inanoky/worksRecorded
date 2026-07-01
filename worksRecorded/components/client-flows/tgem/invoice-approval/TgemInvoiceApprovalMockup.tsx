@@ -207,48 +207,6 @@ export function TgemInvoiceApprovalMockup() {
 
             <ScrollArea className="min-h-0">
               <div className="space-y-4 p-4">
-                <ScrollArea className="h-[22rem] rounded-md border">
-                  <div className="space-y-2 p-2">
-                    {filteredInvoices.map((invoice) => {
-                      const isSelected = invoice.id === selectedInvoice.id;
-                      const invoiceStatus = localStatusByInvoiceId[invoice.id] ?? invoice.status;
-                      return (
-                        <button
-                          key={invoice.id}
-                          type="button"
-                          className={cn(
-                            "w-full rounded-md border p-3 text-left transition hover:border-blue-300 hover:bg-blue-50/50",
-                            isSelected ? "border-blue-400 bg-blue-50/70" : "bg-background",
-                          )}
-                          onClick={() => setSelectedInvoiceId(invoice.id)}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold">{invoice.number}</div>
-                              <div className="truncate text-xs text-muted-foreground">{invoice.supplier}</div>
-                            </div>
-                            <Badge variant="outline" className={cn("shrink-0 rounded-md", statusClass(invoiceStatus))}>
-                              {invoiceStatus}
-                            </Badge>
-                          </div>
-                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                            <div>
-                              <div className="text-muted-foreground">Project</div>
-                              <div className="truncate font-medium">{invoice.project}</div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-muted-foreground">Amount</div>
-                              <div className="font-semibold">{formatMoney(invoice.total, invoice.currency)}</div>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-
-                <Separator />
-
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Supplier" value={selectedInvoice.supplier} />
                   <Field label="Reg. no." value={selectedInvoice.supplierRegNo} />
@@ -326,6 +284,54 @@ export function TgemInvoiceApprovalMockup() {
                     onChange={(event) => setComment(event.target.value)}
                     placeholder="Add approval note..."
                   />
+                </div>
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <div>
+                    <h3 className="text-sm font-semibold">Invoice queue</h3>
+                    <p className="text-xs text-muted-foreground">Scroll to review other invoices</p>
+                  </div>
+                  <ScrollArea className="h-[22rem] rounded-md border">
+                    <div className="space-y-2 p-2">
+                      {filteredInvoices.map((invoice) => {
+                        const isSelected = invoice.id === selectedInvoice.id;
+                        const invoiceStatus = localStatusByInvoiceId[invoice.id] ?? invoice.status;
+                        return (
+                          <button
+                            key={invoice.id}
+                            type="button"
+                            className={cn(
+                              "w-full rounded-md border p-3 text-left transition hover:border-blue-300 hover:bg-blue-50/50",
+                              isSelected ? "border-blue-400 bg-blue-50/70" : "bg-background",
+                            )}
+                            onClick={() => setSelectedInvoiceId(invoice.id)}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold">{invoice.number}</div>
+                                <div className="truncate text-xs text-muted-foreground">{invoice.supplier}</div>
+                              </div>
+                              <Badge variant="outline" className={cn("shrink-0 rounded-md", statusClass(invoiceStatus))}>
+                                {invoiceStatus}
+                              </Badge>
+                            </div>
+                            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <div className="text-muted-foreground">Project</div>
+                                <div className="truncate font-medium">{invoice.project}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-muted-foreground">Amount</div>
+                                <div className="font-semibold">{formatMoney(invoice.total, invoice.currency)}</div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
                 </div>
               </div>
             </ScrollArea>
