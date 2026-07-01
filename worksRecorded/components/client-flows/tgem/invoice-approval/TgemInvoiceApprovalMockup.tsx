@@ -7,9 +7,13 @@ import {
   CheckCircle2,
   Clock3,
   FileText,
+  GitBranch,
   MessageSquare,
+  Plus,
   RotateCcw,
   Search,
+  ShieldCheck,
+  Users,
   X,
 } from "lucide-react";
 
@@ -96,7 +100,7 @@ export function TgemInvoiceApprovalMockup() {
   const [selectedInvoiceId, setSelectedInvoiceId] = React.useState(TGEM_MOCK_INVOICES[0]?.id);
   const [query, setQuery] = React.useState("");
   const [comment, setComment] = React.useState("");
-  const [viewMode, setViewMode] = React.useState<"approval" | "list">("approval");
+  const [viewMode, setViewMode] = React.useState<"approval" | "list" | "flow">("approval");
   const [localStatusByInvoiceId, setLocalStatusByInvoiceId] = React.useState<
     Record<string, TgemInvoice["status"]>
   >({});
@@ -150,28 +154,35 @@ export function TgemInvoiceApprovalMockup() {
             size="sm"
             value={viewMode}
             onValueChange={(value) => {
-              if (value === "approval" || value === "list") setViewMode(value);
+              if (value === "approval" || value === "list" || value === "flow") setViewMode(value);
             }}
           >
             <ToggleGroupItem value="approval">Approval</ToggleGroupItem>
             <ToggleGroupItem value="list">All invoices</ToggleGroupItem>
+            <ToggleGroupItem value="flow">Approval flow</ToggleGroupItem>
           </ToggleGroup>
-          <Button variant="outline" size="sm" onClick={() => updateSelectedStatus("Needs review")}>
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Reset
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => updateSelectedStatus("In approval")}>
-            <MessageSquare className="mr-2 h-4 w-4" />
-            Request changes
-          </Button>
-          <Button size="sm" onClick={() => updateSelectedStatus("Approved")}>
-            <Check className="mr-2 h-4 w-4" />
-            Approve
-          </Button>
+          {viewMode !== "flow" ? (
+            <>
+              <Button variant="outline" size="sm" onClick={() => updateSelectedStatus("Needs review")}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Reset
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => updateSelectedStatus("In approval")}>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Request changes
+              </Button>
+              <Button size="sm" onClick={() => updateSelectedStatus("Approved")}>
+                <Check className="mr-2 h-4 w-4" />
+                Approve
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
 
-      {viewMode === "list" ? (
+      {viewMode === "flow" ? (
+        <ApprovalFlowSetup />
+      ) : viewMode === "list" ? (
         <AllInvoicesList
           invoices={filteredInvoices}
           statusByInvoiceId={localStatusByInvoiceId}
@@ -357,6 +368,182 @@ export function TgemInvoiceApprovalMockup() {
       </div>
       )}
     </div>
+  );
+}
+
+function ApprovalFlowSetup() {
+  const workflowSteps = [
+    {
+      role: "Project manager",
+      person: "Laura Berzina",
+      condition: "All invoices",
+      deadline: "2 working days",
+      backup: "Edgars Kalnins",
+    },
+    {
+      role: "Cost controller",
+      person: "Miks Ozols",
+      condition: "Amount over 5 000 EUR",
+      deadline: "1 working day",
+      backup: "Ieva Jansone",
+    },
+    {
+      role: "Finance",
+      person: "Anna Liepa",
+      condition: "After project approval",
+      deadline: "2 working days",
+      backup: "Janis Krumins",
+    },
+    {
+      role: "Board approval",
+      person: "Janis Krumins",
+      condition: "Amount over 25 000 EUR",
+      deadline: "3 working days",
+      backup: "Laura Berzina",
+    },
+  ];
+
+  const projectRules = [
+    ["Project", "TGEM Office Reconstruction"],
+    ["Default workflow", "Construction invoice approval"],
+    ["Auto-start approval", "When OCR validation is complete"],
+    ["Escalation", "Notify backup after missed deadline"],
+  ];
+
+  return (
+    <section className="min-h-0 flex-1 rounded-md border bg-background shadow-sm">
+      <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <GitBranch className="h-5 w-5 text-blue-600" />
+            <h2 className="text-base font-semibold">Approval flow setup</h2>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Mock project-level routing rules for invoice approval.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm">
+            Duplicate workflow
+          </Button>
+          <Button type="button" size="sm">
+            Save workflow
+          </Button>
+        </div>
+      </div>
+
+      <ScrollArea className="h-[calc(100dvh-15rem)] min-h-[28rem]">
+        <div className="grid gap-4 p-4 xl:grid-cols-[minmax(24rem,0.9fr)_minmax(32rem,1.1fr)]">
+          <div className="space-y-4">
+            <div className="rounded-md border p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Project workflow</h3>
+                  <p className="text-xs text-muted-foreground">Select how invoices enter approval.</p>
+                </div>
+                <Badge variant="outline" className="rounded-md border-emerald-200 bg-emerald-50 text-emerald-700">
+                  Active
+                </Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Workflow name" value="Construction invoice approval" />
+                <Field label="Project" value="TGEM Office Reconstruction" />
+                <Field label="Applies to" value="Supplier invoices" />
+                <Field label="Currency" value="EUR" />
+              </div>
+            </div>
+
+            <div className="rounded-md border p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-blue-600" />
+                <h3 className="text-sm font-semibold">Rules</h3>
+              </div>
+              <div className="space-y-2">
+                {projectRules.map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                    <span className="text-sm text-muted-foreground">{label}</span>
+                    <span className="text-right text-sm font-medium">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-md border p-4">
+              <h3 className="text-sm font-semibold">Amount thresholds</h3>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label="Skip cost controller below" value="5 000 EUR" />
+                <Field label="Board approval above" value="25 000 EUR" />
+                <Field label="Low risk auto-pass" value="Enabled" />
+                <Field label="High risk routing" value="Always require PM" />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-md border p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-600" />
+                    <h3 className="text-sm font-semibold">Approval steps</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Order, conditions, approvers, and backups.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add step
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {workflowSteps.map((step, index) => (
+                  <div key={step.role} className="rounded-md border bg-muted/20 p-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full border bg-background text-xs font-semibold">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold">{step.role}</div>
+                            <div className="text-xs text-muted-foreground">{step.condition}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="w-fit rounded-md border-blue-200 bg-blue-50 text-blue-700">
+                        {step.deadline}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <Field label="Approver" value={step.person} />
+                      <Field label="Backup" value={step.backup} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-md border p-4">
+              <h3 className="text-sm font-semibold">Notifications</h3>
+              <div className="mt-3 grid gap-2 text-sm">
+                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span>Notify approver when invoice is assigned</span>
+                  <input type="checkbox" checked readOnly className="h-4 w-4" />
+                </label>
+                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span>Send reminder one day before deadline</span>
+                  <input type="checkbox" checked readOnly className="h-4 w-4" />
+                </label>
+                <label className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <span>Escalate overdue invoices to backup approver</span>
+                  <input type="checkbox" checked readOnly className="h-4 w-4" />
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ScrollArea>
+    </section>
   );
 }
 
