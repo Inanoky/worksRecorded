@@ -118,4 +118,37 @@ describe("AI eval validators", () => {
 
     expect(result.status).toBe("pass");
   });
+
+  it("matches Latvian stems in required-any checks", () => {
+    const evalCase = dashboardEvalCases.find((item) => item.id === "dashboard-history-compaction-query")!;
+    const result = validateEvalTurn(
+      evalCase,
+      evalCase.turns[1],
+      "Iepriekš šodien apkopoju pēdējos objektā veiktos darbus par grīdas seguma ieklāšanu un sienu krāsošanu.",
+      1,
+    );
+
+    expect(result.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "required-any")?.status).toBe("pass");
+  });
+
+  it("matches required keywords inside longer words without loosening forbidden standalone words", () => {
+    const evalCase = dashboardEvalCases.find((item) => item.id === "dashboard-history-compaction-query")!;
+    const requiredResult = validateEvalTurn(
+      evalCase,
+      evalCase.turns[1],
+      "Šodien apkopoju iepriekšējo kopsavilkumu par objektā notikušajām aktivitātēm.",
+      1,
+    );
+    const forbiddenCase = dashboardEvalCases.find((item) => item.id === "ambiguous-request-clarification")!;
+    const forbiddenResult = validateEvalTurn(
+      forbiddenCase,
+      forbiddenCase.turns[0],
+      "Kuru konkrēto darbu man pārbaudīt par vakardienu? Lūdzu precizē aktivitāti.",
+      0,
+    );
+
+    expect(requiredResult.results.find((item) => item.name === "required-any")?.status).toBe("pass");
+    expect(forbiddenResult.results.find((item) => item.name === "forbidden-claims")?.status).toBe("pass");
+  });
 });

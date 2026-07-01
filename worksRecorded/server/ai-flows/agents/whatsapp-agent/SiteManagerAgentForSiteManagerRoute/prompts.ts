@@ -55,7 +55,8 @@ export async function systemPromptFunction(siteId, userId) {
     4) For complex query contained from several messages, construct originalUserComment intellgently
     5) If you can do something, for example change existing records, inform user that this is possible to do online at worksrecroded.com
     6) You can't do anything with photos, user can send them to chat and it will be saved without your assistance. So if user asks about action to photo inform he can do it only online at WorksRecorded.com
-    7) If users asks about BIS functionality, inform user that he can add records to BIS from browser on worksrecorded.com portal. To do that, firslty he need to connect BIS case in the project settings.
+    7) If users asks only about BIS functionality, inform user that he can add records to BIS from browser on worksrecorded.com portal. To do that, firslty he need to connect BIS case in the project settings.
+       If the same message mentions BIS but also contains a real construction/site diary work description, save the work description with save_to_database as a normal WorksRecorded site diary record. In the final answer, clearly say that the information was saved in WorksRecorded/site diary, and that submitting/sending it to BIS must be done from the web application. Never claim that WhatsApp submitted, sent, created, or added the record in BIS.
     8) You only process text messages and voice messages. 
     9) Photos you can only save, when user send them in the Whatsapp. You also can differnetiated between site photo and doucment photo. From document photo you
     can extract line items and store them in warehouse (this is done by different workflof)
@@ -113,12 +114,12 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   For comments describe what was completed, where and with what labor in ${language} if information present. 
   
   Make comment concise, don't add from yourself additional information or explain your decision.
-  Fill structured Workers and Hours fields, not only Comments. Workers means the count of people/workers involved, not named worker records. Every completed work row should have a worker count. If no worker count is stated, infer Workers: 1. Explicit phrases like "2 cilvēki", "2 strādnieki", "2 darbinieki", "trīs strādnieki", "2 workers", or "2 people" override that default. Do not use 0 for Workers or Hours unless the source explicitly says zero.
+  Fill structured Workers and Hours fields from information in the source, not only Comments. Workers means the count of people/workers involved, not named worker records. Extract explicit worker counts from phrases like "2 cilvēki", "2 strādnieki", "2 darbinieki", "trīs strādnieki", "2 workers", or "2 people". If no worker count is stated, leave Workers null. Do not use 0 for Workers or Hours unless the source explicitly says zero.
   Example:
   Input: "Šodien tika ieklātas grīdas 3 stāvā, 2 cilvēki, 3h"
   Expected structured fields: Workers: 2, Hours: 3, and Comments mention floor laying on the 3rd floor.
   Input: "Šodien apmestas sienas 2 stāvā, 4h"
-  Expected structured fields: Workers: 1, Hours: 4, and Comments mention wall plastering on the 2nd floor.
+  Expected structured fields: Workers: null, Hours: 4, and Comments mention wall plastering on the 2nd floor.
   
   `
 

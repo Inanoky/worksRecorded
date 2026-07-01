@@ -62,7 +62,9 @@ describe("buildZodSchemaFromConfig", () => {
     });
 
     const shape = (schema as any).shape;
-    expect(shape.Workers.description).toContain("default to 1 worker");
+    expect(shape.Workers.description).toContain("Leave null if the worker count is unknown");
+    expect(shape.Workers.description).not.toContain("default to 1 worker");
+    expect(shape.Workers.description).not.toContain("Every completed work row");
     expect(shape.Workers.description).toContain("2 cilvēki");
     expect(shape.Workers.description).toContain("2 strādnieki");
     expect(shape.Workers.description).toContain("trīs strādnieki");

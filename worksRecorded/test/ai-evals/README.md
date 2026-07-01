@@ -153,9 +153,9 @@ WhatsApp site-manager cases are checked by deterministic and heuristic validator
 Worker-count expectations for normal WhatsApp site-manager site diary rows:
 
 - explicit worker counts win, for example `2 cilvēki`, `2 strādnieki`, `darbinieki: 2`, or `trīs strādnieki`
-- completed work without an explicit worker count should infer `WorkersInvolved: 1`
+- completed work without an explicit worker count should leave `WorkersInvolved` as `null`
 - `WorkersInvolved: 0` is only valid when the source explicitly says zero workers
-- this rule applies to the normal site diary meaning of `WorkersInvolved`; ZTC-specific payroll complexity is a separate overloaded use of the same DB field. Thats why its important to do extra impact check if deciding to edit this.
+- this rule applies to the normal site diary meaning of `WorkersInvolved`; ZTC-specific payroll complexity is a separate overloaded use of the same DB field. That distinction requires an additional impact check before changing this behavior.
 
 The WhatsApp JSON report includes:
 
@@ -219,19 +219,19 @@ For WhatsApp site-manager, add a new object in `whatsapp-site-manager-cases.ts`:
 }
 ```
 
-For inferred worker count, use a case where work and hours are present but no worker count is stated:
+For an unknown worker count, use a case where work and hours are present but no worker count is stated. Set `expected.workersInvolved` to null:
 
 ```ts
 {
-  id: "latvian-wall-plaster-hours-implied-one-worker",
-  intent: "Verify worker-count inference when no worker count is stated.",
+  id: "latvian-wall-plaster-hours-without-workers",
+  intent: "Verify workers remain empty when no worker count is stated.",
   webhook: {
     // Sanitized Meta text webhook with body:
     // "Šodien apmestas sienas 2 stāvā, 4h"
   },
   expected: {
     requiredTextSignals: ["apmest", "sien", "2", "stāv"],
-    workersInvolved: 1,
+    workersInvolved: null,
     timeInvolved: 4,
     minHeuristicScore: 0.75,
   },
@@ -286,6 +286,6 @@ Next WhatsApp site-manager edge cases to add:
 - Explicit Latvian word-number worker count: `trīs strādnieki`, `četras personas`, or similar should map to the matching `WorkersInvolved` number.
 - Multi-work single total duration: a message with two activities and one total `7h` should stay as one record unless the split is stated.
 - Multiple records with separable quantities: a message with two clearly separated works, locations, hours, and worker counts should create exactly two records.
-- No hours stated: completed work with location but no duration should infer worker count but leave `TimeInvolved` empty rather than guessing.
+- No hours or workers stated: completed work with location should leave both `WorkersInvolved` and `TimeInvolved` empty rather than guessing.
 - Audio transcription path: Meta audio webhook should save the transcribed content, not persist a temporary Meta lookaside URL, and still extract workers/hours.
 - Replace heuristic language checks with a small deterministic language detector or judge-only language rubric if the marker approach becomes noisy.

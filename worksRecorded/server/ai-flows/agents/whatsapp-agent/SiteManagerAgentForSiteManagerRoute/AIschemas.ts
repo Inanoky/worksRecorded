@@ -75,7 +75,7 @@ function defaultAiDescription(dbKey: string, displayKey: string) {
   const normalizedDisplayKey = displayKey.toLowerCase();
 
   if (normalizedDbKey === "workersinvolved" || normalizedDisplayKey === "workers") {
-    return "Number of workers or people involved in this activity, not named worker records. Every completed work row should have a worker count. Extract explicit counts from phrases like '2 workers', '2 people', '2 cilvēki', '2 strādnieki', 'trīs strādnieki', or 'darbinieki: 2'. If work was performed and no worker count is stated, default to 1 worker. Do not use 0 unless the source explicitly says zero workers.";
+    return "Number of workers or people involved in this activity, not named worker records. Extract explicit counts from phrases like '2 workers', '2 people', '2 cilvēki', '2 strādnieki', 'trīs strādnieki', or 'darbinieki: 2'. Leave null if the worker count is unknown. Do not use 0 unless the source explicitly says zero workers.";
   }
 
   if (normalizedDbKey === "timeinvolved" || normalizedDisplayKey === "hours") {

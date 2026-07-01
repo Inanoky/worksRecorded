@@ -61,6 +61,13 @@ function recordSearchText(record: SavedSiteDiaryRecord | null) {
   );
 }
 
+function includesSignal(value: string, signal: string) {
+  return signal
+    .split("|")
+    .map((item) => normalize(item))
+    .some((variant) => variant.length > 0 && value.includes(variant));
+}
+
 function createResult(
   name: string,
   passed: boolean,
@@ -94,13 +101,15 @@ export function validateWhatsappSiteManagerRecord(args: {
   evalCase: WhatsAppSiteManagerEvalCase;
   record: SavedSiteDiaryRecord | null;
   records?: SavedSiteDiaryRecord[];
+  answer?: string;
   siteId: string;
   userId: string;
 }): WhatsAppTurnValidationResult {
-  const { evalCase, record, records, siteId, userId } = args;
+  const { evalCase, record, records, answer, siteId, userId } = args;
   const results: WhatsAppValidatorResult[] = [];
   const heuristicResults: WhatsAppValidatorResult[] = [];
   const searchText = recordSearchText(record);
+  const answerText = normalize(answer);
 
   results.push(createResult("record-created", Boolean(record), "A site diary record must be created."));
   if (records) {
@@ -138,6 +147,29 @@ export function validateWhatsappSiteManagerRecord(args: {
     );
   }
 
+  for (const signal of evalCase.expected.requiredAnswerSignals) {
+    results.push(
+      createResult(
+        `answer-signal:${signal}`,
+        includesSignal(answerText, signal),
+        `Agent answer must include signal "${signal}".`,
+      ),
+    );
+  }
+
+  const forbiddenAnswerMatches = evalCase.expected.forbiddenAnswerSignals.filter((signal) =>
+    includesSignal(answerText, signal),
+  );
+  results.push(
+    createResult(
+      "forbidden-answer-signals",
+      forbiddenAnswerMatches.length === 0,
+      forbiddenAnswerMatches.length
+        ? `Agent answer includes forbidden signal(s): ${forbiddenAnswerMatches.join(", ")}.`
+        : "Agent answer does not claim forbidden behavior.",
+    ),
+  );
+
   for (const signal of evalCase.expected.requiredTextSignals) {
     const passed = searchText.includes(normalize(signal));
     heuristicResults.push(
@@ -156,6 +188,14 @@ export function validateWhatsappSiteManagerRecord(args: {
         "workers-involved",
         nearNumber(record?.WorkersInvolved, expected),
         `WorkersInvolved must be ${expected}; got ${formatNumberForMessage(record?.WorkersInvolved)}.`,
+      ),
+    );
+  } else if (evalCase.expected.workersInvolved === null) {
+    heuristicResults.push(
+      createResult(
+        "workers-involved",
+        record?.WorkersInvolved == null,
+        `WorkersInvolved must be null when no worker count is stated; got ${formatNumberForMessage(record?.WorkersInvolved)}.`,
       ),
     );
   }

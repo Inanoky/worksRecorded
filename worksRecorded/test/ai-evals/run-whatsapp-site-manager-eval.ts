@@ -586,6 +586,7 @@ async function main() {
           userId,
           record: selectedRecord,
           records: recordsForValidation,
+          answer: agentRun.details?.content ?? "",
         });
         const judge =
           judgeClient && judgeModel

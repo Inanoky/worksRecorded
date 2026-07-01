@@ -121,6 +121,33 @@ describe("AI eval report normalizer", () => {
     expect(run.items[0].anomalies.map((item) => item.code)).toContain("unsafe-readonly-confirmation");
   });
 
+  it("normalizes the AI judge explanation and suggested improvements", () => {
+    const run = normalizeEvalReport({
+      runId: "judged-run",
+      flow: "whatsapp-site-manager",
+      summary: { judgeWarnings: 1 },
+      latency: {},
+      results: [
+        {
+          caseId: "judged-case",
+          deterministic: { status: "pass", results: [] },
+          judge: {
+            status: "warn",
+            explanation: "The saved record is mostly correct but the comment is vague.",
+            improvements: ["Mention the reported location in the comment."],
+          },
+        },
+      ],
+    });
+
+    expect(run.items[0]).toMatchObject({
+      judgeStatus: "warn",
+      judgeExplanation: "The saved record is mostly correct but the comment is vague.",
+      judgeImprovements: ["Mention the reported location in the comment."],
+    });
+    expect(run.status).toBe("warn");
+  });
+
   it("flags repeated answers and unexpected finish reasons", () => {
     const run = normalizeEvalReport({
       runId: "dashboard-run",
