@@ -221,7 +221,7 @@ function ZtcHoursWithPausePopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="line-clamp-4 text-left font-medium text-foreground underline decoration-dotted underline-offset-2"
+          className="line-clamp-4 text-left font-medium text-foreground underline decoration-dotted underline-offset-2 hover:text-blue-700"
         >
           {value}
         </button>
@@ -2417,7 +2417,15 @@ export default function SiteDiaryCalendar({
                                 <span>
                                   {t.hours}:{" "}
                                   <span className="font-medium text-foreground">
-                                    {r.TimeInvolved ?? "—"}
+                                    {isZtcSite ? (
+                                      <ZtcHoursWithPausePopover
+                                        row={r}
+                                        value={r.TimeInvolved ?? "—"}
+                                        dateLocale={dateLocale}
+                                      />
+                                    ) : (
+                                      r.TimeInvolved ?? "—"
+                                    )}
                                   </span>
                                 </span>
                               </div>
@@ -2753,7 +2761,13 @@ export default function SiteDiaryCalendar({
                                             <div className="space-y-1 leading-tight">
                                               <div><span className="text-muted-foreground">Sākums: </span>{startTime}</div>
                                               <div><span className="text-muted-foreground">Beigas: </span>{endTime}</div>
-                                              <div className="text-[11px] font-medium text-muted-foreground">{row.TimeInvolved ?? "—"} st</div>
+                                              <div className="text-[11px] font-medium text-muted-foreground">
+                                                <ZtcHoursWithPausePopover
+                                                  row={row}
+                                                  value={`${row.TimeInvolved ?? "—"} st`}
+                                                  dateLocale={dateLocale}
+                                                />
+                                              </div>
                                             </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3 text-right" style={{ width: 76 }}>
