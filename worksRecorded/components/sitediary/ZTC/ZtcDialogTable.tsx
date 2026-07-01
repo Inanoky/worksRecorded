@@ -24,10 +24,13 @@ import {
   deleteZtcSiteDiaryRecord,
   getZtcDialogPrefetchData,
   saveZtcSiteDiaryDialogRows,
+  type ZtcProjectTaskRates,
 } from "@/components/sitediary/ZTC/actions";
 import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import defaultConfig from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { useMediaQuery } from "@/components/sitediary/Use-media-querty";
+import { ZTC_ALL_PROJECTS_RATE_NAME } from "@/components/sitediary/ZTC/ztc-rate-constants";
+import { ZTC_RATE_UNITS } from "@/components/sitediary/ZTC/ztc-rate-units";
 
 type ZtcDrawingMetadata = {
   type: "ztc_drawing_context";
@@ -52,6 +55,7 @@ type ZtcDialogTableProps = {
 type ZtcDialogPrefetchCacheEntry = {
   config: Record<string, any>;
   rows: any[];
+  rates?: ZtcProjectTaskRates[];
 };
 
 type ZtcSelectOption = {
@@ -255,8 +259,28 @@ function isCompletedZtcDiaryRow(row: any) {
   );
 }
 
+function normalizeSpecialLabel(value: unknown) {
+  return normalizeOption(value)
+    .toLocaleLowerCase("lv")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isZtcAdditionalDetailsRow(row: any) {
+  return normalizeSpecialLabel(row?.Works_Custom_1) === "papilddetalas";
+}
+
 function isZtcAdditionalWorkRow(row: any) {
-  return row?.Location === "Papilddarbi" || row?.Works_Custom_1 === "Papilddarbi";
+  return (
+    normalizeSpecialLabel(row?.Location) === "papilddarbi" ||
+    normalizeSpecialLabel(row?.Works_Custom_1) === "papilddarbi"
+  );
+}
+
+function getZtcSpecialCategory(row: any): "additionalDetails" | "additionalWorks" | null {
+  if (isZtcAdditionalDetailsRow(row)) return "additionalDetails";
+  if (isZtcAdditionalWorkRow(row)) return "additionalWorks";
+  return null;
 }
 
 function isValidDateValue(value: unknown) {
@@ -342,6 +366,7 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
     const rowWorks = splitDrawingWorkList(row.Works_Custom_1);
     if (
       rowElement &&
+      !isZtcAdditionalDetailsRow(row) &&
       !isZtcAdditionalWorkRow(row) &&
       !isZtcQualityRow(row) &&
       rowWorks.length
@@ -388,6 +413,7 @@ export function ZtcDialogTable({
   const [rows, setRows] = useState<any[]>([]);
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [fieldMap, setFieldMap] = useState<Record<string, any>>(defaultConfig);
+  const [defaultRates, setDefaultRates] = useState<ZtcProjectTaskRates[]>([]);
   const [dirtyRowKeys, setDirtyRowKeys] = useState<Set<string>>(new Set());
 
   const newEmptyRow = () => ({
@@ -430,6 +456,65 @@ export function ZtcDialogTable({
     return drawingIndex.amountsByElementWork.get(normalizedElement)?.get(normalizedWork) ?? null;
   };
 
+  const getSpecialRateOptions = (
+    row: any,
+    category: "additionalDetails" | "additionalWorks",
+  ) => {
+    const normalizedProject = normalizeOption(row.Location).toLowerCase();
+    const allProject = defaultRates.find(
+      (project) =>
+        normalizeOption(project.projectName).toLowerCase() ===
+        ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+    );
+    const project = defaultRates.find(
+      (candidate) =>
+        normalizeOption(candidate.projectName).toLowerCase() === normalizedProject,
+    );
+    const seen = new Set<string>();
+    return [...(allProject?.[category] ?? []), ...(project?.[category] ?? [])]
+      .map((entry) => normalizeZtcWorkName(entry.task))
+      .filter((task) => {
+        const key = task.toLowerCase();
+        if (!task || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+  };
+
+  const getSpecialRateEntry = (
+    row: any,
+    category: "additionalDetails" | "additionalWorks",
+    task: string,
+  ) => {
+    const normalizedProject = normalizeOption(row.Location).toLowerCase();
+    const normalizedTask = normalizeZtcWorkName(task).toLowerCase();
+    const allProject = defaultRates.find(
+      (project) =>
+        normalizeOption(project.projectName).toLowerCase() ===
+        ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+    );
+    const project = defaultRates.find(
+      (candidate) =>
+        normalizeOption(candidate.projectName).toLowerCase() === normalizedProject,
+    );
+    return [project, allProject]
+      .filter(Boolean)
+      .flatMap((rateProject) => rateProject?.[category] ?? [])
+      .find((entry) => normalizeZtcWorkName(entry.task).toLowerCase() === normalizedTask);
+  };
+
+  const getUnitOptions = (row: any) => {
+    const configuredOptions = Object.values(fieldMap.Units?.DropDownOptions ?? {})
+      .map((label) => String(label))
+      .filter(Boolean);
+    const fallbackOptions = getZtcSpecialCategory(row)
+      ? ZTC_RATE_UNITS.map((unit) => String(unit))
+      : ["m2"];
+    const currentUnit = normalizeOption(row.Units);
+    return Array.from(new Set([...configuredOptions, ...fallbackOptions, currentUnit].filter(Boolean)))
+      .map((label) => ({ value: label, label }));
+  };
+
   const getDropdownOptions = (field: string, row: any) => {
     if (field === "Location_Custom_1") {
       if (drawingIndex.elements.length) {
@@ -437,7 +522,15 @@ export function ZtcDialogTable({
       }
     }
 
-    if (field === "Works" && !isZtcAdditionalWorkRow(row)) {
+    if (field === "Works") {
+      const specialCategory = getZtcSpecialCategory(row);
+      if (specialCategory) {
+        const rateOptions = getSpecialRateOptions(row, specialCategory);
+        if (rateOptions.length) {
+          return rateOptions.map((label) => ({ value: label, label }));
+        }
+      }
+
       if (isZtcQualityRow(row)) {
         return [{ value: ZTC_QUALITY_WORK_LABEL, label: ZTC_QUALITY_WORK_LABEL }];
       }
@@ -446,6 +539,10 @@ export function ZtcDialogTable({
       if (workOptions.length) {
         return workOptions.map((label) => ({ value: label, label }));
       }
+    }
+
+    if (field === "Units") {
+      return getUnitOptions(row);
     }
 
     const optionsObj = fieldMap[field]?.DropDownOptions ?? {};
@@ -469,7 +566,7 @@ export function ZtcDialogTable({
         const next = { ...row, [field]: value };
 
         if (field === "Location_Custom_1") {
-          if (isZtcQualityRow(next)) return next;
+          if (isZtcQualityRow(next) || getZtcSpecialCategory(next)) return next;
 
           const workOptions = getElementWorkOptions(value);
           if (!workOptions.some((option) => option === next.Works)) {
@@ -482,7 +579,19 @@ export function ZtcDialogTable({
           if (workOptions.length) next.Units = "m2";
         }
 
-        if (field === "Works" && !isZtcAdditionalWorkRow(next)) {
+        if (field === "Works") {
+          const specialCategory = getZtcSpecialCategory(next);
+          if (specialCategory) {
+            const rate = getSpecialRateEntry(next, specialCategory, value);
+            if (rate?.rate) next.Location_Custom_2 = rate.rate;
+            if (specialCategory === "additionalDetails") {
+              next.Units = rate?.unit ?? next.Units ?? "gab";
+            } else {
+              next.Units = rate?.relatesToElement === true ? "m2" : "st";
+            }
+            return next;
+          }
+
           if (isZtcQualityRow(next)) return next;
 
           const amountM2 = getWorkAmountM2(next.Location_Custom_1, value);
@@ -579,7 +688,7 @@ export function ZtcDialogTable({
         ...dbRow,
         Date_Custom_1: normalizeDate(dbRow.Date_Custom_1),
         Date_Custom_2: normalizeDate(dbRow.Date_Custom_2),
-        Units: isZtcAdditionalWorkRow(dbRow) ? dbRow.Units : "m2",
+        Units: getZtcSpecialCategory(dbRow) ? dbRow.Units : "m2",
         Amounts: normalizeNumber(dbRow.Amounts),
         TimeInvolved: normalizeNumber(dbRow.TimeInvolved),
         WorkersInvolved: normalizeNumber(dbRow.WorkersInvolved),
@@ -639,10 +748,45 @@ export function ZtcDialogTable({
     const width = isMobile ? "100%" : getControlWidth(field);
 
     if (field === "Units") {
+      if (getZtcSpecialCategory(row)) {
+        const currentValue = String(row[field] ?? "");
+        const options = getUnitOptions(row);
+        return (
+          <SearchableZtcSelect
+            value={currentValue}
+            options={options}
+            placeholder={t.select}
+            width={width}
+            onChange={(value) => handleChange(rowKey, field, value)}
+          />
+        );
+      }
+
       return (
         <span className="inline-flex h-9 items-center rounded-md border bg-muted px-3 text-sm font-medium text-muted-foreground">
           m2
         </span>
+      );
+    }
+
+    if (field === "Works" && getZtcSpecialCategory(row)) {
+      const options = getDropdownOptions(field, row);
+      const listId = `ztc-special-works-${rowKey}`;
+      return (
+        <div style={{ width, minWidth: width }}>
+          <Input
+            list={listId}
+            className="h-9"
+            maxLength={ZTC_FIELD_MAX_LENGTHS[field] ?? 180}
+            value={String(row[field] ?? "")}
+            onChange={(event) => handleChange(rowKey, field, event.target.value)}
+          />
+          <datalist id={listId}>
+            {options.map((option) => (
+              <option key={option.value} value={option.label} />
+            ))}
+          </datalist>
+        </div>
       );
     }
 
@@ -728,6 +872,7 @@ export function ZtcDialogTable({
 
       setDirtyRowKeys(new Set());
       setFieldMap(config);
+      setDefaultRates(data.rates ?? []);
       setTableHeads(renderableFields);
       setRows(
         completedRows.length
@@ -754,6 +899,7 @@ export function ZtcDialogTable({
             ztcDialogPrefetchCache.set(adjacentKey, {
               config: ((data.config ?? defaultConfig) as Record<string, any>),
               rows: data.rows,
+              rates: data.rates,
             });
           })
           .catch(() => {
@@ -767,6 +913,7 @@ export function ZtcDialogTable({
 
       if (!date || !siteId) {
         setRows([newEmptyRow()]);
+        setDefaultRates([]);
         setLoading(false);
         return;
       }
@@ -791,6 +938,7 @@ export function ZtcDialogTable({
         const cacheEntry = {
           config: ((data.config ?? defaultConfig) as Record<string, any>),
           rows: data.rows,
+          rates: data.rates,
         };
         ztcDialogPrefetchCache.set(cacheKey, cacheEntry);
         applyPrefetchData(cacheEntry);

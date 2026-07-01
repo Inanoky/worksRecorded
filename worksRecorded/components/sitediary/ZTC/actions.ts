@@ -709,12 +709,13 @@ export async function getZtcSiteDiaryRecords(args: { siteId: string; date: strin
 export async function getZtcDialogPrefetchData(args: { siteId: string; date: string }) {
   await requireZtcAccess(args.siteId);
 
-  const [config, rows] = await Promise.all([
+  const [config, rows, rates] = await Promise.all([
     loadZtcSiteDiaryConfig(args.siteId),
     loadZtcSiteDiaryRecords({ date: args.date }),
+    getZtcDefaultTaskRates(args.siteId),
   ]);
 
-  return { config, rows };
+  return { config, rows, rates };
 }
 
 export async function createZtcSiteDiaryRecords(args: {
