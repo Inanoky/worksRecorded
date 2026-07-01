@@ -181,7 +181,7 @@ export function TgemInvoiceApprovalMockup() {
           }}
         />
       ) : (
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(25rem,0.9fr)_minmax(34rem,1.1fr)]">
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(28rem,1.05fr)_minmax(28rem,0.95fr)]">
         <section className="min-h-0 rounded-md border bg-background shadow-sm">
           <div className="grid min-h-0 h-full grid-rows-[auto_minmax(0,1fr)]">
             <div className="space-y-3 border-b p-4">
@@ -207,43 +207,45 @@ export function TgemInvoiceApprovalMockup() {
 
             <ScrollArea className="min-h-0">
               <div className="space-y-4 p-4">
-                <div className="space-y-2">
-                  {filteredInvoices.map((invoice) => {
-                    const isSelected = invoice.id === selectedInvoice.id;
-                    const invoiceStatus = localStatusByInvoiceId[invoice.id] ?? invoice.status;
-                    return (
-                      <button
-                        key={invoice.id}
-                        type="button"
-                        className={cn(
-                          "w-full rounded-md border p-3 text-left transition hover:border-blue-300 hover:bg-blue-50/50",
-                          isSelected ? "border-blue-400 bg-blue-50/70" : "bg-background",
-                        )}
-                        onClick={() => setSelectedInvoiceId(invoice.id)}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold">{invoice.number}</div>
-                            <div className="truncate text-xs text-muted-foreground">{invoice.supplier}</div>
+                <ScrollArea className="h-[22rem] rounded-md border">
+                  <div className="space-y-2 p-2">
+                    {filteredInvoices.map((invoice) => {
+                      const isSelected = invoice.id === selectedInvoice.id;
+                      const invoiceStatus = localStatusByInvoiceId[invoice.id] ?? invoice.status;
+                      return (
+                        <button
+                          key={invoice.id}
+                          type="button"
+                          className={cn(
+                            "w-full rounded-md border p-3 text-left transition hover:border-blue-300 hover:bg-blue-50/50",
+                            isSelected ? "border-blue-400 bg-blue-50/70" : "bg-background",
+                          )}
+                          onClick={() => setSelectedInvoiceId(invoice.id)}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold">{invoice.number}</div>
+                              <div className="truncate text-xs text-muted-foreground">{invoice.supplier}</div>
+                            </div>
+                            <Badge variant="outline" className={cn("shrink-0 rounded-md", statusClass(invoiceStatus))}>
+                              {invoiceStatus}
+                            </Badge>
                           </div>
-                          <Badge variant="outline" className={cn("shrink-0 rounded-md", statusClass(invoiceStatus))}>
-                            {invoiceStatus}
-                          </Badge>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                          <div>
-                            <div className="text-muted-foreground">Project</div>
-                            <div className="truncate font-medium">{invoice.project}</div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <div className="text-muted-foreground">Project</div>
+                              <div className="truncate font-medium">{invoice.project}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-muted-foreground">Amount</div>
+                              <div className="font-semibold">{formatMoney(invoice.total, invoice.currency)}</div>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-muted-foreground">Amount</div>
-                            <div className="font-semibold">{formatMoney(invoice.total, invoice.currency)}</div>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
 
                 <Separator />
 
@@ -332,16 +334,16 @@ export function TgemInvoiceApprovalMockup() {
 
         <section className="min-h-0 rounded-md border bg-slate-100 shadow-sm">
           <div className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)]">
-            <div className="flex items-center justify-between gap-3 border-b bg-background p-4">
+            <div className="flex items-center justify-between gap-3 border-b bg-background px-4 py-3">
               <div>
                 <h2 className="text-base font-semibold">Invoice document</h2>
-                <p className="text-xs text-muted-foreground">Preview of the invoice file</p>
+                <p className="text-xs text-muted-foreground">Prepared OCR overlay preview</p>
               </div>
               <Badge variant="outline" className="rounded-md border-slate-200 bg-slate-50">
-                PDF mock
+                OCR mock
               </Badge>
             </div>
-            <ScrollArea className="min-h-0">
+            <ScrollArea className="min-h-0 bg-slate-50">
               <InvoiceDocument invoice={selectedInvoice} status={selectedStatus} />
             </ScrollArea>
           </div>
@@ -479,101 +481,26 @@ function CheckRow({ label, ok }: { label: string; ok: boolean }) {
 }
 
 function InvoiceDocument({
-  invoice,
   status,
 }: {
   invoice: TgemInvoice;
   status: TgemInvoice["status"];
 }) {
   return (
-    <div className="mx-auto my-5 min-h-[56rem] w-full max-w-[52rem] bg-white p-8 shadow-sm sm:p-10">
-      <div className="flex items-start justify-between gap-6 border-b pb-8">
-        <div>
-          <div className="text-2xl font-semibold tracking-normal">INVOICE</div>
-          <div className="mt-1 text-sm text-muted-foreground">{invoice.number}</div>
-        </div>
-        <div className="text-right">
-          <div className="text-lg font-semibold">TGEM</div>
-          <div className="text-sm text-muted-foreground">Invoice approval copy</div>
-          <Badge variant="outline" className={cn("mt-3 rounded-md", statusClass(status))}>
-            {status}
-          </Badge>
-        </div>
+    <div className="mx-auto w-full p-2">
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+        <Badge variant="outline" className={cn("rounded-md", statusClass(status))}>
+          {status}
+        </Badge>
+        <span className="text-xs text-muted-foreground">
+          Select text on the document to simulate OCR output.
+        </span>
       </div>
-
-      <div className="grid gap-8 py-8 sm:grid-cols-2">
-        <div>
-          <div className="text-xs font-semibold uppercase text-muted-foreground">Supplier</div>
-          <div className="mt-2 text-base font-semibold">{invoice.supplier}</div>
-          <div className="text-sm text-muted-foreground">Reg. no. {invoice.supplierRegNo}</div>
-          <div className="mt-3 text-sm text-muted-foreground">Bank: {invoice.bankAccount}</div>
-        </div>
-        <div className="grid gap-2 text-sm sm:text-right">
-          <div>
-            <span className="text-muted-foreground">Received: </span>
-            <span className="font-medium">{formatDate(invoice.receivedDate)}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Due: </span>
-            <span className="font-medium">{formatDate(invoice.dueDate)}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Contract: </span>
-            <span className="font-medium">{invoice.contract}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Reference: </span>
-            <span className="font-medium">{invoice.reference}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-md border">
-        <div className="grid grid-cols-[1fr_5rem_5rem_7rem] gap-3 border-b bg-slate-50 px-4 py-3 text-xs font-semibold uppercase text-muted-foreground">
-          <div>Description</div>
-          <div className="text-right">Qty</div>
-          <div>Unit</div>
-          <div className="text-right">Total</div>
-        </div>
-        {invoice.lines.map((line) => (
-          <div
-            key={line.id}
-            className="grid grid-cols-[1fr_5rem_5rem_7rem] gap-3 border-b px-4 py-3 text-sm last:border-b-0"
-          >
-            <div className="min-w-0">
-              <div className="font-medium">{line.description}</div>
-              <div className="text-xs text-muted-foreground">
-                Unit price {formatMoney(line.unitPrice, invoice.currency)}
-              </div>
-            </div>
-            <div className="text-right tabular-nums">{line.quantity}</div>
-            <div>{line.unit}</div>
-            <div className="text-right font-medium tabular-nums">
-              {formatMoney(line.total, invoice.currency)}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="ml-auto mt-8 w-full max-w-sm space-y-3 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span className="font-medium">{formatMoney(invoice.subtotal, invoice.currency)}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">VAT 21%</span>
-          <span className="font-medium">{formatMoney(invoice.vat, invoice.currency)}</span>
-        </div>
-        <Separator />
-        <div className="flex justify-between text-base">
-          <span className="font-semibold">Total</span>
-          <span className="font-semibold">{formatMoney(invoice.total, invoice.currency)}</span>
-        </div>
-      </div>
-
-      <div className="mt-10 rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-        Approval stamp and audit trail will be generated after final approval.
-      </div>
+      <iframe
+        title="TGEM invoice OCR preview"
+        src="/TGEM/moxy_invoice_visible_ocr_overlay.html"
+        className="h-[calc(100dvh-12rem)] w-full rounded-md border bg-white shadow-sm"
+      />
     </div>
   );
 }
