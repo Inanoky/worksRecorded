@@ -1,5 +1,7 @@
 const uploadFilesMock = jest.fn();
-const createManyMock = jest.fn();
+const createMock = jest.fn();
+const updateMock = jest.fn();
+const transactionMock = jest.fn();
 
 jest.mock("uploadthing/server", () => ({
   UTApi: jest.fn().mockImplementation(() => ({
@@ -9,8 +11,10 @@ jest.mock("uploadthing/server", () => ({
 
 jest.mock("@/lib/utils/db", () => ({
   prisma: {
+    $transaction: transactionMock,
     sitediaryrecords: {
-      createMany: createManyMock,
+      create: createMock,
+      update: updateMock,
     },
   },
 }));
@@ -59,7 +63,27 @@ const UPLOADTHING_AUDIO_URL = "https://ut.test.ufs.sh/f/voice.ogg";
 describe("WhatsApp audio URL persistence integration", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    createManyMock.mockResolvedValue({ count: 1 });
+    createMock.mockImplementation(({ data }) =>
+      Promise.resolve({
+        ...data,
+        id: "record-1",
+        originalAudioUrl: data.originalAudioUrl ?? null,
+      }),
+    );
+    updateMock.mockImplementation(({ data, where }) =>
+      Promise.resolve({
+        ...data,
+        id: where.id,
+      }),
+    );
+    transactionMock.mockImplementation((callback) =>
+      callback({
+        sitediaryrecords: {
+          create: createMock,
+          update: updateMock,
+        },
+      }),
+    );
     uploadFilesMock.mockResolvedValue({
       data: { ufsUrl: UPLOADTHING_AUDIO_URL },
     });
@@ -103,13 +127,12 @@ describe("WhatsApp audio URL persistence integration", () => {
 
     expect(toolCall.args).not.toHaveProperty("originalAudioUrl");
 
-    expect(createManyMock).toHaveBeenCalledWith({
-      data: [
-        expect.objectContaining({
-          originalAudioUrl: UPLOADTHING_AUDIO_URL,
-        }),
-      ],
+    expect(createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        originalAudioUrl: UPLOADTHING_AUDIO_URL,
+      }),
+      select: expect.any(Object),
     });
-    expect(createManyMock.mock.calls[0][0].data[0].originalAudioUrl).not.toBe(META_AUDIO_URL);
+    expect(createMock.mock.calls[0][0].data.originalAudioUrl).not.toBe(META_AUDIO_URL);
   });
 });

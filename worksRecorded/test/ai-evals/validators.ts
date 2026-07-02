@@ -95,14 +95,18 @@ const ENGLISH_FALLBACK_PHRASES = [
 const PARTIAL_TEXT_MATCHES = new Set([
   "apstiprin",
   "beton",
+  "darb",
   "darbīb",
   "dienasgr",
   "ierakst",
+  "kopsav",
+  "nav",
   "nevar",
   "pieej",
   "pārbaud",
   "preciz",
   "vakardien",
+  "veikt",
   "zon",
 ]);
 
@@ -129,7 +133,11 @@ function includesWholeWord(answer: string, needle: string) {
   return pattern.test(normalizedAnswer);
 }
 
-function matchesExpectedText(answer: string, expected: string) {
+function matchesRequiredText(answer: string, expected: string) {
+  return includesNormalized(answer, expected);
+}
+
+function matchesForbiddenText(answer: string, expected: string) {
   const normalizedExpected = normalize(expected);
   if (PARTIAL_TEXT_MATCHES.has(normalizedExpected)) {
     return includesNormalized(answer, expected);
@@ -210,7 +218,7 @@ export function validateEvalTurn(
     results.push(
       createResult(
         `required:${required}`,
-        matchesExpectedText(answer, required),
+        matchesRequiredText(answer, required),
         `Answer must include "${required}".`,
       ),
     );
@@ -220,14 +228,14 @@ export function validateEvalTurn(
     results.push(
       createResult(
         "required-any",
-        turn.requiredAny.some((required) => matchesExpectedText(answer, required)),
+        turn.requiredAny.some((required) => matchesRequiredText(answer, required)),
         `Answer must include at least one of: ${turn.requiredAny.join(", ")}.`,
       ),
     );
   }
 
   const forbiddenMatches = [...turn.forbidden, ...UNSAFE_CONFIRMATIONS].filter((forbidden) =>
-    matchesExpectedText(answer, forbidden),
+    matchesForbiddenText(answer, forbidden),
   );
   results.push(
     createResult(

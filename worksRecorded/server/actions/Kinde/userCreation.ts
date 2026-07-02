@@ -1,6 +1,5 @@
-// scripts/create-kinde-user.ts
-// Run with: node scripts/create-kinde-user.ts
 // Node 18+ (fetch available)
+// bun run server/actions/Kinde/userCreation.ts 
 
 const KINDE_DOMAIN = process.env.KINDE_DOMAIN; // buvconsultdeploy.kinde.com
 const M2M_CLIENT_ID = process.env.KINDE_M2M_CLIENT_ID;
@@ -17,10 +16,10 @@ if (!KINDE_DOMAIN || !M2M_CLIENT_ID || !M2M_CLIENT_SECRET) {
 // =====================
 // HARD-CODE USER HERE
 // =====================
-const USERNAME = "aleksandrs_trokss_TGEM";
+const USERNAME = "mikus_jautrums";
 const PASSWORD = "Demo123!"; // will be bcrypt-hashed
-const GIVEN_NAME = "Aleksandrs";
-const FAMILY_NAME = "Trokss";
+const GIVEN_NAME = "Mikus";
+const FAMILY_NAME = "Jautrums";
 
 // =====================
 // HELPERS

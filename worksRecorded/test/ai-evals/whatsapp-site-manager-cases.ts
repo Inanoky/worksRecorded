@@ -2,7 +2,9 @@ import { z } from "zod";
 
 const ExpectedSavedRecordSchema = z.object({
   requiredTextSignals: z.array(z.string().min(1)).default([]),
-  workersInvolved: z.number().positive().optional(),
+  requiredAnswerSignals: z.array(z.string().min(1)).default([]),
+  forbiddenAnswerSignals: z.array(z.string().min(1)).default([]),
+  workersInvolved: z.number().positive().nullable().optional(),
   timeInvolved: z.number().positive().optional(),
   minHeuristicScore: z.number().min(0).max(1).default(0.75),
 });
@@ -92,19 +94,19 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
       },
     },
     {
-      id: "latvian-wall-plaster-hours-implied-one-worker",
+      id: "latvian-wall-plaster-hours-without-workers",
       intent:
-        "Verify a Latvian site-manager text webhook infers one worker when work and hours are reported without an explicit worker count.",
+        "Verify a Latvian site-manager text webhook leaves workers empty when work and hours are reported without an explicit worker count.",
       notes:
-        "Covers the default worker-count policy for normal site diary rows: completed work implies one worker unless the source says otherwise.",
+        "Covers nullable worker counts for normal site diary rows when the source does not state a count.",
       webhook: textWebhookFixture({
-        senderKey: "eval-site-manager-implied-one-worker",
+        senderKey: "eval-site-manager-without-workers",
         body: "Šodien apmestas sienas 2 stāvā, 4h",
         timestamp: "1782197585",
       }),
       expected: {
         requiredTextSignals: ["apmest", "sien", "2", "stāv"],
-        workersInvolved: 1,
+        workersInvolved: null,
         timeInvolved: 4,
         minHeuristicScore: 0.75,
       },
@@ -122,15 +124,39 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
       }),
       expected: {
         requiredTextSignals: ["ūdens", "kanaliz", "radiator"],
-        workersInvolved: 1,
+        workersInvolved: null,
         timeInvolved: 12,
+        minHeuristicScore: 0.75,
+      },
+    },
+    {
+      id: "ambigious-bis-mention-in-task-decritpion",
+      intent:
+        "Verify a BIS-mentioned WhatsApp request with real work details is saved as a normal site diary record while explaining BIS submission must be done in the web app.",
+      notes:
+        "Regression for a production ambiguity where the assistant treated a BIS mention as only guidance instead of saving the described cleaning work.",
+      webhook: textWebhookFixture({
+        senderKey: "eval-site-manager-bis-cleaning-ambiguous",
+        body: "izveido ierakstu priekš BIS sistēmas par to, ka tiek veikti objekta uzkopšans darbi",
+        timestamp: "1782197615",
+      }),
+      expected: {
+        requiredTextSignals: ["uzkopš", "objekt"],
+        requiredAnswerSignals: ["saglab", "bis", "worksrecorded|pārlūk|portāl"],
+        forbiddenAnswerSignals: [
+          "nosūtīts uz bis",
+          "pievienots bis",
+          "bis ieraksts izveidots",
+          "submitted to bis",
+        ],
+        workersInvolved: null,
         minHeuristicScore: 0.75,
       },
     },
     {
       id: "latvian-word-number-workers",
       intent:
-        "Verify Latvian word-number worker counts override the default one-worker inference.",
+        "Verify Latvian word-number worker counts are extracted into the structured worker field.",
       notes:
         "Covers non-digit worker extraction from phrases like trīs strādnieki.",
       webhook: textWebhookFixture({

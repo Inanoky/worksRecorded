@@ -20,6 +20,8 @@ export type NormalizedEvalItem = {
   outboundMessages: string[];
   status: EvalStatus;
   judgeStatus: EvalStatus | "skipped";
+  judgeExplanation: string;
+  judgeImprovements: string[];
   latencyMs: number;
   actualModel: string | null;
   requestedModel: string | null;
@@ -160,6 +162,10 @@ function makeItem(rawItem: unknown, index: number, flow: EvalFlow): NormalizedEv
     outboundMessages: graphMessages.map(textFromGraphMessage).filter(Boolean),
     status: normalizeStatus(deterministic.status),
     judgeStatus: normalizeJudgeStatus(judge.status),
+    judgeExplanation: asString(judge.explanation),
+    judgeImprovements: asArray(judge.improvements).filter(
+      (improvement): improvement is string => typeof improvement === "string",
+    ),
     latencyMs: asNumber(item.latencyMs) ?? 0,
     actualModel: asString(item.actualModel) || null,
     requestedModel: asString(item.requestedModel) || null,

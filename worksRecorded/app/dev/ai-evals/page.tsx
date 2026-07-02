@@ -61,7 +61,14 @@ function textMatchesRun(run: NormalizedEvalRun, query: string) {
     run.runId,
     run.flow,
     run.model,
-    ...run.items.flatMap((item) => [item.caseId, item.input, item.answer, ...item.outboundMessages]),
+    ...run.items.flatMap((item) => [
+      item.caseId,
+      item.input,
+      item.answer,
+      item.judgeExplanation,
+      ...item.judgeImprovements,
+      ...item.outboundMessages,
+    ]),
   ]
     .filter(Boolean)
     .join("\n")
@@ -153,6 +160,48 @@ function ResponseBlock({ title, children }: { title: string; children: React.Rea
   );
 }
 
+function JudgeResponse({ item }: { item: NormalizedEvalItem }) {
+  const wasRun = item.judgeStatus !== "skipped" && item.judgeStatus !== "unknown";
+
+  return (
+    <div className="mt-3 rounded-md border bg-muted/20 p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">AI Judge</div>
+        <Badge variant="outline" className={cn("capitalize", statusClass(item.judgeStatus))}>
+          {item.judgeStatus}
+        </Badge>
+      </div>
+
+      {wasRun ? (
+        <div className="space-y-3 text-sm">
+          <div>
+            <div className="mb-1 font-medium">Explanation</div>
+            <p className="whitespace-pre-wrap break-words leading-6">
+              {item.judgeExplanation || "No explanation returned."}
+            </p>
+          </div>
+          <div>
+            <div className="mb-1 font-medium">Suggested improvements</div>
+            {item.judgeImprovements.length ? (
+              <ul className="list-disc space-y-1 pl-5">
+                {item.judgeImprovements.map((improvement, index) => (
+                  <li key={`${index}-${improvement}`}>{improvement}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">No improvements suggested.</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {item.judgeExplanation || "Judge was not run for this item. Run the eval with --judge to capture its review."}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ItemDetail({ item }: { item: NormalizedEvalItem }) {
   return (
     <details className="group rounded-md border bg-background p-3">
@@ -199,6 +248,8 @@ function ItemDetail({ item }: { item: NormalizedEvalItem }) {
           </ul>
         </div>
       ) : null}
+
+      <JudgeResponse item={item} />
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <details className="rounded-md border p-3">
