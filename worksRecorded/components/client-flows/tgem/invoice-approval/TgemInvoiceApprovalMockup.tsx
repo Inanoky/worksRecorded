@@ -55,6 +55,43 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
+const TGEM_COST_CODES = [
+  { value: "1000-EL", label: "1000-EL Electrical works" },
+  { value: "1100-CW", label: "1100-CW Civil works" },
+  { value: "1200-HVAC", label: "1200-HVAC Ventilation" },
+  { value: "1300-ST", label: "1300-ST Steel works" },
+  { value: "1400-EQ", label: "1400-EQ Equipment rental" },
+  { value: "1500-GEN", label: "1500-GEN General site costs" },
+  { value: "1600-SEC", label: "1600-SEC Security systems" },
+  { value: "1700-DOC", label: "1700-DOC Documentation" },
+];
+
+function suggestedCostCode(text: string) {
+  const normalizedText = text.toLowerCase();
+  if (normalizedText.includes("electrical") || normalizedText.includes("cable") || normalizedText.includes("lighting")) {
+    return "1000-EL";
+  }
+  if (normalizedText.includes("concrete") || normalizedText.includes("foundation") || normalizedText.includes("civil")) {
+    return "1100-CW";
+  }
+  if (normalizedText.includes("hvac") || normalizedText.includes("ventilation") || normalizedText.includes("air")) {
+    return "1200-HVAC";
+  }
+  if (normalizedText.includes("steel") || normalizedText.includes("anchor") || normalizedText.includes("plate")) {
+    return "1300-ST";
+  }
+  if (normalizedText.includes("rental") || normalizedText.includes("lift") || normalizedText.includes("telehandler")) {
+    return "1400-EQ";
+  }
+  if (normalizedText.includes("gate") || normalizedText.includes("reader") || normalizedText.includes("security")) {
+    return "1600-SEC";
+  }
+  if (normalizedText.includes("drawing") || normalizedText.includes("report") || normalizedText.includes("survey")) {
+    return "1700-DOC";
+  }
+  return "1500-GEN";
+}
+
 function statusClass(status: TgemInvoice["status"]) {
   if (status === "Approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
   if (status === "In approval") return "border-blue-200 bg-blue-50 text-blue-700";
@@ -100,10 +137,12 @@ export function TgemInvoiceApprovalMockup() {
   const [selectedInvoiceId, setSelectedInvoiceId] = React.useState(TGEM_MOCK_INVOICES[0]?.id);
   const [query, setQuery] = React.useState("");
   const [comment, setComment] = React.useState("");
-  const [viewMode, setViewMode] = React.useState<"approval" | "list" | "flow">("approval");
+  const [viewMode, setViewMode] = React.useState<"approval" | "list" | "items" | "flow">("approval");
   const [localStatusByInvoiceId, setLocalStatusByInvoiceId] = React.useState<
     Record<string, TgemInvoice["status"]>
   >({});
+  const [invoiceCostCodeById, setInvoiceCostCodeById] = React.useState<Record<string, string>>({});
+  const [lineCostCodeByKey, setLineCostCodeByKey] = React.useState<Record<string, string>>({});
 
   const filteredInvoices = React.useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -127,6 +166,9 @@ export function TgemInvoiceApprovalMockup() {
     TGEM_MOCK_INVOICES[0];
   const selectedStatus =
     localStatusByInvoiceId[selectedInvoice.id] ?? selectedInvoice.status;
+  const selectedCostCode =
+    invoiceCostCodeById[selectedInvoice.id] ??
+    suggestedCostCode(`${selectedInvoice.project} ${selectedInvoice.reference} ${selectedInvoice.supplier}`);
 
   const updateSelectedStatus = (status: TgemInvoice["status"]) => {
     setLocalStatusByInvoiceId((prev) => ({
@@ -147,21 +189,30 @@ export function TgemInvoiceApprovalMockup() {
             Frontend mockup for invoice review, approval routing, and document verification.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
           <ToggleGroup
             type="single"
-            variant="outline"
-            size="sm"
+            size="default"
+            className="h-10 rounded-md border bg-muted/40 p-1"
             value={viewMode}
             onValueChange={(value) => {
-              if (value === "approval" || value === "list" || value === "flow") setViewMode(value);
+              if (value === "approval" || value === "list" || value === "items" || value === "flow") setViewMode(value);
             }}
           >
-            <ToggleGroupItem value="approval">Approval</ToggleGroupItem>
-            <ToggleGroupItem value="list">All invoices</ToggleGroupItem>
-            <ToggleGroupItem value="flow">Approval flow</ToggleGroupItem>
+            <ToggleGroupItem value="approval" className="h-8 min-w-[5.75rem] whitespace-nowrap rounded-sm px-3 text-sm">
+              Approval
+            </ToggleGroupItem>
+            <ToggleGroupItem value="list" className="h-8 min-w-[6.5rem] whitespace-nowrap rounded-sm px-3 text-sm">
+              All invoices
+            </ToggleGroupItem>
+            <ToggleGroupItem value="items" className="h-8 min-w-[6.75rem] whitespace-nowrap rounded-sm px-3 text-sm">
+              Invoice items
+            </ToggleGroupItem>
+            <ToggleGroupItem value="flow" className="h-8 min-w-[7rem] whitespace-nowrap rounded-sm px-3 text-sm">
+              Approval flow
+            </ToggleGroupItem>
           </ToggleGroup>
-          {viewMode !== "flow" ? (
+          {viewMode === "approval" ? (
             <>
               <Button variant="outline" size="sm" onClick={() => updateSelectedStatus("Needs review")}>
                 <RotateCcw className="mr-2 h-4 w-4" />
@@ -182,6 +233,18 @@ export function TgemInvoiceApprovalMockup() {
 
       {viewMode === "flow" ? (
         <ApprovalFlowSetup />
+      ) : viewMode === "items" ? (
+        <InvoiceItemsList
+          invoices={filteredInvoices}
+          lineCostCodeByKey={lineCostCodeByKey}
+          onChangeLineCostCode={(lineKey, costCode) =>
+            setLineCostCodeByKey((prev) => ({ ...prev, [lineKey]: costCode }))
+          }
+          onSelectInvoice={(invoiceId) => {
+            setSelectedInvoiceId(invoiceId);
+            setViewMode("approval");
+          }}
+        />
       ) : viewMode === "list" ? (
         <AllInvoicesList
           invoices={filteredInvoices}
@@ -227,6 +290,29 @@ export function TgemInvoiceApprovalMockup() {
                   <Field label="Due date" value={formatDate(selectedInvoice.dueDate)} />
                   <Field label="Payment term" value={selectedInvoice.paymentTerm} />
                   <Field label="Period" value={selectedInvoice.servicePeriod} />
+                </div>
+
+                <div className="rounded-md border p-3">
+                  <label className="text-sm font-semibold" htmlFor="invoice-cost-code">
+                    Invoice cost code
+                  </label>
+                  <select
+                    id="invoice-cost-code"
+                    value={selectedCostCode}
+                    onChange={(event) =>
+                      setInvoiceCostCodeById((prev) => ({
+                        ...prev,
+                        [selectedInvoice.id]: event.target.value,
+                      }))
+                    }
+                    className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  >
+                    {TGEM_COST_CODES.map((costCode) => (
+                      <option key={costCode.value} value={costCode.value}>
+                        {costCode.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="rounded-md border bg-muted/30 p-3">
@@ -368,6 +454,216 @@ export function TgemInvoiceApprovalMockup() {
       </div>
       )}
     </div>
+  );
+}
+
+function InvoiceItemsList({
+  invoices,
+  lineCostCodeByKey,
+  onChangeLineCostCode,
+  onSelectInvoice,
+}: {
+  invoices: TgemInvoice[];
+  lineCostCodeByKey: Record<string, string>;
+  onChangeLineCostCode: (lineKey: string, costCode: string) => void;
+  onSelectInvoice: (invoiceId: string) => void;
+}) {
+  const [itemSearch, setItemSearch] = React.useState("");
+  const [projectFilter, setProjectFilter] = React.useState("all");
+  const [costCodeFilter, setCostCodeFilter] = React.useState("all");
+
+  const projectOptions = React.useMemo(
+    () => Array.from(new Set(invoices.map((invoice) => invoice.project))).sort(),
+    [invoices],
+  );
+
+  const invoiceItems = React.useMemo(
+    () =>
+      invoices.flatMap((invoice) =>
+        invoice.lines.map((line, index) => {
+          const lineKey = `${invoice.id}-${line.id}-${index}`;
+          const costCode =
+            lineCostCodeByKey[lineKey] ??
+            suggestedCostCode(`${invoice.project} ${invoice.reference} ${line.description}`);
+
+          return {
+            invoice,
+            line,
+            lineKey,
+            costCode,
+          };
+        }),
+      ),
+    [invoices, lineCostCodeByKey],
+  );
+
+  const visibleItems = React.useMemo(() => {
+    const normalizedSearch = itemSearch.trim().toLowerCase();
+    return invoiceItems.filter(({ invoice, line, costCode }) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        [
+          invoice.number,
+          invoice.supplier,
+          invoice.project,
+          invoice.contract,
+          invoice.reference,
+          line.description,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch);
+
+      return (
+        matchesSearch &&
+        (projectFilter === "all" || invoice.project === projectFilter) &&
+        (costCodeFilter === "all" || costCode === costCodeFilter)
+      );
+    });
+  }, [costCodeFilter, invoiceItems, itemSearch, projectFilter]);
+
+  const totalAmount = visibleItems.reduce((sum, item) => sum + item.line.total, 0);
+
+  const resetFilters = () => {
+    setItemSearch("");
+    setProjectFilter("all");
+    setCostCodeFilter("all");
+  };
+
+  return (
+    <section className="min-h-0 flex-1 rounded-md border bg-background shadow-sm">
+      <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h2 className="text-base font-semibold">Invoice items</h2>
+          <p className="text-xs text-muted-foreground">Invoice positions with individual cost code assignment</p>
+        </div>
+        <div className="grid gap-2 text-sm sm:grid-cols-2">
+          <div className="rounded-md border px-3 py-2">
+            <div className="text-xs text-muted-foreground">Positions</div>
+            <div className="font-semibold">{visibleItems.length}</div>
+          </div>
+          <div className="rounded-md border px-3 py-2">
+            <div className="text-xs text-muted-foreground">Total</div>
+            <div className="font-semibold">{formatMoney(totalAmount, invoices[0]?.currency ?? "EUR")}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 border-b p-4 lg:grid-cols-[minmax(16rem,1.4fr)_repeat(2,minmax(10rem,0.8fr))_auto]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="h-9 pl-9"
+            value={itemSearch}
+            onChange={(event) => setItemSearch(event.target.value)}
+            placeholder="Search item, invoice, supplier..."
+          />
+        </div>
+        <select
+          value={projectFilter}
+          onChange={(event) => setProjectFilter(event.target.value)}
+          className="h-9 rounded-md border bg-background px-3 text-sm"
+        >
+          <option value="all">All projects</option>
+          {projectOptions.map((project) => (
+            <option key={project} value={project}>
+              {project}
+            </option>
+          ))}
+        </select>
+        <select
+          value={costCodeFilter}
+          onChange={(event) => setCostCodeFilter(event.target.value)}
+          className="h-9 rounded-md border bg-background px-3 text-sm"
+        >
+          <option value="all">All cost codes</option>
+          {TGEM_COST_CODES.map((costCode) => (
+            <option key={costCode.value} value={costCode.value}>
+              {costCode.label}
+            </option>
+          ))}
+        </select>
+        <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+          Clear
+        </Button>
+      </div>
+
+      <ScrollArea className="h-[calc(100dvh-22rem)] min-h-[20rem]">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-background">
+            <TableRow>
+              <TableHead>Invoice</TableHead>
+              <TableHead>Supplier / project</TableHead>
+              <TableHead>Position</TableHead>
+              <TableHead className="text-right">Qty</TableHead>
+              <TableHead className="text-right">Unit price</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead>Cost code</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {visibleItems.map(({ invoice, line, lineKey, costCode }) => (
+              <TableRow
+                key={lineKey}
+                role="button"
+                tabIndex={0}
+                className="cursor-pointer transition hover:bg-muted/50"
+                onClick={() => onSelectInvoice(invoice.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelectInvoice(invoice.id);
+                  }
+                }}
+              >
+                <TableCell>
+                  <div className="font-medium">{invoice.number}</div>
+                  <div className="text-xs text-muted-foreground">{invoice.contract}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="max-w-[16rem] truncate">{invoice.supplier}</div>
+                  <div className="text-xs text-muted-foreground">{invoice.project}</div>
+                </TableCell>
+                <TableCell>
+                  <div className="max-w-[24rem] truncate font-medium">{line.description}</div>
+                  <div className="text-xs text-muted-foreground">{invoice.reference}</div>
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {line.quantity} {line.unit}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {formatMoney(line.unitPrice, invoice.currency)}
+                </TableCell>
+                <TableCell className="text-right font-semibold tabular-nums">
+                  {formatMoney(line.total, invoice.currency)}
+                </TableCell>
+                <TableCell>
+                  <select
+                    value={costCode}
+                    onClick={(event) => event.stopPropagation()}
+                    onChange={(event) => onChangeLineCostCode(lineKey, event.target.value)}
+                    className="h-9 w-full min-w-[13rem] rounded-md border bg-background px-3 text-sm"
+                  >
+                    {TGEM_COST_CODES.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </TableCell>
+              </TableRow>
+            ))}
+            {visibleItems.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-32 text-center text-sm text-muted-foreground">
+                  No invoice positions match the current filters.
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      </ScrollArea>
+    </section>
   );
 }
 
@@ -560,8 +856,52 @@ function AllInvoicesList({
   statusByInvoiceId: Record<string, TgemInvoice["status"]>;
   onSelectInvoice: (invoiceId: string) => void;
 }) {
-  const totalAmount = invoices.reduce((sum, invoice) => sum + invoice.total, 0);
-  const pendingCount = invoices.filter(
+  const [invoiceSearch, setInvoiceSearch] = React.useState("");
+  const [projectFilter, setProjectFilter] = React.useState("all");
+  const [statusFilter, setStatusFilter] = React.useState("all");
+  const [riskFilter, setRiskFilter] = React.useState("all");
+
+  const projectOptions = React.useMemo(
+    () => Array.from(new Set(invoices.map((invoice) => invoice.project))).sort(),
+    [invoices],
+  );
+
+  const visibleInvoices = React.useMemo(() => {
+    const normalizedSearch = invoiceSearch.trim().toLowerCase();
+    return invoices.filter((invoice) => {
+      const status = statusByInvoiceId[invoice.id] ?? invoice.status;
+      const matchesSearch =
+        !normalizedSearch ||
+        [
+          invoice.number,
+          invoice.supplier,
+          invoice.supplierRegNo,
+          invoice.project,
+          invoice.contract,
+          invoice.reference,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch);
+
+      return (
+        matchesSearch &&
+        (projectFilter === "all" || invoice.project === projectFilter) &&
+        (statusFilter === "all" || status === statusFilter) &&
+        (riskFilter === "all" || invoice.risk === riskFilter)
+      );
+    });
+  }, [invoiceSearch, invoices, projectFilter, riskFilter, statusByInvoiceId, statusFilter]);
+
+  const resetFilters = () => {
+    setInvoiceSearch("");
+    setProjectFilter("all");
+    setStatusFilter("all");
+    setRiskFilter("all");
+  };
+
+  const totalAmount = visibleInvoices.reduce((sum, invoice) => sum + invoice.total, 0);
+  const pendingCount = visibleInvoices.filter(
     (invoice) => (statusByInvoiceId[invoice.id] ?? invoice.status) !== "Approved",
   ).length;
 
@@ -575,7 +915,7 @@ function AllInvoicesList({
         <div className="grid gap-2 text-sm sm:grid-cols-3">
           <div className="rounded-md border px-3 py-2">
             <div className="text-xs text-muted-foreground">Invoices</div>
-            <div className="font-semibold">{invoices.length}</div>
+            <div className="font-semibold">{visibleInvoices.length}</div>
           </div>
           <div className="rounded-md border px-3 py-2">
             <div className="text-xs text-muted-foreground">Pending</div>
@@ -590,7 +930,54 @@ function AllInvoicesList({
         </div>
       </div>
 
-      <ScrollArea className="h-[calc(100dvh-17rem)] min-h-[24rem]">
+      <div className="grid gap-3 border-b p-4 lg:grid-cols-[minmax(16rem,1.4fr)_repeat(3,minmax(10rem,0.8fr))_auto]">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="h-9 pl-9"
+            value={invoiceSearch}
+            onChange={(event) => setInvoiceSearch(event.target.value)}
+            placeholder="Search invoice, supplier, contract..."
+          />
+        </div>
+        <select
+          value={projectFilter}
+          onChange={(event) => setProjectFilter(event.target.value)}
+          className="h-9 rounded-md border bg-background px-3 text-sm"
+        >
+          <option value="all">All projects</option>
+          {projectOptions.map((project) => (
+            <option key={project} value={project}>
+              {project}
+            </option>
+          ))}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          className="h-9 rounded-md border bg-background px-3 text-sm"
+        >
+          <option value="all">All statuses</option>
+          <option value="In approval">In approval</option>
+          <option value="Needs review">Needs review</option>
+          <option value="Approved">Approved</option>
+        </select>
+        <select
+          value={riskFilter}
+          onChange={(event) => setRiskFilter(event.target.value)}
+          className="h-9 rounded-md border bg-background px-3 text-sm"
+        >
+          <option value="all">All risks</option>
+          <option value="Low">Low risk</option>
+          <option value="Medium">Medium risk</option>
+          <option value="High">High risk</option>
+        </select>
+        <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+          Clear
+        </Button>
+      </div>
+
+      <ScrollArea className="h-[calc(100dvh-22rem)] min-h-[20rem]">
         <Table>
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
@@ -605,10 +992,22 @@ function AllInvoicesList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {invoices.map((invoice) => {
+            {visibleInvoices.map((invoice) => {
               const status = statusByInvoiceId[invoice.id] ?? invoice.status;
               return (
-                <TableRow key={invoice.id}>
+                <TableRow
+                  key={invoice.id}
+                  role="button"
+                  tabIndex={0}
+                  className="cursor-pointer transition hover:bg-muted/50"
+                  onClick={() => onSelectInvoice(invoice.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onSelectInvoice(invoice.id);
+                    }
+                  }}
+                >
                   <TableCell>
                     <div className="font-medium">{invoice.number}</div>
                     <div className="text-xs text-muted-foreground">{invoice.contract}</div>
@@ -640,7 +1039,10 @@ function AllInvoicesList({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => onSelectInvoice(invoice.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectInvoice(invoice.id);
+                      }}
                     >
                       Review
                     </Button>
@@ -648,6 +1050,13 @@ function AllInvoicesList({
                 </TableRow>
               );
             })}
+            {visibleInvoices.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="h-32 text-center text-sm text-muted-foreground">
+                  No invoices match the current filters.
+                </TableCell>
+              </TableRow>
+            ) : null}
           </TableBody>
         </Table>
       </ScrollArea>
