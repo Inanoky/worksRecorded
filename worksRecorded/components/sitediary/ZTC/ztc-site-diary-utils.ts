@@ -334,6 +334,27 @@ function roundZtcHours(value: number) {
   return Number(Math.max(0, value).toFixed(2));
 }
 
+function getZtcProductivityFinish(row: ZtcDiaryRow, fallbackFinish: Date) {
+  const rowStart = parseZtcDate(row.Date);
+  if (!rowStart) return fallbackFinish;
+
+  const startDayKey = getZtcLocalDayKey(rowStart);
+  const overnightPause = getZtcPauseIntervals(row.pauseIntervals)
+    .filter((interval) => {
+      const intervalStartDayKey = getZtcLocalDayKey(interval.start);
+      const intervalEndDayKey = getZtcLocalDayKey(interval.end);
+      return (
+        intervalStartDayKey === startDayKey &&
+        intervalEndDayKey !== startDayKey &&
+        interval.start.getTime() >= rowStart.getTime() &&
+        interval.start.getTime() <= fallbackFinish.getTime()
+      );
+    })
+    .sort((a, b) => a.start.getTime() - b.start.getTime())[0];
+
+  return overnightPause?.start ?? fallbackFinish;
+}
+
 export async function exportZtcPayrollToExcel({
   rows,
   currentYear,
@@ -503,7 +524,8 @@ export async function exportZtcProductivityToExcel({
 
   exportRows.forEach((row) => {
     const start = parseZtcDate(row.Date);
-    const finish = parseZtcDate(row.Date_Custom_2);
+    const rawFinish = parseZtcDate(row.Date_Custom_2);
+    const finish = rawFinish ? getZtcProductivityFinish(row, rawFinish) : null;
     if (!start || !finish) return;
 
     const worker = String(row.createdBy || "").trim() || "N/A";
