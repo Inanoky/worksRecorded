@@ -266,6 +266,10 @@ function normalizeSpecialLabel(value: unknown) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+function normalizeUnitKey(value: unknown) {
+  return normalizeOption(value).toLocaleLowerCase("lv").replace(/\.$/, "");
+}
+
 function isZtcAdditionalDetailsRow(row: any) {
   return normalizeSpecialLabel(row?.Works_Custom_1) === "papilddetalas";
 }
@@ -330,6 +334,7 @@ function getAdjacentDates(date: Date) {
 
 function buildZtcDrawingIndex(sourceRows: any[]) {
   const elements = new Map<string, string>();
+  const elementAreas = new Map<string, number>();
   const worksByElement = new Map<string, Map<string, string>>();
   const amountsByElementWork = new Map<string, Map<string, number>>();
 
@@ -341,6 +346,9 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
 
       const elementKey = elementName.toLowerCase();
       elements.set(elementKey, elementName);
+      if (element.totalAreaM2 != null && Number.isFinite(Number(element.totalAreaM2))) {
+        elementAreas.set(elementKey, Number(element.totalAreaM2));
+      }
 
       const workMap = worksByElement.get(elementKey) ?? new Map<string, string>();
       const amountMap = amountsByElementWork.get(elementKey) ?? new Map<string, number>();
@@ -391,6 +399,7 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
 
   return {
     elements: [...elements.values()],
+    elementAreas,
     worksByElement,
     amountsByElementWork,
   };
@@ -454,6 +463,13 @@ export function ZtcDialogTable({
     if (!normalizedElement || !normalizedWork) return null;
 
     return drawingIndex.amountsByElementWork.get(normalizedElement)?.get(normalizedWork) ?? null;
+  };
+
+  const getElementAreaM2 = (elementName: string) => {
+    const normalizedElement = normalizeOption(elementName).toLowerCase();
+    if (!normalizedElement) return null;
+
+    return drawingIndex.elementAreas.get(normalizedElement) ?? null;
   };
 
   const getSpecialRateOptions = (
@@ -587,7 +603,24 @@ export function ZtcDialogTable({
             if (specialCategory === "additionalDetails") {
               next.Units = rate?.unit ?? next.Units ?? "gab";
             } else {
-              next.Units = rate?.relatesToElement === true ? "m2" : "st";
+              const isElementRelatedAdditionalWork =
+                rate?.relatesToElement === true &&
+                normalizeOption(next.Location) &&
+                normalizeSpecialLabel(next.Location) !== "papilddarbi" &&
+                normalizeOption(next.Location_Custom_1);
+              const unit = isElementRelatedAdditionalWork
+                ? rate?.unit ?? next.Units ?? "st"
+                : "st";
+              next.Units = unit;
+              const unitKey = normalizeUnitKey(unit);
+              if (isElementRelatedAdditionalWork && unitKey === "m2") {
+                const amountM2 = getElementAreaM2(next.Location_Custom_1);
+                next.Amounts = amountM2 != null ? String(amountM2) : "";
+              } else if (unitKey === "st") {
+                next.Amounts = normalizeOption(next.TimeInvolved);
+              } else {
+                next.Amounts = "";
+              }
             }
             return next;
           }

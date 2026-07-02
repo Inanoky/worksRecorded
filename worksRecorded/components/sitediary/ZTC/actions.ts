@@ -444,6 +444,46 @@ function calculateZtcHours(start: Date | null | undefined, end: Date | null | un
   return Number.isFinite(hours) && hours >= 0 ? Number(hours.toFixed(2)) : null;
 }
 
+function normalizeZtcUnitKey(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.$/, "");
+}
+
+function getZtcAmountUnitAliases(unit: string) {
+  const normalizedUnit = normalizeZtcUnitKey(unit);
+  if (normalizedUnit === "gab") return ["gab", "gab.", "gb", "pcs", "piece", "pieces"];
+  if (normalizedUnit === "tn") return ["tn", "tn.", "t", "ton", "tons", "tonna", "tonnas"];
+  if (normalizedUnit === "kg") return ["kg", "kilogrami", "kilograms"];
+  if (normalizedUnit === "m3") return ["m3", "m³", "kub", "kubikmetri"];
+  if (normalizedUnit === "tm" || normalizedUnit === "t.m") return ["t.m.", "tm", "t/m"];
+  return [unit].filter(Boolean);
+}
+
+function extractZtcAmountForUnitFromText(text: unknown, unit: string) {
+  const source = String(text ?? "");
+  if (!source.trim()) return undefined;
+
+  const aliases = getZtcAmountUnitAliases(unit)
+    .map((alias) => alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  if (!aliases) return undefined;
+
+  const match = source.match(
+    new RegExp(`(?:^|\\s)(\\d+(?:[,.]\\d+)?)\\s*(?:${aliases})(?=\\s|\\.|,|;|:|$)`, "i"),
+  );
+  return normalizeNumber(match?.[1]);
+}
+
+function getZtcReportedAmountForUnit(row: Record<string, any>, unit: string) {
+  return (
+    normalizeNumber(row.Amounts) ??
+    extractZtcAmountForUnitFromText(row.originalUserComment, unit) ??
+    extractZtcAmountForUnitFromText(row.Comments, unit)
+  );
+}
+
 function sanitizeZtcRecordRow(row: Record<string, any>) {
   const defaultRates = normalizeProjectRates(row.__ztcDefaultTaskRates);
   const category = getZtcRateCategoryForRow(row);
@@ -475,18 +515,26 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     : null;
   const timeInvolved =
     normalizeNumber(row.TimeInvolved) ?? calculateZtcHours(startDate, endDate);
+  const additionalWorkUnit =
+    category === "additionalWorks"
+      ? isElementRelatedAdditionalWork
+        ? defaultRate?.unit ?? normalizeZtcRateUnit(row.Units, "st")
+        : "st"
+      : null;
   const units =
     category === "additionalWorks"
-      ? isElementRelatedAdditionalWork
-        ? "m2"
-        : "st"
+      ? additionalWorkUnit
       : row.Units ||
         (category === "additionalDetails" ? "gab" : "m2");
+  const normalizedAdditionalWorkUnit = normalizeZtcUnitKey(units);
+  const reportedAmount = getZtcReportedAmountForUnit(row, units);
   const amounts =
     category === "additionalWorks"
-      ? isElementRelatedAdditionalWork
+      ? isElementRelatedAdditionalWork && normalizedAdditionalWorkUnit === "m2"
         ? elementAreaM2 ?? normalizeNumber(row.Amounts) ?? null
-        : timeInvolved ?? normalizeNumber(row.Amounts) ?? null
+        : normalizedAdditionalWorkUnit === "st"
+          ? timeInvolved ?? reportedAmount ?? null
+          : reportedAmount ?? null
       : normalizeNumber(row.Amounts) ?? null;
   const works =
     (category === "additionalWorks" || category === "additionalDetails") &&
