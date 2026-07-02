@@ -10,12 +10,7 @@ type ClientFlowSiteDiaryProps = {
 
 export function ClientFlowSiteDiary({ flowId, siteId }: ClientFlowSiteDiaryProps) {
   if (flowId === CLIENT_FLOW_IDS.TGEM) {
-    return (
-      <TgemFlowPlaceholder
-        title="TGEM flow"
-        description="TGEM has a separate frontend boundary. Invoice approval UI will be added here."
-      />
-    );
+    return <TgemFlowPlaceholder />;
   }
 
   if (flowId === CLIENT_FLOW_IDS.ZTC) {
