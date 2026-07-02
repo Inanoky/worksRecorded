@@ -11,7 +11,11 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 import {
   getZtcComplexityCoefficient,
+  getZtcComplexityCoefficientByCode,
+  getZtcComplexityCodeFromMarks,
   isZtcComplexityCoefficientTask,
+  normalizeZtcComplexityCode,
+  type ZtcComplexityCode,
   ZTC_ALL_PROJECTS_RATE_NAME,
   ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
 } from "@/components/sitediary/ZTC/ztc-rate-constants";
@@ -79,6 +83,7 @@ export type DrawingExtraction = {
     name: string;
     amountM2: number | null;
     complexityMarks: 0 | 1 | 2;
+    complexityCode?: ZtcComplexityCode | null;
   }>;
   issue: string | null;
 };
@@ -146,6 +151,7 @@ type ZtcDrawingMetadata = {
       name: string;
       amountM2: number | null;
       complexityMarks: 0 | 1 | 2;
+      complexityCode?: ZtcComplexityCode | null;
     }>;
   }>;
 };
@@ -1125,6 +1131,15 @@ function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction
                 ? 1
                 : 0
           ) as 0 | 1 | 2,
+          complexityCode:
+            normalizeZtcComplexityCode((item as Record<string, unknown>)?.complexityCode) ||
+            getZtcComplexityCodeFromMarks(
+              Number(item?.complexityMarks) >= 2
+                ? 2
+                : Number(item?.complexityMarks) === 1
+                  ? 1
+                  : 0,
+            ),
         }))
         .filter((item) => item.name && isNonEmptyDrawingWork(item.name))
     : [];
@@ -1257,6 +1272,7 @@ export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingM
         name: normalizeZtcWorkName(name),
         amountM2: extraction.totalAreaM2,
         complexityMarks: 0 as const,
+        complexityCode: "" as const,
       }));
 
   return {
@@ -1271,6 +1287,9 @@ export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingM
           name: normalizeZtcWorkName(work.name),
           amountM2: work.amountM2 ?? extraction.totalAreaM2,
           complexityMarks: work.complexityMarks,
+          complexityCode:
+            normalizeZtcComplexityCode(work.complexityCode) ||
+            getZtcComplexityCodeFromMarks(work.complexityMarks),
         })),
       },
     ],
@@ -1333,6 +1352,31 @@ function getSessionWorkComplexityMarks(
   return work?.complexityMarks === 2 ? 2 : work?.complexityMarks === 1 ? 1 : 0;
 }
 
+function getSessionWorkComplexityCode(
+  session: OpenZtcSession,
+  workName: string | null | undefined,
+): ZtcComplexityCode {
+  const normalizedWork = normalizeZtcWorkName(workName).toLowerCase();
+  if (!normalizedWork) return "";
+
+  const metadata = parseZtcDrawingMetadata(session.Comments_Custom_2);
+  const element = metadata?.elements.find(
+    (item) =>
+      item.elementName.toLowerCase() ===
+      String(session.Location_Custom_1 ?? "").trim().toLowerCase(),
+  );
+  const work = element?.works.find(
+    (item) => normalizeZtcWorkName(item.name).toLowerCase() === normalizedWork,
+  );
+
+  return (
+    normalizeZtcComplexityCode(work?.complexityCode) ||
+    getZtcComplexityCodeFromMarks(
+      work?.complexityMarks === 2 ? 2 : work?.complexityMarks === 1 ? 1 : 0,
+    )
+  );
+}
+
 async function getComplexityForMarks(
   marks: 0 | 1 | 2,
   projectName: string | null | undefined,
@@ -1345,6 +1389,18 @@ async function getComplexityForMarks(
   return getZtcComplexityCoefficient({ marks, projectName, projects });
 }
 
+async function getComplexityForCode(
+  code: ZtcComplexityCode,
+  projectName: string | null | undefined,
+) {
+  if (!code) return "1";
+
+  const config = ((await getConfig(ZTC_SITE_ID)) ??
+    ztcSiteDiaryRecordsMap) as Record<string, any>;
+  const projects = getDefaultTaskRatesFromConfig(config);
+  return getZtcComplexityCoefficientByCode({ code, projectName, projects });
+}
+
 export function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
   const items = extraction.workItems.length
     ? extraction.workItems
@@ -1352,12 +1408,16 @@ export function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
         name,
         amountM2: extraction.totalAreaM2,
         complexityMarks: 0 as const,
+        complexityCode: "" as const,
       }));
 
   return items
     .map((item, index) => {
       const amount = item.amountM2 ?? extraction.totalAreaM2;
-      const marks = item.complexityMarks > 0 ? ` - ${"X ".repeat(item.complexityMarks).trim()}` : "";
+      const code =
+        normalizeZtcComplexityCode(item.complexityCode) ||
+        getZtcComplexityCodeFromMarks(item.complexityMarks);
+      const marks = code ? ` - ${code}` : "";
       return `${index + 1}. ${normalizeZtcWorkName(item.name)}${amount != null ? ` - ${amount} m2` : ""}${marks}`;
     })
     .join("\n");
@@ -1582,6 +1642,11 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
           role: "system",
           content:
             "You validate ZTC factory drawing photos. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null, complexityMarks 0|1|2}, issue string|null. Accept this ZTC legend format when its bottom framed tables are readable. Ignore the large drawing views, dimensions, revision stamp, designer names, company address, logo, and unrelated notes. The works are always in the left framed table. Read its rows from top to bottom, commonly in this order: L4/B4, L3/B3, L2/B2, L1/B1, TL, L0, R1/T1, R2/T2, R3/T3, R4/T4, R5/T5. Extract only rows with a visible work description after the hyphen and omit rows whose description is empty. Preserve each visible prefix and description, for example \"L2/B2 - Latojums 45x45\", \"TL - Koka karkass 245 mm\", or \"R3/T3 - Latojums 28x70\". Normalize an OCR-only T or T1 timber-frame prefix to TL only when it is clearly the standalone timber-frame row; preserve R1/T1 and other printed paired row codes exactly. Two narrow handwritten-mark squares are immediately to the left of every work row. For each extracted work, complexityMarks is 0 when both aligned squares are empty, 1 when exactly one aligned square contains a clearly handwritten X, and 2 when both aligned squares contain a clearly handwritten X. Count marks only in the two squares on that exact row; do not count printed grid lines, work-code letters, checkmarks, dimensions, or marks from adjacent rows. The element number must be extracted only from the value after the label \"Paneļa numurs:\". Tolerate minor spelling/OCR variants such as \"Paneļa nummurs:\", \"Panela numurs:\", or \"Panela nummurs:\", plus minor spacing around the colon. Example: \"Paneļa numurs: 3S-03\" means elementName=\"3S-03\". The total element area must be extracted only from the numeric value after the label \"Paneļa laukums:\". Tolerate OCR variants such as \"Panela laukums:\" or \"Paneļā laukums:\" and minor spacing. Example: \"Paneļa laukums: 11.66 m²\" means totalAreaM2=11.66. The project name must be extracted only from the value on the BP row immediately after \"BP:\" or \"BP :\". Example: \"BP : Zemgales Prospekts 11 (ZP)\" means projectName=\"Zemgales Prospekts 11 (ZP)\". Do not use the company address, customer, designer, date, or drawing-size fields as projectName. Set hasReadableProjectName, hasReadableElementName, and hasReadableWorkList according to these exact locations. If work-specific areas are not printed in the left work table, set every workItems amountM2 to totalAreaM2. Reject ordinary photos, selfies, unrelated documents, and drawings where BP project name, Paneļa numurs, Paneļa laukums, or the left work table cannot be read. Preserve Latvian diacritics and original spelling in extracted values; do not transliterate.",
+        },
+        {
+          role: "system",
+          content:
+            "In addition to complexityMarks, each workItems entry must include complexityCode. Read only the two handwritten boxes aligned with that exact row. complexityCode must be one of: \"\", \"X\", \"X X\", \"1\", \"1 1\", \"2\", \"2 2\", \"3\", \"3 3\". Use \"\" when both boxes are empty. Use the single value when one box has that handwritten mark, and the doubled value when both boxes have the same handwritten mark. For numeric marks 1, 2, or 3, set complexityMarks to 0 because complexityMarks is legacy X-only.",
         },
         {
           role: "user",
@@ -3256,6 +3321,7 @@ async function handleWorkText(args: {
 
   const amountM2 = getSessionWorkAmountM2(session, work.workOption);
   const complexityMarks = getSessionWorkComplexityMarks(session, work.workOption);
+  const complexityCode = getSessionWorkComplexityCode(session, work.workOption);
   const comments = work.polishedText?.trim()
     ? buildZtcUserComments({ startText: work.polishedText })
     : await buildPolishedZtcUserComments({ startText: text });
@@ -3272,8 +3338,8 @@ async function handleWorkText(args: {
   });
 
   const complexityStartedAt = Date.now();
-  const complexity = await getComplexityForMarks(
-    complexityMarks,
+  const complexity = await getComplexityForCode(
+    complexityCode,
     session.Location,
   );
   logZtcTiming("complexity_lookup", complexityStartedAt, {
@@ -3281,6 +3347,7 @@ async function handleWorkText(args: {
     workOption: work.workOption,
     projectName: session.Location,
     complexityMarks,
+    complexityCode,
     complexity,
   });
 
@@ -3312,6 +3379,7 @@ async function handleWorkText(args: {
       startText: text,
       amountM2,
       complexityMarks,
+      complexityCode,
       complexity,
       matchedRate: defaultRateMatch?.rate ?? null,
     },
@@ -3319,7 +3387,7 @@ async function handleWorkText(args: {
 
   await sendZtcMessage(
     to,
-    `Sākts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nApjoms: ${amountM2 ?? 0} m2\nSarežģītība: ${complexity}${complexityMarks ? ` (${complexityMarks} X)` : ""}\nKad darbs ir pabeigts, atsūtiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
+    `Sākts darbs: ${work.workOption}\nProjekts: ${session.Location}\nElementa numurs: ${session.Location_Custom_1}\nApjoms: ${amountM2 ?? 0} m2\nSarežģītība: ${complexity}${complexityCode ? ` (${complexityCode})` : ""}\nKad darbs ir pabeigts, atsūtiet pabeigta darba foto un pasakiet, ka darbs ir pabeigts.`,
   );
   outcome = "work_started";
   } finally {

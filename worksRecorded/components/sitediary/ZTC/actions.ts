@@ -6,7 +6,11 @@ import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiary
 import { getOrganizationIdByUserId, orgCheck } from "@/server/actions/shared-actions";
 import {
   getZtcComplexityCoefficient,
+  getZtcComplexityCoefficientByCode,
+  getZtcComplexityCodeFromMarks,
   isZtcComplexityCoefficientTask,
+  normalizeZtcComplexityCode,
+  type ZtcComplexityCode,
   ZTC_ALL_PROJECTS_RATE_NAME,
   ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
 } from "@/components/sitediary/ZTC/ztc-rate-constants";
@@ -387,6 +391,52 @@ function getZtcDrawingComplexityMarks(
   }
 }
 
+function getZtcDrawingComplexityCode(
+  metadataValue: unknown,
+  elementName: unknown,
+  taskName: unknown,
+): ZtcComplexityCode {
+  if (typeof metadataValue !== "string" || !metadataValue.trim()) return "";
+
+  try {
+    const metadata = JSON.parse(metadataValue) as {
+      type?: string;
+      elements?: Array<{
+        elementName?: string | null;
+        works?: Array<{
+          name?: string | null;
+          complexityMarks?: number | null;
+          complexityCode?: string | null;
+        }>;
+      }>;
+    };
+    if (metadata.type !== "ztc_drawing_context" || !Array.isArray(metadata.elements)) {
+      return "";
+    }
+
+    const normalizedElement = String(elementName ?? "").trim().toLowerCase();
+    const normalizedTask = normalizeTaskName(taskName).toLowerCase();
+    const element = metadata.elements.find(
+      (entry) => String(entry.elementName ?? "").trim().toLowerCase() === normalizedElement,
+    );
+    const work = element?.works?.find(
+      (entry) => normalizeTaskName(entry.name).toLowerCase() === normalizedTask,
+    );
+    return (
+      normalizeZtcComplexityCode(work?.complexityCode) ||
+      getZtcComplexityCodeFromMarks(
+        Number(work?.complexityMarks) >= 2
+          ? 2
+          : Number(work?.complexityMarks) === 1
+            ? 1
+            : 0,
+      )
+    );
+  } catch {
+    return "";
+  }
+}
+
 function getZtcComplexityForMarks(
   marks: 0 | 1 | 2,
   projects: ZtcProjectTaskRates[],
@@ -394,6 +444,16 @@ function getZtcComplexityForMarks(
 ) {
   return Number(
     getZtcComplexityCoefficient({ marks, projectName, projects }),
+  );
+}
+
+function getZtcComplexityForCode(
+  code: ZtcComplexityCode,
+  projects: ZtcProjectTaskRates[],
+  projectName: string | null | undefined,
+) {
+  return Number(
+    getZtcComplexityCoefficientByCode({ code, projectName, projects }),
   );
 }
 
@@ -485,8 +545,13 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     row.Location_Custom_1,
     row.Works,
   );
-  const defaultComplexity = getZtcComplexityForMarks(
-    complexityMarks,
+  const complexityCode = getZtcDrawingComplexityCode(
+    row.Comments_Custom_2,
+    row.Location_Custom_1,
+    row.Works,
+  );
+  const defaultComplexity = getZtcComplexityForCode(
+    complexityCode || getZtcComplexityCodeFromMarks(complexityMarks),
     defaultRates,
     row.Location,
   );

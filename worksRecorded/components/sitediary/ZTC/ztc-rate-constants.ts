@@ -11,15 +11,43 @@ export const ZTC_TWO_THREE_NUMBER_COEFFICIENT_TASK = "3 3 koeficients";
 export const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
 
 export const ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS = [
-  { task: ZTC_ONE_X_COEFFICIENT_TASK, defaultRate: ZTC_DEFAULT_ONE_X_COEFFICIENT },
-  { task: ZTC_TWO_X_COEFFICIENT_TASK, defaultRate: ZTC_DEFAULT_TWO_X_COEFFICIENT },
-  { task: ZTC_ONE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
-  { task: ZTC_TWO_ONE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
-  { task: ZTC_TWO_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
-  { task: ZTC_TWO_TWO_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
-  { task: ZTC_THREE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
-  { task: ZTC_TWO_THREE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { code: "X", task: ZTC_ONE_X_COEFFICIENT_TASK, defaultRate: ZTC_DEFAULT_ONE_X_COEFFICIENT },
+  { code: "X X", task: ZTC_TWO_X_COEFFICIENT_TASK, defaultRate: ZTC_DEFAULT_TWO_X_COEFFICIENT },
+  { code: "1", task: ZTC_ONE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { code: "1 1", task: ZTC_TWO_ONE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { code: "2", task: ZTC_TWO_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { code: "2 2", task: ZTC_TWO_TWO_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { code: "3", task: ZTC_THREE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { code: "3 3", task: ZTC_TWO_THREE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
 ] as const;
+
+export type ZtcComplexityCode = "" | (typeof ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS)[number]["code"];
+
+export function normalizeZtcComplexityCode(value: unknown): ZtcComplexityCode {
+  const normalized = String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[×✕✖]/g, "X")
+    .replace(/[^X123]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const compactPair = normalized.replace(/\s+/g, "");
+  const normalizedWithPairSpacing =
+    compactPair.length === 2 && compactPair[0] === compactPair[1]
+      ? `${compactPair[0]} ${compactPair[1]}`
+      : normalized;
+
+  const row = ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS.find(
+    (entry) => entry.code.toUpperCase() === normalizedWithPairSpacing,
+  );
+  return row?.code ?? "";
+}
+
+export function getZtcComplexityCodeFromMarks(marks: 0 | 1 | 2): ZtcComplexityCode {
+  if (marks === 2) return "X X";
+  if (marks === 1) return "X";
+  return "";
+}
 
 export function isZtcComplexityCoefficientTask(value: unknown) {
   const task = String(value ?? "").trim().toLowerCase();
@@ -38,12 +66,27 @@ export function getZtcComplexityCoefficient(args: {
   projectName?: string | null;
   projects: ZtcCoefficientProjectRates[];
 }) {
-  if (args.marks === 0) return "1";
+  return getZtcComplexityCoefficientByCode({
+    code: getZtcComplexityCodeFromMarks(args.marks),
+    projectName: args.projectName,
+    projects: args.projects,
+  });
+}
 
-  const task =
-    args.marks === 2
-      ? ZTC_TWO_X_COEFFICIENT_TASK
-      : ZTC_ONE_X_COEFFICIENT_TASK;
+export function getZtcComplexityCoefficientByCode(args: {
+  code: ZtcComplexityCode | string | null | undefined;
+  projectName?: string | null;
+  projects: ZtcCoefficientProjectRates[];
+}) {
+  const code = normalizeZtcComplexityCode(args.code);
+  if (!code) return "1";
+
+  const coefficientRow = ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS.find(
+    (entry) => entry.code === code,
+  );
+  if (!coefficientRow) return "1";
+
+  const task = coefficientRow.task;
   const normalizedProject = String(args.projectName ?? "").trim().toLowerCase();
   const projectRates = args.projects.find(
     (project) => project.projectName.trim().toLowerCase() === normalizedProject,
@@ -57,10 +100,6 @@ export function getZtcComplexityCoefficient(args: {
     project?.works.find(
       (entry) => entry.task.trim().toLowerCase() === task.toLowerCase(),
     )?.rate;
-  const fallback =
-    args.marks === 2
-      ? ZTC_DEFAULT_TWO_X_COEFFICIENT
-      : ZTC_DEFAULT_ONE_X_COEFFICIENT;
 
-  return findCoefficient(projectRates) ?? findCoefficient(allProjectRates) ?? fallback;
+  return findCoefficient(projectRates) ?? findCoefficient(allProjectRates) ?? coefficientRow.defaultRate;
 }

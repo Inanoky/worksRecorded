@@ -1,4 +1,5 @@
 import {
+  getZtcComplexityCoefficientByCode,
   getZtcComplexityCoefficient,
   isZtcComplexityCoefficientTask,
   ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
@@ -19,6 +20,8 @@ const projects = [
     works: [
       { task: ZTC_ONE_X_COEFFICIENT_TASK, rate: "1.35" },
       { task: ZTC_TWO_X_COEFFICIENT_TASK, rate: "1.8" },
+      { task: "2 koeficients", rate: "2.1" },
+      { task: "3 3 koeficients", rate: "3.3" },
     ],
   },
 ];
@@ -58,5 +61,23 @@ describe("getZtcComplexityCoefficient", () => {
     for (const row of ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS) {
       expect(isZtcComplexityCoefficientTask(row.task)).toBe(true);
     }
+  });
+
+  it("uses numeric drawing coefficient codes", () => {
+    expect(
+      getZtcComplexityCoefficientByCode({
+        code: "2",
+        projectName: "Project A",
+        projects,
+      }),
+    ).toBe("2.1");
+
+    expect(
+      getZtcComplexityCoefficientByCode({
+        code: "3 3",
+        projectName: "Project A",
+        projects,
+      }),
+    ).toBe("3.3");
   });
 });
