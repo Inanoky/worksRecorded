@@ -2,13 +2,29 @@ export const ZTC_ONE_X_COEFFICIENT_TASK = "X koeficients";
 export const ZTC_TWO_X_COEFFICIENT_TASK = "X X koeficients";
 export const ZTC_DEFAULT_ONE_X_COEFFICIENT = "1.2";
 export const ZTC_DEFAULT_TWO_X_COEFFICIENT = "1.5";
+export const ZTC_ONE_NUMBER_COEFFICIENT_TASK = "1 koeficients";
+export const ZTC_TWO_ONE_NUMBER_COEFFICIENT_TASK = "1 1 koeficients";
+export const ZTC_TWO_NUMBER_COEFFICIENT_TASK = "2 koeficients";
+export const ZTC_TWO_TWO_NUMBER_COEFFICIENT_TASK = "2 2 koeficients";
+export const ZTC_THREE_NUMBER_COEFFICIENT_TASK = "3 koeficients";
+export const ZTC_TWO_THREE_NUMBER_COEFFICIENT_TASK = "3 3 koeficients";
 export const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
+
+export const ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS = [
+  { task: ZTC_ONE_X_COEFFICIENT_TASK, defaultRate: ZTC_DEFAULT_ONE_X_COEFFICIENT },
+  { task: ZTC_TWO_X_COEFFICIENT_TASK, defaultRate: ZTC_DEFAULT_TWO_X_COEFFICIENT },
+  { task: ZTC_ONE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { task: ZTC_TWO_ONE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { task: ZTC_TWO_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { task: ZTC_TWO_TWO_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { task: ZTC_THREE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { task: ZTC_TWO_THREE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+] as const;
 
 export function isZtcComplexityCoefficientTask(value: unknown) {
   const task = String(value ?? "").trim().toLowerCase();
-  return (
-    task === ZTC_ONE_X_COEFFICIENT_TASK.toLowerCase() ||
-    task === ZTC_TWO_X_COEFFICIENT_TASK.toLowerCase()
+  return ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS.some(
+    (entry) => task === entry.task.toLowerCase(),
   );
 }
 

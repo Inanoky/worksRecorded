@@ -8,10 +8,7 @@ import {
   getZtcComplexityCoefficient,
   isZtcComplexityCoefficientTask,
   ZTC_ALL_PROJECTS_RATE_NAME,
-  ZTC_DEFAULT_ONE_X_COEFFICIENT,
-  ZTC_DEFAULT_TWO_X_COEFFICIENT,
-  ZTC_ONE_X_COEFFICIENT_TASK,
-  ZTC_TWO_X_COEFFICIENT_TASK,
+  ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
 } from "@/components/sitediary/ZTC/ztc-rate-constants";
 import {
   normalizeZtcRateUnit,
@@ -149,28 +146,19 @@ function ensureZtcComplexityCoefficientRows(
   const normalWorks = allProjects.works.filter(
     (entry) => !isZtcComplexityCoefficientTask(entry.task),
   );
-  const oneX = allProjects.works.find(
-    (entry) =>
-      normalizeTaskName(entry.task).toLowerCase() ===
-      ZTC_ONE_X_COEFFICIENT_TASK.toLowerCase(),
-  );
-  const twoX = allProjects.works.find(
-    (entry) =>
-      normalizeTaskName(entry.task).toLowerCase() ===
-      ZTC_TWO_X_COEFFICIENT_TASK.toLowerCase(),
-  );
-
   allProjects.works = [
-    {
-      task: ZTC_ONE_X_COEFFICIENT_TASK,
-      rate: oneX?.rate ?? ZTC_DEFAULT_ONE_X_COEFFICIENT,
-      unit: "m2",
-    },
-    {
-      task: ZTC_TWO_X_COEFFICIENT_TASK,
-      rate: twoX?.rate ?? ZTC_DEFAULT_TWO_X_COEFFICIENT,
-      unit: "m2",
-    },
+    ...ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS.map((coefficient) => {
+      const existing = allProjects.works.find(
+        (entry) =>
+          normalizeTaskName(entry.task).toLowerCase() ===
+          coefficient.task.toLowerCase(),
+      );
+      return {
+        task: coefficient.task,
+        rate: existing?.rate ?? coefficient.defaultRate,
+        unit: "m2" as const,
+      };
+    }),
     ...normalWorks,
   ];
 

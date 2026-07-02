@@ -1,5 +1,7 @@
 import {
   getZtcComplexityCoefficient,
+  isZtcComplexityCoefficientTask,
+  ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
   ZTC_ONE_X_COEFFICIENT_TASK,
   ZTC_TWO_X_COEFFICIENT_TASK,
 } from "@/components/sitediary/ZTC/ztc-rate-constants";
@@ -50,5 +52,11 @@ describe("getZtcComplexityCoefficient", () => {
         projects,
       }),
     ).toBe("1.5");
+  });
+
+  it("recognizes all configured coefficient rows", () => {
+    for (const row of ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS) {
+      expect(isZtcComplexityCoefficientTask(row.task)).toBe(true);
+    }
   });
 });
