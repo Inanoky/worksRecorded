@@ -17,6 +17,10 @@ import {
   type ZtcRateUnit,
 } from "@/components/sitediary/ZTC/ztc-rate-units";
 import { findZtcDefaultRateForTask } from "@/components/sitediary/ZTC/ztc-rate-matching";
+import {
+  attachZtcLaborNormToMetadata,
+  normalizeZtcLaborNorm,
+} from "@/components/sitediary/ZTC/ztc-labor-norm";
 
 const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -29,6 +33,7 @@ export type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
   unit: ZtcRateUnit;
+  laborNorm?: string | null;
   relatesToElement?: boolean;
 };
 
@@ -107,6 +112,9 @@ function normalizeTaskRateEntries(
       (item as Record<string, unknown>)?.unit,
       fallbackUnit,
     );
+    const laborNorm = normalizeZtcLaborNorm(
+      (item as Record<string, unknown>)?.laborNorm,
+    );
     const relatesToElement =
       (item as Record<string, unknown>)?.relatesToElement === true;
     if (!task || rate === undefined || rate === null) continue;
@@ -114,7 +122,13 @@ function normalizeTaskRateEntries(
     const key = task.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    entries.push({ task, rate, unit, relatesToElement });
+    entries.push({
+      task,
+      rate,
+      unit,
+      ...(laborNorm !== undefined && laborNorm !== null ? { laborNorm } : {}),
+      relatesToElement,
+    });
   }
 
   return entries;
@@ -527,6 +541,14 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     defaultRate?.task?.trim()
       ? defaultRate.task.trim()
       : row.Works || null;
+  const commentsCustom2 =
+    row.__ztcSnapshotLaborNorm === true && category === "works"
+      ? attachZtcLaborNormToMetadata(
+          row.Comments_Custom_2,
+          defaultRate?.laborNorm,
+          units,
+        )
+      : row.Comments_Custom_2 || null;
 
   return {
     Date: startDate,
@@ -540,7 +562,7 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     Works_Custom_2: row.Works_Custom_2 || null,
     Comments: row.Comments || null,
     Comments_Custom_1: row.Comments_Custom_1 || null,
-    Comments_Custom_2: row.Comments_Custom_2 || null,
+    Comments_Custom_2: commentsCustom2,
     originalUserComment: row.originalUserComment || null,
     Units: units,
     Amounts: amounts,
@@ -763,7 +785,11 @@ export async function createZtcSiteDiaryRecords(args: {
     userId: user.id,
     siteId: ZTC_SITE_ID,
     organizationId: ZTC_ORGANIZATION_ID,
-    ...sanitizeZtcRecordRow({ ...row, __ztcDefaultTaskRates: defaultRates }),
+    ...sanitizeZtcRecordRow({
+      ...row,
+      __ztcDefaultTaskRates: defaultRates,
+      __ztcSnapshotLaborNorm: true,
+    }),
     Photos: [],
   }));
 
@@ -795,7 +821,11 @@ export async function saveZtcSiteDiaryDialogRows(args: {
     userId: user.id,
     siteId: ZTC_SITE_ID,
     organizationId: ZTC_ORGANIZATION_ID,
-    ...sanitizeZtcRecordRow({ ...row, __ztcDefaultTaskRates: defaultRates }),
+    ...sanitizeZtcRecordRow({
+      ...row,
+      __ztcDefaultTaskRates: defaultRates,
+      __ztcSnapshotLaborNorm: true,
+    }),
     Photos: [],
   }));
 

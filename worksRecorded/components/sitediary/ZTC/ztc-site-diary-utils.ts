@@ -1,3 +1,8 @@
+import {
+  parseZtcLaborNormNumber,
+  readZtcLaborNormFromMetadata,
+} from "@/components/sitediary/ZTC/ztc-labor-norm";
+
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
 export type ZtcDiaryRow = {
@@ -30,6 +35,12 @@ export type ZtcImageDialogState = {
   subtitle?: string;
   photos: Array<{ src: string; caption?: string }>;
 } | null;
+
+export type ZtcLaborNormComparison = {
+  planned: number | null;
+  actual: number | null;
+  difference: number | null;
+};
 
 type ZtcDrawingMetadata = {
   type?: string;
@@ -146,6 +157,14 @@ export function isZtcAdditionalWorkRow(row: ZtcDiaryRow) {
   return row.Location === "Papilddarbi" || row.Works_Custom_1 === "Papilddarbi";
 }
 
+export function isZtcAdditionalDetailsRow(row: ZtcDiaryRow) {
+  return normalizeZtcText(row.Works_Custom_1) === "papilddetalas";
+}
+
+function isZtcProductionWorkRow(row: ZtcDiaryRow) {
+  return !isZtcQualityRow(row) && !isZtcAdditionalWorkRow(row) && !isZtcAdditionalDetailsRow(row);
+}
+
 function getZtcQualityCoefficient(row: ZtcDiaryRow) {
   const storedCoefficient = parseZtcPayrollNumber(row.Works_Custom_2, Number.NaN);
   if (Number.isFinite(storedCoefficient)) return storedCoefficient;
@@ -234,6 +253,7 @@ export function getZtcPayrollValues(row: ZtcDiaryRow) {
       complexity: 0,
       sum: 0,
       payrollQuantity: 0,
+      laborNorm: { planned: null, actual: null, difference: null },
     };
   }
 
@@ -244,6 +264,21 @@ export function getZtcPayrollValues(row: ZtcDiaryRow) {
   const coefficient = parseZtcPayrollNumber(row.Works_Custom_2, 1);
   const complexity = parseZtcPayrollNumber(row.WorkersInvolved, 1);
   const sum = payrollQuantity * rate * coefficient * complexity;
+  const plannedLaborNorm = isZtcProductionWorkRow(row)
+    ? readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit
+    : null;
+  const actualLaborNorm =
+    isZtcProductionWorkRow(row) && amountM2 > 0
+      ? Number((hours / amountM2).toFixed(4))
+      : null;
+  const laborNorm = {
+    planned: plannedLaborNorm,
+    actual: actualLaborNorm,
+    difference:
+      plannedLaborNorm != null && actualLaborNorm != null
+        ? Number((actualLaborNorm - plannedLaborNorm).toFixed(4))
+        : null,
+  };
 
   return {
     hours,
@@ -253,7 +288,85 @@ export function getZtcPayrollValues(row: ZtcDiaryRow) {
     complexity,
     sum: Number(sum.toFixed(2)),
     payrollQuantity,
+    laborNorm,
   };
+}
+
+export function formatZtcLaborNorm(value: number | null | undefined, locale = "lv-LV") {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(value);
+}
+
+export function getZtcLaborNormComparison(row: ZtcDiaryRow): ZtcLaborNormComparison {
+  return getZtcPayrollValues(row).laborNorm;
+}
+
+export function buildZtcLaborNormSummaryRows(rows: ZtcDiaryRow[]) {
+  const groups = new Map<
+    string,
+    {
+      task: string;
+      hours: number;
+      amount: number;
+      plannedWeighted: number;
+      plannedAmount: number;
+    }
+  >();
+
+  rows.forEach((row) => {
+    if (!isZtcProductionWorkRow(row)) return;
+    const task = String(row.Works ?? "").trim();
+    if (!task) return;
+
+    const hours = parseZtcPayrollNumber(row.TimeInvolved);
+    const amount = parseZtcPayrollNumber(row.Amounts);
+    if (amount <= 0) return;
+
+    const planned = parseZtcLaborNormNumber(
+      readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit,
+    );
+    const key = normalizeZtcText(task);
+    const existing = groups.get(key) ?? {
+      task,
+      hours: 0,
+      amount: 0,
+      plannedWeighted: 0,
+      plannedAmount: 0,
+    };
+
+    existing.hours += hours;
+    existing.amount += amount;
+    if (planned != null) {
+      existing.plannedWeighted += planned * amount;
+      existing.plannedAmount += amount;
+    }
+    groups.set(key, existing);
+  });
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const planned =
+        group.plannedAmount > 0
+          ? Number((group.plannedWeighted / group.plannedAmount).toFixed(4))
+          : null;
+      const actual =
+        group.amount > 0 ? Number((group.hours / group.amount).toFixed(4)) : null;
+      return {
+        task: group.task,
+        hours: Number(group.hours.toFixed(2)),
+        amount: Number(group.amount.toFixed(2)),
+        planned,
+        actual,
+        difference:
+          planned != null && actual != null
+            ? Number((actual - planned).toFixed(4))
+            : null,
+      };
+    })
+    .sort((a, b) => a.task.localeCompare(b.task, "lv"));
 }
 
 export function formatZtcMoney(value: number) {

@@ -1,8 +1,10 @@
 import {
+  buildZtcLaborNormSummaryRows,
   buildZtcQualityDisplayStateByRowId,
   getZtcPayrollValues,
   getZtcQualityRowToneClass,
 } from "@/components/sitediary/ZTC/ztc-site-diary-utils";
+import { attachZtcLaborNormToMetadata } from "@/components/sitediary/ZTC/ztc-labor-norm";
 
 describe("getZtcPayrollValues", () => {
   const baseRow = {
@@ -42,6 +44,47 @@ describe("getZtcPayrollValues", () => {
     expect(payroll.coefficient).toBe(1);
     expect(payroll.complexity).toBe(1);
     expect(payroll.sum).toBe(20);
+  });
+
+  it("compares planned labor norm from metadata with actual hours per m2", () => {
+    const payroll = getZtcPayrollValues({
+      ...baseRow,
+      TimeInvolved: 3,
+      Amounts: 10,
+      Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.2", "m2"),
+    });
+
+    expect(payroll.laborNorm.planned).toBe(0.2);
+    expect(payroll.laborNorm.actual).toBe(0.3);
+    expect(payroll.laborNorm.difference).toBe(0.1);
+  });
+
+  it("groups labor norm comparison by task", () => {
+    const rows = buildZtcLaborNormSummaryRows([
+      {
+        ...baseRow,
+        Works: "L1/B1 - Gipskartona plaksne",
+        TimeInvolved: 2,
+        Amounts: 10,
+        Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.2", "m2"),
+      },
+      {
+        ...baseRow,
+        Works: "L1/B1 - Gipskartona plaksne",
+        TimeInvolved: 1,
+        Amounts: 5,
+        Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.2", "m2"),
+      },
+    ]);
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        task: "L1/B1 - Gipskartona plaksne",
+        planned: 0.2,
+        actual: 0.2,
+        difference: 0,
+      }),
+    ]);
   });
 
   it("calculates hourly additional work from hours instead of area", () => {

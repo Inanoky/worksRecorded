@@ -7,6 +7,7 @@ export type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
   unit: ZtcRateUnit;
+  laborNorm?: string | null;
   relatesToElement?: boolean;
 };
 

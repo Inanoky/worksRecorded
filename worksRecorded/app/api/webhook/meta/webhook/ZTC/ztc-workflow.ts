@@ -27,6 +27,10 @@ import {
   rebalanceZtcCompletedTaskAmounts,
 } from "@/components/sitediary/ZTC/ztc-task-amount-allocation";
 import { normalizeZtcProjectName } from "@/components/sitediary/ZTC/ztc-project-name";
+import {
+  attachZtcLaborNormToMetadata,
+  normalizeZtcLaborNorm,
+} from "@/components/sitediary/ZTC/ztc-labor-norm";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -124,6 +128,7 @@ type ZtcDefaultTaskRate = {
   task: string;
   rate: string;
   unit: ZtcRateUnit;
+  laborNorm?: string | null;
   relatesToElement?: boolean;
 };
 type ZtcProjectTaskRates = {
@@ -262,6 +267,9 @@ function normalizeTaskRateEntries(
       (item as Record<string, unknown>)?.unit,
       fallbackUnit,
     );
+    const laborNorm = normalizeZtcLaborNorm(
+      (item as Record<string, unknown>)?.laborNorm,
+    );
     const relatesToElement =
       (item as Record<string, unknown>)?.relatesToElement === true;
     if (!task || rate == null) continue;
@@ -269,7 +277,13 @@ function normalizeTaskRateEntries(
     const key = task.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    rates.push({ task, rate, unit, relatesToElement });
+    rates.push({
+      task,
+      rate,
+      unit,
+      ...(laborNorm !== undefined && laborNorm !== null ? { laborNorm } : {}),
+      relatesToElement,
+    });
   }
 
   return rates;
@@ -3327,6 +3341,11 @@ async function handleWorkText(args: {
       Units: "m2",
       Amounts: amountM2 ?? undefined,
       Comments: comments,
+      Comments_Custom_2: attachZtcLaborNormToMetadata(
+        session.Comments_Custom_2,
+        defaultRateMatch?.laborNorm,
+        "m2",
+      ),
       originalUserComment: `${workerFullName(worker)} : ${text}`,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
     },

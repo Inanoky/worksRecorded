@@ -109,7 +109,9 @@ import { useZtcSiteDiaryFlow } from "@/components/sitediary/ZTC/useZtcSiteDiaryF
 import { exportForma2ToExcel } from "@/components/sitediary/forma2-export";
 import {
   ZTC_SITE_ID,
+  buildZtcLaborNormSummaryRows,
   buildZtcQualityDisplayStateByRowId,
+  formatZtcLaborNorm,
   formatZtcMoney,
   getZtcActivePauseStartedAt,
   getZtcElementTotalAreaM2,
@@ -1038,6 +1040,10 @@ export default function SiteDiaryCalendar({
       },
       { hours: 0, money: 0, elementM2: 0 },
     );
+    const laborNormRows =
+      elementFilter !== "__ALL__"
+        ? buildZtcLaborNormSummaryRows(visibleRows)
+        : [];
 
     return {
       project: floorFilter !== "__ALL__" ? floorFilter : null,
@@ -1046,6 +1052,7 @@ export default function SiteDiaryCalendar({
       hours: totals.hours,
       money: totals.money,
       elementM2: elementFilter !== "__ALL__" ? elementTotalAreaM2 ?? totals.elementM2 : null,
+      laborNormRows,
     };
   }, [elementFilter, floorFilter, isZtcSite, keywordMatchedDayGroups, rows]);
 
@@ -2203,6 +2210,42 @@ export default function SiteDiaryCalendar({
                     </div>
                   </div>
                 </div>
+                {ztcSelectedScopeSummary.laborNormRows.length ? (
+                  <div className="mt-3 overflow-hidden rounded-md border">
+                    <div className="grid grid-cols-[minmax(0,1fr)_90px_90px_90px] bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+                      <div>Darbs</div>
+                      <div className="text-right">Plāns</div>
+                      <div className="text-right">Fakts</div>
+                      <div className="text-right">Starpība</div>
+                    </div>
+                    {ztcSelectedScopeSummary.laborNormRows.map((row) => (
+                      <div
+                        key={row.task}
+                        className="grid grid-cols-[minmax(0,1fr)_90px_90px_90px] border-t px-3 py-2 text-sm"
+                      >
+                        <div className="truncate pr-2">{row.task}</div>
+                        <div className="text-right tabular-nums">
+                          {formatZtcLaborNorm(row.planned, dateLocale)}
+                        </div>
+                        <div className="text-right tabular-nums">
+                          {formatZtcLaborNorm(row.actual, dateLocale)}
+                        </div>
+                        <div
+                          className={cn(
+                            "text-right tabular-nums",
+                            row.difference != null && row.difference > 0
+                              ? "text-red-600"
+                              : row.difference != null && row.difference < 0
+                                ? "text-emerald-700"
+                                : "",
+                          )}
+                        >
+                          {formatZtcLaborNorm(row.difference, dateLocale)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -2437,6 +2480,19 @@ export default function SiteDiaryCalendar({
                                     )}
                                   </span>
                                 </span>
+                                {(() => {
+                                  const laborNorm = getZtcPayrollValues(r).laborNorm;
+                                  if (laborNorm.planned == null && laborNorm.actual == null) return null;
+                                  return (
+                                    <span>
+                                      Norma:{" "}
+                                      <span className="font-medium text-foreground">
+                                        {formatZtcLaborNorm(laborNorm.planned, dateLocale)} /{" "}
+                                        {formatZtcLaborNorm(laborNorm.actual, dateLocale)}
+                                      </span>
+                                    </span>
+                                  );
+                                })()}
                               </div>
 
                               {isZtcSite ? (
@@ -2632,7 +2688,7 @@ export default function SiteDiaryCalendar({
 
                             if (isZtcSite) {
                               return (
-                                <Table className="table-fixed min-w-[1220px] text-sm">
+                                <Table className="table-fixed min-w-[1320px] text-sm">
                                   <TableHeader className="sticky top-0 z-10 bg-background">
                                     <TableRow className="hover:bg-transparent">
                                       <TableHead className="text-center" style={{ width: 44 }}>
@@ -2649,6 +2705,7 @@ export default function SiteDiaryCalendar({
                                       <TableHead style={{ width: 105 }}>Darbinieks</TableHead>
                                       <TableHead style={{ width: 105 }}>Sākums / beigas</TableHead>
                                       <TableHead className="text-right" style={{ width: 76 }}>Daudz. / mērv.</TableHead>
+                                      <TableHead className="text-right" style={{ width: 96 }}>Laika norma</TableHead>
                                       <TableHead className="px-2 text-right text-[11px]" style={{ width: 68 }}>Likme</TableHead>
                                       <TableHead className="px-2 text-right text-[11px]" style={{ width: 72 }}>Koef.</TableHead>
                                       <TableHead className="px-2 text-right text-[11px]" style={{ width: 92 }}>Sarežģītība</TableHead>
@@ -2782,6 +2839,14 @@ export default function SiteDiaryCalendar({
                                           <TableCell className="px-3 py-3 text-right" style={{ width: 76 }}>
                                             <div className="font-medium tabular-nums">{amount}</div>
                                             <div className="text-[11px] text-muted-foreground">{unit}</div>
+                                          </TableCell>
+                                          <TableCell className="px-3 py-3 text-right" style={{ width: 96 }}>
+                                            <div className="font-medium tabular-nums">
+                                              {formatZtcLaborNorm(payroll.laborNorm.actual, dateLocale)}
+                                            </div>
+                                            <div className="text-[11px] text-muted-foreground">
+                                              Plāns {formatZtcLaborNorm(payroll.laborNorm.planned, dateLocale)}
+                                            </div>
                                           </TableCell>
                                           <TableCell className="px-1.5 py-2 text-right" style={{ width: 68 }}>
                                             {ztc.renderPayrollInput(row, "rate", row.Location_Custom_2, "w-full")}

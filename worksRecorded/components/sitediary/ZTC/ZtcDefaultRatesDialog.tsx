@@ -178,6 +178,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
             task: master.task,
             rate: override?.rate ?? master.rate,
             unit: override?.unit ?? master.unit,
+            laborNorm: override?.laborNorm ?? master.laborNorm ?? "",
             relatesToElement:
               override?.relatesToElement ?? master.relatesToElement ?? false,
           };
@@ -187,7 +188,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     .map((entry, index) => ({ entry, index }))
     .filter(({ entry }) => {
       if (!normalizedRateSearch) return true;
-      return `${entry.task} ${entry.rate}`
+      return `${entry.task} ${entry.rate} ${entry.laborNorm ?? ""}`
         .toLowerCase()
         .includes(normalizedRateSearch);
     });
@@ -269,32 +270,30 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
           return;
         }
 
-        if (field !== "rate" || !masterTask) return;
+        if ((field !== "rate" && field !== "laborNorm") || !masterTask) return;
         const rows = project[category];
         const existingIndex = rows.findIndex(
           (entry) => entry.task.toLowerCase() === masterTask.toLowerCase(),
         );
         if (existingIndex >= 0) {
-          rows[existingIndex] = { ...rows[existingIndex], rate: input.value };
+          rows[existingIndex] = { ...rows[existingIndex], [field]: input.value };
         } else {
-          const masterUnit =
+          const master =
             next
               .find((entry) => entry.projectName === ZTC_ALL_PROJECTS_RATE_NAME)
               ?.[category].find(
                 (entry) => entry.task.toLowerCase() === masterTask.toLowerCase(),
-              )?.unit ?? "st";
+              );
+          const masterUnit = master?.unit ?? "st";
           const masterRelatesToElement =
             category === "additionalWorks"
-              ? next
-                  .find((entry) => entry.projectName === ZTC_ALL_PROJECTS_RATE_NAME)
-                  ?.[category].find(
-                    (entry) => entry.task.toLowerCase() === masterTask.toLowerCase(),
-                  )?.relatesToElement === true
+              ? master?.relatesToElement === true
               : undefined;
           rows.push({
             task: masterTask,
-            rate: input.value,
+            rate: field === "rate" ? input.value : master?.rate ?? "",
             unit: masterUnit,
+            ...(field === "laborNorm" ? { laborNorm: input.value } : {}),
             ...(masterRelatesToElement !== undefined
               ? { relatesToElement: masterRelatesToElement }
               : {}),
@@ -484,8 +483,9 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
           task: entry.task.trim(),
           rate: entry.rate.trim().replace(",", "."),
           unit: entry.unit,
+          laborNorm: String(entry.laborNorm ?? "").trim().replace(",", "."),
         }))
-        .filter((entry) => entry.task || entry.rate),
+        .filter((entry) => entry.task || entry.rate || entry.laborNorm),
       additionalDetails: project.additionalDetails
         .map((entry) => ({
           task: entry.task.trim(),
@@ -509,14 +509,18 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
         ...project.additionalDetails,
         ...project.additionalWorks,
       ])
-      .find(
-        (entry) =>
-          !entry.task ||
-          !entry.rate ||
-          !Number.isFinite(Number(entry.rate)),
-      );
+      .find((entry) => {
+        if (!entry.task || !entry.rate || !Number.isFinite(Number(entry.rate))) {
+          return true;
+        }
+        return (
+          "laborNorm" in entry &&
+          entry.laborNorm !== "" &&
+          !Number.isFinite(Number(entry.laborNorm))
+        );
+      });
     if (invalid) {
-      toast.error("Katrai darbu likmei jānorāda darbs un derīga likme.");
+      toast.error("Katrai darbu likmei jānorāda darbs, derīga likme un derīga laika norma.");
       return;
     }
 
@@ -681,11 +685,16 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
               className={`grid ${
                 selectedCategory === "additionalWorks"
                   ? "grid-cols-[minmax(0,1fr)_120px_72px_128px_44px]"
+                  : selectedCategory === "works"
+                    ? "grid-cols-[minmax(0,1fr)_110px_110px_72px_44px]"
                   : "grid-cols-[minmax(0,1fr)_120px_72px_44px]"
               } border-b bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground`}
             >
               <div>{selectedCategory === "additionalDetails" ? "Detaļa" : "Darbs"}</div>
               <div className="text-right">Likme</div>
+              {selectedCategory === "works" ? (
+                <div className="text-right">Laika norma</div>
+              ) : null}
               <div className="text-center">Mērv.</div>
               {selectedCategory === "additionalWorks" ? (
                 <div className="text-center">Pie elementa</div>
@@ -701,6 +710,8 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                     className={`grid ${
                       selectedCategory === "additionalWorks"
                         ? "grid-cols-[minmax(0,1fr)_120px_72px_128px_44px]"
+                        : selectedCategory === "works"
+                          ? "grid-cols-[minmax(0,1fr)_110px_110px_72px_44px]"
                         : "grid-cols-[minmax(0,1fr)_120px_72px_44px]"
                     } gap-2 border-b p-2 last:border-b-0`}
                   >
@@ -739,6 +750,25 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                       placeholder="Likme"
                       className="text-right"
                     />
+                    {selectedCategory === "works" ? (
+                      isZtcComplexityCoefficientTask(entry.task) ? (
+                        <div />
+                      ) : (
+                        <Input
+                          defaultValue={entry.laborNorm ?? ""}
+                          key={`${selectedProject}-${selectedCategory}-${index}-laborNorm-${entry.task}-${entry.laborNorm ?? ""}`}
+                          data-ztc-rate-field="laborNorm"
+                          data-ztc-project={selectedProject}
+                          data-ztc-category={selectedCategory}
+                          data-ztc-index={index}
+                          data-ztc-task={entry.task}
+                          inputMode="decimal"
+                          maxLength={12}
+                          placeholder="st/m2"
+                          className="text-right"
+                        />
+                      )
+                    ) : null}
                     {selectedCategory === "additionalWorks" &&
                     !isZtcComplexityCoefficientTask(entry.task) ? (
                       <Select
