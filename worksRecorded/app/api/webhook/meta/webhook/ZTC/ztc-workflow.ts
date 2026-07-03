@@ -1157,6 +1157,7 @@ function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction
 
   return {
     ...value,
+    projectName: normalizeZtcProjectName(value.projectName) || null,
     totalAreaM2:
       value.totalAreaM2 == null || !Number.isFinite(Number(value.totalAreaM2))
         ? null
