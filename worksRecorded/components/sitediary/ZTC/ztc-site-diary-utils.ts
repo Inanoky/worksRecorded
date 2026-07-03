@@ -369,6 +369,63 @@ export function buildZtcLaborNormSummaryRows(rows: ZtcDiaryRow[]) {
     .sort((a, b) => a.task.localeCompare(b.task, "lv"));
 }
 
+export function buildZtcLaborNormTotalSummary(rows: ZtcDiaryRow[]) {
+  const totals = rows.reduce(
+    (acc, row) => {
+      if (!isZtcProductionWorkRow(row)) return acc;
+
+      const hours = parseZtcPayrollNumber(row.TimeInvolved);
+      const amount = parseZtcPayrollNumber(row.Amounts);
+      if (amount <= 0) return acc;
+
+      const planned = parseZtcLaborNormNumber(
+        readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit,
+      );
+
+      acc.hours += hours;
+      acc.amount += amount;
+      if (planned != null) {
+        acc.plannedWeighted += planned * amount;
+        acc.plannedAmount += amount;
+      }
+      return acc;
+    },
+    {
+      hours: 0,
+      amount: 0,
+      plannedWeighted: 0,
+      plannedAmount: 0,
+    },
+  );
+
+  if (totals.amount <= 0) {
+    return {
+      hours: 0,
+      amount: 0,
+      planned: null,
+      actual: null,
+      difference: null,
+    };
+  }
+
+  const planned =
+    totals.plannedAmount > 0
+      ? Number((totals.plannedWeighted / totals.plannedAmount).toFixed(4))
+      : null;
+  const actual = Number((totals.hours / totals.amount).toFixed(4));
+
+  return {
+    hours: Number(totals.hours.toFixed(2)),
+    amount: Number(totals.amount.toFixed(2)),
+    planned,
+    actual,
+    difference:
+      planned != null && actual != null
+        ? Number((actual - planned).toFixed(4))
+        : null,
+  };
+}
+
 export function formatZtcMoney(value: number) {
   return new Intl.NumberFormat("lv-LV", {
     minimumFractionDigits: 2,
@@ -470,6 +527,17 @@ function getZtcProductivityFinish(row: ZtcDiaryRow, fallbackFinish: Date) {
     .sort((a, b) => a.start.getTime() - b.start.getTime())[0];
 
   return overnightPause?.start ?? fallbackFinish;
+}
+
+function getZtcPauseHoursWithinRange(row: ZtcDiaryRow, start: Date, finish: Date) {
+  if (finish.getTime() <= start.getTime()) return 0;
+
+  return getZtcPauseIntervals(row.pauseIntervals).reduce((sum, interval) => {
+    const pauseStart = Math.max(interval.start.getTime(), start.getTime());
+    const pauseEnd = Math.min(interval.end.getTime(), finish.getTime());
+    if (pauseEnd <= pauseStart) return sum;
+    return sum + (pauseEnd - pauseStart) / 3_600_000;
+  }, 0);
 }
 
 export async function exportZtcPayrollToExcel({
@@ -616,12 +684,7 @@ export async function exportZtcPayrollToExcel({
   );
 }
 
-export async function exportZtcProductivityToExcel({
-  rows,
-}: {
-  rows: ZtcDiaryRow[];
-}) {
-  const XLSX = await import("xlsx");
+export function buildZtcProductivityRows(rows: ZtcDiaryRow[]) {
   const exportRows = rows.filter((row) => {
     const start = parseZtcDate(row.Date);
     const end = parseZtcDate(row.Date_Custom_2);
@@ -636,6 +699,7 @@ export async function exportZtcProductivityToExcel({
       start: Date;
       finish: Date;
       effectiveHours: number;
+      pausedHours: number;
     }
   >();
 
@@ -650,6 +714,7 @@ export async function exportZtcProductivityToExcel({
     const key = `${dayKey}::${worker}`;
     const existing = groups.get(key);
     const effectiveHours = parseZtcPayrollNumber(row.TimeInvolved);
+    const pausedHours = getZtcPauseHoursWithinRange(row, start, finish);
 
     if (!existing) {
       groups.set(key, {
@@ -658,6 +723,7 @@ export async function exportZtcProductivityToExcel({
         start,
         finish,
         effectiveHours,
+        pausedHours,
       });
       return;
     }
@@ -669,6 +735,7 @@ export async function exportZtcProductivityToExcel({
       existing.finish = finish;
     }
     existing.effectiveHours += effectiveHours;
+    existing.pausedHours += pausedHours;
   });
 
   const productivityRows = Array.from(groups.values())
@@ -684,6 +751,7 @@ export async function exportZtcProductivityToExcel({
         (group.finish.getTime() - group.start.getTime()) / 3_600_000,
       );
       const effectiveHours = roundZtcHours(group.effectiveHours);
+      const pausedHours = roundZtcHours(group.pausedHours);
       const workerName = splitZtcWorkerDisplayName(group.worker);
 
       return {
@@ -694,9 +762,21 @@ export async function exportZtcProductivityToExcel({
         "Dienas beigas": group.finish,
         "Kopējais laiks": totalHours,
         "Efektīvais laiks": effectiveHours,
-        "Neuzskaitītais laiks": roundZtcHours(totalHours - effectiveHours),
+        "Pauzes laiks": pausedHours,
+        "Neuzskaitītais laiks": roundZtcHours(totalHours - effectiveHours - pausedHours),
       };
     });
+
+  return productivityRows;
+}
+
+export async function exportZtcProductivityToExcel({
+  rows,
+}: {
+  rows: ZtcDiaryRow[];
+}) {
+  const XLSX = await import("xlsx");
+  const productivityRows = buildZtcProductivityRows(rows);
 
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.json_to_sheet(productivityRows, {
@@ -727,6 +807,7 @@ export async function exportZtcProductivityToExcel({
     { wch: 12 },
     { wch: 12 },
     { wch: 14 },
+    { wch: 12 },
     { wch: 12 },
   ];
 

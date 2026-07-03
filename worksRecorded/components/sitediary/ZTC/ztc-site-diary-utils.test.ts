@@ -1,5 +1,7 @@
 import {
   buildZtcLaborNormSummaryRows,
+  buildZtcLaborNormTotalSummary,
+  buildZtcProductivityRows,
   buildZtcQualityDisplayStateByRowId,
   getZtcPayrollValues,
   getZtcQualityRowToneClass,
@@ -85,6 +87,45 @@ describe("getZtcPayrollValues", () => {
         difference: 0,
       }),
     ]);
+  });
+
+  it("calculates total element labor norm from production hours divided by m2", () => {
+    const summary = buildZtcLaborNormTotalSummary([
+      {
+        ...baseRow,
+        Works: "L1/B1 - Gipskartona plaksne",
+        TimeInvolved: 2,
+        Amounts: 10,
+        Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.2", "m2"),
+      },
+      {
+        ...baseRow,
+        Works: "L2/B2 - Gipskartona plaksne",
+        TimeInvolved: 4,
+        Amounts: 20,
+        Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.3", "m2"),
+      },
+      {
+        ...baseRow,
+        Works: "Kvalitates kontrole",
+        TimeInvolved: 100,
+        Amounts: 10,
+      },
+      {
+        ...baseRow,
+        Works_Custom_1: "Papilddarbi",
+        TimeInvolved: 100,
+        Amounts: 10,
+      },
+    ]);
+
+    expect(summary).toEqual({
+      hours: 6,
+      amount: 30,
+      planned: 0.2667,
+      actual: 0.2,
+      difference: -0.0667,
+    });
   });
 
   it("calculates hourly additional work from hours instead of area", () => {
@@ -176,5 +217,31 @@ describe("ZTC quality display state", () => {
 
     expect(states.get("rejected")?.toneClass).toContain("bg-red");
     expect(states.get("defect")?.toneClass).toContain("bg-yellow");
+  });
+});
+
+describe("buildZtcProductivityRows", () => {
+  it("exports paused time separately from unaccounted time", () => {
+    const rows = buildZtcProductivityRows([
+      {
+        Date: "2026-07-03T08:00:00.000Z",
+        Date_Custom_2: "2026-07-03T12:00:00.000Z",
+        Works: "L1/B1 - Gipskartona plaksne",
+        TimeInvolved: 3,
+        createdBy: "Janis Berzins",
+        pauseIntervals: [
+          {
+            start: "2026-07-03T10:00:00.000Z",
+            end: "2026-07-03T10:30:00.000Z",
+          },
+        ],
+      },
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]["Kopējais laiks"]).toBe(4);
+    expect(rows[0]["Efektīvais laiks"]).toBe(3);
+    expect(rows[0]["Pauzes laiks"]).toBe(0.5);
+    expect(rows[0]["Neuzskaitītais laiks"]).toBe(0.5);
   });
 });

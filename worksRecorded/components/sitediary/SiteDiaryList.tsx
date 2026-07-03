@@ -110,6 +110,7 @@ import { exportForma2ToExcel } from "@/components/sitediary/forma2-export";
 import {
   ZTC_SITE_ID,
   buildZtcLaborNormSummaryRows,
+  buildZtcLaborNormTotalSummary,
   buildZtcQualityDisplayStateByRowId,
   formatZtcLaborNorm,
   formatZtcMoney,
@@ -1044,6 +1045,10 @@ export default function SiteDiaryCalendar({
       elementFilter !== "__ALL__"
         ? buildZtcLaborNormSummaryRows(visibleRows)
         : [];
+    const laborNormTotal =
+      elementFilter !== "__ALL__"
+        ? buildZtcLaborNormTotalSummary(visibleRows)
+        : null;
 
     return {
       project: floorFilter !== "__ALL__" ? floorFilter : null,
@@ -1053,6 +1058,7 @@ export default function SiteDiaryCalendar({
       money: totals.money,
       elementM2: elementFilter !== "__ALL__" ? elementTotalAreaM2 ?? totals.elementM2 : null,
       laborNormRows,
+      laborNormTotal,
     };
   }, [elementFilter, floorFilter, isZtcSite, keywordMatchedDayGroups, rows]);
 
@@ -2177,9 +2183,11 @@ export default function SiteDiaryCalendar({
                   <div
                     className={cn(
                       "grid gap-2 text-sm",
-                      ztcSelectedScopeSummary.elementM2 != null
-                        ? "grid-cols-1 sm:grid-cols-3 sm:min-w-[460px]"
-                        : "grid-cols-1 sm:grid-cols-2 sm:min-w-[320px]",
+                      ztcSelectedScopeSummary.elementM2 != null && ztcSelectedScopeSummary.laborNormTotal?.actual != null
+                        ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[620px]"
+                        : ztcSelectedScopeSummary.elementM2 != null || ztcSelectedScopeSummary.laborNormTotal?.actual != null
+                          ? "grid-cols-1 sm:grid-cols-3 sm:min-w-[460px]"
+                          : "grid-cols-1 sm:grid-cols-2 sm:min-w-[320px]",
                     )}
                   >
                     {ztcSelectedScopeSummary.elementM2 != null ? (
@@ -2202,6 +2210,15 @@ export default function SiteDiaryCalendar({
                         })}
                       </div>
                     </div>
+                    {ztcSelectedScopeSummary.laborNormTotal?.actual != null ? (
+                      <div className="rounded-md border bg-muted/30 px-3 py-2">
+                        <div className="text-xs text-muted-foreground">Laika norma</div>
+                        <div className="text-lg font-semibold tabular-nums">
+                          {formatZtcLaborNorm(ztcSelectedScopeSummary.laborNormTotal.actual, dateLocale)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">st/m2</div>
+                      </div>
+                    ) : null}
                     <div className="rounded-md border bg-muted/30 px-3 py-2">
                       <div className="text-xs text-muted-foreground">Summa</div>
                       <div className="text-lg font-semibold tabular-nums">

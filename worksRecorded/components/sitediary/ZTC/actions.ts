@@ -444,6 +444,45 @@ function calculateZtcHours(start: Date | null | undefined, end: Date | null | un
   return Number.isFinite(hours) && hours >= 0 ? Number(hours.toFixed(2)) : null;
 }
 
+function normalizeZtcPauseIntervalsForHours(value: unknown) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const start = new Date(String((item as Record<string, unknown>).start ?? ""));
+      const end = new Date(String((item as Record<string, unknown>).end ?? ""));
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+      if (end.getTime() < start.getTime()) return null;
+      return { start, end };
+    })
+    .filter((item): item is { start: Date; end: Date } => Boolean(item));
+}
+
+function calculateZtcEffectiveHours(row: Record<string, any>, start: Date | null | undefined, end: Date | null | undefined) {
+  const grossHours = calculateZtcHours(start, end);
+  if (grossHours == null || !start || !end) return grossHours;
+
+  const intervals = normalizeZtcPauseIntervalsForHours(row.pauseIntervals);
+  if (row.pausedAt) {
+    const pauseStart = new Date(row.pausedAt);
+    if (!Number.isNaN(pauseStart.getTime()) && end.getTime() > pauseStart.getTime()) {
+      intervals.push({ start: pauseStart, end });
+    }
+  }
+
+  const pauseHours = intervals.reduce((sum, interval) => {
+    const pauseStart = Math.max(interval.start.getTime(), start.getTime());
+    const pauseEnd = Math.min(interval.end.getTime(), end.getTime());
+    if (pauseEnd <= pauseStart) return sum;
+    return sum + (pauseEnd - pauseStart) / 3_600_000;
+  }, 0);
+  const effectiveHours = grossHours - pauseHours;
+  return Number.isFinite(effectiveHours) && effectiveHours >= 0
+    ? Number(effectiveHours.toFixed(2))
+    : 0;
+}
+
 function normalizeZtcUnitKey(value: unknown) {
   return String(value ?? "")
     .trim()
@@ -514,7 +553,7 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     ? getZtcElementAreaM2FromMetadata(row.Comments_Custom_2, row.Location_Custom_1)
     : null;
   const timeInvolved =
-    normalizeNumber(row.TimeInvolved) ?? calculateZtcHours(startDate, endDate);
+    normalizeNumber(row.TimeInvolved) ?? calculateZtcEffectiveHours(row, startDate, endDate);
   const additionalWorkUnit =
     category === "additionalWorks"
       ? isElementRelatedAdditionalWork
