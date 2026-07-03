@@ -50,6 +50,7 @@ const ZTC_TEXT_TIMEOUT_MS = 30_000;
 const ZTC_TRANSCRIPTION_TIMEOUT_MS = 30_000;
 const ZTC_DROPDOWN_CACHE_MS = 60_000;
 const ZTC_COMMENT_POLISH_TIMEOUT_MS = 15_000;
+const ZTC_DEFAULT_VISION_MODEL = "gpt-5.4";
 
 class ZtcTimeoutError extends Error {
   constructor(label: string, timeoutMs: number) {
@@ -1589,7 +1590,7 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
   const openaiStartedAt = Date.now();
   const response = await withZtcTimeout(
     openai.chat.completions.create({
-      model: process.env.ZTC_VISION_MODEL || "gpt-5.4-mini",
+      model: process.env.ZTC_VISION_MODEL || ZTC_DEFAULT_VISION_MODEL,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -1621,7 +1622,7 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
     ZTC_VISION_TIMEOUT_MS,
   );
   logZtcTiming("drawing_extraction_openai", openaiStartedAt, {
-    model: process.env.ZTC_VISION_MODEL || "gpt-5.4-mini",
+    model: process.env.ZTC_VISION_MODEL || ZTC_DEFAULT_VISION_MODEL,
     imageSource: imageUrl.startsWith("data:") ? "data_url" : "url",
   });
 
