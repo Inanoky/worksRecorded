@@ -1,6 +1,5 @@
 import {
   getZtcComplexityCoefficientByCode,
-  getZtcComplexityCoefficient,
   isZtcComplexityCoefficientTask,
   ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
   ZTC_ONE_X_COEFFICIENT_TASK,
@@ -29,8 +28,8 @@ const projects = [
 describe("getZtcComplexityCoefficient", () => {
   it("uses a project-specific X coefficient", () => {
     expect(
-      getZtcComplexityCoefficient({
-        marks: 1,
+      getZtcComplexityCoefficientByCode({
+        code: "X",
         projectName: "Project A",
         projects,
       }),
@@ -39,8 +38,8 @@ describe("getZtcComplexityCoefficient", () => {
 
   it("uses a project-specific X X coefficient", () => {
     expect(
-      getZtcComplexityCoefficient({
-        marks: 2,
+      getZtcComplexityCoefficientByCode({
+        code: "X X",
         projectName: "Project A",
         projects,
       }),
@@ -49,8 +48,8 @@ describe("getZtcComplexityCoefficient", () => {
 
   it("falls back to Visi projekti when the project has no override", () => {
     expect(
-      getZtcComplexityCoefficient({
-        marks: 2,
+      getZtcComplexityCoefficientByCode({
+        code: "X X",
         projectName: "Project B",
         projects,
       }),

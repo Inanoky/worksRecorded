@@ -43,12 +43,6 @@ export function normalizeZtcComplexityCode(value: unknown): ZtcComplexityCode {
   return row?.code ?? "";
 }
 
-export function getZtcComplexityCodeFromMarks(marks: 0 | 1 | 2): ZtcComplexityCode {
-  if (marks === 2) return "X X";
-  if (marks === 1) return "X";
-  return "";
-}
-
 export function isZtcComplexityCoefficientTask(value: unknown) {
   const task = String(value ?? "").trim().toLowerCase();
   return ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS.some(
@@ -60,18 +54,6 @@ type ZtcCoefficientProjectRates = {
   projectName: string;
   works: Array<{ task: string; rate: string }>;
 };
-
-export function getZtcComplexityCoefficient(args: {
-  marks: 0 | 1 | 2;
-  projectName?: string | null;
-  projects: ZtcCoefficientProjectRates[];
-}) {
-  return getZtcComplexityCoefficientByCode({
-    code: getZtcComplexityCodeFromMarks(args.marks),
-    projectName: args.projectName,
-    projects: args.projects,
-  });
-}
 
 export function getZtcComplexityCoefficientByCode(args: {
   code: ZtcComplexityCode | string | null | undefined;

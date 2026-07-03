@@ -5,9 +5,7 @@ import { requireUser } from "@/lib/utils/requireUser";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { getOrganizationIdByUserId, orgCheck } from "@/server/actions/shared-actions";
 import {
-  getZtcComplexityCoefficient,
   getZtcComplexityCoefficientByCode,
-  getZtcComplexityCodeFromMarks,
   isZtcComplexityCoefficientTask,
   normalizeZtcComplexityCode,
   type ZtcComplexityCode,
@@ -351,46 +349,6 @@ function getProjectCategoryRates(
   return merged;
 }
 
-function getZtcDrawingComplexityMarks(
-  metadataValue: unknown,
-  elementName: unknown,
-  taskName: unknown,
-): 0 | 1 | 2 {
-  if (typeof metadataValue !== "string" || !metadataValue.trim()) return 0;
-
-  try {
-    const metadata = JSON.parse(metadataValue) as {
-      type?: string;
-      elements?: Array<{
-        elementName?: string | null;
-        works?: Array<{
-          name?: string | null;
-          complexityMarks?: number | null;
-        }>;
-      }>;
-    };
-    if (metadata.type !== "ztc_drawing_context" || !Array.isArray(metadata.elements)) {
-      return 0;
-    }
-
-    const normalizedElement = String(elementName ?? "").trim().toLowerCase();
-    const normalizedTask = normalizeTaskName(taskName).toLowerCase();
-    const element = metadata.elements.find(
-      (entry) => String(entry.elementName ?? "").trim().toLowerCase() === normalizedElement,
-    );
-    const work = element?.works?.find(
-      (entry) => normalizeTaskName(entry.name).toLowerCase() === normalizedTask,
-    );
-    return Number(work?.complexityMarks) >= 2
-      ? 2
-      : Number(work?.complexityMarks) === 1
-        ? 1
-        : 0;
-  } catch {
-    return 0;
-  }
-}
-
 function getZtcDrawingComplexityCode(
   metadataValue: unknown,
   elementName: unknown,
@@ -405,7 +363,6 @@ function getZtcDrawingComplexityCode(
         elementName?: string | null;
         works?: Array<{
           name?: string | null;
-          complexityMarks?: number | null;
           complexityCode?: string | null;
         }>;
       }>;
@@ -422,29 +379,10 @@ function getZtcDrawingComplexityCode(
     const work = element?.works?.find(
       (entry) => normalizeTaskName(entry.name).toLowerCase() === normalizedTask,
     );
-    return (
-      normalizeZtcComplexityCode(work?.complexityCode) ||
-      getZtcComplexityCodeFromMarks(
-        Number(work?.complexityMarks) >= 2
-          ? 2
-          : Number(work?.complexityMarks) === 1
-            ? 1
-            : 0,
-      )
-    );
+    return normalizeZtcComplexityCode(work?.complexityCode);
   } catch {
     return "";
   }
-}
-
-function getZtcComplexityForMarks(
-  marks: 0 | 1 | 2,
-  projects: ZtcProjectTaskRates[],
-  projectName: string | null | undefined,
-) {
-  return Number(
-    getZtcComplexityCoefficient({ marks, projectName, projects }),
-  );
 }
 
 function getZtcComplexityForCode(
@@ -540,18 +478,13 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     getProjectCategoryRates(defaultRates, row.Location, category),
     { category },
   );
-  const complexityMarks = getZtcDrawingComplexityMarks(
-    row.Comments_Custom_2,
-    row.Location_Custom_1,
-    row.Works,
-  );
   const complexityCode = getZtcDrawingComplexityCode(
     row.Comments_Custom_2,
     row.Location_Custom_1,
     row.Works,
   );
   const defaultComplexity = getZtcComplexityForCode(
-    complexityCode || getZtcComplexityCodeFromMarks(complexityMarks),
+    complexityCode,
     defaultRates,
     row.Location,
   );
