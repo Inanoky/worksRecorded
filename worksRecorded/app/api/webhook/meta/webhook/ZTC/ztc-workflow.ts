@@ -2149,6 +2149,29 @@ async function resumeZtcSession(args: {
   );
 }
 
+async function pauseActiveWorkForAdditionalWork(args: {
+  session: OpenZtcSession;
+  worker: ZtcWorker;
+}) {
+  if (args.session.pausedAt) {
+    return { session: args.session, pausedNow: false };
+  }
+
+  const now = new Date();
+  const updated = await prisma.ztcRecords.update({
+    where: { id: args.session.id },
+    data: { pausedAt: now },
+  });
+
+  logZtcSession("session_auto_paused_for_additional_work", {
+    session: updated,
+    worker: args.worker,
+    details: { pausedAt: now.toISOString() },
+  });
+
+  return { session: updated, pausedNow: true };
+}
+
 function positiveNumberOrNull(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
@@ -3212,7 +3235,7 @@ async function handleWorkText(args: {
   }
 
   if (work.isAdditionalWork && !work.isFinish) {
-    if (openSession?.Works) {
+    if (openSession?.Works && isAdditionalWorkSession(openSession)) {
       outcome = "additional_work_already_active";
       await sendZtcMessage(
         to,
@@ -3221,14 +3244,25 @@ async function handleWorkText(args: {
       return;
     }
 
+    const interruptedWork = openSession?.Works ? openSession : null;
+    const interruption = interruptedWork
+      ? await pauseActiveWorkForAdditionalWork({ session: interruptedWork, worker })
+      : null;
+
     await createAdditionalWorkSession({
       worker,
       work,
       text,
       originalAudioUrl,
-      drawingContext: contextSession,
+      drawingContext: interruption?.session ?? contextSession,
     });
     outcome = "additional_work_started";
+    if (interruption) {
+      await sendZtcMessage(
+        to,
+        `${interruption.pausedNow ? "Aktīvais darbs ir nopauzēts" : "Iepriekšējais darbs paliek pauzē"}: ${formatSessionWork(interruption.session) || "darbs"}. Pēc papilddarba pabeigšanas atsūtiet "Turpinu", lai turpinātu šo darbu.`,
+      );
+    }
     await sendZtcMessage(
       to,
       `Papilddarbs sākts${work.workOption ? `: ${work.workOption}` : ""}. Kad darbs ir pabeigts, atsūtiet foto un pasakiet, ka darbs ir pabeigts.`,
