@@ -28,10 +28,7 @@ import {
   getZtcTaskIdentityKey,
   rebalanceZtcCompletedTaskAmounts,
 } from "@/components/sitediary/ZTC/ztc-task-amount-allocation";
-import {
-  findCanonicalZtcProjectName,
-  getZtcProjectNameKey,
-} from "@/components/sitediary/ZTC/ztc-project-name";
+import { normalizeZtcProjectName } from "@/components/sitediary/ZTC/ztc-project-name";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -1241,46 +1238,6 @@ function canonicalizeDrawingExtractionFromMetadata(
   };
 }
 
-async function resolveCanonicalDrawingProjectName(
-  projectName: string | null | undefined,
-) {
-  const normalizedProjectKey = getZtcProjectNameKey(projectName);
-  if (!normalizedProjectKey) return null;
-
-  const config = ((await getConfig(ZTC_SITE_ID)) ??
-    ztcSiteDiaryRecordsMap) as Record<string, any>;
-  const configuredProjectNames = getDefaultTaskRatesFromConfig(config)
-    .map((project) => project.projectName)
-    .filter(
-      (name) =>
-        getZtcProjectNameKey(name) !==
-        getZtcProjectNameKey(ZTC_ALL_PROJECTS_RATE_NAME),
-    );
-  const configuredCanonical = findCanonicalZtcProjectName(
-    projectName,
-    configuredProjectNames,
-  );
-  if (configuredCanonical) return configuredCanonical;
-
-  const recentProjectRows = await prisma.ztcRecords.findMany({
-    where: {
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
-      Location: { not: null },
-    },
-    orderBy: [{ Date_Custom_1: "desc" }, { createdAt: "desc" }],
-    take: 500,
-    select: {
-      Location: true,
-    },
-  });
-
-  return findCanonicalZtcProjectName(
-    projectName,
-    recentProjectRows.map((row) => row.Location),
-  );
-}
-
 async function canonicalizeDrawingExtractionFromPreviousContext(
   extraction: DrawingExtraction,
 ) {
@@ -1288,8 +1245,7 @@ async function canonicalizeDrawingExtractionFromPreviousContext(
   const elementName = String(extraction.elementName ?? "").trim();
   if (!projectName || !elementName) return extraction;
 
-  const canonicalProjectName =
-    (await resolveCanonicalDrawingProjectName(projectName)) ?? projectName;
+  const canonicalProjectName = normalizeZtcProjectName(projectName);
   const projectCanonicalized =
     canonicalProjectName === projectName
       ? extraction
@@ -1311,7 +1267,7 @@ async function canonicalizeDrawingExtractionFromPreviousContext(
   });
 
   for (const context of previousContexts.filter(
-    (context) => getZtcProjectNameKey(context.Location) === getZtcProjectNameKey(canonicalProjectName),
+    (context) => normalizeZtcProjectName(context.Location) === canonicalProjectName,
   )) {
     const canonicalized = canonicalizeDrawingExtractionFromMetadata(
       projectCanonicalized,
