@@ -3,22 +3,22 @@ export const ZTC_TWO_X_COEFFICIENT_TASK = "X X koeficients";
 export const ZTC_DEFAULT_ONE_X_COEFFICIENT = "1.2";
 export const ZTC_DEFAULT_TWO_X_COEFFICIENT = "1.5";
 export const ZTC_ONE_NUMBER_COEFFICIENT_TASK = "1 koeficients";
-export const ZTC_TWO_ONE_NUMBER_COEFFICIENT_TASK = "1 1 koeficients";
 export const ZTC_TWO_NUMBER_COEFFICIENT_TASK = "2 koeficients";
-export const ZTC_TWO_TWO_NUMBER_COEFFICIENT_TASK = "2 2 koeficients";
 export const ZTC_THREE_NUMBER_COEFFICIENT_TASK = "3 koeficients";
-export const ZTC_TWO_THREE_NUMBER_COEFFICIENT_TASK = "3 3 koeficients";
+export const ZTC_FOUR_NUMBER_COEFFICIENT_TASK = "4 koeficients";
+export const ZTC_FIVE_NUMBER_COEFFICIENT_TASK = "5 koeficients";
+export const ZTC_SIX_NUMBER_COEFFICIENT_TASK = "6 koeficients";
 export const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
 
 export const ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS = [
   { code: "X", task: ZTC_ONE_X_COEFFICIENT_TASK, defaultRate: ZTC_DEFAULT_ONE_X_COEFFICIENT },
   { code: "X X", task: ZTC_TWO_X_COEFFICIENT_TASK, defaultRate: ZTC_DEFAULT_TWO_X_COEFFICIENT },
   { code: "1", task: ZTC_ONE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
-  { code: "1 1", task: ZTC_TWO_ONE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
   { code: "2", task: ZTC_TWO_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
-  { code: "2 2", task: ZTC_TWO_TWO_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
   { code: "3", task: ZTC_THREE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
-  { code: "3 3", task: ZTC_TWO_THREE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { code: "4", task: ZTC_FOUR_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { code: "5", task: ZTC_FIVE_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
+  { code: "6", task: ZTC_SIX_NUMBER_COEFFICIENT_TASK, defaultRate: "1" },
 ] as const;
 
 export type ZtcComplexityCode = "" | (typeof ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS)[number]["code"];
@@ -28,13 +28,13 @@ export function normalizeZtcComplexityCode(value: unknown): ZtcComplexityCode {
     .trim()
     .toUpperCase()
     .replace(/[×✕✖]/g, "X")
-    .replace(/[^X123]+/g, " ")
+    .replace(/[^X1-6]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   const compactPair = normalized.replace(/\s+/g, "");
   const normalizedWithPairSpacing =
-    compactPair.length === 2 && compactPair[0] === compactPair[1]
-      ? `${compactPair[0]} ${compactPair[1]}`
+    compactPair === "XX"
+      ? "X X"
       : normalized;
 
   const row = ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS.find(

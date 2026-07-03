@@ -1,6 +1,7 @@
 import {
   getZtcComplexityCoefficientByCode,
   isZtcComplexityCoefficientTask,
+  normalizeZtcComplexityCode,
   ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
   ZTC_ONE_X_COEFFICIENT_TASK,
   ZTC_TWO_X_COEFFICIENT_TASK,
@@ -20,7 +21,7 @@ const projects = [
       { task: ZTC_ONE_X_COEFFICIENT_TASK, rate: "1.35" },
       { task: ZTC_TWO_X_COEFFICIENT_TASK, rate: "1.8" },
       { task: "2 koeficients", rate: "2.1" },
-      { task: "3 3 koeficients", rate: "3.3" },
+      { task: "6 koeficients", rate: "6.1" },
     ],
   },
 ];
@@ -57,6 +58,7 @@ describe("getZtcComplexityCoefficient", () => {
   });
 
   it("recognizes all configured coefficient rows", () => {
+    expect(ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS).toHaveLength(8);
     for (const row of ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS) {
       expect(isZtcComplexityCoefficientTask(row.task)).toBe(true);
     }
@@ -73,10 +75,18 @@ describe("getZtcComplexityCoefficient", () => {
 
     expect(
       getZtcComplexityCoefficientByCode({
-        code: "3 3",
+        code: "6",
         projectName: "Project A",
         projects,
       }),
-    ).toBe("3.3");
+    ).toBe("6.1");
+  });
+
+  it("normalizes only supported drawing coefficient codes", () => {
+    expect(normalizeZtcComplexityCode("XX")).toBe("X X");
+    expect(normalizeZtcComplexityCode("4")).toBe("4");
+    expect(normalizeZtcComplexityCode("5")).toBe("5");
+    expect(normalizeZtcComplexityCode("1 1")).toBe("");
+    expect(normalizeZtcComplexityCode("3 3")).toBe("");
   });
 });
