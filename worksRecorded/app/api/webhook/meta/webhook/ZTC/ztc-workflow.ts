@@ -621,6 +621,11 @@ function isElementRelatedAdditionalWorkSession(
   );
 }
 
+function isZtcHourlyUnit(value: unknown) {
+  const normalized = String(value ?? "").trim().toLowerCase().replace(/\.$/, "");
+  return ["st", "h", "hr", "hour", "hours", "stunda", "stundas"].includes(normalized);
+}
+
 function hasCompletedWorkPhoto(session: Pick<OpenZtcSession, "Location" | "Works_Custom_1" | "Photos">) {
   const photoCount = session.Photos?.length ?? 0;
   return isAdditionalWorkSession(session) ? photoCount >= 1 : photoCount >= 2;
@@ -2238,17 +2243,26 @@ async function completeSession(args: {
   const elementAreaM2 = isElementRelatedAdditionalWork
     ? getSessionElementAreaM2(session)
     : null;
+  const additionalWorkRateMatch = isElementRelatedAdditionalWork
+    ? await getDefaultRateMatchForWork(session.Works, {
+        projectName: session.Location,
+        category: "additionalWorks",
+      })
+    : null;
   const sessionUnit = isElementRelatedAdditionalWork
-    ? "m2"
+    ? normalizeZtcRateUnit(additionalWorkRateMatch?.unit ?? session.Units, "m2")
     : isAdditionalWork
       ? "st"
       : session.Units ?? "m2";
+  const isHourlyAdditionalWork = isAdditionalWork && isZtcHourlyUnit(sessionUnit);
   const amountCompleted =
-    isElementRelatedAdditionalWork
+    isHourlyAdditionalWork
+      ? timeInvolved
+      : isElementRelatedAdditionalWork && sessionUnit === "m2"
       ? elementAreaM2 ?? session.Amounts ?? null
       : isAdditionalWork
-      ? timeInvolved
-      : session.Amounts != null
+        ? session.Amounts ?? completedWork?.amountCompleted ?? null
+        : session.Amounts != null
         ? session.Amounts
         : completedWork?.amountCompleted != null
           ? completedWork.amountCompleted
@@ -3073,6 +3087,9 @@ async function createAdditionalWorkSession(args: {
     shouldAttachToElement && drawingContext
       ? getSessionElementAreaM2(drawingContext)
       : null;
+  const additionalWorkUnit = shouldAttachToElement
+    ? normalizeZtcRateUnit(defaultRateMatch?.unit, "m2")
+    : "st";
   if (!shouldAttachToElement) {
     await closeOpenDrawingContextsForStandaloneAdditionalWork(worker, now);
   }
@@ -3090,8 +3107,8 @@ async function createAdditionalWorkSession(args: {
       Photos: shouldAttachToElement && drawingContext?.Photos?.[0] ? [drawingContext.Photos[0]] : [],
       Works: mappedWorkOption,
       Location_Custom_2: defaultRateMatch?.rate ?? null,
-      Units: shouldAttachToElement ? "m2" : "st",
-      Amounts: shouldAttachToElement ? elementAreaM2 ?? undefined : undefined,
+      Units: additionalWorkUnit,
+      Amounts: shouldAttachToElement && additionalWorkUnit === "m2" ? elementAreaM2 ?? undefined : undefined,
       Comments: comments,
       originalUserComment: `${workerFullName(worker)} : ${text}`,
       originalAudioUrl: originalAudioUrl ?? undefined,
@@ -3249,7 +3266,7 @@ async function handleWorkText(args: {
     if (!hasCompletedWorkPhoto(session)) {
       const dbStartedAt = Date.now();
       const pendingUnits = isElementRelatedAdditionalWorkSession(session)
-        ? "m2"
+        ? normalizeZtcRateUnit(session.Units, "m2")
         : isAdditionalWorkSession(session)
           ? "st"
           : "m2";

@@ -43,6 +43,34 @@ describe("getZtcPayrollValues", () => {
     expect(payroll.complexity).toBe(1);
     expect(payroll.sum).toBe(20);
   });
+
+  it("calculates hourly additional work from hours instead of area", () => {
+    const payroll = getZtcPayrollValues({
+      ...baseRow,
+      Units: "st.",
+      Amounts: 7.21,
+      TimeInvolved: 0.09,
+      Location_Custom_2: 0.3,
+      Works_Custom_1: "Papilddarbi",
+    });
+
+    expect(payroll.payrollQuantity).toBe(0.09);
+    expect(payroll.sum).toBe(0.03);
+  });
+
+  it("keeps m2 additional work calculated from amount", () => {
+    const payroll = getZtcPayrollValues({
+      ...baseRow,
+      Units: "m2",
+      Amounts: 7.21,
+      TimeInvolved: 0.09,
+      Location_Custom_2: 0.3,
+      Works_Custom_1: "Papilddarbi",
+    });
+
+    expect(payroll.payrollQuantity).toBe(7.21);
+    expect(payroll.sum).toBe(2.16);
+  });
 });
 
 describe("ZTC quality display state", () => {

@@ -58,6 +58,11 @@ function normalizeZtcText(value: unknown) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+function isZtcHourlyUnit(value: unknown) {
+  const normalized = normalizeZtcText(value).replace(/\.$/, "");
+  return ["st", "h", "hr", "hour", "hours", "stunda", "stundas"].includes(normalized);
+}
+
 function parsePositiveZtcNumber(value: unknown) {
   const parsed = parseZtcPayrollNumber(value, Number.NaN);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -234,8 +239,7 @@ export function getZtcPayrollValues(row: ZtcDiaryRow) {
 
   const hours = parseZtcPayrollNumber(row.TimeInvolved);
   const amountM2 = parseZtcPayrollNumber(row.Amounts);
-  const unit = String(row.Units ?? "").trim().toLowerCase();
-  const payrollQuantity = unit === "st" ? hours : amountM2;
+  const payrollQuantity = isZtcHourlyUnit(row.Units) ? hours : amountM2;
   const rate = parseZtcPayrollNumber(row.Location_Custom_2);
   const coefficient = parseZtcPayrollNumber(row.Works_Custom_2, 1);
   const complexity = parseZtcPayrollNumber(row.WorkersInvolved, 1);

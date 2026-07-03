@@ -15,4 +15,8 @@ describe("resolveZtcAdditionalWorkUnit", () => {
   it("keeps backward-compatible st when an old rate has no configured unit", () => {
     expect(resolveZtcAdditionalWorkUnit({ reportedUnit: null })).toBe("st");
   });
+
+  it("normalizes dotted hour units to st", () => {
+    expect(resolveZtcAdditionalWorkUnit({ configuredUnit: "st." })).toBe("st");
+  });
 });

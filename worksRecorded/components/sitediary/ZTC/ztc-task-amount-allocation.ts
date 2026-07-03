@@ -22,6 +22,11 @@ function normalizeText(value: unknown) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function isHourlyUnit(value: unknown) {
+  const normalized = normalizeText(value).replace(/\.$/, "");
+  return ["st", "h", "hr", "hour", "hours", "stunda", "stundas"].includes(normalized);
+}
+
 function normalizeTaskName(value: unknown) {
   return normalizeText(value)
     .replace(/^t\s*\d+(?=\s|[-/]|$)/i, "tl")
@@ -150,7 +155,7 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
     normalizeText(anchor.Location) === "papilddarbi" ||
     normalizeText(anchor.Works_Custom_1) === "papilddetāļas" ||
     normalizeText(anchor.Works) === "kvalitātes kontrole" ||
-    normalizeText(anchor.Units) === "st"
+    isHourlyUnit(anchor.Units)
   ) {
     return { updated: 0, totalAmount: null };
   }
@@ -183,7 +188,7 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
     (row) =>
       getZtcTaskIdentityKey(row.Works) === normalizedTask &&
       normalizeText(row.Works_Custom_1) !== "papilddetāļas" &&
-      normalizeText(row.Units) !== "st",
+      !isHourlyUnit(row.Units),
   );
   if (matchingRows.length === 0) {
     return { updated: 0, totalAmount: null };
