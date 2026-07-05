@@ -508,36 +508,84 @@ function roundZtcHours(value: number) {
   return Number(Math.max(0, value).toFixed(2));
 }
 
-function getZtcProductivityFinish(row: ZtcDiaryRow, fallbackFinish: Date) {
-  const rowStart = parseZtcDate(row.Date);
-  if (!rowStart) return fallbackFinish;
+type ZtcTimeInterval = {
+  start: Date;
+  end: Date;
+};
 
-  const startDayKey = getZtcLocalDayKey(rowStart);
-  const overnightPause = getZtcPauseIntervals(row.pauseIntervals)
-    .filter((interval) => {
-      const intervalStartDayKey = getZtcLocalDayKey(interval.start);
-      const intervalEndDayKey = getZtcLocalDayKey(interval.end);
-      return (
-        intervalStartDayKey === startDayKey &&
-        intervalEndDayKey !== startDayKey &&
-        interval.start.getTime() >= rowStart.getTime() &&
-        interval.start.getTime() <= fallbackFinish.getTime()
-      );
-    })
-    .sort((a, b) => a.start.getTime() - b.start.getTime())[0];
-
-  return overnightPause?.start ?? fallbackFinish;
+function getZtcLocalDayStart(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
-function getZtcPauseHoursWithinRange(row: ZtcDiaryRow, start: Date, finish: Date) {
-  if (finish.getTime() <= start.getTime()) return 0;
+function addZtcDays(date: Date, days: number) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
+}
 
-  return getZtcPauseIntervals(row.pauseIntervals).reduce((sum, interval) => {
-    const pauseStart = Math.max(interval.start.getTime(), start.getTime());
-    const pauseEnd = Math.min(interval.end.getTime(), finish.getTime());
-    if (pauseEnd <= pauseStart) return sum;
-    return sum + (pauseEnd - pauseStart) / 3_600_000;
-  }, 0);
+function mergeZtcTimeIntervals(intervals: ZtcTimeInterval[]) {
+  const sorted = intervals
+    .filter((interval) => interval.end.getTime() > interval.start.getTime())
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+  const merged: ZtcTimeInterval[] = [];
+
+  sorted.forEach((interval) => {
+    const previous = merged[merged.length - 1];
+    if (!previous || interval.start.getTime() > previous.end.getTime()) {
+      merged.push({ start: interval.start, end: interval.end });
+      return;
+    }
+
+    if (interval.end.getTime() > previous.end.getTime()) {
+      previous.end = interval.end;
+    }
+  });
+
+  return merged;
+}
+
+function getZtcIntervalHours(intervals: ZtcTimeInterval[]) {
+  return intervals.reduce(
+    (sum, interval) => sum + (interval.end.getTime() - interval.start.getTime()) / 3_600_000,
+    0,
+  );
+}
+
+function clipZtcInterval(interval: ZtcTimeInterval, boundary: ZtcTimeInterval) {
+  const start = new Date(Math.max(interval.start.getTime(), boundary.start.getTime()));
+  const end = new Date(Math.min(interval.end.getTime(), boundary.end.getTime()));
+  return end.getTime() > start.getTime() ? { start, end } : null;
+}
+
+function subtractZtcPauseIntervals(interval: ZtcTimeInterval, pauses: ZtcTimeInterval[]) {
+  return mergeZtcTimeIntervals(pauses).reduce(
+    (segments, pause) =>
+      segments.flatMap((segment) => {
+        const clippedPause = clipZtcInterval(pause, segment);
+        if (!clippedPause) return [segment];
+
+        return [
+          { start: segment.start, end: clippedPause.start },
+          { start: clippedPause.end, end: segment.end },
+        ].filter((candidate) => candidate.end.getTime() > candidate.start.getTime());
+      }),
+    [interval],
+  );
+}
+
+function splitZtcIntervalByLocalDay(interval: ZtcTimeInterval) {
+  const parts: Array<{ day: Date; interval: ZtcTimeInterval }> = [];
+  let cursor = interval.start;
+
+  while (cursor.getTime() < interval.end.getTime()) {
+    const day = getZtcLocalDayStart(cursor);
+    const nextDay = addZtcDays(day, 1);
+    const end = new Date(Math.min(interval.end.getTime(), nextDay.getTime()));
+    if (end.getTime() > cursor.getTime()) {
+      parts.push({ day, interval: { start: cursor, end } });
+    }
+    cursor = end;
+  }
+
+  return parts;
 }
 
 export async function exportZtcPayrollToExcel({
@@ -696,70 +744,83 @@ export function buildZtcProductivityRows(rows: ZtcDiaryRow[]) {
     {
       day: Date;
       worker: string;
-      start: Date;
-      finish: Date;
-      effectiveHours: number;
-      pausedHours: number;
+      activeIntervals: ZtcTimeInterval[];
+      pauseIntervals: ZtcTimeInterval[];
     }
   >();
 
   exportRows.forEach((row) => {
     const start = parseZtcDate(row.Date);
-    const rawFinish = parseZtcDate(row.Date_Custom_2);
-    const finish = rawFinish ? getZtcProductivityFinish(row, rawFinish) : null;
+    const finish = parseZtcDate(row.Date_Custom_2);
     if (!start || !finish) return;
 
     const worker = String(row.createdBy || "").trim() || "N/A";
-    const dayKey = getZtcLocalDayKey(start);
-    const key = `${dayKey}::${worker}`;
-    const existing = groups.get(key);
-    const effectiveHours = parseZtcPayrollNumber(row.TimeInvolved);
-    const pausedHours = getZtcPauseHoursWithinRange(row, start, finish);
+    const pauseIntervals = getZtcPauseIntervals(row.pauseIntervals);
+    const activeIntervals = subtractZtcPauseIntervals({ start, end: finish }, pauseIntervals);
 
-    if (!existing) {
-      groups.set(key, {
-        day: new Date(start.getFullYear(), start.getMonth(), start.getDate()),
-        worker,
-        start,
-        finish,
-        effectiveHours,
-        pausedHours,
+    activeIntervals.forEach((interval) => {
+      splitZtcIntervalByLocalDay(interval).forEach((part) => {
+        const dayKey = getZtcLocalDayKey(part.day);
+        const key = `${dayKey}::${worker}`;
+        const existing = groups.get(key) ?? {
+          day: part.day,
+          worker,
+          activeIntervals: [],
+          pauseIntervals: [],
+        };
+
+        existing.activeIntervals.push(part.interval);
+        groups.set(key, existing);
       });
-      return;
-    }
+    });
 
-    if (start.getTime() < existing.start.getTime()) {
-      existing.start = start;
-    }
-    if (finish.getTime() > existing.finish.getTime()) {
-      existing.finish = finish;
-    }
-    existing.effectiveHours += effectiveHours;
-    existing.pausedHours += pausedHours;
+    pauseIntervals.forEach((interval) => {
+      splitZtcIntervalByLocalDay(interval).forEach((part) => {
+        const dayKey = getZtcLocalDayKey(part.day);
+        const key = `${dayKey}::${worker}`;
+        const existing = groups.get(key);
+        if (!existing) return;
+
+        existing.pauseIntervals.push(part.interval);
+      });
+    });
   });
 
   const productivityRows = Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      activeIntervals: mergeZtcTimeIntervals(group.activeIntervals),
+    }))
+    .filter((group) => group.activeIntervals.length > 0)
     .sort((a, b) => {
       const dayCompare = a.day.getTime() - b.day.getTime();
       if (dayCompare !== 0) return dayCompare;
       const workerCompare = a.worker.localeCompare(b.worker, "lv");
       if (workerCompare !== 0) return workerCompare;
-      return a.start.getTime() - b.start.getTime();
+      return a.activeIntervals[0].start.getTime() - b.activeIntervals[0].start.getTime();
     })
     .map((group) => {
-      const totalHours = roundZtcHours(
-        (group.finish.getTime() - group.start.getTime()) / 3_600_000,
+      const start = group.activeIntervals[0].start;
+      const finish = group.activeIntervals[group.activeIntervals.length - 1].end;
+      const dayEnvelope = { start, end: finish };
+      const pauseIntervals = mergeZtcTimeIntervals(
+        group.pauseIntervals
+          .map((interval) => clipZtcInterval(interval, dayEnvelope))
+          .filter((interval): interval is ZtcTimeInterval => Boolean(interval)),
       );
-      const effectiveHours = roundZtcHours(group.effectiveHours);
-      const pausedHours = roundZtcHours(group.pausedHours);
+      const totalHours = roundZtcHours(
+        (finish.getTime() - start.getTime()) / 3_600_000,
+      );
+      const effectiveHours = roundZtcHours(getZtcIntervalHours(group.activeIntervals));
+      const pausedHours = roundZtcHours(getZtcIntervalHours(pauseIntervals));
       const workerName = splitZtcWorkerDisplayName(group.worker);
 
       return {
         Datums: group.day,
         Vārds: workerName.name,
         Uzvārds: workerName.surname,
-        "Dienas sākums": group.start,
-        "Dienas beigas": group.finish,
+        "Dienas sākums": start,
+        "Dienas beigas": finish,
         "Kopējais laiks": totalHours,
         "Efektīvais laiks": effectiveHours,
         "Pauzes laiks": pausedHours,

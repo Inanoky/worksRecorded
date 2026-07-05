@@ -1967,69 +1967,6 @@ function calculateEffectiveHours(
   return Number(effectiveHours.toFixed(2));
 }
 
-function getZtcDayKey(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function getStalePauseStart(
-  session: Pick<OpenZtcSession, "pausedAt">,
-  now: Date,
-) {
-  if (!session.pausedAt) return null;
-  const pauseStart = new Date(session.pausedAt);
-  if (Number.isNaN(pauseStart.getTime()) || now.getTime() <= pauseStart.getTime()) {
-    return null;
-  }
-  return getZtcDayKey(pauseStart) !== getZtcDayKey(now) ? pauseStart : null;
-}
-
-async function closeStalePausedSessionAtPauseStart(args: {
-  session: OpenZtcSession;
-  worker?: ZtcWorker;
-  to?: string | null;
-  now?: Date;
-}) {
-  const now = args.now ?? new Date();
-  const pauseStart = getStalePauseStart(args.session, now);
-  if (!pauseStart) return null;
-
-  const pauseIntervals = normalizePauseIntervals(args.session.pauseIntervals);
-  const timeInvolved = calculateEffectiveHours(args.session, pauseStart);
-  const updated = await prisma.ztcRecords.update({
-    where: { id: args.session.id },
-    data: {
-      Date_Custom_2: pauseStart,
-      TimeInvolved: timeInvolved,
-      pausedAt: null,
-      pauseIntervals,
-    },
-  });
-
-  logZtcSession("stale_pause_session_closed", {
-    session: updated,
-    worker: args.worker,
-    details: {
-      closedAt: pauseStart.toISOString(),
-      requestedAt: now.toISOString(),
-      timeInvolved,
-      pauseCount: pauseIntervals.length,
-    },
-  });
-
-  if (args.to) {
-    await sendZtcMessage(
-      args.to,
-      `Iepriekšējais darbs bija pauzē no iepriekšējās dienas, tāpēc tas noslēgts pauzes sākuma laikā: ${formatSessionWork(args.session) || "darbs"}.`,
-    );
-  }
-
-  return updated;
-}
-
 async function pauseZtcSession(args: {
   session: OpenZtcSession;
   worker: ZtcWorker;
@@ -2078,14 +2015,6 @@ async function resumeZtcSession(args: {
   }
 
   const now = new Date();
-  const staleClosed = await closeStalePausedSessionAtPauseStart({
-    session,
-    worker,
-    to,
-    now,
-  });
-  if (staleClosed) return;
-
   const intervals = closeActivePauseInterval(session, now);
   const pauseStart = new Date(session.pausedAt);
   const pausedHours = Number(((now.getTime() - pauseStart.getTime()) / 3_600_000).toFixed(2));
@@ -2197,8 +2126,7 @@ async function completeSession(args: {
 }) {
   const { session, to, completedWork, completedText, finalComments, originalAudioUrl } = args;
   const now = new Date();
-  const completionTime = getStalePauseStart(session, now) ?? now;
-  const closedAtPauseStart = completionTime.getTime() !== now.getTime();
+  const completionTime = now;
   const pauseIntervals = closeActivePauseInterval(session, completionTime);
   const pauseHours = calculatePauseHours(pauseIntervals);
   const timeInvolved = calculateEffectiveHours(session, completionTime);
@@ -2266,7 +2194,6 @@ async function completeSession(args: {
       pauseCount: pauseIntervals.length,
       amountCompleted,
       unit: sessionUnit,
-      closedAtPauseStart,
       requestedAt: now.toISOString(),
       comments: finalWorkerComment,
     },
@@ -3161,18 +3088,6 @@ async function handleWorkText(args: {
     outcome = "gibberish";
     await sendZtcMessage(to, "Neizdevās saprast ziņu. Lūdzu, mēģiniet vēlreiz.");
     return;
-  }
-
-  if (openSession?.pausedAt && !work.isFinish) {
-    const staleClosed = await closeStalePausedSessionAtPauseStart({
-      session: openSession,
-      worker,
-      to,
-    });
-    if (staleClosed) {
-      openSession = null;
-      outcome = "stale_pause_closed_before_new_work";
-    }
   }
 
   if (work.isAdditionalWork && !work.isFinish) {

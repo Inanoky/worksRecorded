@@ -240,8 +240,43 @@ describe("buildZtcProductivityRows", () => {
 
     expect(rows).toHaveLength(1);
     expect(rows[0]["Kopējais laiks"]).toBe(4);
-    expect(rows[0]["Efektīvais laiks"]).toBe(3);
+    expect(rows[0]["Efektīvais laiks"]).toBe(3.5);
     expect(rows[0]["Pauzes laiks"]).toBe(0.5);
-    expect(rows[0]["Neuzskaitītais laiks"]).toBe(0.5);
+    expect(rows[0]["Neuzskaitītais laiks"]).toBe(0);
+  });
+
+  it("splits overnight paused work and does not double-count nested additional work", () => {
+    const rows = buildZtcProductivityRows([
+      {
+        Date: "2026-07-03T16:00:00.000Z",
+        Date_Custom_2: "2026-07-04T12:00:00.000Z",
+        Works: "Task A",
+        TimeInvolved: 5,
+        createdBy: "Janis Berzins",
+        pauseIntervals: [
+          {
+            start: "2026-07-03T17:00:00.000Z",
+            end: "2026-07-04T08:00:00.000Z",
+          },
+        ],
+      },
+      {
+        Date: "2026-07-04T09:00:00.000Z",
+        Date_Custom_2: "2026-07-04T10:00:00.000Z",
+        Works: "Papilddarbi",
+        Works_Custom_1: "Papilddarbi",
+        TimeInvolved: 1,
+        createdBy: "Janis Berzins",
+      },
+    ]);
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]["Kopējais laiks"]).toBe(1);
+    expect(rows[0]["Efektīvais laiks"]).toBe(1);
+    expect(rows[0]["Pauzes laiks"]).toBe(0);
+    expect(rows[1]["Kopējais laiks"]).toBe(4);
+    expect(rows[1]["Efektīvais laiks"]).toBe(4);
+    expect(rows[1]["Pauzes laiks"]).toBe(0);
+    expect(rows[1]["Neuzskaitītais laiks"]).toBe(0);
   });
 });
