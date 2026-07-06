@@ -1,11 +1,11 @@
 import { DynamicStructuredTool } from "langchain/tools";
 import { z } from "zod";
-import {ToolNode} from "@langchain/langgraph/prebuilt"
-import {GraphState} from "@/server/ai-flows/agents/shared-between-agents/state";
-import {ChatOpenAI} from "@langchain/openai";
+import { ToolNode } from "@langchain/langgraph/prebuilt"
+import { GraphState } from "@/server/ai-flows/agents/shared-between-agents/state";
+import { ChatOpenAI } from "@langchain/openai";
 
 import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
-import {HumanMessage, SystemMessage, ToolMessage} from "@langchain/core/messages"; // Adjust if needed
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { systemPromptSaveToDatabaseFunction } from "./prompts";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 
@@ -18,6 +18,24 @@ import {
   buildAiRunContext,
   summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import { formatSiteDiarySaveToolResult } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolResult";
+import { getSiteManagerToolContext } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolContext";
+import {
+  getBisConnectionStatus,
+  readBisMaterialRecords,
+  readSiteDiaryBisStatuses,
+} from "@/server/ai-flows/agents/bis-support-agent/tools";
+
+function currentDiaryDate() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Riga",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.day}-${values.month}-${values.year}`;
+}
 
 export const allowedUnits = [
   "m", "m2", "m3", "tn", "kg",
@@ -27,17 +45,27 @@ export const allowedUnits = [
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
   name: "save_to_database",
-  description: "Save construction site log to the database",
+  description:
+    "Save one construction site diary log to the database. Use this only for real site diary work or notes that should become site diary records.",
 
   schema: z.object({
-    question: z.string(),
-    siteId: z.string(),
-    userId: z.string(),
-    date: z.string(),
-    originalUserComment: z.string(),
+    question: z
+      .string()
+      .describe("The original site diary text to parse from the user's message."),
+    date: z
+      .string()
+      .optional()
+      .describe("The explicit diary date from the user, usually dd-mm-yyyy. Omit it when no date was specified."),
   }),
 
-  async func({ question, userId, siteId, date, originalUserComment }) {
+  async func({ question, date: requestedDate }) {
+    const toolContext = getSiteManagerToolContext();
+    if (!toolContext) {
+      return "Failed to save site diary entry. Reason: Trusted site diary context is unavailable";
+    }
+
+    const { userId, siteId, originalUserComment } = toolContext;
+    const date = requestedDate ?? currentDiaryDate();
     const whatsappSourceContext = getWhatsappSourceContext();
     const runContext = getSiteManagerAgentRunContext();
     const aiContext = buildAiRunContext({
@@ -64,13 +92,11 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
       siteId,
     });
 
-    // 1️⃣ Load config
     const map = await getConfig(siteId);
     const mapToUse = map ? map : defaultConfig;
 
     console.log("✅ Config loaded:", map ? "DB config" : "Default config");
 
-    // 2️⃣ Build schemas
     const {
       schema: SiteDiaryRecordSchema,
       fieldMap,
@@ -86,7 +112,6 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
     const client = map?.AIpromptToUse?.Client;
 
-    // 3️⃣ Init LLM
     const llm = new ChatOpenAI({
       model: "gpt-5.4",
       reasoning: { effort: "low" },
@@ -97,14 +122,11 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     );
 
     console.log("✅ LLM initialized");
-
-    // 4️⃣ Call LLM
     console.log("🤖 Calling LLM...");
 
     const response = await structuredLlm.invoke(
       [
-        // Always parse the actual user-provided message, not the static tool question label.
-        new HumanMessage(`${originalUserComment} Date is : ${date}`),
+        new HumanMessage(`${question} Date is : ${date}`),
         new SystemMessage(
           `${await systemPromptSaveToDatabaseFunction(userId, client)}\n` +
           `today is : ${date}\n` +
@@ -117,7 +139,6 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     console.log("📥 LLM response:");
     console.log(JSON.stringify(response, null, 2));
 
-    // 5️⃣ Map to DB rows
     const rows = response.records.map((r, i) => {
       const mapped = mapToDbFields(r, fieldMap, dropdownValueMaps);
 
@@ -127,8 +148,6 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
     });
 
     console.log(`✅ Total rows prepared: ${rows.length}`);
-
-    // 6️⃣ Save to DB
     console.log("💾 Saving to database...");
 
     const result = await saveSiteDiaryRecord({
@@ -152,16 +171,89 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
       persistedRecords: result?.records ?? [],
     });
 
-    if (!result?.ok) {
-      return `Failed to save site diary entry: ${result?.message ?? "Unknown error"}`;
-    }
+    const toolResultMessage = formatSiteDiarySaveToolResult(result, rows.length);
+    if (!result?.ok) return toolResultMessage;
 
     console.log("🏁 TOOL END");
 
-    return `Saved successfully`;
+    return toolResultMessage;
   },
 });
 
-export const tools = [siteDiaryToDatabaseTool]
+function serializeBisResult(value: unknown) {
+  return JSON.stringify(value, (_, item) => typeof item === "bigint" ? item.toString() : item);
+}
+
+export const bisConnectionStatusTool = new DynamicStructuredTool({
+  name: "get_bis_connection_status",
+  description:
+    "Read the trusted user's local BIS connection and active-project case configuration. Use for BIS connection, setup, eligibility, or submission guidance. This does not contact BIS and cannot change data.",
+  schema: z.object({}),
+  async func() {
+    const context = getSiteManagerToolContext();
+    if (!context) {
+      return "BIS status could not be verified because trusted site-manager context is unavailable.";
+    }
+    try {
+      const result = await getBisConnectionStatus(
+        { siteId: context.siteId, userId: context.userId },
+        { connectionOverride: getSiteManagerAgentRunContext()?.bisConnectionOverride },
+      );
+      return serializeBisResult(result);
+    } catch {
+      return serializeBisResult({ error: "BIS connection status could not be verified." });
+    }
+  },
+});
+
+export const bisMaterialRecordsTool = new DynamicStructuredTool({
+  name: "read_bis_material_records",
+  description: "Read locally stored BIS material records for the trusted active project. This is read-only.",
+  schema: z.object({
+    search: z.string().trim().max(120).optional().describe("Optional material, category, invoice, or cost-code search text."),
+    limit: z.number().int().min(1).max(20).default(10),
+  }),
+  async func({ search, limit }) {
+    const context = getSiteManagerToolContext();
+    if (!context) return "BIS materials could not be read because trusted site-manager context is unavailable.";
+    try {
+      return serializeBisResult(await readBisMaterialRecords(
+        { siteId: context.siteId, userId: context.userId },
+        { search, limit },
+      ));
+    } catch {
+      return serializeBisResult({ error: "BIS material records could not be read." });
+    }
+  },
+});
+
+export const siteDiaryBisStatusesTool = new DynamicStructuredTool({
+  name: "read_site_diary_bis_statuses",
+  description: "Read local BIS submission identifiers and statuses for site diary records in the trusted active project. This is read-only.",
+  schema: z.object({
+    submission: z.enum(["all", "sent", "not-sent"]).default("all"),
+    search: z.string().trim().max(120).optional().describe("Optional work, location, or comment search text."),
+    limit: z.number().int().min(1).max(20).default(10),
+  }),
+  async func({ submission, search, limit }) {
+    const context = getSiteManagerToolContext();
+    if (!context) return "BIS diary statuses could not be read because trusted site-manager context is unavailable.";
+    try {
+      return serializeBisResult(await readSiteDiaryBisStatuses(
+        { siteId: context.siteId, userId: context.userId },
+        { submission, search, limit },
+      ));
+    } catch {
+      return serializeBisResult({ error: "Site diary BIS statuses could not be read." });
+    }
+  },
+});
+
+export const tools = [
+  siteDiaryToDatabaseTool,
+  bisConnectionStatusTool,
+  bisMaterialRecordsTool,
+  siteDiaryBisStatusesTool,
+]
 
 export const toolNode = new ToolNode<typeof GraphState.State>(tools)

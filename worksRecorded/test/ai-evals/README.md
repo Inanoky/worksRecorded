@@ -4,6 +4,8 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 
 ## Current State
 
+- Jest currently has 150 passing tests across 31 suites and covers deterministic application and eval infrastructure behavior. Use the command output as the source of truth as this count grows.
+- AI eval fixtures currently contain 21 cases / 25 evaluated interactions: 7 dashboard cases (10 turns), 10 WhatsApp site-manager cases (11 interactions), and 4 WhatsApp worker cases.
 - Dashboard chat flow: `dashboard-chat` / `OrchestratingAgentV2`.
 - WhatsApp site-manager flow: `whatsapp-site-manager` via the real Meta webhook route.
 - WhatsApp worker flow: `whatsapp-worker` / `ClockinAgentForWorkerRoute` via the real Meta webhook route.
@@ -20,6 +22,25 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 - WhatsApp worker eval runs use thread IDs like `eval:whatsapp-worker:<siteId>:<workerId>:<caseId>:<runId>`.
 
 ## Commands
+
+### Command layers
+
+| Goal | Command | Model/DB usage |
+| --- | --- | --- |
+| All safe local checks | `npm run test:all` | None |
+| All Jest tests | `npm run test:unit` | None |
+| Eval validator/runner unit tests | `npm run test:ai:validators` | None |
+| Validate all eval fixtures | `npm run test:ai:dry-run` | None |
+| Run all real deterministic evals | `npm run eval:ai:deterministic` | Models and eval database |
+| Run supported judges plus worker deterministic evals | `npm run eval:ai:judge` | Agent models, judge model, and eval database |
+
+`test:all` is intentionally safe for local development and CI: it runs Jest and all fixture dry-runs, but does not call models or write eval database rows. Real eval commands require the environment variables listed below. The worker suite has deterministic and heuristic checks but no LLM judge, so `eval:ai:judge` runs it without `--judge`.
+
+Run the full safe local suite:
+
+```bash
+npm run test:all
+```
 
 Validate dashboard fixture/schema loading only:
 
@@ -42,9 +63,7 @@ npm run eval:ai:whatsapp-worker -- --dry-run
 Run validator unit tests:
 
 ```bash
-npm test -- test/ai-evals/validators.test.ts
-npm test -- test/ai-evals/whatsapp-site-manager-validators.test.ts
-npm test -- test/ai-evals/whatsapp-worker-validators.test.ts
+npm run test:ai:validators
 ```
 
 Run real dashboard AI evals after loading `.env`:
@@ -79,6 +98,18 @@ Run with optional LLM judge:
 ```bash
 npm run eval:ai:dashboard -- --judge
 npm run eval:ai:whatsapp-site-manager -- --judge
+```
+
+Run every real eval suite without judges:
+
+```bash
+npm run eval:ai:deterministic
+```
+
+Run all supported judges and the worker deterministic suite:
+
+```bash
+npm run eval:ai:judge
 ```
 
 Useful optional env vars:
@@ -144,8 +175,9 @@ Model fields:
 WhatsApp site-manager cases are checked by deterministic and heuristic validators:
 
 - webhook route must return HTTP 200
-- exactly one site diary record should be created
+- exactly one site diary record should be created by default; cases with `shouldCreateRecord: false` require zero records
 - saved record must belong to the eval site and user
+- an `expectedDateISO` value requires the persisted diary date to match exactly
 - saved record must preserve the expected activity/location text signals
 - saved worker count and duration must match the case expectation
 - persisted audio URLs must not be expiring Meta `lookaside.fbsbx.com` URLs
@@ -211,10 +243,28 @@ For WhatsApp site-manager, add a new object in `whatsapp-site-manager-cases.ts`:
     // Sanitized Meta webhook payload.
   },
   expected: {
+    shouldCreateRecord: true,
     requiredTextSignals: ["grīd", "3", "stāv"],
     workersInvolved: 2,
     timeInvolved: 3,
     minHeuristicScore: 0.75,
+  },
+}
+```
+
+For an ambiguous message that must not save anything, set `shouldCreateRecord` to false and assert clarification language:
+
+```ts
+{
+  id: "ambiguous-reference-does-not-save",
+  intent: "Verify an ambiguous reference asks for clarification without saving.",
+  webhook: {
+    // Sanitized Meta webhook payload.
+  },
+  expected: {
+    shouldCreateRecord: false,
+    requiredAnswerSignals: ["preciz|ko tieši"],
+    forbiddenAnswerSignals: ["saglabāts veiksmīgi|saved successfully"],
   },
 }
 ```

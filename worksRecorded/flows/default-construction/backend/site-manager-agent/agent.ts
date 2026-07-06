@@ -7,8 +7,7 @@ import { systemPromptFunction} from "@/flows/default-construction/backend/site-m
 import {toolNode, tools} from "@/flows/default-construction/backend/site-manager-agent/tools";
 import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSiteManagerRouteModelModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
-import { injectSiteManagerToolCallContext } from "@/server/ai-flows/agents/whatsapp-agent/toolCallContext";
-import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import { runWithSiteManagerToolContext } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolContext";
 import {
     buildAiRunContext,
     getSiteManagerThreadId,
@@ -106,19 +105,6 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
         console.log("shouldContinue - lastMessage:", lastMessage);
 
         if (lastMessage && "tool_calls" in lastMessage && Array.isArray(lastMessage.tool_calls) && lastMessage.tool_calls.length) {
-            for (const toolCall of lastMessage.tool_calls) {
-                try {
-                    injectSiteManagerToolCallContext(toolCall, {
-                        sourceComment,
-                        userId,
-                        siteId,
-                        originalAudioUrl: originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null,
-                    });
-                } catch (e) {
-                    console.error("Error modifying arguments for save_to_database:", e);
-                }
-            }
-
             console.log("shouldContinue: Detected tool_calls, going to 'tools'");
             return "tools";
         }
@@ -190,7 +176,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
 
     const graph = workflow.compile({ checkpointer });
 
-    const systemPrompt = systemPromptFunction(siteId,userId)
+    const systemPrompt = systemPromptFunction(siteId, userId)
 
     const inputs = {
         messages: [
@@ -201,13 +187,18 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
 
     let finalState;
 
-    for await (const output of await graph.stream(inputs, config)) {
-        for (const value of Object.values(output)) {
-            if (value?.messages?.length) {
-                finalState = value;
+    await runWithSiteManagerToolContext(
+        { userId, siteId, originalUserComment: sourceComment },
+        async () => {
+            for await (const output of await graph.stream(inputs, config)) {
+                for (const value of Object.values(output)) {
+                    if (value?.messages?.length) {
+                        finalState = value;
+                    }
+                }
             }
-        }
-    }
+        },
+    );
 
     if (finalState && finalState.messages && finalState.messages.length > 0) {
         const lastContentMsg = finalState.messages.findLast((msg: BaseMessage) => typeof msg.content === "string" && msg.content.length > 0);

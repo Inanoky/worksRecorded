@@ -11,6 +11,7 @@ function record(id: string, createdAt: string): SavedSiteDiaryRecord {
     siteId: "site-1",
     userId: "user-1",
     workerId: null,
+    Date: null,
     Location: "3 stāvs",
     Works: "Finishing",
     Comments: "Ieklātas grīdas",

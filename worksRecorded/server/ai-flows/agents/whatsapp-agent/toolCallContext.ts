@@ -27,13 +27,15 @@ function getToolName(toolCall: ToolCallLike): string | undefined {
 }
 
 function setSiteManagerArgs(args: Record<string, unknown>, context: SiteManagerToolContext) {
+    args.userId = context.userId;
+    args.siteId = context.siteId;
     args.originalUserComment = context.sourceComment;
     delete args.originalAudioUrl;
 }
 
 function setWorkerArgs(args: Record<string, unknown>, toolName: string, context: WorkerToolContext) {
-    if (!args.workerId) args.workerId = context.workerId;
-    if (!args.siteId) args.siteId = context.siteId;
+    args.workerId = context.workerId;
+    args.siteId = context.siteId;
 
     if (toolName === "WorkerDiaryToDatabase") {
         if (!args.date) args.date = context.nowISO;

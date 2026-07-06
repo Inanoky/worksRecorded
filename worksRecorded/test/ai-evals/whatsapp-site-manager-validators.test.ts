@@ -22,6 +22,7 @@ describe("WhatsApp site-manager eval validators", () => {
       siteId: "site-1",
       userId: "user-1",
       workerId: null,
+      Date: null,
       Location: "2 stāvs",
       Works: "Apmetums",
       Comments: "Apmestas sienas 2. stāvā, 4 h.",
@@ -39,6 +40,7 @@ describe("WhatsApp site-manager eval validators", () => {
       siteId: "site-1",
       userId: "user-1",
       workerId: null,
+      Date: null,
       Location: "Project",
       Works: "Ūdens trubas, kanalizācija un radiatori",
       Comments: "Ūdens trubas plus kanalizācija, ūdens radiatori, divpadsmit stundas.",
@@ -57,6 +59,7 @@ describe("WhatsApp site-manager eval validators", () => {
       siteId: "site-1",
       userId: "user-1",
       workerId: null,
+      Date: null,
       Location: "1 stāvs",
       Works: "Pārseguma paneļu montāža",
       Comments: "Montēti pārseguma paneļi 1. stāvā, trīs strādnieki, 6 h.",
@@ -75,11 +78,12 @@ describe("WhatsApp site-manager eval validators", () => {
       siteId: "site-1",
       userId: "user-1",
       workerId: null,
-      Location: "Objekts",
-      Works: "Uzkopšanas darbi",
-      Comments: "Tiek veikti objekta uzkopšanas darbi.",
+      Date: null,
+      Location: "Telpa",
+      Works: "Telpas tīrīšana",
+      Comments: "Šodien iztīrīta telpa.",
       originalUserComment:
-        "Test Manager : izveido ierakstu priekš BIS sistēmas par to, ka tiek veikti objekta uzkopšans darbi",
+        "Test Manager : Pievieno BIS sistēmā, ka šodien iztīrījām telpu.",
       originalAudioUrl: null,
       WorkersInvolved: null,
       TimeInvolved: null,
@@ -97,6 +101,7 @@ describe("WhatsApp site-manager eval validators", () => {
         siteId: "site-1",
         userId: "user-1",
         workerId: null,
+        Date: null,
         Location: "3 stāvs",
         Works: "Finishing",
         Comments: "Ieklātas grīdas",
@@ -122,6 +127,7 @@ describe("WhatsApp site-manager eval validators", () => {
         siteId: "site-1",
         userId: "user-1",
         workerId: null,
+        Date: null,
         Location: "Project",
         Works: "Notes",
         Comments: "Darbi objektā",
@@ -147,6 +153,7 @@ describe("WhatsApp site-manager eval validators", () => {
         siteId: "site-1",
         userId: "user-1",
         workerId: null,
+        Date: null,
         Location: "Project",
         Works: "Finishing",
         Comments: "Ieklātas grīdas 3. stāvā, 2 cilvēki, 3 h.",
@@ -253,6 +260,7 @@ describe("WhatsApp site-manager eval validators", () => {
         siteId: "site-1",
         userId: "user-1",
         workerId: null,
+        Date: null,
         Location: "3 stāvs",
         Works: "Finishing",
         Comments: "Ieklātas grīdas",
@@ -279,12 +287,48 @@ describe("WhatsApp site-manager eval validators", () => {
       record: ambiguousBisRecord(),
       records: [ambiguousBisRecord()],
       answer:
-        "Krišjāni, informācija saglabāta kā objekta dienasgrāmatas ieraksts. BIS iesniegšanu vari veikt WorksRecorded portālā.",
+        "Telpas tīrīšana saglabāta WorksRecorded dienasgrāmatā. Saglabātie darbu ieraksti ir piemēroti vēlākai iesniegšanai BIS no WorksRecorded portāla.",
     });
 
     expect(result.status).toBe("pass");
     expect(result.results.find((item) => item.name === "answer-signal:saglab")?.status).toBe("pass");
     expect(result.results.find((item) => item.name === "forbidden-answer-signals")?.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "answer-sentence-limit")?.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "first-sentence-signal:saglab")?.status).toBe("pass");
+  });
+
+  it("fails mixed BIS guidance when the save confirmation is not first", () => {
+    if (!ambiguousBisCase) throw new Error("Missing ambiguous BIS eval case");
+
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: ambiguousBisCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: ambiguousBisRecord(),
+      records: [ambiguousBisRecord()],
+      answer:
+        "BIS iesniegšana notiek WorksRecorded portālā. Telpas tīrīšana saglabāta; saglabātie darbu ieraksti ir piemēroti vēlākai iesniegšanai.",
+    });
+
+    expect(result.status).toBe("fail");
+    expect(result.results.find((item) => item.name === "first-sentence-signal:saglab")?.status).toBe("fail");
+  });
+
+  it("fails mixed BIS guidance when it exceeds two sentences", () => {
+    if (!ambiguousBisCase) throw new Error("Missing ambiguous BIS eval case");
+
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: ambiguousBisCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: ambiguousBisRecord(),
+      records: [ambiguousBisRecord()],
+      answer:
+        "Telpas tīrīšana saglabāta WorksRecorded dienasgrāmatā. Saglabātie darbu ieraksti ir piemēroti BIS. Iesniegšanu veic WorksRecorded portālā.",
+    });
+
+    expect(result.status).toBe("fail");
+    expect(result.results.find((item) => item.name === "answer-sentence-limit")?.status).toBe("fail");
   });
 
   it("fails ambiguous BIS mention if answer claims BIS submission was completed", () => {
@@ -319,5 +363,69 @@ describe("WhatsApp site-manager eval validators", () => {
 
     expect(result.status).toBe("fail");
     expect(result.results.find((item) => item.name === "record-created")?.status).toBe("fail");
+  });
+
+  it("passes an explicit no-save case when no record is created and clarification is returned", () => {
+    const noSaveCase = whatsappSiteManagerEvalCases.find(
+      (item) => item.id === "ambiguous-reference-does-not-save",
+    );
+    if (!noSaveCase) throw new Error("Missing ambiguous no-save eval case");
+
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: noSaveCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: null,
+      records: [],
+      answer: "Lūdzu precizē, ko tieši vēlies saglabāt.",
+    });
+
+    expect(result.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "record-created")?.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "record-count")?.status).toBe("pass");
+  });
+
+  it("validates the persisted date for an explicit historical-date case", () => {
+    const historicalDateCase = whatsappSiteManagerEvalCases.find(
+      (item) => item.id === "latvian-explicit-historical-date",
+    );
+    if (!historicalDateCase) throw new Error("Missing historical-date eval case");
+
+    const baseRecord = {
+      id: "record-date",
+      siteId: "site-1",
+      userId: "user-1",
+      workerId: null,
+      Date: new Date("2026-06-15T00:00:00.000Z"),
+      Location: "2 stāvs",
+      Works: "Sienu krāsošana",
+      Comments: "Krāsotas sienas 2. stāvā, 3 h.",
+      originalUserComment:
+        "Test Manager : Saglabā par 2026. gada 15. jūniju: 2. stāvā krāsotas sienas, 3h.",
+      originalAudioUrl: null,
+      WorkersInvolved: null,
+      TimeInvolved: 3,
+      createdAt: new Date("2026-07-01T00:00:00.000Z"),
+    };
+
+    const passing = validateWhatsappSiteManagerRecord({
+      evalCase: historicalDateCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: baseRecord,
+      records: [baseRecord],
+    });
+    const failing = validateWhatsappSiteManagerRecord({
+      evalCase: historicalDateCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: { ...baseRecord, Date: new Date("2026-06-16T00:00:00.000Z") },
+      records: [{ ...baseRecord, Date: new Date("2026-06-16T00:00:00.000Z") }],
+    });
+
+    expect(passing.status).toBe("pass");
+    expect(passing.results.find((item) => item.name === "record-date")?.status).toBe("pass");
+    expect(failing.status).toBe("fail");
+    expect(failing.results.find((item) => item.name === "record-date")?.status).toBe("fail");
   });
 });

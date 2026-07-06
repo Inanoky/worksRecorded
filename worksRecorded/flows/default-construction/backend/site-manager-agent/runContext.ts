@@ -16,6 +16,12 @@ export type SiteManagerAgentRunOptions = {
   traceTags?: string[];
   evalRecordMetadata?: Record<string, unknown>;
   model?: string;
+  bisConnectionOverride?: {
+    status: "not-connected" | "case-not-selected" | "ready";
+    siteName?: string;
+    caseNumber?: string;
+    caseName?: string;
+  };
 };
 
 export type SiteManagerAgentRunContext = SiteManagerAgentRunOptions & {

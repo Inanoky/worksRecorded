@@ -140,6 +140,16 @@ function getSlowThresholdMs() {
   return parsed;
 }
 
+function getSimulatedBisConnection(evalCase: WhatsAppSiteManagerEvalCase) {
+  if (!evalCase.simulatedBisConnection) return undefined;
+  return {
+    status: evalCase.simulatedBisConnection,
+    siteName: "AI Eval Site",
+    caseNumber: evalCase.simulatedBisConnection === "ready" ? "EVAL-BIS-001" : undefined,
+    caseName: evalCase.simulatedBisConnection === "ready" ? "AI Eval BIS Case" : undefined,
+  } as const;
+}
+
 function summarizeLatency(results: CaseRunResult[], slowThresholdMs: number) {
   const cases = results.map((item) => ({
     caseId: item.caseId,
@@ -196,11 +206,13 @@ function prepareWebhookPayload(args: {
   businessPhoneNumberId: string;
   senderPhone: string;
   bsuid: string;
+  body?: string;
+  messageSuffix?: string;
 }) {
   const payload = cloneWebhook(args.evalCase.webhook);
   const value = firstValue(payload);
   const message = firstMessage(payload);
-  const messageId = `wamid.eval.${args.runId}.${args.evalCase.id}`;
+  const messageId = `wamid.eval.${args.runId}.${args.evalCase.id}${args.messageSuffix ? `.${args.messageSuffix}` : ""}`;
 
   if (!value || !message) {
     throw new Error(`Invalid WhatsApp eval webhook fixture for ${args.evalCase.id}.`);
@@ -220,6 +232,12 @@ function prepareWebhookPayload(args: {
   message.from = args.senderPhone;
   message.from_user_id = args.bsuid;
   message.id = messageId;
+  if (args.body !== undefined) {
+    message.type = "text";
+    message.text = { body: args.body };
+    delete message.image;
+    delete message.audio;
+  }
 
   return {
     payload,
@@ -316,6 +334,7 @@ async function findCreatedRecords(args: {
   inputText: string;
   runId: string;
   caseId: string;
+  includeTextFallback?: boolean;
 }) {
   return prisma.sitediaryrecords.findMany({
     where: {
@@ -331,11 +350,11 @@ async function findCreatedRecords(args: {
             { evalMetadata: { path: ["caseId"], equals: args.caseId } },
           ],
         },
-        {
+        ...(args.includeTextFallback === false ? [] : [{
           originalUserComment: {
             contains: args.inputText,
           },
-        },
+        }]),
       ],
     },
     orderBy: { createdAt: "desc" },
@@ -344,6 +363,7 @@ async function findCreatedRecords(args: {
       siteId: true,
       userId: true,
       workerId: true,
+      Date: true,
       Location: true,
       Works: true,
       Comments: true,
@@ -362,6 +382,7 @@ async function cleanupPreviousEvalCaseRows(args: {
   userId: string;
   inputText: string;
   caseId: string;
+  includeTextFallback?: boolean;
 }) {
   await prisma.sitediaryrecords.deleteMany({
     where: {
@@ -375,15 +396,17 @@ async function cleanupPreviousEvalCaseRows(args: {
     },
   });
 
-  await prisma.sitediaryrecords.deleteMany({
-    where: {
-      siteId: args.siteId,
-      userId: args.userId,
-      originalUserComment: {
-        contains: args.inputText,
+  if (args.includeTextFallback !== false) {
+    await prisma.sitediaryrecords.deleteMany({
+      where: {
+        siteId: args.siteId,
+        userId: args.userId,
+        originalUserComment: {
+          contains: args.inputText,
+        },
       },
-    },
-  });
+    });
+  }
 }
 
 async function cleanupEvalRows(args: {
@@ -461,7 +484,13 @@ async function main() {
   const enableJudge = hasArg("--judge") || process.env.AI_EVAL_ENABLE_JUDGE === "true";
 
   if (dryRun) {
-    console.log(`Loaded ${whatsappSiteManagerEvalCases.length} WhatsApp site-manager eval cases.`);
+    const interactions = whatsappSiteManagerEvalCases.reduce(
+      (count, evalCase) => count + 1 + (evalCase.followUp ? 1 : 0),
+      0,
+    );
+    console.log(
+      `Loaded ${whatsappSiteManagerEvalCases.length} WhatsApp site-manager eval cases / ${interactions} interactions.`,
+    );
     return;
   }
 
@@ -531,6 +560,15 @@ async function main() {
           inputText: prepared.inputText,
           caseId: evalCase.id,
         });
+        if (evalCase.followUp) {
+          await cleanupPreviousEvalCaseRows({
+            siteId,
+            userId,
+            inputText: evalCase.followUp.body,
+            caseId: `${evalCase.id}-follow-up`,
+            includeTextFallback: false,
+          });
+        }
 
         await seedEvalIdentity({
           userId,
@@ -549,6 +587,7 @@ async function main() {
               traceMetadata: evalTraceMetadata,
               traceTags: evalTraceTags,
               evalRecordMetadata,
+              bisConnectionOverride: getSimulatedBisConnection(evalCase),
             },
             () =>
               POST({
@@ -630,6 +669,127 @@ async function main() {
               : "PASS";
         const latencyLabel = latencyMs >= slowThresholdMs ? `${latencyMs}ms, slow` : `${latencyMs}ms`;
         console.log(`[${marker}] ${evalCase.id} (${latencyLabel})`);
+
+        if (evalCase.followUp) {
+          const followUpId = `${evalCase.id}-follow-up`;
+          const followUpCase: WhatsAppSiteManagerEvalCase = {
+            ...evalCase,
+            id: followUpId,
+            intent: `${evalCase.intent} Follow-up must use the same conversation context and provide state-aware BIS connection guidance without saving another record.`,
+            expected: evalCase.followUp.expected,
+            followUp: undefined,
+          };
+          const followUpPrepared = prepareWebhookPayload({
+            evalCase,
+            runId,
+            businessPhoneNumberId,
+            senderPhone,
+            bsuid,
+            body: evalCase.followUp.body,
+            messageSuffix: "follow-up",
+          });
+          const followUpStartedAt = new Date();
+          const followUpStarted = Date.now();
+          const followUpTraceMetadata = {
+            evalRunId: runId,
+            evalCaseId: followUpId,
+            evalMode: "real-meta-webhook-regression-follow-up",
+            webhookMessageId: followUpPrepared.messageId,
+          };
+          const followUpRecordMetadata = {
+            isEval: true,
+            flow: "whatsapp-site-manager",
+            runId,
+            caseId: followUpId,
+            messageId: followUpPrepared.messageId,
+            createdBy: "ai-eval-runner",
+          };
+          const followUpTracedRun = await runWithStructuredSaveTrace(() =>
+            runWithSiteManagerAgentEvalContext(
+              {
+                threadId,
+                model: agentModel,
+                traceMetadata: followUpTraceMetadata,
+                traceTags: [...evalTraceTags, "eval-follow-up"],
+                evalRecordMetadata: followUpRecordMetadata,
+                bisConnectionOverride: getSimulatedBisConnection(evalCase),
+              },
+              () => POST({ json: async () => followUpPrepared.payload } as Request),
+            ),
+          );
+          const followUpAgentRun = followUpTracedRun.result;
+          const followUpLatencyMs = Date.now() - followUpStarted;
+          if (followUpAgentRun.result.status !== 200) {
+            throw new Error(`Webhook returned status ${followUpAgentRun.result.status} for ${followUpId}.`);
+          }
+
+          const followUpCreatedRecords = await findCreatedRecords({
+            siteId,
+            userId,
+            startedAt: followUpStartedAt,
+            inputText: followUpPrepared.inputText,
+            runId,
+            caseId: followUpId,
+            includeTextFallback: false,
+          });
+          const followUpPersistedRecords = getPersistedEvalRecordsFromTrace(followUpTracedRun.entries);
+          const followUpRecordIds = Array.from(new Set(
+            [...followUpPersistedRecords, ...followUpCreatedRecords].map((record) => record.id),
+          ));
+          createdRecordIds = Array.from(new Set([...createdRecordIds, ...followUpRecordIds]));
+          const followUpRecordsForValidation = selectRecordsForWhatsappEval({
+            traceEntries: followUpTracedRun.entries,
+            fallbackRecords: followUpCreatedRecords,
+          });
+          const followUpSelectedRecord = selectNewestEvalRecord(followUpRecordsForValidation);
+          const followUpDeterministic = validateWhatsappSiteManagerRecord({
+            evalCase: followUpCase,
+            siteId,
+            userId,
+            record: followUpSelectedRecord,
+            records: followUpRecordsForValidation,
+            answer: followUpAgentRun.details?.content ?? "",
+          });
+          const followUpJudge = judgeClient && judgeModel
+            ? await judgeRecord({
+                client: judgeClient,
+                model: judgeModel,
+                evalCase: followUpCase,
+                inputText: followUpPrepared.inputText,
+                record: followUpSelectedRecord,
+                deterministic: followUpDeterministic,
+              })
+            : {
+                status: "skipped" as const,
+                explanation: "Run with --judge or AI_EVAL_ENABLE_JUDGE=true to enable LLM judging.",
+                improvements: [],
+              };
+
+          results.push({
+            caseId: followUpId,
+            webhookMessageId: followUpPrepared.messageId,
+            inputPreview: preview(followUpPrepared.inputText),
+            createdRecordIds: followUpRecordIds,
+            selectedRecord: followUpSelectedRecord,
+            answer: followUpAgentRun.details?.content ?? "",
+            requestedModel: followUpAgentRun.details?.requestedModel ?? agentModel,
+            actualModel: followUpAgentRun.details?.actualModel ?? null,
+            tokenUsage: followUpAgentRun.details?.tokenUsage ?? null,
+            finishReason: followUpAgentRun.details?.finishReason ?? null,
+            structuredSaveTrace: followUpTracedRun.entries,
+            deterministic: followUpDeterministic,
+            judge: followUpJudge,
+            latencyMs: followUpLatencyMs,
+            threadId,
+          });
+
+          const followUpMarker = followUpDeterministic.status === "fail" || followUpJudge.status === "fail"
+            ? "FAIL"
+            : followUpDeterministic.heuristic.status === "warn" || followUpJudge.status === "warn"
+              ? "WARN"
+              : "PASS";
+          console.log(`[${followUpMarker}] ${followUpId} (${followUpLatencyMs}ms)`);
+        }
       } finally {
         await cleanupEvalRows({
           businessPhoneNumberId,
