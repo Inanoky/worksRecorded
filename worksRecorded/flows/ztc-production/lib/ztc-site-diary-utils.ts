@@ -728,7 +728,7 @@ export async function exportZtcPayrollToExcel({
   XLSX.utils.book_append_sheet(workbook, payrollWorksheet, "Algu ieraksti");
   XLSX.writeFile(
     workbook,
-    `ZTC-Algu-aprekins-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.xlsx`,
+    `Razosana-Algu-aprekins-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.xlsx`,
   );
 }
 
@@ -883,6 +883,6 @@ export async function exportZtcProductivityToExcel({
   XLSX.utils.book_append_sheet(workbook, worksheet, "Produktivitate");
   XLSX.writeFile(
     workbook,
-    `ZTC-Produktivitate-${filenameDatePart}.xlsx`,
+    `Razosana-Produktivitate-${filenameDatePart}.xlsx`,
   );
 }
