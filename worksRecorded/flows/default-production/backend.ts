@@ -1,1 +1,1 @@
-export { handleWorkerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/worker";
+export { handleWorkerRoute } from "@/flows/default-production/backend/worker";

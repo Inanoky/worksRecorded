@@ -1,37 +1,22 @@
-import { CLIENT_FLOW_IDS, type ClientFlowId } from "@/lib/client-flows/constants";
-import { DefaultProductionFlow } from "@/flows/default-construction/frontend";
-import { TgemFlowPlaceholder } from "@/flows/tgem-invoice-approval/frontend";
-import { ZtcProductionFlow } from "@/flows/ztc-production/frontend";
+import { getFlowFrontendModule } from "@/components/client-flows/flow-frontend-registry";
+import type { FlowModuleKey } from "@/lib/flows/types";
 
 type ClientFlowDashboardProps = {
-  flowId: ClientFlowId;
+  flowModuleKey: FlowModuleKey;
   siteId: string;
   bisEnabled: boolean;
   organizationLanguage?: string | null;
 };
 
 export function ClientFlowDashboard({
-  flowId,
+  flowModuleKey,
   siteId,
   bisEnabled,
   organizationLanguage,
 }: ClientFlowDashboardProps) {
-  if (flowId === CLIENT_FLOW_IDS.TGEM) {
-    return <TgemFlowPlaceholder />;
-  }
-
-  if (flowId === CLIENT_FLOW_IDS.ZTC) {
-    return (
-      <ZtcProductionFlow
-        siteId={siteId}
-        bisEnabled={bisEnabled}
-        organizationLanguage={organizationLanguage}
-      />
-    );
-  }
-
+  const FlowDashboard = getFlowFrontendModule(flowModuleKey).Dashboard;
   return (
-    <DefaultProductionFlow
+    <FlowDashboard
       siteId={siteId}
       bisEnabled={bisEnabled}
       organizationLanguage={organizationLanguage}

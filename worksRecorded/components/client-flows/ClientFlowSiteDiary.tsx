@@ -1,21 +1,12 @@
-import { CLIENT_FLOW_IDS, type ClientFlowId } from "@/lib/client-flows/constants";
-import { DefaultSiteDiaryFlow } from "@/flows/default-construction/frontend";
-import { TgemFlowPlaceholder } from "@/flows/tgem-invoice-approval/frontend";
-import { ZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend";
+import { getFlowFrontendModule } from "@/components/client-flows/flow-frontend-registry";
+import type { FlowModuleKey } from "@/lib/flows/types";
 
 type ClientFlowSiteDiaryProps = {
-  flowId: ClientFlowId;
+  flowModuleKey: FlowModuleKey;
   siteId: string;
 };
 
-export function ClientFlowSiteDiary({ flowId, siteId }: ClientFlowSiteDiaryProps) {
-  if (flowId === CLIENT_FLOW_IDS.TGEM) {
-    return <TgemFlowPlaceholder />;
-  }
-
-  if (flowId === CLIENT_FLOW_IDS.ZTC) {
-    return <ZtcSiteDiaryFlow siteId={siteId} />;
-  }
-
-  return <DefaultSiteDiaryFlow siteId={siteId} />;
+export function ClientFlowSiteDiary({ flowModuleKey, siteId }: ClientFlowSiteDiaryProps) {
+  const FlowSiteDiary = getFlowFrontendModule(flowModuleKey).SiteDiary;
+  return <FlowSiteDiary siteId={siteId} />;
 }

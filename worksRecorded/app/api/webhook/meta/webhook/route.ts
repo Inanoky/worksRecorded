@@ -8,9 +8,9 @@ import {
   getString,
   normalizePhone,
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { handleWorkerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/worker";
+import { handleWorkerRoute } from "@/flows/default-production/backend";
 
-import { handleSiteManagerRoute } from "@/lib/utils/whatsapp-helpers/handling-roles-routes/site-manager-route";
+import { handleSiteManagerRoute } from "@/flows/default-construction/backend";
 import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { getMetaGraphBaseUrl } from "@/lib/utils/whatsapp-helpers/meta/config";
 import {
@@ -31,12 +31,14 @@ import {
 } from "@/app/api/webhook/meta/webhook/helperes";
 import {
   handleZtcWorkerRoute,
-} from "@/app/api/webhook/meta/webhook/ZTC/ztc-workflow";
+} from "@/flows/ztc-production/backend";
 import {
   handleZtcQualityRoute,
   isZtcQualityWorkerRole,
-} from "@/app/api/webhook/meta/webhook/ZTC/ztc-quality-workflow";
+} from "@/flows/ztc-production/backend";
 import { resolveZtcProductionContextForWorker } from "@/lib/production-flow/runtime-server";
+import { resolveWorkerFlowRuntime } from "@/lib/flows/worker-runtime-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
@@ -712,7 +714,8 @@ async function runWhatsappRoutingForMeta(args: {
       role: worker?.role ?? null,
     });
 
-    const ztcFlowContext = worker
+    const workerFlowRuntime = worker ? await resolveWorkerFlowRuntime(worker) : null;
+    const ztcFlowContext = workerFlowRuntime?.flowModuleKey === FLOW_MODULE_KEYS.ZTC_PRODUCTION && worker
       ? await resolveZtcProductionContextForWorker(worker)
       : null;
     const ztcWorker = ztcFlowContext

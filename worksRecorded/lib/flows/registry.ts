@@ -19,6 +19,10 @@ export function getFlowModules() {
   return [...FLOW_MODULES];
 }
 
+export function getFlowModuleUi(key?: string | null) {
+  return getFlowModuleByKey(key)?.ui ?? {};
+}
+
 export function getAssignableProductionFlowModules() {
   return FLOW_MODULES.filter((module) => module.category === "production" && module.productionConfigKey);
 }
@@ -34,6 +38,14 @@ export function getFlowModuleByProductionConfigKey(key?: string | null) {
 export function getClientFlowIdForFlowModuleKey(key?: string | null): FlowModuleClientFlowId {
   const module = getFlowModuleByKey(key);
   return module?.clientFlowId ?? "default";
+}
+
+export function shouldShowDashboardAiWidgetForFlowModule(key?: string | null) {
+  return getFlowModuleByKey(key)?.ui?.showDashboardAiWidget ?? true;
+}
+
+export function shouldShowSiteDiaryAiWidgetForFlowModule(key?: string | null) {
+  return getFlowModuleByKey(key)?.ui?.showSiteDiaryAiWidget ?? false;
 }
 
 export function isFlowModuleKey(value: string): value is FlowModuleKey {

@@ -8,8 +8,8 @@ import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import FullPhotoGallery from "@/components/sitediary/FullGalleryViewLazy";
 import { ClientFlowSiteDiary } from "@/components/client-flows/ClientFlowSiteDiary";
-import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
-import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { shouldShowSiteDiaryAiWidgetForFlowModule } from "@/lib/flows/registry";
 
 
 
@@ -25,11 +25,11 @@ export default async function Home({
   if (!siteCheck) {
     notFound();
   }
-  const flowId = await resolveClientFlowForRuntime({
+  const flowModuleKey = await resolveFlowModuleKeyForRuntime({
     organizationId: siteCheck.organizationId ?? null,
     siteId,
   });
-  const showAiWidget = flowId === CLIENT_FLOW_IDS.DEFAULT;
+  const showAiWidget = shouldShowSiteDiaryAiWidgetForFlowModule(flowModuleKey);
 
 
 
@@ -41,7 +41,7 @@ export default async function Home({
          <TourRunner steps={getJoyRideSteps("en").steps_dashboard_siteid_site_diary} stepName="steps_dashboard_siteid_site_diary"/>
    
               
-      <ClientFlowSiteDiary flowId={flowId} siteId={siteId} />
+      <ClientFlowSiteDiary flowModuleKey={flowModuleKey} siteId={siteId} />
  
     {showAiWidget ? <AiWidgetRag siteId={siteId} /> : null}
   

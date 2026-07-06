@@ -21,8 +21,8 @@ import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { PhoneRequiredDialog } from "@/components/dashboard/PhoneRequiredDialog";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { saveUserPhone } from "@/server/actions/shared-actions";
-import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
-import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
+import { getFlowModuleUi } from "@/lib/flows/registry";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 
 async function getData(orgId: string) {
   const [sites] = await Promise.all([
@@ -95,8 +95,9 @@ export default async function Welcome() {
   const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
   const t = getDashboardMessages(organizationLanguage);
   const { sites } = await getData(orgId);
-  const isZtcOrganization =
-    (await resolveClientFlowForRuntime({ organizationId: orgId })) === CLIENT_FLOW_IDS.ZTC;
+  const flowModuleKey = await resolveFlowModuleKeyForRuntime({ organizationId: orgId });
+  const flowUi = getFlowModuleUi(flowModuleKey);
+  const hideCreateProject = Boolean(flowUi.hideCreateProject);
 
   return (
     <>
@@ -104,11 +105,11 @@ export default async function Welcome() {
       <PhoneRequiredDialog needsPhone={needsPhone} action={setPhone} />
 
       {/* Tour only runs after phone is set */}
-      {!needsPhone && !isZtcOrganization && (
+      {!needsPhone && !hideCreateProject && (
         <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_dashboard} stepName="steps_dashboard" />
       )}
 
-      {!isZtcOrganization ? (
+      {!hideCreateProject ? (
         <div className="flex w-full justify-end">
           <Button asChild>
             <Link href={"/dashboard/sites/new"} data-tour="create-project">
@@ -152,7 +153,7 @@ export default async function Welcome() {
               </Card>
             ))}
           </div>
-        ) : isZtcOrganization ? (
+        ) : hideCreateProject ? (
           <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-8 text-center animate-in fade-in-50">
             <h2 className="mt-2 text-xl font-semibold">{t.emptyTitle}</h2>
             <p className="mt-2 max-w-sm text-center text-sm leading-tight text-muted-foreground">

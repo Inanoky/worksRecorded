@@ -15,8 +15,8 @@ import { redirect } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
-import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
-import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
+import { getFlowModuleUi } from "@/lib/flows/registry";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 
 const SUPER_USER_IDS = new Set([process.env.SUPERADMIN]);
 
@@ -49,11 +49,12 @@ export default async function DashboardIndexPage() {
   const t = getDashboardMessages(organizationLanguage);
 
   const { sites } = await getData(org, isSuperUser);
-  const isZtcOrganization =
-    (await resolveClientFlowForRuntime({ organizationId: org })) === CLIENT_FLOW_IDS.ZTC;
+  const flowModuleKey = await resolveFlowModuleKeyForRuntime({ organizationId: org });
+  const flowUi = getFlowModuleUi(flowModuleKey);
+  const hideCreateProject = Boolean(flowUi.hideCreateProject);
   const tourSteps = sites.length > 0
     ? getJoyRideSteps(organizationLanguage).steps_dashboard_sites_open_project
-    : isZtcOrganization
+    : hideCreateProject
       ? []
       : getJoyRideSteps(organizationLanguage).steps_dashboard_create_project_cta;
   const tourStepName = sites.length > 0
@@ -66,7 +67,7 @@ export default async function DashboardIndexPage() {
         <TourRunner steps={tourSteps} stepName={tourStepName} />
       ) : null}
 
-      {!isZtcOrganization ? (
+      {!hideCreateProject ? (
         <div className="flex w-full justify-end">
           <Button asChild>
             <Link href={"/dashboard/sites/new"} data-tour="create-project">
@@ -106,7 +107,7 @@ export default async function DashboardIndexPage() {
               </Card>
             ))}
           </div>
-        ) : isZtcOrganization ? (
+        ) : hideCreateProject ? (
           <div className="flex flex-col items-center justify-center rounded-md border border-dashed p-8 text-center animate-in fade-in-50">
             <h2 className="mt-2 text-xl font-semibold">{t.emptyTitle}</h2>
             <p className="mt-2 max-w-sm text-center text-sm leading-tight text-muted-foreground">

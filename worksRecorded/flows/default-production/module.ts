@@ -8,13 +8,24 @@ export const defaultProductionFlowModule = {
   clientFlowId: "default",
   productionConfigKey: "default-production",
   configurableAreas: ["labels", "features", "rates", "exports", "WhatsApp commands"],
+  ui: {
+    showDashboardAiWidget: true,
+    showSiteDiaryAiWidget: false,
+    hideCreateProject: true,
+    hideOrganizationMaterialSettings: true,
+    hideBisSettings: true,
+    hideSiteAreaSettings: true,
+    hideMemberReminderSettings: true,
+  },
   entryPoints: {
     frontend: [
       "flows/default-production/frontend.ts",
-      "flows/default-construction/frontend",
+      "flows/default-production/frontend",
     ],
     backend: [
       "flows/default-production/backend.ts",
+      "flows/default-production/backend/worker.ts",
+      "flows/default-production/backend/worker-route.ts",
     ],
   },
 } satisfies FlowModuleDefinition;

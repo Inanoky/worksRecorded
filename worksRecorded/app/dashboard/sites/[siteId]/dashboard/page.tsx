@@ -8,8 +8,8 @@ import { ClientFlowDashboard } from "@/components/client-flows/ClientFlowDashboa
 import { getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
 import { getOrganizationLanguageByUserId, getSiteOrganizationIdBySiteId } from "@/server/actions/shared-actions";
 import { sendFirstProjectWelcomeTemplateIfNeeded } from "@/server/actions/onboarding-actions";
-import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
-import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { shouldShowDashboardAiWidgetForFlowModule } from "@/lib/flows/registry";
 
 export const maxDuration = 800;
 
@@ -37,7 +37,7 @@ export default async function InvoiceRoute({
   } else {
     siteOrganizationId = await getSiteOrganizationIdBySiteId(siteId);
   }
-  const flowId = await resolveClientFlowForRuntime({ organizationId: siteOrganizationId, siteId });
+  const flowModuleKey = await resolveFlowModuleKeyForRuntime({ organizationId: siteOrganizationId, siteId });
 
   // --- Group 1: Data fetch (can stay as-is) ---
   const [
@@ -68,12 +68,12 @@ export default async function InvoiceRoute({
       </div>
 
       <ClientFlowDashboard
-        flowId={flowId}
+        flowModuleKey={flowModuleKey}
         siteId={siteId}
         bisEnabled={Boolean(siteBisStatus?.bisCaseId && userBisToken?.accessToken)}
         organizationLanguage={organizationLanguage}
       />
-      {flowId !== CLIENT_FLOW_IDS.TGEM ? <AiWidgetRag siteId={siteId} /> : null}
+      {shouldShowDashboardAiWidgetForFlowModule(flowModuleKey) ? <AiWidgetRag siteId={siteId} /> : null}
     </>
   );
 }

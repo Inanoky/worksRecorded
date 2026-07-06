@@ -12,8 +12,8 @@ import {
   getOrganizationMaterialConfigurationTemplateOptions,
   getOrganizationMaterialConfigurationTemplates,
 } from "@/server/actions/material-configuration-template-actions";
-import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
-import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
+import { getFlowModuleUi } from "@/lib/flows/registry";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { redirect } from "next/navigation";
 
 export default async function SettingsSiteRoute() {
@@ -23,14 +23,16 @@ export default async function SettingsSiteRoute() {
     redirect("/dashboard");
   }
 
-  const isZtcOrganization =
-    (await resolveClientFlowForRuntime({ organizationId: orgId })) === CLIENT_FLOW_IDS.ZTC;
+  const flowModuleKey = await resolveFlowModuleKeyForRuntime({ organizationId: orgId });
+  const flowUi = getFlowModuleUi(flowModuleKey);
+  const hideOrganizationMaterialSettings = Boolean(flowUi.hideOrganizationMaterialSettings);
+  const hideMemberReminderSettings = Boolean(flowUi.hideMemberReminderSettings);
   const userData = await getUserData(orgId);
   const workersData = await getOrganizationWorkers(orgId);
-  const materialConfigurationTemplates = orgId && !isZtcOrganization
+  const materialConfigurationTemplates = orgId && !hideOrganizationMaterialSettings
     ? await getOrganizationMaterialConfigurationTemplates(orgId)
     : [];
-  const materialConfigurationTemplateOptions = orgId && !isZtcOrganization
+  const materialConfigurationTemplateOptions = orgId && !hideOrganizationMaterialSettings
     ? await getOrganizationMaterialConfigurationTemplateOptions(orgId)
     : { materialMeasures: [], materialTypes: [] };
   const currentLanguage = await getOrganizationLanguageByUserId(user.id);
@@ -38,7 +40,7 @@ export default async function SettingsSiteRoute() {
   return (
     <>
       <OrganizationLanguageSwitcher currentLanguage={currentLanguage} />
-      {!isZtcOrganization ? (
+      {!hideOrganizationMaterialSettings ? (
         <MaterialConfigurationTemplatesSettings
           orgId={orgId || ""}
           templates={materialConfigurationTemplates}
@@ -54,17 +56,17 @@ export default async function SettingsSiteRoute() {
         userid={user.id}
         orgId={orgId}
         organizationLanguage={currentLanguage}
-        hideReminders={isZtcOrganization}
-        hidePhone={isZtcOrganization}
-        hideRole={isZtcOrganization}
-        titleVariant={isZtcOrganization ? "adminPanel" : "default"}
+        hideReminders={hideMemberReminderSettings}
+        hidePhone={Boolean(flowUi.hideMemberPhoneSettings)}
+        hideRole={Boolean(flowUi.hideMemberRoleSettings)}
+        titleVariant={flowUi.settingsTitleVariant ?? "default"}
       />
       <WorkersSettingsTable
         orgId={orgId || ""}
         workers={workersData.workers}
         projects={workersData.projects}
         organizationLanguage={currentLanguage}
-        hideReminders={isZtcOrganization}
+        hideReminders={hideMemberReminderSettings}
       />
     </>
   );

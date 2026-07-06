@@ -16,17 +16,29 @@ export const ztcProductionFlowModule = {
     "exports",
     "WhatsApp strategies",
   ],
+  ui: {
+    showDashboardAiWidget: true,
+    showSiteDiaryAiWidget: false,
+    hideCreateProject: true,
+    hideOrganizationMaterialSettings: true,
+    hideBisSettings: true,
+    hideSiteAreaSettings: true,
+    hideMemberReminderSettings: true,
+    hideMemberPhoneSettings: true,
+    hideMemberRoleSettings: true,
+    settingsTitleVariant: "adminPanel",
+  },
   entryPoints: {
     frontend: [
       "flows/ztc-production/frontend.ts",
-      "components/client-flows/ztc",
+      "flows/ztc-production/frontend",
       "components/sitediary/ZTC",
     ],
     backend: [
       "flows/ztc-production/backend.ts",
-      "app/api/webhook/meta/webhook/ZTC",
-      "components/sitediary/ZTC/actions.ts",
+      "flows/ztc-production/backend/whatsapp-worker.ts",
+      "flows/ztc-production/backend/whatsapp-quality.ts",
+      "flows/ztc-production/backend/actions.ts",
     ],
   },
 } satisfies FlowModuleDefinition;
-

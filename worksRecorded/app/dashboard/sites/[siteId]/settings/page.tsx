@@ -40,8 +40,8 @@ import { UpdateSiteForm } from "./updatesiteform";
 import { getSiteSettingsMessages } from "@/lib/dashboard-i18n";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
-import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
-import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
+import { getFlowModuleUi } from "@/lib/flows/registry";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 
 export default async function SettingsSiteRoute({
   params,
@@ -67,8 +67,10 @@ export default async function SettingsSiteRoute({
     notFound();
   }
 
-  const isZtcOrganization =
-    (await resolveClientFlowForRuntime({ organizationId: orgId, siteId })) === CLIENT_FLOW_IDS.ZTC;
+  const flowModuleKey = await resolveFlowModuleKeyForRuntime({ organizationId: orgId, siteId });
+  const flowUi = getFlowModuleUi(flowModuleKey);
+  const hideBisSettings = Boolean(flowUi.hideBisSettings);
+  const hideSiteAreaSettings = Boolean(flowUi.hideSiteAreaSettings);
 
   const [
     ,
@@ -83,14 +85,14 @@ export default async function SettingsSiteRoute({
     prisma.site.findUnique({
       where: { id: siteId },
     }),
-    isZtcOrganization ? Promise.resolve(null) : getSiteBisConfig(siteId),
+    hideBisSettings ? Promise.resolve(null) : getSiteBisConfig(siteId),
     prisma.sitediarysettings.findUnique({
       where: { siteId },
       select: { fileUrl: true, schema: true },
     }),
     getDataForReminderTable(orgId),
     getReminderTimes(orgId),
-    isZtcOrganization
+    hideBisSettings
       ? Promise.resolve(null)
       : getUserBisTokenByUserId(user.id),
   ]);
@@ -254,7 +256,7 @@ export default async function SettingsSiteRoute({
 
       <div data-tour="settings-image"><UploadImageForm siteId={siteId} organizationLanguage={organizationLanguage} /></div>
 
-      {!isZtcOrganization ? (
+      {!hideBisSettings ? (
         <div data-tour="settings-bis">
           <BisIntegrationCard
             organizationLanguage={organizationLanguage}
@@ -292,7 +294,7 @@ export default async function SettingsSiteRoute({
           geofenceMapLink: site?.geofenceMapLink ?? "",
         }}
         parsedPolygon={parsedPolygon}
-        hideSiteArea={isZtcOrganization}
+        hideSiteArea={hideSiteAreaSettings}
       /></div>
 
       <Card data-tour="settings-danger-zone" className="border-red-500 bg-red-500/10">

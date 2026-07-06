@@ -5,7 +5,8 @@ export const FLOW_MODULE_KEYS = {
   TGEM_INVOICE_APPROVAL: "tgem-invoice-approval",
 } as const;
 
-export type FlowModuleKey = (typeof FLOW_MODULE_KEYS)[keyof typeof FLOW_MODULE_KEYS];
+export type BuiltInFlowModuleKey = (typeof FLOW_MODULE_KEYS)[keyof typeof FLOW_MODULE_KEYS];
+export type FlowModuleKey = BuiltInFlowModuleKey | (string & {});
 
 export type FlowModuleCategory = "construction" | "production" | "invoice-approval";
 
@@ -19,6 +20,18 @@ export type FlowModuleDefinition = {
   clientFlowId: FlowModuleClientFlowId;
   productionConfigKey?: string;
   configurableAreas: string[];
+  ui?: {
+    showDashboardAiWidget?: boolean;
+    showSiteDiaryAiWidget?: boolean;
+    hideCreateProject?: boolean;
+    hideOrganizationMaterialSettings?: boolean;
+    hideBisSettings?: boolean;
+    hideSiteAreaSettings?: boolean;
+    hideMemberReminderSettings?: boolean;
+    hideMemberPhoneSettings?: boolean;
+    hideMemberRoleSettings?: boolean;
+    settingsTitleVariant?: "default" | "adminPanel";
+  };
   entryPoints: {
     frontend: string[];
     backend: string[];

@@ -583,6 +583,21 @@ export default function SiteDiaryCalendar({
     return String(value);
   }
 
+  function formatZtcTimeValue(value: any): string {
+    if (value === null || value === undefined || value === "") {
+      return "";
+    }
+
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) {
+      return String(value);
+    }
+
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${min}`;
+  }
+
   function getTypeByKey(key: string) {
     return defaultMap[key]?.Type ?? null;
   }
@@ -2749,8 +2764,8 @@ export default function SiteDiaryCalendar({
                                       const workerName = splitZtcWorkerDisplayName(row.createdBy);
                                       const payrollDirty = row.id ? ztc.payrollDirtyRowIds.has(row.id) : false;
                                       const payrollSaving = row.id ? ztc.payrollSavingRowId === row.id : false;
-                                      const startTime = formatValueByConfig("Date", row.Date, defaultMap) || "—";
-                                      const endTime = formatValueByConfig("Date_Custom_2", row.Date_Custom_2, defaultMap) || "—";
+                                      const startTime = formatZtcTimeValue(row.Date) || "—";
+                                      const endTime = formatZtcTimeValue(row.Date_Custom_2) || "—";
                                       const amount = row.Amounts === null || row.Amounts === undefined || row.Amounts === ""
                                         ? "—"
                                         : String(row.Amounts);

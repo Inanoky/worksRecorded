@@ -9,7 +9,7 @@ import {
   getZtcDefaultTaskRates,
   updateZtcPayrollFields,
   type ZtcProjectTaskRates,
-} from "@/components/sitediary/ZTC/actions";
+} from "@/flows/ztc-production/backend/actions";
 import { ZtcDefaultRatesDialog } from "@/components/sitediary/ZTC/ZtcDefaultRatesDialog";
 import { ZtcRelatedImageGallery } from "@/components/sitediary/ZTC/ZtcRelatedImageGallery";
 import {

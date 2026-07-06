@@ -25,7 +25,7 @@ import {
   getZtcDialogPrefetchData,
   saveZtcSiteDiaryDialogRows,
   type ZtcProjectTaskRates,
-} from "@/components/sitediary/ZTC/actions";
+} from "@/flows/ztc-production/backend/actions";
 import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 import defaultConfig from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import { useMediaQuery } from "@/components/sitediary/Use-media-querty";

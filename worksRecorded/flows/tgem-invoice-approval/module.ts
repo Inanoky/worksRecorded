@@ -7,6 +7,10 @@ export const tgemInvoiceApprovalFlowModule = {
   category: "invoice-approval",
   clientFlowId: "tgem",
   configurableAreas: ["approval steps", "invoice fields", "cost codes", "navigation"],
+  ui: {
+    showDashboardAiWidget: false,
+    showSiteDiaryAiWidget: false,
+  },
   entryPoints: {
     frontend: [
       "flows/tgem-invoice-approval/frontend.ts",

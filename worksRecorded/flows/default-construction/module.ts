@@ -7,6 +7,10 @@ export const defaultConstructionFlowModule = {
   category: "construction",
   clientFlowId: "default",
   configurableAreas: ["labels", "navigation", "site diary table"],
+  ui: {
+    showDashboardAiWidget: true,
+    showSiteDiaryAiWidget: true,
+  },
   entryPoints: {
     frontend: [
       "flows/default-construction/frontend.ts",
@@ -14,6 +18,8 @@ export const defaultConstructionFlowModule = {
     ],
     backend: [
       "flows/default-construction/backend.ts",
+      "flows/default-construction/backend/site-manager-route.ts",
+      "flows/default-production/backend/worker.ts",
     ],
   },
 } satisfies FlowModuleDefinition;
