@@ -137,7 +137,11 @@ describe("handleAudio", () => {
     );
     expect(sendMessageMock).toHaveBeenCalledWith(
       "whatsapp:+37120000001",
-      expect.stringContaining("Transcription:\nTest transcript"),
+      "AI response",
+    );
+    expect(sendMessageMock).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining("Transcription:"),
     );
   });
 

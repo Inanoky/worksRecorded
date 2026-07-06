@@ -152,8 +152,7 @@ export async function handleAudio(args: {
       aiMessageLength: typeof aiMessage === "string" ? aiMessage.length : null,
     });
 
-    const out = `Transcription:\n${transcript}\n\nAI message:\n${aiMessage}`;
-    await sendWithLengthCheck(to, out);
+    await sendWithLengthCheck(to, aiMessage);
 
   } catch (err) {
     console.error("❌ [handleAudio] error", err);
