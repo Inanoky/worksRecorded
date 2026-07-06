@@ -90,32 +90,39 @@ function normalizeZtcProjectRatesForUi(
   rates: ZtcProjectTaskRates[],
   projectOptions: string[],
 ): ZtcProjectTaskRates[] {
-  const availableProjects = new Set(
-    projectOptions
-      .map((project) => project.trim())
-      .filter(Boolean)
-      .map((project) => project.toLowerCase()),
+  const availableProjectNames = projectOptions
+    .map((project) => project.trim())
+    .filter(Boolean);
+  const availableProjectsByKey = new Map(
+    availableProjectNames.map((project) => [project.toLowerCase(), project]),
   );
   const names = Array.from(
-    new Set([
-      ZTC_ALL_PROJECTS_RATE_NAME,
-      ...projectOptions.map((project) => project.trim()).filter(Boolean),
+    new Map<string, string>([
+      [ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(), ZTC_ALL_PROJECTS_RATE_NAME],
+      ...availableProjectNames.map((project) => [project.toLowerCase(), project] as const),
       ...rates
-        .map((project) => project.projectName)
-        .filter(
-          (project) =>
-            project &&
-            (project === ZTC_ALL_PROJECTS_RATE_NAME ||
-              rates.find((rateProject) => rateProject.projectName === project)?.manual === true ||
-              availableProjects.has(project.toLowerCase())),
-        ),
-    ]),
+        .filter((project) => {
+          const key = project.projectName.trim().toLowerCase();
+          return (
+            key === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase() ||
+            project.manual === true ||
+            availableProjectsByKey.has(key)
+          );
+        })
+        .map((project) => {
+          const name = project.projectName.trim();
+          const key = name.toLowerCase();
+          return [key, availableProjectsByKey.get(key) ?? name] as const;
+        }),
+    ]).values(),
   );
 
   return names.map((name) => {
-    const existing = rates.find((project) => project.projectName === name);
+    const existing = rates.find(
+      (project) => project.projectName.trim().toLowerCase() === name.toLowerCase(),
+    );
     return existing
-      ? { ...emptyZtcProjectRates(name), ...existing }
+      ? { ...emptyZtcProjectRates(name), ...existing, projectName: name }
       : emptyZtcProjectRates(name);
   });
 }
