@@ -1,0 +1,26 @@
+export const FLOW_MODULE_KEYS = {
+  DEFAULT_CONSTRUCTION: "default-construction",
+  DEFAULT_PRODUCTION: "default-production",
+  ZTC_PRODUCTION: "ztc-production",
+  TGEM_INVOICE_APPROVAL: "tgem-invoice-approval",
+} as const;
+
+export type FlowModuleKey = (typeof FLOW_MODULE_KEYS)[keyof typeof FLOW_MODULE_KEYS];
+
+export type FlowModuleCategory = "construction" | "production" | "invoice-approval";
+
+export type FlowModuleClientFlowId = "default" | "ztc" | "tgem";
+
+export type FlowModuleDefinition = {
+  key: FlowModuleKey;
+  name: string;
+  description: string;
+  category: FlowModuleCategory;
+  clientFlowId: FlowModuleClientFlowId;
+  productionConfigKey?: string;
+  configurableAreas: string[];
+  entryPoints: {
+    frontend: string[];
+    backend: string[];
+  };
+};

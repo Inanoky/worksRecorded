@@ -8,7 +8,7 @@ import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import FullPhotoGallery from "@/components/sitediary/FullGalleryViewLazy";
 import { ClientFlowSiteDiary } from "@/components/client-flows/ClientFlowSiteDiary";
-import { resolveClientFlow } from "@/lib/client-flows/resolve-client-flow";
+import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
 import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
 
 
@@ -25,7 +25,7 @@ export default async function Home({
   if (!siteCheck) {
     notFound();
   }
-  const flowId = resolveClientFlow({
+  const flowId = await resolveClientFlowForRuntime({
     organizationId: siteCheck.organizationId ?? null,
     siteId,
   });

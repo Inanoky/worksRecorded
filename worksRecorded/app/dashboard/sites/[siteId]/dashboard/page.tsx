@@ -8,7 +8,7 @@ import { ClientFlowDashboard } from "@/components/client-flows/ClientFlowDashboa
 import { getSiteBisConfig, getUserBisTokenByUserId } from "@/server/actions/BIS/service";
 import { getOrganizationLanguageByUserId, getSiteOrganizationIdBySiteId } from "@/server/actions/shared-actions";
 import { sendFirstProjectWelcomeTemplateIfNeeded } from "@/server/actions/onboarding-actions";
-import { resolveClientFlow } from "@/lib/client-flows/resolve-client-flow";
+import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
 import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
 
 export const maxDuration = 800;
@@ -37,7 +37,7 @@ export default async function InvoiceRoute({
   } else {
     siteOrganizationId = await getSiteOrganizationIdBySiteId(siteId);
   }
-  const flowId = resolveClientFlow({ organizationId: siteOrganizationId, siteId });
+  const flowId = await resolveClientFlowForRuntime({ organizationId: siteOrganizationId, siteId });
 
   // --- Group 1: Data fetch (can stay as-is) ---
   const [

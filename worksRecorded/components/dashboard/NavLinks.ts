@@ -1,7 +1,10 @@
-import { Bot, ChartNoAxesCombined, HardHat, Wrench, ReceiptText, Clock8, Package } from "lucide-react";
+import { Bot, ChartNoAxesCombined, HardHat, SlidersHorizontal, Wrench, ReceiptText, Clock8, Package } from "lucide-react";
 import { getNavigationMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
-export function getNavLinks(language?: string | null, options?: { canAccessAiEvals?: boolean }) {
+export function getNavLinks(
+  language?: string | null,
+  options?: { canAccessAiEvals?: boolean; canAccessFlowConfigAdmin?: boolean },
+) {
   const t = getNavigationMessages(normalizeOrganizationLanguage(language));
 
   const links = [
@@ -11,6 +14,10 @@ export function getNavLinks(language?: string | null, options?: { canAccessAiEva
 
   if (options?.canAccessAiEvals) {
     links.push({ name: "AI Evals", href: "/dev/ai-evals", icon: ChartNoAxesCombined });
+  }
+
+  if (options?.canAccessFlowConfigAdmin) {
+    links.push({ name: "Flow configs", href: "/dashboard/admin/flow-configs", icon: SlidersHorizontal });
   }
 
   return links;

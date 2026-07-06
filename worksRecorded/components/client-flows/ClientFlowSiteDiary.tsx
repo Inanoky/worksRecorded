@@ -1,7 +1,7 @@
 import { CLIENT_FLOW_IDS, type ClientFlowId } from "@/lib/client-flows/constants";
-import { DefaultSiteDiaryFlow } from "@/components/client-flows/default/DefaultSiteDiaryFlow";
-import { TgemFlowPlaceholder } from "@/components/client-flows/tgem/TgemFlowPlaceholder";
-import { ZtcSiteDiaryFlow } from "@/components/client-flows/ztc/ZtcSiteDiaryFlow";
+import { DefaultSiteDiaryFlow } from "@/flows/default-construction/frontend";
+import { TgemFlowPlaceholder } from "@/flows/tgem-invoice-approval/frontend";
+import { ZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend";
 
 type ClientFlowSiteDiaryProps = {
   flowId: ClientFlowId;

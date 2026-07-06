@@ -6,43 +6,57 @@ import { cn } from "@/lib/utils/utils";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
-
-const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
-const ZTC_HIDDEN_PROJECT_NAV_PATHS = new Set(["timesheets", "BIS"]);
+import { getProductionFlowNavigationConfig } from "@/lib/production-flow/config";
 
 export function DashboardItems({
   userEmail,
   organizationLanguage,
   canAccessAiContext = false,
   canAccessAiEvals = false,
+  canAccessFlowConfigAdmin = false,
 }: {
   userEmail?: string | null;
   organizationLanguage?: string | null;
   canAccessAiContext?: boolean;
   canAccessAiEvals?: boolean;
+  canAccessFlowConfigAdmin?: boolean;
 }) {
   const { projectId, projectName, setProject } = useProject();
   const pathname = usePathname();
   const router = useRouter();
   const navLinks = useMemo(
-    () => getNavLinks(organizationLanguage, { canAccessAiEvals }),
-    [canAccessAiEvals, organizationLanguage],
+    () => getNavLinks(organizationLanguage, { canAccessAiEvals, canAccessFlowConfigAdmin }),
+    [canAccessAiEvals, canAccessFlowConfigAdmin, organizationLanguage],
   );
   const projectNavLinks = useMemo(
     () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
     [canAccessAiContext, organizationLanguage],
   );
+  const productionNavigationConfig = useMemo(
+    () => getProductionFlowNavigationConfig({ siteId: projectId }),
+    [projectId],
+  );
+  const hiddenProjectNavPaths = useMemo(
+    () => new Set(productionNavigationConfig?.navigation.hiddenProjectNavPaths ?? []),
+    [productionNavigationConfig],
+  );
   const visibleProjectNavLinks = useMemo(
     () =>
-      projectId === ZTC_SITE_ID
-        ? projectNavLinks.filter((item) => !ZTC_HIDDEN_PROJECT_NAV_PATHS.has(item.path))
+      hiddenProjectNavPaths.size > 0
+        ? projectNavLinks.filter((item) => !hiddenProjectNavPaths.has(item.path))
         : projectNavLinks,
-    [projectId, projectNavLinks],
+    [hiddenProjectNavPaths, projectNavLinks],
   );
   const productionJournalLabel =
     normalizeLanguageLabel(organizationLanguage) === "lv"
       ? "Ražošanas žurnāls"
       : "Production journal";
+
+  const configuredProductionJournalLabel = productionNavigationConfig
+    ? normalizeLanguageLabel(organizationLanguage) === "lv"
+      ? productionNavigationConfig.labels.navigationTitleLv
+      : productionNavigationConfig.labels.navigationTitle
+    : productionJournalLabel;
 
   useEffect(() => {
     const isAboveProject =
@@ -102,8 +116,8 @@ return (
             >
               <item.icon className="size-4" />
               <span className="hidden xl:inline-block">
-                {projectId === ZTC_SITE_ID && item.path === "dashboard"
-                  ? productionJournalLabel
+                {configuredProductionJournalLabel && item.path === "dashboard"
+                  ? configuredProductionJournalLabel
                   : item.name}
               </span>
             </Link>

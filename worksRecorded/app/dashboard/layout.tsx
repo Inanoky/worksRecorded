@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import Link from "next/link";
+import { headers } from "next/headers";
 
 import { DashboardItems } from "@/components/dashboard/DashboardItems";
 import { BadgeQuestionMark, CircleUser, X } from "lucide-react";
@@ -23,6 +24,7 @@ import { hasAiContextAccess, hasAiEvalAccess } from "@/lib/utils/ai-context-acce
 import { isAiEvalUiEnabled } from "@/lib/ai-evals/local-gate";
 import { getOrganizationLanguageByUserId, getUserEmailByUserId } from "@/server/actions/shared-actions";
 import { clearUserTourAction } from "@/components/joyride/user-tour-action";
+import { canAccessFlowConfigAdmin } from "@/lib/production-flow/config";
 
 export default async function DashboardLayout({
   children,
@@ -38,6 +40,11 @@ export default async function DashboardLayout({
   const t = getDashboardMessages(organizationLanguage);
   const canAccessAiContext = hasAiContextAccess(userId);
   const canAccessAiEvals = hasAiEvalAccess(userId) && isAiEvalUiEnabled();
+  const requestHeaders = await headers();
+  const canAccessFlowConfigs = canAccessFlowConfigAdmin(
+    userId,
+    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host"),
+  );
 
   return (
     <ProjectProvider userId={userId}>
@@ -66,6 +73,7 @@ export default async function DashboardLayout({
                 organizationLanguage={organizationLanguage}
                 canAccessAiContext={canAccessAiContext}
                 canAccessAiEvals={canAccessAiEvals}
+                canAccessFlowConfigAdmin={canAccessFlowConfigs}
               />
             </div>
 
@@ -84,6 +92,7 @@ export default async function DashboardLayout({
               organizationLanguage={organizationLanguage}
               canAccessAiContext={canAccessAiContext}
               canAccessAiEvals={canAccessAiEvals}
+              canAccessFlowConfigAdmin={canAccessFlowConfigs}
             />
           </nav>
           </div>

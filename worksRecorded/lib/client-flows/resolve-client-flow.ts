@@ -1,10 +1,10 @@
 import {
   CLIENT_FLOW_IDS,
   TGEM_ORGANIZATION_ID,
-  ZTC_ORGANIZATION_ID,
-  ZTC_SITE_ID,
   type ClientFlowId,
 } from "@/lib/client-flows/constants";
+import { getClientFlowIdForFlowModuleKey } from "@/lib/flows/registry";
+import { resolveProductionFlowConfig } from "@/lib/production-flow/config";
 
 export function resolveClientFlow(args: {
   organizationId?: string | null;
@@ -14,8 +14,9 @@ export function resolveClientFlow(args: {
     return CLIENT_FLOW_IDS.TGEM;
   }
 
-  if (args.organizationId === ZTC_ORGANIZATION_ID || args.siteId === ZTC_SITE_ID) {
-    return CLIENT_FLOW_IDS.ZTC;
+  const productionFlowConfig = resolveProductionFlowConfig(args);
+  if (productionFlowConfig) {
+    return getClientFlowIdForFlowModuleKey(productionFlowConfig.flowModuleKey);
   }
 
   return CLIENT_FLOW_IDS.DEFAULT;
