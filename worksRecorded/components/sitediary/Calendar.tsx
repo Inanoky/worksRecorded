@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { MessageCircle } from "lucide-react";
 import TourRunner from "@/components/joyride/TourRunner";
 import { formatZtcRowsForExcel } from "@/components/sitediary/ZTC/ztc-excel-export";
-import { ZTC_SITE_ID } from "@/components/sitediary/ZTC/ztc-site-diary-utils";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WhatsAppIcon = ({ size = 22 }) => (
@@ -57,7 +56,7 @@ function getCalendarGrid(year, month) {
   return weeks;
 }
 
-export default function SiteDiaryCalendar({ siteId }) {
+export default function SiteDiaryCalendar({ siteId, isZtcFlow = false }) {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const today = new Date();
   const [currentMonth, setCurrentMonth] = React.useState(today.getMonth());
@@ -72,8 +71,10 @@ export default function SiteDiaryCalendar({ siteId }) {
 
   async function exportToExcel() {
     const XLSX = await import("xlsx");
-    const rows = await getSitediaryRecordsBySiteIdForExcel(siteId);
-    const exportRows = siteId === ZTC_SITE_ID ? formatZtcRowsForExcel(rows) : rows;
+    const rows = await getSitediaryRecordsBySiteIdForExcel(siteId, {
+      flowId: isZtcFlow ? "ztc" : undefined,
+    });
+    const exportRows = isZtcFlow ? formatZtcRowsForExcel(rows) : rows;
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
@@ -82,21 +83,21 @@ export default function SiteDiaryCalendar({ siteId }) {
 
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) return setFilledDays([]);
-    getFilledDays({ siteId, year: currentYear, month: currentMonth }).then(setFilledDays);
-  }, [siteId, currentMonth, currentYear]);
+    getFilledDays({ siteId, year: currentYear, month: currentMonth, flowId: isZtcFlow ? "ztc" : undefined }).then(setFilledDays);
+  }, [siteId, currentMonth, currentYear, isZtcFlow]);
 
   React.useEffect(() => {
     let cancelled = false;
     async function fetchFilledDays() {
       if (!siteId) return setFilledDays([]);
-      const days = await getFilledDays({ siteId, year: currentYear, month: currentMonth });
+      const days = await getFilledDays({ siteId, year: currentYear, month: currentMonth, flowId: isZtcFlow ? "ztc" : undefined });
       if (!cancelled) setFilledDays(days);
     }
     fetchFilledDays();
     return () => {
       cancelled = true;
     };
-  }, [siteId, currentMonth, currentYear]);
+  }, [siteId, currentMonth, currentYear, isZtcFlow]);
 
   const hasFilledDays = filledDays.length > 0;
 
@@ -231,6 +232,7 @@ export default function SiteDiaryCalendar({ siteId }) {
         date={date}
         siteId={siteId}
         onSaved={reloadFilledDays}
+        isZtcFlow={isZtcFlow}
       >
         <div className="grid gap-3">{/* dialog content */}</div>
       </DialogWindow>

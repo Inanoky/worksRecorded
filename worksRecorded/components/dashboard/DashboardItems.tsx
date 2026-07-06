@@ -4,9 +4,19 @@ import Link from "next/link";
 import { getNavLinks, getProjectNavLinks } from "./NavLinks";
 import { cn } from "@/lib/utils/utils";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useProject } from "@/components/providers/ProjectProvider";
-import { getProductionFlowNavigationConfig } from "@/lib/production-flow/config";
+import { getProductionFlowNavigationConfigForSite } from "@/lib/production-flow/runtime-server";
+
+type FlowNavigationConfig = {
+  labels: {
+    navigationTitle: string;
+    navigationTitleLv: string;
+  };
+  navigation: {
+    hiddenProjectNavPaths: string[];
+  };
+};
 
 export function DashboardItems({
   userEmail,
@@ -22,6 +32,8 @@ export function DashboardItems({
   canAccessFlowConfigAdmin?: boolean;
 }) {
   const { projectId, projectName, setProject } = useProject();
+  const [productionNavigationConfig, setProductionNavigationConfig] =
+    useState<FlowNavigationConfig | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const navLinks = useMemo(
@@ -32,10 +44,25 @@ export function DashboardItems({
     () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
     [canAccessAiContext, organizationLanguage],
   );
-  const productionNavigationConfig = useMemo(
-    () => getProductionFlowNavigationConfig({ siteId: projectId }),
-    [projectId],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    if (!projectId) {
+      setProductionNavigationConfig(null);
+      return;
+    }
+
+    getProductionFlowNavigationConfigForSite(projectId)
+      .then((config) => {
+        if (!cancelled) setProductionNavigationConfig(config);
+      })
+      .catch(() => {
+        if (!cancelled) setProductionNavigationConfig(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
   const hiddenProjectNavPaths = useMemo(
     () => new Set(productionNavigationConfig?.navigation.hiddenProjectNavPaths ?? []),
     [productionNavigationConfig],

@@ -21,8 +21,8 @@ import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { PhoneRequiredDialog } from "@/components/dashboard/PhoneRequiredDialog";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { saveUserPhone } from "@/server/actions/shared-actions";
-
-const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
+import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
+import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
 
 async function getData(orgId: string) {
   const [sites] = await Promise.all([
@@ -95,7 +95,8 @@ export default async function Welcome() {
   const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
   const t = getDashboardMessages(organizationLanguage);
   const { sites } = await getData(orgId);
-  const isZtcOrganization = orgId === ZTC_ORGANIZATION_ID;
+  const isZtcOrganization =
+    (await resolveClientFlowForRuntime({ organizationId: orgId })) === CLIENT_FLOW_IDS.ZTC;
 
   return (
     <>

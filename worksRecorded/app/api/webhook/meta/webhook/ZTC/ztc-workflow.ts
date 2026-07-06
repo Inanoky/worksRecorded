@@ -71,7 +71,20 @@ export type ZtcWorker = {
   phone: string | null;
   siteId: string | null;
   organizationId: string | null;
+  ztcFlowContext?: ZtcFlowContext | null;
 };
+
+export type ZtcFlowContext = {
+  siteId: string;
+  organizationId: string;
+};
+
+export function getZtcFlowContext(worker?: Pick<ZtcWorker, "siteId" | "organizationId" | "ztcFlowContext"> | null): ZtcFlowContext {
+  return {
+    siteId: worker?.ztcFlowContext?.siteId ?? worker?.siteId ?? ZTC_SITE_ID,
+    organizationId: worker?.ztcFlowContext?.organizationId ?? worker?.organizationId ?? ZTC_ORGANIZATION_ID,
+  };
+}
 
 export type DrawingExtraction = {
   isConstructionDrawing: boolean;
@@ -138,9 +151,7 @@ type ZtcProjectTaskRates = {
   additionalWorks: ZtcDefaultTaskRate[];
 };
 
-let ztcDropdownOptionsCache:
-  | { value: ZtcDropdownOptions; expiresAt: number }
-  | null = null;
+const ztcDropdownOptionsCache = new Map<string, { value: ZtcDropdownOptions; expiresAt: number }>();
 
 type OpenZtcSession = NonNullable<Awaited<ReturnType<typeof getOpenZtcSession>>>;
 
@@ -210,13 +221,15 @@ function normalizeZtcWorkOptions(values: string[]) {
   return options;
 }
 
-async function getZtcDropdownOptions() {
+async function getZtcDropdownOptions(worker?: ZtcWorker | null) {
+  const context = getZtcFlowContext(worker);
   const now = Date.now();
-  if (ztcDropdownOptionsCache && ztcDropdownOptionsCache.expiresAt > now) {
-    return ztcDropdownOptionsCache.value;
+  const cached = ztcDropdownOptionsCache.get(context.siteId);
+  if (cached && cached.expiresAt > now) {
+    return cached.value;
   }
 
-  const config = ((await getConfig(ZTC_SITE_ID)) ??
+  const config = ((await getConfig(context.siteId)) ??
     ztcSiteDiaryRecordsMap) as ZtcConfigMap;
 
   const value = {
@@ -224,10 +237,10 @@ async function getZtcDropdownOptions() {
     unitOptions: getDropdownLabels(config, "Units"),
   };
 
-  ztcDropdownOptionsCache = {
+  ztcDropdownOptionsCache.set(context.siteId, {
     value,
     expiresAt: now + ZTC_DROPDOWN_CACHE_MS,
-  };
+  });
 
   return value;
 }
@@ -508,16 +521,17 @@ function getProjectCategoryRates(
 
 async function getDefaultRateForWork(
   workName: string | null | undefined,
-  options: { projectName?: string | null; category?: ZtcRateCategory } = {},
+  options: { projectName?: string | null; category?: ZtcRateCategory; worker?: ZtcWorker | null; siteId?: string | null } = {},
 ) {
   return (await getDefaultRateMatchForWork(workName, options))?.rate ?? null;
 }
 
 async function getDefaultRateMatchForWork(
   workName: string | null | undefined,
-  options: { projectName?: string | null; category?: ZtcRateCategory } = {},
+  options: { projectName?: string | null; category?: ZtcRateCategory; worker?: ZtcWorker | null; siteId?: string | null } = {},
 ) {
-  const config = ((await getConfig(ZTC_SITE_ID)) ??
+  const context = getZtcFlowContext(options.worker);
+  const config = ((await getConfig(options.siteId ?? context.siteId)) ??
     ztcSiteDiaryRecordsMap) as Record<string, any>;
   const rates = getProjectCategoryRates(
     getDefaultTaskRatesFromConfig(config),
@@ -575,7 +589,7 @@ async function findExistingTlDiagonalReport(session: OpenZtcSession) {
 
   const relatedRows = await prisma.ztcRecords.findMany({
     where: {
-      organizationId: ZTC_ORGANIZATION_ID,
+      organizationId: session.organizationId ?? ZTC_ORGANIZATION_ID,
       Location: session.Location,
       Location_Custom_1: session.Location_Custom_1,
       Date_Custom_2: { not: null },
@@ -1239,6 +1253,7 @@ function canonicalizeDrawingExtractionFromMetadata(
 
 async function canonicalizeDrawingExtractionFromPreviousContext(
   extraction: DrawingExtraction,
+  worker: ZtcWorker,
 ) {
   const projectName = String(extraction.projectName ?? "").trim();
   const elementName = String(extraction.elementName ?? "").trim();
@@ -1250,10 +1265,11 @@ async function canonicalizeDrawingExtractionFromPreviousContext(
       ? extraction
       : { ...extraction, projectName: canonicalProjectName };
 
+  const context = getZtcFlowContext(worker);
   const previousContexts = await prisma.ztcRecords.findMany({
     where: {
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: context.siteId,
+      organizationId: context.organizationId,
       Location_Custom_1: elementName,
       Comments_Custom_2: { contains: "ztc_drawing_context" },
     },
@@ -1364,10 +1380,12 @@ function getSessionWorkComplexityCode(
 async function getComplexityForCode(
   code: ZtcComplexityCode,
   projectName: string | null | undefined,
+  worker?: ZtcWorker | null,
 ) {
   if (!code) return "1";
 
-  const config = ((await getConfig(ZTC_SITE_ID)) ??
+  const context = getZtcFlowContext(worker);
+  const config = ((await getConfig(context.siteId)) ??
     ztcSiteDiaryRecordsMap) as Record<string, any>;
   const projects = getDefaultTaskRatesFromConfig(config);
   return getZtcComplexityCoefficientByCode({ code, projectName, projects });
@@ -1776,22 +1794,24 @@ async function extractWorkInfo(
   return result;
 }
 
-async function getOpenZtcSession(workerId: string) {
+async function getOpenZtcSession(worker: ZtcWorker) {
+  const context = getZtcFlowContext(worker);
   return prisma.ztcRecords.findFirst({
     where: {
-      workerId,
-      organizationId: ZTC_ORGANIZATION_ID,
+      workerId: worker.id,
+      organizationId: context.organizationId,
       Date_Custom_2: null,
     },
     orderBy: { createdAt: "desc" },
   });
 }
 
-async function getLatestZtcDrawingContext(workerId: string) {
+async function getLatestZtcDrawingContext(worker: ZtcWorker) {
+  const context = getZtcFlowContext(worker);
   return prisma.ztcRecords.findFirst({
     where: {
-      workerId,
-      organizationId: ZTC_ORGANIZATION_ID,
+      workerId: worker.id,
+      organizationId: context.organizationId,
       Location: { not: null },
       Location_Custom_1: { not: null },
       Comments_Custom_2: { contains: "ztc_drawing_context" },
@@ -1806,10 +1826,11 @@ async function getLatestZtcDrawingContext(workerId: string) {
 }
 
 async function closeOpenDrawingContextsForStandaloneAdditionalWork(worker: ZtcWorker, now: Date) {
+  const context = getZtcFlowContext(worker);
   const result = await prisma.ztcRecords.updateMany({
     where: {
       workerId: worker.id,
-      organizationId: ZTC_ORGANIZATION_ID,
+      organizationId: context.organizationId,
       Date_Custom_2: null,
       Works: null,
       Comments_Custom_2: { contains: "ztc_drawing_context" },
@@ -1861,12 +1882,13 @@ async function ensureSessionHasDrawingContext(args: {
   return repaired;
 }
 
-async function getRecentCompletedPhotoBatchSession(workerId: string) {
+async function getRecentCompletedPhotoBatchSession(worker: ZtcWorker) {
+  const context = getZtcFlowContext(worker);
   const cutoff = new Date(Date.now() - PHOTO_BATCH_CONFIRM_WINDOW_MS);
   const session = await prisma.ztcRecords.findFirst({
     where: {
-      workerId,
-      organizationId: ZTC_ORGANIZATION_ID,
+      workerId: worker.id,
+      organizationId: context.organizationId,
       Date_Custom_2: { gte: cutoff },
       Comments_Custom_1: { startsWith: PHOTO_BATCH_CONFIRM_PREFIX },
     },
@@ -2071,18 +2093,23 @@ async function createAdditionalDetailRows(args: {
   if (!details.length) return;
 
   const now = new Date();
+  const context = {
+    siteId: args.session.siteId ?? ZTC_SITE_ID,
+    organizationId: args.session.organizationId ?? ZTC_ORGANIZATION_ID,
+  };
   const rows = await Promise.all(
     details.map(async (detail) => {
       const defaultRateMatch = await getDefaultRateMatchForWork(detail.description, {
         projectName: args.session.Location,
         category: "additionalDetails",
+        siteId: context.siteId,
       });
       const mappedDescription = defaultRateMatch?.task?.trim() || detail.description;
 
       return {
         workerId: args.session.workerId,
-        siteId: ZTC_SITE_ID,
-        organizationId: ZTC_ORGANIZATION_ID,
+        siteId: context.siteId,
+        organizationId: context.organizationId,
         Date: now,
         Date_Custom_1: args.session.Date_Custom_1 ?? args.session.Date ?? now,
         Date_Custom_2: now,
@@ -2139,6 +2166,7 @@ async function completeSession(args: {
     ? await getDefaultRateMatchForWork(session.Works, {
         projectName: session.Location,
         category: "additionalWorks",
+        siteId: session.siteId,
       })
     : null;
   const sessionUnit = isElementRelatedAdditionalWork
@@ -2418,8 +2446,8 @@ async function saveDiagonalMeasurePhoto(args: {
         .join(" - "),
       Location: session.Location ?? null,
       workerId: worker.id,
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: getZtcFlowContext(worker).siteId,
+      organizationId: getZtcFlowContext(worker).organizationId,
     },
   });
 }
@@ -2636,8 +2664,8 @@ async function saveCompletedWorkPhoto(args: {
         .join(" - "),
       Location: session.Location ?? null,
       workerId: worker.id,
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: getZtcFlowContext(worker).siteId,
+      organizationId: getZtcFlowContext(worker).organizationId,
     },
   });
 }
@@ -2675,7 +2703,7 @@ async function appendPhotosToRecentCompletedSession(args: {
   worker: ZtcWorker;
   caption?: string | null;
 }) {
-  const session = await getRecentCompletedPhotoBatchSession(args.worker.id);
+  const session = await getRecentCompletedPhotoBatchSession(args.worker);
   if (!session) return false;
 
   const appendDecision = shouldAutoAppendToRecentCompletedSession({
@@ -2800,7 +2828,7 @@ async function handleDrawingPhoto(args: {
 }) {
   const { formData, idx, to, worker } = args;
 
-  const existing = await getOpenZtcSession(worker.id);
+  const existing = await getOpenZtcSession(worker);
   if (existing?.Works) {
     await sendZtcMessage(to, `Jums jau ir aktīva ZTC darba sesija: ${formatSessionWork(existing) || "darbs"}. Lūdzu, pabeidziet to pirms jauna rasējuma sūtīšanas.`);
     return;
@@ -2860,7 +2888,7 @@ async function handleDrawingPhoto(args: {
     return;
   }
 
-  const canonicalExtraction = await canonicalizeDrawingExtractionFromPreviousContext(extraction);
+  const canonicalExtraction = await canonicalizeDrawingExtractionFromPreviousContext(extraction, worker);
   const drawingWorks = canonicalExtraction.workList.join("; ");
   const drawingMetadata = JSON.stringify(buildDrawingMetadata(canonicalExtraction));
 
@@ -2890,8 +2918,8 @@ async function handleDrawingPhoto(args: {
     const created = await prisma.ztcRecords.create({
       data: {
         workerId: worker.id,
-        siteId: ZTC_SITE_ID,
-        organizationId: ZTC_ORGANIZATION_ID,
+        siteId: getZtcFlowContext(worker).siteId,
+        organizationId: getZtcFlowContext(worker).organizationId,
         Date_Custom_1: new Date(),
         Location: canonicalExtraction.projectName,
         Location_Custom_1: canonicalExtraction.elementName,
@@ -2920,14 +2948,14 @@ async function handleDrawingPhoto(args: {
 }
 
 async function createSessionFromLatestDrawing(worker: ZtcWorker) {
-  const previous = await getLatestZtcDrawingContext(worker.id);
+  const previous = await getLatestZtcDrawingContext(worker);
   if (!previous) return null;
 
   const created = await prisma.ztcRecords.create({
     data: {
       workerId: worker.id,
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: getZtcFlowContext(worker).siteId,
+      organizationId: getZtcFlowContext(worker).organizationId,
       Date_Custom_1: new Date(),
       Location: previous.Location,
       Location_Custom_1: previous.Location_Custom_1,
@@ -2956,7 +2984,7 @@ async function createAdditionalWorkSession(args: {
   drawingContext?: OpenZtcSession | null;
 }) {
   const { worker, work, text, originalAudioUrl, drawingContext } = args;
-  const { workOptions } = await getZtcDropdownOptions();
+  const { workOptions } = await getZtcDropdownOptions(worker);
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
   const comments = work.polishedText?.trim()
@@ -2987,8 +3015,8 @@ async function createAdditionalWorkSession(args: {
 
   const data = {
       workerId: worker.id,
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: getZtcFlowContext(worker).siteId,
+      organizationId: getZtcFlowContext(worker).organizationId,
       Date: now,
       Date_Custom_1: now,
       Location: shouldAttachToElement ? drawingContext?.Location : "Papilddarbi",
@@ -3045,7 +3073,7 @@ async function handleWorkText(args: {
   let outcome = "started";
   try {
   const { text, to, worker, originalAudioUrl } = args;
-  let openSession = await getOpenZtcSession(worker.id);
+  let openSession = await getOpenZtcSession(worker);
 
   if (isPauseCommand(text)) {
     if (!openSession) {
@@ -3079,7 +3107,7 @@ async function handleWorkText(args: {
   const latestDrawingContext =
     openSession && hasZtcDrawingContext(openSession)
       ? null
-      : await getLatestZtcDrawingContext(worker.id);
+      : await getLatestZtcDrawingContext(worker);
   const contextSession = hasZtcDrawingContext(openSession) ? openSession : latestDrawingContext;
   const workOptionsForSession = getSessionWorkOptions(contextSession);
   const work = await extractWorkInfo(text, workOptionsForSession);
@@ -3224,6 +3252,7 @@ async function handleWorkText(args: {
   const defaultRateMatch = await getDefaultRateMatchForWork(work.workOption, {
     projectName: session.Location,
     category: "works",
+    worker,
   });
   logZtcTiming("default_rate_lookup", rateStartedAt, {
     workerId: worker.id,
@@ -3236,6 +3265,7 @@ async function handleWorkText(args: {
   const complexity = await getComplexityForCode(
     complexityCode,
     session.Location,
+    worker,
   );
   logZtcTiming("complexity_lookup", complexityStartedAt, {
     workerId: worker.id,
@@ -3306,7 +3336,7 @@ async function handleFinishedPhoto(args: {
 }) {
   const { formData, idxs, to, worker, caption } = args;
   const firstIdx = idxs[0];
-  const session = await getOpenZtcSession(worker.id);
+  const session = await getOpenZtcSession(worker);
 
   if (!session?.Works) {
     await sendZtcMessage(to, "Pirms pabeigta darba foto, lūdzu, atsūtiet rasējuma foto un balss ziņu vai tekstu par darba sākšanu.");
@@ -3461,7 +3491,7 @@ export async function handleZtcWorkerRoute(args: {
 
   try {
     if (imageIndexes.length > 0) {
-      const openSession = await getOpenZtcSession(worker.id);
+      const openSession = await getOpenZtcSession(worker);
       if (openSession?.Works) {
         outcome = "finished_photo";
         await handleFinishedPhoto({ formData, idxs: imageIndexes, to: from, worker, caption: body });

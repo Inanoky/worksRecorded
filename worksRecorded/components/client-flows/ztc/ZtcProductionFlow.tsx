@@ -18,6 +18,7 @@ export function ZtcProductionFlow({
       siteId={siteId}
       bisEnabled={bisEnabled}
       organizationLanguage={organizationLanguage}
+      isZtcFlow
     />
   );
 }

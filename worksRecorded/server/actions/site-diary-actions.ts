@@ -18,8 +18,26 @@ import {
   getWhatsappSourceContext,
 } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
+import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
 
-const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+type SiteDiaryFlowHint = {
+  flowId?: "default" | "ztc" | "tgem" | string | null;
+};
+
+async function shouldUseZtcRecordsForSite(siteId?: string | null, hint?: SiteDiaryFlowHint) {
+  if (!siteId) return false;
+  if (hint?.flowId === "ztc") return true;
+
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { organizationId: true },
+  });
+
+  return isZtcProductionFlowRuntime({
+    organizationId: site?.organizationId ?? null,
+    siteId,
+  });
+}
 
 
 function extractBisUrlDebug(url: string) {
@@ -134,6 +152,7 @@ function getCreatorNameFromOriginalComment(originalUserComment?: string | null) 
 //-------Loading config------------------------------
 
 export async function getConfig(siteId: string) {
+  const useZtcConfig = await shouldUseZtcRecordsForSite(siteId);
   const clientConfig = await prisma.site.findUnique({
     where: {
       id: siteId,
@@ -143,7 +162,7 @@ export async function getConfig(siteId: string) {
     },
   });
 
-  if (siteId === ZTC_SITE_ID) {
+  if (useZtcConfig) {
     const baseMap = structuredClone(ztcSiteDiaryRecordsMap as Record<string, any>);
     const savedMap =
       clientConfig?.siteDiaryRecordsMap && typeof clientConfig.siteDiaryRecordsMap === "object"
@@ -186,6 +205,7 @@ export async function updateSiteDiaryDropdownOptions(args: {
 }) {
   const user = await requireUser();
   await orgCheck(user.id, args.siteId);
+  const useZtcConfig = await shouldUseZtcRecordsForSite(args.siteId);
 
   const site = await prisma.site.findUnique({
     where: { id: args.siteId },
@@ -195,7 +215,7 @@ export async function updateSiteDiaryDropdownOptions(args: {
   if (!site) throw new Error("Site not found");
 
   const fallbackMap =
-    args.siteId === ZTC_SITE_ID
+    useZtcConfig
       ? ztcSiteDiaryRecordsMap
       : defaultConfig;
 
@@ -207,7 +227,7 @@ export async function updateSiteDiaryDropdownOptions(args: {
   const normalizedOptions = Array.from(
     new Set(args.options.map((option) => option.trim()).filter(Boolean)),
   );
-  const maxOptionLength = args.siteId === ZTC_SITE_ID ? 50 : 200;
+  const maxOptionLength = useZtcConfig ? 50 : 200;
   if (normalizedOptions.some((option) => option.length > maxOptionLength)) {
     throw new Error(
       `Each option must be ${maxOptionLength} characters or less`,
@@ -1324,12 +1344,14 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
 export async function deleteSiteDiaryRecord({
   id,
   siteId,
+  flowId,
 }: {
   id: string;
   siteId?: string | null;
+  flowId?: string | null;
 }) {
   // id is the Prisma row ID (UUID)
-  if (siteId === ZTC_SITE_ID) {
+  if (await shouldUseZtcRecordsForSite(siteId, { flowId })) {
     await prisma.ztcRecords.delete({ where: { id } });
   } else {
     await prisma.sitediaryrecords.delete({ where: { id } });
@@ -1339,6 +1361,7 @@ export async function deleteSiteDiaryRecord({
 
 export async function getSiteDiaryRecord({ siteId, date }) {
   const trace = createPerfTrace({ route: "action.siteDiary.getRecord", category: "action", siteId });
+  const useZtcRecords = await shouldUseZtcRecordsForSite(siteId);
   const selectedDate = new Date(date);
   const dateISO = Number.isNaN(selectedDate.getTime())
     ? undefined
@@ -1353,7 +1376,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
   try {
   const recordQuery = {
     where:
-      siteId === ZTC_SITE_ID
+      useZtcRecords
         ? {
             siteId,
             Date_Custom_2: { not: null },
@@ -1389,7 +1412,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
       Amounts: true,
       WorkersInvolved: true,
       TimeInvolved: true,
-      ...(siteId === ZTC_SITE_ID ? { pausedAt: true, pauseIntervals: true } : {}),
+      ...(useZtcRecords ? { pausedAt: true, pauseIntervals: true } : {}),
       Comments: true,
       Comments_Custom_1: true,
       Comments_Custom_2: true,
@@ -1415,7 +1438,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
     },
   };
   const records = await trace.measure("recordsQuery", () =>
-    siteId === ZTC_SITE_ID
+    useZtcRecords
       ? prisma.ztcRecords.findMany(recordQuery)
       : prisma.sitediaryrecords.findMany(recordQuery),
   );
@@ -1498,13 +1521,14 @@ export async function getSiteDiaryRecord({ siteId, date }) {
   }
 }
 
-export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
+export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, options: SiteDiaryFlowHint = {}) {
   if (!siteId) throw new Error("Missing siteId");
 
   const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", category: "action", siteId });
+  const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
   const query = {
     where:
-      siteId === ZTC_SITE_ID
+      useZtcRecords
         ? {
             siteId,
             Date_Custom_2: { not: null },
@@ -1535,7 +1559,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
       Amounts: true,
       WorkersInvolved: true,
       TimeInvolved: true,
-      ...(siteId === ZTC_SITE_ID ? { pausedAt: true, pauseIntervals: true } : {}),
+      ...(useZtcRecords ? { pausedAt: true, pauseIntervals: true } : {}),
       Photos: true,
       BISId: true,
       bisStatus: true,
@@ -1560,7 +1584,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string) {
 
   try {
   const records = await trace.measure("recordsQuery", () =>
-    siteId === ZTC_SITE_ID
+    useZtcRecords
       ? prisma.ztcRecords.findMany(query)
       : prisma.sitediaryrecords.findMany(query),
   );
@@ -2585,6 +2609,7 @@ export async function copySiteDiaryRecordToDate(
   recordId: string,
   targetDateISO: string,
   siteId?: string | null,
+  options: SiteDiaryFlowHint = {},
 ) {
   if (!recordId) throw new Error("Missing site diary record id");
   if (!targetDateISO) throw new Error("Missing target date");
@@ -2617,7 +2642,7 @@ export async function copySiteDiaryRecordToDate(
       Photos: true,
     },
   };
-  const useZtcRecords = siteId === ZTC_SITE_ID;
+  const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
   const source = useZtcRecords
     ? await prisma.ztcRecords.findUnique(sourceQuery)
     : await prisma.sitediaryrecords.findUnique(sourceQuery);
@@ -2828,12 +2853,13 @@ async function uploadLogbookAttachmentToBis({
   return json?.data?.attributes?.temp_uuid ?? null;
 }
 
-export async function getFilledDays({ siteId, year, month }: Args): Promise<number[]> {
+export async function getFilledDays({ siteId, year, month, flowId }: Args & SiteDiaryFlowHint): Promise<number[]> {
   const trace = createPerfTrace({ route: "action.siteDiary.getFilledDays", category: "action", siteId });
   const from = new Date(year, month, 1);
   const to = new Date(year, month + 1, 1);
+  const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, { flowId });
   const recordsPromise =
-    siteId === ZTC_SITE_ID
+    useZtcRecords
       ? prisma.ztcRecords.findMany({
           where: {
             siteId,

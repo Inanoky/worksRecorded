@@ -12,13 +12,19 @@ import {
   getOrganizationMaterialConfigurationTemplateOptions,
   getOrganizationMaterialConfigurationTemplates,
 } from "@/server/actions/material-configuration-template-actions";
-
-const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
+import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
+import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
+import { redirect } from "next/navigation";
 
 export default async function SettingsSiteRoute() {
   const user = await requireUser();
   const orgId = await getOrganizationIdByUserId(user.id);
-  const isZtcOrganization = orgId === ZTC_ORGANIZATION_ID;
+  if (!orgId) {
+    redirect("/dashboard");
+  }
+
+  const isZtcOrganization =
+    (await resolveClientFlowForRuntime({ organizationId: orgId })) === CLIENT_FLOW_IDS.ZTC;
   const userData = await getUserData(orgId);
   const workersData = await getOrganizationWorkers(orgId);
   const materialConfigurationTemplates = orgId && !isZtcOrganization

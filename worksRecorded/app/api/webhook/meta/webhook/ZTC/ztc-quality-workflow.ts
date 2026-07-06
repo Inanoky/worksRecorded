@@ -14,9 +14,8 @@ import {
   transcribeAudioWithSource,
   uploadAndExtractDrawingInfo,
   uploadMediaImage,
+  getZtcFlowContext,
   workerFullName,
-  ZTC_ORGANIZATION_ID,
-  ZTC_SITE_ID,
   type ZtcWorker,
 } from "@/app/api/webhook/meta/webhook/ZTC/ztc-workflow";
 
@@ -86,7 +85,7 @@ function readCompletedPhotoBatchAt(value: string | null | undefined) {
 
 function isRecentCompletedPhotoBatch(value: string | null | undefined, now = Date.now()) {
   const savedAt = readCompletedPhotoBatchAt(value);
-  return Number.isFinite(savedAt) && now - savedAt < QA_COMPLETED_PHOTO_BATCH_WINDOW_MS;
+  return savedAt != null && now - savedAt < QA_COMPLETED_PHOTO_BATCH_WINDOW_MS;
 }
 
 function getMetaMessageTimestampMs(formData: FormData) {
@@ -293,6 +292,7 @@ async function propagateQualityCoefficient(args: {
   elementName: string | null | undefined;
   qaRecordId: string;
   evaluation: QaQualityEvaluation;
+  worker: ZtcWorker;
 }) {
   const projectName = String(args.projectName ?? "").trim();
   const elementName = String(args.elementName ?? "").trim();
@@ -309,10 +309,11 @@ async function propagateQualityCoefficient(args: {
           ? "0"
           : null;
 
+  const context = getZtcFlowContext(args.worker);
   const result = await prisma.ztcRecords.updateMany({
     where: {
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: context.siteId,
+      organizationId: context.organizationId,
       Location: projectName,
       Location_Custom_1: elementName,
       Works: { not: null },
@@ -351,11 +352,12 @@ async function uploadQualityImages(formData: FormData, idxs: number[], context: 
   return uploaded;
 }
 
-function getPendingQaSession(workerId: string) {
+function getPendingQaSession(worker: ZtcWorker) {
+  const context = getZtcFlowContext(worker);
   return prisma.ztcRecords.findFirst({
     where: {
-      workerId,
-      organizationId: ZTC_ORGANIZATION_ID,
+      workerId: worker.id,
+      organizationId: context.organizationId,
       Date_Custom_2: null,
       Comments_Custom_1: { startsWith: QA_PENDING_PREFIX },
     },
@@ -363,12 +365,13 @@ function getPendingQaSession(workerId: string) {
   });
 }
 
-async function getRecentCompletedQaSession(workerId: string) {
+async function getRecentCompletedQaSession(worker: ZtcWorker) {
+  const context = getZtcFlowContext(worker);
   const cutoff = new Date(Date.now() - QA_COMPLETED_PHOTO_BATCH_WINDOW_MS);
   const session = await prisma.ztcRecords.findFirst({
     where: {
-      workerId,
-      organizationId: ZTC_ORGANIZATION_ID,
+      workerId: worker.id,
+      organizationId: context.organizationId,
       Date_Custom_2: { gte: cutoff },
       Works: QA_WORK_LABEL,
       Comments_Custom_1: { startsWith: QA_COMPLETED_PHOTO_BATCH_PREFIX },
@@ -450,8 +453,8 @@ async function saveQualityPhotos(args: {
         .join(" - "),
       Location: args.payload.drawingMetadata.projectName || null,
       workerId: args.worker.id,
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: getZtcFlowContext(args.worker).siteId,
+      organizationId: getZtcFlowContext(args.worker).organizationId,
     })),
   });
 }
@@ -531,6 +534,7 @@ async function completeQualitySession(args: {
     elementName: updated.Location_Custom_1,
     qaRecordId: updated.id,
     evaluation: qualityEvaluation,
+    worker: args.worker,
   });
   logZtcTiming("qa_coefficient_propagation", propagationStartedAt, {
     workerId: args.worker.id,
@@ -601,7 +605,7 @@ async function appendPhotosToRecentCompletedQaSession(args: {
   worker: ZtcWorker;
   caption?: string | null;
 }) {
-  const session = await getRecentCompletedQaSession(args.worker.id);
+  const session = await getRecentCompletedQaSession(args.worker);
   if (!session) return false;
 
   const appendDecision = shouldAppendToRecentCompletedQaSession({
@@ -711,7 +715,7 @@ async function handleQualityDrawingPhoto(args: {
   to: string | null;
   worker: ZtcWorker;
 }) {
-  const existing = await getPendingQaSession(args.worker.id);
+  const existing = await getPendingQaSession(args.worker);
   if (existing) {
     await sendZtcMessage(args.to, "Jums jau ir iesākta kvalitātes kontrole. Lūdzu, pabeidziet to ar kvalitātes foto un aprakstu.");
     return;
@@ -746,8 +750,8 @@ async function handleQualityDrawingPhoto(args: {
   const created = await prisma.ztcRecords.create({
     data: {
       workerId: args.worker.id,
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: getZtcFlowContext(args.worker).siteId,
+      organizationId: getZtcFlowContext(args.worker).organizationId,
       Date: new Date(),
       Date_Custom_1: new Date(),
       Location: extraction.projectName,
@@ -780,7 +784,7 @@ async function handleQualityPhotos(args: {
   worker: ZtcWorker;
   caption: string;
 }) {
-  const session = await getPendingQaSession(args.worker.id);
+  const session = await getPendingQaSession(args.worker);
   const payload = readPendingPayload(session?.Comments_Custom_1);
 
   if (!session || !payload) {
@@ -836,7 +840,7 @@ async function handleQualityText(args: {
   const startedAt = Date.now();
   let outcome = "started";
   try {
-  const session = await getPendingQaSession(args.worker.id);
+  const session = await getPendingQaSession(args.worker);
   const payload = readPendingPayload(session?.Comments_Custom_1);
 
   if (!session || !payload) {
@@ -908,7 +912,7 @@ export async function handleZtcQualityRoute(args: {
 
   try {
     if (imageIndexes.length > 0) {
-      const pending = await getPendingQaSession(worker.id);
+      const pending = await getPendingQaSession(worker);
       if (pending) {
         outcome = "quality_photos";
         await handleQualityPhotos({ formData, idxs: imageIndexes, to: from, worker, caption: body });

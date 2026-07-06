@@ -15,11 +15,10 @@ import { redirect } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
+import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
+import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
 
-const SUPER_USER_IDS = new Set([
-  process.env.SUPERADMIN
-]);
-const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
+const SUPER_USER_IDS = new Set([process.env.SUPERADMIN]);
 
 async function getData(orgId: string | null, isSuperUser: boolean) {
   const [sites] = await Promise.all([
@@ -50,7 +49,8 @@ export default async function DashboardIndexPage() {
   const t = getDashboardMessages(organizationLanguage);
 
   const { sites } = await getData(org, isSuperUser);
-  const isZtcOrganization = org === ZTC_ORGANIZATION_ID;
+  const isZtcOrganization =
+    (await resolveClientFlowForRuntime({ organizationId: org })) === CLIENT_FLOW_IDS.ZTC;
   const tourSteps = sites.length > 0
     ? getJoyRideSteps(organizationLanguage).steps_dashboard_sites_open_project
     : isZtcOrganization

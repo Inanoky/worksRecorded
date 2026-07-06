@@ -21,9 +21,8 @@ import {
   attachZtcLaborNormToMetadata,
   normalizeZtcLaborNorm,
 } from "@/components/sitediary/ZTC/ztc-labor-norm";
+import { resolveZtcProductionContextForSite } from "@/lib/production-flow/runtime-server";
 
-const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
-const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 const ZTC_DEFAULT_TASK_RATES_KEY = "ztcDefaultTaskRates";
 const ZTC_RATE_CATEGORIES = ["works", "additionalDetails", "additionalWorks"] as const;
 
@@ -45,23 +44,21 @@ export type ZtcProjectTaskRates = {
   additionalWorks: ZtcDefaultTaskRate[];
 };
 
-function ensureZtcSite(siteId: string | null | undefined) {
-  if (siteId !== ZTC_SITE_ID) {
-    throw new Error("ZTC darbības var izmantot tikai ZTC objektam.");
-  }
-}
-
 async function requireZtcAccess(siteId: string) {
-  ensureZtcSite(siteId);
+  const context = await resolveZtcProductionContextForSite(siteId);
+  if (!context) {
+    throw new Error("ZTC darbibas var izmantot tikai ZTC razosanas plusmas objektam.");
+  }
+
   const user = await requireUser();
   const site = await orgCheck(user.id, siteId);
   const organizationId = await getOrganizationIdByUserId(user.id);
 
-  if (!site || organizationId !== ZTC_ORGANIZATION_ID) {
-    throw new Error("Jums nav piekļuves ZTC būvdarbu žurnālam.");
+  if (!site || organizationId !== context.organizationId) {
+    throw new Error("Jums nav piekluves ZTC buvdarbu zurnalam.");
   }
 
-  return user;
+  return { user, ...context };
 }
 
 function normalizeDate(value: unknown) {
@@ -695,7 +692,7 @@ async function loadZtcSiteDiaryConfig(siteId: string) {
   return baseMap;
 }
 
-async function loadZtcSiteDiaryRecords(args: { date: string }) {
+async function loadZtcSiteDiaryRecords(args: { siteId: string; organizationId: string; date: string }) {
   const start = new Date(args.date);
   start.setHours(0, 0, 0, 0);
   const end = new Date(args.date);
@@ -703,8 +700,8 @@ async function loadZtcSiteDiaryRecords(args: { date: string }) {
 
   const records = await prisma.ztcRecords.findMany({
     where: {
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: args.siteId,
+      organizationId: args.organizationId,
       Date_Custom_2: { not: null },
       NOT: [{ Date: null }, { Works: null }, { Works: "" }],
       OR: [
@@ -797,16 +794,16 @@ export async function updateZtcDefaultTaskRates(args: {
 }
 
 export async function getZtcSiteDiaryRecords(args: { siteId: string; date: string }) {
-  await requireZtcAccess(args.siteId);
-  return loadZtcSiteDiaryRecords({ date: args.date });
+  const context = await requireZtcAccess(args.siteId);
+  return loadZtcSiteDiaryRecords({ ...context, date: args.date });
 }
 
 export async function getZtcDialogPrefetchData(args: { siteId: string; date: string }) {
-  await requireZtcAccess(args.siteId);
+  const context = await requireZtcAccess(args.siteId);
 
   const [config, rows, rates] = await Promise.all([
     loadZtcSiteDiaryConfig(args.siteId),
-    loadZtcSiteDiaryRecords({ date: args.date }),
+    loadZtcSiteDiaryRecords({ ...context, date: args.date }),
     getZtcDefaultTaskRates(args.siteId),
   ]);
 
@@ -817,13 +814,13 @@ export async function createZtcSiteDiaryRecords(args: {
   siteId: string;
   rows: Array<Record<string, any>>;
 }) {
-  const user = await requireZtcAccess(args.siteId);
+  const { user, siteId, organizationId } = await requireZtcAccess(args.siteId);
   const defaultRates = await getZtcDefaultTaskRates(args.siteId);
 
   const rows = args.rows.map((row) => ({
     userId: user.id,
-    siteId: ZTC_SITE_ID,
-    organizationId: ZTC_ORGANIZATION_ID,
+    siteId,
+    organizationId,
     ...sanitizeZtcRecordRow({
       ...row,
       __ztcDefaultTaskRates: defaultRates,
@@ -843,7 +840,7 @@ export async function saveZtcSiteDiaryDialogRows(args: {
   existingRows: Array<Record<string, any> & { id: string }>;
   newRows: Array<Record<string, any>>;
 }) {
-  const user = await requireZtcAccess(args.siteId);
+  const { user, siteId, organizationId } = await requireZtcAccess(args.siteId);
   const defaultRates = await getZtcDefaultTaskRates(args.siteId);
 
   const existingRows = args.existingRows
@@ -858,8 +855,8 @@ export async function saveZtcSiteDiaryDialogRows(args: {
 
   const newRows = args.newRows.map((row) => ({
     userId: user.id,
-    siteId: ZTC_SITE_ID,
-    organizationId: ZTC_ORGANIZATION_ID,
+    siteId,
+    organizationId,
     ...sanitizeZtcRecordRow({
       ...row,
       __ztcDefaultTaskRates: defaultRates,
@@ -877,8 +874,8 @@ export async function saveZtcSiteDiaryDialogRows(args: {
       prisma.ztcRecords.updateMany({
         where: {
           id: row.id,
-          siteId: ZTC_SITE_ID,
-          organizationId: ZTC_ORGANIZATION_ID,
+          siteId,
+          organizationId,
         },
         data: row.data,
       }),
@@ -896,15 +893,15 @@ export async function updateZtcSiteDiaryRecord(args: {
   id: string;
   [key: string]: any;
 }) {
-  await requireZtcAccess(args.siteId);
+  const context = await requireZtcAccess(args.siteId);
   const { id, siteId, _tempId, createdBy, ...row } = args;
   const defaultRates = await getZtcDefaultTaskRates(siteId);
 
   const result = await prisma.ztcRecords.updateMany({
     where: {
       id,
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: context.siteId,
+      organizationId: context.organizationId,
     },
     data: sanitizeZtcRecordRow({ ...row, __ztcDefaultTaskRates: defaultRates }),
   });
@@ -918,13 +915,13 @@ export async function updateZtcSiteDiaryRecord(args: {
 }
 
 export async function deleteZtcSiteDiaryRecord(args: { siteId: string; id: string }) {
-  await requireZtcAccess(args.siteId);
+  const context = await requireZtcAccess(args.siteId);
 
   await prisma.ztcRecords.deleteMany({
     where: {
       id: args.id,
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: context.siteId,
+      organizationId: context.organizationId,
     },
   });
 
@@ -938,7 +935,7 @@ export async function updateZtcPayrollFields(args: {
   coefficient?: string | number | null;
   complexity?: string | number | null;
 }) {
-  await requireZtcAccess(args.siteId);
+  const context = await requireZtcAccess(args.siteId);
 
   const rate = normalizePayrollTextNumber(args.rate);
   const coefficient = normalizePayrollTextNumber(args.coefficient);
@@ -959,8 +956,8 @@ export async function updateZtcPayrollFields(args: {
   const result = await prisma.ztcRecords.updateMany({
     where: {
       id: args.id,
-      siteId: ZTC_SITE_ID,
-      organizationId: ZTC_ORGANIZATION_ID,
+      siteId: context.siteId,
+      organizationId: context.organizationId,
     },
     data: {
       Location_Custom_2: rate,

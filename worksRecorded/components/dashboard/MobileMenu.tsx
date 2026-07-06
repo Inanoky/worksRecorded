@@ -8,8 +8,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/utils";
 import { Menu } from "lucide-react";
-import { useMemo } from "react";
-import { getProductionFlowNavigationConfig } from "@/lib/production-flow/config";
+import { useEffect, useMemo, useState } from "react";
+import { getProductionFlowNavigationConfigForSite } from "@/lib/production-flow/runtime-server";
+
+type FlowNavigationConfig = {
+  labels: {
+    navigationTitle: string;
+    navigationTitleLv: string;
+  };
+  navigation: {
+    hiddenProjectNavPaths: string[];
+  };
+};
 
 export function MobileMenu({
   organizationLanguage,
@@ -23,6 +33,8 @@ export function MobileMenu({
   canAccessFlowConfigAdmin?: boolean;
 }) {
   const { projectId, projectName } = useProject();
+  const [productionNavigationConfig, setProductionNavigationConfig] =
+    useState<FlowNavigationConfig | null>(null);
   const pathname = usePathname();
   const navLinks = useMemo(
     () => getNavLinks(organizationLanguage, { canAccessAiEvals, canAccessFlowConfigAdmin }),
@@ -32,10 +44,25 @@ export function MobileMenu({
     () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
     [canAccessAiContext, organizationLanguage],
   );
-  const productionNavigationConfig = useMemo(
-    () => getProductionFlowNavigationConfig({ siteId: projectId }),
-    [projectId],
-  );
+  useEffect(() => {
+    let cancelled = false;
+    if (!projectId) {
+      setProductionNavigationConfig(null);
+      return;
+    }
+
+    getProductionFlowNavigationConfigForSite(projectId)
+      .then((config) => {
+        if (!cancelled) setProductionNavigationConfig(config);
+      })
+      .catch(() => {
+        if (!cancelled) setProductionNavigationConfig(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
   const hiddenProjectNavPaths = useMemo(
     () => new Set(productionNavigationConfig?.navigation.hiddenProjectNavPaths ?? []),
     [productionNavigationConfig],

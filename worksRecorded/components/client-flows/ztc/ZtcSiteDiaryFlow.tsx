@@ -7,5 +7,5 @@ type ZtcSiteDiaryFlowProps = {
 };
 
 export function ZtcSiteDiaryFlow({ siteId }: ZtcSiteDiaryFlowProps) {
-  return <SiteDiaryCalendar siteId={siteId} />;
+  return <SiteDiaryCalendar siteId={siteId} isZtcFlow />;
 }

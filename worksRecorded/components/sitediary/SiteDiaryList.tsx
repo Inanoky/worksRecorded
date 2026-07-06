@@ -108,7 +108,6 @@ import { ZtcCommentPopoverContent } from "@/components/sitediary/ZTC/ZtcCommentP
 import { useZtcSiteDiaryFlow } from "@/components/sitediary/ZTC/useZtcSiteDiaryFlow";
 import { exportForma2ToExcel } from "@/components/sitediary/forma2-export";
 import {
-  ZTC_SITE_ID,
   buildZtcLaborNormSummaryRows,
   buildZtcLaborNormTotalSummary,
   buildZtcQualityDisplayStateByRowId,
@@ -460,10 +459,12 @@ export default function SiteDiaryCalendar({
   siteId,
   bisEnabled = true,
   organizationLanguage,
+  isZtcFlow = false,
 }: {
   siteId: string | null;
   bisEnabled?: boolean;
   organizationLanguage?: string | null;
+  isZtcFlow?: boolean;
 }) {
   const today = new Date();
   const language = normalizeOrganizationLanguage(organizationLanguage);
@@ -667,7 +668,7 @@ export default function SiteDiaryCalendar({
   const [selectedRecordIds, setSelectedRecordIds] = React.useState<Set<string>>(new Set());
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const bisUiEnabled = bisEnabled && showBisUi;
-  const isZtcSite = siteId === ZTC_SITE_ID;
+  const isZtcSite = isZtcFlow;
   const ztcQualityDisplayStateByRowId = React.useMemo(
     () =>
       isZtcSite
@@ -701,17 +702,19 @@ export default function SiteDiaryCalendar({
       setFilledDays([]);
       return;
     }
-    getFilledDays({ siteId, year: currentYear, month: currentMonth }).then(
+    getFilledDays({ siteId, year: currentYear, month: currentMonth, flowId: isZtcSite ? "ztc" : undefined }).then(
       setFilledDays,
     );
-  }, [siteId, currentMonth, currentYear]);
+  }, [siteId, currentMonth, currentYear, isZtcSite]);
 
   const refreshRowsWithBisSync = React.useCallback(async (options?: { skipSync?: boolean }) => {
     if (!siteId) return [];
     if (bisUiEnabled && !options?.skipSync) {
       await syncDeletedSiteDiaryBisRecords(siteId);
     }
-    const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId);
+    const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId, {
+      flowId: isZtcSite ? "ztc" : undefined,
+    });
     setRows(data || []);
     setBisApprovalStatusByRowId(
       Object.fromEntries(
@@ -721,7 +724,7 @@ export default function SiteDiaryCalendar({
       ),
     );
     return data;
-  }, [bisUiEnabled, siteId]);
+  }, [bisUiEnabled, isZtcSite, siteId]);
 
   // Load filled days for calendar
   React.useEffect(() => {
@@ -735,6 +738,7 @@ export default function SiteDiaryCalendar({
         siteId,
         year: currentYear,
         month: currentMonth,
+        flowId: isZtcSite ? "ztc" : undefined,
       });
       if (!cancelled) setFilledDays(days);
     }
@@ -742,7 +746,7 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [siteId, currentMonth, currentYear]);
+  }, [siteId, currentMonth, currentYear, isZtcSite]);
 
   // Load list rows once
   React.useEffect(() => {
@@ -1150,7 +1154,7 @@ export default function SiteDiaryCalendar({
       setBulkDeleteLoading(true);
       const recordIds = Array.from(selectedRecordIds);
       const results = await Promise.allSettled(
-        recordIds.map((id) => deleteSiteDiaryRecord({ id, siteId })),
+        recordIds.map((id) => deleteSiteDiaryRecord({ id, siteId, flowId: isZtcSite ? "ztc" : undefined })),
       );
       const deletedIds = recordIds.filter((_, index) => results[index].status === "fulfilled");
       const failedCount = results.length - deletedIds.length;
@@ -1501,6 +1505,7 @@ export default function SiteDiaryCalendar({
         copyTargetRow.id,
         copyTargetDate.toISOString(),
         siteId,
+        { flowId: isZtcSite ? "ztc" : undefined },
       );
       if (!siteId) return;
       await refreshRowsWithBisSync();
@@ -1520,7 +1525,7 @@ export default function SiteDiaryCalendar({
     if (!confirmed) return;
 
     try {
-      await deleteSiteDiaryRecord({ id: row.id, siteId });
+      await deleteSiteDiaryRecord({ id: row.id, siteId, flowId: isZtcSite ? "ztc" : undefined });
       await refreshRowsWithBisSync({ skipSync: true });
       reloadFilledDays();
       toast.success(toastMessages.recordDeleted);
@@ -3394,6 +3399,7 @@ export default function SiteDiaryCalendar({
           date={dialogDate ?? calendarDate}
           siteId={siteId}
           organizationLanguage={organizationLanguage}
+          isZtcFlow={isZtcSite}
           onSaved={async () => {
             reloadFilledDays();
 

@@ -40,8 +40,8 @@ import { UpdateSiteForm } from "./updatesiteform";
 import { getSiteSettingsMessages } from "@/lib/dashboard-i18n";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
-
-const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
+import { resolveClientFlowForRuntime } from "@/lib/client-flows/resolve-client-flow-server";
+import { CLIENT_FLOW_IDS } from "@/lib/client-flows/constants";
 
 export default async function SettingsSiteRoute({
   params,
@@ -67,7 +67,8 @@ export default async function SettingsSiteRoute({
     notFound();
   }
 
-  const isZtcOrganization = orgId === ZTC_ORGANIZATION_ID;
+  const isZtcOrganization =
+    (await resolveClientFlowForRuntime({ organizationId: orgId, siteId })) === CLIENT_FLOW_IDS.ZTC;
 
   const [
     ,

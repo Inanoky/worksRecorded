@@ -22,13 +22,30 @@ import ImageGallery from "@/components/sitediary/ImageGallery";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
-const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
+type DialogWindowProps = {
+  open: any;
+  setOpen: any;
+  date: any;
+  siteId: any;
+  onSaved: any;
+  organizationLanguage?: any;
+  isZtcFlow?: boolean;
+  children?: React.ReactNode;
+};
 
-export default function DialogWindow({ open, setOpen, date, siteId, onSaved, organizationLanguage }) {
+export default function DialogWindow({
+  open,
+  setOpen,
+  date,
+  siteId,
+  onSaved,
+  organizationLanguage,
+  isZtcFlow = false,
+}: DialogWindowProps) {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
   const dateLocale = normalizeOrganizationLanguage(organizationLanguage) === "lv" ? "lv-LV" : "en-GB";
-  const TableComponent = siteId === ZTC_SITE_ID ? ZtcDialogTable : DialogTable;
+  const TableComponent = isZtcFlow ? ZtcDialogTable : DialogTable;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

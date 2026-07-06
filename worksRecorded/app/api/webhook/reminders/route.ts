@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/utils/db";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import { getMergedProductionFlowConfigs } from "@/lib/production-flow/config-server";
 
 const DEFAULT_TIMEZONE = "Europe/Riga";
 const DEBUG_PREFIX = "[cron:reminders]";
-const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 
 function normalizeRecipientPhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
@@ -91,12 +92,19 @@ export async function GET(req: Request) {
   }
 
   const now = new Date();
+  const ztcProductionOrganizationIds = Array.from(
+    new Set(
+      (await getMergedProductionFlowConfigs())
+        .filter((config) => config.enabled && config.flowModuleKey === FLOW_MODULE_KEYS.ZTC_PRODUCTION)
+        .flatMap((config) => config.organizationIds),
+    ),
+  );
 
   const [users, workers] = await Promise.all([
     prisma.user.findMany({
       where: {
         remindersEnabled: true,
-        organizationId: { not: ZTC_ORGANIZATION_ID },
+        organizationId: { notIn: ztcProductionOrganizationIds },
       },
       select: {
         id: true,
@@ -109,7 +117,7 @@ export async function GET(req: Request) {
     prisma.workers.findMany({
       where: {
         remindersEnabled: true,
-        organizationId: { not: ZTC_ORGANIZATION_ID },
+        organizationId: { notIn: ztcProductionOrganizationIds },
       },
       select: {
         id: true,

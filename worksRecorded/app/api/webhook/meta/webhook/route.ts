@@ -31,12 +31,12 @@ import {
 } from "@/app/api/webhook/meta/webhook/helperes";
 import {
   handleZtcWorkerRoute,
-  ZTC_ORGANIZATION_ID,
 } from "@/app/api/webhook/meta/webhook/ZTC/ztc-workflow";
 import {
   handleZtcQualityRoute,
   isZtcQualityWorkerRole,
 } from "@/app/api/webhook/meta/webhook/ZTC/ztc-quality-workflow";
+import { resolveZtcProductionContextForWorker } from "@/lib/production-flow/runtime-server";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
@@ -712,11 +712,18 @@ async function runWhatsappRoutingForMeta(args: {
       role: worker?.role ?? null,
     });
 
-    if (worker?.organizationId === ZTC_ORGANIZATION_ID && isSingleMetaImageFormData(formData)) {
+    const ztcFlowContext = worker
+      ? await resolveZtcProductionContextForWorker(worker)
+      : null;
+    const ztcWorker = ztcFlowContext
+      ? ({ ...worker, ztcFlowContext } as NonNullable<typeof worker> & { ztcFlowContext: typeof ztcFlowContext })
+      : null;
+
+    if (ztcWorker && isSingleMetaImageFormData(formData)) {
       const mode: ZtcImageBatchMode = isZtcQualityWorkerRole(worker.role) ? "ztc_quality" : "ztc_worker";
       const batchDecision = await stageZtcImageBatch({
         identityKey,
-        worker,
+        worker: ztcWorker,
         mode,
         formData,
         businessPhoneNumberId,
@@ -757,10 +764,10 @@ async function runWhatsappRoutingForMeta(args: {
     lockKey = identityKey;
 
     if (worker) {
-      if (worker.organizationId === ZTC_ORGANIZATION_ID) {
+      if (ztcWorker) {
         if (isZtcQualityWorkerRole(worker.role)) {
           const handlerStartedAt = Date.now();
-          await handleZtcQualityRoute({ worker: worker as any, formData });
+          await handleZtcQualityRoute({ worker: ztcWorker as any, formData });
           routeOutcome = "ztc_quality_worker";
           logMetaWebhookTiming("ztc_quality_route", handlerStartedAt, {
             messageId,
@@ -770,7 +777,7 @@ async function runWhatsappRoutingForMeta(args: {
         }
 
         const handlerStartedAt = Date.now();
-        await handleZtcWorkerRoute({ worker, formData });
+        await handleZtcWorkerRoute({ worker: ztcWorker, formData });
         routeOutcome = "ztc_worker";
         logMetaWebhookTiming("ztc_worker_route", handlerStartedAt, {
           messageId,
