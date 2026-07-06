@@ -62,15 +62,16 @@ describe("site-manager fast path", () => {
     expect(reply).not.toContain("Record IDs");
   });
 
-  it("numbers multiple records and caps output at ten", () => {
+  it("formats multiple records as bullet points and caps output at ten", () => {
     const records = Array.from({ length: 12 }, (_, index) => ({
       Works: `Work ${index + 1}`,
     }));
     const formatted = formatSavedDiaryRecords(records, "en");
 
-    expect(formatted).toContain("1. Work 1");
-    expect(formatted).toContain("10. Work 10");
-    expect(formatted).not.toContain("11. Work 11");
+    expect(formatted).toContain("• Work 1");
+    expect(formatted).toContain("• Work 10");
+    expect(formatted).not.toContain("• Work 11");
+    expect(formatted).not.toContain("1. Work 1");
     expect(formatted).toContain("and 2 more");
   });
 

@@ -44,10 +44,10 @@ export function formatSavedDiaryRecords(
   const labels = RECORD_LABELS[language];
   const visibleRecords = records.slice(0, RECORD_LIMIT);
   const multiple = records.length > 1;
-  const blocks = visibleRecords.map((record, index) => {
+  const blocks = visibleRecords.map((record) => {
     const titleParts = [record.Works, record.Location].filter(hasValue).map(String);
     const title = titleParts.join(" — ") || labels.fallback;
-    const firstLine = multiple ? `${index + 1}. ${title}` : title;
+    const firstLine = multiple ? `• ${title}` : title;
     const lines = [firstLine];
 
     if (hasValue(record.Comments)) lines.push(`   ${compactComment(String(record.Comments))}`);
