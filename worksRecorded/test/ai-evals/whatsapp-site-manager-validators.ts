@@ -16,6 +16,7 @@ export type SavedSiteDiaryRecord = {
   originalAudioUrl: string | null;
   WorkersInvolved: number | null;
   TimeInvolved: number | null;
+  Amounts?: number | null;
   evalMetadata?: unknown;
   createdAt: Date;
 };
@@ -56,6 +57,7 @@ function recordSearchText(record: SavedSiteDiaryRecord | null) {
       record.originalUserComment,
       record.WorkersInvolved,
       record.TimeInvolved,
+      record.Amounts,
     ]
       .filter((value) => value !== null && value !== undefined)
       .join(" "),
@@ -121,7 +123,9 @@ export function validateWhatsappSiteManagerRecord(args: {
   const { evalCase, record, records, answer, siteId, userId } = args;
   const results: WhatsAppValidatorResult[] = [];
   const heuristicResults: WhatsAppValidatorResult[] = [];
-  const searchText = recordSearchText(record);
+  const searchText = (records ?? (record ? [record] : []))
+    .map(recordSearchText)
+    .join(" ");
   const answerText = normalize(answer);
   const sentences = answerSentences(String(answer ?? ""));
   const firstSentence = normalize(sentences[0] ?? "");
@@ -137,7 +141,7 @@ export function validateWhatsappSiteManagerRecord(args: {
     ),
   );
   if (records) {
-    const expectedCount = shouldCreateRecord ? 1 : 0;
+    const expectedCount = evalCase.expected.expectedRecordCount ?? (shouldCreateRecord ? 1 : 0);
     results.push(
       createResult(
         "record-count",
@@ -268,6 +272,25 @@ export function validateWhatsappSiteManagerRecord(args: {
     );
   }
 
+  if (typeof evalCase.expected.amounts === "number") {
+    const expected = evalCase.expected.amounts;
+    heuristicResults.push(
+      createResult(
+        "amounts",
+        nearNumber(record?.Amounts, expected),
+        `Amounts must be ${expected}; got ${formatNumberForMessage(record?.Amounts)}.`,
+      ),
+    );
+  } else if (evalCase.expected.amounts === null) {
+    heuristicResults.push(
+      createResult(
+        "amounts",
+        record?.Amounts == null,
+        `Amounts must be null when no completed quantity is stated; got ${formatNumberForMessage(record?.Amounts)}.`,
+      ),
+    );
+  }
+
   const passedHeuristics = heuristicResults.filter((result) => result.status === "pass").length;
   const score = heuristicResults.length > 0 ? passedHeuristics / heuristicResults.length : 1;
   const heuristicStatus: WhatsAppHeuristicStatus =
@@ -283,7 +306,7 @@ export function validateWhatsappSiteManagerRecord(args: {
 
   const allResults = [...results, ...heuristicResults];
   const hardStructuredResults = heuristicResults.filter((result) =>
-    result.name === "workers-involved" || result.name === "time-involved"
+    result.name === "workers-involved" || result.name === "time-involved" || result.name === "amounts"
   );
 
   return {

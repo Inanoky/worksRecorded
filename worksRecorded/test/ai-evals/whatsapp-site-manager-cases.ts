@@ -2,11 +2,13 @@ import { z } from "zod";
 
 const ExpectedSavedRecordSchema = z.object({
   shouldCreateRecord: z.boolean().default(true),
+  expectedRecordCount: z.number().int().nonnegative().optional(),
   requiredTextSignals: z.array(z.string().min(1)).default([]),
   requiredAnswerSignals: z.array(z.string().min(1)).default([]),
   forbiddenAnswerSignals: z.array(z.string().min(1)).default([]),
   workersInvolved: z.number().positive().nullable().optional(),
   timeInvolved: z.number().positive().optional(),
+  amounts: z.number().nullable().optional(),
   expectedDateISO: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   maxAnswerSentences: z.number().int().positive().optional(),
   firstSentenceSignals: z.array(z.string().min(1)).default([]),
@@ -117,6 +119,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
         requiredTextSignals: ["apmest", "sien", "2", "stāv"],
         workersInvolved: null,
         timeInvolved: 4,
+        amounts: null,
         minHeuristicScore: 0.75,
       },
     },
@@ -135,6 +138,22 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
         requiredTextSignals: ["ūdens", "kanaliz", "radiator"],
         workersInvolved: null,
         timeInvolved: 12,
+        minHeuristicScore: 0.75,
+      },
+    },
+    {
+      id: "latvian-two-explicit-work-records",
+      intent:
+        "Verify one message requesting two distinct tasks creates two site diary records.",
+      webhook: textWebhookFixture({
+        senderKey: "eval-site-manager-two-records",
+        body:
+          "Šodien 1. stāvā uzstādītas durvis, 2h un 2. stāvā nokrāsotas sienas, 3h.",
+        timestamp: "1782197600",
+      }),
+      expected: {
+        expectedRecordCount: 2,
+        requiredTextSignals: ["durv", "1", "stāv", "krās", "sien", "2", "stāv"],
         minHeuristicScore: 0.75,
       },
     },

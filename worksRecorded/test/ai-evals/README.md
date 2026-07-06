@@ -5,7 +5,7 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 ## Current State
 
 - Jest currently has 150 passing tests across 31 suites and covers deterministic application and eval infrastructure behavior. Use the command output as the source of truth as this count grows.
-- AI eval fixtures currently contain 21 cases / 25 evaluated interactions: 7 dashboard cases (10 turns), 10 WhatsApp site-manager cases (11 interactions), and 4 WhatsApp worker cases.
+- AI eval fixtures currently contain 22 cases / 26 evaluated interactions: 7 dashboard cases (10 turns), 11 WhatsApp site-manager cases (12 interactions), and 4 WhatsApp worker cases.
 - Dashboard chat flow: `dashboard-chat` / `OrchestratingAgentV2`.
 - WhatsApp site-manager flow: `whatsapp-site-manager` via the real Meta webhook route.
 - WhatsApp worker flow: `whatsapp-worker` / `ClockinAgentForWorkerRoute` via the real Meta webhook route.
@@ -120,7 +120,14 @@ AI_EVAL_JUDGE_MODEL=gpt-4.1-mini
 AI_EVAL_SLOW_TURN_MS=15000
 AI_EVAL_WHATSAPP_PHONE=37129391891
 AI_EVAL_WORKER_ID=...
+WHATSAPP_SITE_MANAGER_FAST_PATH_MODE=off
 ```
+
+`WHATSAPP_SITE_MANAGER_FAST_PATH_MODE` accepts `off`, `shadow`, or `on`.
+`shadow` runs fast-path extraction without persistence and then uses the legacy
+agent; `on` persists only when the guarded extractor classifies the message as a
+self-contained work report. Eval results include execution path, nested model
+and tool calls, aggregate tokens, and phase timings.
 
 Required env vars for real evals:
 
@@ -175,7 +182,7 @@ Model fields:
 WhatsApp site-manager cases are checked by deterministic and heuristic validators:
 
 - webhook route must return HTTP 200
-- exactly one site diary record should be created by default; cases with `shouldCreateRecord: false` require zero records
+- exactly one site diary record should be created by default; `expectedRecordCount` can require multiple records, and cases with `shouldCreateRecord: false` require zero records
 - saved record must belong to the eval site and user
 - an `expectedDateISO` value requires the persisted diary date to match exactly
 - saved record must preserve the expected activity/location text signals

@@ -385,6 +385,53 @@ describe("WhatsApp site-manager eval validators", () => {
     expect(result.results.find((item) => item.name === "record-count")?.status).toBe("pass");
   });
 
+  it("passes when a two-task case creates two records", () => {
+    const twoRecordCase = whatsappSiteManagerEvalCases.find(
+      (item) => item.id === "latvian-two-explicit-work-records",
+    );
+    if (!twoRecordCase) throw new Error("Missing two-record eval case");
+
+    const baseRecord = {
+      siteId: "site-1",
+      userId: "user-1",
+      workerId: null,
+      Date: null,
+      originalUserComment: null,
+      originalAudioUrl: null,
+      WorkersInvolved: null,
+      TimeInvolved: null,
+      createdAt: new Date("2026-07-01T00:00:00.000Z"),
+    };
+    const records = [
+      {
+        ...baseRecord,
+        id: "record-doors",
+        Location: "1. stāvs",
+        Works: "Durvju uzstādīšana",
+        Comments: "Uzstādītas durvis.",
+      },
+      {
+        ...baseRecord,
+        id: "record-walls",
+        Location: "2. stāvs",
+        Works: "Sienu krāsošana",
+        Comments: "Nokrāsotas sienas.",
+        createdAt: new Date("2026-07-01T00:00:01.000Z"),
+      },
+    ];
+
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: twoRecordCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: records[1],
+      records,
+    });
+
+    expect(result.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "record-count")?.status).toBe("pass");
+  });
+
   it("validates the persisted date for an explicit historical-date case", () => {
     const historicalDateCase = whatsappSiteManagerEvalCases.find(
       (item) => item.id === "latvian-explicit-historical-date",

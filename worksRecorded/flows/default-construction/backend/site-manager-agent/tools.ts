@@ -13,13 +13,23 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
 import { recordStructuredSaveTrace } from "./structuredSaveTrace";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
-import { getSiteManagerAgentRunContext } from "./runContext";
+import {
+  getSiteManagerAgentRunContext,
+  recordSiteManagerModelCall,
+  recordSiteManagerTiming,
+  recordSiteManagerToolCall,
+} from "./runContext";
+import { detectReplyLanguage, type SupportedReplyLanguage } from "./fastPath";
 import {
   buildAiRunContext,
   summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
 import { formatSiteDiarySaveToolResult } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolResult";
-import { getSiteManagerToolContext } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolContext";
+import {
+  getSiteManagerToolContext,
+  setSiteManagerSavedConfirmationRecords,
+  type SiteDiaryConfirmationRecord,
+} from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolContext";
 import {
   getBisConnectionStatus,
   readBisMaterialRecords,
@@ -43,6 +53,238 @@ export const allowedUnits = [
   "hour", "set", "minute", "lifts",
 ] as const;
 
+type StructuredSaveResult = {
+  action: "save" | "fallback";
+  language: SupportedReplyLanguage;
+  content: string;
+  ok: boolean;
+  count: number;
+  records?: SiteDiaryConfirmationRecord[];
+};
+
+function usageFromMessage(message: any) {
+  const usage = message?.usage_metadata ?? message?.response_metadata?.tokenUsage ?? {};
+  const inputTokens = Number(usage.input_tokens ?? usage.promptTokens ?? 0);
+  const outputTokens = Number(usage.output_tokens ?? usage.completionTokens ?? 0);
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens: Number(usage.total_tokens ?? usage.totalTokens ?? inputTokens + outputTokens),
+  };
+}
+
+function normalizeUnknownNumericFields(
+  row: Record<string, any>,
+  source: string,
+) {
+  const normalized = { ...row };
+  const hasExplicitZeroAmount = /(?:^|\s)0(?:[.,]0+)?\s*(?:m2|m3|m²|m³|m|kg|tn|pcs|gab|gabali|pieces?|units?)\b/iu.test(source);
+  if (normalized.Amounts === 0 && !hasExplicitZeroAmount) normalized.Amounts = null;
+  return normalized;
+}
+
+function toConfirmationRecords(records: unknown): SiteDiaryConfirmationRecord[] {
+  if (!Array.isArray(records)) return [];
+  return records.map((value) => {
+    const record = value && typeof value === "object"
+      ? value as Record<string, unknown>
+      : {};
+    return {
+      Date: record.Date instanceof Date || typeof record.Date === "string" ? record.Date : null,
+      Location: typeof record.Location === "string" ? record.Location : null,
+      Works: typeof record.Works === "string" ? record.Works : null,
+      Comments: typeof record.Comments === "string" ? record.Comments : null,
+      Units: typeof record.Units === "string" ? record.Units : null,
+      Amounts: typeof record.Amounts === "number" ? record.Amounts : null,
+      WorkersInvolved: typeof record.WorkersInvolved === "number" ? record.WorkersInvolved : null,
+      TimeInvolved: typeof record.TimeInvolved === "number" ? record.TimeInvolved : null,
+    };
+  });
+}
+
+export async function extractAndSaveSiteDiary(args: {
+  question: string;
+  requestedDate?: string;
+  allowFallback?: boolean;
+  persist?: boolean;
+}): Promise<StructuredSaveResult> {
+  const toolStarted = Date.now();
+  const toolContext = getSiteManagerToolContext();
+  if (!toolContext) {
+    return {
+      action: "save",
+      language: detectReplyLanguage(args.question),
+      content: "Failed to save site diary entry. Reason: Trusted site diary context is unavailable",
+      ok: false,
+      count: 0,
+    };
+  }
+
+  const { userId, siteId, originalUserComment } = toolContext;
+  setSiteManagerSavedConfirmationRecords([]);
+  const date = args.requestedDate ?? currentDiaryDate();
+  const whatsappSourceContext = getWhatsappSourceContext();
+  const runContext = getSiteManagerAgentRunContext();
+  const aiContext = buildAiRunContext({
+    flow: "structured-site-diary-save",
+    threadId: `structured-site-diary-save:${siteId}:${userId}`,
+    siteId,
+    userId,
+    channel: "tool",
+    model: "gpt-5.4",
+    metadata: {
+      date,
+      hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
+      originalUserCommentPreview: summarizeForTrace(originalUserComment),
+      fastPath: Boolean(args.allowFallback),
+      ...(runContext?.traceMetadata ?? {}),
+    },
+    tags: runContext?.traceTags,
+  });
+
+  const contextStarted = Date.now();
+  const map = await getConfig(siteId);
+  const mapObject = map && typeof map === "object" && !Array.isArray(map)
+    ? map as Record<string, any>
+    : null;
+  const mapToUse = mapObject ?? defaultConfig;
+  const systemPrompt = await systemPromptSaveToDatabaseFunction(
+    userId,
+    mapObject?.AIpromptToUse?.Client,
+  );
+  recordSiteManagerTiming("structuredContextMs", Date.now() - contextStarted);
+
+  const { schema: recordSchema, fieldMap, dropdownValueMaps } = buildZodSchemaFromConfig(mapToUse as any);
+  const baseSchema = z.object({ records: z.array(recordSchema) });
+  const responseSchema = args.allowFallback
+    ? z.object({
+        action: z.enum(["save", "fallback"]),
+        language: z.enum(["lv", "en", "ru"]),
+        records: z.array(recordSchema),
+      })
+    : baseSchema;
+
+  const llm = new ChatOpenAI({ model: "gpt-5.4", reasoning: { effort: "low" } });
+  const structuredLlm = llm.withStructuredOutput(responseSchema, { includeRaw: true }) as any;
+  const extractionStarted = Date.now();
+  let envelope: any;
+  try {
+    envelope = await structuredLlm.invoke(
+      [
+        new HumanMessage(`${args.question} Date is : ${date}`),
+        new SystemMessage(
+          `${systemPrompt}\ntoday is : ${date}\n${siteId}` +
+            (args.allowFallback
+              ? "\nThis is a guarded fast path. Set action=fallback and return no records for questions, greetings, BIS requests, project commands, administrative conversation, ambiguous references, or anything that is not a self-contained site diary report. Otherwise set action=save."
+              : ""),
+        ),
+      ],
+      aiContext.runnableConfig,
+    );
+  } catch (error) {
+    const durationMs = Date.now() - extractionStarted;
+    recordSiteManagerTiming("structuredExtractionMs", durationMs);
+    recordSiteManagerModelCall({
+      purpose: args.allowFallback ? "fast-path-extraction" : "structured-extraction",
+      model: "gpt-5.4",
+      actualModel: null,
+      durationMs,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    });
+    if (args.allowFallback) {
+      return {
+        action: "fallback",
+        language: detectReplyLanguage(args.question),
+        content: "",
+        ok: false,
+        count: 0,
+      };
+    }
+    throw error;
+  }
+  const extractionDurationMs = Date.now() - extractionStarted;
+  const response = envelope?.parsed ?? envelope;
+  const rawMessage = envelope?.raw ?? null;
+  const usage = usageFromMessage(rawMessage);
+  recordSiteManagerTiming("structuredExtractionMs", extractionDurationMs);
+  recordSiteManagerModelCall({
+    purpose: args.allowFallback ? "fast-path-extraction" : "structured-extraction",
+    model: "gpt-5.4",
+    actualModel: rawMessage?.response_metadata?.model_name ?? null,
+    durationMs: extractionDurationMs,
+    ...usage,
+  });
+
+  const language = args.allowFallback
+    ? (response.language as SupportedReplyLanguage | undefined) ?? detectReplyLanguage(args.question)
+    : detectReplyLanguage(args.question);
+  if (args.allowFallback && response.action !== "save") {
+    recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: true });
+    return { action: "fallback", language, content: "", ok: true, count: 0 };
+  }
+
+  const rawRecords = Array.isArray(response.records) ? response.records : [];
+  if (!rawRecords.length) {
+    const content = "Failed to save site diary entry. Reason: No records to insert";
+    recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: false });
+    return { action: args.allowFallback ? "fallback" : "save", language, content, ok: false, count: 0 };
+  }
+
+  const rows = rawRecords.map((record: Record<string, unknown>) =>
+    normalizeUnknownNumericFields(
+      mapToDbFields(record, fieldMap, dropdownValueMaps),
+      args.question,
+    ));
+  if (args.persist === false) {
+    recordSiteManagerToolCall({ name: "shadow_save_to_database", durationMs: Date.now() - toolStarted, ok: true });
+    return { action: "save", language, content: "", ok: true, count: rows.length };
+  }
+  const persistenceStarted = Date.now();
+  let result;
+  try {
+    result = await saveSiteDiaryRecord({
+      rows,
+      userId,
+      siteId,
+      originalUserComment,
+      evalMetadata: runContext?.evalRecordMetadata,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Database unavailable";
+    recordSiteManagerTiming("persistenceMs", Date.now() - persistenceStarted);
+    recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: false });
+    return {
+      action: "save",
+      language,
+      content: `Failed to save site diary entry. Reason: ${message}`,
+      ok: false,
+      count: 0,
+    };
+  }
+  recordSiteManagerTiming("persistenceMs", Date.now() - persistenceStarted);
+
+  recordStructuredSaveTrace({
+    siteId,
+    userId,
+    date,
+    originalUserComment,
+    rawRecords,
+    mappedRows: rows,
+    normalizedInsertRows: result?.normalizedInsertRows ?? [],
+    persistedRecords: result?.records ?? [],
+  });
+
+  const content = formatSiteDiarySaveToolResult(result, rows.length);
+  const ok = Boolean(result?.ok);
+  const count = result?.count ?? rows.length;
+  const confirmationRecords = ok ? toConfirmationRecords(result?.records) : [];
+  setSiteManagerSavedConfirmationRecords(confirmationRecords);
+  recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok });
+  return { action: "save", language, content, ok, count, records: confirmationRecords };
+}
+
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
   name: "save_to_database",
   description:
@@ -59,129 +301,24 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
   }),
 
   async func({ question, date: requestedDate }) {
-    const toolContext = getSiteManagerToolContext();
-    if (!toolContext) {
-      return "Failed to save site diary entry. Reason: Trusted site diary context is unavailable";
-    }
-
-    const { userId, siteId, originalUserComment } = toolContext;
-    const date = requestedDate ?? currentDiaryDate();
-    const whatsappSourceContext = getWhatsappSourceContext();
-    const runContext = getSiteManagerAgentRunContext();
-    const aiContext = buildAiRunContext({
-      flow: "structured-site-diary-save",
-      threadId: `structured-site-diary-save:${siteId}:${userId}`,
-      siteId,
-      userId,
-      channel: "tool",
-      model: "gpt-5.4",
-      metadata: {
-        date,
-        hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
-        originalUserCommentPreview: summarizeForTrace(originalUserComment),
-        ...(runContext?.traceMetadata ?? {}),
-      },
-      tags: runContext?.traceTags,
-    });
-
-    console.log("▶️ TOOL START");
-    console.log("Input:", { question, userId, siteId, date });
-    console.log("[originalAudioUrl][siteManagerTool] received app context", {
-      hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
-      userId,
-      siteId,
-    });
-
-    const map = await getConfig(siteId);
-    const mapToUse = map ? map : defaultConfig;
-
-    console.log("✅ Config loaded:", map ? "DB config" : "Default config");
-
-    const {
-      schema: SiteDiaryRecordSchema,
-      fieldMap,
-      dropdownValueMaps,
-    } =
-      buildZodSchemaFromConfig(mapToUse);
-
-    const SiteDiaryRecordsSchema = z.object({
-      records: z.array(SiteDiaryRecordSchema),
-    });
-
-    console.log("✅ Zod schemas built");
-
-    const client = map?.AIpromptToUse?.Client;
-
-    const llm = new ChatOpenAI({
-      model: "gpt-5.4",
-      reasoning: { effort: "low" },
-    });
-
-    const structuredLlm = llm.withStructuredOutput(
-      SiteDiaryRecordsSchema
-    );
-
-    console.log("✅ LLM initialized");
-    console.log("🤖 Calling LLM...");
-
-    const response = await structuredLlm.invoke(
-      [
-        new HumanMessage(`${question} Date is : ${date}`),
-        new SystemMessage(
-          `${await systemPromptSaveToDatabaseFunction(userId, client)}\n` +
-          `today is : ${date}\n` +
-          `${siteId}`
-        ),
-      ],
-      aiContext.runnableConfig,
-    );
-
-    console.log("📥 LLM response:");
-    console.log(JSON.stringify(response, null, 2));
-
-    const rows = response.records.map((r, i) => {
-      const mapped = mapToDbFields(r, fieldMap, dropdownValueMaps);
-
-      console.log(`🧩 Mapped row ${i + 1}:`, mapped);
-
-      return mapped;
-    });
-
-    console.log(`✅ Total rows prepared: ${rows.length}`);
-    console.log("💾 Saving to database...");
-
-    const result = await saveSiteDiaryRecord({
-      rows,
-      userId,
-      siteId,
-      originalUserComment,
-      evalMetadata: runContext?.evalRecordMetadata,
-    });
-
-    console.log("✅ Save result:", result);
-
-    recordStructuredSaveTrace({
-      siteId,
-      userId,
-      date,
-      originalUserComment,
-      rawRecords: response.records,
-      mappedRows: rows,
-      normalizedInsertRows: result?.normalizedInsertRows ?? [],
-      persistedRecords: result?.records ?? [],
-    });
-
-    const toolResultMessage = formatSiteDiarySaveToolResult(result, rows.length);
-    if (!result?.ok) return toolResultMessage;
-
-    console.log("🏁 TOOL END");
-
-    return toolResultMessage;
+    return (await extractAndSaveSiteDiary({ question, requestedDate })).content;
   },
 });
 
 function serializeBisResult(value: unknown) {
   return JSON.stringify(value, (_, item) => typeof item === "bigint" ? item.toString() : item);
+}
+
+async function withToolMetric<T>(name: string, fn: () => Promise<T>) {
+  const started = Date.now();
+  try {
+    const result = await fn();
+    recordSiteManagerToolCall({ name, durationMs: Date.now() - started, ok: true });
+    return result;
+  } catch (error) {
+    recordSiteManagerToolCall({ name, durationMs: Date.now() - started, ok: false });
+    throw error;
+  }
 }
 
 export const bisConnectionStatusTool = new DynamicStructuredTool({
@@ -195,10 +332,11 @@ export const bisConnectionStatusTool = new DynamicStructuredTool({
       return "BIS status could not be verified because trusted site-manager context is unavailable.";
     }
     try {
-      const result = await getBisConnectionStatus(
-        { siteId: context.siteId, userId: context.userId },
-        { connectionOverride: getSiteManagerAgentRunContext()?.bisConnectionOverride },
-      );
+      const result = await withToolMetric("get_bis_connection_status", () =>
+        getBisConnectionStatus(
+          { siteId: context.siteId, userId: context.userId },
+          { connectionOverride: getSiteManagerAgentRunContext()?.bisConnectionOverride },
+        ));
       return serializeBisResult(result);
     } catch {
       return serializeBisResult({ error: "BIS connection status could not be verified." });
@@ -217,10 +355,11 @@ export const bisMaterialRecordsTool = new DynamicStructuredTool({
     const context = getSiteManagerToolContext();
     if (!context) return "BIS materials could not be read because trusted site-manager context is unavailable.";
     try {
-      return serializeBisResult(await readBisMaterialRecords(
-        { siteId: context.siteId, userId: context.userId },
-        { search, limit },
-      ));
+      return serializeBisResult(await withToolMetric("read_bis_material_records", () =>
+        readBisMaterialRecords(
+          { siteId: context.siteId, userId: context.userId },
+          { search, limit },
+        )));
     } catch {
       return serializeBisResult({ error: "BIS material records could not be read." });
     }
@@ -239,10 +378,11 @@ export const siteDiaryBisStatusesTool = new DynamicStructuredTool({
     const context = getSiteManagerToolContext();
     if (!context) return "BIS diary statuses could not be read because trusted site-manager context is unavailable.";
     try {
-      return serializeBisResult(await readSiteDiaryBisStatuses(
-        { siteId: context.siteId, userId: context.userId },
-        { submission, search, limit },
-      ));
+      return serializeBisResult(await withToolMetric("read_site_diary_bis_statuses", () =>
+        readSiteDiaryBisStatuses(
+          { siteId: context.siteId, userId: context.userId },
+          { submission, search, limit },
+        )));
     } catch {
       return serializeBisResult({ error: "Site diary BIS statuses could not be read." });
     }

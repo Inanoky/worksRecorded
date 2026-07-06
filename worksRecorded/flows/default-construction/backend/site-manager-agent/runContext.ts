@@ -8,6 +8,40 @@ export type SiteManagerAgentRunDetails = {
   usageMetadata: unknown;
   responseMetadata: unknown;
   finishReason: string | null;
+  executionPath: "legacy-agent" | "fast-path";
+  fastPathMode: "off" | "shadow" | "on";
+  timings: Record<string, number>;
+  modelCalls: SiteManagerModelCallMetric[];
+  toolCalls: SiteManagerToolCallMetric[];
+  aggregateTokenUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
+};
+
+export type SiteManagerModelCallMetric = {
+  purpose: "routing" | "final-response" | "structured-extraction" | "fast-path-extraction";
+  model: string;
+  actualModel: string | null;
+  durationMs: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
+
+export type SiteManagerToolCallMetric = {
+  name: string;
+  durationMs: number;
+  ok: boolean;
+};
+
+type SiteManagerRunMetrics = {
+  executionPath: "legacy-agent" | "fast-path";
+  fastPathMode: "off" | "shadow" | "on";
+  timings: Record<string, number>;
+  modelCalls: SiteManagerModelCallMetric[];
+  toolCalls: SiteManagerToolCallMetric[];
 };
 
 export type SiteManagerAgentRunOptions = {
@@ -26,6 +60,7 @@ export type SiteManagerAgentRunOptions = {
 
 export type SiteManagerAgentRunContext = SiteManagerAgentRunOptions & {
   details: SiteManagerAgentRunDetails | null;
+  metrics: SiteManagerRunMetrics;
 };
 
 const siteManagerAgentRunStorage = new AsyncLocalStorage<SiteManagerAgentRunContext>();
@@ -37,6 +72,13 @@ export async function runWithSiteManagerAgentEvalContext<T>(
   const context: SiteManagerAgentRunContext = {
     ...options,
     details: null,
+    metrics: {
+      executionPath: "legacy-agent",
+      fastPathMode: "off",
+      timings: {},
+      modelCalls: [],
+      toolCalls: [],
+    },
   };
 
   const result = await siteManagerAgentRunStorage.run(context, fn);
@@ -48,4 +90,48 @@ export async function runWithSiteManagerAgentEvalContext<T>(
 
 export function getSiteManagerAgentRunContext() {
   return siteManagerAgentRunStorage.getStore();
+}
+
+export function setSiteManagerExecutionPath(
+  executionPath: SiteManagerRunMetrics["executionPath"],
+  fastPathMode: SiteManagerRunMetrics["fastPathMode"],
+) {
+  const context = getSiteManagerAgentRunContext();
+  if (!context) return;
+  context.metrics.executionPath = executionPath;
+  context.metrics.fastPathMode = fastPathMode;
+}
+
+export function recordSiteManagerTiming(name: string, durationMs: number) {
+  const context = getSiteManagerAgentRunContext();
+  if (!context) return;
+  context.metrics.timings[name] = (context.metrics.timings[name] ?? 0) + durationMs;
+}
+
+export function recordSiteManagerModelCall(metric: SiteManagerModelCallMetric) {
+  getSiteManagerAgentRunContext()?.metrics.modelCalls.push(metric);
+}
+
+export function recordSiteManagerToolCall(metric: SiteManagerToolCallMetric) {
+  getSiteManagerAgentRunContext()?.metrics.toolCalls.push(metric);
+}
+
+export function getSiteManagerMetricsSnapshot() {
+  const metrics = getSiteManagerAgentRunContext()?.metrics;
+  const modelCalls = [...(metrics?.modelCalls ?? [])];
+  return {
+    executionPath: metrics?.executionPath ?? "legacy-agent" as const,
+    fastPathMode: metrics?.fastPathMode ?? "off" as const,
+    timings: { ...(metrics?.timings ?? {}) },
+    modelCalls,
+    toolCalls: [...(metrics?.toolCalls ?? [])],
+    aggregateTokenUsage: modelCalls.reduce(
+      (total, call) => ({
+        inputTokens: total.inputTokens + call.inputTokens,
+        outputTokens: total.outputTokens + call.outputTokens,
+        totalTokens: total.totalTokens + call.totalTokens,
+      }),
+      { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+    ),
+  };
 }

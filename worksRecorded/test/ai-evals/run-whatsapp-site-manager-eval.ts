@@ -43,6 +43,12 @@ type CaseRunResult = {
   actualModel: string | null;
   tokenUsage: unknown;
   finishReason: string | null;
+  executionPath: "legacy-agent" | "fast-path" | null;
+  fastPathMode: "off" | "shadow" | "on" | null;
+  timings: Record<string, number> | null;
+  modelCalls: unknown[];
+  toolCalls: unknown[];
+  aggregateTokenUsage: unknown;
   structuredSaveTrace: StructuredSaveTraceEntry[];
   deterministic: WhatsAppTurnValidationResult;
   judge: JudgeResult;
@@ -371,6 +377,7 @@ async function findCreatedRecords(args: {
       originalAudioUrl: true,
       WorkersInvolved: true,
       TimeInvolved: true,
+      Amounts: true,
       evalMetadata: true,
       createdAt: true,
     },
@@ -654,6 +661,12 @@ async function main() {
           actualModel: agentRun.details?.actualModel ?? null,
           tokenUsage: agentRun.details?.tokenUsage ?? null,
           finishReason: agentRun.details?.finishReason ?? null,
+          executionPath: agentRun.details?.executionPath ?? null,
+          fastPathMode: agentRun.details?.fastPathMode ?? null,
+          timings: agentRun.details?.timings ?? null,
+          modelCalls: agentRun.details?.modelCalls ?? [],
+          toolCalls: agentRun.details?.toolCalls ?? [],
+          aggregateTokenUsage: agentRun.details?.aggregateTokenUsage ?? null,
           structuredSaveTrace: tracedRun.entries,
           deterministic,
           judge,
@@ -776,6 +789,12 @@ async function main() {
             actualModel: followUpAgentRun.details?.actualModel ?? null,
             tokenUsage: followUpAgentRun.details?.tokenUsage ?? null,
             finishReason: followUpAgentRun.details?.finishReason ?? null,
+            executionPath: followUpAgentRun.details?.executionPath ?? null,
+            fastPathMode: followUpAgentRun.details?.fastPathMode ?? null,
+            timings: followUpAgentRun.details?.timings ?? null,
+            modelCalls: followUpAgentRun.details?.modelCalls ?? [],
+            toolCalls: followUpAgentRun.details?.toolCalls ?? [],
+            aggregateTokenUsage: followUpAgentRun.details?.aggregateTokenUsage ?? null,
             structuredSaveTrace: followUpTracedRun.entries,
             deterministic: followUpDeterministic,
             judge: followUpJudge,

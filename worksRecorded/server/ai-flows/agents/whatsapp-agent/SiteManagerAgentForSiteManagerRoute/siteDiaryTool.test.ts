@@ -5,6 +5,7 @@ const getConfigMock = jest.fn();
 const systemPromptMock = jest.fn();
 const recordTraceMock = jest.fn();
 const getSiteDiaryToolContextMock = jest.fn();
+const setSavedConfirmationRecordsMock = jest.fn();
 const getBisConnectionStatusMock = jest.fn();
 const readBisMaterialRecordsMock = jest.fn();
 const readSiteDiaryBisStatusesMock = jest.fn();
@@ -38,11 +39,15 @@ jest.mock("@/flows/default-construction/backend/site-manager-agent/runContext", 
     traceMetadata: { scenario: "unit-test" },
     traceTags: ["site-diary-test"],
   })),
+  recordSiteManagerModelCall: jest.fn(),
+  recordSiteManagerTiming: jest.fn(),
+  recordSiteManagerToolCall: jest.fn(),
 }));
 
 jest.mock("./siteDiaryToolContext", () => ({
   getSiteDiaryToolContext: getSiteDiaryToolContextMock,
   getSiteManagerToolContext: getSiteDiaryToolContextMock,
+  setSiteManagerSavedConfirmationRecords: setSavedConfirmationRecordsMock,
 }));
 
 jest.mock("@/server/ai-flows/agents/bis-support-agent/tools", () => ({
@@ -65,6 +70,7 @@ jest.mock("@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext", () =>
 import {
   bisConnectionStatusTool,
   bisMaterialRecordsTool,
+  extractAndSaveSiteDiary,
   siteDiaryBisStatusesTool,
   siteDiaryToDatabaseTool,
 } from "@/flows/default-construction/backend/site-manager-agent/tools";
@@ -155,7 +161,17 @@ describe("save_to_database site diary tool", () => {
       ok: true,
       count: 1,
       recordIds: ["record-1"],
-      records: [{ id: "record-1" }],
+      records: [{
+        id: "record-1",
+        Date: new Date("2026-06-08T00:00:00.000Z"),
+        Location: "Building A",
+        Works: "Concrete pour",
+        Comments: "Concrete poured",
+        Amounts: 12.5,
+        Units: "m3",
+        WorkersInvolved: 2,
+        TimeInvolved: 4,
+      }],
       normalizedInsertRows: [{ Location: "Building A" }],
     });
 
@@ -189,6 +205,16 @@ describe("save_to_database site diary tool", () => {
     expect(result).toBe(
       "Saved 1 site diary record(s) successfully. Record IDs: record-1.",
     );
+    expect(setSavedConfirmationRecordsMock).toHaveBeenLastCalledWith([{
+      Date: new Date("2026-06-08T00:00:00.000Z"),
+      Location: "Building A",
+      Works: "Concrete pour",
+      Comments: "Concrete poured",
+      Units: "m3",
+      Amounts: 12.5,
+      WorkersInvolved: 2,
+      TimeInvolved: 4,
+    }]);
   });
 
   it.each([
@@ -241,6 +267,52 @@ describe("save_to_database site diary tool", () => {
 
     const [messages] = structuredInvokeMock.mock.calls[0];
     expect(messages[0].content).toContain("Date is : 02-07-2026");
+  });
+
+  it("normalizes an invented zero amount to null when the source has no quantity", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      records: [{ Area: "Floor 2", Activity: "Concrete pour", Quantity: 0 }],
+    });
+    saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+    await siteDiaryToDatabaseTool.invoke({
+      question: "Šodien apmestas sienas 2 stāvā, 4h",
+    });
+
+    expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0].Amounts).toBeNull();
+  });
+
+  it("fast-path fallback does not persist", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      action: "fallback",
+      language: "lv",
+      records: [],
+    });
+
+    const result = await extractAndSaveSiteDiary({
+      question: "Vai darbi ir pabeigti?",
+      allowFallback: true,
+    });
+
+    expect(result.action).toBe("fallback");
+    expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+  });
+
+  it("shadow extraction returns a save decision without persisting", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      action: "save",
+      language: "en",
+      records: [{ Area: "Building A", Activity: "Concrete pour", Quantity: 2 }],
+    });
+
+    const result = await extractAndSaveSiteDiary({
+      question: "Completed concrete pour today",
+      allowFallback: true,
+      persist: false,
+    });
+
+    expect(result).toMatchObject({ action: "save", language: "en", ok: true, count: 1 });
+    expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
   });
 
   it("does not execute without trusted app context", async () => {

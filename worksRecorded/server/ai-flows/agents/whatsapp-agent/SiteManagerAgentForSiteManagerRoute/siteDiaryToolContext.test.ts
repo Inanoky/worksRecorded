@@ -1,6 +1,8 @@
 import {
   getSiteDiaryToolContext,
+  getSiteManagerSavedConfirmationRecords,
   runWithSiteDiaryToolContext,
+  setSiteManagerSavedConfirmationRecords,
 } from "./siteDiaryToolContext";
 
 describe("site diary tool context", () => {
@@ -89,5 +91,23 @@ describe("site diary tool context", () => {
     ).rejects.toThrow("tool failed");
 
     expect(getSiteDiaryToolContext()).toBeUndefined();
+  });
+
+  it("passes saved confirmation records only within the trusted run", async () => {
+    await runWithSiteDiaryToolContext(
+      {
+        userId: "user-1",
+        siteId: "site-1",
+        originalUserComment: "Original message",
+      },
+      async () => {
+        setSiteManagerSavedConfirmationRecords([{ Works: "Finishing", TimeInvolved: 4 }]);
+        expect(getSiteManagerSavedConfirmationRecords()).toEqual([
+          { Works: "Finishing", TimeInvolved: 4 },
+        ]);
+      },
+    );
+
+    expect(getSiteManagerSavedConfirmationRecords()).toEqual([]);
   });
 });
