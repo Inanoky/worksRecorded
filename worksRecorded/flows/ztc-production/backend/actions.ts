@@ -21,7 +21,7 @@ import {
   attachZtcLaborNormToMetadata,
   normalizeZtcLaborNorm,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
-import { resolveZtcProductionContextForSite } from "@/lib/production-flow/runtime-server";
+import { resolveAdvancedProductionWorkflowContextForSite } from "@/lib/production-flow/runtime-server";
 
 const ZTC_DEFAULT_TASK_RATES_KEY = "ztcDefaultTaskRates";
 const ZTC_RATE_CATEGORIES = ["works", "additionalDetails", "additionalWorks"] as const;
@@ -45,16 +45,16 @@ export type ZtcProjectTaskRates = {
 };
 
 async function requireZtcAccess(siteId: string) {
-  const context = await resolveZtcProductionContextForSite(siteId);
+  const context = await resolveAdvancedProductionWorkflowContextForSite(siteId);
   if (!context) {
-    throw new Error("ZTC darbibas var izmantot tikai ZTC razosanas plusmas objektam.");
+    throw new Error("Ražošanas darbības var izmantot tikai ražošanas plūsmas objektam.");
   }
 
   const user = await requireUser();
   const site = await orgCheck(user.id, siteId);
 
   if (!site || site.organizationId !== context.organizationId) {
-    throw new Error("Jums nav piekluves ZTC buvdarbu zurnalam.");
+    throw new Error("Jums nav piekļuves ražošanas žurnālam.");
   }
 
   return { user, ...context };
@@ -771,7 +771,7 @@ export async function updateZtcDefaultTaskRates(args: {
     where: { id: args.siteId },
     select: { siteDiaryRecordsMap: true },
   });
-  if (!site) throw new Error("ZTC objekts nav atrasts.");
+  if (!site) throw new Error("Ražošanas objekts nav atrasts.");
 
   const currentMap =
     site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
@@ -906,7 +906,7 @@ export async function updateZtcSiteDiaryRecord(args: {
   });
 
   if (result.count !== 1) {
-    return { ok: false, message: "ZTC ieraksts nav atrasts." };
+    return { ok: false, message: "Ražošanas ieraksts nav atrasts." };
   }
 
   const record = await prisma.ztcRecords.findUnique({ where: { id } });
@@ -966,7 +966,7 @@ export async function updateZtcPayrollFields(args: {
   });
 
   if (result.count !== 1) {
-    return { ok: false, message: "ZTC ieraksts nav atrasts." };
+    return { ok: false, message: "Ražošanas ieraksts nav atrasts." };
   }
 
   return { ok: true };

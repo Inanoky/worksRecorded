@@ -71,9 +71,9 @@ export const DEFAULT_PRODUCTION_FLOW_CONFIG: ProductionFlowConfig = {
   },
   features: {
     drawings: true,
-    pause: false,
-    productivityExport: false,
-    payrollExport: false,
+    pause: true,
+    productivityExport: true,
+    payrollExport: true,
     additionalWorks: true,
   },
   navigation: {
@@ -83,6 +83,12 @@ export const DEFAULT_PRODUCTION_FLOW_CONFIG: ProductionFlowConfig = {
     rows: [
       { code: "X", task: "X koeficients", defaultRate: "1.2", unit: "x" },
       { code: "X X", task: "X X koeficients", defaultRate: "1.5", unit: "x" },
+      { code: "1", task: "1 koeficients", defaultRate: "1", unit: "x" },
+      { code: "2", task: "2 koeficients", defaultRate: "1", unit: "x" },
+      { code: "3", task: "3 koeficients", defaultRate: "1", unit: "x" },
+      { code: "4", task: "4 koeficients", defaultRate: "1", unit: "x" },
+      { code: "5", task: "5 koeficients", defaultRate: "1", unit: "x" },
+      { code: "6", task: "6 koeficients", defaultRate: "1", unit: "x" },
     ],
   },
   whatsapp: {
@@ -91,11 +97,11 @@ export const DEFAULT_PRODUCTION_FLOW_CONFIG: ProductionFlowConfig = {
     changeProjectCommands: ["Change", "Project", "Projekts"],
   },
   strategies: {
-    whatsappWorker: "legacy-worker-v1",
-    whatsappQuality: "none",
+    whatsappWorker: "ztc-worker-v1",
+    whatsappQuality: "ztc-quality-v1",
   },
   additionalWorks: {
-    mode: "default",
+    mode: "ztc-element-aware",
   },
 };
 

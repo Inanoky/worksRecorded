@@ -3,11 +3,19 @@ import { FLOW_MODULE_KEYS, type FlowModuleDefinition } from "@/lib/flows/types";
 export const defaultProductionFlowModule = {
   key: FLOW_MODULE_KEYS.DEFAULT_PRODUCTION,
   name: "Default Production",
-  description: "Reusable production flow baseline for new production customers.",
+  description: "Reusable production workflow with drawing extraction, pauses, productivity exports, quality checks, and WhatsApp handlers.",
   category: "production",
   clientFlowId: "default",
   productionConfigKey: "default-production",
-  configurableAreas: ["labels", "features", "rates", "exports", "WhatsApp commands"],
+  configurableAreas: [
+    "labels",
+    "features",
+    "rates",
+    "coefficients",
+    "additional works",
+    "exports",
+    "WhatsApp strategies",
+  ],
   ui: {
     showDashboardAiWidget: true,
     showSiteDiaryAiWidget: false,
@@ -26,6 +34,9 @@ export const defaultProductionFlowModule = {
       "flows/default-production/backend.ts",
       "flows/default-production/backend/worker.ts",
       "flows/default-production/backend/worker-route.ts",
+      "flows/ztc-production/backend/whatsapp-worker.ts",
+      "flows/ztc-production/backend/whatsapp-quality.ts",
+      "flows/ztc-production/backend/actions.ts",
     ],
   },
 } satisfies FlowModuleDefinition;

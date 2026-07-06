@@ -229,7 +229,7 @@ async function analyzeQualityMessage(text: string): Promise<{
           {
             role: "system",
             content:
-              "Correct and evaluate a ZTC factory quality control message in one pass. Return only JSON with keys: polishedText, status, summary, issue. polishedText must preserve the original meaning, technical terms, project names, element names, work codes, numbers, units, and names; do not add details. status must be one of: accepted, accepted_with_defects, rejected, unknown. Use accepted when quality is OK/accepted/without defects. Use accepted_with_defects when defects are mentioned but the work is still accepted/acceptable. Use rejected when quality is not accepted, needs rework, has unacceptable defects, or is rejected. Use unknown only if the message does not clearly state quality outcome. Preserve Latvian meaning in summary.",
+              "Correct and evaluate a production factory quality control message in one pass. Return only JSON with keys: polishedText, status, summary, issue. polishedText must preserve the original meaning, technical terms, project names, element names, work codes, numbers, units, and names; do not add details. status must be one of: accepted, accepted_with_defects, rejected, unknown. Use accepted when quality is OK/accepted/without defects. Use accepted_with_defects when defects are mentioned but the work is still accepted/acceptable. Use rejected when quality is not accepted, needs rework, has unacceptable defects, or is rejected. Use unknown only if the message does not clearly state quality outcome. Preserve Latvian meaning in summary.",
           },
           { role: "user", content: normalized },
         ],

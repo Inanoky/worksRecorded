@@ -36,9 +36,8 @@ import {
   handleZtcQualityRoute,
   isZtcQualityWorkerRole,
 } from "@/flows/ztc-production/backend";
-import { resolveZtcProductionContextForWorker } from "@/lib/production-flow/runtime-server";
+import { resolveAdvancedProductionWorkflowContextForWorker } from "@/lib/production-flow/runtime-server";
 import { resolveWorkerFlowRuntime } from "@/lib/flows/worker-runtime-server";
-import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 
 const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 
@@ -715,15 +714,22 @@ async function runWhatsappRoutingForMeta(args: {
     });
 
     const workerFlowRuntime = worker ? await resolveWorkerFlowRuntime(worker) : null;
-    const ztcFlowContext = workerFlowRuntime?.flowModuleKey === FLOW_MODULE_KEYS.ZTC_PRODUCTION && worker
-      ? await resolveZtcProductionContextForWorker(worker)
+    const usesAdvancedProductionWorkflow =
+      workerFlowRuntime?.productionConfig?.strategies.whatsappWorker === "ztc-worker-v1";
+    const usesAdvancedQualityWorkflow =
+      workerFlowRuntime?.productionConfig?.strategies.whatsappQuality === "ztc-quality-v1";
+    const ztcFlowContext = usesAdvancedProductionWorkflow && worker
+      ? await resolveAdvancedProductionWorkflowContextForWorker(worker)
       : null;
     const ztcWorker = ztcFlowContext
       ? ({ ...worker, ztcFlowContext } as NonNullable<typeof worker> & { ztcFlowContext: typeof ztcFlowContext })
       : null;
 
     if (ztcWorker && isSingleMetaImageFormData(formData)) {
-      const mode: ZtcImageBatchMode = isZtcQualityWorkerRole(worker.role) ? "ztc_quality" : "ztc_worker";
+      const mode: ZtcImageBatchMode =
+        usesAdvancedQualityWorkflow && isZtcQualityWorkerRole(worker.role)
+          ? "ztc_quality"
+          : "ztc_worker";
       const batchDecision = await stageZtcImageBatch({
         identityKey,
         worker: ztcWorker,
@@ -768,7 +774,7 @@ async function runWhatsappRoutingForMeta(args: {
 
     if (worker) {
       if (ztcWorker) {
-        if (isZtcQualityWorkerRole(worker.role)) {
+        if (usesAdvancedQualityWorkflow && isZtcQualityWorkerRole(worker.role)) {
           const handlerStartedAt = Date.now();
           await handleZtcQualityRoute({ worker: ztcWorker as any, formData });
           routeOutcome = "ztc_quality_worker";

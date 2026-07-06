@@ -1,6 +1,5 @@
 "use server";
 
-import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { resolveProductionFlowConfigForRuntime } from "@/lib/production-flow/config-server";
 import { prisma } from "@/lib/utils/db";
 
@@ -13,11 +12,22 @@ export async function isZtcProductionFlowRuntime(args: {
   organizationId?: string | null;
   siteId?: string | null;
 }) {
+  return isAdvancedProductionWorkflowRuntime(args);
+}
+
+export async function isAdvancedProductionWorkflowRuntime(args: {
+  organizationId?: string | null;
+  siteId?: string | null;
+}) {
   const config = await resolveProductionFlowConfigForRuntime(args);
-  return config?.flowModuleKey === FLOW_MODULE_KEYS.ZTC_PRODUCTION;
+  return config?.strategies.whatsappWorker === "ztc-worker-v1";
 }
 
 export async function resolveZtcProductionContextForSite(siteId?: string | null) {
+  return resolveAdvancedProductionWorkflowContextForSite(siteId);
+}
+
+export async function resolveAdvancedProductionWorkflowContextForSite(siteId?: string | null) {
   if (!siteId) return null;
 
   const site = await prisma.site.findUnique({
@@ -26,11 +36,11 @@ export async function resolveZtcProductionContextForSite(siteId?: string | null)
   });
   if (!site?.organizationId) return null;
 
-  const isZtc = await isZtcProductionFlowRuntime({
+  const usesAdvancedWorkflow = await isAdvancedProductionWorkflowRuntime({
     organizationId: site.organizationId,
     siteId: site.id,
   });
-  if (!isZtc) return null;
+  if (!usesAdvancedWorkflow) return null;
 
   return {
     organizationId: site.organizationId,
@@ -42,8 +52,15 @@ export async function resolveZtcProductionContextForWorker(worker: {
   organizationId?: string | null;
   siteId?: string | null;
 }) {
+  return resolveAdvancedProductionWorkflowContextForWorker(worker);
+}
+
+export async function resolveAdvancedProductionWorkflowContextForWorker(worker: {
+  organizationId?: string | null;
+  siteId?: string | null;
+}) {
   if (worker.siteId) {
-    const siteContext = await resolveZtcProductionContextForSite(worker.siteId);
+    const siteContext = await resolveAdvancedProductionWorkflowContextForSite(worker.siteId);
     if (siteContext) return siteContext;
   }
 
@@ -54,7 +71,7 @@ export async function resolveZtcProductionContextForWorker(worker: {
     organizationId,
     siteId: worker.siteId,
   });
-  if (assignedConfig?.flowModuleKey !== FLOW_MODULE_KEYS.ZTC_PRODUCTION) return null;
+  if (assignedConfig?.strategies.whatsappWorker !== "ztc-worker-v1") return null;
 
   const configuredSiteId =
     worker.siteId && assignedConfig.siteIds.includes(worker.siteId)

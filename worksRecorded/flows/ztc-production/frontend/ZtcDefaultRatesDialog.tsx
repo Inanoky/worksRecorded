@@ -557,7 +557,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
         <DialogHeader className="border-b px-6 py-4">
           <DialogTitle>Darbu likmes</DialogTitle>
           <DialogDescription className="sr-only">
-            Pārvaldīt ZTC projektu, darbu, papilddetāļu un papilddarbu likmes.
+            Pārvaldīt projektu, darbu, papilddetāļu un papilddarbu likmes.
           </DialogDescription>
         </DialogHeader>
 
