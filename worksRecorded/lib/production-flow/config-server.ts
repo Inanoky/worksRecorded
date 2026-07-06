@@ -18,19 +18,6 @@ type OverrideRow = {
   updatedAt: Date;
 };
 
-const TABLE_NAME = '"ProductionFlowConfigOverride"';
-
-async function ensureFlowConfigOverrideTable() {
-  await prisma.$executeRawUnsafe(`
-    CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
-      "key" TEXT PRIMARY KEY,
-      "config" JSONB NOT NULL DEFAULT '{}'::jsonb,
-      "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-}
-
 function stringArray(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item ?? "").trim()).filter(Boolean);
@@ -172,13 +159,12 @@ function getBaseConfigForOverride(row: OverrideRow) {
   );
 }
 
-async function getOverrideRows() {
-  await ensureFlowConfigOverrideTable();
-  return prisma.$queryRawUnsafe<OverrideRow[]>(`
-    SELECT "key", "config", "updatedAt"
-    FROM ${TABLE_NAME}
-    ORDER BY "key" ASC
-  `);
+async function getOverrideRows(): Promise<OverrideRow[]> {
+  const rows = await prisma.productionFlowConfigOverride.findMany({
+    orderBy: { key: "asc" },
+  });
+
+  return rows as OverrideRow[];
 }
 
 export async function getMergedProductionFlowConfigs() {
@@ -258,15 +244,14 @@ export async function resolveProductionFlowConfigForRuntime(args: {
 }
 
 export async function saveProductionFlowConfigOverride(key: string, config: unknown) {
-  await ensureFlowConfigOverrideTable();
-  await prisma.$executeRawUnsafe(
-    `
-      INSERT INTO ${TABLE_NAME} ("key", "config", "updatedAt")
-      VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
-      ON CONFLICT ("key")
-      DO UPDATE SET "config" = EXCLUDED."config", "updatedAt" = CURRENT_TIMESTAMP
-    `,
-    key,
-    JSON.stringify(config),
-  );
+  await prisma.productionFlowConfigOverride.upsert({
+    where: { key },
+    create: {
+      key,
+      config: config as any,
+    },
+    update: {
+      config: config as any,
+    },
+  });
 }

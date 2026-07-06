@@ -5,7 +5,7 @@ import { handleProjectSelector } from "@/lib/utils/whatsapp-helpers/shared/proje
 import { handleImage } from "@/lib/utils/whatsapp-helpers/shared/handleImage";
 import { handleAudio } from "@/lib/utils/whatsapp-helpers/shared/handleAudio";
 import { handleText } from "@/lib/utils/whatsapp-helpers/shared/handleText";
-import talkToWhatsappAgent from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/agent";
+import talkToWhatsappAgent from "@/flows/default-construction/backend/site-manager-agent/agent";
 import { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
 import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";

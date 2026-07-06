@@ -6,7 +6,7 @@ import { GraphState } from "@/server/ai-flows/agents/shared-between-agents/state
 import SiteDiaryAgent from "@/server/ai-flows/agents/sitediary-agent/agent";
 import TimesheetsAgent from "@/server/ai-flows/agents/timeshets-agent/agent";
 import BisMaterialsAgent from "@/server/ai-flows/agents/bis-materials-agent/agent";
-import { siteDiaryToDatabaseTool } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/tools";
+import { siteDiaryToDatabaseTool } from "@/flows/default-construction/backend/site-manager-agent/tools";
 import { summarizeToolOutput } from "@/server/ai-flows/controlled-memory";
 
 import OpenAI from "openai";

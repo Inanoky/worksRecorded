@@ -9,7 +9,7 @@ import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 
 import { getConfig } from "@/server/actions/site-diary-actions";
-import { buildZodSchemaFromConfig, mapToDbFields } from "../SiteManagerAgentForSiteManagerRoute/AIschemas"
+import { buildZodSchemaFromConfig, mapToDbFields } from "@/flows/default-construction/backend/site-manager-agent/AIschemas"
 import { getOrganizationLanguageByWorkerId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 import { getMetaReplyContext, sendClockInCard } from "@/lib/utils/whatsapp-helpers/shared/sender";
