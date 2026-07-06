@@ -1,7 +1,7 @@
 import {
   findZtcDefaultRateForTask,
   ztcRateMatchTokens,
-} from "@/components/sitediary/ZTC/ztc-rate-matching";
+} from "@/flows/ztc-production/lib/ztc-rate-matching";
 
 describe("findZtcDefaultRateForTask", () => {
   it("matches TL timber-frame drawing work to configured koka karkas rate", () => {

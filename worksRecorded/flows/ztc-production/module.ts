@@ -32,7 +32,7 @@ export const ztcProductionFlowModule = {
     frontend: [
       "flows/ztc-production/frontend.ts",
       "flows/ztc-production/frontend",
-      "components/sitediary/ZTC",
+      "flows/ztc-production/lib",
     ],
     backend: [
       "flows/ztc-production/backend.ts",

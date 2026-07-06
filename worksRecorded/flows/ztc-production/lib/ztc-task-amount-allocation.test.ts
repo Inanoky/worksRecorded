@@ -1,7 +1,7 @@
 import {
   allocateZtcTaskAmountByTime,
   getZtcTaskIdentityKey,
-} from "@/components/sitediary/ZTC/ztc-task-amount-allocation";
+} from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
 
 describe("allocateZtcTaskAmountByTime", () => {
   it("splits the task quantity proportionally to each worker's time", () => {

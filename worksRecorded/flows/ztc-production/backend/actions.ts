@@ -11,16 +11,16 @@ import {
   type ZtcComplexityCode,
   ZTC_ALL_PROJECTS_RATE_NAME,
   ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
-} from "@/components/sitediary/ZTC/ztc-rate-constants";
+} from "@/flows/ztc-production/lib/ztc-rate-constants";
 import {
   normalizeZtcRateUnit,
   type ZtcRateUnit,
-} from "@/components/sitediary/ZTC/ztc-rate-units";
-import { findZtcDefaultRateForTask } from "@/components/sitediary/ZTC/ztc-rate-matching";
+} from "@/flows/ztc-production/lib/ztc-rate-units";
+import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import {
   attachZtcLaborNormToMetadata,
   normalizeZtcLaborNorm,
-} from "@/components/sitediary/ZTC/ztc-labor-norm";
+} from "@/flows/ztc-production/lib/ztc-labor-norm";
 import { resolveZtcProductionContextForSite } from "@/lib/production-flow/runtime-server";
 
 const ZTC_DEFAULT_TASK_RATES_KEY = "ztcDefaultTaskRates";

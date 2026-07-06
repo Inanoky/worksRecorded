@@ -5,7 +5,7 @@ import {
   ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
   ZTC_ONE_X_COEFFICIENT_TASK,
   ZTC_TWO_X_COEFFICIENT_TASK,
-} from "@/components/sitediary/ZTC/ztc-rate-constants";
+} from "@/flows/ztc-production/lib/ztc-rate-constants";
 
 const projects = [
   {

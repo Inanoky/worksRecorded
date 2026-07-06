@@ -9,7 +9,7 @@ import { getFilledDays, getSitediaryRecordsBySiteIdForExcel } from "@/server/act
 import { Label } from "@/components/ui/label";
 import { MessageCircle } from "lucide-react";
 import TourRunner from "@/components/joyride/TourRunner";
-import { formatZtcRowsForExcel } from "@/components/sitediary/ZTC/ztc-excel-export";
+import { formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
 
 const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WhatsAppIcon = ({ size = 22 }) => (

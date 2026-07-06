@@ -17,7 +17,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { DialogTable } from "@/components/sitediary/DiealogueTable";
-import { ZtcDialogTable } from "@/components/sitediary/ZTC/ZtcDialogTable";
+import { ZtcDialogTable } from "@/flows/ztc-production/frontend/ZtcDialogTable";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";

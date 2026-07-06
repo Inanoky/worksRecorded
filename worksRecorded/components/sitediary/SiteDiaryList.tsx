@@ -104,8 +104,8 @@ import {
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
-import { ZtcCommentPopoverContent } from "@/components/sitediary/ZTC/ZtcCommentPopoverContent";
-import { useZtcSiteDiaryFlow } from "@/components/sitediary/ZTC/useZtcSiteDiaryFlow";
+import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
+import { useZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend/useZtcSiteDiaryFlow";
 import { exportForma2ToExcel } from "@/components/sitediary/forma2-export";
 import {
   buildZtcLaborNormSummaryRows,
@@ -122,8 +122,8 @@ import {
   isZtcQualityRow,
   splitZtcWorkerDisplayName,
   exportZtcProductivityToExcel,
-} from "@/components/sitediary/ZTC/ztc-site-diary-utils";
-import { formatZtcRowsForExcel } from "@/components/sitediary/ZTC/ztc-excel-export";
+} from "@/flows/ztc-production/lib/ztc-site-diary-utils";
+import { formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";

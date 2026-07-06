@@ -16,21 +16,21 @@ import {
   type ZtcComplexityCode,
   ZTC_ALL_PROJECTS_RATE_NAME,
   ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
-} from "@/components/sitediary/ZTC/ztc-rate-constants";
+} from "@/flows/ztc-production/lib/ztc-rate-constants";
 import {
   normalizeZtcRateUnit,
   type ZtcRateUnit,
-} from "@/components/sitediary/ZTC/ztc-rate-units";
-import { findZtcDefaultRateForTask } from "@/components/sitediary/ZTC/ztc-rate-matching";
+} from "@/flows/ztc-production/lib/ztc-rate-units";
+import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import {
   getZtcTaskIdentityKey,
   rebalanceZtcCompletedTaskAmounts,
-} from "@/components/sitediary/ZTC/ztc-task-amount-allocation";
-import { normalizeZtcProjectName } from "@/components/sitediary/ZTC/ztc-project-name";
+} from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
+import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
 import {
   attachZtcLaborNormToMetadata,
   normalizeZtcLaborNorm,
-} from "@/components/sitediary/ZTC/ztc-labor-norm";
+} from "@/flows/ztc-production/lib/ztc-labor-norm";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";

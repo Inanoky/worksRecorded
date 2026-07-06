@@ -5,8 +5,8 @@ import {
   buildZtcQualityDisplayStateByRowId,
   getZtcPayrollValues,
   getZtcQualityRowToneClass,
-} from "@/components/sitediary/ZTC/ztc-site-diary-utils";
-import { attachZtcLaborNormToMetadata } from "@/components/sitediary/ZTC/ztc-labor-norm";
+} from "@/flows/ztc-production/lib/ztc-site-diary-utils";
+import { attachZtcLaborNormToMetadata } from "@/flows/ztc-production/lib/ztc-labor-norm";
 
 describe("getZtcPayrollValues", () => {
   const baseRow = {

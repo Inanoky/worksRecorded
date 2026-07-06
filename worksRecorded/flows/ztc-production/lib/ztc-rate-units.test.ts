@@ -1,6 +1,6 @@
 import {
   resolveZtcAdditionalWorkUnit,
-} from "@/components/sitediary/ZTC/ztc-rate-units";
+} from "@/flows/ztc-production/lib/ztc-rate-units";
 
 describe("resolveZtcAdditionalWorkUnit", () => {
   it("uses the configured Darba likmes unit over the reported unit", () => {

@@ -1,4 +1,4 @@
-import { normalizeZtcProjectName } from "@/components/sitediary/ZTC/ztc-project-name";
+import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
 
 describe("normalizeZtcProjectName", () => {
   it("lowercases incoming project names", () => {
