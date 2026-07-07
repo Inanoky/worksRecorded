@@ -2,17 +2,18 @@ import { whatsappSiteManagerEvalCases } from "./whatsapp-site-manager-cases";
 import { validateWhatsappSiteManagerRecord } from "./whatsapp-site-manager-validators";
 
 describe("WhatsApp site-manager eval validators", () => {
-  const evalCase = whatsappSiteManagerEvalCases[0];
-  const workerlessCase = whatsappSiteManagerEvalCases.find(
+  const webhookCases = whatsappSiteManagerEvalCases.filter((item) => item.mode === "webhook");
+  const evalCase = webhookCases[0];
+  const workerlessCase = webhookCases.find(
     (item) => item.id === "latvian-wall-plaster-hours-without-workers",
   );
-  const totalHoursNoSplitCase = whatsappSiteManagerEvalCases.find(
+  const totalHoursNoSplitCase = webhookCases.find(
     (item) => item.id === "latvian-multiple-works-total-hours-no-split",
   );
-  const wordNumberWorkersCase = whatsappSiteManagerEvalCases.find(
+  const wordNumberWorkersCase = webhookCases.find(
     (item) => item.id === "latvian-word-number-workers",
   );
-  const ambiguousBisCase = whatsappSiteManagerEvalCases.find(
+  const ambiguousBisCase = webhookCases.find(
     (item) => item.id === "ambigious-bis-mention-in-task-decritpion",
   );
 

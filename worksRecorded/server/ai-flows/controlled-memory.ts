@@ -13,6 +13,9 @@ export type ControlledMemoryStats = {
   droppedDanglingAssistantToolCalls: number;
   droppedOrphanToolMessages: number;
   droppedOlderSystemMessages: number;
+  droppedOlderMessages: number;
+  keptTurns: number;
+  droppedTurns: number;
   compactedCount: number;
   beforeChars: number;
   afterChars: number;
@@ -20,6 +23,7 @@ export type ControlledMemoryStats = {
   afterTokens: number;
   compactedByTool: Record<string, number>;
   maxToolCharsAfter: number;
+  profile: ControlledMemoryProfile;
 };
 
 export type ControlledMemoryResult = {
@@ -28,18 +32,24 @@ export type ControlledMemoryResult = {
 };
 
 export type ControlledMemoryOptions = {
+  profile?: ControlledMemoryProfile;
   recentWindow?: number;
   recentLimit?: number;
   recentToolCharThreshold?: number;
   olderToolCharThreshold?: number;
   targetTokenBudget?: number;
+  maxUserVisibleTurns?: number;
 };
+
+export type ControlledMemoryProfile = "default" | "whatsapp-legacy";
 
 const DEFAULT_RECENT_WINDOW = 10;
 const DEFAULT_RECENT_LIMIT = 20;
 const DEFAULT_RECENT_TOOL_CHAR_THRESHOLD = 8_000;
 const DEFAULT_OLDER_TOOL_CHAR_THRESHOLD = 2_000;
 const DEFAULT_TARGET_TOKEN_BUDGET = 24_000;
+const DEFAULT_WHATSAPP_MAX_USER_VISIBLE_TURNS = 5;
+const HISTORICAL_TOOL_RESULT_PREFIX = "[HISTORICAL TOOL RESULT]";
 
 function asArray<T = unknown>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
@@ -86,6 +96,10 @@ function getMessageType(message: any): string {
 
 function isSystemMessage(message: any): boolean {
   return getMessageType(message) === "system";
+}
+
+function isHumanMessage(message: any): boolean {
+  return getMessageType(message) === "human";
 }
 
 function isToolMessage(message: any): boolean {
@@ -159,6 +173,53 @@ function isSaveTool(toolName: string) {
 
 function isWebOrPythonTool(toolName: string) {
   return /websearch|python|code/i.test(toolName);
+}
+
+function isReadLikeTool(toolName: string) {
+  return /read|get|query|status|fetch|list|search/i.test(toolName);
+}
+
+function toolResultLooksFailed(content: string, parsed: unknown) {
+  if (typeof parsed === "object" && parsed && !Array.isArray(parsed)) {
+    const record = parsed as Record<string, unknown>;
+    if (record.ok === false) return true;
+    if (typeof record.error === "string" && record.error.trim()) return true;
+    if (typeof record.status === "string" && /fail|error|denied|invalid/i.test(record.status)) return true;
+  }
+  return /failed|error|could not|unable|invalid/i.test(content);
+}
+
+function summarizeReplayToolOutput(toolName: string, content: string): string {
+  if (content.startsWith(HISTORICAL_TOOL_RESULT_PREFIX)) return content;
+
+  const parsed = tryJson(content);
+  const failed = toolResultLooksFailed(content, parsed);
+  const saveCountMatch = content.match(/^Saved\s+(\d+)\s+site diary record\(s\) successfully\./i);
+  const saveFailureMatch = content.match(/^Failed to save site diary entry\. Reason:\s*(.*)$/i);
+
+  if (isSaveTool(toolName)) {
+    if (saveCountMatch) {
+      const count = Number(saveCountMatch[1]) || 0;
+      return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: DB save successful${count > 0 ? ` (${count} records)` : ""}. Exact payload omitted.`;
+    }
+    if (saveFailureMatch) {
+      return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: DB save failed. ${compactText(saveFailureMatch[1] || "Unknown reason", 120)}`;
+    }
+    return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: DB save ${failed ? "failed" : "completed"}. Exact payload omitted.`;
+  }
+
+  if (isSqlTool(toolName) || isReadLikeTool(toolName)) {
+    if (Array.isArray(parsed)) {
+      return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: Read completed (${parsed.length} rows). Exact payload omitted.`;
+    }
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const keys = Object.keys(parsed as Record<string, unknown>);
+      return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: ${failed ? "Read/check failed" : "Read/check completed"}${keys.length ? ` (${keys.slice(0, 5).join(", ")})` : ""}. Exact payload omitted.`;
+    }
+    return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: ${failed ? "Read/check failed" : "Read/check completed"}. Exact payload omitted.`;
+  }
+
+  return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: ${failed ? "Tool failed" : "Tool completed"}. Exact payload omitted.`;
 }
 
 export function summarizeToolOutput(toolName: string, content: string, originalChars = content.length): string {
@@ -307,36 +368,93 @@ function sanitizeStructure(messages: any[]) {
   return { messages: sanitized, stats };
 }
 
+function splitIntoUserVisibleTurns(messages: any[]) {
+  const turns: any[][] = [];
+  let currentTurn: any[] = [];
+
+  for (const message of messages) {
+    if (isHumanMessage(message)) {
+      if (currentTurn.length) turns.push(currentTurn);
+      currentTurn = [message];
+      continue;
+    }
+
+    if (!currentTurn.length) {
+      currentTurn = [message];
+      continue;
+    }
+
+    currentTurn.push(message);
+  }
+
+  if (currentTurn.length) turns.push(currentTurn);
+  return turns;
+}
+
 export function prepareControlledModelMessages(
   messages: any[],
   options: ControlledMemoryOptions = {},
 ): ControlledMemoryResult {
+  const profile = options.profile ?? "default";
   const recentWindow = options.recentWindow ?? DEFAULT_RECENT_WINDOW;
   const recentLimit = options.recentLimit ?? DEFAULT_RECENT_LIMIT;
   const recentToolCharThreshold = options.recentToolCharThreshold ?? DEFAULT_RECENT_TOOL_CHAR_THRESHOLD;
   const olderToolCharThreshold = options.olderToolCharThreshold ?? DEFAULT_OLDER_TOOL_CHAR_THRESHOLD;
   const targetTokenBudget = options.targetTokenBudget ?? DEFAULT_TARGET_TOKEN_BUDGET;
+  const maxUserVisibleTurns = options.maxUserVisibleTurns ?? DEFAULT_WHATSAPP_MAX_USER_VISIBLE_TURNS;
 
   const beforeChars = messages.reduce((acc, m) => acc + getMessageChars(m), 0);
   const sanitized = sanitizeStructure(messages);
-  const sanitizedMessages = sanitized.messages;
+  let sanitizedMessages = sanitized.messages;
+  let droppedOlderMessages = 0;
+  let keptTurns = 0;
+  let droppedTurns = 0;
+
+  if (profile === "whatsapp-legacy") {
+    const latestSystemMessage = sanitizedMessages.findLast(isSystemMessage) ?? null;
+    const nonSystemMessages = sanitizedMessages.filter((message) => !isSystemMessage(message));
+    const turns = splitIntoUserVisibleTurns(nonSystemMessages);
+    const keptTurnGroups = turns.slice(-maxUserVisibleTurns);
+
+    keptTurns = keptTurnGroups.length;
+    droppedTurns = Math.max(0, turns.length - keptTurns);
+
+    const keptMessages = keptTurnGroups.flat();
+    droppedOlderMessages = Math.max(0, nonSystemMessages.length - keptMessages.length);
+    sanitizedMessages = latestSystemMessage ? [latestSystemMessage, ...keptMessages] : keptMessages;
+  }
+
   const total = sanitizedMessages.length;
   const untouchedIndices = new Set<number>();
 
-  const startUntouched = Math.max(0, total - recentWindow);
-  for (let i = startUntouched; i < total; i += 1) untouchedIndices.add(i);
+  if (profile === "default") {
+    const startUntouched = Math.max(0, total - recentWindow);
+    for (let i = startUntouched; i < total; i += 1) untouchedIndices.add(i);
 
-  let trailingIdx = total - 1;
-  while (trailingIdx >= 0 && isToolMessage(sanitizedMessages[trailingIdx])) {
-    untouchedIndices.add(trailingIdx);
-    trailingIdx -= 1;
+    let trailingIdx = total - 1;
+    while (trailingIdx >= 0 && isToolMessage(sanitizedMessages[trailingIdx])) {
+      untouchedIndices.add(trailingIdx);
+      trailingIdx -= 1;
+    }
   }
 
   let compactedCount = 0;
   const compactedByTool: Record<string, number> = {};
 
   const compactedMessages = sanitizedMessages.map((message, idx) => {
-    if (!isToolMessage(message) || untouchedIndices.has(idx)) return message;
+    if (!isToolMessage(message)) return message;
+
+    if (profile === "whatsapp-legacy") {
+      const content = getMessageContentString(message);
+      const toolName = getToolName(message);
+      const compactedContent = summarizeReplayToolOutput(toolName, content);
+      if (compactedContent === content) return message;
+      compactedCount += 1;
+      compactedByTool[toolName] = (compactedByTool[toolName] ?? 0) + 1;
+      return cloneCompactedToolMessage(message, compactedContent);
+    }
+
+    if (untouchedIndices.has(idx)) return message;
 
     const content = getMessageContentString(message);
     const chars = content.length;
@@ -364,6 +482,9 @@ export function prepareControlledModelMessages(
       originalCount: messages.length,
       preparedCount: compactedMessages.length,
       ...sanitized.stats,
+      droppedOlderMessages,
+      keptTurns,
+      droppedTurns,
       compactedCount,
       beforeChars,
       afterChars,
@@ -371,6 +492,7 @@ export function prepareControlledModelMessages(
       afterTokens: estimateTokensFromChars(afterChars),
       compactedByTool,
       maxToolCharsAfter,
+      profile,
     },
   };
 }
@@ -385,10 +507,14 @@ export function buildControlledMemoryMessagesUpdate(preparedMessages: any[], nex
 
 export function getControlledMemoryMetadata(stats: ControlledMemoryStats) {
   return {
+    controlledMemoryProfile: stats.profile,
     controlledMemoryCompactedCount: stats.compactedCount,
     controlledMemoryDroppedDanglingToolCalls: stats.droppedDanglingAssistantToolCalls,
+    controlledMemoryDroppedOlderMessages: stats.droppedOlderMessages,
     controlledMemoryDroppedOrphanToolMessages: stats.droppedOrphanToolMessages,
     controlledMemoryDroppedOlderSystemMessages: stats.droppedOlderSystemMessages,
+    controlledMemoryKeptTurns: stats.keptTurns,
+    controlledMemoryDroppedTurns: stats.droppedTurns,
     controlledMemoryCharsBefore: stats.beforeChars,
     controlledMemoryCharsAfter: stats.afterChars,
     controlledMemoryTokensBefore: stats.beforeTokens,

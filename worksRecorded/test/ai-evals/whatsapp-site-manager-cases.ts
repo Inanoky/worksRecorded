@@ -15,10 +15,21 @@ const ExpectedSavedRecordSchema = z.object({
   minHeuristicScore: z.number().min(0).max(1).default(0.75),
 });
 
-export const WhatsAppSiteManagerEvalCaseSchema = z.object({
+const CheckpointInspectionExpectationSchema = z.object({
+  threadSource: z.literal("site-manager-selector"),
+  maxCompactedEstimatedTokens: z.number().int().positive(),
+  profile: z.literal("whatsapp-legacy"),
+  missingHistoryBehavior: z.enum(["warn", "fail"]),
+});
+
+const BaseEvalCaseSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   intent: z.string().min(1),
   notes: z.string().optional(),
+});
+
+const WebhookWhatsAppSiteManagerEvalCaseSchema = BaseEvalCaseSchema.extend({
+  mode: z.literal("webhook").default("webhook"),
   webhook: z.record(z.any()),
   expected: ExpectedSavedRecordSchema,
   followUp: z.object({
@@ -28,10 +39,26 @@ export const WhatsAppSiteManagerEvalCaseSchema = z.object({
   simulatedBisConnection: z.enum(["not-connected", "ready"]).optional(),
 });
 
+const CheckpointInspectionWhatsAppSiteManagerEvalCaseSchema = BaseEvalCaseSchema.extend({
+  mode: z.literal("checkpoint-inspection"),
+  expectedCheckpointInspection: CheckpointInspectionExpectationSchema,
+});
+
+export const WhatsAppSiteManagerEvalCaseSchema = z.union([
+  WebhookWhatsAppSiteManagerEvalCaseSchema,
+  CheckpointInspectionWhatsAppSiteManagerEvalCaseSchema,
+]);
+
 export const WhatsAppSiteManagerEvalSuiteSchema = z
   .array(WhatsAppSiteManagerEvalCaseSchema)
   .min(1);
 
+export type WebhookWhatsAppSiteManagerEvalCase = z.infer<
+  typeof WebhookWhatsAppSiteManagerEvalCaseSchema
+>;
+export type CheckpointInspectionWhatsAppSiteManagerEvalCase = z.infer<
+  typeof CheckpointInspectionWhatsAppSiteManagerEvalCaseSchema
+>;
 export type WhatsAppSiteManagerEvalCase = z.infer<
   typeof WhatsAppSiteManagerEvalCaseSchema
 >;
@@ -260,6 +287,20 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
           "bis ieraksts izveidots",
           "saglabāts veiksmīgi",
         ],
+      },
+    },
+    {
+      id: "legacy-history-selector-sanitizes-production-thread",
+      mode: "checkpoint-inspection",
+      intent:
+        "Verify the whatsapp legacy compactor keeps the real persisted site-manager checkpoint history under the allowed context budget.",
+      notes:
+        "Read-only regression that inspects the real persisted siteManager:siteId:userId checkpoint thread and runs the whatsapp legacy compactor locally without sending a webhook.",
+      expectedCheckpointInspection: {
+        threadSource: "site-manager-selector",
+        maxCompactedEstimatedTokens: 3000,
+        profile: "whatsapp-legacy",
+        missingHistoryBehavior: "warn",
       },
     },
     {

@@ -1,4 +1,5 @@
 import {
+  cleanupWhatsappSiteManagerEvalCheckpointThread,
   hasWhatsappSiteManagerEvalMetadata,
   selectNewestEvalRecord,
   selectRecordsForWhatsappEval,
@@ -25,6 +26,28 @@ function record(id: string, createdAt: string): SavedSiteDiaryRecord {
 }
 
 describe("WhatsApp site-manager eval runner utils", () => {
+  it("allows checkpoint cleanup for temporary WhatsApp site-manager eval threads", async () => {
+    const deleteThread = jest.fn().mockResolvedValue(undefined);
+    const threadId = "eval:whatsapp-site-manager:site-1:case-1:run-1";
+
+    await cleanupWhatsappSiteManagerEvalCheckpointThread(threadId, deleteThread);
+
+    expect(deleteThread).toHaveBeenCalledWith(threadId);
+  });
+
+  it.each([
+    "siteManager:site-1:user-1",
+    "eval:dashboard-chat:site-1:case-1:run-1",
+    "unrelated-thread",
+  ])("rejects checkpoint cleanup for non-eval thread %s", async (threadId) => {
+    const deleteThread = jest.fn().mockResolvedValue(undefined);
+
+    await expect(
+      cleanupWhatsappSiteManagerEvalCheckpointThread(threadId, deleteThread),
+    ).rejects.toThrow("Refusing to delete non-eval WhatsApp site-manager checkpoint thread");
+    expect(deleteThread).not.toHaveBeenCalled();
+  });
+
   it("selects the newest current-run record when multiple rows share the same input text", () => {
     const selected = selectNewestEvalRecord([
       record("old-record", "2026-06-23T07:40:00.000Z"),
