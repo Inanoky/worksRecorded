@@ -27,8 +27,6 @@ type UseZtcSiteDiaryFlowArgs<Row extends ZtcDiaryRow> = {
   siteId: string | null | undefined;
   rows: Row[];
   setRows: React.Dispatch<React.SetStateAction<Row[]>>;
-  currentYear: number;
-  currentMonth: number;
   setViewMode: (mode: "calendar" | "list" | "gallery") => void;
   setProjectFilter: (value: string) => void;
   setElementFilter: (value: string) => void;
@@ -39,8 +37,6 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
   siteId,
   rows,
   setRows,
-  currentYear,
-  currentMonth,
   setViewMode,
   setProjectFilter,
   setElementFilter,
@@ -197,8 +193,8 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
   );
 
   const handlePayrollExcelExport = React.useCallback(
-    () => exportZtcPayrollToExcel({ rows, currentYear, currentMonth }),
-    [currentMonth, currentYear, rows],
+    () => exportZtcPayrollToExcel({ rows }),
+    [rows],
   );
 
   const openRowImages = React.useCallback((row: Row) => {
