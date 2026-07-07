@@ -22,6 +22,8 @@ import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server
 
 type SiteDiaryFlowHint = {
   flowId?: "default" | "ztc" | "tgem" | string | null;
+  dateFrom?: string | Date | null;
+  dateTo?: string | Date | null;
 };
 
 async function shouldUseZtcRecordsForSite(siteId?: string | null, hint?: SiteDiaryFlowHint) {
@@ -1527,6 +1529,17 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, option
 
   const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", category: "action", siteId });
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
+  const dateFrom = options.dateFrom ? new Date(options.dateFrom) : null;
+  const dateTo = options.dateTo ? new Date(options.dateTo) : null;
+  const dateFilter: Record<string, Date> = {};
+  if (dateFrom && !Number.isNaN(dateFrom.getTime())) {
+    dateFrom.setHours(0, 0, 0, 0);
+    dateFilter.gte = dateFrom;
+  }
+  if (dateTo && !Number.isNaN(dateTo.getTime())) {
+    dateTo.setHours(23, 59, 59, 999);
+    dateFilter.lte = dateTo;
+  }
   const query = {
     where:
       useZtcRecords
@@ -1534,8 +1547,12 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, option
             siteId,
             Date_Custom_2: { not: null },
             NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+            ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
           }
-        : { siteId },
+        : {
+            siteId,
+            ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
+          },
     orderBy: [{ Date: "asc" as const }],
     select: {
       id: true,

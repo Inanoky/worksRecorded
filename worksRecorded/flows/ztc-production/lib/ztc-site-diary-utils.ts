@@ -594,16 +594,18 @@ export async function exportZtcPayrollToExcel({
   currentMonth,
 }: {
   rows: ZtcDiaryRow[];
-  currentYear: number;
-  currentMonth: number;
+  currentYear?: number;
+  currentMonth?: number;
 }) {
   const XLSX = await import("xlsx");
+  const hasMonthFilter =
+    typeof currentYear === "number" && typeof currentMonth === "number";
   const monthRows = rows.filter((row) => {
     const date = new Date(row.Date);
     return (
       !Number.isNaN(date.getTime()) &&
-      date.getFullYear() === currentYear &&
-      date.getMonth() === currentMonth &&
+      (!hasMonthFilter ||
+        (date.getFullYear() === currentYear && date.getMonth() === currentMonth)) &&
       !isZtcQualityRow(row)
     );
   });
@@ -654,7 +656,7 @@ export async function exportZtcPayrollToExcel({
     const month =
       payrollDate && !Number.isNaN(payrollDate.getTime())
         ? `${payrollDate.getFullYear()}-${String(payrollDate.getMonth() + 1).padStart(2, "0")}`
-        : `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+        : "";
     const worker = String(row.createdBy || "—").trim() || "—";
     const key = `${month}::${worker}`;
     const existing = summaryByWorkerMonth.get(key) ?? {
@@ -726,9 +728,20 @@ export async function exportZtcPayrollToExcel({
     { wch: 12 },
   ];
   XLSX.utils.book_append_sheet(workbook, payrollWorksheet, "Algu ieraksti");
+  const dateKeys = monthRows
+    .map((row) => {
+      const date = new Date(row.Date);
+      return Number.isNaN(date.getTime()) ? "" : getZtcLocalDayKey(date);
+    })
+    .filter(Boolean);
+  const filenameDatePart = hasMonthFilter
+    ? `${currentYear}-${String((currentMonth ?? 0) + 1).padStart(2, "0")}`
+    : dateKeys.length > 0
+      ? `${dateKeys[0]}_${dateKeys[dateKeys.length - 1]}`
+      : "empty";
   XLSX.writeFile(
     workbook,
-    `ZTC-Algu-aprekins-${currentYear}-${String(currentMonth + 1).padStart(2, "0")}.xlsx`,
+    `Razosana-Algu-aprekins-${filenameDatePart}.xlsx`,
   );
 }
 
@@ -883,6 +896,6 @@ export async function exportZtcProductivityToExcel({
   XLSX.utils.book_append_sheet(workbook, worksheet, "Produktivitate");
   XLSX.writeFile(
     workbook,
-    `ZTC-Produktivitate-${filenameDatePart}.xlsx`,
+    `Razosana-Produktivitate-${filenameDatePart}.xlsx`,
   );
 }
