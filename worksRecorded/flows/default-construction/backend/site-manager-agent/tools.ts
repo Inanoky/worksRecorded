@@ -128,8 +128,9 @@ export async function extractAndSaveSiteDiary(args: {
   const date = args.requestedDate ?? currentDiaryDate();
   const whatsappSourceContext = getWhatsappSourceContext();
   const runContext = getSiteManagerAgentRunContext();
+  const runMetrics = runContext?.metrics;
   const structuredTrace = fastPathTraceConfig(args.fastPathTrace ?? runContext?.fastPathTrace ?? {
-    fastPathMode: runContext?.metrics.fastPathMode ?? "off",
+    fastPathMode: runMetrics?.fastPathMode ?? "off",
     fastPathCandidate: false,
     executionPath: "legacy-agent",
     fastPathAttempted: false,

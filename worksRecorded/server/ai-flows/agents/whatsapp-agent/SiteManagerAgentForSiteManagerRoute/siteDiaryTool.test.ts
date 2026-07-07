@@ -34,10 +34,21 @@ jest.mock("@/flows/default-construction/backend/site-manager-agent/structuredSav
 }));
 
 jest.mock("@/flows/default-construction/backend/site-manager-agent/runContext", () => ({
+  fastPathTraceConfig: jest.fn((metadata) => ({
+    metadata,
+    tags: [`execution-path:${metadata.executionPath}`],
+  })),
   getSiteManagerAgentRunContext: jest.fn(() => ({
     evalRecordMetadata: { evaluationId: "eval-1" },
     traceMetadata: { scenario: "unit-test" },
     traceTags: ["site-diary-test"],
+    metrics: {
+      executionPath: "legacy-agent",
+      fastPathMode: "off",
+      timings: {},
+      modelCalls: [],
+      toolCalls: [],
+    },
   })),
   recordSiteManagerModelCall: jest.fn(),
   recordSiteManagerTiming: jest.fn(),
@@ -58,7 +69,7 @@ jest.mock("@/server/ai-flows/agents/bis-support-agent/tools", () => ({
 
 jest.mock("@/server/ai-flows/ai-run-context", () => ({
   buildAiRunContext: jest.fn(() => ({
-    runnableConfig: { configurable: { thread_id: "test-thread" } },
+    runnableConfig: { configurable: { thread_id: "test-thread" }, metadata: {} },
   })),
   summarizeForTrace: jest.fn((value) => value),
 }));
@@ -182,7 +193,10 @@ describe("save_to_database site diary tool", () => {
     expect(messages[0].content).toContain(toolInput.date);
     expect(messages[0].content).not.toContain(trustedContext.originalUserComment);
     expect(messages[1].content).toContain(trustedContext.siteId);
-    expect(runnableConfig).toEqual({ configurable: { thread_id: "test-thread" } });
+    expect(runnableConfig).toEqual(expect.objectContaining({
+      configurable: { thread_id: "test-thread" },
+      metadata: expect.objectContaining({ fastPathOutcome: "save" }),
+    }));
     expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith({
       rows: [
         { Location: "Building A", Works: "Concrete pour", Amounts: 12.5 },
