@@ -3,6 +3,7 @@ import {
   buildZtcLaborNormTotalSummary,
   buildZtcProductivityRows,
   buildZtcQualityDisplayStateByRowId,
+  getZtcProjectTotalAreaM2,
   getZtcPayrollValues,
   getZtcQualityRowToneClass,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
@@ -228,6 +229,67 @@ describe("getZtcPayrollValues", () => {
     expect(payroll.payrollQuantity).toBe(2);
     expect(payroll.laborNorm.planned).toBeNull();
     expect(payroll.laborNorm.actual).toBeNull();
+  });
+
+  it("sums unique drawing element areas for a project", () => {
+    const firstElementMetadata = JSON.stringify({
+      type: "ztc_drawing_context",
+      version: 1,
+      projectName: "zemgales prospekts 11 (zp)",
+      elements: [
+        {
+          elementName: "3S-38",
+          totalAreaM2: 25.11,
+          works: [{ name: "L2/B2 - Gipskartona plaksne", amountM2: 25.11 }],
+        },
+      ],
+    });
+    const secondElementMetadata = JSON.stringify({
+      type: "ztc_drawing_context",
+      version: 1,
+      projectName: "zemgales prospekts 11 (zp)",
+      elements: [
+        {
+          elementName: "3S-39",
+          totalAreaM2: 10.5,
+          works: [{ name: "L2/B2 - Gipskartona plaksne", amountM2: 10.5 }],
+        },
+      ],
+    });
+
+    const total = getZtcProjectTotalAreaM2([
+      {
+        ...baseRow,
+        Location: "zemgales prospekts 11 (zp)",
+        Location_Custom_1: "3S-38",
+        Comments_Custom_2: firstElementMetadata,
+      },
+      {
+        ...baseRow,
+        Location: "zemgales prospekts 11 (zp)",
+        Location_Custom_1: "3S-38",
+        Works: "R1/T1 - Gipskartona plaksne",
+        Comments_Custom_2: firstElementMetadata,
+      },
+      {
+        ...baseRow,
+        Location: "zemgales prospekts 11 (zp)",
+        Location_Custom_1: "3S-39",
+        Comments_Custom_2: secondElementMetadata,
+      },
+      {
+        ...baseRow,
+        Location: "other project",
+        Location_Custom_1: "3S-40",
+        Comments_Custom_2: JSON.stringify({
+          type: "ztc_drawing_context",
+          version: 1,
+          elements: [{ elementName: "3S-40", totalAreaM2: 100 }],
+        }),
+      },
+    ], "Zemgales Prospekts 11 (ZP)");
+
+    expect(total).toBe(35.61);
   });
 });
 

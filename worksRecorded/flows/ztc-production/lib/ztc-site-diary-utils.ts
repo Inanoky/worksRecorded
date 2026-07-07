@@ -145,6 +145,28 @@ export function getZtcElementTotalAreaM2(rows: ZtcDiaryRow[], elementName: strin
   return null;
 }
 
+export function getZtcProjectTotalAreaM2(rows: ZtcDiaryRow[], projectName: string | null | undefined) {
+  const normalizedProject = normalizeZtcText(projectName);
+  if (!normalizedProject) return null;
+
+  const areasByElement = new Map<string, number>();
+  for (const row of rows) {
+    if (normalizeZtcText(row.Location) !== normalizedProject) continue;
+
+    const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
+    for (const element of metadata?.elements ?? []) {
+      const elementKey = normalizeZtcText(element.elementName);
+      if (!elementKey || areasByElement.has(elementKey)) continue;
+
+      const area = parsePositiveZtcNumber(element.totalAreaM2);
+      if (area != null) areasByElement.set(elementKey, area);
+    }
+  }
+
+  const total = Array.from(areasByElement.values()).reduce((sum, area) => sum + area, 0);
+  return total > 0 ? Number(total.toFixed(2)) : null;
+}
+
 export function isZtcQualityRow(row: ZtcDiaryRow) {
   if (normalizeZtcText(row.Works) === "kvalitates kontrole") return true;
 
