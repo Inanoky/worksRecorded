@@ -220,6 +220,25 @@ function getZtcQualityElementKey(row: ZtcDiaryRow) {
   return project && element ? `${project}::${element}` : "";
 }
 
+function getZtcQualityCheckedWork(row: ZtcDiaryRow) {
+  try {
+    const parsed = JSON.parse(String(row.Comments_Custom_2 ?? ""));
+    return parsed?.type === "ztc_quality_check"
+      ? String(parsed.checkedWork ?? "").trim() || null
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function getZtcQualityScopeKey(row: ZtcDiaryRow) {
+  const elementKey = getZtcQualityElementKey(row);
+  if (!elementKey) return "";
+
+  const checkedWork = normalizeZtcText(getZtcQualityCheckedWork(row));
+  return checkedWork ? `${elementKey}::${checkedWork}` : elementKey;
+}
+
 function getZtcQualityRowTime(row: ZtcDiaryRow) {
   const value = new Date(row.createdAt ?? row.Date).getTime();
   return Number.isNaN(value) ? 0 : value;
@@ -242,7 +261,7 @@ export function buildZtcQualityDisplayStateByRowId(rows: ZtcDiaryRow[]) {
     states.set(row.id, { toneClass: "", hasResolvedDefect: false });
     if (!isZtcQualityRow(row)) return;
 
-    const elementKey = getZtcQualityElementKey(row);
+    const elementKey = getZtcQualityScopeKey(row);
     if (!elementKey) return;
     const timeline = qualityRowsByElement.get(elementKey) ?? [];
     timeline.push({ row, rowId: row.id, time: getZtcQualityRowTime(row) });

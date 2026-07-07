@@ -354,6 +354,38 @@ describe("ZTC quality display state", () => {
     expect(states.get("rejected")?.toneClass).toContain("bg-red");
     expect(states.get("defect")?.toneClass).toContain("bg-yellow");
   });
+
+  it("does not resolve a quality defect with acceptance for another selected work", () => {
+    const qualityMetadata = (checkedWork: string) =>
+      JSON.stringify({
+        type: "ztc_quality_check",
+        checkedWork,
+      });
+
+    const states = buildZtcQualityDisplayStateByRowId([
+      {
+        ...qualityRow,
+        id: "l2-rejected",
+        createdAt: "2026-06-17T08:00:00.000Z",
+        Comments: "Koeficients: 0",
+        Comments_Custom_2: qualityMetadata("L2/B2 - Gipskartona plaksne"),
+      },
+      {
+        ...qualityRow,
+        id: "r1-accepted",
+        createdAt: "2026-06-17T09:00:00.000Z",
+        Comments: "Koeficients: 1",
+        Comments_Custom_2: qualityMetadata("R1/T1 - Gipskartona plaksne"),
+      },
+    ]);
+
+    expect(states.get("l2-rejected")?.toneClass).toContain("bg-red");
+    expect(states.get("l2-rejected")?.hasResolvedDefect).toBe(false);
+    expect(states.get("r1-accepted")).toEqual({
+      toneClass: "",
+      hasResolvedDefect: false,
+    });
+  });
 });
 
 describe("buildZtcProductivityRows", () => {
