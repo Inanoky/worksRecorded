@@ -13,9 +13,15 @@
     "eval:ai:dashboard": "tsx test/ai-evals/run-dashboard-eval.ts",
     "eval:ai:whatsapp-site-manager": "tsx test/ai-evals/run-whatsapp-site-manager-eval.ts",
     "eval:ai:whatsapp-worker": "tsx test/ai-evals/run-whatsapp-worker-eval.ts",
+    "eval:ai:deterministic": "npm run eval:ai:dashboard && npm run eval:ai:whatsapp-site-manager && npm run eval:ai:whatsapp-worker",
+    "eval:ai:judge": "npm run eval:ai:dashboard -- --judge && npm run eval:ai:whatsapp-site-manager -- --judge && npm run eval:ai:whatsapp-worker",
     "langgraph:dev": "npx -y @langchain/langgraph-cli@0.0.71 dev",
     "postinstall": "prisma generate",
-    "test": "jest"
+    "test": "jest",
+    "test:unit": "jest --runInBand",
+    "test:ai:validators": "jest --runInBand test/ai-evals",
+    "test:ai:dry-run": "npm run eval:ai:dashboard -- --dry-run && npm run eval:ai:whatsapp-site-manager -- --dry-run && npm run eval:ai:whatsapp-worker -- --dry-run",
+    "test:all": "npm run test:unit && npm run test:ai:dry-run"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.3.22",

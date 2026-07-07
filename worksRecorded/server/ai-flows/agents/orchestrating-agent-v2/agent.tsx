@@ -23,6 +23,7 @@ import {
   buildControlledMemoryMessagesUpdate,
   getControlledMemoryMetadata,
 } from "@/server/ai-flows/controlled-memory";
+import { runWithSiteDiaryToolContext } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolContext";
 
 const DEBUG_AGENT = process.env.NODE_ENV !== "production";
 const MAX_GRAPH_RECURSION = 8;
@@ -178,15 +179,20 @@ export async function runOrchestratingAgentV2Detailed(
       ? readOnlyGraph
       : graph;
 
-  for await (const output of await selectedGraph.stream(inputs, config)) {
-    if (DEBUG_AGENT) {
-      console.log("Step keys:", Object.keys(output));
-    }
+  await runWithSiteDiaryToolContext(
+    { userId: options.userId, siteId, originalUserComment: question },
+    async () => {
+      for await (const output of await selectedGraph.stream(inputs, config)) {
+        if (DEBUG_AGENT) {
+          console.log("Step keys:", Object.keys(output));
+        }
 
-    for (const value of Object.values(output)) {
-      finalState = value;
-    }
-  }
+        for (const value of Object.values(output)) {
+          finalState = value;
+        }
+      }
+    },
+  );
 
   const finalMessage = finalState.messages[finalState.messages.length - 1];
   const responseMetadata = (finalMessage as any)?.response_metadata ?? null;

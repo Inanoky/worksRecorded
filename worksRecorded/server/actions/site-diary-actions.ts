@@ -109,6 +109,7 @@ const savedSiteDiaryRecordSelect = {
   siteId: true,
   userId: true,
   workerId: true,
+  Date: true,
   Location: true,
   Works: true,
   Comments: true,

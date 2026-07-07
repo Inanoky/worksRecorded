@@ -8,6 +8,7 @@ export type SavedSiteDiaryRecord = {
   siteId: string | null;
   userId: string | null;
   workerId: string | null;
+  Date: Date | null;
   Location: string | null;
   Works: string | null;
   Comments: string | null;
@@ -15,6 +16,7 @@ export type SavedSiteDiaryRecord = {
   originalAudioUrl: string | null;
   WorkersInvolved: number | null;
   TimeInvolved: number | null;
+  Amounts?: number | null;
   evalMetadata?: unknown;
   createdAt: Date;
 };
@@ -55,6 +57,7 @@ function recordSearchText(record: SavedSiteDiaryRecord | null) {
       record.originalUserComment,
       record.WorkersInvolved,
       record.TimeInvolved,
+      record.Amounts,
     ]
       .filter((value) => value !== null && value !== undefined)
       .join(" "),
@@ -66,6 +69,12 @@ function includesSignal(value: string, signal: string) {
     .split("|")
     .map((item) => normalize(item))
     .some((variant) => variant.length > 0 && value.includes(variant));
+}
+
+function answerSentences(value: string) {
+  return (value.trim().match(/[^.!?\n]+[.!?]?/g) ?? [])
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
 }
 
 function createResult(
@@ -97,6 +106,12 @@ function isMetaLookasideUrl(value: string | null | undefined) {
   }
 }
 
+function toDateISO(value: Date | null | undefined) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+}
+
 export function validateWhatsappSiteManagerRecord(args: {
   evalCase: WhatsAppSiteManagerEvalCase;
   record: SavedSiteDiaryRecord | null;
@@ -108,16 +123,41 @@ export function validateWhatsappSiteManagerRecord(args: {
   const { evalCase, record, records, answer, siteId, userId } = args;
   const results: WhatsAppValidatorResult[] = [];
   const heuristicResults: WhatsAppValidatorResult[] = [];
-  const searchText = recordSearchText(record);
+  const searchText = (records ?? (record ? [record] : []))
+    .map(recordSearchText)
+    .join(" ");
   const answerText = normalize(answer);
+  const sentences = answerSentences(String(answer ?? ""));
+  const firstSentence = normalize(sentences[0] ?? "");
+  const shouldCreateRecord = evalCase.expected.shouldCreateRecord;
 
-  results.push(createResult("record-created", Boolean(record), "A site diary record must be created."));
+  results.push(
+    createResult(
+      "record-created",
+      shouldCreateRecord ? Boolean(record) : !record,
+      shouldCreateRecord
+        ? "A site diary record must be created."
+        : "No site diary record should be created.",
+    ),
+  );
   if (records) {
+    const expectedCount = evalCase.expected.expectedRecordCount ?? (shouldCreateRecord ? 1 : 0);
     results.push(
       createResult(
         "record-count",
-        records.length === 1,
-        `Exactly one site diary record should be created; got ${records.length}.`,
+        records.length === expectedCount,
+        `Expected ${expectedCount} site diary record(s); got ${records.length}.`,
+      ),
+    );
+  }
+
+  if (evalCase.expected.expectedDateISO) {
+    const expectedDateISO = evalCase.expected.expectedDateISO;
+    results.push(
+      createResult(
+        "record-date",
+        toDateISO(record?.Date) === expectedDateISO,
+        `Record date must be ${expectedDateISO}; got ${toDateISO(record?.Date) ?? "null"}.`,
       ),
     );
   }
@@ -153,6 +193,27 @@ export function validateWhatsappSiteManagerRecord(args: {
         `answer-signal:${signal}`,
         includesSignal(answerText, signal),
         `Agent answer must include signal "${signal}".`,
+      ),
+    );
+  }
+
+  for (const signal of evalCase.expected.firstSentenceSignals) {
+    results.push(
+      createResult(
+        `first-sentence-signal:${signal}`,
+        includesSignal(firstSentence, signal),
+        `Agent's first sentence must include signal "${signal}".`,
+      ),
+    );
+  }
+
+  if (evalCase.expected.maxAnswerSentences !== undefined) {
+    const maximum = evalCase.expected.maxAnswerSentences;
+    results.push(
+      createResult(
+        "answer-sentence-limit",
+        sentences.length <= maximum,
+        `Agent answer must contain at most ${maximum} sentence(s); got ${sentences.length}.`,
       ),
     );
   }
@@ -211,6 +272,25 @@ export function validateWhatsappSiteManagerRecord(args: {
     );
   }
 
+  if (typeof evalCase.expected.amounts === "number") {
+    const expected = evalCase.expected.amounts;
+    heuristicResults.push(
+      createResult(
+        "amounts",
+        nearNumber(record?.Amounts, expected),
+        `Amounts must be ${expected}; got ${formatNumberForMessage(record?.Amounts)}.`,
+      ),
+    );
+  } else if (evalCase.expected.amounts === null) {
+    heuristicResults.push(
+      createResult(
+        "amounts",
+        record?.Amounts == null,
+        `Amounts must be null when no completed quantity is stated; got ${formatNumberForMessage(record?.Amounts)}.`,
+      ),
+    );
+  }
+
   const passedHeuristics = heuristicResults.filter((result) => result.status === "pass").length;
   const score = heuristicResults.length > 0 ? passedHeuristics / heuristicResults.length : 1;
   const heuristicStatus: WhatsAppHeuristicStatus =
@@ -226,7 +306,7 @@ export function validateWhatsappSiteManagerRecord(args: {
 
   const allResults = [...results, ...heuristicResults];
   const hardStructuredResults = heuristicResults.filter((result) =>
-    result.name === "workers-involved" || result.name === "time-involved"
+    result.name === "workers-involved" || result.name === "time-involved" || result.name === "amounts"
   );
 
   return {
