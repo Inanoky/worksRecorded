@@ -31,6 +31,7 @@ import {
   attachZtcLaborNormToMetadata,
   normalizeZtcLaborNorm,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
+import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -203,6 +204,10 @@ function normalizeZtcWorkName(value: string | null | undefined) {
   return trimmed
     .replace(/^T\s*\d+(?=\s|[-/]|$)/i, "TL")
     .replace(/^T(?!L)(?=\s|[-/]|$)/i, "TL");
+}
+
+function normalizeZtcDrawingWorkName(value: string | null | undefined) {
+  return cleanZtcWorkName(normalizeZtcWorkName(value));
 }
 
 function normalizeZtcWorkOptions(values: string[]) {
@@ -1150,7 +1155,7 @@ function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction
   const workItems = Array.isArray(value.workItems)
     ? value.workItems
         .map((item) => ({
-          name: normalizeZtcWorkName(item?.name),
+          name: normalizeZtcDrawingWorkName(item?.name),
           amountM2:
             item?.amountM2 == null || !Number.isFinite(Number(item.amountM2))
               ? null
@@ -1163,7 +1168,7 @@ function normalizeDrawingExtraction(value: DrawingExtraction): DrawingExtraction
     : [];
   const workList = Array.isArray(value.workList)
     ? value.workList
-        .map((work) => normalizeZtcWorkName(work))
+        .map((work) => normalizeZtcDrawingWorkName(work))
         .filter((work) => work && isNonEmptyDrawingWork(work))
     : [];
 
@@ -1251,14 +1256,14 @@ function canonicalizeDrawingExtractionFromMetadata(
 
     return {
       ...item,
-      name: normalizeZtcWorkName(canonical.name),
+      name: normalizeZtcDrawingWorkName(canonical.name),
     };
   };
 
   const workItems = extraction.workItems.map(canonicalizeWorkItem);
   const workList = extraction.workList.map((workName) => {
     const canonical = canonicalWorks.get(getZtcTaskIdentityKey(workName));
-    return normalizeZtcWorkName(canonical?.name ?? workName);
+    return normalizeZtcDrawingWorkName(canonical?.name ?? workName);
   });
 
   return {
@@ -1315,7 +1320,7 @@ export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingM
   const worksSource = extraction.workItems.length
     ? extraction.workItems
     : extraction.workList.map((name) => ({
-        name: normalizeZtcWorkName(name),
+        name: normalizeZtcDrawingWorkName(name),
         amountM2: extraction.totalAreaM2,
         complexityCode: "" as const,
       }));
@@ -1329,7 +1334,7 @@ export function buildDrawingMetadata(extraction: DrawingExtraction): ZtcDrawingM
         elementName: extraction.elementName ?? "",
         totalAreaM2: extraction.totalAreaM2,
         works: worksSource.map((work) => ({
-          name: normalizeZtcWorkName(work.name),
+          name: normalizeZtcDrawingWorkName(work.name),
           amountM2: work.amountM2 ?? extraction.totalAreaM2,
           complexityCode: normalizeZtcComplexityCode(work.complexityCode),
         })),
@@ -1422,7 +1427,7 @@ export function formatExtractedWorksForMessage(extraction: DrawingExtraction) {
       const amount = item.amountM2 ?? extraction.totalAreaM2;
       const code = normalizeZtcComplexityCode(item.complexityCode);
       const marks = code ? ` - ${code}` : "";
-      return `${index + 1}. ${normalizeZtcWorkName(item.name)}${amount != null ? ` - ${amount} m2` : ""}${marks}`;
+      return `${index + 1}. ${normalizeZtcDrawingWorkName(item.name)}${amount != null ? ` - ${amount} m2` : ""}${marks}`;
     })
     .join("\n");
 }
