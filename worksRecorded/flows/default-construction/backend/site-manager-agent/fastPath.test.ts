@@ -43,6 +43,7 @@ describe("site-manager fast path", () => {
     "Šodien 5 cilvēki strādāja no 9-12 pie 12. stāva stiegrojumiem un tad šie paši cilvēki betonēja grīdas 1. stāvā",
     "Šodien pirmajā stāvā slīpējām sienas un piektajā stāvā ielikām logus.",
     "Šodien pirmajā stāvā uzstādījām durvis divas stundas un otrajā stāvā nokrāsojām sienas trīs stundas.",
+    "Būvobjektu materiālu sagaidīšana, materiālu izkraušana, ienešana konteinerī un konteinera sakārtošana ar esošajiem instrumentiem, materiāliem.",
   ])("accepts a self-contained work report: %s", (message) => {
     expectFastPathCandidate(message, true);
   });
