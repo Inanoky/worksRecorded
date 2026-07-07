@@ -20,6 +20,31 @@ export type SiteManagerAgentRunDetails = {
   };
 };
 
+export type FastPathMode = "off" | "shadow" | "on";
+export type SiteManagerExecutionPath = "legacy-agent" | "fast-path";
+export type FastPathOutcome = "save" | "fallback" | "skipped" | "error";
+export type FastPathFallbackReason =
+  | "ineligible"
+  | "model-fallback"
+  | "no-records"
+  | "extraction-error";
+
+export type FastPathTraceMetadata = {
+  fastPathMode: FastPathMode;
+  fastPathCandidate: boolean;
+  executionPath: SiteManagerExecutionPath;
+  fastPathAttempted: boolean;
+  fastPathOutcome: FastPathOutcome;
+  fallbackReason?: FastPathFallbackReason;
+};
+
+export function fastPathTraceConfig(metadata: FastPathTraceMetadata) {
+  return {
+    metadata,
+    tags: [`execution-path:${metadata.executionPath}`],
+  };
+}
+
 export type SiteManagerModelCallMetric = {
   purpose: "routing" | "final-response" | "structured-extraction" | "fast-path-extraction";
   model: string;
@@ -37,8 +62,8 @@ export type SiteManagerToolCallMetric = {
 };
 
 type SiteManagerRunMetrics = {
-  executionPath: "legacy-agent" | "fast-path";
-  fastPathMode: "off" | "shadow" | "on";
+  executionPath: SiteManagerExecutionPath;
+  fastPathMode: FastPathMode;
   timings: Record<string, number>;
   modelCalls: SiteManagerModelCallMetric[];
   toolCalls: SiteManagerToolCallMetric[];
@@ -61,6 +86,7 @@ export type SiteManagerAgentRunOptions = {
 export type SiteManagerAgentRunContext = SiteManagerAgentRunOptions & {
   details: SiteManagerAgentRunDetails | null;
   metrics: SiteManagerRunMetrics;
+  fastPathTrace?: FastPathTraceMetadata;
 };
 
 const siteManagerAgentRunStorage = new AsyncLocalStorage<SiteManagerAgentRunContext>();

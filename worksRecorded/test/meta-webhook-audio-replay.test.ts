@@ -29,6 +29,9 @@ class TestResponse {
 if (typeof Response === "undefined") {
   (globalThis as any).Response = TestResponse;
 }
+if (typeof Request === "undefined") {
+  (globalThis as any).Request = class TestRequest {};
+}
 
 function jsonResponse(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -39,11 +42,27 @@ function jsonResponse(body: unknown, init?: ResponseInit) {
 
 function installRouteMocks(args?: {
   mediaInfo?: { url?: string; mime_type?: string } | null;
+  claimError?: Error;
+  routeError?: Error;
 }) {
-  const handleSiteManagerRoute = jest.fn().mockResolvedValue(undefined);
+  const handleSiteManagerRoute = args?.routeError
+    ? jest.fn().mockRejectedValue(args.routeError)
+    : jest.fn().mockResolvedValue(undefined);
   const handleWorkerRoute = jest.fn().mockResolvedValue(undefined);
 
+  const claimedMessageIds = new Set<string>();
   const prisma = {
+    metaInboundMessage: {
+      create: jest.fn(async ({ data }: any) => {
+        if (args?.claimError) throw args.claimError;
+        if (claimedMessageIds.has(data.messageId)) {
+          throw Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+        }
+        claimedMessageIds.add(data.messageId);
+        return data;
+      }),
+      update: jest.fn().mockResolvedValue({}),
+    },
     whatsappTextLock: {
       create: jest.fn().mockResolvedValue({ id: "lock-1" }),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -77,10 +96,10 @@ function installRouteMocks(args?: {
   };
 
   jest.doMock("@/lib/utils/db", () => ({ prisma }));
-  jest.doMock("@/lib/utils/whatsapp-helpers/handling-roles-routes/site-manager-route", () => ({
+  jest.doMock("@/flows/default-construction/backend", () => ({
     handleSiteManagerRoute,
   }));
-  jest.doMock("@/lib/utils/whatsapp-helpers/handling-roles-routes/worker", () => ({
+  jest.doMock("@/flows/default-production/backend", () => ({
     handleWorkerRoute,
   }));
   jest.doMock("@/lib/utils/whatsapp-helpers/meta/identity", () => ({
@@ -110,13 +129,16 @@ function installRouteMocks(args?: {
     updateSession: jest.fn(),
     deleteSession: jest.fn(),
   }));
-  jest.doMock("@/app/api/webhook/meta/webhook/ZTC/ztc-workflow", () => ({
+  jest.doMock("@/flows/ztc-production/backend", () => ({
     handleZtcWorkerRoute: jest.fn(),
-    ZTC_ORGANIZATION_ID: "ztc-org",
-  }));
-  jest.doMock("@/app/api/webhook/meta/webhook/ZTC/ztc-quality-workflow", () => ({
     handleZtcQualityRoute: jest.fn(),
     isZtcQualityWorkerRole: jest.fn().mockReturnValue(false),
+  }));
+  jest.doMock("@/lib/production-flow/runtime-server", () => ({
+    resolveAdvancedProductionWorkflowContextForWorker: jest.fn(),
+  }));
+  jest.doMock("@/lib/flows/worker-runtime-server", () => ({
+    resolveWorkerFlowRuntime: jest.fn(),
   }));
 
   const mediaInfo = args?.mediaInfo === undefined
@@ -152,7 +174,6 @@ describe("Meta webhook audio replay", () => {
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
-    (globalThis as any).__processedMetaMessages = new Map<string, number>();
     process.env = {
       ...originalEnv,
       META_ACCESS_TOKEN: "test-token",
@@ -215,5 +236,70 @@ describe("Meta webhook audio replay", () => {
       "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=meta-audio-media-site-manager-001&source=webhook&ext=1790000300&hash=test-hash",
     );
     expect(formData.get("MediaContentType0")).toBe("audio/ogg; codecs=opus");
+  });
+
+  it("processes duplicate and concurrent claims only once", async () => {
+    const mocks = installRouteMocks();
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const request = () => ({ json: async () => siteManagerAudioFixture } as Request);
+
+    const responses = await Promise.all([POST(request()), POST(request())]);
+    const retry = await POST(request());
+
+    expect([...responses, retry].map((response) => response.status)).toEqual([200, 200, 200]);
+    expect(mocks.handleSiteManagerRoute).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.metaInboundMessage.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("processes different Meta message IDs independently", async () => {
+    const mocks = installRouteMocks();
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const secondFixture = JSON.parse(JSON.stringify(siteManagerAudioFixture));
+    secondFixture.entry[0].changes[0].value.messages[0].id = "wamid.site-manager-audio-002";
+
+    await POST({ json: async () => siteManagerAudioFixture } as Request);
+    await POST({ json: async () => secondFixture } as Request);
+
+    expect(mocks.handleSiteManagerRoute).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not claim delivery-status webhooks", async () => {
+    const mocks = installRouteMocks();
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+    const statusFixture = JSON.parse(JSON.stringify(siteManagerAudioFixture));
+    const value = statusFixture.entry[0].changes[0].value;
+    delete value.messages;
+    value.statuses = [{ id: "wamid.outbound-001", status: "delivered" }];
+
+    const response = await POST({ json: async () => statusFixture } as Request);
+
+    expect(response.status).toBe(200);
+    expect(mocks.prisma.metaInboundMessage.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 without routing when the durable claim fails", async () => {
+    const mocks = installRouteMocks({ claimError: new Error("database unavailable") });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+
+    const response = await POST({ json: async () => siteManagerAudioFixture } as Request);
+
+    expect(response.status).toBe(500);
+    expect(mocks.handleSiteManagerRoute).not.toHaveBeenCalled();
+  });
+
+  it("records processing failures and suppresses their retries", async () => {
+    const mocks = installRouteMocks({ routeError: new Error("route failed") });
+    const { POST } = await import("@/app/api/webhook/meta/webhook/route");
+
+    await POST({ json: async () => siteManagerAudioFixture } as Request);
+    await POST({ json: async () => siteManagerAudioFixture } as Request);
+
+    expect(mocks.handleSiteManagerRoute).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.metaInboundMessage.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { messageId: "wamid.site-manager-audio-001" },
+        data: expect.objectContaining({ status: "failed", lastError: "route failed" }),
+      }),
+    );
   });
 });

@@ -68,3 +68,4 @@ whatsapp-keys/
 
 # LangGraph API
 .langgraph_api
+/supabase/.temp
