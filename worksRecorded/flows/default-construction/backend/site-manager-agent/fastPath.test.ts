@@ -37,12 +37,12 @@ describe("site-manager fast path", () => {
   it.each([
     "Šodien apmestas sienas 2 stāvā, 4h",
     "Metāla konstrukciju sazemēšana. Atdalītāju uzstādīšana.",
-    // "2 cilvēki visu pirmdienu raka tranšejas apkārt mājai 2 metru dziļumā, pēc tam 1 darbinieks ieklāja tranšejā elektrības kabeļus 1200 metru garumā, kas viņam aizņēma 3,6 stundas",
-    // "Divi cilvēki trešajā stāvā špaktelēja griestus 4 stundas. Pēc tam 1 cilvēks pulēja parketu, bet otrs cilvēks regulēja ūdens spiedienu trubās",
-    // "Today we assembled 2 walls",
-    // "Šodien 5 cilvēki strādāja no 9-12 pie 12. stāva stiegrojumiem un tad šie paši cilvēki betonēja grīdas 1. stāvā",
-    // "Šodien pirmajā stāvā slīpējām sienas un piektajā stāvā ielikām logus.",
-    // "Šodien pirmajā stāvā uzstādījām durvis divas stundas un otrajā stāvā nokrāsojām sienas trīs stundas.",
+    "2 cilvēki visu pirmdienu raka tranšejas apkārt mājai 2 metru dziļumā, pēc tam 1 darbinieks ieklāja tranšejā elektrības kabeļus 1200 metru garumā, kas viņam aizņēma 3,6 stundas",
+    "Divi cilvēki trešajā stāvā špaktelēja griestus 4 stundas. Pēc tam 1 cilvēks pulēja parketu, bet otrs cilvēks regulēja ūdens spiedienu trubās",
+    "Today we assembled 2 walls",
+    "Šodien 5 cilvēki strādāja no 9-12 pie 12. stāva stiegrojumiem un tad šie paši cilvēki betonēja grīdas 1. stāvā",
+    "Šodien pirmajā stāvā slīpējām sienas un piektajā stāvā ielikām logus.",
+    "Šodien pirmajā stāvā uzstādījām durvis divas stundas un otrajā stāvā nokrāsojām sienas trīs stundas.",
   ])("accepts a self-contained work report: %s", (message) => {
     expectFastPathCandidate(message, true);
   });

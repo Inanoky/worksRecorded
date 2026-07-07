@@ -20,7 +20,7 @@ export type FastPathCandidateDebug = {
   ambiguousReference: boolean;
   metaRequest: boolean;
   // activity: boolean;
-  detail: boolean;
+  // detail: boolean;
   final: boolean;
 };
 
@@ -128,7 +128,7 @@ export function debugSiteDiaryFastPathCandidate(message: string): FastPathCandid
   const ambiguousReference = AMBIGUOUS_REFERENCE_PATTERN.test(text);
   const metaRequest = META_REQUEST_PATTERN.test(text);
   // const activity = ACTIVITY_SIGNAL_PATTERN.test(text);
-  const detail = DETAIL_SIGNAL_PATTERN.test(text);
+  // const detail = DETAIL_SIGNAL_PATTERN.test(text);
   const final = !tooLong &&
     !bis &&
     !question &&
@@ -136,9 +136,9 @@ export function debugSiteDiaryFastPathCandidate(message: string): FastPathCandid
     !projectCommand &&
     !followUp &&
     !ambiguousReference &&
-    !metaRequest &&
-    // activity &&
-    detail;
+    !metaRequest
+  // activity &&
+  // detail;
 
   return {
     normalizedText: text,
@@ -151,7 +151,7 @@ export function debugSiteDiaryFastPathCandidate(message: string): FastPathCandid
     ambiguousReference,
     metaRequest,
     // activity,
-    detail,
+    // detail,
     final,
   };
 }
