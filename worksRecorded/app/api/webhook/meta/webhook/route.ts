@@ -12,6 +12,7 @@ import { handleWorkerRoute } from "@/flows/default-production/backend";
 
 import { handleSiteManagerRoute } from "@/flows/default-construction/backend";
 import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { getMetaGraphBaseUrl } from "@/lib/utils/whatsapp-helpers/meta/config";
 import {
   applyMetaUserIdUpdate,
@@ -44,7 +45,6 @@ const { WEBHOOK_VERIFY_TOKEN, META_ACCESS_TOKEN } = process.env;
 const LOCK_TTL_MS = 180_000;
 const ROUTING_LOCK_WAIT_MS = 120_000;
 const ROUTING_LOCK_RETRY_MS = 500;
-const PROCESSED_MESSAGE_TTL_MS = 10 * 60_000;
 const ZTC_IMAGE_BATCH_QUIET_MS = 5_000;
 const ZTC_IMAGE_BATCH_STALE_MS = 2 * 60_000;
 const ZTC_DIAGONAL_STATE_PREFIXES = [
@@ -53,12 +53,6 @@ const ZTC_DIAGONAL_STATE_PREFIXES = [
   "__ZTC_DIAGONAL_SECOND_PHOTO_PENDING__",
   "__ZTC_DIAGONAL_SECOND_MEASURE_PENDING__",
 ];
-const processedMetaMessages =
-  (globalThis as any).__processedMetaMessages ||
-  new Map<string, number>();
-
-(globalThis as any).__processedMetaMessages = processedMetaMessages;
-
 function logMetaWebhookTiming(
   event: string,
   startedAt: number,
@@ -126,18 +120,48 @@ async function releaseTextLock(phone: string) {
   });
 }
 
-function hasProcessedMetaMessage(messageId: string): boolean {
-  const now = Date.now();
-
-  for (const [id, expiresAt] of processedMetaMessages.entries()) {
-    if (expiresAt <= now) processedMetaMessages.delete(id);
+async function claimMetaInboundMessage(args: {
+  messageId: string;
+  messageType?: string | null;
+  sender?: string | null;
+  businessPhoneNumberId?: string | null;
+}) {
+  try {
+    await prisma.metaInboundMessage.create({
+      data: {
+        messageId: args.messageId,
+        messageType: args.messageType ?? null,
+        sender: args.sender ?? null,
+        businessPhoneNumberId: args.businessPhoneNumberId ?? null,
+      },
+    });
+    return true;
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      console.log("[Meta webhook] duplicate_meta_message", {
+        messageId: args.messageId,
+        messageType: args.messageType ?? null,
+        sender: args.sender ?? null,
+      });
+      return false;
+    }
+    throw error;
   }
+}
 
-  const existing = processedMetaMessages.get(messageId);
-  if (existing && existing > now) return true;
-
-  processedMetaMessages.set(messageId, now + PROCESSED_MESSAGE_TTL_MS);
-  return false;
+async function finishMetaInboundMessage(messageId: string, error?: unknown) {
+  const failed = error !== undefined;
+  const lastError = failed
+    ? String(error instanceof Error ? error.message : error).slice(0, 2_000)
+    : null;
+  await prisma.metaInboundMessage.update({
+    where: { messageId },
+    data: {
+      status: failed ? "failed" : "completed",
+      completedAt: new Date(),
+      lastError,
+    },
+  });
 }
 
 function isRoutableMetaMessage(message: any) {
@@ -854,6 +878,7 @@ async function runWhatsappRoutingForMeta(args: {
         },
       });
     }
+    throw err;
   } finally {
     if (ztcImageBatchId) {
       await deleteZtcImageBatch(ztcImageBatchId).catch((e) => {
@@ -967,10 +992,34 @@ export async function POST(req: Request): Promise<Response> {
     for (const message of messages) {
       if (!message || !business_phone_number_id) continue;
 
-      if (message.id && hasProcessedMetaMessage(message.id)) {
+      if (!message.id) {
+        console.warn("Meta webhook message has no id; refusing untracked processing", {
+          type: message.type ?? null,
+          sender: message.from ?? null,
+        });
         continue;
       }
 
+      let claimed: boolean;
+      try {
+        claimed = await claimMetaInboundMessage({
+          messageId: message.id,
+          messageType: message.type,
+          sender: message.from,
+          businessPhoneNumberId: business_phone_number_id,
+        });
+      } catch (error) {
+        console.error("Meta inbound message claim failed", {
+          messageId: message.id,
+          error,
+        });
+        return new Response("Temporary failure", { status: 500 });
+      }
+
+      if (!claimed) continue;
+
+      let processingError: unknown;
+      try {
       if (!isReadableMetaMessage(message)) {
         logUnsupportedMetaMessage(message);
         continue;
@@ -1093,18 +1142,21 @@ export async function POST(req: Request): Promise<Response> {
 
       // 2) Run the shared role-based WhatsApp routing.
       if (isRoutableMetaMessage(message)) {
-        await runWithMetaReplyContext(
-          {
-            businessPhoneNumberId: business_phone_number_id,
-            incomingMessageId: message.id || null,
-            incomingFrom: message.from || null,
-          },
-          async () =>
-            runWhatsappRoutingForMeta({
-              message,
-              value,
+        await runWithWhatsappSourceContext(
+          { messageId: message.id },
+          () => runWithMetaReplyContext(
+            {
               businessPhoneNumberId: business_phone_number_id,
-            })
+              incomingMessageId: message.id,
+              incomingFrom: message.from || null,
+            },
+            async () =>
+              runWhatsappRoutingForMeta({
+                message,
+                value,
+                businessPhoneNumberId: business_phone_number_id,
+              })
+          ),
         );
       }
 
@@ -1116,6 +1168,20 @@ export async function POST(req: Request): Promise<Response> {
           message_id: message.id,
         }).catch((error) => {
           console.error("Meta mark-as-read failed", error);
+        });
+      }
+      } catch (error) {
+        processingError = error;
+        console.error("Meta inbound message processing failed", {
+          messageId: message.id,
+          error,
+        });
+      } finally {
+        await finishMetaInboundMessage(message.id, processingError).catch((error) => {
+          console.error("Meta inbound message status update failed", {
+            messageId: message.id,
+            error,
+          });
         });
       }
     }

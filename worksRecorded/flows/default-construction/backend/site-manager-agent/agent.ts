@@ -38,6 +38,7 @@ import {
     isSaveOnlyToolRound,
     parseSaveToolOutcome,
 } from "./fastPath";
+import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 export { runWithSiteManagerAgentEvalContext };
 export type { SiteManagerAgentRunDetails };
@@ -92,6 +93,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     const requestedModel = runContext?.model ?? siteManagerAgentForSiteManagerRouteModelModel;
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
+    const whatsappMessageId = getWhatsappSourceContext().messageId ?? null;
     const sourceComment = userFullName ? `${userFullName} : ${normalizedQuestion}` : normalizedQuestion;
     const fastPathMode = getFastPathMode();
     const fastPathCandidate = isSiteDiaryFastPathCandidate(normalizedQuestion);
@@ -106,6 +108,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
         metadata: {
             hasOriginalAudioUrl: Boolean(originalAudioUrl),
             questionPreview: summarizeForTrace(question),
+            whatsappMessageId,
             ...(runContext?.traceMetadata ?? {}),
         },
         tags: runContext?.traceTags,

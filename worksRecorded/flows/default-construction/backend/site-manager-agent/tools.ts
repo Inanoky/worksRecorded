@@ -135,6 +135,7 @@ export async function extractAndSaveSiteDiary(args: {
     metadata: {
       date,
       hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
+      whatsappMessageId: whatsappSourceContext.messageId ?? null,
       originalUserCommentPreview: summarizeForTrace(originalUserComment),
       fastPath: Boolean(args.allowFallback),
       ...(runContext?.traceMetadata ?? {}),
