@@ -28,6 +28,9 @@ import {
     recordSiteManagerTiming,
     runWithSiteManagerAgentEvalContext,
     setSiteManagerExecutionPath,
+    fastPathTraceConfig,
+    type FastPathFallbackReason,
+    type FastPathOutcome,
     type SiteManagerAgentRunDetails,
 } from "./runContext";
 import {
@@ -98,21 +101,9 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     const fastPathMode = getFastPathMode();
     const fastPathCandidate = isSiteDiaryFastPathCandidate(normalizedQuestion);
     setSiteManagerExecutionPath("legacy-agent", fastPathMode);
-    const aiContext = buildAiRunContext({
-        flow: "whatsapp-site-manager",
-        threadId: runContext?.threadId ?? getSiteManagerThreadId(siteId, userId),
-        siteId,
-        userId,
-        channel: "whatsapp",
-        model: requestedModel,
-        metadata: {
-            hasOriginalAudioUrl: Boolean(originalAudioUrl),
-            questionPreview: summarizeForTrace(question),
-            whatsappMessageId,
-            ...(runContext?.traceMetadata ?? {}),
-        },
-        tags: runContext?.traceTags,
-    });
+    let legacyFastPathAttempted = false;
+    let legacyFastPathOutcome: FastPathOutcome = "skipped";
+    let legacyFallbackReason: FastPathFallbackReason | undefined = "ineligible";
 
     const state = Annotation.Root({
         messages: Annotation<BaseMessage[]>({
@@ -129,14 +120,27 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
                     question: normalizedQuestion,
                     allowFallback: true,
                     persist: false,
+                    fastPathTrace: {
+                        fastPathMode: "shadow",
+                        fastPathCandidate: true,
+                        executionPath: "legacy-agent",
+                        fastPathAttempted: true,
+                        fastPathOutcome: "fallback",
+                    },
                 }),
             );
+            legacyFastPathAttempted = true;
+            legacyFastPathOutcome = shadowResult.action === "save" ? "save" : "fallback";
+            legacyFallbackReason = shadowResult.action === "save" ? undefined : "model-fallback";
             recordSiteManagerTiming(
                 shadowResult.action === "save" ? "shadowSaveDecisions" : "shadowFallbackDecisions",
                 1,
             );
         } catch (error) {
             console.warn("site-manager fast-path shadow evaluation failed", error);
+            legacyFastPathAttempted = true;
+            legacyFastPathOutcome = "error";
+            legacyFallbackReason = "extraction-error";
             recordSiteManagerTiming("shadowFallbackDecisions", 1);
         }
     }
@@ -146,10 +150,26 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
         try {
             fastPathResult = await runWithSiteManagerToolContext(
                 { userId, siteId, originalUserComment: sourceComment },
-                () => extractAndSaveSiteDiary({ question: normalizedQuestion, allowFallback: true }),
+                () => extractAndSaveSiteDiary({
+                    question: normalizedQuestion,
+                    allowFallback: true,
+                    fastPathTrace: {
+                        fastPathMode: "on",
+                        fastPathCandidate: true,
+                        executionPath: "fast-path",
+                        fastPathAttempted: true,
+                        fastPathOutcome: "fallback",
+                    },
+                }),
             );
+            legacyFastPathAttempted = true;
+            legacyFastPathOutcome = fastPathResult.action === "save" ? "save" : "fallback";
+            legacyFallbackReason = fastPathResult.action === "save" ? undefined : "model-fallback";
         } catch (error) {
             console.warn("site-manager fast path failed before persistence; using legacy agent", error);
+            legacyFastPathAttempted = true;
+            legacyFastPathOutcome = "error";
+            legacyFallbackReason = "extraction-error";
         }
 
         if (fastPathResult?.action === "save") {
@@ -178,6 +198,32 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
             return content;
         }
     }
+
+    const legacyTrace = fastPathTraceConfig({
+        fastPathMode,
+        fastPathCandidate,
+        executionPath: "legacy-agent",
+        fastPathAttempted: legacyFastPathAttempted,
+        fastPathOutcome: legacyFastPathOutcome,
+        fallbackReason: legacyFallbackReason,
+    });
+    if (runContext) runContext.fastPathTrace = legacyTrace.metadata;
+    const aiContext = buildAiRunContext({
+        flow: "whatsapp-site-manager",
+        threadId: runContext?.threadId ?? getSiteManagerThreadId(siteId, userId),
+        siteId,
+        userId,
+        channel: "whatsapp",
+        model: requestedModel,
+        metadata: {
+            hasOriginalAudioUrl: Boolean(originalAudioUrl),
+            questionPreview: summarizeForTrace(question),
+            whatsappMessageId,
+            ...(runContext?.traceMetadata ?? {}),
+            ...legacyTrace.metadata,
+        },
+        tags: [...(runContext?.traceTags ?? []), ...legacyTrace.tags],
+    });
 
     const shouldContinue = (state) => {
         const { messages } = state;

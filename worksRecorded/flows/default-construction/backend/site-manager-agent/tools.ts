@@ -14,10 +14,12 @@ import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
 import { recordStructuredSaveTrace } from "./structuredSaveTrace";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import {
+  fastPathTraceConfig,
   getSiteManagerAgentRunContext,
   recordSiteManagerModelCall,
   recordSiteManagerTiming,
   recordSiteManagerToolCall,
+  type FastPathTraceMetadata,
 } from "./runContext";
 import { detectReplyLanguage, type SupportedReplyLanguage } from "./fastPath";
 import {
@@ -107,6 +109,7 @@ export async function extractAndSaveSiteDiary(args: {
   requestedDate?: string;
   allowFallback?: boolean;
   persist?: boolean;
+  fastPathTrace?: FastPathTraceMetadata;
 }): Promise<StructuredSaveResult> {
   const toolStarted = Date.now();
   const toolContext = getSiteManagerToolContext();
@@ -125,6 +128,14 @@ export async function extractAndSaveSiteDiary(args: {
   const date = args.requestedDate ?? currentDiaryDate();
   const whatsappSourceContext = getWhatsappSourceContext();
   const runContext = getSiteManagerAgentRunContext();
+  const structuredTrace = fastPathTraceConfig(args.fastPathTrace ?? runContext?.fastPathTrace ?? {
+    fastPathMode: runContext?.metrics.fastPathMode ?? "off",
+    fastPathCandidate: false,
+    executionPath: "legacy-agent",
+    fastPathAttempted: false,
+    fastPathOutcome: "skipped",
+    fallbackReason: "ineligible",
+  });
   const aiContext = buildAiRunContext({
     flow: "structured-site-diary-save",
     threadId: `structured-site-diary-save:${siteId}:${userId}`,
@@ -139,9 +150,22 @@ export async function extractAndSaveSiteDiary(args: {
       originalUserCommentPreview: summarizeForTrace(originalUserComment),
       fastPath: Boolean(args.allowFallback),
       ...(runContext?.traceMetadata ?? {}),
+      ...structuredTrace.metadata,
     },
-    tags: runContext?.traceTags,
+    tags: [...(runContext?.traceTags ?? []), ...structuredTrace.tags],
   });
+
+  const updateTraceOutcome = (
+    fastPathOutcome: FastPathTraceMetadata["fastPathOutcome"],
+    fallbackReason?: FastPathTraceMetadata["fallbackReason"],
+  ) => {
+    Object.assign(aiContext.runnableConfig.metadata, { fastPathOutcome });
+    if (fallbackReason) {
+      Object.assign(aiContext.runnableConfig.metadata, { fallbackReason });
+    } else {
+      delete aiContext.runnableConfig.metadata.fallbackReason;
+    }
+  };
 
   const contextStarted = Date.now();
   const map = await getConfig(siteId);
@@ -183,6 +207,7 @@ export async function extractAndSaveSiteDiary(args: {
       aiContext.runnableConfig,
     );
   } catch (error) {
+    updateTraceOutcome("error", "extraction-error");
     const durationMs = Date.now() - extractionStarted;
     recordSiteManagerTiming("structuredExtractionMs", durationMs);
     recordSiteManagerModelCall({
@@ -222,12 +247,14 @@ export async function extractAndSaveSiteDiary(args: {
     ? (response.language as SupportedReplyLanguage | undefined) ?? detectReplyLanguage(args.question)
     : detectReplyLanguage(args.question);
   if (args.allowFallback && response.action !== "save") {
+    updateTraceOutcome("fallback", "model-fallback");
     recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: true });
     return { action: "fallback", language, content: "", ok: true, count: 0 };
   }
 
   const rawRecords = Array.isArray(response.records) ? response.records : [];
   if (!rawRecords.length) {
+    if (args.allowFallback) updateTraceOutcome("fallback", "no-records");
     const content = "Failed to save site diary entry. Reason: No records to insert";
     recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: false });
     return { action: args.allowFallback ? "fallback" : "save", language, content, ok: false, count: 0 };
@@ -239,6 +266,7 @@ export async function extractAndSaveSiteDiary(args: {
       args.question,
     ));
   if (args.persist === false) {
+    updateTraceOutcome("save");
     recordSiteManagerToolCall({ name: "shadow_save_to_database", durationMs: Date.now() - toolStarted, ok: true });
     return { action: "save", language, content: "", ok: true, count: rows.length };
   }
@@ -253,6 +281,7 @@ export async function extractAndSaveSiteDiary(args: {
       evalMetadata: runContext?.evalRecordMetadata,
     });
   } catch (error) {
+    updateTraceOutcome("error");
     const message = error instanceof Error ? error.message : "Database unavailable";
     recordSiteManagerTiming("persistenceMs", Date.now() - persistenceStarted);
     recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: false });
@@ -279,6 +308,7 @@ export async function extractAndSaveSiteDiary(args: {
 
   const content = formatSiteDiarySaveToolResult(result, rows.length);
   const ok = Boolean(result?.ok);
+  updateTraceOutcome(ok ? "save" : "error");
   const count = result?.count ?? rows.length;
   const confirmationRecords = ok ? toConfirmationRecords(result?.records) : [];
   setSiteManagerSavedConfirmationRecords(confirmationRecords);
