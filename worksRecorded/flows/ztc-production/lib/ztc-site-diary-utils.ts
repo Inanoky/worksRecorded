@@ -47,6 +47,9 @@ type ZtcDrawingMetadata = {
   elements?: Array<{
     elementName?: string | null;
     totalAreaM2?: number | string | null;
+    works?: Array<{
+      name?: string | null;
+    }>;
   }>;
 };
 
@@ -153,8 +156,23 @@ export function isZtcQualityRow(row: ZtcDiaryRow) {
   }
 }
 
+function ztcWorkMatchesDrawingMetadata(row: ZtcDiaryRow) {
+  const normalizedWork = normalizeZtcText(row.Works);
+  if (!normalizedWork) return false;
+
+  const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
+  return Boolean(
+    metadata?.elements?.some((element) =>
+      element.works?.some((work) => normalizeZtcText(work?.name) === normalizedWork),
+    ),
+  );
+}
+
 export function isZtcAdditionalWorkRow(row: ZtcDiaryRow) {
-  return row.Location === "Papilddarbi" || row.Works_Custom_1 === "Papilddarbi";
+  if (row.Location === "Papilddarbi") return true;
+  if (normalizeZtcText(row.Works_Custom_1) !== "papilddarbi") return false;
+
+  return !ztcWorkMatchesDrawingMetadata(row);
 }
 
 export function isZtcAdditionalDetailsRow(row: ZtcDiaryRow) {

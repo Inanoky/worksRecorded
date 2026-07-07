@@ -155,6 +155,80 @@ describe("getZtcPayrollValues", () => {
     expect(payroll.payrollQuantity).toBe(7.21);
     expect(payroll.sum).toBe(2.16);
   });
+
+  it("treats a contaminated Papilddarbi marker as production when work matches drawing metadata", () => {
+    const drawingMetadata = attachZtcLaborNormToMetadata(
+      JSON.stringify({
+        type: "ztc_drawing_context",
+        version: 1,
+        projectName: "zemgales prospekts 11 (zp)",
+        elements: [
+          {
+            elementName: "3S-38",
+            totalAreaM2: 25.11,
+            works: [
+              {
+                name: "R1/T1 - Gipskartona plaksne GKF 15 mm",
+                amountM2: 25.11,
+              },
+            ],
+          },
+        ],
+      }),
+      "0.3",
+      "m2",
+    );
+
+    const payroll = getZtcPayrollValues({
+      ...baseRow,
+      Location: "zemgales prospekts 11 (zp)",
+      Location_Custom_1: "3S-38",
+      Works: "R1/T1 - Gipskartona plaksne GKF 15 mm",
+      Works_Custom_1: "Papilddarbi",
+      Amounts: 10,
+      TimeInvolved: 2,
+      Comments_Custom_2: drawingMetadata,
+    });
+
+    expect(payroll.laborNorm.planned).toBe(0.3);
+    expect(payroll.laborNorm.actual).toBe(0.2);
+  });
+
+  it("keeps real element-related additional work as additional when work is not in drawing metadata", () => {
+    const drawingMetadata = JSON.stringify({
+      type: "ztc_drawing_context",
+      version: 1,
+      projectName: "zemgales prospekts 11 (zp)",
+      elements: [
+        {
+          elementName: "3S-38",
+          totalAreaM2: 25.11,
+          works: [
+            {
+              name: "R1/T1 - Gipskartona plaksne GKF 15 mm",
+              amountM2: 25.11,
+            },
+          ],
+        },
+      ],
+    });
+
+    const payroll = getZtcPayrollValues({
+      ...baseRow,
+      Location: "zemgales prospekts 11 (zp)",
+      Location_Custom_1: "3S-38",
+      Works: "Panelu iepakosana",
+      Works_Custom_1: "Papilddarbi",
+      Units: "st",
+      Amounts: 10,
+      TimeInvolved: 2,
+      Comments_Custom_2: drawingMetadata,
+    });
+
+    expect(payroll.payrollQuantity).toBe(2);
+    expect(payroll.laborNorm.planned).toBeNull();
+    expect(payroll.laborNorm.actual).toBeNull();
+  });
 });
 
 describe("ZTC quality display state", () => {
