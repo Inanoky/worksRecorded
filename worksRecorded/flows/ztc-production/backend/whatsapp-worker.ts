@@ -1197,6 +1197,23 @@ function hasZtcDrawingContext(session: Pick<OpenZtcSession, "Comments_Custom_2">
   return Boolean(parseZtcDrawingMetadata(session?.Comments_Custom_2));
 }
 
+function getDrawingWorksCustomValue(
+  source: Pick<OpenZtcSession, "Comments_Custom_2" | "Works_Custom_1"> | null | undefined,
+) {
+  const metadata = parseZtcDrawingMetadata(source?.Comments_Custom_2);
+  const metadataWorks = metadata?.elements
+    ?.flatMap((element) => element.works ?? [])
+    .map((work) => String(work.name ?? "").trim())
+    .filter(Boolean);
+
+  if (metadataWorks?.length) {
+    return Array.from(new Set(metadataWorks)).join("; ");
+  }
+
+  const existing = String(source?.Works_Custom_1 ?? "").trim();
+  return existing.toLowerCase() === "papilddarbi" ? null : existing || null;
+}
+
 function getDrawingElementMetadata(
   metadata: ZtcDrawingMetadata | null,
   elementName: string | null | undefined,
@@ -1817,6 +1834,7 @@ async function getLatestZtcDrawingContext(worker: ZtcWorker) {
       Comments_Custom_2: { contains: "ztc_drawing_context" },
       NOT: [
         { Location: "Papilddarbi" },
+        { Works_Custom_1: "Papilddarbi" },
         { Works_Custom_1: "Papilddetāļas" },
         { Comments_Custom_1: { startsWith: DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX } },
       ],
@@ -1864,7 +1882,7 @@ async function ensureSessionHasDrawingContext(args: {
     data: {
       Location: drawingContext.Location,
       Location_Custom_1: drawingContext.Location_Custom_1,
-      Works_Custom_1: drawingContext.Works_Custom_1,
+      Works_Custom_1: getDrawingWorksCustomValue(drawingContext),
       Comments_Custom_2: drawingContext.Comments_Custom_2,
       Photos: drawingContext.Photos?.[0] ? [drawingContext.Photos[0]] : session.Photos ?? [],
     },
@@ -2959,7 +2977,7 @@ async function createSessionFromLatestDrawing(worker: ZtcWorker) {
       Date_Custom_1: new Date(),
       Location: previous.Location,
       Location_Custom_1: previous.Location_Custom_1,
-      Works_Custom_1: previous.Works_Custom_1,
+      Works_Custom_1: getDrawingWorksCustomValue(previous),
       Comments_Custom_2: previous.Comments_Custom_2,
       Comments: null,
       originalUserComment: `${workerFullName(worker)} : atkārtots darbs pie tā paša rasējuma`,

@@ -3,6 +3,7 @@ import {
   buildZtcLaborNormTotalSummary,
   buildZtcProductivityRows,
   buildZtcQualityDisplayStateByRowId,
+  getZtcProjectTotalAreaM2,
   getZtcPayrollValues,
   getZtcQualityRowToneClass,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
@@ -155,6 +156,141 @@ describe("getZtcPayrollValues", () => {
     expect(payroll.payrollQuantity).toBe(7.21);
     expect(payroll.sum).toBe(2.16);
   });
+
+  it("treats a contaminated Papilddarbi marker as production when work matches drawing metadata", () => {
+    const drawingMetadata = attachZtcLaborNormToMetadata(
+      JSON.stringify({
+        type: "ztc_drawing_context",
+        version: 1,
+        projectName: "zemgales prospekts 11 (zp)",
+        elements: [
+          {
+            elementName: "3S-38",
+            totalAreaM2: 25.11,
+            works: [
+              {
+                name: "R1/T1 - Gipskartona plaksne GKF 15 mm",
+                amountM2: 25.11,
+              },
+            ],
+          },
+        ],
+      }),
+      "0.3",
+      "m2",
+    );
+
+    const payroll = getZtcPayrollValues({
+      ...baseRow,
+      Location: "zemgales prospekts 11 (zp)",
+      Location_Custom_1: "3S-38",
+      Works: "R1/T1 - Gipskartona plaksne GKF 15 mm",
+      Works_Custom_1: "Papilddarbi",
+      Amounts: 10,
+      TimeInvolved: 2,
+      Comments_Custom_2: drawingMetadata,
+    });
+
+    expect(payroll.laborNorm.planned).toBe(0.3);
+    expect(payroll.laborNorm.actual).toBe(0.2);
+  });
+
+  it("keeps real element-related additional work as additional when work is not in drawing metadata", () => {
+    const drawingMetadata = JSON.stringify({
+      type: "ztc_drawing_context",
+      version: 1,
+      projectName: "zemgales prospekts 11 (zp)",
+      elements: [
+        {
+          elementName: "3S-38",
+          totalAreaM2: 25.11,
+          works: [
+            {
+              name: "R1/T1 - Gipskartona plaksne GKF 15 mm",
+              amountM2: 25.11,
+            },
+          ],
+        },
+      ],
+    });
+
+    const payroll = getZtcPayrollValues({
+      ...baseRow,
+      Location: "zemgales prospekts 11 (zp)",
+      Location_Custom_1: "3S-38",
+      Works: "Panelu iepakosana",
+      Works_Custom_1: "Papilddarbi",
+      Units: "st",
+      Amounts: 10,
+      TimeInvolved: 2,
+      Comments_Custom_2: drawingMetadata,
+    });
+
+    expect(payroll.payrollQuantity).toBe(2);
+    expect(payroll.laborNorm.planned).toBeNull();
+    expect(payroll.laborNorm.actual).toBeNull();
+  });
+
+  it("sums unique drawing element areas for a project", () => {
+    const firstElementMetadata = JSON.stringify({
+      type: "ztc_drawing_context",
+      version: 1,
+      projectName: "zemgales prospekts 11 (zp)",
+      elements: [
+        {
+          elementName: "3S-38",
+          totalAreaM2: 25.11,
+          works: [{ name: "L2/B2 - Gipskartona plaksne", amountM2: 25.11 }],
+        },
+      ],
+    });
+    const secondElementMetadata = JSON.stringify({
+      type: "ztc_drawing_context",
+      version: 1,
+      projectName: "zemgales prospekts 11 (zp)",
+      elements: [
+        {
+          elementName: "3S-39",
+          totalAreaM2: 10.5,
+          works: [{ name: "L2/B2 - Gipskartona plaksne", amountM2: 10.5 }],
+        },
+      ],
+    });
+
+    const total = getZtcProjectTotalAreaM2([
+      {
+        ...baseRow,
+        Location: "zemgales prospekts 11 (zp)",
+        Location_Custom_1: "3S-38",
+        Comments_Custom_2: firstElementMetadata,
+      },
+      {
+        ...baseRow,
+        Location: "zemgales prospekts 11 (zp)",
+        Location_Custom_1: "3S-38",
+        Works: "R1/T1 - Gipskartona plaksne",
+        Comments_Custom_2: firstElementMetadata,
+      },
+      {
+        ...baseRow,
+        Location: "zemgales prospekts 11 (zp)",
+        Location_Custom_1: "3S-39",
+        Comments_Custom_2: secondElementMetadata,
+      },
+      {
+        ...baseRow,
+        Location: "other project",
+        Location_Custom_1: "3S-40",
+        Comments_Custom_2: JSON.stringify({
+          type: "ztc_drawing_context",
+          version: 1,
+          elements: [{ elementName: "3S-40", totalAreaM2: 100 }],
+        }),
+      },
+    ], "Zemgales Prospekts 11 (ZP)");
+
+    expect(total).toBe(35.61);
+  });
 });
 
 describe("ZTC quality display state", () => {
@@ -217,6 +353,38 @@ describe("ZTC quality display state", () => {
 
     expect(states.get("rejected")?.toneClass).toContain("bg-red");
     expect(states.get("defect")?.toneClass).toContain("bg-yellow");
+  });
+
+  it("does not resolve a quality defect with acceptance for another selected work", () => {
+    const qualityMetadata = (checkedWork: string) =>
+      JSON.stringify({
+        type: "ztc_quality_check",
+        checkedWork,
+      });
+
+    const states = buildZtcQualityDisplayStateByRowId([
+      {
+        ...qualityRow,
+        id: "l2-rejected",
+        createdAt: "2026-06-17T08:00:00.000Z",
+        Comments: "Koeficients: 0",
+        Comments_Custom_2: qualityMetadata("L2/B2 - Gipskartona plaksne"),
+      },
+      {
+        ...qualityRow,
+        id: "r1-accepted",
+        createdAt: "2026-06-17T09:00:00.000Z",
+        Comments: "Koeficients: 1",
+        Comments_Custom_2: qualityMetadata("R1/T1 - Gipskartona plaksne"),
+      },
+    ]);
+
+    expect(states.get("l2-rejected")?.toneClass).toContain("bg-red");
+    expect(states.get("l2-rejected")?.hasResolvedDefect).toBe(false);
+    expect(states.get("r1-accepted")).toEqual({
+      toneClass: "",
+      hasResolvedDefect: false,
+    });
   });
 });
 

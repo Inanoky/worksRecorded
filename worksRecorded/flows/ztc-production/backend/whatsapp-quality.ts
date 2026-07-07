@@ -18,6 +18,8 @@ import {
   workerFullName,
   type ZtcWorker,
 } from "@/flows/ztc-production/backend/whatsapp-worker";
+import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
+import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
 
 const QA_PENDING_PREFIX = "__ZTC_QA_PENDING__";
 const QA_COMPLETED_PHOTO_BATCH_PREFIX = "__ZTC_QA_COMPLETED_PHOTO_BATCH__";
@@ -38,6 +40,7 @@ type QaQualityEvaluation = {
 type QaPendingPayload = {
   drawingPhotoUrl: string;
   drawingMetadata: ReturnType<typeof buildDrawingMetadata>;
+  checkedWork?: string | null;
   qualityText?: string | null;
   qualityPhotoUrls?: string[];
   qualityPhotoPromptAt?: number | null;
@@ -287,16 +290,83 @@ function qualityStatusLabel(status: QaQualityStatus) {
   return "Nav skaidrs";
 }
 
+function getQaWorkOptions(payload: QaPendingPayload) {
+  return payload.drawingMetadata.elements[0]?.works
+    ?.map((work) => String(work.name ?? "").trim())
+    .filter(Boolean) ?? [];
+}
+
+function formatQaWorkOptions(payload: QaPendingPayload) {
+  const works = getQaWorkOptions(payload);
+  return works.length
+    ? works.map((work, index) => `${index + 1}. ${work}`).join("\n")
+    : "Nav nolasītu darbu.";
+}
+
+function normalizeQaText(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function findCheckedWork(payload: QaPendingPayload, text: string) {
+  const works = getQaWorkOptions(payload);
+  const trimmed = text.trim();
+  const numericSelection = trimmed.match(/^\s*(\d{1,2})\s*\.?\s*$/)?.[1];
+  if (numericSelection) {
+    const selectedIndex = Number(numericSelection) - 1;
+    if (selectedIndex >= 0 && selectedIndex < works.length) return works[selectedIndex];
+  }
+
+  const selectedTaskKey = getZtcTaskIdentityKey(trimmed);
+  const selectedByIdentity = works.find(
+    (work) => getZtcTaskIdentityKey(work) === selectedTaskKey,
+  );
+  if (selectedByIdentity) return selectedByIdentity;
+
+  const codeMatch = trimmed.match(/\b((?:[LR]\s*\d\s*\/\s*[BT]\s*\d)|TL|L\s*0)\b/i)?.[1];
+  if (codeMatch) {
+    const selectedByCode = works.find(
+      (work) => getZtcTaskIdentityKey(work) === getZtcTaskIdentityKey(codeMatch),
+    );
+    if (selectedByCode) return selectedByCode;
+  }
+
+  const normalizedText = normalizeQaText(trimmed);
+  if (/\b(karkas\w*|timber\s*frame|koka\s*karkas\w*)\b/i.test(trimmed)) {
+    const tl = works.find((work) => /^TL(\b|\s*[-/])/i.test(work));
+    if (tl) return tl;
+  }
+
+  return works.find((work) => {
+    const parts = normalizeQaText(work)
+      .split(/[^a-z0-9]+/i)
+      .filter((part) => part.length >= 4);
+    return parts.some((part) => normalizedText.includes(part));
+  }) ?? null;
+}
+
+async function promptForCheckedWork(to: string | null, payload: QaPendingPayload) {
+  await sendZtcMessage(
+    to,
+    `Lūdzu, izvēlieties darbu, kuram veicat kvalitātes kontroli. Atsūtiet numuru vai darba kodu:\n${formatQaWorkOptions(payload)}`,
+  );
+}
+
 async function propagateQualityCoefficient(args: {
   projectName: string | null | undefined;
   elementName: string | null | undefined;
+  checkedWork: string | null | undefined;
   qaRecordId: string;
   evaluation: QaQualityEvaluation;
   worker: ZtcWorker;
 }) {
   const projectName = String(args.projectName ?? "").trim();
   const elementName = String(args.elementName ?? "").trim();
-  if (!projectName || !elementName || args.evaluation.status === "unknown") {
+  const checkedWork = String(args.checkedWork ?? "").trim();
+  if (!projectName || !elementName || !checkedWork || args.evaluation.status === "unknown") {
     return { count: 0, coefficient: null as string | null };
   }
 
@@ -310,7 +380,7 @@ async function propagateQualityCoefficient(args: {
           : null;
 
   const context = getZtcFlowContext(args.worker);
-  const result = await prisma.ztcRecords.updateMany({
+  const candidates = await prisma.ztcRecords.findMany({
     where: {
       siteId: context.siteId,
       organizationId: context.organizationId,
@@ -323,9 +393,20 @@ async function propagateQualityCoefficient(args: {
         { Comments_Custom_2: { contains: "\"type\":\"ztc_quality_check\"" } },
       ],
     },
-    data: {
-      Works_Custom_2: coefficient,
+    select: {
+      id: true,
+      Works: true,
     },
+  });
+  const checkedWorkKey = getZtcTaskIdentityKey(checkedWork);
+  const matchingIds = candidates
+    .filter((row) => getZtcTaskIdentityKey(row.Works) === checkedWorkKey)
+    .map((row) => row.id);
+  if (matchingIds.length === 0) return { count: 0, coefficient };
+
+  const result = await prisma.ztcRecords.updateMany({
+    where: { id: { in: matchingIds } },
+    data: { Works_Custom_2: coefficient },
   });
 
   return { count: result.count, coefficient };
@@ -380,32 +461,6 @@ async function getRecentCompletedQaSession(worker: ZtcWorker) {
   });
 
   return isRecentCompletedPhotoBatch(session?.Comments_Custom_1) ? session : null;
-}
-
-function findCheckedWork(payload: QaPendingPayload, text: string) {
-  const element = payload.drawingMetadata.elements[0];
-  const normalizedText = text.toLowerCase();
-  const prefixMatch = text.match(/\b(R[1-5]|TL|L[1-5])\b/i)?.[1]?.toUpperCase();
-
-  if (prefixMatch) {
-    const matchedByPrefix = element?.works.find((work) =>
-      work.name.toUpperCase().startsWith(prefixMatch),
-    );
-    if (matchedByPrefix) return matchedByPrefix.name;
-  }
-
-  if (/\b(karkas\w*|timber\s*frame|koka\s*karkas\w*)\b/i.test(text)) {
-    const tl = element?.works.find((work) => /^TL(\b|\s*[-/])/i.test(work.name));
-    if (tl) return tl.name;
-  }
-
-  return element?.works.find((work) => {
-    const parts = work.name
-      .toLowerCase()
-      .split(/[^a-z0-9āčēģīķļņšūž]+/i)
-      .filter((part) => part.length >= 4);
-    return parts.some((part) => normalizedText.includes(part));
-  })?.name ?? null;
 }
 
 function buildQualityMetadata(args: {
@@ -471,10 +526,14 @@ async function completeQualitySession(args: {
   const qualityText = args.payload.qualityText?.trim() ?? "";
   const qualityPhotoUrls = args.payload.qualityPhotoUrls ?? [];
   if (!qualityText || qualityPhotoUrls.length === 0) return;
+  if (!args.payload.checkedWork) {
+    await promptForCheckedWork(args.to, args.payload);
+    return;
+  }
 
   const { polishedText: polishedQualityText, evaluation: qualityEvaluation } =
     await analyzeQualityMessage(qualityText);
-  const checkedWork = findCheckedWork(args.payload, polishedQualityText);
+  const checkedWork = args.payload.checkedWork;
   const elementName = args.payload.drawingMetadata.elements[0]?.elementName ?? "";
   const comments = [
     `Kvalitātes kontrole: ${polishedQualityText}`,
@@ -532,6 +591,7 @@ async function completeQualitySession(args: {
   const coefficientPropagation = await propagateQualityCoefficient({
     projectName: updated.Location,
     elementName: updated.Location_Custom_1,
+    checkedWork,
     qaRecordId: updated.id,
     evaluation: qualityEvaluation,
     worker: args.worker,
@@ -542,6 +602,7 @@ async function completeQualitySession(args: {
     status: qualityEvaluation.status,
     coefficient: coefficientPropagation.coefficient,
     affectedRecordCount: coefficientPropagation.count,
+    checkedWork,
   });
 
   const metadata = buildQualityMetadata({
@@ -740,7 +801,11 @@ async function handleQualityDrawingPhoto(args: {
     return;
   }
 
-  const drawingMetadata = buildDrawingMetadata(extraction);
+  const canonicalExtraction = {
+    ...extraction,
+    projectName: normalizeZtcProjectName(extraction.projectName) || extraction.projectName,
+  };
+  const drawingMetadata = buildDrawingMetadata(canonicalExtraction);
   const payload: QaPendingPayload = {
     drawingPhotoUrl: image.publicUrl,
     drawingMetadata,
@@ -754,8 +819,8 @@ async function handleQualityDrawingPhoto(args: {
       organizationId: getZtcFlowContext(args.worker).organizationId,
       Date: new Date(),
       Date_Custom_1: new Date(),
-      Location: extraction.projectName,
-      Location_Custom_1: extraction.elementName,
+      Location: canonicalExtraction.projectName,
+      Location_Custom_1: canonicalExtraction.elementName,
       Works: QA_WORK_LABEL,
       Comments_Custom_1: makePendingState(payload),
       originalUserComment: `${workerFullName(args.worker)} : kvalitātes kontroles rasējuma foto`,
@@ -767,13 +832,13 @@ async function handleQualityDrawingPhoto(args: {
     event: "quality_drawing_context_created",
     sitediaryrecordId: created.id,
     workerId: args.worker.id,
-    project: extraction.projectName,
-    element: extraction.elementName,
+    project: canonicalExtraction.projectName,
+    element: canonicalExtraction.elementName,
   });
 
   await sendZtcMessage(
     args.to,
-    `Rasējums pieņemts kvalitātes kontrolei.\nProjekts: ${extraction.projectName}\nElements: ${extraction.elementName}\nDarbi:\n${formatExtractedWorksForMessage(extraction)}\n\nTagad atsūtiet kvalitātes foto un balss ziņu vai tekstu ar aprakstu.`,
+    `Rasējums pieņemts kvalitātes kontrolei.\nProjekts: ${canonicalExtraction.projectName}\nElements: ${canonicalExtraction.elementName}\nDarbi:\n${formatExtractedWorksForMessage(canonicalExtraction)}\n\nVispirms izvēlieties pārbaudāmo darbu: atsūtiet darba numuru no saraksta vai darba kodu, piemēram L2/B2.`,
   );
 }
 
@@ -801,9 +866,13 @@ async function handleQualityPhotos(args: {
 
   const now = Date.now();
   const shouldPrompt = shouldSendPendingPhotoPrompt(payload, now);
+  const caption = args.caption.trim();
+  const captionCheckedWork =
+    !payload.checkedWork && caption ? findCheckedWork(payload, caption) : null;
   const nextPayload: QaPendingPayload = {
     ...payload,
-    qualityText: args.caption.trim() || payload.qualityText || null,
+    checkedWork: payload.checkedWork ?? captionCheckedWork,
+    qualityText: caption && !captionCheckedWork ? caption : payload.qualityText || null,
     qualityPhotoUrls,
     qualityPhotoPromptAt: shouldPrompt ? now : payload.qualityPhotoPromptAt ?? null,
   };
@@ -815,6 +884,11 @@ async function handleQualityPhotos(args: {
       Photos: [payload.drawingPhotoUrl, ...qualityPhotoUrls],
     },
   });
+
+  if (!nextPayload.checkedWork) {
+    await promptForCheckedWork(args.to, nextPayload);
+    return;
+  }
 
   if (nextPayload.qualityText) {
     await completeQualitySession({
@@ -846,6 +920,44 @@ async function handleQualityText(args: {
   if (!session || !payload) {
     outcome = "missing_pending_session";
     await sendZtcMessage(args.to, "Lūdzu, sāciet kvalitātes kontroli ar ražošanas rasējuma foto.");
+    return;
+  }
+
+  if (!payload.checkedWork) {
+    const checkedWork = findCheckedWork(payload, args.text);
+    if (!checkedWork) {
+      outcome = "waiting_for_checked_work";
+      await promptForCheckedWork(args.to, payload);
+      return;
+    }
+
+    const nextPayload: QaPendingPayload = {
+      ...payload,
+      checkedWork,
+    };
+    await prisma.ztcRecords.update({
+      where: { id: session.id },
+      data: {
+        Comments_Custom_1: makePendingState(nextPayload),
+      },
+    });
+
+    if ((nextPayload.qualityPhotoUrls ?? []).length > 0 && nextPayload.qualityText) {
+      await completeQualitySession({
+        session,
+        worker: args.worker,
+        to: args.to,
+        payload: nextPayload,
+      });
+      outcome = "completed_quality_session_after_work_selection";
+      return;
+    }
+
+    outcome = "checked_work_selected";
+    await sendZtcMessage(
+      args.to,
+      `Darbs izvēlēts: ${checkedWork}.\nTagad atsūtiet kvalitātes foto un balss ziņu vai tekstu ar kvalitātes aprakstu.`,
+    );
     return;
   }
 

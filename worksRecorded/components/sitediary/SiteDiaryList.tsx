@@ -118,6 +118,7 @@ import {
   getZtcPauseHours,
   getZtcPauseIntervals,
   getZtcPayrollValues,
+  getZtcProjectTotalAreaM2,
   getZtcQualityRowToneClass,
   isZtcQualityRow,
   splitZtcWorkerDisplayName,
@@ -1060,6 +1061,10 @@ export default function SiteDiaryCalendar({
       elementFilter !== "__ALL__"
         ? getZtcElementTotalAreaM2(rows, elementFilter)
         : null;
+    const projectTotalAreaM2 =
+      elementFilter === "__ALL__" && floorFilter !== "__ALL__"
+        ? getZtcProjectTotalAreaM2(rows, floorFilter)
+        : null;
     const totals = visibleRows.reduce(
       (acc, row) => {
         const payroll = getZtcPayrollValues(row);
@@ -1072,14 +1077,13 @@ export default function SiteDiaryCalendar({
       },
       { hours: 0, money: 0, elementM2: 0 },
     );
-    const laborNormRows =
-      elementFilter !== "__ALL__"
-        ? buildZtcLaborNormSummaryRows(visibleRows)
-        : [];
-    const laborNormTotal =
-      elementFilter !== "__ALL__"
-        ? buildZtcLaborNormTotalSummary(visibleRows)
-        : null;
+    const shouldShowLaborNorm = elementFilter !== "__ALL__" || floorFilter !== "__ALL__";
+    const laborNormRows = shouldShowLaborNorm
+      ? buildZtcLaborNormSummaryRows(visibleRows)
+      : [];
+    const laborNormTotal = shouldShowLaborNorm
+      ? buildZtcLaborNormTotalSummary(visibleRows)
+      : null;
 
     return {
       project: floorFilter !== "__ALL__" ? floorFilter : null,
@@ -1087,7 +1091,12 @@ export default function SiteDiaryCalendar({
       rows: visibleRows.length,
       hours: totals.hours,
       money: totals.money,
-      elementM2: elementFilter !== "__ALL__" ? elementTotalAreaM2 ?? totals.elementM2 : null,
+      elementM2:
+        elementFilter !== "__ALL__"
+          ? elementTotalAreaM2 ?? totals.elementM2
+          : floorFilter !== "__ALL__"
+            ? projectTotalAreaM2
+            : null,
       laborNormRows,
       laborNormTotal,
     };

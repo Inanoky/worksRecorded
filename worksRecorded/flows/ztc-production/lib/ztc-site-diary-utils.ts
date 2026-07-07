@@ -47,6 +47,9 @@ type ZtcDrawingMetadata = {
   elements?: Array<{
     elementName?: string | null;
     totalAreaM2?: number | string | null;
+    works?: Array<{
+      name?: string | null;
+    }>;
   }>;
 };
 
@@ -142,6 +145,28 @@ export function getZtcElementTotalAreaM2(rows: ZtcDiaryRow[], elementName: strin
   return null;
 }
 
+export function getZtcProjectTotalAreaM2(rows: ZtcDiaryRow[], projectName: string | null | undefined) {
+  const normalizedProject = normalizeZtcText(projectName);
+  if (!normalizedProject) return null;
+
+  const areasByElement = new Map<string, number>();
+  for (const row of rows) {
+    if (normalizeZtcText(row.Location) !== normalizedProject) continue;
+
+    const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
+    for (const element of metadata?.elements ?? []) {
+      const elementKey = normalizeZtcText(element.elementName);
+      if (!elementKey || areasByElement.has(elementKey)) continue;
+
+      const area = parsePositiveZtcNumber(element.totalAreaM2);
+      if (area != null) areasByElement.set(elementKey, area);
+    }
+  }
+
+  const total = Array.from(areasByElement.values()).reduce((sum, area) => sum + area, 0);
+  return total > 0 ? Number(total.toFixed(2)) : null;
+}
+
 export function isZtcQualityRow(row: ZtcDiaryRow) {
   if (normalizeZtcText(row.Works) === "kvalitates kontrole") return true;
 
@@ -153,8 +178,23 @@ export function isZtcQualityRow(row: ZtcDiaryRow) {
   }
 }
 
+function ztcWorkMatchesDrawingMetadata(row: ZtcDiaryRow) {
+  const normalizedWork = normalizeZtcText(row.Works);
+  if (!normalizedWork) return false;
+
+  const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
+  return Boolean(
+    metadata?.elements?.some((element) =>
+      element.works?.some((work) => normalizeZtcText(work?.name) === normalizedWork),
+    ),
+  );
+}
+
 export function isZtcAdditionalWorkRow(row: ZtcDiaryRow) {
-  return row.Location === "Papilddarbi" || row.Works_Custom_1 === "Papilddarbi";
+  if (row.Location === "Papilddarbi") return true;
+  if (normalizeZtcText(row.Works_Custom_1) !== "papilddarbi") return false;
+
+  return !ztcWorkMatchesDrawingMetadata(row);
 }
 
 export function isZtcAdditionalDetailsRow(row: ZtcDiaryRow) {
@@ -180,6 +220,25 @@ function getZtcQualityElementKey(row: ZtcDiaryRow) {
   return project && element ? `${project}::${element}` : "";
 }
 
+function getZtcQualityCheckedWork(row: ZtcDiaryRow) {
+  try {
+    const parsed = JSON.parse(String(row.Comments_Custom_2 ?? ""));
+    return parsed?.type === "ztc_quality_check"
+      ? String(parsed.checkedWork ?? "").trim() || null
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function getZtcQualityScopeKey(row: ZtcDiaryRow) {
+  const elementKey = getZtcQualityElementKey(row);
+  if (!elementKey) return "";
+
+  const checkedWork = normalizeZtcText(getZtcQualityCheckedWork(row));
+  return checkedWork ? `${elementKey}::${checkedWork}` : elementKey;
+}
+
 function getZtcQualityRowTime(row: ZtcDiaryRow) {
   const value = new Date(row.createdAt ?? row.Date).getTime();
   return Number.isNaN(value) ? 0 : value;
@@ -202,7 +261,7 @@ export function buildZtcQualityDisplayStateByRowId(rows: ZtcDiaryRow[]) {
     states.set(row.id, { toneClass: "", hasResolvedDefect: false });
     if (!isZtcQualityRow(row)) return;
 
-    const elementKey = getZtcQualityElementKey(row);
+    const elementKey = getZtcQualityScopeKey(row);
     if (!elementKey) return;
     const timeline = qualityRowsByElement.get(elementKey) ?? [];
     timeline.push({ row, rowId: row.id, time: getZtcQualityRowTime(row) });
