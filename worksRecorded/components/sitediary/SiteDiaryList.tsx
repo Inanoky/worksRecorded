@@ -1086,8 +1086,8 @@ export default function SiteDiaryCalendar({
     const laborNormTotal = shouldShowLaborNorm
       ? buildZtcLaborNormTotalSummary(visibleRows)
       : null;
-    const elementAdditionalRows =
-      elementFilter !== "__ALL__"
+    const relatedAdditionalRows =
+      elementFilter !== "__ALL__" || floorFilter !== "__ALL__"
         ? Array.from(
             visibleRows.reduce(
               (groups, row) => {
@@ -1106,13 +1106,11 @@ export default function SiteDiaryCalendar({
                   type,
                   task,
                   unit,
-                  count: 0,
                   amount: 0,
                   hours: 0,
                   sum: 0,
                 };
 
-                existing.count += 1;
                 existing.amount += payroll.amountM2;
                 existing.hours += payroll.hours;
                 existing.sum += payroll.sum;
@@ -1125,7 +1123,6 @@ export default function SiteDiaryCalendar({
                   type: string;
                   task: string;
                   unit: string;
-                  count: number;
                   amount: number;
                   hours: number;
                   sum: number;
@@ -1156,7 +1153,7 @@ export default function SiteDiaryCalendar({
             : null,
       laborNormRows,
       laborNormTotal,
-      elementAdditionalRows,
+      relatedAdditionalRows,
     };
   }, [elementFilter, floorFilter, isZtcSite, keywordMatchedDayGroups, rows]);
 
@@ -2368,21 +2365,20 @@ export default function SiteDiaryCalendar({
                     ))}
                   </div>
                 ) : null}
-                {ztcSelectedScopeSummary.elementAdditionalRows.length ? (
+                {ztcSelectedScopeSummary.relatedAdditionalRows.length ? (
                   <div className="mt-3 overflow-x-auto rounded-md border">
                     <div className="min-w-[720px]">
-                      <div className="grid grid-cols-[120px_minmax(0,1fr)_95px_80px_80px_90px] bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+                      <div className="grid grid-cols-[120px_minmax(0,1fr)_95px_80px_90px] bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
                         <div>Tips</div>
                         <div>Darbs</div>
                         <div className="text-right">Daudz.</div>
-                        <div className="text-right">Ieraksti</div>
                         <div className="text-right">Stundas</div>
                         <div className="text-right">Summa</div>
                       </div>
-                      {ztcSelectedScopeSummary.elementAdditionalRows.map((row) => (
+                      {ztcSelectedScopeSummary.relatedAdditionalRows.map((row) => (
                         <div
                           key={`${row.type}-${row.task}-${row.unit}`}
-                          className="grid grid-cols-[120px_minmax(0,1fr)_95px_80px_80px_90px] border-t px-3 py-2 text-sm"
+                          className="grid grid-cols-[120px_minmax(0,1fr)_95px_80px_90px] border-t px-3 py-2 text-sm"
                         >
                           <div className="truncate pr-2 font-medium">{row.type}</div>
                           <div className="truncate pr-2">{row.task}</div>
@@ -2393,7 +2389,6 @@ export default function SiteDiaryCalendar({
                             })}{" "}
                             {row.unit}
                           </div>
-                          <div className="text-right tabular-nums">{row.count}</div>
                           <div className="text-right tabular-nums">
                             {row.hours.toLocaleString(dateLocale, {
                               minimumFractionDigits: 2,
