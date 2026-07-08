@@ -189,13 +189,67 @@ function toolResultLooksFailed(content: string, parsed: unknown) {
   return /failed|error|could not|unable|invalid/i.test(content);
 }
 
+function isBisConnectionStatusTool(toolName: string) {
+  return toolName === "get_bis_connection_status";
+}
+
+function summarizeBisConnectionStatus(parsed: unknown): string | null {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+  const result = parsed as Record<string, unknown>;
+  const status = typeof result.status === "string" ? result.status : null;
+  const siteName = typeof result.siteName === "string" && result.siteName.trim()
+    ? compactText(result.siteName, 80)
+    : null;
+  const site = siteName ? ` for site "${siteName}"` : "";
+  const verification = result.liveBisVerified === true
+    ? " BIS was live-verified."
+    : " This reflects local WorksRecorded configuration; live BIS was not verified.";
+
+  if (status === "not-connected") {
+    return `BIS is not connected${site}.${verification}`;
+  }
+  if (status === "case-not-selected") {
+    return `BIS connection is configured${site}, but no BIS case is selected.${verification}`;
+  }
+  if (status === "no-active-site") {
+    return "No active site was found, so BIS connection status is unavailable.";
+  }
+  if (status === "ready") {
+    const bisCase = result.bisCase && typeof result.bisCase === "object" && !Array.isArray(result.bisCase)
+      ? result.bisCase as Record<string, unknown>
+      : null;
+    const caseNumber = typeof bisCase?.number === "string" ? compactText(bisCase.number, 50) : null;
+    const caseName = typeof bisCase?.name === "string" ? compactText(bisCase.name, 80) : null;
+    const caseDetails = [caseNumber, caseName].filter(Boolean).join(" — ");
+    return `BIS connection is configured${site}, and a BIS case is selected${caseDetails ? ` (${caseDetails})` : ""}.${verification}`;
+  }
+
+  return null;
+}
+
 function summarizeReplayToolOutput(toolName: string, content: string): string {
-  if (content.startsWith(HISTORICAL_TOOL_RESULT_PREFIX)) return content;
+  if (content.startsWith(HISTORICAL_TOOL_RESULT_PREFIX)) {
+    if (isBisConnectionStatusTool(toolName) && /Read\/check completed/i.test(content)) {
+      return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: Previous connection outcome is unavailable because an older summary omitted the status value. Re-run this read tool before giving connection guidance.`;
+    }
+    return content;
+  }
 
   const parsed = tryJson(content);
   const failed = toolResultLooksFailed(content, parsed);
   const saveCountMatch = content.match(/^Saved\s+(\d+)\s+site diary record\(s\) successfully\./i);
   const saveFailureMatch = content.match(/^Failed to save site diary entry\. Reason:\s*(.*)$/i);
+
+  if (isBisConnectionStatusTool(toolName)) {
+    const summary = summarizeBisConnectionStatus(parsed);
+    if (summary) {
+      return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: ${summary} Exact payload omitted.`;
+    }
+    if (failed) {
+      return `${HISTORICAL_TOOL_RESULT_PREFIX} ${toolName}: BIS connection status could not be verified. Re-run this read tool before giving connection guidance.`;
+    }
+  }
 
   if (isSaveTool(toolName)) {
     if (saveCountMatch) {

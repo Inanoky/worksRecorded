@@ -169,18 +169,18 @@ export function detectReplyLanguage(message: string): SupportedReplyLanguage {
 }
 
 export function formatDeterministicSaveReply(
-  userName: string | null | undefined,
   language: SupportedReplyLanguage,
   outcome: SiteDiarySaveOutcome,
+  userAddressName?: string | null,
 ) {
-  const name = userName?.trim();
+  const name = userAddressName?.trim();
   const prefix = name ? `${name}, ` : "";
 
   if (!outcome.ok) {
     const reason = outcome.message?.trim();
-    if (language === "lv") return `${prefix}ierakstu neizdevās saglabāt${reason ? `: ${reason}` : "."}`;
-    if (language === "ru") return `${prefix}не удалось сохранить запись${reason ? `: ${reason}` : "."}`;
-    return `${prefix}the record could not be saved${reason ? `: ${reason}` : "."}`;
+    if (language === "lv") return `${prefix}${name ? "ierakstu" : "Ierakstu"} neizdevās saglabāt${reason ? `: ${reason}` : "."}`;
+    if (language === "ru") return `${prefix}${name ? "не" : "Не"} удалось сохранить запись${reason ? `: ${reason}` : "."}`;
+    return `${prefix}${name ? "the" : "The"} record could not be saved${reason ? `: ${reason}` : "."}`;
   }
 
   const count = Math.max(1, outcome.count);
@@ -188,9 +188,9 @@ export function formatDeterministicSaveReply(
   if (language === "lv") {
     confirmation = `${prefix}WorksRecorded saglabāj${count === 1 ? "u 1 darbu ierakstu" : `u ${count} darbu ierakstus`}.`;
   } else if (language === "ru") {
-    confirmation = `${prefix}в WorksRecorded сохранено ${count} ${count === 1 ? "рабочее сообщение" : "рабочих сообщения"}.`;
+    confirmation = `${prefix}${name ? "в" : "В"} WorksRecorded сохранено ${count} ${count === 1 ? "рабочее сообщение" : "рабочих сообщения"}.`;
   } else {
-    confirmation = `${prefix}saved ${count} work ${count === 1 ? "record" : "records"} in WorksRecorded.`;
+    confirmation = `${prefix}${name ? "saved" : "Saved"} ${count} work ${count === 1 ? "record" : "records"} in WorksRecorded.`;
   }
 
   const formattedRecords = formatSavedDiaryRecords(outcome.records ?? [], language);

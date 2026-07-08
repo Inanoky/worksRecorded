@@ -2,6 +2,7 @@ import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions
 import { getConfig } from "@/server/actions/site-diary-actions";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions"
 import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents/getTodayDDMMYYY"
+import { getUserAddressName } from "./nameAddressing";
 
 
 
@@ -16,6 +17,12 @@ export async function systemPromptFunction(siteId: string, userId: string) {
     getConfig(siteId),
   ]);
 
+  const canonicalUserName = getUserAddressName(userName, "en");
+  const latvianAddressName = getUserAddressName(userName, "lv");
+  const nameGuidance = canonicalUserName && latvianAddressName
+    ? `The user's first name is ${canonicalUserName}. Only when greeting the user, address them by name. In Latvian greetings use the vocative form ${latvianAddressName}; in English or Russian use ${canonicalUserName}. Do not repeat the user's name in ordinary answers or save confirmations.`
+    : "Do not invent a name for the user.";
+
 
 
   //---------------This we need so when we want simpliest option without any sorting-----------------
@@ -23,6 +30,7 @@ export async function systemPromptFunction(siteId: string, userId: string) {
   if (config?.AIpromptToUse?.Client === "NoSorting") {
 
     const NoSorting = `Store users construction comments without changes using save_to_database.
+    ${nameGuidance}
     Do not save BIS questions. Use get_bis_connection_status for every BIS connection, setup, eligibility, or submission question and contextual follow-up.
     Use read_bis_material_records only for questions about locally stored BIS materials. Use read_site_diary_bis_statuses only for questions about diary records sent to BIS or their submission status.
     If one message contains both a construction record and a BIS request, save the construction record once and call the relevant BIS read tool once in the same tool round. Confirm the save first and keep the combined reply to 1-2 sentences.
@@ -47,8 +55,8 @@ export async function systemPromptFunction(siteId: string, userId: string) {
 
 
 
-  const prompt_08_05_2026 = `You are construction site manager assistnat. You are having professional conversation with ${userName} (Call user by his name) about construction ` +
-    ` activities on site through the WhatsApp channel. If it is greeting, greet and adress him by his name, but do not save greetings or questions asked specifically to you. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
+  const prompt_08_05_2026 = `You are construction site manager assistnat. You are having a professional conversation about construction ` +
+    ` activities on site through the WhatsApp channel. ${nameGuidance} If it is a greeting, greet the user politely, but do not save greetings or questions asked specifically to you. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
     correct date (for example if user reports yesterdays actvities save accordingly yesterdays date). 
     Answer user in the language he speaks, but you can only answer in English, Russian or Latvian. If user speaks for example Spanish, or any other langauge not listed, you answer in english.
     

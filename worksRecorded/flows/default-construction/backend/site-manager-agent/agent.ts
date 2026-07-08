@@ -42,6 +42,7 @@ import {
     parseSaveToolOutcome,
 } from "./fastPath";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import { getUserAddressName, shouldSampleUserAddress } from "./nameAddressing";
 
 export { runWithSiteManagerAgentEvalContext };
 export type { SiteManagerAgentRunDetails };
@@ -97,6 +98,8 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
     const whatsappMessageId = getWhatsappSourceContext().messageId ?? null;
+    const userFirstName = userFullName?.trim().split(/\s+/u)[0] ?? null;
+    const includeAddressName = shouldSampleUserAddress(whatsappMessageId);
     const sourceComment = userFullName ? `${userFullName} : ${normalizedQuestion}` : normalizedQuestion;
     const fastPathMode = getFastPathMode();
     const fastPathCandidate = isSiteDiaryFastPathCandidate(normalizedQuestion);
@@ -174,12 +177,18 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
 
         if (fastPathResult?.action === "save") {
             setSiteManagerExecutionPath("fast-path", fastPathMode);
-            const content = formatDeterministicSaveReply(userFullName, fastPathResult.language, {
-                ok: fastPathResult.ok,
-                count: fastPathResult.count,
-                message: fastPathResult.ok ? undefined : parseSaveToolOutcome(fastPathResult.content).message,
-                records: fastPathResult.records,
-            });
+            const content = formatDeterministicSaveReply(
+                fastPathResult.language,
+                {
+                    ok: fastPathResult.ok,
+                    count: fastPathResult.count,
+                    message: fastPathResult.ok ? undefined : parseSaveToolOutcome(fastPathResult.content).message,
+                    records: fastPathResult.records,
+                },
+                includeAddressName
+                    ? getUserAddressName(userFirstName, fastPathResult.language)
+                    : null,
+            );
             recordSiteManagerTiming("totalMs", Date.now() - totalStarted);
             if (runContext) {
                 const metrics = getSiteManagerMetricsSnapshot();
@@ -314,15 +323,18 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
         const toolMessage = [...(state.messages ?? [])].reverse().find((message: any) =>
             message?.name === "save_to_database" || message?.additional_kwargs?.name === "save_to_database");
         const toolContent = typeof toolMessage?.content === "string" ? toolMessage.content : "";
+        const replyLanguage = detectReplyLanguage(normalizedQuestion);
         return {
             messages: [new AIMessage({
                 content: formatDeterministicSaveReply(
-                    userFullName,
-                    detectReplyLanguage(normalizedQuestion),
+                    replyLanguage,
                     {
                         ...parseSaveToolOutcome(toolContent),
                         records: getSiteManagerSavedConfirmationRecords(),
                     },
+                    includeAddressName
+                        ? getUserAddressName(userFirstName, replyLanguage)
+                        : null,
                 ),
             })],
         };

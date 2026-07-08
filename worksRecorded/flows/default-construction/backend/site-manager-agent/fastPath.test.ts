@@ -64,16 +64,16 @@ describe("site-manager fast path", () => {
   });
 
   it("formats localized success and failure replies", () => {
-    expect(formatDeterministicSaveReply("Deivids", "lv", { ok: true, count: 1 }))
-      .toBe("Deivids, WorksRecorded saglabāju 1 darbu ierakstu.");
-    expect(formatDeterministicSaveReply("Anna", "en", { ok: true, count: 2 }))
-      .toBe("Anna, saved 2 work records in WorksRecorded.");
-    expect(formatDeterministicSaveReply(null, "ru", { ok: false, count: 0, message: "DB" }))
-      .toContain("не удалось сохранить запись: DB");
+    expect(formatDeterministicSaveReply("lv", { ok: true, count: 1 }))
+      .toBe("WorksRecorded saglabāju 1 darbu ierakstu.");
+    expect(formatDeterministicSaveReply("en", { ok: true, count: 2 }))
+      .toBe("Saved 2 work records in WorksRecorded.");
+    expect(formatDeterministicSaveReply("ru", { ok: false, count: 0, message: "DB" }))
+      .toContain("Не удалось сохранить запись: DB");
   });
 
   it("formats persisted record details without internal fields", () => {
-    const reply = formatDeterministicSaveReply("Deivids", "lv", {
+    const reply = formatDeterministicSaveReply("lv", {
       ok: true,
       count: 1,
       records: [{
@@ -95,6 +95,16 @@ describe("site-manager fast path", () => {
     expect(reply).toContain("Darbinieki: 2");
     expect(reply).toContain("Stundas: 4");
     expect(reply).not.toContain("Record IDs");
+    expect(reply).not.toContain("Deivids");
+  });
+
+  it("adds an optional localized address name to sampled deterministic replies", () => {
+    expect(formatDeterministicSaveReply("lv", { ok: true, count: 1 }, "Deivid"))
+      .toBe("Deivid, WorksRecorded saglabāju 1 darbu ierakstu.");
+    expect(formatDeterministicSaveReply("en", { ok: true, count: 1 }, "Deivids"))
+      .toBe("Deivids, saved 1 work record in WorksRecorded.");
+    expect(formatDeterministicSaveReply("lv", { ok: false, count: 0 }, "Kaspar"))
+      .toBe("Kaspar, ierakstu neizdevās saglabāt.");
   });
 
   it("formats multiple records as bullet points and caps output at ten", () => {
