@@ -3023,9 +3023,11 @@ async function createAdditionalWorkSession(args: {
   );
   const mappedWorkOption = defaultRateMatch?.task?.trim() || workOption;
   const relatesToElement = defaultRateMatch?.relatesToElement === true;
+  const shouldAttachToProject = Boolean(drawingContext?.Location);
   const shouldAttachToElement =
+    shouldAttachToProject &&
     relatesToElement &&
-    Boolean(drawingContext?.Location && drawingContext?.Location_Custom_1);
+    Boolean(drawingContext?.Location_Custom_1);
   const elementAreaM2 =
     shouldAttachToElement && drawingContext
       ? getSessionElementAreaM2(drawingContext)
@@ -3033,7 +3035,7 @@ async function createAdditionalWorkSession(args: {
   const additionalWorkUnit = shouldAttachToElement
     ? normalizeZtcRateUnit(defaultRateMatch?.unit, "m2")
     : "st";
-  if (!shouldAttachToElement) {
+  if (!shouldAttachToProject) {
     await closeOpenDrawingContextsForStandaloneAdditionalWork(worker, now);
   }
 
@@ -3043,11 +3045,11 @@ async function createAdditionalWorkSession(args: {
       organizationId: getZtcFlowContext(worker).organizationId,
       Date: now,
       Date_Custom_1: now,
-      Location: shouldAttachToElement ? drawingContext?.Location : "Papilddarbi",
+      Location: shouldAttachToProject ? drawingContext?.Location : "Papilddarbi",
       Location_Custom_1: shouldAttachToElement ? drawingContext?.Location_Custom_1 : null,
-      Works_Custom_1: shouldAttachToElement ? "Papilddarbi" : null,
-      Comments_Custom_2: shouldAttachToElement ? drawingContext?.Comments_Custom_2 : null,
-      Photos: shouldAttachToElement && drawingContext?.Photos?.[0] ? [drawingContext.Photos[0]] : [],
+      Works_Custom_1: shouldAttachToProject ? "Papilddarbi" : null,
+      Comments_Custom_2: shouldAttachToProject ? drawingContext?.Comments_Custom_2 : null,
+      Photos: shouldAttachToProject && drawingContext?.Photos?.[0] ? [drawingContext.Photos[0]] : [],
       Works: mappedWorkOption,
       Location_Custom_2: defaultRateMatch?.rate ?? null,
       Units: additionalWorkUnit,
@@ -3074,8 +3076,9 @@ async function createAdditionalWorkSession(args: {
       mappedWork: mappedWorkOption,
       matchedRate: defaultRateMatch?.rate ?? null,
       relatesToElement,
+      attachedToProject: shouldAttachToProject,
       attachedToElement: shouldAttachToElement,
-      projectName: shouldAttachToElement ? drawingContext?.Location : null,
+      projectName: shouldAttachToProject ? drawingContext?.Location : null,
       elementName: shouldAttachToElement ? drawingContext?.Location_Custom_1 : null,
       elementAreaM2,
       configuredUnit: defaultRateMatch?.unit ?? "st",
@@ -3157,7 +3160,8 @@ async function handleWorkText(args: {
       work,
       text,
       originalAudioUrl,
-      drawingContext: contextSession,
+      drawingContext:
+        openSession && hasZtcDrawingContext(openSession) ? openSession : null,
     });
     outcome = "additional_work_started";
     await sendZtcMessage(
