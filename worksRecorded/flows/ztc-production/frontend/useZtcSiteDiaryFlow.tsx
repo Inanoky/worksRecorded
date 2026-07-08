@@ -208,14 +208,18 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
   }, []);
 
   const openElementDetails = React.useCallback(
-    (elementName: string | null | undefined) => {
+    (elementName: string | null | undefined, projectName?: string | null | undefined) => {
       const normalizedElement = String(elementName ?? "").trim();
+      const normalizedProject = String(projectName ?? "").trim();
       if (!normalizedElement) return;
 
       setViewMode("list");
+      if (normalizedProject) {
+        setProjectFilter(normalizedProject);
+      }
       setElementFilter(normalizedElement);
     },
-    [setElementFilter, setViewMode],
+    [setElementFilter, setProjectFilter, setViewMode],
   );
 
   const openProjectDetails = React.useCallback(

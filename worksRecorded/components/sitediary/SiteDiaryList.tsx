@@ -106,22 +106,17 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
 import { useZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend/useZtcSiteDiaryFlow";
+import { getZtcScopeSummary } from "@/flows/ztc-production/backend/actions";
 import { exportForma2ToExcel } from "@/components/sitediary/forma2-export";
 import {
-  buildZtcLaborNormSummaryRows,
-  buildZtcLaborNormTotalSummary,
   buildZtcQualityDisplayStateByRowId,
   formatZtcLaborNorm,
   formatZtcMoney,
   getZtcActivePauseStartedAt,
-  getZtcElementTotalAreaM2,
   getZtcPauseHours,
   getZtcPauseIntervals,
   getZtcPayrollValues,
-  getZtcProjectTotalAreaM2,
   getZtcQualityRowToneClass,
-  isZtcAdditionalDetailsRow,
-  isZtcAdditionalWorkRow,
   isZtcQualityRow,
   splitZtcWorkerDisplayName,
   exportZtcProductivityToExcel,
@@ -193,6 +188,8 @@ type DayGroup = {
   date: Date;
   rows: DiaryRow[];
 };
+
+type ZtcScopeSummary = NonNullable<Awaited<ReturnType<typeof getZtcScopeSummary>>>;
 
 function formatZtcPauseTime(date: Date, dateLocale: string) {
   return date.toLocaleString(dateLocale, {
@@ -920,6 +917,9 @@ export default function SiteDiaryCalendar({
 
   const elementOptions = React.useMemo(() => {
     const set = new Set<string>();
+    if (isZtcSite && elementFilter !== "__ALL__") {
+      set.add(elementFilter);
+    }
     rows.forEach((r) => {
       if (
         isZtcSite &&
@@ -933,7 +933,7 @@ export default function SiteDiaryCalendar({
       }
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
-  }, [rows, isZtcSite, floorFilter]);
+  }, [rows, isZtcSite, floorFilter, elementFilter]);
 
   React.useEffect(() => {
     if (!isZtcSite || elementFilter === "__ALL__") return;
@@ -1053,109 +1053,50 @@ export default function SiteDiaryCalendar({
       .filter((group) => group.rows.length > 0);
   }, [dayGroups, keywordFilter]);
 
-  const ztcSelectedScopeSummary = React.useMemo(() => {
-    if (!isZtcSite || (floorFilter === "__ALL__" && elementFilter === "__ALL__")) {
-      return null;
+  const [ztcSelectedScopeSummary, setZtcSelectedScopeSummary] =
+    React.useState<ZtcScopeSummary | null>(null);
+  const [ztcScopeSummaryLoading, setZtcScopeSummaryLoading] = React.useState(false);
+  const [ztcScopeSummaryError, setZtcScopeSummaryError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const projectName = floorFilter !== "__ALL__" ? floorFilter : null;
+    const elementName = elementFilter !== "__ALL__" ? elementFilter : null;
+
+    if (!isZtcSite || !siteId || (!projectName && !elementName)) {
+      setZtcSelectedScopeSummary(null);
+      setZtcScopeSummaryLoading(false);
+      setZtcScopeSummaryError(null);
+      return;
     }
 
-    const visibleRows = keywordMatchedDayGroups.flatMap((group) => group.rows);
-    const elementTotalAreaM2 =
-      elementFilter !== "__ALL__"
-        ? getZtcElementTotalAreaM2(rows, elementFilter)
-        : null;
-    const projectTotalAreaM2 =
-      elementFilter === "__ALL__" && floorFilter !== "__ALL__"
-        ? getZtcProjectTotalAreaM2(rows, floorFilter)
-        : null;
-    const totals = visibleRows.reduce(
-      (acc, row) => {
-        const payroll = getZtcPayrollValues(row);
-        acc.hours += payroll.hours;
-        acc.money += payroll.sum;
-        if (elementFilter !== "__ALL__" && elementTotalAreaM2 == null && payroll.amountM2 > acc.elementM2) {
-          acc.elementM2 = payroll.amountM2;
+    let cancelled = false;
+    setZtcScopeSummaryLoading(true);
+    setZtcScopeSummaryError(null);
+
+    getZtcScopeSummary({
+      siteId,
+      projectName,
+      elementName,
+    })
+      .then((summary) => {
+        if (cancelled) return;
+        setZtcSelectedScopeSummary(summary);
+      })
+      .catch((error: any) => {
+        if (cancelled) return;
+        setZtcSelectedScopeSummary(null);
+        setZtcScopeSummaryError(error?.message ?? "Neizdevās ielādēt kopsavilkumu.");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setZtcScopeSummaryLoading(false);
         }
-        return acc;
-      },
-      { hours: 0, money: 0, elementM2: 0 },
-    );
-    const shouldShowLaborNorm = elementFilter !== "__ALL__" || floorFilter !== "__ALL__";
-    const laborNormRows = shouldShowLaborNorm
-      ? buildZtcLaborNormSummaryRows(visibleRows)
-      : [];
-    const laborNormTotal = shouldShowLaborNorm
-      ? buildZtcLaborNormTotalSummary(visibleRows)
-      : null;
-    const relatedAdditionalRows =
-      elementFilter !== "__ALL__" || floorFilter !== "__ALL__"
-        ? Array.from(
-            visibleRows.reduce(
-              (groups, row) => {
-                const type = isZtcAdditionalDetailsRow(row)
-                  ? "Papilddetāļas"
-                  : isZtcAdditionalWorkRow(row)
-                    ? "Papilddarbi"
-                    : null;
-                if (!type) return groups;
+      });
 
-                const task = String(row.Works ?? "").trim() || "—";
-                const unit = String(row.Units ?? "").trim() || "—";
-                const key = `${type}::${task}::${unit}`;
-                const payroll = getZtcPayrollValues(row);
-                const existing = groups.get(key) ?? {
-                  type,
-                  task,
-                  unit,
-                  amount: 0,
-                  hours: 0,
-                  sum: 0,
-                };
-
-                existing.amount += payroll.amountM2;
-                existing.hours += payroll.hours;
-                existing.sum += payroll.sum;
-                groups.set(key, existing);
-                return groups;
-              },
-              new Map<
-                string,
-                {
-                  type: string;
-                  task: string;
-                  unit: string;
-                  amount: number;
-                  hours: number;
-                  sum: number;
-                }
-              >(),
-            ).values(),
-          )
-            .map((row) => ({
-              ...row,
-              amount: Number(row.amount.toFixed(2)),
-              hours: Number(row.hours.toFixed(2)),
-              sum: Number(row.sum.toFixed(2)),
-            }))
-            .sort((a, b) => a.type.localeCompare(b.type, "lv") || a.task.localeCompare(b.task, "lv"))
-        : [];
-
-    return {
-      project: floorFilter !== "__ALL__" ? floorFilter : null,
-      element: elementFilter !== "__ALL__" ? elementFilter : null,
-      rows: visibleRows.length,
-      hours: totals.hours,
-      money: totals.money,
-      elementM2:
-        elementFilter !== "__ALL__"
-          ? elementTotalAreaM2 ?? totals.elementM2
-          : floorFilter !== "__ALL__"
-            ? projectTotalAreaM2
-            : null,
-      laborNormRows,
-      laborNormTotal,
-      relatedAdditionalRows,
+    return () => {
+      cancelled = true;
     };
-  }, [elementFilter, floorFilter, isZtcSite, keywordMatchedDayGroups, rows]);
+  }, [elementFilter, floorFilter, isZtcSite, siteId]);
 
   const visibleRecordIds = React.useMemo(
     () =>
@@ -2078,7 +2019,10 @@ export default function SiteDiaryCalendar({
                       <>
                         <SearchableFilterSelect
                           value={floorFilter}
-                          onValueChange={setFloorFilter}
+                          onValueChange={(value) => {
+                            setFloorFilter(value);
+                            setElementFilter("__ALL__");
+                          }}
                           options={floorOptions.map((value) => ({ value, label: value }))}
                           allLabel="Visi projekti"
                           placeholder="Projekts"
@@ -2259,6 +2203,18 @@ export default function SiteDiaryCalendar({
               </Card>
             )}
 
+            {ztcScopeSummaryLoading ? (
+              <div className="mb-4 rounded-md border bg-background px-3 py-3 text-sm text-muted-foreground shadow-sm sm:px-4">
+                Ielādē kopsavilkumu...
+              </div>
+            ) : null}
+
+            {ztcScopeSummaryError ? (
+              <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-3 text-sm text-destructive shadow-sm sm:px-4">
+                {ztcScopeSummaryError}
+              </div>
+            ) : null}
+
             {ztcSelectedScopeSummary ? (
               <div className="mb-4 rounded-md border bg-background px-3 py-3 shadow-sm sm:px-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -2278,7 +2234,7 @@ export default function SiteDiaryCalendar({
                         </span>
                       ) : null}
                       <span className="rounded-md bg-muted px-2 py-1">
-                        Ieraksti: {ztcSelectedScopeSummary.rows}
+                        Viss periods
                       </span>
                     </div>
                   </div>
@@ -2577,7 +2533,7 @@ export default function SiteDiaryCalendar({
                                 <button
                                   type="button"
                                   className="mt-1 block text-left text-[10px] font-medium text-blue-700 underline-offset-2 hover:underline"
-                                  onClick={() => ztc.openElementDetails(r.Location_Custom_1)}
+                                  onClick={() => ztc.openElementDetails(r.Location_Custom_1, r.Location)}
                                 >
                                   Elements: {r.Location_Custom_1}
                                 </button>
@@ -2938,7 +2894,7 @@ export default function SiteDiaryCalendar({
                                                   <button
                                                     type="button"
                                                     className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
-                                                    onClick={() => ztc.openElementDetails(row.Location_Custom_1)}
+                                                    onClick={() => ztc.openElementDetails(row.Location_Custom_1, row.Location)}
                                                   >
                                                     {row.Location_Custom_1}
                                                   </button>

@@ -21,6 +21,16 @@ import {
   attachZtcLaborNormToMetadata,
   normalizeZtcLaborNorm,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
+import {
+  buildZtcLaborNormSummaryRows,
+  buildZtcLaborNormTotalSummary,
+  getZtcElementTotalAreaM2,
+  getZtcPayrollValues,
+  getZtcProjectTotalAreaM2,
+  isZtcAdditionalDetailsRow as isZtcSummaryAdditionalDetailsRow,
+  isZtcAdditionalWorkRow as isZtcSummaryAdditionalWorkRow,
+  type ZtcDiaryRow,
+} from "@/flows/ztc-production/lib/ztc-site-diary-utils";
 import { resolveAdvancedProductionWorkflowContextForSite } from "@/lib/production-flow/runtime-server";
 
 const ZTC_DEFAULT_TASK_RATES_KEY = "ztcDefaultTaskRates";
@@ -795,6 +805,151 @@ export async function updateZtcDefaultTaskRates(args: {
 export async function getZtcSiteDiaryRecords(args: { siteId: string; date: string }) {
   const context = await requireZtcAccess(args.siteId);
   return loadZtcSiteDiaryRecords({ ...context, date: args.date });
+}
+
+export async function getZtcScopeSummary(args: {
+  siteId: string;
+  projectName?: string | null;
+  elementName?: string | null;
+}) {
+  const context = await requireZtcAccess(args.siteId);
+  const projectName = String(args.projectName ?? "").trim();
+  const elementName = String(args.elementName ?? "").trim();
+  if (!projectName && !elementName) return null;
+
+  const records = await prisma.ztcRecords.findMany({
+    where: {
+      siteId: context.siteId,
+      organizationId: context.organizationId,
+      Date_Custom_2: { not: null },
+      ...(projectName ? { Location: projectName } : {}),
+      ...(elementName ? { Location_Custom_1: elementName } : {}),
+      NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+    },
+    orderBy: [{ Date: "desc" }, { Date_Custom_1: "desc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      Date: true,
+      Date_Custom_1: true,
+      Date_Custom_2: true,
+      Location: true,
+      Location_Custom_1: true,
+      Location_Custom_2: true,
+      Works: true,
+      Works_Custom_1: true,
+      Works_Custom_2: true,
+      Units: true,
+      Amounts: true,
+      WorkersInvolved: true,
+      TimeInvolved: true,
+      pausedAt: true,
+      pauseIntervals: true,
+      Comments: true,
+      Comments_Custom_1: true,
+      Comments_Custom_2: true,
+      originalUserComment: true,
+      originalAudioUrl: true,
+      Photos: true,
+      User: {
+        select: {
+          firstName: true,
+          lastName: true,
+        },
+      },
+      Worker: {
+        select: {
+          name: true,
+          surname: true,
+        },
+      },
+    },
+  });
+
+  const rows = records.map(mapZtcRecord) as ZtcDiaryRow[];
+  const elementTotalAreaM2 = elementName
+    ? getZtcElementTotalAreaM2(rows, elementName)
+    : null;
+  const projectTotalAreaM2 = projectName
+    ? getZtcProjectTotalAreaM2(rows, projectName)
+    : null;
+  const totals = rows.reduce(
+    (acc, row) => {
+      const payroll = getZtcPayrollValues(row);
+      acc.hours += payroll.hours;
+      acc.money += payroll.sum;
+      if (elementName && elementTotalAreaM2 == null && payroll.amountM2 > acc.elementM2) {
+        acc.elementM2 = payroll.amountM2;
+      }
+      return acc;
+    },
+    { hours: 0, money: 0, elementM2: 0 },
+  );
+
+  const relatedAdditionalRows = Array.from(
+    rows.reduce(
+      (groups, row) => {
+        const type = isZtcSummaryAdditionalDetailsRow(row)
+          ? "Papilddetāļas"
+          : isZtcSummaryAdditionalWorkRow(row)
+            ? "Papilddarbi"
+            : null;
+        if (!type) return groups;
+
+        const task = String(row.Works ?? "").trim() || "—";
+        const unit = String(row.Units ?? "").trim() || "—";
+        const key = `${type}::${task}::${unit}`;
+        const payroll = getZtcPayrollValues(row);
+        const existing = groups.get(key) ?? {
+          type,
+          task,
+          unit,
+          amount: 0,
+          hours: 0,
+          sum: 0,
+        };
+
+        existing.amount += payroll.amountM2;
+        existing.hours += payroll.hours;
+        existing.sum += payroll.sum;
+        groups.set(key, existing);
+        return groups;
+      },
+      new Map<
+        string,
+        {
+          type: string;
+          task: string;
+          unit: string;
+          amount: number;
+          hours: number;
+          sum: number;
+        }
+      >(),
+    ).values(),
+  )
+    .map((row) => ({
+      ...row,
+      amount: Number(row.amount.toFixed(2)),
+      hours: Number(row.hours.toFixed(2)),
+      sum: Number(row.sum.toFixed(2)),
+    }))
+    .sort((a, b) => a.type.localeCompare(b.type, "lv") || a.task.localeCompare(b.task, "lv"));
+
+  return {
+    project: projectName || null,
+    element: elementName || null,
+    rows: rows.length,
+    hours: totals.hours,
+    money: totals.money,
+    elementM2: elementName
+      ? elementTotalAreaM2 ?? totals.elementM2
+      : projectName
+        ? projectTotalAreaM2
+        : null,
+    laborNormRows: buildZtcLaborNormSummaryRows(rows),
+    laborNormTotal: buildZtcLaborNormTotalSummary(rows),
+    relatedAdditionalRows,
+  };
 }
 
 export async function getZtcDialogPrefetchData(args: { siteId: string; date: string }) {
