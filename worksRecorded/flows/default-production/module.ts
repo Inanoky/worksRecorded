@@ -34,9 +34,8 @@ export const defaultProductionFlowModule = {
       "flows/default-production/backend.ts",
       "flows/default-production/backend/worker.ts",
       "flows/default-production/backend/worker-route.ts",
-      "flows/ztc-production/backend/whatsapp-worker.ts",
-      "flows/ztc-production/backend/whatsapp-quality.ts",
-      "flows/ztc-production/backend/actions.ts",
+      "flows/default-production/backend/whatsapp-worker.ts",
+      "flows/default-production/backend/whatsapp-quality.ts",
     ],
   },
 } satisfies FlowModuleDefinition;

@@ -9,6 +9,12 @@ import {
   normalizePhone,
 } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { handleWorkerRoute } from "@/flows/default-production/backend";
+import {
+  handleDefaultProductionQualityRoute,
+} from "@/flows/default-production/backend/whatsapp-quality";
+import {
+  handleDefaultProductionWorkerRoute,
+} from "@/flows/default-production/backend/whatsapp-worker";
 
 import { handleSiteManagerRoute } from "@/flows/default-construction/backend";
 import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/sender";
@@ -32,6 +38,7 @@ import {
 } from "@/app/api/webhook/meta/webhook/helperes";
 import {
   handleZtcWorkerRoute,
+  type ProductionDrawingExtractionProfile,
 } from "@/flows/ztc-production/backend";
 import {
   handleZtcQualityRoute,
@@ -53,6 +60,13 @@ const ZTC_DIAGONAL_STATE_PREFIXES = [
   "__ZTC_DIAGONAL_SECOND_PHOTO_PENDING__",
   "__ZTC_DIAGONAL_SECOND_MEASURE_PENDING__",
 ];
+
+function getDrawingProfileForProductionConfig(
+  config: Awaited<ReturnType<typeof resolveWorkerFlowRuntime>>["productionConfig"],
+): ProductionDrawingExtractionProfile {
+  return config?.flowModuleKey === "default-production" ? "default-production" : "ztc";
+}
+
 function logMetaWebhookTiming(
   event: string,
   startedAt: number,
@@ -798,23 +812,36 @@ async function runWhatsappRoutingForMeta(args: {
 
     if (worker) {
       if (ztcWorker) {
+        const drawingProfile = getDrawingProfileForProductionConfig(
+          workerFlowRuntime?.productionConfig ?? null,
+        );
         if (usesAdvancedQualityWorkflow && isZtcQualityWorkerRole(worker.role)) {
           const handlerStartedAt = Date.now();
-          await handleZtcQualityRoute({ worker: ztcWorker as any, formData });
+          if (drawingProfile === "default-production") {
+            await handleDefaultProductionQualityRoute({ worker: ztcWorker as any, formData });
+          } else {
+            await handleZtcQualityRoute({ worker: ztcWorker as any, formData, drawingProfile });
+          }
           routeOutcome = "ztc_quality_worker";
           logMetaWebhookTiming("ztc_quality_route", handlerStartedAt, {
             messageId,
             workerId: worker.id,
+            drawingProfile,
           });
           return;
         }
 
         const handlerStartedAt = Date.now();
-        await handleZtcWorkerRoute({ worker: ztcWorker, formData });
+        if (drawingProfile === "default-production") {
+          await handleDefaultProductionWorkerRoute({ worker: ztcWorker, formData });
+        } else {
+          await handleZtcWorkerRoute({ worker: ztcWorker, formData, drawingProfile });
+        }
         routeOutcome = "ztc_worker";
         logMetaWebhookTiming("ztc_worker_route", handlerStartedAt, {
           messageId,
           workerId: worker.id,
+          drawingProfile,
         });
         return;
       }

@@ -16,6 +16,7 @@ import {
   uploadMediaImage,
   getZtcFlowContext,
   workerFullName,
+  type ProductionDrawingExtractionProfile,
   type ZtcWorker,
 } from "@/flows/ztc-production/backend/whatsapp-worker";
 import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
@@ -775,6 +776,7 @@ async function handleQualityDrawingPhoto(args: {
   idx: number;
   to: string | null;
   worker: ZtcWorker;
+  drawingProfile?: ProductionDrawingExtractionProfile;
 }) {
   const existing = await getPendingQaSession(args.worker);
   if (existing) {
@@ -783,7 +785,9 @@ async function handleQualityDrawingPhoto(args: {
   }
 
   await sendZtcMessage(args.to, "Rasējuma foto saņemts kvalitātes kontrolei, lūdzu uzgaidiet...");
-  const { image, extraction } = await uploadAndExtractDrawingInfo(args.formData, args.idx);
+  const { image, extraction } = await uploadAndExtractDrawingInfo(args.formData, args.idx, {
+    drawingProfile: args.drawingProfile,
+  });
 
   if (
     !extraction.isConstructionDrawing ||
@@ -1011,6 +1015,7 @@ async function handleQualityText(args: {
 export async function handleZtcQualityRoute(args: {
   formData: FormData;
   worker: ZtcWorker;
+  drawingProfile?: ProductionDrawingExtractionProfile;
 }) {
   const startedAt = Date.now();
   const { formData, worker } = args;
@@ -1033,7 +1038,13 @@ export async function handleZtcQualityRoute(args: {
         outcome = "appended_recent_completed_qa_photos";
       } else {
         outcome = "quality_drawing_photo";
-        await handleQualityDrawingPhoto({ formData, idx: imageIdx, to: from, worker });
+        await handleQualityDrawingPhoto({
+          formData,
+          idx: imageIdx,
+          to: from,
+          worker,
+          drawingProfile: args.drawingProfile,
+        });
       }
       return;
     }

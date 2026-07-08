@@ -58,6 +58,28 @@ const ZTC_DROPDOWN_CACHE_MS = 60_000;
 const ZTC_COMMENT_POLISH_TIMEOUT_MS = 15_000;
 const ZTC_DEFAULT_VISION_MODEL = "gpt-5.4";
 
+export type ProductionDrawingExtractionProfile = "ztc" | "default-production";
+
+const ZTC_DRAWING_EXTRACTION_SYSTEM_PROMPT =
+  "You validate production factory drawing photos. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null, complexityCode string}, issue string|null. Accept this production legend format when its bottom framed tables are readable. Ignore the large drawing views, dimensions, revision stamp, designer names, company address, logo, and unrelated notes. The works are always in the left framed table. Read its rows from top to bottom, commonly in this order: L4/B4, L3/B3, L2/B2, L1/B1, TL, L0, R1/T1, R2/T2, R3/T3, R4/T4, R5/T5. Extract only rows with a visible work description after the hyphen and omit rows whose description is empty. Preserve each visible prefix and description, for example \"L2/B2 - Latojums 45x45\", \"TL - Koka karkass 245 mm\", or \"R3/T3 - Latojums 28x70\". Normalize an OCR-only T or T1 timber-frame prefix to TL only when it is clearly the standalone timber-frame row; preserve R1/T1 and other printed paired row codes exactly. The two narrow handwritten coefficient cells are immediately to the left of every work row. For each extracted work, set complexityCode to exactly one of \"\", \"X\", \"X X\", \"1\", \"2\", \"3\", \"4\", \"5\", \"6\". Use \"\" when the aligned coefficient cells are empty. Use \"X\" when one aligned coefficient cell has a handwritten X and \"X X\" only when both aligned coefficient cells on that row have handwritten X marks. For numeric handwritten coefficients, return only the visible number from 1 to 6; do not return doubled numeric codes such as \"1 1\", \"2 2\", or \"3 3\". If the photo is rotated, mentally rotate it so the work table is horizontal before aligning coefficient cells to rows. Read only the coefficient cells aligned with that exact work row; do not count printed grid lines, work-code letters, checkmarks, dimensions, or marks from adjacent rows. The element number must be extracted only from the value after the label \"Paneļa numurs:\". Tolerate minor spelling/OCR variants such as \"Paneļa nummurs:\", \"Panela numurs:\", or \"Panela nummurs:\", plus minor spacing around the colon. Example: \"Paneļa numurs: 3S-03\" means elementName=\"3S-03\". The total element area must be extracted only from the numeric value after the label \"Paneļa laukums:\". Tolerate OCR variants such as \"Panela laukums:\" or \"Paneļā laukums:\" and minor spacing. Example: \"Paneļa laukums: 11.66 m²\" means totalAreaM2=11.66. The project name must be extracted only from the value on the BP row immediately after \"BP:\" or \"BP :\". Example: \"BP : Zemgales Prospekts 11 (ZP)\" means projectName=\"Zemgales Prospekts 11 (ZP)\". Do not use the company address, customer, designer, date, or drawing-size fields as projectName. Set hasReadableProjectName, hasReadableElementName, and hasReadableWorkList according to these exact locations. If work-specific areas are not printed in the left work table, set every workItems amountM2 to totalAreaM2. Reject ordinary photos, selfies, unrelated documents, and drawings where BP project name, Paneļa numurs, Paneļa laukums, or the left work table cannot be read. Preserve Latvian diacritics and original spelling in extracted values; do not transliterate.";
+
+const DEFAULT_PRODUCTION_DRAWING_EXTRACTION_SYSTEM_PROMPT =
+  "You validate production factory drawing photos. Return only JSON with keys: isConstructionDrawing boolean, hasReadableProjectName boolean, hasReadableElementName boolean, hasReadableWorkList boolean, qualityOk boolean, projectName string|null, elementName string|null, totalAreaM2 number|null, workList string[], workItems array of {name string, amountM2 number|null, complexityCode string}, issue string|null. Accept generic production drawing title blocks and legends when the framed tables are readable. Ignore the large drawing views, dimensions, revision stamp, designer names, company address, logo, and unrelated notes. Extract works from the framed work/item table, usually the left table. Rows may use any visible code prefix before a hyphen, including but not limited to PC1, PC2, PC3, PC4, L1/B1, TL, R1/T1, or similar production item codes. Extract only rows with a visible work or item description after the hyphen and omit rows whose description is empty. Preserve each visible prefix and description exactly, for example \"PC1 - INSULATION 340*300*250\" or \"L2/B2 - Latojums 45x45\". If handwritten coefficient cells exist next to work rows, set complexityCode to exactly one of \"\", \"X\", \"X X\", \"1\", \"2\", \"3\", \"4\", \"5\", \"6\". Use \"\" when no aligned coefficient is visible or when the coefficient is unclear. Do not invent coefficients. If the photo is rotated, mentally rotate it before reading. The element number must be extracted only from the value after labels like \"Paneļa numurs:\", \"Panela numurs:\", \"Element number:\", \"Panel number:\", or close OCR variants. The total element area must be extracted only from the numeric value after labels like \"Paneļa laukums:\", \"Panela laukums:\", \"Panel area:\", or close OCR variants. The project name should be extracted from the value on the BP row when present; otherwise use the clearest project/customer/building row in the title block, not the manufacturer address, designer, date, drawing-size field, or logo. Set every workItems amountM2 to totalAreaM2 when row-specific quantities are not printed. Reject ordinary photos, selfies, unrelated documents, and drawings where project name, element number, total area, or the work/item table cannot be read. Preserve original spelling in extracted values; do not transliterate.";
+
+function getDrawingExtractionPrompt(profile: ProductionDrawingExtractionProfile) {
+  return profile === "default-production"
+    ? {
+        system: DEFAULT_PRODUCTION_DRAWING_EXTRACTION_SYSTEM_PROMPT,
+        user:
+          "Read the production drawing legend/title block. Extract works/items from the framed work table, projectName from BP or the main project/customer row, elementName from the panel/element number, totalAreaM2 from the panel area, and any handwritten coefficient code aligned with each work row.",
+      }
+    : {
+        system: ZTC_DRAWING_EXTRACTION_SYSTEM_PROMPT,
+        user:
+          "Read the bottom ZTC legend. Extract works only from the left table, projectName from BP, elementName from Paneļa numurs, totalAreaM2 from Paneļa laukums, and the handwritten coefficient code from the cells aligned with each work row.",
+      };
+}
+
 class ZtcTimeoutError extends Error {
   constructor(label: string, timeoutMs: number) {
     super(`${label} timed out after ${timeoutMs}ms`);
@@ -1501,13 +1523,17 @@ export async function uploadMediaImage(formData: FormData, idx: number) {
   return uploadFetchedMediaImage(await fetchMediaImage(formData, idx));
 }
 
-export async function uploadAndExtractDrawingInfo(formData: FormData, idx: number) {
+export async function uploadAndExtractDrawingInfo(
+  formData: FormData,
+  idx: number,
+  options: { drawingProfile?: ProductionDrawingExtractionProfile } = {},
+) {
   const startedAt = Date.now();
   const imageBytes = await fetchMediaImage(formData, idx);
   const imageDataUrl = `data:${imageBytes.contentType};base64,${imageBytes.buffer.toString("base64")}`;
   const [image, extraction] = await Promise.all([
     uploadFetchedMediaImage(imageBytes),
-    extractDrawingInfo(imageDataUrl),
+    extractDrawingInfo(imageDataUrl, options),
   ]);
 
   logZtcTiming("drawing_upload_and_extract", startedAt, {
@@ -1519,6 +1545,7 @@ export async function uploadAndExtractDrawingInfo(formData: FormData, idx: numbe
     projectName: extraction.projectName,
     elementName: extraction.elementName,
     workCount: extraction.workList.length,
+    drawingProfile: options.drawingProfile ?? "ztc",
   });
 
   return { image, extraction };
@@ -1639,15 +1666,43 @@ export async function transcribeAudio(formData: FormData, idx: number) {
   return (await transcribeAudioWithSource(formData, idx)).text;
 }
 
-export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtraction> {
+export async function extractDrawingInfo(
+  imageUrl: string,
+  options: { drawingProfile?: ProductionDrawingExtractionProfile } = {},
+): Promise<DrawingExtraction> {
   const startedAt = Date.now();
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const openaiStartedAt = Date.now();
+  const drawingProfile = options.drawingProfile ?? "ztc";
+  const prompt = getDrawingExtractionPrompt(drawingProfile);
   const response = await withZtcTimeout(
     openai.chat.completions.create({
       model: process.env.ZTC_VISION_MODEL || ZTC_DEFAULT_VISION_MODEL,
       response_format: { type: "json_object" },
-      messages: [
+      messages: drawingProfile === "default-production" ? [
+        {
+          role: "system",
+          content: prompt.system,
+        },
+        {
+          role: "system",
+          content:
+            "The only coefficient field is complexityCode. If a handwritten coefficient is unclear, use an empty string instead of guessing.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: prompt.user,
+            },
+            {
+              type: "image_url",
+              image_url: { url: imageUrl },
+            },
+          ],
+        },
+      ] : [
         {
           role: "system",
           content:
@@ -1679,6 +1734,7 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
   logZtcTiming("drawing_extraction_openai", openaiStartedAt, {
     model: process.env.ZTC_VISION_MODEL || ZTC_DEFAULT_VISION_MODEL,
     imageSource: imageUrl.startsWith("data:") ? "data_url" : "url",
+    drawingProfile,
   });
 
   const content = response.choices[0]?.message?.content;
@@ -1699,6 +1755,7 @@ export async function extractDrawingInfo(imageUrl: string): Promise<DrawingExtra
     elementName: extraction.elementName,
     workCount: extraction.workList.length,
     issue: extraction.issue,
+    drawingProfile,
   });
 
   return extraction;
@@ -2849,6 +2906,7 @@ async function handleDrawingPhoto(args: {
   idx: number;
   to: string | null;
   worker: ZtcWorker;
+  drawingProfile?: ProductionDrawingExtractionProfile;
 }) {
   const { formData, idx, to, worker } = args;
 
@@ -2869,7 +2927,9 @@ async function handleDrawingPhoto(args: {
     worker,
     details: { mediaIndex: idx },
   });
-  const { image, extraction } = await uploadAndExtractDrawingInfo(formData, idx);
+  const { image, extraction } = await uploadAndExtractDrawingInfo(formData, idx, {
+    drawingProfile: args.drawingProfile,
+  });
   logZtcSession("drawing_photo_upload_completed", {
     worker,
     details: { mediaIndex: idx, publicUrl: image.publicUrl, contentType: image.contentType },
@@ -3516,6 +3576,7 @@ async function handleFinishedPhoto(args: {
 export async function handleZtcWorkerRoute(args: {
   formData: FormData;
   worker: ZtcWorker;
+  drawingProfile?: ProductionDrawingExtractionProfile;
 }) {
   const startedAt = Date.now();
   const { formData, worker } = args;
@@ -3538,7 +3599,13 @@ export async function handleZtcWorkerRoute(args: {
         outcome = "appended_recent_completed_photos";
       } else {
         outcome = "drawing_photo";
-        await handleDrawingPhoto({ formData, idx: imageIdx, to: from, worker });
+        await handleDrawingPhoto({
+          formData,
+          idx: imageIdx,
+          to: from,
+          worker,
+          drawingProfile: args.drawingProfile,
+        });
       }
       return;
     }
