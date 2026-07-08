@@ -120,6 +120,8 @@ import {
   getZtcPayrollValues,
   getZtcProjectTotalAreaM2,
   getZtcQualityRowToneClass,
+  isZtcAdditionalDetailsRow,
+  isZtcAdditionalWorkRow,
   isZtcQualityRow,
   splitZtcWorkerDisplayName,
   exportZtcProductivityToExcel,
@@ -1084,6 +1086,61 @@ export default function SiteDiaryCalendar({
     const laborNormTotal = shouldShowLaborNorm
       ? buildZtcLaborNormTotalSummary(visibleRows)
       : null;
+    const elementAdditionalRows =
+      elementFilter !== "__ALL__"
+        ? Array.from(
+            visibleRows.reduce(
+              (groups, row) => {
+                const type = isZtcAdditionalDetailsRow(row)
+                  ? "Papilddetāļas"
+                  : isZtcAdditionalWorkRow(row)
+                    ? "Papilddarbi"
+                    : null;
+                if (!type) return groups;
+
+                const task = String(row.Works ?? "").trim() || "—";
+                const unit = String(row.Units ?? "").trim() || "—";
+                const key = `${type}::${task}::${unit}`;
+                const payroll = getZtcPayrollValues(row);
+                const existing = groups.get(key) ?? {
+                  type,
+                  task,
+                  unit,
+                  count: 0,
+                  amount: 0,
+                  hours: 0,
+                  sum: 0,
+                };
+
+                existing.count += 1;
+                existing.amount += payroll.amountM2;
+                existing.hours += payroll.hours;
+                existing.sum += payroll.sum;
+                groups.set(key, existing);
+                return groups;
+              },
+              new Map<
+                string,
+                {
+                  type: string;
+                  task: string;
+                  unit: string;
+                  count: number;
+                  amount: number;
+                  hours: number;
+                  sum: number;
+                }
+              >(),
+            ).values(),
+          )
+            .map((row) => ({
+              ...row,
+              amount: Number(row.amount.toFixed(2)),
+              hours: Number(row.hours.toFixed(2)),
+              sum: Number(row.sum.toFixed(2)),
+            }))
+            .sort((a, b) => a.type.localeCompare(b.type, "lv") || a.task.localeCompare(b.task, "lv"))
+        : [];
 
     return {
       project: floorFilter !== "__ALL__" ? floorFilter : null,
@@ -1099,6 +1156,7 @@ export default function SiteDiaryCalendar({
             : null,
       laborNormRows,
       laborNormTotal,
+      elementAdditionalRows,
     };
   }, [elementFilter, floorFilter, isZtcSite, keywordMatchedDayGroups, rows]);
 
@@ -2308,6 +2366,44 @@ export default function SiteDiaryCalendar({
                         </div>
                       </div>
                     ))}
+                  </div>
+                ) : null}
+                {ztcSelectedScopeSummary.elementAdditionalRows.length ? (
+                  <div className="mt-3 overflow-x-auto rounded-md border">
+                    <div className="min-w-[720px]">
+                      <div className="grid grid-cols-[120px_minmax(0,1fr)_95px_80px_80px_90px] bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+                        <div>Tips</div>
+                        <div>Darbs</div>
+                        <div className="text-right">Daudz.</div>
+                        <div className="text-right">Ieraksti</div>
+                        <div className="text-right">Stundas</div>
+                        <div className="text-right">Summa</div>
+                      </div>
+                      {ztcSelectedScopeSummary.elementAdditionalRows.map((row) => (
+                        <div
+                          key={`${row.type}-${row.task}-${row.unit}`}
+                          className="grid grid-cols-[120px_minmax(0,1fr)_95px_80px_80px_90px] border-t px-3 py-2 text-sm"
+                        >
+                          <div className="truncate pr-2 font-medium">{row.type}</div>
+                          <div className="truncate pr-2">{row.task}</div>
+                          <div className="text-right tabular-nums">
+                            {row.amount.toLocaleString(dateLocale, {
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 2,
+                            })}{" "}
+                            {row.unit}
+                          </div>
+                          <div className="text-right tabular-nums">{row.count}</div>
+                          <div className="text-right tabular-nums">
+                            {row.hours.toLocaleString(dateLocale, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </div>
+                          <div className="text-right tabular-nums">{formatZtcMoney(row.sum)}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </div>
