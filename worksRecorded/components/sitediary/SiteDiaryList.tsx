@@ -455,13 +455,6 @@ function toLocalDateKey(d: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function getMonthDateRange(date: Date) {
-  return {
-    from: new Date(date.getFullYear(), date.getMonth(), 1),
-    to: new Date(date.getFullYear(), date.getMonth() + 1, 0),
-  };
-}
-
 export default function SiteDiaryCalendar({
   siteId,
   bisEnabled = true,
@@ -511,13 +504,8 @@ export default function SiteDiaryCalendar({
   const [rows, setRows] = React.useState<DiaryRow[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const initialZtcListRange = React.useMemo(() => getMonthDateRange(today), []);
-  const [dateFrom, setDateFrom] = React.useState<Date | null>(
-    () => (isZtcFlow ? initialZtcListRange.from : null),
-  );
-  const [dateTo, setDateTo] = React.useState<Date | null>(
-    () => (isZtcFlow ? initialZtcListRange.to : null),
-  );
+  const [dateFrom, setDateFrom] = React.useState<Date | null>(null);
+  const [dateTo, setDateTo] = React.useState<Date | null>(null);
   const [workFilter, setWorkFilter] = React.useState<string>("__ALL__");
   const [floorFilter, setFloorFilter] = React.useState<string>("__ALL__");
   const [elementFilter, setElementFilter] = React.useState<string>("__ALL__");
@@ -1222,14 +1210,8 @@ export default function SiteDiaryCalendar({
   };
 
   const clearFilters = () => {
-    if (isZtcSite) {
-      const range = getMonthDateRange(new Date());
-      setDateFrom(range.from);
-      setDateTo(range.to);
-    } else {
-      setDateFrom(null);
-      setDateTo(null);
-    }
+    setDateFrom(null);
+    setDateTo(null);
     setWorkFilter("__ALL__");
     setFloorFilter("__ALL__");
     setElementFilter("__ALL__");
