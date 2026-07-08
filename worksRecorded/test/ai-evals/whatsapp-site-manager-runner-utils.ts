@@ -4,6 +4,21 @@ type StructuredSaveTraceWithPersistedRecords = {
   persistedRecords?: Array<SavedSiteDiaryRecord | Record<string, unknown>> | null;
 };
 
+const WHATSAPP_SITE_MANAGER_EVAL_THREAD_PREFIX = "eval:whatsapp-site-manager:";
+
+export async function cleanupWhatsappSiteManagerEvalCheckpointThread(
+  threadId: string,
+  deleteThread: (threadId: string) => Promise<unknown>,
+) {
+  if (!threadId.startsWith(WHATSAPP_SITE_MANAGER_EVAL_THREAD_PREFIX)) {
+    throw new Error(
+      `Refusing to delete non-eval WhatsApp site-manager checkpoint thread: ${threadId}`,
+    );
+  }
+
+  await deleteThread(threadId);
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

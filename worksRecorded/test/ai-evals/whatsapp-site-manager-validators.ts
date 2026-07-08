@@ -1,4 +1,4 @@
-import type { WhatsAppSiteManagerEvalCase } from "./whatsapp-site-manager-cases";
+import type { WebhookWhatsAppSiteManagerEvalCase } from "./whatsapp-site-manager-cases";
 
 export type WhatsAppValidatorStatus = "pass" | "fail";
 export type WhatsAppHeuristicStatus = "pass" | "warn" | "fail";
@@ -113,7 +113,7 @@ function toDateISO(value: Date | null | undefined) {
 }
 
 export function validateWhatsappSiteManagerRecord(args: {
-  evalCase: WhatsAppSiteManagerEvalCase;
+  evalCase: WebhookWhatsAppSiteManagerEvalCase;
   record: SavedSiteDiaryRecord | null;
   records?: SavedSiteDiaryRecord[];
   answer?: string;

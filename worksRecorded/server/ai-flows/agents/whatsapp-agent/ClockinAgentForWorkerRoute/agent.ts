@@ -138,7 +138,9 @@ export default async function talkToClockInAgent(question, workerId, originalAud
 
     const agent = async (state) => {
         const { messages } = state;
-        const controlled = prepareControlledModelMessages(messages as any[]);
+        const controlled = prepareControlledModelMessages(messages as any[], {
+            profile: "whatsapp-legacy",
+        });
         const safeMessages = controlled.messages;
         if (
             controlled.stats.compactedCount > 0 ||

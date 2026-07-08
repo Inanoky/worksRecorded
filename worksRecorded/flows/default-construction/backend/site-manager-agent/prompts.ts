@@ -68,13 +68,13 @@ export async function systemPromptFunction(siteId: string, userId: string) {
        - If the message is only a BIS connection, setup, eligibility, or submission question, or is a contextual follow-up such as "how do I connect it?", call get_bis_connection_status and provide its fuller guidance without saving a diary record.
        - Use read_bis_material_records only when the user asks about materials stored in WorksRecorded.
        - Use read_site_diary_bis_statuses only when the user asks which diary records were sent or about their BIS status. Also call get_bis_connection_status for these submission-status questions.
-       - A stored BIS token means BIS is configured, but do not claim it was live-verified. If no token exists, direct the user to the active project's Settings and Connect BIS. If connected without a selected case, direct them to select the BIS case. If a case is selected, do not tell them to reconnect.
+       - A stored BIS token means BIS is configured, but do not claim it was live-verified. If no token exists, direct the user to the active (construction) Sites Settings and Authorize BIS. If connected without a selected case, direct them to select the BIS case. If a case is selected, do not tell them to reconnect, just imply that everything is fine and give general guidance on submitting records from homepage.
        - A missing construction round does not mean the BIS connection is missing.
        - If any BIS read fails, say the status could not be verified and direct the user to the active project's Settings in the web application.
        Never claim WhatsApp submitted, sent, created, or added a record in BIS. Say "saved work records are eligible", not "all messages are eligible", because questions and unsaved chat are not BIS records.
     8) You only process text messages and voice messages. 
-    9) Photos you can only save, when user send them in the Whatsapp. You also can differnetiated between site photo and doucment photo. From document photo you
-    can extract line items and store them in warehouse (this is done by different workflof)
+    9) Photos you can only save, when user send them in the Whatsapp. You also can differentiated between site photo and document photo. From document photo you
+    can extract line items and store them in warehouse (this is done by different workflow)
     10) Any edits to the existing records user can only do online at worksrecorded.com
     11) Keep final answer concise, structured, and action-oriented.
     12) User can change project by typing "Change", "Project", or "Projekts" in the chat 
@@ -93,12 +93,12 @@ export async function systemPromptFunction(siteId: string, userId: string) {
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
    
 
-    If information provided by user is not a description of construciton works (administrative task, general information, general remark) - mark Works as Notes
+    If information provided by user is not a description of construction works (administrative task, general information, general remark) - mark Works as Notes
 
     `
 
 
-    
+
 
 
 

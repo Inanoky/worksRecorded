@@ -5,7 +5,7 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 ## Current State
 
 - Jest currently has 150 passing tests across 31 suites and covers deterministic application and eval infrastructure behavior. Use the command output as the source of truth as this count grows.
-- AI eval fixtures currently contain 22 cases / 26 evaluated interactions: 7 dashboard cases (10 turns), 11 WhatsApp site-manager cases (12 interactions), and 4 WhatsApp worker cases.
+- AI eval fixtures currently contain 23 cases / 27 evaluated interactions: 7 dashboard cases (10 turns), 12 WhatsApp site-manager cases (13 interactions), and 4 WhatsApp worker cases.
 - Dashboard chat flow: `dashboard-chat` / `OrchestratingAgentV2`.
 - WhatsApp site-manager flow: `whatsapp-site-manager` via the real Meta webhook route.
 - WhatsApp worker flow: `whatsapp-worker` / `ClockinAgentForWorkerRoute` via the real Meta webhook route.
@@ -188,6 +188,13 @@ WhatsApp site-manager cases are checked by deterministic and heuristic validator
 - saved record must preserve the expected activity/location text signals
 - saved worker count and duration must match the case expectation
 - persisted audio URLs must not be expiring Meta `lookaside.fbsbx.com` URLs
+
+One WhatsApp site-manager case is inspection-only:
+
+- it reads the real persisted `siteManager:${AI_EVAL_SITE_ID}:${AI_EVAL_USER_ID}` checkpoint thread
+- it runs the shared `whatsapp-legacy` controlled-memory compactor locally
+- it does not send a webhook, call a model, or create/delete diary records
+- it warns instead of failing when no checkpoint history exists for that real thread
 
 Worker-count expectations for normal WhatsApp site-manager site diary rows:
 

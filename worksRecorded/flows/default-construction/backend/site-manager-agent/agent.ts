@@ -240,7 +240,9 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
 
     const agent = async (state) => {
         const { messages } = state;
-        const controlled = prepareControlledModelMessages(messages);
+        const controlled = prepareControlledModelMessages(messages, {
+            profile: "whatsapp-legacy",
+        });
         const safeMessages = controlled.messages;
         if (
             controlled.stats.compactedCount > 0 ||

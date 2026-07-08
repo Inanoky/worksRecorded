@@ -1,9 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import OpenAI from "openai";
+import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/utils/db";
 import { siteManagerAgentForSiteManagerRouteModelModel } from "@/server/ai-flows/ai-models-settings";
+import { inspectCheckpointShape } from "@/server/ai-flows/ai-context-inspection";
+import { getSiteManagerThreadId } from "@/server/ai-flows/ai-run-context";
 import { runWithSiteManagerAgentEvalContext } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/agent";
 import {
   runWithStructuredSaveTrace,
@@ -11,7 +14,8 @@ import {
 } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/structuredSaveTrace";
 import {
   whatsappSiteManagerEvalCases,
-  type WhatsAppSiteManagerEvalCase,
+  type CheckpointInspectionWhatsAppSiteManagerEvalCase,
+  type WebhookWhatsAppSiteManagerEvalCase,
 } from "./whatsapp-site-manager-cases";
 import {
   type SavedSiteDiaryRecord,
@@ -19,10 +23,12 @@ import {
   validateWhatsappSiteManagerRecord,
 } from "./whatsapp-site-manager-validators";
 import {
+  cleanupWhatsappSiteManagerEvalCheckpointThread,
   getPersistedEvalRecordsFromTrace,
   selectNewestEvalRecord,
   selectRecordsForWhatsappEval,
 } from "./whatsapp-site-manager-runner-utils";
+import { evaluateSiteManagerCheckpointInspection } from "./whatsapp-site-manager-checkpoint-inspection";
 
 type JudgeStatus = "pass" | "warn" | "fail" | "skipped";
 
@@ -32,14 +38,16 @@ type JudgeResult = {
   improvements: string[];
 };
 
+type EvalResultStatus = "pass" | "warn" | "fail" | "skipped";
+
 type CaseRunResult = {
   caseId: string;
-  webhookMessageId: string;
-  inputPreview: string;
+  webhookMessageId: string | null;
+  inputPreview: string | null;
   createdRecordIds: string[];
   selectedRecord: SavedSiteDiaryRecord | null;
-  answer: string;
-  requestedModel: string;
+  answer: string | null;
+  requestedModel: string | null;
   actualModel: string | null;
   tokenUsage: unknown;
   finishReason: string | null;
@@ -50,10 +58,35 @@ type CaseRunResult = {
   toolCalls: unknown[];
   aggregateTokenUsage: unknown;
   structuredSaveTrace: StructuredSaveTraceEntry[];
-  deterministic: WhatsAppTurnValidationResult;
-  judge: JudgeResult;
+  deterministic: WhatsAppTurnValidationResult | null;
+  controlledMemory: ControlledMemoryEvalResult;
+  judge: JudgeResult | null;
   latencyMs: number;
   threadId: string;
+};
+
+type ControlledMemoryEvalCheck = {
+  name: string;
+  status: "pass" | "fail" | "skipped";
+  message: string;
+};
+
+type ControlledMemoryEvalResult = {
+  status: EvalResultStatus;
+  mode: "checkpoint-inspection" | "skipped";
+  message: string;
+  checks: ControlledMemoryEvalCheck[];
+  originalMessageCount: number | null;
+  originalChars: number | null;
+  originalEstimatedTokens: number | null;
+  compactedMessageCount: number | null;
+  compactedChars: number | null;
+  compactedEstimatedTokens: number | null;
+  controlledMemoryStats: unknown;
+  latestMetadata: Record<string, unknown> | null;
+  checkpointMessageCount: number | null;
+  checkpointToolMessageCount: number | null;
+  checkpointLargestToolMessageChars: number;
 };
 
 type LatencyCaseSummary = {
@@ -86,9 +119,17 @@ type WhatsAppSiteManagerEvalReport = {
     deterministicFailures: number;
     heuristicWarnings: number;
     heuristicFailures: number;
+    controlledMemoryFailures: number;
     judgeWarnings: number;
     judgeFailures: number;
   };
+};
+
+type RawLatestCheckpointInspection = {
+  checkpointId: string;
+  checkpointTs: string | null;
+  metadata: unknown;
+  checkpoint: unknown;
 };
 
 const GRAPH_API_PREFIX = "https://graph.facebook.com/";
@@ -146,7 +187,7 @@ function getSlowThresholdMs() {
   return parsed;
 }
 
-function getSimulatedBisConnection(evalCase: WhatsAppSiteManagerEvalCase) {
+function getSimulatedBisConnection(evalCase: WebhookWhatsAppSiteManagerEvalCase) {
   if (!evalCase.simulatedBisConnection) return undefined;
   return {
     status: evalCase.simulatedBisConnection,
@@ -193,6 +234,32 @@ function cloneWebhook(value: Record<string, unknown>) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function skippedControlledMemoryResult(message = "No controlled-memory inspection for this case."): ControlledMemoryEvalResult {
+  return {
+    status: "skipped",
+    mode: "skipped",
+    message,
+    checks: [],
+    originalMessageCount: null,
+    originalChars: null,
+    originalEstimatedTokens: null,
+    compactedMessageCount: null,
+    compactedChars: null,
+    compactedEstimatedTokens: null,
+    controlledMemoryStats: null,
+    latestMetadata: null,
+    checkpointMessageCount: null,
+    checkpointToolMessageCount: null,
+    checkpointLargestToolMessageChars: 0,
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 function firstMessage(payload: any) {
   return payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0] ?? null;
 }
@@ -207,7 +274,7 @@ function textFromWebhook(payload: any) {
 }
 
 function prepareWebhookPayload(args: {
-  evalCase: WhatsAppSiteManagerEvalCase;
+  evalCase: WebhookWhatsAppSiteManagerEvalCase;
   runId: string;
   businessPhoneNumberId: string;
   senderPhone: string;
@@ -447,10 +514,47 @@ async function cleanupEvalRows(args: {
   }
 }
 
+async function cleanupEvalCheckpointThread(threadId: string) {
+  await cleanupWhatsappSiteManagerEvalCheckpointThread(threadId, async (safeThreadId) => {
+    await prisma.$transaction([
+      prisma.$executeRaw(
+        Prisma.sql`DELETE FROM "checkpoint_writes" WHERE thread_id = ${safeThreadId}`,
+      ),
+      prisma.$executeRaw(
+        Prisma.sql`DELETE FROM "checkpoint_blobs" WHERE thread_id = ${safeThreadId}`,
+      ),
+      prisma.$executeRaw(
+        Prisma.sql`DELETE FROM "checkpoints" WHERE thread_id = ${safeThreadId}`,
+      ),
+    ]);
+  });
+}
+
+async function getLatestCheckpointInspection(threadId: string) {
+  const rows = await prisma.$queryRaw<RawLatestCheckpointInspection[]>`
+    SELECT
+      checkpoint_id AS "checkpointId",
+      checkpoint->>'ts' AS "checkpointTs",
+      metadata,
+      checkpoint
+    FROM "checkpoints"
+    WHERE thread_id = ${threadId}
+    ORDER BY COALESCE(checkpoint->>'ts', '') DESC, checkpoint_id DESC
+    LIMIT 1
+  `;
+
+  const latest = rows[0] ?? null;
+  const shape = inspectCheckpointShape(latest?.checkpoint ?? null);
+  return {
+    latest,
+    shape,
+  };
+}
+
 async function judgeRecord(args: {
   client: OpenAI;
   model: string;
-  evalCase: WhatsAppSiteManagerEvalCase;
+  evalCase: WebhookWhatsAppSiteManagerEvalCase;
   inputText: string;
   record: SavedSiteDiaryRecord | null;
   deterministic: WhatsAppTurnValidationResult;
@@ -492,7 +596,7 @@ async function main() {
 
   if (dryRun) {
     const interactions = whatsappSiteManagerEvalCases.reduce(
-      (count, evalCase) => count + 1 + (evalCase.followUp ? 1 : 0),
+      (count, evalCase) => count + 1 + (evalCase.mode === "webhook" && evalCase.followUp ? 1 : 0),
       0,
     );
     console.log(
@@ -529,11 +633,70 @@ async function main() {
 
   try {
     for (const evalCase of whatsappSiteManagerEvalCases) {
+      if (evalCase.mode === "checkpoint-inspection") {
+        const inspectionEvalCase: CheckpointInspectionWhatsAppSiteManagerEvalCase = evalCase;
+        const threadId = getSiteManagerThreadId(siteId, userId);
+        const started = Date.now();
+        const inspection = await getLatestCheckpointInspection(threadId);
+        const evaluated = evaluateSiteManagerCheckpointInspection({
+          checkpoint: inspection.latest?.checkpoint ?? null,
+          expectation: inspectionEvalCase.expectedCheckpointInspection,
+        });
+        const controlledMemory: ControlledMemoryEvalResult = {
+          status: evaluated.status,
+          mode: "checkpoint-inspection",
+          message: evaluated.message,
+          checks: [],
+          originalMessageCount: evaluated.originalMessageCount,
+          originalChars: evaluated.originalChars,
+          originalEstimatedTokens: evaluated.originalEstimatedTokens,
+          compactedMessageCount: evaluated.compactedMessageCount,
+          compactedChars: evaluated.compactedChars,
+          compactedEstimatedTokens: evaluated.compactedEstimatedTokens,
+          controlledMemoryStats: evaluated.controlledMemoryStats,
+          latestMetadata: asRecord(inspection.latest?.metadata),
+          checkpointMessageCount: inspection.shape.messageCount,
+          checkpointToolMessageCount: inspection.shape.toolMessageCount,
+          checkpointLargestToolMessageChars: inspection.shape.largestToolMessageChars,
+        };
+
+        results.push({
+          caseId: evalCase.id,
+          webhookMessageId: null,
+          inputPreview: null,
+          createdRecordIds: [],
+          selectedRecord: null,
+          answer: null,
+          requestedModel: null,
+          actualModel: null,
+          tokenUsage: null,
+          finishReason: null,
+          executionPath: null,
+          fastPathMode: null,
+          timings: null,
+          modelCalls: [],
+          toolCalls: [],
+          aggregateTokenUsage: null,
+          structuredSaveTrace: [],
+          deterministic: null,
+          controlledMemory,
+          judge: null,
+          latencyMs: Date.now() - started,
+          threadId,
+        });
+
+        console.log(
+          `[${controlledMemory.status.toUpperCase()}] ${evalCase.id} (${controlledMemory.message})`,
+        );
+        continue;
+      }
+
+      const webhookEvalCase: WebhookWhatsAppSiteManagerEvalCase = evalCase;
       const bsuid = `LV.eval.${runId}.${evalCase.id}`;
-      const threadId = `eval:whatsapp-site-manager:${siteId}:${evalCase.id}:${runId}`;
+      const threadId = `eval:whatsapp-site-manager:${siteId}:${webhookEvalCase.id}:${runId}`;
       let createdRecordIds: string[] = [];
       const prepared = prepareWebhookPayload({
-        evalCase,
+        evalCase: webhookEvalCase,
         runId,
         businessPhoneNumberId,
         senderPhone,
@@ -567,12 +730,12 @@ async function main() {
           inputText: prepared.inputText,
           caseId: evalCase.id,
         });
-        if (evalCase.followUp) {
+        if (webhookEvalCase.followUp) {
           await cleanupPreviousEvalCaseRows({
             siteId,
             userId,
-            inputText: evalCase.followUp.body,
-            caseId: `${evalCase.id}-follow-up`,
+            inputText: webhookEvalCase.followUp.body,
+            caseId: `${webhookEvalCase.id}-follow-up`,
             includeTextFallback: false,
           });
         }
@@ -589,13 +752,13 @@ async function main() {
         const tracedRun = await runWithStructuredSaveTrace(() =>
           runWithSiteManagerAgentEvalContext(
             {
-              threadId,
-              model: agentModel,
-              traceMetadata: evalTraceMetadata,
-              traceTags: evalTraceTags,
-              evalRecordMetadata,
-              bisConnectionOverride: getSimulatedBisConnection(evalCase),
-            },
+                threadId,
+                model: agentModel,
+                traceMetadata: evalTraceMetadata,
+                traceTags: evalTraceTags,
+                evalRecordMetadata,
+                bisConnectionOverride: getSimulatedBisConnection(webhookEvalCase),
+              },
             () =>
               POST({
                 json: async () => prepared.payload,
@@ -627,7 +790,7 @@ async function main() {
         });
         const selectedRecord = selectNewestEvalRecord(recordsForValidation);
         const deterministic = validateWhatsappSiteManagerRecord({
-          evalCase,
+          evalCase: webhookEvalCase,
           siteId,
           userId,
           record: selectedRecord,
@@ -639,7 +802,7 @@ async function main() {
             ? await judgeRecord({
                 client: judgeClient,
                 model: judgeModel,
-                evalCase,
+                evalCase: webhookEvalCase,
                 inputText: prepared.inputText,
                 record: selectedRecord,
                 deterministic,
@@ -669,6 +832,7 @@ async function main() {
           aggregateTokenUsage: agentRun.details?.aggregateTokenUsage ?? null,
           structuredSaveTrace: tracedRun.entries,
           deterministic,
+          controlledMemory: skippedControlledMemoryResult(),
           judge,
           latencyMs,
           threadId,
@@ -683,22 +847,22 @@ async function main() {
         const latencyLabel = latencyMs >= slowThresholdMs ? `${latencyMs}ms, slow` : `${latencyMs}ms`;
         console.log(`[${marker}] ${evalCase.id} (${latencyLabel})`);
 
-        if (evalCase.followUp) {
-          const followUpId = `${evalCase.id}-follow-up`;
-          const followUpCase: WhatsAppSiteManagerEvalCase = {
-            ...evalCase,
+        if (webhookEvalCase.followUp) {
+          const followUpId = `${webhookEvalCase.id}-follow-up`;
+          const followUpCase: WebhookWhatsAppSiteManagerEvalCase = {
+            ...webhookEvalCase,
             id: followUpId,
-            intent: `${evalCase.intent} Follow-up must use the same conversation context and provide state-aware BIS connection guidance without saving another record.`,
-            expected: evalCase.followUp.expected,
+            intent: `${webhookEvalCase.intent} Follow-up must use the same conversation context and provide state-aware BIS connection guidance without saving another record.`,
+            expected: webhookEvalCase.followUp.expected,
             followUp: undefined,
           };
           const followUpPrepared = prepareWebhookPayload({
-            evalCase,
+            evalCase: webhookEvalCase,
             runId,
             businessPhoneNumberId,
             senderPhone,
             bsuid,
-            body: evalCase.followUp.body,
+            body: webhookEvalCase.followUp.body,
             messageSuffix: "follow-up",
           });
           const followUpStartedAt = new Date();
@@ -725,7 +889,7 @@ async function main() {
                 traceMetadata: followUpTraceMetadata,
                 traceTags: [...evalTraceTags, "eval-follow-up"],
                 evalRecordMetadata: followUpRecordMetadata,
-                bisConnectionOverride: getSimulatedBisConnection(evalCase),
+                bisConnectionOverride: getSimulatedBisConnection(webhookEvalCase),
               },
               () => POST({ json: async () => followUpPrepared.payload } as Request),
             ),
@@ -797,6 +961,7 @@ async function main() {
             aggregateTokenUsage: followUpAgentRun.details?.aggregateTokenUsage ?? null,
             structuredSaveTrace: followUpTracedRun.entries,
             deterministic: followUpDeterministic,
+            controlledMemory: skippedControlledMemoryResult(),
             judge: followUpJudge,
             latencyMs: followUpLatencyMs,
             threadId,
@@ -810,12 +975,15 @@ async function main() {
           console.log(`[${followUpMarker}] ${followUpId} (${followUpLatencyMs}ms)`);
         }
       } finally {
-        await cleanupEvalRows({
-          businessPhoneNumberId,
-          recordIds: createdRecordIds,
-          runId,
-          caseId: evalCase.id,
-        });
+        await Promise.all([
+          cleanupEvalRows({
+            businessPhoneNumberId,
+            recordIds: createdRecordIds,
+            runId,
+            caseId: evalCase.id,
+          }),
+          cleanupEvalCheckpointThread(threadId),
+        ]);
       }
     }
   } finally {
@@ -842,11 +1010,12 @@ async function main() {
     latency,
     summary: {
       cases: results.length,
-      deterministicFailures: results.filter((item) => item.deterministic.status === "fail").length,
-      heuristicWarnings: results.filter((item) => item.deterministic.heuristic.status === "warn").length,
-      heuristicFailures: results.filter((item) => item.deterministic.heuristic.status === "fail").length,
-      judgeWarnings: results.filter((item) => item.judge.status === "warn").length,
-      judgeFailures: results.filter((item) => item.judge.status === "fail").length,
+      deterministicFailures: results.filter((item) => item.deterministic?.status === "fail").length,
+      heuristicWarnings: results.filter((item) => item.deterministic?.heuristic.status === "warn").length,
+      heuristicFailures: results.filter((item) => item.deterministic?.heuristic.status === "fail").length,
+      controlledMemoryFailures: results.filter((item) => item.controlledMemory.status === "fail").length,
+      judgeWarnings: results.filter((item) => item.judge?.status === "warn").length,
+      judgeFailures: results.filter((item) => item.judge?.status === "fail").length,
     },
   };
 
@@ -858,7 +1027,11 @@ async function main() {
   console.log(`Wrote ${outputPath}`);
   console.log(JSON.stringify(report.summary, null, 2));
 
-  if (report.summary.deterministicFailures > 0 || report.summary.judgeFailures > 0) {
+  if (
+    report.summary.deterministicFailures > 0 ||
+    report.summary.controlledMemoryFailures > 0 ||
+    report.summary.judgeFailures > 0
+  ) {
     process.exitCode = 1;
   }
 }
