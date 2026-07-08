@@ -205,6 +205,10 @@ function isZtcProductionWorkRow(row: ZtcDiaryRow) {
   return !isZtcQualityRow(row) && !isZtcAdditionalWorkRow(row) && !isZtcAdditionalDetailsRow(row);
 }
 
+function hasZtcMatchedRate(row: ZtcDiaryRow) {
+  return Number.isFinite(parseZtcPayrollNumber(row.Location_Custom_2, Number.NaN));
+}
+
 function getZtcQualityCoefficient(row: ZtcDiaryRow) {
   const storedCoefficient = parseZtcPayrollNumber(row.Works_Custom_2, Number.NaN);
   if (Number.isFinite(storedCoefficient)) return storedCoefficient;
@@ -323,7 +327,7 @@ export function getZtcPayrollValues(row: ZtcDiaryRow) {
   const coefficient = parseZtcPayrollNumber(row.Works_Custom_2, 1);
   const complexity = parseZtcPayrollNumber(row.WorkersInvolved, 1);
   const sum = payrollQuantity * rate * coefficient * complexity;
-  const plannedLaborNorm = isZtcProductionWorkRow(row)
+  const plannedLaborNorm = isZtcProductionWorkRow(row) && hasZtcMatchedRate(row)
     ? readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit
     : null;
   const actualLaborNorm =
@@ -384,9 +388,11 @@ export function buildZtcLaborNormSummaryRows(rows: ZtcDiaryRow[]) {
     const amount = parseZtcPayrollNumber(row.Amounts);
     if (amount <= 0) return;
 
-    const planned = parseZtcLaborNormNumber(
-      readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit,
-    );
+    const planned = hasZtcMatchedRate(row)
+      ? parseZtcLaborNormNumber(
+          readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit,
+        )
+      : null;
     const key = normalizeZtcText(task);
     const existing = groups.get(key) ?? {
       task,
@@ -437,9 +443,11 @@ export function buildZtcLaborNormTotalSummary(rows: ZtcDiaryRow[]) {
       const amount = parseZtcPayrollNumber(row.Amounts);
       if (amount <= 0) return acc;
 
-      const planned = parseZtcLaborNormNumber(
-        readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit,
-      );
+      const planned = hasZtcMatchedRate(row)
+        ? parseZtcLaborNormNumber(
+            readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit,
+          )
+        : null;
 
       acc.hours += hours;
       acc.amount += amount;

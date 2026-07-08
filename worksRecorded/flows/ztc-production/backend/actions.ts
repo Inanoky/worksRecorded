@@ -19,6 +19,7 @@ import {
 import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import {
   attachZtcLaborNormToMetadata,
+  clearZtcLaborNormFromMetadata,
   normalizeZtcLaborNorm,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
 import {
@@ -588,11 +589,13 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
       : row.Works || null;
   const commentsCustom2 =
     row.__ztcSnapshotLaborNorm === true && category === "works"
-      ? attachZtcLaborNormToMetadata(
-          row.Comments_Custom_2,
-          defaultRate?.laborNorm,
-          units,
-        )
+      ? defaultRate?.rate
+        ? attachZtcLaborNormToMetadata(
+            row.Comments_Custom_2,
+            defaultRate.laborNorm,
+            units,
+          )
+        : clearZtcLaborNormFromMetadata(row.Comments_Custom_2)
       : row.Comments_Custom_2 || null;
 
   return {

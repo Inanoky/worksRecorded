@@ -29,6 +29,7 @@ import {
 import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
 import {
   attachZtcLaborNormToMetadata,
+  clearZtcLaborNormFromMetadata,
   normalizeZtcLaborNorm,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
@@ -3309,11 +3310,13 @@ async function handleWorkText(args: {
       Units: "m2",
       Amounts: amountM2 ?? undefined,
       Comments: comments,
-      Comments_Custom_2: attachZtcLaborNormToMetadata(
-        session.Comments_Custom_2,
-        defaultRateMatch?.laborNorm,
-        "m2",
-      ),
+      Comments_Custom_2: defaultRateMatch?.rate
+        ? attachZtcLaborNormToMetadata(
+            session.Comments_Custom_2,
+            defaultRateMatch.laborNorm,
+            "m2",
+          )
+        : clearZtcLaborNormFromMetadata(session.Comments_Custom_2),
       originalUserComment: `${workerFullName(worker)} : ${text}`,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
     },

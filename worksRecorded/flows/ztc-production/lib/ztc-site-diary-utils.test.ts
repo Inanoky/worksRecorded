@@ -62,6 +62,20 @@ describe("getZtcPayrollValues", () => {
     expect(payroll.laborNorm.difference).toBe(0.1);
   });
 
+  it("does not show planned labor norm when the work has no matched rate", () => {
+    const payroll = getZtcPayrollValues({
+      ...baseRow,
+      Location_Custom_2: null,
+      TimeInvolved: 3,
+      Amounts: 10,
+      Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.2", "m2"),
+    });
+
+    expect(payroll.laborNorm.planned).toBeNull();
+    expect(payroll.laborNorm.actual).toBe(0.3);
+    expect(payroll.laborNorm.difference).toBeNull();
+  });
+
   it("groups labor norm comparison by task", () => {
     const rows = buildZtcLaborNormSummaryRows([
       {
@@ -88,6 +102,35 @@ describe("getZtcPayrollValues", () => {
         difference: 0,
       }),
     ]);
+  });
+
+  it("does not include planned labor norm in summaries when the work has no matched rate", () => {
+    const rows = [
+      {
+        ...baseRow,
+        Location_Custom_2: null,
+        Works: "R3/T3 - latojums 28x70",
+        TimeInvolved: 0.35,
+        Amounts: 4.16,
+        Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.06", "m2"),
+      },
+    ];
+
+    expect(buildZtcLaborNormSummaryRows(rows)).toEqual([
+      expect.objectContaining({
+        task: "R3/T3 - latojums 28x70",
+        planned: null,
+        actual: 0.0841,
+        difference: null,
+      }),
+    ]);
+    expect(buildZtcLaborNormTotalSummary(rows)).toEqual(
+      expect.objectContaining({
+        planned: null,
+        actual: 0.0841,
+        difference: null,
+      }),
+    );
   });
 
   it("calculates total element labor norm from production hours divided by m2", () => {

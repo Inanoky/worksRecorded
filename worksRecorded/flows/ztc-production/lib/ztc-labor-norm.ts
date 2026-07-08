@@ -48,6 +48,19 @@ export function attachZtcLaborNormToMetadata(
   });
 }
 
+export function clearZtcLaborNormFromMetadata(metadataValue: unknown) {
+  const metadata = parseJsonObject(metadataValue);
+  if (!metadata) {
+    const existing = String(metadataValue ?? "").trim();
+    return existing || null;
+  }
+
+  delete metadata[ZTC_LABOR_NORM_HOURS_PER_UNIT_KEY];
+  delete metadata[ZTC_LABOR_NORM_UNIT_KEY];
+
+  return Object.keys(metadata).length ? JSON.stringify(metadata) : null;
+}
+
 export function readZtcLaborNormFromMetadata(metadataValue: unknown) {
   const metadata = parseJsonObject(metadataValue);
   if (!metadata) {
