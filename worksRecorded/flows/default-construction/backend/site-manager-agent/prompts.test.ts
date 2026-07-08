@@ -18,7 +18,15 @@ describe("site-manager BIS routing prompt", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getConfig as jest.Mock).mockResolvedValue(null);
-    (getUserFirstNameById as jest.Mock).mockResolvedValue("Anna");
+    (getUserFirstNameById as jest.Mock).mockResolvedValue("Deivids");
+  });
+
+  it("provides canonical and Latvian greeting-only address names", async () => {
+    const prompt = await systemPromptFunction("site-1", "user-1");
+
+    expect(prompt).toContain("The user's first name is Deivids");
+    expect(prompt).toContain("In Latvian greetings use the vocative form Deivid");
+    expect(prompt).toContain("Do not repeat the user's name in ordinary answers or save confirmations");
   });
 
   it("routes BIS questions and contextual follow-ups to direct read tools", async () => {

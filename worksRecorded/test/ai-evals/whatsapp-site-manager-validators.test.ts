@@ -1,8 +1,13 @@
-import { whatsappSiteManagerEvalCases } from "./whatsapp-site-manager-cases";
+import {
+  whatsappSiteManagerEvalCases,
+  type WebhookWhatsAppSiteManagerEvalCase,
+} from "./whatsapp-site-manager-cases";
 import { validateWhatsappSiteManagerRecord } from "./whatsapp-site-manager-validators";
 
 describe("WhatsApp site-manager eval validators", () => {
-  const webhookCases = whatsappSiteManagerEvalCases.filter((item) => item.mode === "webhook");
+  const webhookCases = whatsappSiteManagerEvalCases.filter(
+    (item): item is WebhookWhatsAppSiteManagerEvalCase => item.mode === "webhook",
+  );
   const evalCase = webhookCases[0];
   const workerlessCase = webhookCases.find(
     (item) => item.id === "latvian-wall-plaster-hours-without-workers",
@@ -367,7 +372,7 @@ describe("WhatsApp site-manager eval validators", () => {
   });
 
   it("passes an explicit no-save case when no record is created and clarification is returned", () => {
-    const noSaveCase = whatsappSiteManagerEvalCases.find(
+    const noSaveCase = webhookCases.find(
       (item) => item.id === "ambiguous-reference-does-not-save",
     );
     if (!noSaveCase) throw new Error("Missing ambiguous no-save eval case");
@@ -387,7 +392,7 @@ describe("WhatsApp site-manager eval validators", () => {
   });
 
   it("passes when a two-task case creates two records", () => {
-    const twoRecordCase = whatsappSiteManagerEvalCases.find(
+    const twoRecordCase = webhookCases.find(
       (item) => item.id === "latvian-two-explicit-work-records",
     );
     if (!twoRecordCase) throw new Error("Missing two-record eval case");
@@ -434,7 +439,7 @@ describe("WhatsApp site-manager eval validators", () => {
   });
 
   it("validates the persisted date for an explicit historical-date case", () => {
-    const historicalDateCase = whatsappSiteManagerEvalCases.find(
+    const historicalDateCase = webhookCases.find(
       (item) => item.id === "latvian-explicit-historical-date",
     );
     if (!historicalDateCase) throw new Error("Missing historical-date eval case");

@@ -29,6 +29,7 @@ import {
   selectRecordsForWhatsappEval,
 } from "./whatsapp-site-manager-runner-utils";
 import { evaluateSiteManagerCheckpointInspection } from "./whatsapp-site-manager-checkpoint-inspection";
+import { runWithLangSmithTraceFlush } from "./ai-eval-runner-lifecycle";
 
 type JudgeStatus = "pass" | "warn" | "fail" | "skipped";
 
@@ -1036,7 +1037,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+runWithLangSmithTraceFlush(main).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

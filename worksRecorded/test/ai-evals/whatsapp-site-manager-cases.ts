@@ -201,7 +201,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
           "saglab",
           "bis",
           "worksrecorded|tīmek|pārlūk|portāl|web",
-          "saglabātie ieraksti|saglabātos darbu ierakstus|darbu ieraksti|darba ieraksts",
+          "saglabātie ieraksti|saglabātos darbu ierakstus|darbu ieraksti|darba ieraksts|darbu ierakstu|darba ierakstu",
         ],
         firstSentenceSignals: ["saglab"],
         maxAnswerSentences: 2,

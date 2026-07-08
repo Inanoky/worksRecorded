@@ -3,6 +3,7 @@ import path from "node:path";
 import OpenAI from "openai";
 
 import { orchestratingAgentV2ModelModel } from "@/server/ai-flows/ai-models-settings";
+import { runWithLangSmithTraceFlush } from "./ai-eval-runner-lifecycle";
 import { dashboardEvalCases } from "./dashboard-cases";
 import { TurnValidationResult, validateEvalTurn } from "./validators";
 
@@ -327,7 +328,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+runWithLangSmithTraceFlush(main).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

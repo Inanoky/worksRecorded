@@ -4,6 +4,7 @@ import path from "node:path";
 import { prisma } from "@/lib/utils/db";
 import { clickInAgentForWorkersModel } from "@/server/ai-flows/ai-models-settings";
 import { runWithWorkerAgentEvalContext } from "@/server/ai-flows/agents/whatsapp-agent/ClockinAgentForWorkerRoute/agent";
+import { runWithLangSmithTraceFlush } from "./ai-eval-runner-lifecycle";
 import {
   whatsappWorkerEvalCases,
   type WhatsAppWorkerEvalCase,
@@ -706,7 +707,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+runWithLangSmithTraceFlush(main).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

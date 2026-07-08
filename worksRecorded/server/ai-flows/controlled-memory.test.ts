@@ -188,4 +188,60 @@ describe("controlled memory", () => {
     );
     expect(result.stats.compactedCount).toBe(2);
   });
+
+  it.each([
+    [
+      "ready",
+      { status: "ready", source: "worksrecorded-local-database", liveBisVerified: false, siteName: "Project A", bisCase: { number: "BIS-1", name: "Main case" } },
+      "BIS connection is configured for site \"Project A\", and a BIS case is selected (BIS-1 — Main case). This reflects local WorksRecorded configuration; live BIS was not verified.",
+    ],
+    [
+      "not connected",
+      { status: "not-connected", source: "worksrecorded-local-database", liveBisVerified: false, siteName: "Project A", bisCase: null },
+      "BIS is not connected for site \"Project A\". This reflects local WorksRecorded configuration; live BIS was not verified.",
+    ],
+    [
+      "case missing",
+      { status: "case-not-selected", source: "worksrecorded-local-database", liveBisVerified: false, siteName: "Project A", bisCase: null },
+      "BIS connection is configured for site \"Project A\", but no BIS case is selected. This reflects local WorksRecorded configuration; live BIS was not verified.",
+    ],
+  ])("preserves the semantic BIS connection outcome when %s", (_label, payload, expected) => {
+    const result = prepareControlledModelMessages([
+      new HumanMessage("what is BIS status?"),
+      new AIMessage({
+        content: "",
+        tool_calls: [{ name: "get_bis_connection_status", args: {}, id: "bis_status_call" }],
+      }),
+      new ToolMessage({
+        content: JSON.stringify(payload),
+        name: "get_bis_connection_status",
+        tool_call_id: "bis_status_call",
+      }),
+    ], { profile: "whatsapp-legacy" });
+
+    expect(String(result.messages.at(-1)?.content)).toBe(
+      `[HISTORICAL TOOL RESULT] get_bis_connection_status: ${expected} Exact payload omitted.`,
+    );
+  });
+
+  it("marks older lossy BIS summaries as unavailable instead of implying success", () => {
+    const oldSummary = "[HISTORICAL TOOL RESULT] get_bis_connection_status: Read/check completed (status, source, liveBisVerified, siteName, bisCase). Exact payload omitted.";
+    const result = prepareControlledModelMessages([
+      new HumanMessage("what is BIS status?"),
+      new AIMessage({
+        content: "",
+        tool_calls: [{ name: "get_bis_connection_status", args: {}, id: "bis_status_call" }],
+      }),
+      new ToolMessage({
+        content: oldSummary,
+        name: "get_bis_connection_status",
+        tool_call_id: "bis_status_call",
+      }),
+    ], { profile: "whatsapp-legacy" });
+
+    expect(String(result.messages.at(-1)?.content)).toContain(
+      "Previous connection outcome is unavailable because an older summary omitted the status value",
+    );
+    expect(String(result.messages.at(-1)?.content)).toContain("Re-run this read tool");
+  });
 });
