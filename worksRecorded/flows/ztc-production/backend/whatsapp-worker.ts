@@ -3046,7 +3046,11 @@ async function createAdditionalWorkSession(args: {
       Date: now,
       Date_Custom_1: now,
       Location: shouldAttachToProject ? drawingContext?.Location : "Papilddarbi",
-      Location_Custom_1: shouldAttachToElement ? drawingContext?.Location_Custom_1 : null,
+      Location_Custom_1: shouldAttachToElement
+        ? drawingContext?.Location_Custom_1
+        : shouldAttachToProject
+          ? "Papilddarbi"
+          : null,
       Works_Custom_1: shouldAttachToProject ? "Papilddarbi" : null,
       Comments_Custom_2: shouldAttachToProject ? drawingContext?.Comments_Custom_2 : null,
       Photos: shouldAttachToProject && drawingContext?.Photos?.[0] ? [drawingContext.Photos[0]] : [],
@@ -3079,7 +3083,11 @@ async function createAdditionalWorkSession(args: {
       attachedToProject: shouldAttachToProject,
       attachedToElement: shouldAttachToElement,
       projectName: shouldAttachToProject ? drawingContext?.Location : null,
-      elementName: shouldAttachToElement ? drawingContext?.Location_Custom_1 : null,
+      elementName: shouldAttachToElement
+        ? drawingContext?.Location_Custom_1
+        : shouldAttachToProject
+          ? "Papilddarbi"
+          : null,
       elementAreaM2,
       configuredUnit: defaultRateMatch?.unit ?? "st",
       reportedUnit: work.units,
