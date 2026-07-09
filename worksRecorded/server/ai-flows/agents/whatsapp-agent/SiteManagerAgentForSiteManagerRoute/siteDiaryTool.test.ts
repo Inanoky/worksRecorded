@@ -9,6 +9,9 @@ const setSavedConfirmationRecordsMock = jest.fn();
 const getBisConnectionStatusMock = jest.fn();
 const readBisMaterialRecordsMock = jest.fn();
 const readSiteDiaryBisStatusesMock = jest.fn();
+const archiveAndReplaceSiteDiaryBatchMock = jest.fn();
+const getSiteDiaryCorrectionTargetMock = jest.fn();
+const startSiteDiaryCorrectionMock = jest.fn();
 
 jest.mock("@langchain/openai", () => ({
   ChatOpenAI: jest.fn().mockImplementation(() => ({
@@ -23,6 +26,9 @@ jest.mock("@langchain/langgraph/prebuilt", () => ({
 jest.mock("@/server/actions/site-diary-actions", () => ({
   getConfig: getConfigMock,
   saveSiteDiaryRecord: saveSiteDiaryRecordMock,
+  archiveAndReplaceSiteDiaryBatch: archiveAndReplaceSiteDiaryBatchMock,
+  getSiteDiaryCorrectionTarget: getSiteDiaryCorrectionTargetMock,
+  startSiteDiaryCorrection: startSiteDiaryCorrectionMock,
 }));
 
 jest.mock("@/flows/default-construction/backend/site-manager-agent/prompts", () => ({
@@ -301,6 +307,8 @@ describe("save_to_database site diary tool", () => {
       action: "fallback",
       language: "lv",
       records: [],
+      intentReason: "question",
+      intentConfidence: 0.99,
     });
 
     const result = await extractAndSaveSiteDiary({
@@ -312,11 +320,49 @@ describe("save_to_database site diary tool", () => {
     expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
   });
 
+  it("returns correction intent without creating a new diary row", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      action: "correct_existing_report",
+      language: "lv",
+      records: [],
+      intentReason: "The complete sentence asks to change the previous record",
+      intentConfidence: 0.98,
+    });
+
+    const result = await extractAndSaveSiteDiary({
+      question: "Izmaini daudzumu iepriekšējā ierakstā uz 10",
+      allowFallback: true,
+    });
+
+    expect(result).toMatchObject({ action: "correct_existing_report", count: 0 });
+    expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+  });
+
+  it("returns clarification intent without creating a new diary row", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      action: "clarify",
+      language: "lv",
+      records: [],
+      intentReason: "The standalone wording is ambiguous",
+      intentConfidence: 0.55,
+    });
+
+    const result = await extractAndSaveSiteDiary({
+      question: "Salabo",
+      allowFallback: true,
+    });
+
+    expect(result).toMatchObject({ action: "clarify", count: 0 });
+    expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+  });
+
   it("shadow extraction returns a save decision without persisting", async () => {
     structuredInvokeMock.mockResolvedValue({
-      action: "save",
+      action: "save_new_report",
       language: "en",
       records: [{ Area: "Building A", Activity: "Concrete pour", Quantity: 2 }],
+      intentReason: "completed work",
+      intentConfidence: 0.99,
     });
 
     const result = await extractAndSaveSiteDiary({
@@ -325,7 +371,7 @@ describe("save_to_database site diary tool", () => {
       persist: false,
     });
 
-    expect(result).toMatchObject({ action: "save", language: "en", ok: true, count: 1 });
+    expect(result).toMatchObject({ action: "save_new_report", language: "en", ok: true, count: 1 });
     expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
   });
 

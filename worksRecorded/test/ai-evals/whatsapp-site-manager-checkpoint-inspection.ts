@@ -23,6 +23,11 @@ export type SiteManagerCheckpointInspectionResult = {
   compactedChars: number;
   compactedEstimatedTokens: number;
   controlledMemoryStats: ControlledMemoryStats | null;
+  historicalTokenUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -52,10 +57,75 @@ function getMessagesChars(messages: any[]) {
   return messages.reduce((total, message) => total + getMessageContentString(message).length, 0);
 }
 
+function getHistoricalTokenUsage(messages: any[]) {
+  return messages.reduce(
+    (total, message) => {
+      const serialized = asRecord(message)?.kwargs;
+      const usage = asRecord(asRecord(message)?.usage_metadata) ?? asRecord(asRecord(serialized)?.usage_metadata);
+      const input = typeof usage?.input_tokens === "number" ? usage.input_tokens : 0;
+      const output = typeof usage?.output_tokens === "number" ? usage.output_tokens : 0;
+      const itemTotal = typeof usage?.total_tokens === "number" ? usage.total_tokens : input + output;
+      return {
+        inputTokens: total.inputTokens + input,
+        outputTokens: total.outputTokens + output,
+        totalTokens: total.totalTokens + itemTotal,
+      };
+    },
+    { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+  );
+}
+
 export function extractCheckpointMessages(checkpoint: unknown) {
   const root = asRecord(checkpoint);
   const channelValues = asRecord(root?.channel_values);
-  return Array.isArray(channelValues?.messages) ? channelValues.messages : [];
+  const directMessages = Array.isArray(channelValues?.messages) ? channelValues.messages : [];
+  if (directMessages.length) return normalizeCheckpointMessages(directMessages);
+
+  // Older production checkpoints can contain serialized RemoveMessage values that
+  // current LangChain versions cannot hydrate. Controlled-memory writes contain the
+  // complete sanitized replacement history, so reconstruct that history without
+  // invoking LangChain's incompatible reviver.
+  const metadata = asRecord(root?.metadata);
+  const writes = asRecord(metadata?.writes);
+  if (!writes) return [];
+  for (const write of Object.values(writes)) {
+    const messages = asRecord(write)?.messages;
+    if (Array.isArray(messages)) return normalizeCheckpointMessages(messages);
+  }
+  return [];
+}
+
+function normalizeCheckpointMessages(messages: unknown[]) {
+  return messages.flatMap((message) => {
+    const item = asRecord(message);
+    if (!item) return [];
+    const kwargs = asRecord(item.kwargs);
+    const identifier = Array.isArray(item.id) ? item.id : [];
+    const className = typeof identifier.at(-1) === "string" ? String(identifier.at(-1)) : "";
+    const messageId = typeof kwargs?.id === "string" ? kwargs.id : "";
+    if (className === "d" || messageId === "__remove_all__") return [];
+    if (!kwargs || item.type !== "constructor") return [message];
+
+    const type = className === "SystemMessage"
+      ? "system"
+      : className === "HumanMessage"
+        ? "human"
+        : className === "AIMessage"
+          ? "ai"
+          : className === "ToolMessage"
+            ? "tool"
+            : "";
+    if (!type) return [];
+    return [{
+      ...kwargs,
+      type,
+      content: kwargs.content ?? "",
+      usage_metadata: kwargs.usage_metadata,
+      tool_calls: kwargs.tool_calls,
+      tool_call_id: kwargs.tool_call_id,
+      name: kwargs.name,
+    }];
+  });
 }
 
 export function evaluateSiteManagerCheckpointInspection(args: {
@@ -75,6 +145,7 @@ export function evaluateSiteManagerCheckpointInspection(args: {
       compactedChars: 0,
       compactedEstimatedTokens: 0,
       controlledMemoryStats: null,
+      historicalTokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     };
   }
 
@@ -86,6 +157,7 @@ export function evaluateSiteManagerCheckpointInspection(args: {
   const compactedChars = getMessagesChars(compacted.messages);
   const compactedEstimatedTokens = estimateTokensFromChars(compactedChars);
   const status = compactedEstimatedTokens > args.expectation.maxCompactedEstimatedTokens ? "fail" : "pass";
+  const historicalTokenUsage = getHistoricalTokenUsage(originalMessages);
 
   return {
     status,
@@ -100,5 +172,6 @@ export function evaluateSiteManagerCheckpointInspection(args: {
     compactedChars,
     compactedEstimatedTokens,
     controlledMemoryStats: compacted.stats,
+    historicalTokenUsage,
   };
 }

@@ -4,9 +4,16 @@ import { ChatOpenAI } from "@langchain/openai";
 import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction} from "@/flows/default-construction/backend/site-manager-agent/prompts"
-import {extractAndSaveSiteDiary, toolNode, tools} from "@/flows/default-construction/backend/site-manager-agent/tools";
+import {
+    extractAndSaveSiteDiary,
+    replaceLastSiteDiaryBatchOperation,
+    startSiteDiaryCorrectionOperation,
+    toolNode,
+    tools,
+} from "@/flows/default-construction/backend/site-manager-agent/tools";
 import { siteManagerAgentForSiteManagerRouteModelModel,  siteManagerAgentForSiteManagerRouteModelModelTemperature } from "@/server/ai-flows/ai-models-settings";
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
+import { getPendingSiteDiaryCorrection } from "@/server/actions/site-diary-actions";
 import {
     getSiteManagerSavedConfirmationRecords,
     runWithSiteManagerToolContext,
@@ -36,9 +43,12 @@ import {
 import {
     detectReplyLanguage,
     formatDeterministicSaveReply,
+    formatDeterministicCorrectionReply,
     getFastPathMode,
+    isCorrectionOnlyToolRound,
     isSiteDiaryFastPathCandidate,
     isSaveOnlyToolRound,
+    parseCorrectionToolResult,
     parseSaveToolOutcome,
 } from "./fastPath";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
@@ -98,6 +108,12 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
     const whatsappMessageId = getWhatsappSourceContext().messageId ?? null;
+    const replyToMessageId = getWhatsappSourceContext().replyToMessageId ?? null;
+    const pendingCorrection = await getPendingSiteDiaryCorrection({ siteId, userId });
+    const intentContext = {
+        hasReplyContext: Boolean(replyToMessageId),
+        hasPendingCorrection: pendingCorrection?.status === "pending",
+    };
     const userFirstName = userFullName?.trim().split(/\s+/u)[0] ?? null;
     const includeAddressName = shouldSampleUserAddress(whatsappMessageId);
     const sourceComment = userFullName ? `${userFullName} : ${normalizedQuestion}` : normalizedQuestion;
@@ -107,6 +123,30 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     let legacyFastPathAttempted = false;
     let legacyFastPathOutcome: FastPathOutcome = "skipped";
     let legacyFallbackReason: FastPathFallbackReason | undefined = "ineligible";
+    let classifiedIntent = "not-classified";
+    let classifiedCorrectionMode = "not_applicable";
+    let classifiedIntentConfidence: number | null = null;
+    let classifiedIntentReason: string | null = null;
+
+    const completeRunDetails = (content: string, finishReason: string, responseMetadata: unknown = null, usageMetadata: unknown = null) => {
+        recordSiteManagerTiming("totalMs", Date.now() - totalStarted);
+        if (!runContext) return;
+        const metrics = getSiteManagerMetricsSnapshot();
+        const responseMetadataRecord = asRecord(responseMetadata);
+        const responseModelName = typeof responseMetadataRecord?.model_name === "string"
+            ? responseMetadataRecord.model_name
+            : null;
+        runContext.details = {
+            content,
+            requestedModel,
+            actualModel: responseModelName ?? metrics.modelCalls.at(-1)?.actualModel ?? null,
+            tokenUsage: metrics.aggregateTokenUsage,
+            usageMetadata,
+            responseMetadata,
+            finishReason,
+            ...metrics,
+        };
+    };
 
     const state = Annotation.Root({
         messages: Annotation<BaseMessage[]>({
@@ -130,13 +170,24 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
                         fastPathAttempted: true,
                         fastPathOutcome: "fallback",
                     },
+                    intentContext,
                 }),
             );
             legacyFastPathAttempted = true;
-            legacyFastPathOutcome = shadowResult.action === "save" ? "save" : "fallback";
-            legacyFallbackReason = shadowResult.action === "save" ? undefined : "model-fallback";
+            classifiedIntent = shadowResult.action;
+            classifiedCorrectionMode = shadowResult.correctionMode;
+            classifiedIntentConfidence = shadowResult.intentConfidence ?? null;
+            classifiedIntentReason = shadowResult.intentReason ?? null;
+            legacyFastPathOutcome = shadowResult.action === "save_new_report"
+                ? "save"
+                : shadowResult.action === "correct_existing_report"
+                    ? "correction"
+                    : shadowResult.action === "clarify"
+                        ? "clarify"
+                        : "fallback";
+            legacyFallbackReason = shadowResult.action === "fallback" ? "model-fallback" : undefined;
             recordSiteManagerTiming(
-                shadowResult.action === "save" ? "shadowSaveDecisions" : "shadowFallbackDecisions",
+                shadowResult.action === "save_new_report" ? "shadowSaveDecisions" : "shadowFallbackDecisions",
                 1,
             );
         } catch (error) {
@@ -163,11 +214,22 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
                         fastPathAttempted: true,
                         fastPathOutcome: "fallback",
                     },
+                    intentContext,
                 }),
             );
             legacyFastPathAttempted = true;
-            legacyFastPathOutcome = fastPathResult.action === "save" ? "save" : "fallback";
-            legacyFallbackReason = fastPathResult.action === "save" ? undefined : "model-fallback";
+            classifiedIntent = fastPathResult.action;
+            classifiedCorrectionMode = fastPathResult.correctionMode;
+            classifiedIntentConfidence = fastPathResult.intentConfidence ?? null;
+            classifiedIntentReason = fastPathResult.intentReason ?? null;
+            legacyFastPathOutcome = fastPathResult.action === "save_new_report"
+                ? "save"
+                : fastPathResult.action === "correct_existing_report"
+                    ? "correction"
+                    : fastPathResult.action === "clarify"
+                        ? "clarify"
+                        : "fallback";
+            legacyFallbackReason = fastPathResult.action === "fallback" ? "model-fallback" : undefined;
         } catch (error) {
             console.warn("site-manager fast path failed before persistence; using legacy agent", error);
             legacyFastPathAttempted = true;
@@ -175,7 +237,18 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
             legacyFallbackReason = "extraction-error";
         }
 
-        if (fastPathResult?.action === "save") {
+        if (fastPathResult?.action === "clarify") {
+            setSiteManagerExecutionPath("correction-path", fastPathMode);
+            const content = fastPathResult.language === "lv"
+                ? "Vai vēlaties labot iepriekšējo ierakstu vai saglabāt jaunu darbu ierakstu?"
+                : fastPathResult.language === "ru"
+                    ? "Вы хотите исправить предыдущую запись или сохранить новую?"
+                    : "Do you want to correct the previous record or save a new work record?";
+            completeRunDetails(content, "deterministic-correction-prompt");
+            return content;
+        }
+
+        if (fastPathResult?.action === "save_new_report") {
             setSiteManagerExecutionPath("fast-path", fastPathMode);
             const content = formatDeterministicSaveReply(
                 fastPathResult.language,
@@ -189,21 +262,53 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
                     ? getUserAddressName(userFirstName, fastPathResult.language)
                     : null,
             );
-            recordSiteManagerTiming("totalMs", Date.now() - totalStarted);
+            completeRunDetails(content, "fast-path");
+            return content;
+        }
+
+        if (fastPathResult?.action === "correct_existing_report") {
+            setSiteManagerExecutionPath("correction-path", fastPathMode);
+            const correctionTrace = fastPathTraceConfig({
+                fastPathMode,
+                fastPathCandidate,
+                executionPath: "correction-path",
+                fastPathAttempted: true,
+                fastPathOutcome: "correction",
+            });
             if (runContext) {
-                const metrics = getSiteManagerMetricsSnapshot();
-                const finalModel = metrics.modelCalls.at(-1);
-                runContext.details = {
-                    content,
-                    requestedModel,
-                    actualModel: finalModel?.actualModel ?? null,
-                    tokenUsage: metrics.aggregateTokenUsage,
-                    usageMetadata: null,
-                    responseMetadata: null,
-                    finishReason: "fast-path",
-                    ...metrics,
+                runContext.fastPathTrace = correctionTrace.metadata;
+                runContext.traceMetadata = {
+                    ...(runContext.traceMetadata ?? {}),
+                    classifiedIntent,
+                    correctionMode: fastPathResult.correctionMode,
+                    intentConfidence: classifiedIntentConfidence,
+                    intentReason: classifiedIntentReason,
                 };
             }
+
+            const correctionResult = await runWithSiteManagerToolContext(
+                { userId, siteId, originalUserComment: sourceComment },
+                () => fastPathResult.correctionMode === "intent_only"
+                    ? startSiteDiaryCorrectionOperation({ language: fastPathResult.language })
+                    : fastPathResult.correctionMode === "supplied"
+                        ? replaceLastSiteDiaryBatchOperation({
+                            correction: normalizedQuestion,
+                            language: fastPathResult.language,
+                        })
+                        : Promise.resolve({
+                            kind: "site_diary_correction" as const,
+                            status: "needs_clarification" as const,
+                            language: fastPathResult.language,
+                        }),
+            );
+            recordSiteManagerTiming(`correctionStatus.${correctionResult.status}`, 1);
+            const content = formatDeterministicCorrectionReply(correctionResult);
+            completeRunDetails(
+                content,
+                correctionResult.status === "pending" || correctionResult.status === "needs_clarification"
+                    ? "deterministic-correction-prompt"
+                    : "deterministic-correction",
+            );
             return content;
         }
     }
@@ -228,6 +333,12 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
             hasOriginalAudioUrl: Boolean(originalAudioUrl),
             questionPreview: summarizeForTrace(question),
             whatsappMessageId,
+            replyToMessageId,
+            pendingCorrection: intentContext.hasPendingCorrection,
+            classifiedIntent,
+            correctionMode: classifiedCorrectionMode,
+            intentConfidence: classifiedIntentConfidence,
+            intentReason: classifiedIntentReason,
             ...(runContext?.traceMetadata ?? {}),
             ...legacyTrace.metadata,
         },
@@ -314,9 +425,9 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
         const toolRequest = [...messages].reverse().find((message: any) =>
             Array.isArray(message?.tool_calls) && message.tool_calls.length > 0);
         const toolNames = toolRequest?.tool_calls?.map((call: any) => call.name) ?? [];
-        return isSaveOnlyToolRound(toolNames)
-            ? "save_confirmation"
-            : "agent";
+        if (isSaveOnlyToolRound(toolNames)) return "save_confirmation";
+        if (isCorrectionOnlyToolRound(toolNames)) return "correction_confirmation";
+        return "agent";
     };
 
     const saveConfirmation = async (state) => {
@@ -340,14 +451,33 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
         };
     };
 
+    const correctionConfirmation = async (state) => {
+        setSiteManagerExecutionPath("correction-path", fastPathMode);
+        const toolMessage = [...(state.messages ?? [])].reverse().find((message: any) =>
+            message?.name === "start_site_diary_correction" ||
+            message?.name === "replace_last_site_diary_batch" ||
+            message?.additional_kwargs?.name === "start_site_diary_correction" ||
+            message?.additional_kwargs?.name === "replace_last_site_diary_batch");
+        const toolContent = typeof toolMessage?.content === "string" ? toolMessage.content : "";
+        const correctionResult = parseCorrectionToolResult(toolContent);
+        recordSiteManagerTiming(`correctionStatus.${correctionResult.status}`, 1);
+        return {
+            messages: [new AIMessage({
+                content: formatDeterministicCorrectionReply(correctionResult),
+            })],
+        };
+    };
+
     const workflow = new StateGraph(state)
         .addNode("agent", agent)
         .addNode("tools", toolNode)
         .addNode("save_confirmation", saveConfirmation)
+        .addNode("correction_confirmation", correctionConfirmation)
         .addEdge(START, "agent")
         .addConditionalEdges("agent", shouldContinue, ["tools", END])
-        .addConditionalEdges("tools", afterTools, ["save_confirmation", "agent"])
+        .addConditionalEdges("tools", afterTools, ["save_confirmation", "correction_confirmation", "agent"])
         .addEdge("save_confirmation", END)
+        .addEdge("correction_confirmation", END)
 
     if (!process.env.DATABASE_URL) {
         throw new Error("DATABASE_URL is required for site manager WhatsApp agent checkpointing");
@@ -368,6 +498,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     const inputs = {
         messages: [
             new SystemMessage(await systemPrompt),
+            new SystemMessage(`Trusted correction state: replyContext=${intentContext.hasReplyContext}; pendingCorrection=${intentContext.hasPendingCorrection}. Interpret the complete message. Never treat a standalone word as authoritative correction intent. Use start_site_diary_correction only for a clear intent-only correction, and replace_last_site_diary_batch only for a clear supplied correction or pending correction response.`),
             new HumanMessage(question),
         ],
     };
@@ -403,7 +534,14 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
                 tokenUsage: metrics.aggregateTokenUsage,
                 usageMetadata,
                 responseMetadata,
-                finishReason: responseMetadata?.finish_reason ?? (metrics.toolCalls.some((call) => call.name === "save_to_database") ? "deterministic-save" : null),
+                finishReason: responseMetadata?.finish_reason ??
+                    (metrics.toolCalls.some((call) => call.name === "save_to_database")
+                        ? "deterministic-save"
+                        : metrics.toolCalls.some((call) =>
+                            call.name === "start_site_diary_correction" ||
+                            call.name === "replace_last_site_diary_batch")
+                            ? "deterministic-correction"
+                            : null),
                 ...metrics,
             };
         }

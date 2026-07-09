@@ -342,6 +342,7 @@ async function findWorkerDiaryRecords(args: {
   return prisma.sitediaryrecords.findMany({
     where: {
       siteId: args.siteId,
+      archivedAt: null,
       createdAt: { gte: args.startedAt },
       OR: [
         {

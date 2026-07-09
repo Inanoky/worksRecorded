@@ -29,6 +29,46 @@ describe("WhatsApp site-manager checkpoint inspection", () => {
     expect(result).toHaveLength(2);
   });
 
+  it("reconstructs sanitized history from legacy metadata writes and drops remove-all markers", () => {
+    const result = extractCheckpointMessages({
+      metadata: {
+        writes: {
+          agent: {
+            messages: [
+              {
+                id: ["langchain_core", "messages", "d"],
+                lc: 1,
+                type: "constructor",
+                kwargs: { id: "__remove_all__", content: [] },
+              },
+              {
+                id: ["langchain_core", "messages", "HumanMessage"],
+                lc: 1,
+                type: "constructor",
+                kwargs: { id: "human-1", content: "Kā atvērt BIS?" },
+              },
+              {
+                id: ["langchain_core", "messages", "AIMessage"],
+                lc: 1,
+                type: "constructor",
+                kwargs: {
+                  id: "ai-1",
+                  content: "Atveriet WorksRecorded iestatījumus.",
+                  usage_metadata: { input_tokens: 100, output_tokens: 10, total_tokens: 110 },
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({ type: "human", content: "Kā atvērt BIS?" }),
+      expect.objectContaining({ type: "ai", content: "Atveriet WorksRecorded iestatījumus." }),
+    ]);
+  });
+
   it("warns when no checkpoint history exists", () => {
     const result = evaluateSiteManagerCheckpointInspection({
       checkpoint: null,
@@ -82,5 +122,34 @@ describe("WhatsApp site-manager checkpoint inspection", () => {
     expect(result.status).toBe("pass");
     expect(result.controlledMemoryStats?.profile).toBe("whatsapp-legacy");
     expect(result.compactedEstimatedTokens).toBeLessThanOrEqual(3000);
+  });
+
+  it("aggregates model token metadata from hydrated checkpoint messages", () => {
+    const result = evaluateSiteManagerCheckpointInspection({
+      checkpoint: {
+        channel_values: {
+          messages: [
+            { type: "human", content: "hello" },
+            {
+              type: "ai",
+              content: "answer",
+              usage_metadata: { input_tokens: 120, output_tokens: 15, total_tokens: 135 },
+            },
+            {
+              type: "ai",
+              content: "second answer",
+              usage_metadata: { input_tokens: 160, output_tokens: 20, total_tokens: 180 },
+            },
+          ],
+        },
+      },
+      expectation,
+    });
+
+    expect(result.historicalTokenUsage).toEqual({
+      inputTokens: 280,
+      outputTokens: 35,
+      totalTokens: 315,
+    });
   });
 });

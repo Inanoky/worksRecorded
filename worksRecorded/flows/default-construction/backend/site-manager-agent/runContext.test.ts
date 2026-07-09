@@ -52,6 +52,17 @@ describe("site-manager fast-path trace metadata", () => {
       tag: "execution-path:fast-path",
     },
     {
+      name: "direct correction execution",
+      metadata: {
+        fastPathMode: "on" as const,
+        fastPathCandidate: true,
+        executionPath: "correction-path" as const,
+        fastPathAttempted: true,
+        fastPathOutcome: "correction" as const,
+      },
+      tag: "execution-path:correction-path",
+    },
+    {
       name: "ineligible or ambiguous legacy execution",
       metadata: {
         fastPathMode: "on" as const,

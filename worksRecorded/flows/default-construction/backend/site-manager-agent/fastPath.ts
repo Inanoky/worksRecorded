@@ -9,6 +9,24 @@ export type SiteDiarySaveOutcome = {
   records?: SiteDiaryConfirmationRecord[];
 };
 
+export type SiteDiaryCorrectionStatus =
+  | "replaced"
+  | "pending"
+  | "needs_clarification"
+  | "blocked_bis"
+  | "no_eligible_batch"
+  | "idempotent"
+  | "failed";
+
+export type SiteDiaryCorrectionResult = {
+  kind: "site_diary_correction";
+  status: SiteDiaryCorrectionStatus;
+  language: SupportedReplyLanguage;
+  oldRecordCount?: number;
+  newRecordCount?: number;
+  message?: string;
+};
+
 export type FastPathCandidateDebug = {
   normalizedText: string;
   tooLong: boolean;
@@ -207,4 +225,71 @@ export function parseSaveToolOutcome(content: string): SiteDiarySaveOutcome {
 
 export function isSaveOnlyToolRound(toolNames: string[]) {
   return toolNames.length === 1 && toolNames[0] === "save_to_database";
+}
+
+export function isCorrectionOnlyToolRound(toolNames: string[]) {
+  return toolNames.length === 1 &&
+    (toolNames[0] === "start_site_diary_correction" || toolNames[0] === "replace_last_site_diary_batch");
+}
+
+export function serializeCorrectionToolResult(result: SiteDiaryCorrectionResult) {
+  return JSON.stringify(result);
+}
+
+export function parseCorrectionToolResult(content: string): SiteDiaryCorrectionResult {
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed?.kind === "site_diary_correction" && typeof parsed.status === "string") {
+      return parsed as SiteDiaryCorrectionResult;
+    }
+  } catch {
+    // Fall through to failed result.
+  }
+
+  return {
+    kind: "site_diary_correction",
+    status: "failed",
+    language: detectReplyLanguage(content),
+    message: "Unexpected correction tool result",
+  };
+}
+
+export function formatDeterministicCorrectionReply(result: SiteDiaryCorrectionResult) {
+  const oldCount = Math.max(0, result.oldRecordCount ?? 0);
+  const newCount = Math.max(0, result.newRecordCount ?? 0);
+  const detail = oldCount && newCount
+    ? result.language === "lv"
+      ? ` Arhivēju ${oldCount} un izveidoju ${newCount} koriģētu ierakstu${newCount === 1 ? "" : "s"}.`
+      : result.language === "ru"
+        ? ` Архивировано ${oldCount}, создано исправленных записей: ${newCount}.`
+        : ` Archived ${oldCount} and created ${newCount} corrected ${newCount === 1 ? "record" : "records"}.`
+    : "";
+
+  if (result.language === "lv") {
+    if (result.status === "replaced") return `Labi, iepriekšējais ieraksts ir koriģēts.${detail}`;
+    if (result.status === "idempotent") return `Šī korekcija jau bija apstrādāta.${detail}`;
+    if (result.status === "pending") return "Ko tieši vajag mainīt iepriekšējā ierakstā?";
+    if (result.status === "needs_clarification") return "Nepietiek informācijas, lai droši koriģētu ierakstu. Ko tieši vajag mainīt?";
+    if (result.status === "blocked_bis") return "Šo ierakstu nevar koriģēt WhatsApp, jo tas jau ir sagatavots vai iesniegts BIS.";
+    if (result.status === "no_eligible_batch") return "Neatradu iepriekšēju WhatsApp darbu ierakstu, ko varētu koriģēt.";
+    return `Korekciju neizdevās veikt${result.message ? `: ${result.message}` : "."}`;
+  }
+
+  if (result.language === "ru") {
+    if (result.status === "replaced") return `Готово, предыдущая запись исправлена.${detail}`;
+    if (result.status === "idempotent") return `Эта корректировка уже была обработана.${detail}`;
+    if (result.status === "pending") return "Что именно нужно изменить в предыдущей записи?";
+    if (result.status === "needs_clarification") return "Недостаточно информации, чтобы безопасно исправить запись. Что именно нужно изменить?";
+    if (result.status === "blocked_bis") return "Эту запись нельзя исправить в WhatsApp, потому что она уже подготовлена или отправлена в BIS.";
+    if (result.status === "no_eligible_batch") return "Не нашёл предыдущую запись WhatsApp, которую можно исправить.";
+    return `Не удалось выполнить корректировку${result.message ? `: ${result.message}` : "."}`;
+  }
+
+  if (result.status === "replaced") return `Done, the previous record was corrected.${detail}`;
+  if (result.status === "idempotent") return `This correction was already processed.${detail}`;
+  if (result.status === "pending") return "What exactly should be changed in the previous record?";
+  if (result.status === "needs_clarification") return "There is not enough information to safely correct the record. What exactly should be changed?";
+  if (result.status === "blocked_bis") return "This record cannot be corrected in WhatsApp because it has already been drafted or submitted in BIS.";
+  if (result.status === "no_eligible_batch") return "I could not find a previous WhatsApp work record that can be corrected.";
+  return `The correction could not be applied${result.message ? `: ${result.message}` : "."}`;
 }

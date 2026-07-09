@@ -37,6 +37,15 @@ function formatMs(value: unknown) {
   return typeof value === "number" && Number.isFinite(value) ? `${value}ms` : "n/a";
 }
 
+function formatTokens(value: number | null) {
+  return value === null ? "n/a" : new Intl.NumberFormat("en").format(value);
+}
+
+function totalRunTokens(run: NormalizedEvalRun) {
+  const values = run.items.map((item) => item.tokenTotal).filter((value): value is number => value !== null);
+  return values.length ? values.reduce((total, value) => total + value, 0) : null;
+}
+
 function statusClass(status: EvalStatus | "skipped") {
   if (status === "fail") return "border-red-200 bg-red-50 text-red-700";
   if (status === "warn") return "border-amber-200 bg-amber-50 text-amber-800";
@@ -68,6 +77,7 @@ function textMatchesRun(run: NormalizedEvalRun, query: string) {
       item.judgeExplanation,
       ...item.judgeImprovements,
       ...item.outboundMessages,
+      ...item.failedValidators.flatMap((validator) => [validator.name, validator.message]),
     ]),
   ]
     .filter(Boolean)
@@ -142,6 +152,11 @@ function QualityBadges({ item }: { item: NormalizedEvalItem }) {
           judge {item.judgeStatus}
         </Badge>
       ) : null}
+      {item.failedValidators.length ? (
+        <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+          {item.failedValidators.length} failed {item.failedValidators.length === 1 ? "validator" : "validators"}
+        </Badge>
+      ) : null}
       {item.anomalies.map((anomaly) => (
         <Badge key={`${anomaly.code}-${anomaly.message}`} variant="outline" className={severityClass(anomaly.severity)}>
           {anomaly.code}
@@ -209,6 +224,11 @@ function ItemDetail({ item }: { item: NormalizedEvalItem }) {
         <div className="min-w-0">
           <div className="font-medium">{item.label}</div>
           <div className="mt-1 truncate text-sm text-muted-foreground">{item.input || "No prompt/input preview"}</div>
+          {item.failedValidators.length ? (
+            <div className="mt-1 truncate text-xs text-red-700">
+              Failed: {item.failedValidators.map((validator) => validator.name || "unnamed-validator").join(", ")}
+            </div>
+          ) : null}
         </div>
         <div className="shrink-0">
           <QualityBadges item={item} />
@@ -231,10 +251,36 @@ function ItemDetail({ item }: { item: NormalizedEvalItem }) {
             <dt className="text-muted-foreground">Finish reason</dt>
             <dd>{item.finishReason ?? "n/a"}</dd>
             <dt className="text-muted-foreground">Tokens</dt>
-            <dd>{item.tokenTotal ?? "n/a"}</dd>
+            <dd>{formatTokens(item.tokenTotal)}</dd>
+            <dt className="text-muted-foreground">Input / output</dt>
+            <dd>{formatTokens(item.tokenInput)} / {formatTokens(item.tokenOutput)}</dd>
+            {item.contextTokens.original !== null ? (
+              <>
+                <dt className="text-muted-foreground">Context before</dt>
+                <dd>{formatTokens(item.contextTokens.original)} est.</dd>
+                <dt className="text-muted-foreground">After compaction</dt>
+                <dd>{formatTokens(item.contextTokens.compacted)} est.</dd>
+                <dt className="text-muted-foreground">Context saved</dt>
+                <dd>{formatTokens(item.contextTokens.saved)} est.</dd>
+              </>
+            ) : null}
           </dl>
         </div>
       </div>
+
+      {item.failedValidators.length ? (
+        <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm">
+          <div className="mb-2 font-medium text-red-900">Failed validators</div>
+          <ul className="space-y-2">
+            {item.failedValidators.map((validator, index) => (
+              <li key={`${validator.name}-${index}`} className="text-red-900">
+                <span className="font-medium">{validator.name || "unnamed-validator"}:</span>{" "}
+                {validator.message || "No failure message was provided."}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {item.anomalies.length ? (
         <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
@@ -440,7 +486,7 @@ export default async function AiEvalViewerPage({ searchParams }: PageProps) {
                       </Badge>
                     </div>
                   </CardHeader>
-                  <CardContent className="grid gap-3 px-6 md:grid-cols-4">
+                  <CardContent className="grid gap-3 px-6 md:grid-cols-5">
                     <div className="rounded-md border p-3">
                       <div className="text-xs text-muted-foreground">Model</div>
                       <div className="mt-1 truncate text-sm font-medium">{selectedRun.model ?? "n/a"}</div>
@@ -462,6 +508,10 @@ export default async function AiEvalViewerPage({ searchParams }: PageProps) {
                     <div className="rounded-md border p-3">
                       <div className="text-xs text-muted-foreground">Anomalies</div>
                       <div className="mt-1 text-sm font-medium">{selectedRun.anomalies.length}</div>
+                    </div>
+                    <div className="rounded-md border p-3">
+                      <div className="text-xs text-muted-foreground">Total tokens</div>
+                      <div className="mt-1 text-sm font-medium">{formatTokens(totalRunTokens(selectedRun))}</div>
                     </div>
                   </CardContent>
                 </Card>

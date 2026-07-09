@@ -131,6 +131,7 @@ export async function readSiteDiaryBisStatuses(
         SELECT id, "Date", "Location", "Works", "Comments", "BISId", "bisStatus", "createdAt"
         FROM "sitediaryrecords"
         WHERE "siteId" = ${scope.siteId}
+          AND "archivedAt" IS NULL
           AND (${submission} = 'all'
             OR (${submission} = 'sent' AND "BISId" IS NOT NULL)
             OR (${submission} = 'not-sent' AND "BISId" IS NULL))

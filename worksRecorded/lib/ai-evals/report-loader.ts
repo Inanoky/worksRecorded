@@ -27,7 +27,15 @@ export type NormalizedEvalItem = {
   requestedModel: string | null;
   finishReason: string | null;
   tokenTotal: number | null;
+  tokenInput: number | null;
+  tokenOutput: number | null;
   validationResults: Array<{ name: string; status: string; message: string }>;
+  failedValidators: Array<{ name: string; status: string; message: string }>;
+  contextTokens: {
+    original: number | null;
+    compacted: number | null;
+    saved: number | null;
+  };
   judge: unknown;
   artifacts: Record<string, unknown>;
   anomalies: EvalAnomaly[];
@@ -81,9 +89,16 @@ function normalizeJudgeStatus(value: unknown): EvalStatus | "skipped" {
     : "unknown";
 }
 
-function getTokenTotal(tokenUsage: unknown): number | null {
+function getTokenUsage(tokenUsage: unknown) {
   const usage = asRecord(tokenUsage);
-  return asNumber(usage.total_tokens) ?? asNumber(usage.totalTokens);
+  const input = asNumber(usage.input_tokens) ?? asNumber(usage.promptTokens) ?? asNumber(usage.inputTokens);
+  const output = asNumber(usage.output_tokens) ?? asNumber(usage.completionTokens) ?? asNumber(usage.outputTokens);
+  return {
+    input,
+    output,
+    total: asNumber(usage.total_tokens) ?? asNumber(usage.totalTokens) ??
+      (input !== null || output !== null ? (input ?? 0) + (output ?? 0) : null),
+  };
 }
 
 function textFromGraphMessage(message: unknown) {
@@ -132,6 +147,7 @@ function itemTextForDuplicate(item: NormalizedEvalItem) {
 function makeItem(rawItem: unknown, index: number, flow: EvalFlow): NormalizedEvalItem {
   const item = asRecord(rawItem);
   const deterministic = asRecord(item.deterministic);
+  const controlledMemory = asRecord(item.controlledMemory);
   const judge = asRecord(item.judge);
   const turnIndex = asNumber(item.turnIndex);
   const caseId = asString(item.caseId) || `item-${index + 1}`;
@@ -139,7 +155,20 @@ function makeItem(rawItem: unknown, index: number, flow: EvalFlow): NormalizedEv
   const graphMessages = asArray(item.graphMessages);
   const selectedRecord = item.selectedRecord ?? null;
   const structuredSaveTrace = item.structuredSaveTrace ?? null;
-  const validationResults = asArray(deterministic.results).map((result) => {
+  const deterministicResults = asArray(deterministic.results);
+  const controlledChecks = asArray(controlledMemory.checks);
+  const rawValidationResults = deterministicResults.length
+    ? deterministicResults
+    : controlledChecks.length
+      ? controlledChecks
+      : asString(controlledMemory.status)
+        ? [{
+            name: "controlled-memory",
+            status: controlledMemory.status,
+            message: controlledMemory.message,
+          }]
+        : [];
+  const validationResults = rawValidationResults.map((result) => {
     const record = asRecord(result);
     return {
       name: asString(record.name),
@@ -147,6 +176,14 @@ function makeItem(rawItem: unknown, index: number, flow: EvalFlow): NormalizedEv
       message: asString(record.message),
     };
   });
+  const tokenUsage = getTokenUsage(
+    Object.keys(asRecord(item.tokenUsage)).length ? item.tokenUsage : item.aggregateTokenUsage,
+  );
+  const originalContextTokens = asNumber(controlledMemory.originalEstimatedTokens);
+  const compactedContextTokens = asNumber(controlledMemory.compactedEstimatedTokens);
+  const normalizedStatus = normalizeStatus(deterministic.status) !== "unknown"
+    ? normalizeStatus(deterministic.status)
+    : normalizeStatus(controlledMemory.status);
 
   const input =
     asString(item.promptPreview) ||
@@ -160,7 +197,7 @@ function makeItem(rawItem: unknown, index: number, flow: EvalFlow): NormalizedEv
     input,
     answer: asString(item.answer),
     outboundMessages: graphMessages.map(textFromGraphMessage).filter(Boolean),
-    status: normalizeStatus(deterministic.status),
+    status: normalizedStatus,
     judgeStatus: normalizeJudgeStatus(judge.status),
     judgeExplanation: asString(judge.explanation),
     judgeImprovements: asArray(judge.improvements).filter(
@@ -170,8 +207,18 @@ function makeItem(rawItem: unknown, index: number, flow: EvalFlow): NormalizedEv
     actualModel: asString(item.actualModel) || null,
     requestedModel: asString(item.requestedModel) || null,
     finishReason: asString(item.finishReason) || null,
-    tokenTotal: getTokenTotal(item.tokenUsage),
+    tokenTotal: tokenUsage.total,
+    tokenInput: tokenUsage.input,
+    tokenOutput: tokenUsage.output,
     validationResults,
+    failedValidators: validationResults.filter((result) => result.status === "fail"),
+    contextTokens: {
+      original: originalContextTokens,
+      compacted: compactedContextTokens,
+      saved: originalContextTokens !== null && compactedContextTokens !== null
+        ? Math.max(0, originalContextTokens - compactedContextTokens)
+        : null,
+    },
     judge: item.judge ?? null,
     artifacts: {
       flow,
@@ -182,6 +229,10 @@ function makeItem(rawItem: unknown, index: number, flow: EvalFlow): NormalizedEv
       timelogRecordIds: item.timelogRecordIds ?? null,
       webhookMessageId: item.webhookMessageId ?? null,
       threadId: item.threadId ?? null,
+      controlledMemory: item.controlledMemory ?? null,
+      aggregateTokenUsage: item.aggregateTokenUsage ?? null,
+      modelCalls: item.modelCalls ?? null,
+      toolCalls: item.toolCalls ?? null,
     },
     anomalies: [],
   };

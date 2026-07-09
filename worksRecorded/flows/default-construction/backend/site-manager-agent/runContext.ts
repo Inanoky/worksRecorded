@@ -8,7 +8,7 @@ export type SiteManagerAgentRunDetails = {
   usageMetadata: unknown;
   responseMetadata: unknown;
   finishReason: string | null;
-  executionPath: "legacy-agent" | "fast-path";
+  executionPath: "legacy-agent" | "fast-path" | "correction-path";
   fastPathMode: "off" | "shadow" | "on";
   timings: Record<string, number>;
   modelCalls: SiteManagerModelCallMetric[];
@@ -21,8 +21,8 @@ export type SiteManagerAgentRunDetails = {
 };
 
 export type FastPathMode = "off" | "shadow" | "on";
-export type SiteManagerExecutionPath = "legacy-agent" | "fast-path";
-export type FastPathOutcome = "save" | "fallback" | "skipped" | "error";
+export type SiteManagerExecutionPath = "legacy-agent" | "fast-path" | "correction-path";
+export type FastPathOutcome = "save" | "correction" | "clarify" | "fallback" | "skipped" | "error";
 export type FastPathFallbackReason =
   | "ineligible"
   | "model-fallback"

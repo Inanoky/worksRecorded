@@ -3,6 +3,7 @@ import { AsyncLocalStorage } from "async_hooks";
 type WhatsappSourceContext = {
     originalAudioUrl?: string | null;
     messageId?: string | null;
+    replyToMessageId?: string | null;
 };
 
 const whatsappSourceContext = new AsyncLocalStorage<WhatsappSourceContext>();
@@ -28,6 +29,7 @@ export function consumeWhatsappAudioSourceContext(): WhatsappSourceContext {
     const context = {
         originalAudioUrl: store.originalAudioUrl ?? null,
         messageId: store.messageId ?? null,
+        replyToMessageId: store.replyToMessageId ?? null,
     };
     store.originalAudioUrl = null;
     return context;

@@ -52,7 +52,7 @@ type CaseRunResult = {
   actualModel: string | null;
   tokenUsage: unknown;
   finishReason: string | null;
-  executionPath: "legacy-agent" | "fast-path" | null;
+  executionPath: "legacy-agent" | "fast-path" | "correction-path" | null;
   fastPathMode: "off" | "shadow" | "on" | null;
   timings: Record<string, number> | null;
   modelCalls: unknown[];
@@ -88,6 +88,11 @@ type ControlledMemoryEvalResult = {
   checkpointMessageCount: number | null;
   checkpointToolMessageCount: number | null;
   checkpointLargestToolMessageChars: number;
+  historicalTokenUsage: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  } | null;
 };
 
 type LatencyCaseSummary = {
@@ -124,13 +129,6 @@ type WhatsAppSiteManagerEvalReport = {
     judgeWarnings: number;
     judgeFailures: number;
   };
-};
-
-type RawLatestCheckpointInspection = {
-  checkpointId: string;
-  checkpointTs: string | null;
-  metadata: unknown;
-  checkpoint: unknown;
 };
 
 const GRAPH_API_PREFIX = "https://graph.facebook.com/";
@@ -252,6 +250,7 @@ function skippedControlledMemoryResult(message = "No controlled-memory inspectio
     checkpointMessageCount: null,
     checkpointToolMessageCount: null,
     checkpointLargestToolMessageChars: 0,
+    historicalTokenUsage: null,
   };
 }
 
@@ -414,6 +413,7 @@ async function findCreatedRecords(args: {
     where: {
       siteId: args.siteId,
       userId: args.userId,
+      archivedAt: null,
       createdAt: { gte: args.startedAt },
       OR: [
         {
@@ -532,7 +532,12 @@ async function cleanupEvalCheckpointThread(threadId: string) {
 }
 
 async function getLatestCheckpointInspection(threadId: string) {
-  const rows = await prisma.$queryRaw<RawLatestCheckpointInspection[]>`
+  const rows = await prisma.$queryRaw<Array<{
+    checkpointId: string;
+    checkpointTs: string | null;
+    metadata: unknown;
+    checkpoint: unknown;
+  }>>`
     SELECT
       checkpoint_id AS "checkpointId",
       checkpoint->>'ts' AS "checkpointTs",
@@ -543,11 +548,13 @@ async function getLatestCheckpointInspection(threadId: string) {
     ORDER BY COALESCE(checkpoint->>'ts', '') DESC, checkpoint_id DESC
     LIMIT 1
   `;
-
   const latest = rows[0] ?? null;
-  const shape = inspectCheckpointShape(latest?.checkpoint ?? null);
+  const inspectionPayload = latest
+    ? { ...asRecord(latest.checkpoint), metadata: latest.metadata }
+    : null;
+  const shape = inspectCheckpointShape(inspectionPayload);
   return {
-    latest,
+    latest: latest ? { ...latest, checkpoint: inspectionPayload } : null,
     shape,
   };
 }
@@ -656,9 +663,10 @@ async function main() {
           compactedEstimatedTokens: evaluated.compactedEstimatedTokens,
           controlledMemoryStats: evaluated.controlledMemoryStats,
           latestMetadata: asRecord(inspection.latest?.metadata),
-          checkpointMessageCount: inspection.shape.messageCount,
+          checkpointMessageCount: inspection.shape.messageCount ?? evaluated.originalMessageCount,
           checkpointToolMessageCount: inspection.shape.toolMessageCount,
           checkpointLargestToolMessageChars: inspection.shape.largestToolMessageChars,
+          historicalTokenUsage: evaluated.historicalTokenUsage,
         };
 
         results.push({
@@ -670,7 +678,7 @@ async function main() {
           answer: null,
           requestedModel: null,
           actualModel: null,
-          tokenUsage: null,
+          tokenUsage: evaluated.historicalTokenUsage,
           finishReason: null,
           executionPath: null,
           fastPathMode: null,

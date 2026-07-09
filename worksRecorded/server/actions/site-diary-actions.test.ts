@@ -6,6 +6,7 @@ const transactionMock = jest.fn();
 const updateManyMock = jest.fn();
 const photosFindManyMock = jest.fn();
 const siteDiaryFindManyMock = jest.fn();
+const batchCreateMock = jest.fn();
 let createdRowIndex = 0;
 
 jest.mock("@/lib/utils/db", () => ({
@@ -21,6 +22,9 @@ jest.mock("@/lib/utils/db", () => ({
       update: updateMock,
       updateMany: updateManyMock,
       findMany: siteDiaryFindManyMock,
+    },
+    siteDiarySaveBatch: {
+      create: batchCreateMock,
     },
   },
 }));
@@ -92,6 +96,7 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     createManyMock.mockResolvedValue({ count: 1 });
     createManyAndReturnMock.mockResolvedValue([]);
     createMock.mockImplementation(({ data }) => Promise.resolve(buildCreatedRow(data)));
+    batchCreateMock.mockResolvedValue({ id: "batch-1" });
     updateMock.mockImplementation(({ data, where }) =>
       Promise.resolve({
         ...buildCreatedRow(data),
@@ -103,6 +108,9 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         sitediaryrecords: {
           create: createMock,
           update: updateMock,
+        },
+        siteDiarySaveBatch: {
+          create: batchCreateMock,
         },
       }),
     );

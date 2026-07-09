@@ -176,4 +176,63 @@ describe("AI eval report normalizer", () => {
     expect(run.items[0].anomalies.map((item) => item.code)).toContain("repeated-answer");
     expect(run.items[1].anomalies.map((item) => item.code)).toContain("repeated-answer");
   });
+
+  it("promotes checkpoint inspection status, context tokens, and failed validators", () => {
+    const run = normalizeEvalReport({
+      runId: "checkpoint-run",
+      flow: "whatsapp-site-manager",
+      summary: { controlledMemoryFailures: 1 },
+      latency: {},
+      results: [
+        {
+          caseId: "legacy-history-selector-sanitizes-production-thread",
+          aggregateTokenUsage: { inputTokens: 1200, outputTokens: 80, totalTokens: 1280 },
+          controlledMemory: {
+            status: "fail",
+            message: "Compacted context exceeds its token budget.",
+            checks: [],
+            originalEstimatedTokens: 9000,
+            compactedEstimatedTokens: 3500,
+          },
+          deterministic: null,
+        },
+      ],
+    });
+
+    expect(run.items[0]).toMatchObject({
+      status: "fail",
+      tokenInput: 1200,
+      tokenOutput: 80,
+      tokenTotal: 1280,
+      contextTokens: { original: 9000, compacted: 3500, saved: 5500 },
+      failedValidators: [
+        {
+          name: "controlled-memory",
+          status: "fail",
+          message: "Compacted context exceeds its token budget.",
+        },
+      ],
+    });
+    expect(run.status).toBe("fail");
+  });
+
+  it("retains only failed deterministic checks in the promoted validator list", () => {
+    const run = normalizeEvalReport({
+      flow: "dashboard-chat",
+      results: [{
+        caseId: "validator-case",
+        deterministic: {
+          status: "fail",
+          results: [
+            { name: "required-any", status: "fail", message: "Missing evidence." },
+            { name: "language:en", status: "pass", message: "English detected." },
+          ],
+        },
+      }],
+    });
+
+    expect(run.items[0].failedValidators).toEqual([
+      { name: "required-any", status: "fail", message: "Missing evidence." },
+    ]);
+  });
 });

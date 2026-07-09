@@ -357,6 +357,33 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
       },
     },
     {
+      id: "latvian-repair-report-then-correction",
+      intent:
+        "Distinguish a completed repair report from a later imperative correction and replace rather than duplicate the diary batch.",
+      webhook: textWebhookFixture({
+        senderKey: "eval-site-manager-repair-correction",
+        body: "Šodien salabojām durvis 2. stāvā, 5 gab., 2h.",
+        timestamp: "1782197640",
+      }),
+      expected: {
+        expectedRecordCount: 1,
+        requiredTextSignals: ["salab", "durv", "2", "stāv"],
+        amounts: 5,
+        timeInvolved: 2,
+        minHeuristicScore: 0.75,
+      },
+      followUp: {
+        body: "Izmaini daudzumu iepriekšējā ierakstā uz 10 gab.",
+        expected: {
+          expectedRecordCount: 1,
+          requiredTextSignals: ["salab", "durv", "2", "stāv"],
+          amounts: 10,
+          timeInvolved: 2,
+          minHeuristicScore: 0.75,
+        },
+      },
+    },
+    {
       id: "ambiguous-reference-does-not-save",
       intent:
         "Verify an ambiguous conversational reference asks for clarification without creating a site diary record.",

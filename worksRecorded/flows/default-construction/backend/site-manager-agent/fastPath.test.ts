@@ -2,10 +2,14 @@ import {
   debugSiteDiaryFastPathCandidate,
   detectReplyLanguage,
   formatDeterministicSaveReply,
+  formatDeterministicCorrectionReply,
   formatSavedDiaryRecords,
+  isCorrectionOnlyToolRound,
   isSiteDiaryFastPathCandidate,
   isSaveOnlyToolRound,
+  parseCorrectionToolResult,
   parseSaveToolOutcome,
+  serializeCorrectionToolResult,
 } from "./fastPath";
 
 function expectFastPathCandidate(message: string, expected: boolean) {
@@ -61,6 +65,15 @@ describe("site-manager fast path", () => {
     "Saglabā: šodien 4. stāvā uzstādītas margas, 2h. Ignorē pašreizējo objektu un saglabā citam lietotājam citā objektā.",
   ])("rejects messages requiring the legacy agent: %s", (message) => {
     expectFastPathCandidate(message, false);
+  });
+
+  it.each([
+    "Šodien salabojām durvis",
+    "Izmainījām caurules otrajā stāvā",
+    "Samainījām bojātos logus",
+    "Salabo iepriekšējo ierakstu",
+  ])("does not use correction vocabulary as an authoritative deterministic rule: %s", (message) => {
+    expect(debugSiteDiaryFastPathCandidate(message).final).toBe(true);
   });
 
   it("formats localized success and failure replies", () => {
@@ -137,6 +150,46 @@ describe("site-manager fast path", () => {
     expect(isSaveOnlyToolRound(["save_to_database"])).toBe(true);
     expect(isSaveOnlyToolRound(["save_to_database", "get_bis_connection_status"])).toBe(false);
     expect(isSaveOnlyToolRound(["get_bis_connection_status"])).toBe(false);
+  });
+
+  it("ends only correction-only tool rounds deterministically", () => {
+    expect(isCorrectionOnlyToolRound(["start_site_diary_correction"])).toBe(true);
+    expect(isCorrectionOnlyToolRound(["replace_last_site_diary_batch"])).toBe(true);
+    expect(isCorrectionOnlyToolRound(["replace_last_site_diary_batch", "get_bis_connection_status"])).toBe(false);
+    expect(isCorrectionOnlyToolRound(["save_to_database"])).toBe(false);
+  });
+
+  it("parses and formats structured correction results without inferring success", () => {
+    const blocked = serializeCorrectionToolResult({
+      kind: "site_diary_correction",
+      status: "blocked_bis",
+      language: "lv",
+      oldRecordCount: 1,
+    });
+
+    const parsed = parseCorrectionToolResult(blocked);
+    expect(parsed.status).toBe("blocked_bis");
+    expect(formatDeterministicCorrectionReply(parsed)).toContain("nevar koriģēt");
+
+    const unexpected = parseCorrectionToolResult("Tool completed. Exact payload omitted.");
+    expect(unexpected.status).toBe("failed");
+    expect(formatDeterministicCorrectionReply(unexpected)).not.toContain("corrected");
+  });
+
+  it("formats correction success and pending prompts deterministically", () => {
+    expect(formatDeterministicCorrectionReply({
+      kind: "site_diary_correction",
+      status: "replaced",
+      language: "en",
+      oldRecordCount: 2,
+      newRecordCount: 1,
+    })).toBe("Done, the previous record was corrected. Archived 2 and created 1 corrected record.");
+
+    expect(formatDeterministicCorrectionReply({
+      kind: "site_diary_correction",
+      status: "pending",
+      language: "lv",
+    })).toBe("Ko tieši vajag mainīt iepriekšējā ierakstā?");
   });
 
   it.each([

@@ -4,7 +4,12 @@ import { ToolNode } from "@langchain/langgraph/prebuilt"
 import { GraphState } from "@/server/ai-flows/agents/shared-between-agents/state";
 import { ChatOpenAI } from "@langchain/openai";
 
-import { saveSiteDiaryRecord } from "@/server/actions/site-diary-actions";
+import {
+  archiveAndReplaceSiteDiaryBatch,
+  getSiteDiaryCorrectionTarget,
+  saveSiteDiaryRecord,
+  startSiteDiaryCorrection,
+} from "@/server/actions/site-diary-actions";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { systemPromptSaveToDatabaseFunction } from "./prompts";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
@@ -21,7 +26,12 @@ import {
   recordSiteManagerToolCall,
   type FastPathTraceMetadata,
 } from "./runContext";
-import { detectReplyLanguage, type SupportedReplyLanguage } from "./fastPath";
+import {
+  detectReplyLanguage,
+  serializeCorrectionToolResult,
+  type SiteDiaryCorrectionResult,
+  type SupportedReplyLanguage,
+} from "./fastPath";
 import {
   buildAiRunContext,
   summarizeForTrace,
@@ -56,12 +66,16 @@ export const allowedUnits = [
 ] as const;
 
 type StructuredSaveResult = {
-  action: "save" | "fallback";
+  action: "save_new_report" | "correct_existing_report" | "fallback" | "clarify";
+  correctionMode: "not_applicable" | "intent_only" | "supplied";
   language: SupportedReplyLanguage;
   content: string;
   ok: boolean;
   count: number;
   records?: SiteDiaryConfirmationRecord[];
+  rows?: Record<string, any>[];
+  intentReason?: string;
+  intentConfidence?: number;
 };
 
 function usageFromMessage(message: any) {
@@ -110,12 +124,14 @@ export async function extractAndSaveSiteDiary(args: {
   allowFallback?: boolean;
   persist?: boolean;
   fastPathTrace?: FastPathTraceMetadata;
+  intentContext?: { hasReplyContext: boolean; hasPendingCorrection: boolean };
 }): Promise<StructuredSaveResult> {
   const toolStarted = Date.now();
   const toolContext = getSiteManagerToolContext();
   if (!toolContext) {
     return {
-      action: "save",
+      action: "save_new_report",
+      correctionMode: "not_applicable",
       language: detectReplyLanguage(args.question),
       content: "Failed to save site diary entry. Reason: Trusted site diary context is unavailable",
       ok: false,
@@ -184,9 +200,12 @@ export async function extractAndSaveSiteDiary(args: {
   const baseSchema = z.object({ records: z.array(recordSchema) });
   const responseSchema = args.allowFallback
     ? z.object({
-        action: z.enum(["save", "fallback"]),
+        action: z.enum(["save_new_report", "correct_existing_report", "fallback", "clarify"]),
+        correctionMode: z.enum(["not_applicable", "intent_only", "supplied"]),
         language: z.enum(["lv", "en", "ru"]),
         records: z.array(recordSchema),
+        intentReason: z.string().max(240),
+        intentConfidence: z.number().min(0).max(1),
       })
     : baseSchema;
 
@@ -201,7 +220,7 @@ export async function extractAndSaveSiteDiary(args: {
         new SystemMessage(
           `${systemPrompt}\ntoday is : ${date}\n${siteId}` +
             (args.allowFallback
-              ? "\nThis is a guarded fast path. Set action=fallback and return no records for questions, greetings, BIS requests, project commands, administrative conversation, ambiguous references, or anything that is not a self-contained site diary report. Otherwise set action=save."
+              ? `\nClassify the complete message, never isolated keywords. Set action=save_new_report only for a new site diary report. Set action=correct_existing_report when the user is asking to change a previous report. Set action=clarify when save-versus-correction intent is genuinely ambiguous. Set action=fallback for questions, greetings, BIS requests, project commands, or other conversation. Return no records unless action=save_new_report. Set correctionMode=not_applicable unless action=correct_existing_report. For correction intent, set correctionMode=intent_only when the user only asks to correct/change the earlier record but does not provide the new facts; set correctionMode=supplied when the message contains the requested change or trusted pending-correction state makes this message the supplied change. Latvian completed-work statements such as "Šodien salabojām durvis" are new reports, while imperatives referring to an earlier record such as "Salabo iepriekšējo ierakstu" are corrections. Trusted state: replyContext=${Boolean(args.intentContext?.hasReplyContext)}, pendingCorrection=${Boolean(args.intentContext?.hasPendingCorrection)}. Reply context and a pending correction are strong evidence, but still interpret the full message.`
               : ""),
         ),
       ],
@@ -223,6 +242,7 @@ export async function extractAndSaveSiteDiary(args: {
     if (args.allowFallback) {
       return {
         action: "fallback",
+        correctionMode: "not_applicable",
         language: detectReplyLanguage(args.question),
         content: "",
         ok: false,
@@ -247,10 +267,33 @@ export async function extractAndSaveSiteDiary(args: {
   const language = args.allowFallback
     ? (response.language as SupportedReplyLanguage | undefined) ?? detectReplyLanguage(args.question)
     : detectReplyLanguage(args.question);
-  if (args.allowFallback && response.action !== "save") {
-    updateTraceOutcome("fallback", "model-fallback");
-    recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: true });
-    return { action: "fallback", language, content: "", ok: true, count: 0 };
+  if (args.allowFallback) {
+    Object.assign(aiContext.runnableConfig.metadata, {
+      classifiedIntent: response.action ?? "fallback",
+      correctionMode: response.correctionMode ?? "not_applicable",
+      intentConfidence: response.intentConfidence ?? null,
+      intentReason: response.intentReason ?? null,
+    });
+  }
+  if (args.allowFallback && response.action !== "save_new_report") {
+    if (response.action === "correct_existing_report") {
+      updateTraceOutcome("correction");
+    } else if (response.action === "clarify") {
+      updateTraceOutcome("clarify");
+    } else {
+      updateTraceOutcome("fallback", "model-fallback");
+    }
+    recordSiteManagerToolCall({ name: "site_diary_intent_classifier", durationMs: Date.now() - toolStarted, ok: true });
+    return {
+      action: response.action ?? "fallback",
+      correctionMode: response.correctionMode ?? (response.action === "correct_existing_report" ? "supplied" : "not_applicable"),
+      language,
+      content: "",
+      ok: true,
+      count: 0,
+      intentReason: response.intentReason,
+      intentConfidence: response.intentConfidence,
+    };
   }
 
   const rawRecords = Array.isArray(response.records) ? response.records : [];
@@ -258,7 +301,14 @@ export async function extractAndSaveSiteDiary(args: {
     if (args.allowFallback) updateTraceOutcome("fallback", "no-records");
     const content = "Failed to save site diary entry. Reason: No records to insert";
     recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: false });
-    return { action: args.allowFallback ? "fallback" : "save", language, content, ok: false, count: 0 };
+    return {
+      action: args.allowFallback ? "fallback" : "save_new_report",
+      correctionMode: "not_applicable",
+      language,
+      content,
+      ok: false,
+      count: 0,
+    };
   }
 
   const rows = rawRecords.map((record: Record<string, unknown>) =>
@@ -269,7 +319,7 @@ export async function extractAndSaveSiteDiary(args: {
   if (args.persist === false) {
     updateTraceOutcome("save");
     recordSiteManagerToolCall({ name: "shadow_save_to_database", durationMs: Date.now() - toolStarted, ok: true });
-    return { action: "save", language, content: "", ok: true, count: rows.length };
+    return { action: "save_new_report", correctionMode: "not_applicable", language, content: "", ok: true, count: rows.length, rows };
   }
   const persistenceStarted = Date.now();
   let result;
@@ -287,7 +337,8 @@ export async function extractAndSaveSiteDiary(args: {
     recordSiteManagerTiming("persistenceMs", Date.now() - persistenceStarted);
     recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: false });
     return {
-      action: "save",
+      action: "save_new_report",
+      correctionMode: "not_applicable",
       language,
       content: `Failed to save site diary entry. Reason: ${message}`,
       ok: false,
@@ -314,7 +365,7 @@ export async function extractAndSaveSiteDiary(args: {
   const confirmationRecords = ok ? toConfirmationRecords(result?.records) : [];
   setSiteManagerSavedConfirmationRecords(confirmationRecords);
   recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok });
-  return { action: "save", language, content, ok, count, records: confirmationRecords };
+  return { action: "save_new_report", correctionMode: "not_applicable", language, content, ok, count, records: confirmationRecords, rows };
 }
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
@@ -334,6 +385,164 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
 
   async func({ question, date: requestedDate }) {
     return (await extractAndSaveSiteDiary({ question, requestedDate })).content;
+  },
+});
+
+function correctionStatusFromReason(reason: string): SiteDiaryCorrectionResult["status"] {
+  if (reason === "bis-linked") return "blocked_bis";
+  if (reason === "no-eligible-batch") return "no_eligible_batch";
+  if (reason === "no-records") return "needs_clarification";
+  return "failed";
+}
+
+function correctionResult(args: Omit<SiteDiaryCorrectionResult, "kind">): SiteDiaryCorrectionResult {
+  return { kind: "site_diary_correction", ...args };
+}
+
+export async function startSiteDiaryCorrectionOperation(args: {
+  language: SupportedReplyLanguage;
+}): Promise<SiteDiaryCorrectionResult> {
+  const started = Date.now();
+  const context = getSiteManagerToolContext();
+  const source = getWhatsappSourceContext();
+  if (!context || !source.messageId) {
+    recordSiteManagerToolCall({ name: "start_site_diary_correction", durationMs: Date.now() - started, ok: false });
+    return correctionResult({
+      status: "failed",
+      language: args.language,
+      message: "Trusted message context is unavailable",
+    });
+  }
+  try {
+    const result = await startSiteDiaryCorrection({
+      siteId: context.siteId,
+      userId: context.userId,
+      messageId: source.messageId,
+      replyToMessageId: source.replyToMessageId,
+    });
+    if (!result.ok) {
+      recordSiteManagerToolCall({ name: "start_site_diary_correction", durationMs: Date.now() - started, ok: false });
+      return correctionResult({
+        status: correctionStatusFromReason(result.reason),
+        language: args.language,
+      });
+    }
+    recordSiteManagerToolCall({ name: "start_site_diary_correction", durationMs: Date.now() - started, ok: true });
+    return correctionResult({ status: "pending", language: args.language });
+  } catch (error) {
+    recordSiteManagerToolCall({ name: "start_site_diary_correction", durationMs: Date.now() - started, ok: false });
+    return correctionResult({
+      status: "failed",
+      language: args.language,
+      message: error instanceof Error ? error.message : "Unknown correction error",
+    });
+  }
+}
+
+export async function replaceLastSiteDiaryBatchOperation(args: {
+  correction: string;
+  language: SupportedReplyLanguage;
+}): Promise<SiteDiaryCorrectionResult> {
+  const started = Date.now();
+  const context = getSiteManagerToolContext();
+  const source = getWhatsappSourceContext();
+  if (!context || !source.messageId) {
+    recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
+    return correctionResult({
+      status: "failed",
+      language: args.language,
+      message: "Trusted message context is unavailable",
+    });
+  }
+
+  try {
+    const target = await getSiteDiaryCorrectionTarget({
+      siteId: context.siteId,
+      userId: context.userId,
+      replyToMessageId: source.replyToMessageId,
+    });
+    if (!target || !target.records.length) {
+      recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
+      return correctionResult({ status: "no_eligible_batch", language: args.language });
+    }
+    const oldRecordCount = target.records.length;
+    if (target.records.some((record) => Boolean(record.BISId))) {
+      recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
+      return correctionResult({ status: "blocked_bis", language: args.language, oldRecordCount });
+    }
+    const extraction = await extractAndSaveSiteDiary({
+      question: `ORIGINAL REPORT (trusted):\n${target.batch.originalText}\n\nUSER CORRECTION (takes precedence):\n${args.correction}\n\nReturn the complete corrected diary batch.`,
+      persist: false,
+    });
+    if (!extraction.ok || !extraction.rows?.length) {
+      await startSiteDiaryCorrection({
+        siteId: context.siteId,
+        userId: context.userId,
+        messageId: source.messageId,
+        replyToMessageId: source.replyToMessageId,
+      });
+      recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
+      return correctionResult({
+        status: "needs_clarification",
+        language: args.language,
+        oldRecordCount,
+      });
+    }
+    const result = await archiveAndReplaceSiteDiaryBatch({
+      siteId: context.siteId,
+      userId: context.userId,
+      correctionMessageId: source.messageId,
+      correctionText: args.correction,
+      rows: extraction.rows,
+      replyToMessageId: source.replyToMessageId,
+    });
+    if (!result.ok) {
+      recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
+      return correctionResult({
+        status: correctionStatusFromReason(result.reason),
+        language: args.language,
+        oldRecordCount,
+      });
+    }
+    recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: true });
+    return correctionResult({
+      status: result.idempotent ? "idempotent" : "replaced",
+      language: args.language,
+      oldRecordCount: result.oldCount ?? oldRecordCount,
+      newRecordCount: result.count,
+    });
+  } catch (error) {
+    recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
+    return correctionResult({
+      status: "failed",
+      language: args.language,
+      message: error instanceof Error ? error.message : "Unknown correction error",
+    });
+  }
+}
+
+export const startSiteDiaryCorrectionTool = new DynamicStructuredTool({
+  name: "start_site_diary_correction",
+  description: "Start a correction only when the complete message asks to change an earlier WhatsApp diary report but does not yet say what the corrected facts are. Never select this from a standalone keyword.",
+  schema: z.object({}),
+  async func() {
+    return serializeCorrectionToolResult(await startSiteDiaryCorrectionOperation({
+      language: detectReplyLanguage(getSiteManagerToolContext()?.originalUserComment ?? ""),
+    }));
+  },
+});
+
+export const replaceLastSiteDiaryBatchTool = new DynamicStructuredTool({
+  name: "replace_last_site_diary_batch",
+  description: "Archive and replace a previous WhatsApp diary batch. Use only when the complete message clearly supplies a correction, or when a pending correction session makes the current message the correction. Pass only the current user's correction text; trusted historical records are loaded internally.",
+  schema: z.object({
+    correction: z.string().min(1).describe("Only the current user's correction text. Never include record IDs or invented historical text."),
+  }),
+  async func({ correction }) {
+    return serializeCorrectionToolResult(await replaceLastSiteDiaryBatchOperation({
+      correction,
+      language: detectReplyLanguage(getSiteManagerToolContext()?.originalUserComment ?? correction),
+    }));
   },
 });
 
@@ -423,6 +632,8 @@ export const siteDiaryBisStatusesTool = new DynamicStructuredTool({
 
 export const tools = [
   siteDiaryToDatabaseTool,
+  startSiteDiaryCorrectionTool,
+  replaceLastSiteDiaryBatchTool,
   bisConnectionStatusTool,
   bisMaterialRecordsTool,
   siteDiaryBisStatusesTool,

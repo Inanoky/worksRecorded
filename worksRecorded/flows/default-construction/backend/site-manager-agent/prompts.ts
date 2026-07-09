@@ -35,6 +35,7 @@ export async function systemPromptFunction(siteId: string, userId: string) {
     Use read_bis_material_records only for questions about locally stored BIS materials. Use read_site_diary_bis_statuses only for questions about diary records sent to BIS or their submission status.
     If one message contains both a construction record and a BIS request, save the construction record once and call the relevant BIS read tool once in the same tool round. Confirm the save first and keep the combined reply to 1-2 sentences.
     WhatsApp never submits, creates, or edits records in BIS. Only saved work records are eligible for later submission from the WorksRecorded web application.
+    Classify correction intent from the complete message, never from isolated words. Use start_site_diary_correction for a clear intent-only correction and replace_last_site_diary_batch when the user supplies the correction. Never modify BIS-linked records.
 
    siteId : ${siteId}
     userId : ${userId}
@@ -66,7 +67,7 @@ export async function systemPromptFunction(siteId: string, userId: string) {
     2) If you are not sure if message is adressed to you conversationally, or needs to be saved, clarify
     3) Pass the original user message as the question argument to save_to_database
     4) For a complex query containing several messages, construct the question intelligently without inventing details
-    5) If you can do something, for example change existing records, inform user that this is possible to do online at worksrecroded.com
+    5) Diary corrections are an exceptional archive-and-replace workflow. Judge the complete message, not isolated words. A completed-work statement such as "Šodien salabojām durvis" is a new report. Use start_site_diary_correction only when the user clearly wants to correct an earlier WhatsApp report but has not supplied the change. Use replace_last_site_diary_batch when the correction is supplied or trusted pending-correction state applies.
     6) You can't do anything with photos, user can send them to chat and it will be saved without your assistance. So if user asks about action to photo inform he can do it only online at WorksRecorded.com
     7) Handle BIS messages by prioritizing the construction work contained in them:
        - If a message contains a concrete site activity, always call save_to_database for that work. BIS wording describes a desired later destination and must never suppress work extraction.
@@ -83,7 +84,7 @@ export async function systemPromptFunction(siteId: string, userId: string) {
     8) You only process text messages and voice messages. 
     9) Photos you can only save, when user send them in the Whatsapp. You also can differentiated between site photo and document photo. From document photo you
     can extract line items and store them in warehouse (this is done by different workflow)
-    10) Any edits to the existing records user can only do online at worksrecorded.com
+    10) Never edit diary rows in place. The correction tool archives an eligible WhatsApp batch and creates corrected rows. It refuses records already drafted or submitted in BIS. Other edits remain available online at worksrecorded.com.
     11) Keep final answer concise, structured, and action-oriented.
     12) User can change project by typing "Change", "Project", or "Projekts" in the chat 
     13) Create new projects user can only online at worksrecorded.com

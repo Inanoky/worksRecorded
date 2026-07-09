@@ -252,6 +252,10 @@ model sitediaryrecords {
   WorkersInvolved Float?
   TimeInvolved    Float?
   evalMetadata    Json?
+  saveBatchId     String?
+  archivedAt      DateTime?
+  archiveReason   String?
+  archivedByMessageId String?
   Photos          String[]
    organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -259,6 +263,47 @@ model sitediaryrecords {
   createdAt       DateTime  @default(now())
   
 
+}
+
+model SiteDiarySaveBatch {
+  id                 String   @id @default(uuid())
+  siteId             String
+  userId             String
+  sourceMessageId    String   @unique
+  originalText       String
+  status             String   @default("active")
+  replacementBatchId String?
+  createdAt          DateTime @default(now())
+  archivedAt         DateTime?
+
+  @@index([siteId, userId, status, createdAt])
+}
+
+model SiteDiaryCorrectionSession {
+  id                     String   @id @default(uuid())
+  siteId                 String
+  userId                 String
+  targetBatchId          String
+  requestedByMessageId   String   @unique
+  replyToSourceMessageId String?
+  status                 String   @default("pending")
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([siteId, userId])
+}
+
+model SiteDiaryCorrectionAudit {
+  id                  String   @id @default(uuid())
+  siteId              String
+  userId              String
+  oldBatchId          String
+  newBatchId          String
+  correctionMessageId String   @unique
+  correctionText      String
+  oldRecordIds        Json
+  newRecordIds        Json
+  createdAt           DateTime @default(now())
 }
 
 model ZtcRecords {

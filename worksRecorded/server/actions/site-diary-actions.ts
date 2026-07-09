@@ -1022,6 +1022,7 @@ export async function syncRecentActiveDaysWeather() {
     prisma.sitediaryrecords.findMany({
       where: {
         siteId: { not: null },
+        archivedAt: null,
         Date: { gte: start, lte: end },
       },
       select: { siteId: true, Date: true },
@@ -1076,6 +1077,7 @@ export async function saveSiteDiaryRecord({
   originalUserComment,
   originalAudioUrl,
   evalMetadata,
+  sourceMessageId,
 }: {
   rows: any[];
   userId?: string;
@@ -1084,6 +1086,7 @@ export async function saveSiteDiaryRecord({
   originalUserComment?: string;
   originalAudioUrl?: string | null;
   evalMetadata?: Record<string, unknown>;
+  sourceMessageId?: string | null;
 }) {
   const validRows = rows.filter((r) => r.Location || r.Works);
 
@@ -1100,6 +1103,7 @@ export async function saveSiteDiaryRecord({
   }
 
   const whatsappAudioContext = consumeWhatsappAudioSourceContext();
+  const resolvedSourceMessageId = sourceMessageId ?? whatsappAudioContext.messageId ?? null;
   const rawOriginalAudioUrl = originalAudioUrl ?? whatsappAudioContext.originalAudioUrl ?? null;
   const resolvedOriginalAudioUrl = resolvePersistableAudioUrl(rawOriginalAudioUrl);
 
@@ -1219,10 +1223,20 @@ export async function saveSiteDiaryRecord({
   try {
     const records = await prisma.$transaction(async (tx) => {
       const insertedRecords: any[] = [];
+      const batch = userId && siteId && resolvedSourceMessageId
+        ? await tx.siteDiarySaveBatch.create({
+            data: {
+              userId,
+              siteId,
+              sourceMessageId: resolvedSourceMessageId,
+              originalText: formattedOriginalUserComment ?? originalUserComment ?? "",
+            },
+          })
+        : null;
 
       for (const row of toInsert) {
         const created = await tx.sitediaryrecords.create({
-          data: row,
+          data: { ...row, saveBatchId: batch?.id },
           select: savedSiteDiaryRecordSelect,
         });
 
@@ -1344,6 +1358,176 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
   }
 }
 
+export async function getPendingSiteDiaryCorrection(args: { siteId: string; userId: string }) {
+  return prisma.siteDiaryCorrectionSession.findUnique({
+    where: { siteId_userId: { siteId: args.siteId, userId: args.userId } },
+  });
+}
+
+async function resolveCorrectionBatch(args: {
+  siteId: string;
+  userId: string;
+  replyToMessageId?: string | null;
+}) {
+  if (args.replyToMessageId) {
+    const replied = await prisma.siteDiarySaveBatch.findUnique({
+      where: { sourceMessageId: args.replyToMessageId },
+    });
+    if (replied?.siteId === args.siteId && replied.userId === args.userId && replied.status === "active") {
+      return replied;
+    }
+  }
+  return prisma.siteDiarySaveBatch.findFirst({
+    where: { siteId: args.siteId, userId: args.userId, status: "active" },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function startSiteDiaryCorrection(args: {
+  siteId: string;
+  userId: string;
+  messageId: string;
+  replyToMessageId?: string | null;
+}) {
+  const batch = await resolveCorrectionBatch(args);
+  if (!batch) return { ok: false as const, reason: "no-eligible-batch" as const };
+  const blocked = await prisma.sitediaryrecords.findFirst({
+    where: { saveBatchId: batch.id, archivedAt: null, BISId: { not: null } },
+    select: { id: true },
+  });
+  if (blocked) return { ok: false as const, reason: "bis-linked" as const };
+  await prisma.siteDiaryCorrectionSession.upsert({
+    where: { siteId_userId: { siteId: args.siteId, userId: args.userId } },
+    create: {
+      siteId: args.siteId,
+      userId: args.userId,
+      targetBatchId: batch.id,
+      requestedByMessageId: args.messageId,
+      replyToSourceMessageId: args.replyToMessageId ?? null,
+    },
+    update: {
+      targetBatchId: batch.id,
+      requestedByMessageId: args.messageId,
+      replyToSourceMessageId: args.replyToMessageId ?? null,
+      status: "pending",
+    },
+  });
+  return { ok: true as const, batch };
+}
+
+export async function getSiteDiaryCorrectionTarget(args: {
+  siteId: string;
+  userId: string;
+  replyToMessageId?: string | null;
+}) {
+  const pending = await getPendingSiteDiaryCorrection(args);
+  const batch = pending?.status === "pending"
+    ? await prisma.siteDiarySaveBatch.findFirst({
+        where: { id: pending.targetBatchId, siteId: args.siteId, userId: args.userId, status: "active" },
+      })
+    : await resolveCorrectionBatch(args);
+  if (!batch) return null;
+  const records = await prisma.sitediaryrecords.findMany({
+    where: { saveBatchId: batch.id, siteId: args.siteId, userId: args.userId, archivedAt: null },
+    orderBy: { createdAt: "asc" },
+  });
+  return { batch, records, pending };
+}
+
+export async function archiveAndReplaceSiteDiaryBatch(args: {
+  siteId: string;
+  userId: string;
+  correctionMessageId: string;
+  correctionText: string;
+  rows: Record<string, any>[];
+  replyToMessageId?: string | null;
+}) {
+  const existingAudit = await prisma.siteDiaryCorrectionAudit.findUnique({
+    where: { correctionMessageId: args.correctionMessageId },
+  });
+  if (existingAudit) {
+    const oldIds = Array.isArray(existingAudit.oldRecordIds) ? existingAudit.oldRecordIds : [];
+    const newIds = Array.isArray(existingAudit.newRecordIds) ? existingAudit.newRecordIds : [];
+    return {
+      ok: true as const,
+      idempotent: true,
+      oldCount: oldIds.length,
+      count: newIds.length,
+    };
+  }
+  const target = await getSiteDiaryCorrectionTarget(args);
+  if (!target || !target.records.length) return { ok: false as const, reason: "no-eligible-batch" as const };
+  if (target.records.some((record) => Boolean(record.BISId))) {
+    return { ok: false as const, reason: "bis-linked" as const };
+  }
+  const validRows = args.rows.filter((row) => row.Location || row.Works);
+  if (!validRows.length) return { ok: false as const, reason: "no-records" as const };
+
+  const result = await prisma.$transaction(async (tx) => {
+    const locked = await tx.sitediaryrecords.findMany({
+      where: { saveBatchId: target.batch.id, archivedAt: null },
+    });
+    if (locked.length !== target.records.length || locked.some((record) => Boolean(record.BISId))) {
+      throw new Error("Correction target changed or became BIS-linked");
+    }
+    const newBatch = await tx.siteDiarySaveBatch.create({
+      data: {
+        siteId: args.siteId,
+        userId: args.userId,
+        sourceMessageId: args.correctionMessageId,
+        originalText: `${target.batch.originalText}\nCorrection: ${args.correctionText}`,
+      },
+    });
+    const first = locked[0];
+    const created = [] as any[];
+    for (let index = 0; index < validRows.length; index += 1) {
+      const row = validRows[index];
+      created.push(await tx.sitediaryrecords.create({
+        data: {
+          ...row,
+          userId: args.userId,
+          siteId: args.siteId,
+          organizationId: first.organizationId,
+          saveBatchId: newBatch.id,
+          originalUserComment: `${target.batch.originalText}\nCorrection: ${args.correctionText}`,
+          originalAudioUrl: index === 0 ? first.originalAudioUrl : null,
+          Photos: [],
+        },
+      }));
+    }
+    const now = new Date();
+    await tx.sitediaryrecords.updateMany({
+      where: { saveBatchId: target.batch.id, archivedAt: null },
+      data: { archivedAt: now, archiveReason: "whatsapp-correction", archivedByMessageId: args.correctionMessageId },
+    });
+    await tx.siteDiarySaveBatch.update({
+      where: { id: target.batch.id },
+      data: { status: "archived", archivedAt: now, replacementBatchId: newBatch.id },
+    });
+    await tx.siteDiaryCorrectionAudit.create({
+      data: {
+        siteId: args.siteId,
+        userId: args.userId,
+        oldBatchId: target.batch.id,
+        newBatchId: newBatch.id,
+        correctionMessageId: args.correctionMessageId,
+        correctionText: args.correctionText,
+        oldRecordIds: locked.map((record) => record.id),
+        newRecordIds: created.map((record) => record.id),
+      },
+    });
+    await tx.siteDiaryCorrectionSession.deleteMany({ where: { siteId: args.siteId, userId: args.userId } });
+    return { newBatch, created };
+  });
+  return {
+    ok: true as const,
+    idempotent: false,
+    oldCount: target.records.length,
+    count: result.created.length,
+    records: result.created,
+  };
+}
+
 export async function deleteSiteDiaryRecord({
   id,
   siteId,
@@ -1391,6 +1575,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
           }
         : {
             siteId,
+            archivedAt: null,
             OR: [
               { Date: { gte: start, lte: end } },
               { Date_Custom_1: { gte: start, lte: end } },
@@ -1551,6 +1736,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, option
           }
         : {
             siteId,
+            archivedAt: null,
             ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
           },
     orderBy: [{ Date: "asc" as const }],
@@ -2722,6 +2908,7 @@ export async function syncDeletedSiteDiaryBisRecords(siteId: string) {
   const records = await prisma.sitediaryrecords.findMany({
     where: {
       siteId,
+      archivedAt: null,
       BISId: { not: null },
     },
     select: { id: true, BISId: true, bisStatus: true },
@@ -2893,6 +3080,7 @@ export async function getFilledDays({ siteId, year, month, flowId }: Args & Site
       : prisma.sitediaryrecords.findMany({
           where: {
             siteId,
+            archivedAt: null,
             Date: { gte: from, lt: to },
           },
           select: { Date: true, Date_Custom_1: true },
@@ -3106,6 +3294,7 @@ export async function getPhotosByDate({
       prisma.sitediaryrecords.findMany({
         where: {
           siteId: siteId ?? undefined,
+          archivedAt: null,
           Date: {
             gte: start,
             lt: end,

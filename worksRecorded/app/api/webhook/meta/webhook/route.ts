@@ -1170,7 +1170,10 @@ export async function POST(req: Request): Promise<Response> {
       // 2) Run the shared role-based WhatsApp routing.
       if (isRoutableMetaMessage(message)) {
         await runWithWhatsappSourceContext(
-          { messageId: message.id },
+          {
+            messageId: message.id,
+            replyToMessageId: typeof message.context?.id === "string" ? message.context.id : null,
+          },
           () => runWithMetaReplyContext(
             {
               businessPhoneNumberId: business_phone_number_id,
