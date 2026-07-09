@@ -11,8 +11,17 @@ import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 import { processMaterialDocumentImageFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 
-const currentAgent: AgentFn = (input, siteId, userId, originalAudioUrl) =>
-  talkToWhatsappAgent(input, siteId, userId, originalAudioUrl);
+const currentAgent: AgentFn = async (input, siteId, userId, originalAudioUrl) =>
+  (await talkToWhatsappAgent(input, siteId, userId, originalAudioUrl)) ?? "";
+
+async function sendProcessingAcknowledgement(to: string | null) {
+  if (!to) return;
+  try {
+    await sendMessage(to, "Ziņa saņemta. Apstrādāju, lūdzu uzgaidiet...");
+  } catch (error) {
+    console.error("Site manager processing acknowledgement failed", error);
+  }
+}
 
 export async function handleSiteManagerRoute(args: {
   from: string | null;
@@ -86,6 +95,10 @@ export async function handleSiteManagerRoute(args: {
     });
     if (img) return;
 
+    const mediaContentType0 = (getString(formData, "MediaContentType0") || "").toLowerCase();
+    if (mediaContentType0.startsWith("audio")) {
+      await sendProcessingAcknowledgement(from);
+    }
     const aud = await handleAudio({
       formData,
       user,
@@ -99,5 +112,8 @@ export async function handleSiteManagerRoute(args: {
   }
 
   // 4) Text-only
+  if (body) {
+    await sendProcessingAcknowledgement(from);
+  }
   await handleText({ body, user, to: from, agent: currentAgent });
 }

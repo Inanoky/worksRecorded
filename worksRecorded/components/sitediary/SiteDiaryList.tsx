@@ -23,6 +23,7 @@ import {
   getPossibleSiteDiaryBisApprovers,
   getSiteDiaryBisApprovalStatus,
   getSiteGalleryAttachments,
+  getSiteDiaryRecordsPage,
   getSitediaryRecordsBySiteIdForExcel,
   sendSiteDiaryRecordToBis,
   syncDeletedSiteDiaryBisRecords,
@@ -32,6 +33,8 @@ import { generateSiteDiaryPdf } from "@/server/actions/pdfBuilderForFrontend";
 import {
   CalendarIcon,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ChevronsUpDown,
   Copy,
   CloudSun,
@@ -86,6 +89,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -99,6 +103,12 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+} from "@/components/ui/pagination";
 
 // 👇 NEW: full gallery view
 import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
@@ -161,6 +171,8 @@ const WhatsAppIcon = ({ size = 22 }) => (
   </svg>
 );
 
+const SITE_DIARY_LIST_PAGE_SIZE = 50;
+
 type DiaryRow = {
   id?: string;
   createdAt?: string | Date;
@@ -190,6 +202,79 @@ type DayGroup = {
 };
 
 type ZtcScopeSummary = NonNullable<Awaited<ReturnType<typeof getZtcScopeSummary>>>;
+
+function SiteDiaryListSkeleton({ label }: { label: string }) {
+  return (
+    <div className="space-y-3" role="status" aria-label={label}>
+      <span className="sr-only">{label}</span>
+      <div className="rounded-md border bg-background px-3 py-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Skeleton className="h-4 w-40" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-24 rounded-md" />
+            <Skeleton className="h-9 w-9 rounded-md" />
+            <Skeleton className="h-9 w-9 rounded-md" />
+          </div>
+        </div>
+      </div>
+
+      <div className="h-[60vh] rounded-md border bg-background sm:h-[70vh]">
+        <div className="space-y-3 p-2 sm:p-3">
+          {[0, 1, 2].map((groupIndex) => (
+            <Card key={groupIndex} className="border-border/80 shadow-sm">
+              <CardHeader className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2 px-3 pb-3 sm:px-4">
+                {Array.from({ length: groupIndex === 0 ? 5 : 3 }).map((_, rowIndex) => (
+                  <div
+                    key={rowIndex}
+                    className="grid min-h-12 grid-cols-[28px_minmax(0,1.4fr)_minmax(0,1fr)_90px] items-center gap-3 rounded-md border px-3 py-2"
+                  >
+                    <Skeleton className="h-4 w-4 rounded-sm" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-[75%]" />
+                      <Skeleton className="h-3 w-[48%]" />
+                    </div>
+                    <Skeleton className="h-4 w-[70%]" />
+                    <Skeleton className="h-8 w-20 justify-self-end rounded-md" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SiteDiaryListUpdatingSkeleton({ label }: { label: string }) {
+  return (
+    <div className="rounded-md border bg-background px-3 py-2 shadow-sm" role="status" aria-label={label}>
+      <span className="sr-only">{label}</span>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-3 w-64 max-w-full" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="h-8 w-8 rounded-md" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function formatZtcPauseTime(date: Date, dateLocale: string) {
   return date.toLocaleString(dateLocale, {
@@ -502,7 +587,9 @@ export default function SiteDiaryCalendar({
 
   // List view state
   const [rows, setRows] = React.useState<DiaryRow[]>([]);
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(Boolean(siteId));
+  const [hasLoadedRowsOnce, setHasLoadedRowsOnce] = React.useState(false);
+  const [showDelayedListSkeleton, setShowDelayedListSkeleton] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [dateFrom, setDateFrom] = React.useState<Date | null>(null);
   const [dateTo, setDateTo] = React.useState<Date | null>(null);
@@ -511,6 +598,9 @@ export default function SiteDiaryCalendar({
   const [elementFilter, setElementFilter] = React.useState<string>("__ALL__");
   const [workerFilter, setWorkerFilter] = React.useState<string>("__ALL__");
   const [keywordFilter, setKeywordFilter] = React.useState<string>("");
+  const [listPage, setListPage] = React.useState(1);
+  const [listTotalCount, setListTotalCount] = React.useState(0);
+  const [listTotalPages, setListTotalPages] = React.useState(1);
   const keywordInputRef = React.useRef<HTMLInputElement | null>(null);
   const keywordDebounceRef = React.useRef<number | null>(null);
 
@@ -725,12 +815,22 @@ export default function SiteDiaryCalendar({
     if (bisUiEnabled && !options?.skipSync) {
       await syncDeletedSiteDiaryBisRecords(siteId);
     }
-    const data: DiaryRow[] = await getSitediaryRecordsBySiteIdForExcel(siteId, {
+    const result = await getSiteDiaryRecordsPage(siteId, {
       flowId: isZtcSite ? "ztc" : undefined,
-      dateFrom: isZtcSite && dateFrom ? toLocalDateKey(dateFrom) : undefined,
-      dateTo: isZtcSite && dateTo ? toLocalDateKey(dateTo) : undefined,
+      dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
+      dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
+      workFilter,
+      floorFilter,
+      elementFilter: isZtcSite ? elementFilter : undefined,
+      workerFilter: isZtcSite ? workerFilter : undefined,
+      keyword: keywordFilter,
+      page: listPage,
+      pageSize: SITE_DIARY_LIST_PAGE_SIZE,
     });
+    const data: DiaryRow[] = result.rows || [];
     setRows(data || []);
+    setListTotalCount(result.totalCount ?? 0);
+    setListTotalPages(result.totalPages ?? 1);
     setBisApprovalStatusByRowId(
       Object.fromEntries(
         (data || [])
@@ -739,7 +839,49 @@ export default function SiteDiaryCalendar({
       ),
     );
     return data;
-  }, [bisUiEnabled, dateFrom, dateTo, isZtcSite, siteId]);
+  }, [
+    bisUiEnabled,
+    dateFrom,
+    dateTo,
+    elementFilter,
+    floorFilter,
+    isZtcSite,
+    keywordFilter,
+    listPage,
+    siteId,
+    workFilter,
+    workerFilter,
+  ]);
+
+  React.useEffect(() => {
+    setListPage(1);
+  }, [dateFrom, dateTo, workFilter, floorFilter, elementFilter, workerFilter, keywordFilter]);
+
+  React.useEffect(() => {
+    setHasLoadedRowsOnce(false);
+    setShowDelayedListSkeleton(false);
+  }, [siteId]);
+
+  React.useEffect(() => {
+    if (listPage > listTotalPages) {
+      setListPage(Math.max(1, listTotalPages));
+    }
+  }, [listPage, listTotalPages]);
+
+  React.useEffect(() => {
+    if (!loading || !hasLoadedRowsOnce) {
+      setShowDelayedListSkeleton(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setShowDelayedListSkeleton(true);
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [hasLoadedRowsOnce, loading]);
 
   // Load filled days for calendar
   React.useEffect(() => {
@@ -769,6 +911,10 @@ export default function SiteDiaryCalendar({
     async function run() {
       if (!siteId) {
         setRows([]);
+        setListTotalCount(0);
+        setListTotalPages(1);
+        setHasLoadedRowsOnce(false);
+        setShowDelayedListSkeleton(false);
         return;
       }
       setLoading(true);
@@ -819,6 +965,7 @@ export default function SiteDiaryCalendar({
 
         //Fetching data
         const data: DiaryRow[] = await refreshRowsWithBisSync();
+        setHasLoadedRowsOnce(true);
 
         function pickRenderableRows(
           rows: Record<string, any>[],
@@ -1041,6 +1188,9 @@ export default function SiteDiaryCalendar({
       .filter((group) => group.rows.length > 0);
   }, [dayGroups, keywordFilter]);
 
+  const showInitialListSkeleton = loading && !hasLoadedRowsOnce && !error;
+  const showUpdatingListSkeleton = loading && hasLoadedRowsOnce && showDelayedListSkeleton && !error;
+
   const [ztcSelectedScopeSummary, setZtcSelectedScopeSummary] =
     React.useState<ZtcScopeSummary | null>(null);
   const [ztcScopeSummaryLoading, setZtcScopeSummaryLoading] = React.useState(false);
@@ -1225,10 +1375,50 @@ export default function SiteDiaryCalendar({
     }
   };
 
-  // Export ONLY currently filtered rows
+  const loadAllFilteredRowsForExport = React.useCallback(async () => {
+    if (!siteId) return [];
+    const allRows = await getSitediaryRecordsBySiteIdForExcel(siteId, {
+      flowId: isZtcSite ? "ztc" : undefined,
+      dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
+      dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
+    }) as DiaryRow[];
+    const normalizedKeyword = keywordFilter.trim().toLowerCase();
+    return allRows.filter((row) => {
+      if (workFilter !== "__ALL__" && row.Works !== workFilter) return false;
+      if (floorFilter !== "__ALL__" && row.Location !== floorFilter) return false;
+      if (isZtcSite && elementFilter !== "__ALL__" && row.Location_Custom_1 !== elementFilter) return false;
+      if (isZtcSite && workerFilter !== "__ALL__" && row.createdBy !== workerFilter) return false;
+      if (!normalizedKeyword) return true;
+      const searchableText = [
+        row.Works,
+        row.Location,
+        row.Location_Custom_1,
+        row.createdBy,
+        row.Comments,
+        row.Units,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchableText.includes(normalizedKeyword);
+    });
+  }, [
+    dateFrom,
+    dateTo,
+    elementFilter,
+    floorFilter,
+    isZtcSite,
+    keywordFilter,
+    siteId,
+    workFilter,
+    workerFilter,
+  ]);
+
+  // Export all rows matching the active filters, not just the currently loaded page.
   const exportToExcel = async () => {
     const XLSX = await import("xlsx");
-    const exportRows = isZtcSite ? formatZtcRowsForExcel(filteredRows) : filteredRows;
+    const exportFilteredRows = await loadAllFilteredRowsForExport();
+    const exportRows = isZtcSite ? formatZtcRowsForExcel(exportFilteredRows) : exportFilteredRows;
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
@@ -1236,12 +1426,12 @@ export default function SiteDiaryCalendar({
   };
 
   const exportZtcProductivity = async () => {
-    const visibleRows = keywordMatchedDayGroups.flatMap((group) => group.rows);
+    const visibleRows = await loadAllFilteredRowsForExport();
     await exportZtcProductivityToExcel({ rows: visibleRows });
   };
 
   const exportForma2 = async () => {
-    await exportForma2ToExcel(rows);
+    await exportForma2ToExcel(await loadAllFilteredRowsForExport());
   };
 
   const openDayDialog = (date: Date) => {
@@ -1283,6 +1473,111 @@ export default function SiteDiaryCalendar({
       day: "numeric",
       weekday: "short",
     });
+
+  const renderListPagination = () => {
+    if (listTotalPages <= 1 && listTotalCount <= SITE_DIARY_LIST_PAGE_SIZE) return null;
+    const pageWindow = 2;
+    const startPage = Math.max(1, listPage - pageWindow);
+    const endPage = Math.min(listTotalPages, listPage + pageWindow);
+    const pages = Array.from(
+      { length: endPage - startPage + 1 },
+      (_, index) => startPage + index,
+    );
+    const firstRecord = listTotalCount === 0 ? 0 : (listPage - 1) * SITE_DIARY_LIST_PAGE_SIZE + 1;
+    const lastRecord = Math.min(listTotalCount, listPage * SITE_DIARY_LIST_PAGE_SIZE);
+
+    return (
+      <div className="flex flex-col gap-2 rounded-md border bg-background px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-xs text-muted-foreground sm:text-sm">
+          {t.listPaginationSummary(firstRecord, lastRecord, listTotalCount)}
+        </div>
+        <Pagination aria-label={t.recordsPagination} className="mx-0 w-auto justify-start sm:justify-end">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationLink
+                href="#"
+                size="default"
+                aria-label={t.previous}
+                aria-disabled={listPage <= 1 || loading}
+                className={cn(
+                  "gap-1 px-2.5 sm:pl-2.5",
+                  (listPage <= 1 || loading) && "pointer-events-none opacity-50",
+                )}
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (listPage <= 1 || loading) return;
+                  setListPage((page) => Math.max(1, page - 1));
+                }}
+              >
+                <ChevronLeft className="size-4" />
+                <span className="hidden sm:block">{t.previous}</span>
+              </PaginationLink>
+            </PaginationItem>
+            {startPage > 1 ? (
+              <PaginationItem>
+                <PaginationLink
+                  href="#"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    if (!loading) setListPage(1);
+                  }}
+                >
+                  1
+                </PaginationLink>
+              </PaginationItem>
+            ) : null}
+            {pages.map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  href="#"
+                  isActive={page === listPage}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    if (!loading) setListPage(page);
+                  }}
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            {endPage < listTotalPages ? (
+              <PaginationItem>
+                <PaginationLink
+                  href="#"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    if (!loading) setListPage(listTotalPages);
+                  }}
+                >
+                  {listTotalPages}
+                </PaginationLink>
+              </PaginationItem>
+            ) : null}
+            <PaginationItem>
+              <PaginationLink
+                href="#"
+                size="default"
+                aria-label={t.next}
+                aria-disabled={listPage >= listTotalPages || loading}
+                className={cn(
+                  "gap-1 px-2.5 sm:pr-2.5",
+                  (listPage >= listTotalPages || loading) && "pointer-events-none opacity-50",
+                )}
+                onClick={(event) => {
+                  event.preventDefault();
+                  if (listPage >= listTotalPages || loading) return;
+                  setListPage((page) => Math.min(listTotalPages, page + 1));
+                }}
+              >
+                <span className="hidden sm:block">{t.next}</span>
+                <ChevronRight className="size-4" />
+              </PaginationLink>
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      </div>
+    );
+  };
 
   // Call server action and download PDF
 
@@ -2342,47 +2637,59 @@ export default function SiteDiaryCalendar({
               </div>
             ) : null}
 
-            {!loading && keywordMatchedDayGroups.length === 0 && !error && (
-              <Card className="border-dashed">
-                <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                  {t.noRecords}
-                </CardContent>
-              </Card>
-            )}
+            {showInitialListSkeleton ? (
+              <SiteDiaryListSkeleton label={t.loadingRecords} />
+            ) : (
+              <>
+                <div className="mb-3">{renderListPagination()}</div>
 
-            {/* List of days */}
-            <ScrollArea className="h-[60vh] rounded-md border bg-background sm:h-[70vh]">
-              <div className="space-y-3 p-2 sm:p-3">
-                {keywordMatchedDayGroups.map((group) => {
-                  const totalTasks = group.rows.length;
-                  const totalHours = group.rows.reduce((sum, r) => {
-                    const workers = Number(r.WorkersInvolved ?? 0);
-                    const hours = Number(r.TimeInvolved ?? 0);
-                    return sum + workers * hours;
-                  }, 0);
-                  const totalWorkers = group.rows.reduce(
-                    (sum, r) => sum + Number(r.WorkersInvolved ?? 0),
-                    0,
-                  );
-                  const ztcDayPayrollSum = group.rows.reduce(
-                    (sum, r) => sum + getZtcPayrollValues(r).sum,
-                    0,
-                  );
+                {showUpdatingListSkeleton ? (
+                  <div className="mb-3">
+                    <SiteDiaryListUpdatingSkeleton label={t.updatingRecords} />
+                  </div>
+                ) : null}
 
-                  const dataTour =
-                    !firstFilledMarked && totalTasks > 0
-                      ? ((firstFilledMarked = true),
-                        "first-completed-diary-record")
-                      : undefined;
+                {!loading && keywordMatchedDayGroups.length === 0 && !error && (
+                  <Card className="border-dashed">
+                    <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                      {t.noRecords}
+                    </CardContent>
+                  </Card>
+                )}
 
-                  const isPdfLoading = pdfLoadingKey === group.key;
+                {/* List of days */}
+                <ScrollArea className="h-[60vh] rounded-md border bg-background sm:h-[70vh]">
+                  <div className="space-y-3 p-2 sm:p-3">
+                    {keywordMatchedDayGroups.map((group) => {
+                      const totalTasks = group.rows.length;
+                      const totalHours = group.rows.reduce((sum, r) => {
+                        const workers = Number(r.WorkersInvolved ?? 0);
+                        const hours = Number(r.TimeInvolved ?? 0);
+                        return sum + workers * hours;
+                      }, 0);
+                      const totalWorkers = group.rows.reduce(
+                        (sum, r) => sum + Number(r.WorkersInvolved ?? 0),
+                        0,
+                      );
+                      const ztcDayPayrollSum = group.rows.reduce(
+                        (sum, r) => sum + getZtcPayrollValues(r).sum,
+                        0,
+                      );
 
-                  return (
-                    <Card
-                      key={group.key}
-                      data-tour={dataTour}
-                      className="border-border/80 shadow-sm transition-shadow hover:shadow-md"
-                    >
+                      const dataTour =
+                        !firstFilledMarked && totalTasks > 0
+                          ? ((firstFilledMarked = true),
+                            "first-completed-diary-record")
+                          : undefined;
+
+                      const isPdfLoading = pdfLoadingKey === group.key;
+
+                      return (
+                        <Card
+                          key={group.key}
+                          data-tour={dataTour}
+                          className="border-border/80 shadow-sm transition-shadow hover:shadow-md"
+                        >
                       <CardHeader className="flex flex-col gap-2 py-3 px-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
                         <div className="space-y-1">
                           <CardTitle className="text-base font-semibold sm:text-lg">
@@ -3455,6 +3762,10 @@ export default function SiteDiaryCalendar({
                 })}
               </div>
             </ScrollArea>
+
+            <div className="mt-3">{renderListPagination()}</div>
+              </>
+            )}
           </TabsContent>
 
           {/* GALLERY VIEW */}

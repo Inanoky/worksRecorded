@@ -43,6 +43,10 @@ type SiteDiaryListMessages = {
   keywordSearchPlaceholder: string;
   clearFilters: string;
   loading: string;
+  loadingRecords: string;
+  updatingRecords: string;
+  recordsPagination: string;
+  listPaginationSummary: (first: number, last: number, total: number) => string;
   noRecords: string;
   taskSingular: string;
   taskPlural: string;
@@ -621,6 +625,10 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     keywordSearchPlaceholder: "Search keyword…",
     clearFilters: "Clear filters",
     loading: "Loading…",
+    loadingRecords: "Loading site diary records...",
+    updatingRecords: "Updating site diary records...",
+    recordsPagination: "Site diary records pagination",
+    listPaginationSummary: (first, last, total) => `Showing ${first}-${last} of ${total}`,
     noRecords: "No site diary records match your filters.",
     taskSingular: "task",
     taskPlural: "tasks",
@@ -724,6 +732,10 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     keywordSearchPlaceholder: "Meklēt pēc atslēgvārda…",
     clearFilters: "Notīrīt filtrus",
     loading: "Ielādē...",
+    loadingRecords: "Ielādē būvdarbu žurnāla ierakstus...",
+    updatingRecords: "Atjauno būvdarbu žurnāla ierakstus...",
+    recordsPagination: "Būvdarbu žurnāla ierakstu lapošana",
+    listPaginationSummary: (first, last, total) => `Rāda ${first}-${last} no ${total}`,
     noRecords: "Neviens būvdarbu žurnāla ieraksts neatbilst izvēlētajiem filtriem.",
     taskSingular: "uzdevums",
     taskPlural: "uzdevumi",

@@ -1721,6 +1721,265 @@ export async function getSiteDiaryRecord({ siteId, date }) {
   }
 }
 
+type SiteDiaryRecordsPageOptions = SiteDiaryFlowHint & {
+  page?: number;
+  pageSize?: number;
+  workFilter?: string;
+  floorFilter?: string;
+  elementFilter?: string;
+  workerFilter?: string;
+  keyword?: string;
+};
+
+const SITE_DIARY_LIST_DEFAULT_PAGE_SIZE = 50;
+const SITE_DIARY_LIST_MAX_PAGE_SIZE = 100;
+
+function normalizeSiteDiaryPage(value: unknown) {
+  const page = Number(value);
+  return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+}
+
+function normalizeSiteDiaryPageSize(value: unknown) {
+  const pageSize = Number(value);
+  if (!Number.isFinite(pageSize) || pageSize <= 0) return SITE_DIARY_LIST_DEFAULT_PAGE_SIZE;
+  return Math.min(SITE_DIARY_LIST_MAX_PAGE_SIZE, Math.max(1, Math.floor(pageSize)));
+}
+
+function compactFilterValue(value?: string | null) {
+  const trimmed = value?.trim();
+  return trimmed && trimmed !== "__ALL__" ? trimmed : null;
+}
+
+function buildSiteDiaryListDateFilter(options: SiteDiaryRecordsPageOptions) {
+  const dateFrom = options.dateFrom ? new Date(options.dateFrom) : null;
+  const dateTo = options.dateTo ? new Date(options.dateTo) : null;
+  const dateFilter: Record<string, Date> = {};
+  if (dateFrom && !Number.isNaN(dateFrom.getTime())) {
+    dateFrom.setHours(0, 0, 0, 0);
+    dateFilter.gte = dateFrom;
+  }
+  if (dateTo && !Number.isNaN(dateTo.getTime())) {
+    dateTo.setHours(23, 59, 59, 999);
+    dateFilter.lte = dateTo;
+  }
+  return dateFilter;
+}
+
+function buildSiteDiaryListWhere(siteId: string, options: SiteDiaryRecordsPageOptions, useZtcRecords: boolean) {
+  const andFilters: any[] = [];
+  const dateFilter = buildSiteDiaryListDateFilter(options);
+  if (Object.keys(dateFilter).length > 0) andFilters.push({ Date: dateFilter });
+
+  const workFilter = compactFilterValue(options.workFilter);
+  if (workFilter) andFilters.push({ Works: workFilter });
+
+  const floorFilter = compactFilterValue(options.floorFilter);
+  if (floorFilter) andFilters.push({ Location: floorFilter });
+
+  const elementFilter = compactFilterValue(options.elementFilter);
+  if (useZtcRecords && elementFilter) andFilters.push({ Location_Custom_1: elementFilter });
+
+  const workerFilter = compactFilterValue(options.workerFilter);
+  if (useZtcRecords && workerFilter) {
+    const containsWorker = { contains: workerFilter, mode: "insensitive" as const };
+    andFilters.push({
+      OR: [
+        { originalUserComment: containsWorker },
+        { User: { is: { OR: [{ firstName: containsWorker }, { lastName: containsWorker }] } } },
+        { Worker: { is: { OR: [{ name: containsWorker }, { surname: containsWorker }] } } },
+      ],
+    });
+  }
+
+  const keyword = compactFilterValue(options.keyword);
+  if (keyword) {
+    const containsKeyword = { contains: keyword, mode: "insensitive" as const };
+    andFilters.push({
+      OR: [
+        { Works: containsKeyword },
+        { Works_Custom_1: containsKeyword },
+        { Works_Custom_2: containsKeyword },
+        { Location: containsKeyword },
+        { Location_Custom_1: containsKeyword },
+        { Location_Custom_2: containsKeyword },
+        { Comments: containsKeyword },
+        { Comments_Custom_1: containsKeyword },
+        { Comments_Custom_2: containsKeyword },
+        { Units: containsKeyword },
+        { originalUserComment: containsKeyword },
+        { User: { is: { OR: [{ firstName: containsKeyword }, { lastName: containsKeyword }] } } },
+        { Worker: { is: { OR: [{ name: containsKeyword }, { surname: containsKeyword }] } } },
+      ],
+    });
+  }
+
+  return useZtcRecords
+    ? {
+        siteId,
+        Date_Custom_2: { not: null },
+        NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+        ...(andFilters.length > 0 ? { AND: andFilters } : {}),
+      }
+    : {
+        siteId,
+        archivedAt: null,
+        ...(andFilters.length > 0 ? { AND: andFilters } : {}),
+      };
+}
+
+const siteDiaryListSelect = {
+  id: true,
+  createdAt: true,
+  Date: true,
+  Date_Custom_1: true,
+  Date_Custom_2: true,
+  Location: true,
+  Location_Custom_1: true,
+  Location_Custom_2: true,
+  Works: true,
+  Works_Custom_1: true,
+  Works_Custom_2: true,
+  Comments: true,
+  Comments_Custom_1: true,
+  Comments_Custom_2: true,
+  Units: true,
+  Amounts: true,
+  WorkersInvolved: true,
+  TimeInvolved: true,
+  Photos: true,
+  BISId: true,
+  bisStatus: true,
+  originalUserComment: true,
+  originalAudioUrl: true,
+  User: {
+    select: {
+      firstName: true,
+      lastName: true,
+    },
+  },
+  Worker: {
+    select: {
+      name: true,
+      surname: true,
+    },
+  },
+};
+
+function formatCreatorName(
+  firstName: string | null | undefined,
+  lastName: string | null | undefined,
+) {
+  const parts: string[] = [];
+  if (firstName) parts.push(firstName);
+  if (lastName) parts.push(lastName);
+  return parts.join(" ");
+}
+
+function mapSiteDiaryListRecord(rec: any) {
+  let createdBy = "";
+  if (rec.User) {
+    createdBy = formatCreatorName(rec.User.firstName, rec.User.lastName);
+  } else if (rec.Worker) {
+    createdBy = formatCreatorName(rec.Worker.name, rec.Worker.surname);
+  }
+  if (!createdBy) {
+    createdBy = getCreatorNameFromOriginalComment(rec.originalUserComment);
+  }
+
+  return {
+    id: rec.id,
+    createdAt: rec.createdAt,
+    Date: rec.Date,
+    Date_Custom_1: rec.Date_Custom_1,
+    Date_Custom_2: rec.Date_Custom_2,
+    Location: rec.Location || "",
+    Location_Custom_1: rec.Location_Custom_1 || "",
+    Location_Custom_2: rec.Location_Custom_2 || "",
+    Works: rec.Works || "",
+    Works_Custom_1: rec.Works_Custom_1 || "",
+    Works_Custom_2: rec.Works_Custom_2 || "",
+    Comments: rec.Comments || "",
+    Comments_Custom_1: rec.Comments_Custom_1 || "",
+    Comments_Custom_2: rec.Comments_Custom_2 || "",
+    Units: rec.Units || "",
+    Amounts: rec.Amounts?.toString() || "",
+    WorkersInvolved: rec.WorkersInvolved?.toString() || "",
+    TimeInvolved: rec.TimeInvolved?.toString() || "",
+    pausedAt: "pausedAt" in rec ? rec.pausedAt || null : null,
+    pauseIntervals: "pauseIntervals" in rec ? rec.pauseIntervals ?? [] : [],
+    Photos: rec.Photos ?? [],
+    BISId: rec.BISId || null,
+    bisStatus: rec.bisStatus || null,
+    originalUserComment: rec.originalUserComment || "",
+    originalAudioUrl: rec.originalAudioUrl || "",
+    createdBy: createdBy || "N/A",
+  };
+}
+
+export async function getSiteDiaryRecordsPage(siteId: string, options: SiteDiaryRecordsPageOptions = {}) {
+  if (!siteId) throw new Error("Missing siteId");
+
+  const page = normalizeSiteDiaryPage(options.page);
+  const pageSize = normalizeSiteDiaryPageSize(options.pageSize);
+  const trace = createPerfTrace({ route: "action.siteDiary.recordsPage", category: "action", siteId });
+  const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
+  const where = buildSiteDiaryListWhere(siteId, options, useZtcRecords);
+  const orderBy = useZtcRecords
+    ? [{ Date: "desc" as const }, { Date_Custom_1: "desc" as const }, { createdAt: "desc" as const }, { id: "desc" as const }]
+    : [{ Date: "desc" as const }, { createdAt: "desc" as const }, { id: "desc" as const }];
+  const skip = (page - 1) * pageSize;
+
+  try {
+    const [records, totalCount] = await trace.measure("recordsPageQuery", () =>
+      useZtcRecords
+        ? Promise.all([
+            prisma.ztcRecords.findMany({
+              where,
+              orderBy,
+              skip,
+              take: pageSize,
+              select: {
+                ...siteDiaryListSelect,
+                pausedAt: true,
+                pauseIntervals: true,
+              },
+            }),
+            prisma.ztcRecords.count({ where }),
+          ])
+        : Promise.all([
+            prisma.sitediaryrecords.findMany({
+              where,
+              orderBy,
+              skip,
+              take: pageSize,
+              select: siteDiaryListSelect,
+            }),
+            prisma.sitediaryrecords.count({ where }),
+          ]),
+    );
+    const rows = records.map(mapSiteDiaryListRecord);
+    const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+    trace.end({
+      status: 200,
+      extra: {
+        returnedCount: rows.length,
+        totalCount,
+        page,
+        pageSize,
+      },
+    });
+
+    return { rows, totalCount, page, pageSize, totalPages };
+  } catch (error) {
+    trace.fail(error, {
+      status: 500,
+      extra: { page, pageSize },
+    });
+    throw error;
+  }
+}
+
 export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, options: SiteDiaryFlowHint = {}) {
   if (!siteId) throw new Error("Missing siteId");
 
