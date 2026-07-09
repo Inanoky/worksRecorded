@@ -115,6 +115,7 @@ const savedSiteDiaryRecordSelect = {
   Comments: true,
   originalUserComment: true,
   originalAudioUrl: true,
+  Units: true,
   Amounts: true,
   WorkersInvolved: true,
   TimeInvolved: true,
@@ -1447,12 +1448,22 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
   });
   if (existingAudit) {
     const oldIds = Array.isArray(existingAudit.oldRecordIds) ? existingAudit.oldRecordIds : [];
-    const newIds = Array.isArray(existingAudit.newRecordIds) ? existingAudit.newRecordIds : [];
+    const newIds = Array.isArray(existingAudit.newRecordIds)
+      ? existingAudit.newRecordIds.filter((id): id is string => typeof id === "string")
+      : [];
+    const records = newIds.length
+      ? await prisma.sitediaryrecords.findMany({
+          where: { id: { in: newIds } },
+          select: savedSiteDiaryRecordSelect,
+        })
+      : [];
+    const recordById = new Map(records.map((record) => [record.id, record]));
     return {
       ok: true as const,
       idempotent: true,
       oldCount: oldIds.length,
       count: newIds.length,
+      records: newIds.map((id) => recordById.get(id)).filter(Boolean),
     };
   }
   const target = await getSiteDiaryCorrectionTarget(args);
@@ -1493,6 +1504,7 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
           originalAudioUrl: index === 0 ? first.originalAudioUrl : null,
           Photos: [],
         },
+        select: savedSiteDiaryRecordSelect,
       }));
     }
     const now = new Date();

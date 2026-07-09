@@ -192,6 +192,26 @@ describe("site-manager fast path", () => {
     })).toBe("Ko tieši vajag mainīt iepriekšējā ierakstā?");
   });
 
+  it("includes corrected record details in deterministic correction success replies", () => {
+    const reply = formatDeterministicCorrectionReply({
+      kind: "site_diary_correction",
+      status: "replaced",
+      language: "en",
+      oldRecordCount: 1,
+      newRecordCount: 2,
+      records: [
+        { Works: "Doors", Location: "1st floor", Amounts: 3, Units: "pcs" },
+        { Works: "Walls", Location: "2nd floor", TimeInvolved: 4 },
+      ],
+    });
+
+    expect(reply).toContain("Archived 1 and created 2 corrected records.");
+    expect(reply).toContain("• Doors — 1st floor");
+    expect(reply).toContain("Amount: 3 pcs");
+    expect(reply).toContain("• Walls — 2nd floor");
+    expect(reply).toContain("Hours: 4");
+  });
+
   it.each([
     ["Šodien tika pabeigti darbi", "lv"],
     ["Today the walls were finished", "en"],

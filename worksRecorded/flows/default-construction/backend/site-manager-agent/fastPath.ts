@@ -24,6 +24,7 @@ export type SiteDiaryCorrectionResult = {
   language: SupportedReplyLanguage;
   oldRecordCount?: number;
   newRecordCount?: number;
+  records?: SiteDiaryConfirmationRecord[];
   message?: string;
 };
 
@@ -72,10 +73,12 @@ function compactComment(value: string) {
 export function formatSavedDiaryRecords(
   records: SiteDiaryConfirmationRecord[],
   language: SupportedReplyLanguage,
+  options: { limit?: number } = {},
 ) {
   if (!records.length) return "";
   const labels = RECORD_LABELS[language];
-  const visibleRecords = records.slice(0, RECORD_LIMIT);
+  const limit = options.limit ?? RECORD_LIMIT;
+  const visibleRecords = Number.isFinite(limit) ? records.slice(0, limit) : records;
   const multiple = records.length > 1;
   const blocks = visibleRecords.map((record) => {
     const titleParts = [record.Works, record.Location].filter(hasValue).map(String);
@@ -99,8 +102,8 @@ export function formatSavedDiaryRecords(
     return lines.join("\n");
   });
 
-  if (records.length > RECORD_LIMIT) {
-    const remaining = records.length - RECORD_LIMIT;
+  if (Number.isFinite(limit) && records.length > limit) {
+    const remaining = records.length - limit;
     blocks.push(language === "en" ? `${labels.more} ${remaining} more` : `${labels.more} ${remaining}`);
   }
   return blocks.join("\n\n");
@@ -257,6 +260,8 @@ export function parseCorrectionToolResult(content: string): SiteDiaryCorrectionR
 export function formatDeterministicCorrectionReply(result: SiteDiaryCorrectionResult) {
   const oldCount = Math.max(0, result.oldRecordCount ?? 0);
   const newCount = Math.max(0, result.newRecordCount ?? 0);
+  const formattedRecords = formatSavedDiaryRecords(result.records ?? [], result.language, { limit: Infinity });
+  const changedItems = formattedRecords ? `\n\n${formattedRecords}` : "";
   const detail = oldCount && newCount
     ? result.language === "lv"
       ? ` Arhivēju ${oldCount} un izveidoju ${newCount} koriģētu ierakstu${newCount === 1 ? "" : "s"}.`
@@ -266,8 +271,8 @@ export function formatDeterministicCorrectionReply(result: SiteDiaryCorrectionRe
     : "";
 
   if (result.language === "lv") {
-    if (result.status === "replaced") return `Labi, iepriekšējais ieraksts ir koriģēts.${detail}`;
-    if (result.status === "idempotent") return `Šī korekcija jau bija apstrādāta.${detail}`;
+    if (result.status === "replaced") return `Labi, iepriekšējais ieraksts ir koriģēts.${detail}${changedItems}`;
+    if (result.status === "idempotent") return `Šī korekcija jau bija apstrādāta.${detail}${changedItems}`;
     if (result.status === "pending") return "Ko tieši vajag mainīt iepriekšējā ierakstā?";
     if (result.status === "needs_clarification") return "Nepietiek informācijas, lai droši koriģētu ierakstu. Ko tieši vajag mainīt?";
     if (result.status === "blocked_bis") return "Šo ierakstu nevar koriģēt WhatsApp, jo tas jau ir sagatavots vai iesniegts BIS.";
@@ -276,8 +281,8 @@ export function formatDeterministicCorrectionReply(result: SiteDiaryCorrectionRe
   }
 
   if (result.language === "ru") {
-    if (result.status === "replaced") return `Готово, предыдущая запись исправлена.${detail}`;
-    if (result.status === "idempotent") return `Эта корректировка уже была обработана.${detail}`;
+    if (result.status === "replaced") return `Готово, предыдущая запись исправлена.${detail}${changedItems}`;
+    if (result.status === "idempotent") return `Эта корректировка уже была обработана.${detail}${changedItems}`;
     if (result.status === "pending") return "Что именно нужно изменить в предыдущей записи?";
     if (result.status === "needs_clarification") return "Недостаточно информации, чтобы безопасно исправить запись. Что именно нужно изменить?";
     if (result.status === "blocked_bis") return "Эту запись нельзя исправить в WhatsApp, потому что она уже подготовлена или отправлена в BIS.";
@@ -285,8 +290,8 @@ export function formatDeterministicCorrectionReply(result: SiteDiaryCorrectionRe
     return `Не удалось выполнить корректировку${result.message ? `: ${result.message}` : "."}`;
   }
 
-  if (result.status === "replaced") return `Done, the previous record was corrected.${detail}`;
-  if (result.status === "idempotent") return `This correction was already processed.${detail}`;
+  if (result.status === "replaced") return `Done, the previous record was corrected.${detail}${changedItems}`;
+  if (result.status === "idempotent") return `This correction was already processed.${detail}${changedItems}`;
   if (result.status === "pending") return "What exactly should be changed in the previous record?";
   if (result.status === "needs_clarification") return "There is not enough information to safely correct the record. What exactly should be changed?";
   if (result.status === "blocked_bis") return "This record cannot be corrected in WhatsApp because it has already been drafted or submitted in BIS.";

@@ -510,6 +510,7 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
       language: args.language,
       oldRecordCount: result.oldCount ?? oldRecordCount,
       newRecordCount: result.count,
+      records: toConfirmationRecords(result.records),
     });
   } catch (error) {
     recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
