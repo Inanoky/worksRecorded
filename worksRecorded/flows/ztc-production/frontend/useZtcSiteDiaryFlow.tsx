@@ -30,6 +30,7 @@ type UseZtcSiteDiaryFlowArgs<Row extends ZtcDiaryRow> = {
   setViewMode: (mode: "calendar" | "list" | "gallery") => void;
   setProjectFilter: (value: string) => void;
   setElementFilter: (value: string) => void;
+  setWorkerFilter?: (value: string) => void;
 };
 
 export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
@@ -40,6 +41,7 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
   setViewMode,
   setProjectFilter,
   setElementFilter,
+  setWorkerFilter,
 }: UseZtcSiteDiaryFlowArgs<Row>) {
   const [payrollSavingRowId, setPayrollSavingRowId] = React.useState<string | null>(null);
   const [payrollDirtyRowIds, setPayrollDirtyRowIds] = React.useState<Set<string>>(new Set());
@@ -218,8 +220,9 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
         setProjectFilter(normalizedProject);
       }
       setElementFilter(normalizedElement);
+      setWorkerFilter?.("__ALL__");
     },
-    [setElementFilter, setProjectFilter, setViewMode],
+    [setElementFilter, setProjectFilter, setViewMode, setWorkerFilter],
   );
 
   const openProjectDetails = React.useCallback(
@@ -230,8 +233,9 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
       setViewMode("list");
       setProjectFilter(normalizedProject);
       setElementFilter("__ALL__");
+      setWorkerFilter?.("__ALL__");
     },
-    [setElementFilter, setProjectFilter, setViewMode],
+    [setElementFilter, setProjectFilter, setViewMode, setWorkerFilter],
   );
 
   const dialogs = enabled ? (

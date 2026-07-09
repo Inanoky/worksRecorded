@@ -131,7 +131,7 @@ import {
   splitZtcWorkerDisplayName,
   exportZtcProductivityToExcel,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
-import { formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
+import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -799,7 +799,24 @@ export default function SiteDiaryCalendar({
     setViewMode,
     setProjectFilter: setFloorFilter,
     setElementFilter,
+    setWorkerFilter,
   });
+  const handleZtcWorkerFilterChange = React.useCallback(
+    (value: string) => {
+      setWorkerFilter(value);
+    },
+    [],
+  );
+  const openZtcWorkerDetails = React.useCallback(
+    (workerName: string | null | undefined) => {
+      const normalizedWorker = String(workerName ?? "").trim();
+      if (!normalizedWorker || normalizedWorker === "N/A") return;
+
+      setViewMode("list");
+      setWorkerFilter(normalizedWorker);
+    },
+    [],
+  );
   const reloadFilledDays = React.useCallback(() => {
     if (!siteId) {
       setFilledDays([]);
@@ -1197,10 +1214,16 @@ export default function SiteDiaryCalendar({
   const [ztcScopeSummaryError, setZtcScopeSummaryError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    const workerName = workerFilter !== "__ALL__" ? workerFilter : null;
     const projectName = floorFilter !== "__ALL__" ? floorFilter : null;
     const elementName = elementFilter !== "__ALL__" ? elementFilter : null;
+    const workName = workFilter !== "__ALL__" ? workFilter : null;
 
-    if (!isZtcSite || !siteId || (!projectName && !elementName)) {
+    if (
+      !isZtcSite ||
+      !siteId ||
+      (!projectName && !elementName && !workerName)
+    ) {
       setZtcSelectedScopeSummary(null);
       setZtcScopeSummaryLoading(false);
       setZtcScopeSummaryError(null);
@@ -1215,6 +1238,11 @@ export default function SiteDiaryCalendar({
       siteId,
       projectName,
       elementName,
+      workerName,
+      workName: workerName ? workName : null,
+      dateFrom: workerName && dateFrom ? toLocalDateKey(dateFrom) : null,
+      dateTo: workerName && dateTo ? toLocalDateKey(dateTo) : null,
+      keyword: workerName ? keywordFilter : null,
     })
       .then((summary) => {
         if (cancelled) return;
@@ -1234,7 +1262,17 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [elementFilter, floorFilter, isZtcSite, siteId]);
+  }, [
+    dateFrom,
+    dateTo,
+    elementFilter,
+    floorFilter,
+    isZtcSite,
+    keywordFilter,
+    siteId,
+    workFilter,
+    workerFilter,
+  ]);
 
   const visibleRecordIds = React.useMemo(
     () =>
@@ -1420,6 +1458,9 @@ export default function SiteDiaryCalendar({
     const exportFilteredRows = await loadAllFilteredRowsForExport();
     const exportRows = isZtcSite ? formatZtcRowsForExcel(exportFilteredRows) : exportFilteredRows;
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
+    if (isZtcSite) {
+      applyZtcExcelNumberFormats(XLSX, worksheet);
+    }
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
     XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
@@ -2319,7 +2360,7 @@ export default function SiteDiaryCalendar({
 
                         <SearchableFilterSelect
                           value={workerFilter}
-                          onValueChange={setWorkerFilter}
+                          onValueChange={handleZtcWorkerFilterChange}
                           options={workerOptions.map((value) => ({ value, label: value }))}
                           allLabel="Visi darbinieki"
                           placeholder="Darbinieks"
@@ -2510,8 +2551,17 @@ export default function SiteDiaryCalendar({
                           Elements: {ztcSelectedScopeSummary.element}
                         </span>
                       ) : null}
+                      {ztcSelectedScopeSummary.worker ? (
+                        <span className="rounded-md bg-muted px-2 py-1">
+                          Darbinieks: {ztcSelectedScopeSummary.worker}
+                        </span>
+                      ) : null}
                       <span className="rounded-md bg-muted px-2 py-1">
-                        Viss periods
+                        {ztcSelectedScopeSummary.worker
+                          ? ztcSelectedScopeSummary.filtered
+                            ? "Pēc filtriem"
+                            : "Visi ieraksti"
+                          : "Viss periods"}
                       </span>
                     </div>
                   </div>
@@ -2599,9 +2649,10 @@ export default function SiteDiaryCalendar({
                 </div>
                 {ztcSelectedScopeSummary.laborNormRows.length ? (
                   <div className="mt-3 overflow-x-auto rounded-md border">
-                    <div className="min-w-[760px]">
-                      <div className="grid grid-cols-[minmax(0,1fr)_90px_90px_100px_110px_90px] bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+                    <div className="min-w-[850px]">
+                      <div className="grid grid-cols-[minmax(0,1fr)_95px_90px_90px_100px_110px_90px] bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
                       <div>Darbs</div>
+                      <div className="text-right">Daudzums</div>
                       <div className="text-right">Plāna st.</div>
                       <div className="text-right">Fakt. st.</div>
                       <div className="text-right">Plāns</div>
@@ -2611,9 +2662,16 @@ export default function SiteDiaryCalendar({
                     {ztcSelectedScopeSummary.laborNormRows.map((row) => (
                       <div
                         key={row.task}
-                        className="grid grid-cols-[minmax(0,1fr)_90px_90px_100px_110px_90px] border-t px-3 py-2 text-sm"
+                        className="grid grid-cols-[minmax(0,1fr)_95px_90px_90px_100px_110px_90px] border-t px-3 py-2 text-sm"
                       >
                         <div className="truncate pr-2">{row.task}</div>
+                        <div className="text-right tabular-nums">
+                          {row.amount.toLocaleString(dateLocale, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          m²
+                        </div>
                         <div className="text-right tabular-nums">
                           {row.plannedHours != null
                             ? row.plannedHours.toLocaleString(dateLocale, {
@@ -2920,7 +2978,18 @@ export default function SiteDiaryCalendar({
                               </div>
 
                               <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-                                {!isZtcSite ? (
+                                {isZtcSite && r.createdBy ? (
+                                  <span>
+                                    Darbinieks:{" "}
+                                    <button
+                                      type="button"
+                                      className="font-medium text-foreground underline-offset-2 hover:text-blue-700 hover:underline"
+                                      onClick={() => openZtcWorkerDetails(r.createdBy)}
+                                    >
+                                      {r.createdBy}
+                                    </button>
+                                  </span>
+                                ) : !isZtcSite ? (
                                 <span>
                                   {t.workers}:{" "}
                                   <span className="font-medium text-foreground">
@@ -3278,12 +3347,16 @@ export default function SiteDiaryCalendar({
                                             </div>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 105 }}>
-                                            <div className="leading-snug">
+                                            <button
+                                              type="button"
+                                              className="block text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
+                                              onClick={() => openZtcWorkerDetails(row.createdBy)}
+                                            >
                                               <div className="font-medium">{workerName.name}</div>
                                               {workerName.surname ? (
                                                 <div>{workerName.surname}</div>
                                               ) : null}
-                                            </div>
+                                            </button>
                                           </TableCell>
                                           <TableCell className="px-3 py-3" style={{ width: 105 }}>
                                             <div className="space-y-1 leading-tight">

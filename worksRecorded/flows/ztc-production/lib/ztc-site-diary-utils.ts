@@ -2,6 +2,7 @@ import {
   parseZtcLaborNormNumber,
   readZtcLaborNormFromMetadata,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
+import { applyZtcExcelNumberFormats } from "@/flows/ztc-production/lib/ztc-excel-export";
 
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
@@ -812,6 +813,7 @@ export async function exportZtcPayrollToExcel({
 
   const workbook = XLSX.utils.book_new();
   const summaryWorksheet = XLSX.utils.json_to_sheet(summaryRows);
+  applyZtcExcelNumberFormats(XLSX, summaryWorksheet);
   summaryWorksheet["!cols"] = [
     { wch: 12 },
     { wch: 24 },
@@ -824,6 +826,7 @@ export async function exportZtcPayrollToExcel({
   const payrollWorksheet = XLSX.utils.json_to_sheet(payrollRows, {
     cellDates: true,
   });
+  applyZtcExcelNumberFormats(XLSX, payrollWorksheet);
   const payrollRange = XLSX.utils.decode_range(payrollWorksheet["!ref"] ?? "A1:A1");
   for (let rowIndex = 1; rowIndex <= payrollRange.e.r; rowIndex += 1) {
     const cell = payrollWorksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })];
@@ -977,6 +980,7 @@ export async function exportZtcProductivityToExcel({
   const worksheet = XLSX.utils.json_to_sheet(productivityRows, {
     cellDates: true,
   });
+  applyZtcExcelNumberFormats(XLSX, worksheet);
   const range = XLSX.utils.decode_range(worksheet["!ref"] ?? "A1:A1");
   for (let rowIndex = 1; rowIndex <= range.e.r; rowIndex += 1) {
     const dayCell = worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 0 })];

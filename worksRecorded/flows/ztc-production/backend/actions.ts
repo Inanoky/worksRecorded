@@ -814,11 +814,30 @@ export async function getZtcScopeSummary(args: {
   siteId: string;
   projectName?: string | null;
   elementName?: string | null;
+  workerName?: string | null;
+  dateFrom?: string | Date | null;
+  dateTo?: string | Date | null;
+  workName?: string | null;
+  keyword?: string | null;
 }) {
   const context = await requireZtcAccess(args.siteId);
   const projectName = String(args.projectName ?? "").trim();
   const elementName = String(args.elementName ?? "").trim();
-  if (!projectName && !elementName) return null;
+  const workerName = String(args.workerName ?? "").trim();
+  const workName = String(args.workName ?? "").trim();
+  const keyword = String(args.keyword ?? "").trim().toLowerCase();
+  const dateFrom = normalizeDate(args.dateFrom);
+  const dateTo = normalizeDate(args.dateTo);
+  const dateFilter: Record<string, Date> = {};
+  if (dateFrom) {
+    dateFrom.setHours(0, 0, 0, 0);
+    dateFilter.gte = dateFrom;
+  }
+  if (dateTo) {
+    dateTo.setHours(23, 59, 59, 999);
+    dateFilter.lte = dateTo;
+  }
+  if (!projectName && !elementName && !workerName && !workName && !keyword && Object.keys(dateFilter).length === 0) return null;
 
   const records = await prisma.ztcRecords.findMany({
     where: {
@@ -827,6 +846,8 @@ export async function getZtcScopeSummary(args: {
       Date_Custom_2: { not: null },
       ...(projectName ? { Location: projectName } : {}),
       ...(elementName ? { Location_Custom_1: elementName } : {}),
+      ...(workName ? { Works: workName } : {}),
+      ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
       NOT: [{ Date: null }, { Works: null }, { Works: "" }],
     },
     orderBy: [{ Date: "desc" }, { Date_Custom_1: "desc" }, { createdAt: "desc" }],
@@ -868,7 +889,30 @@ export async function getZtcScopeSummary(args: {
     },
   });
 
-  const rows = records.map(mapZtcRecord) as ZtcDiaryRow[];
+  const mappedRows = records.map(mapZtcRecord) as ZtcDiaryRow[];
+  const normalizedWorkerName = workerName.toLowerCase();
+  let rows = workerName
+    ? mappedRows.filter(
+        (row) =>
+          String(row.createdBy ?? "").trim().toLowerCase() === normalizedWorkerName,
+      )
+    : mappedRows;
+  if (keyword) {
+    rows = rows.filter((row) =>
+      [
+        row.Works,
+        row.Location,
+        row.Location_Custom_1,
+        row.createdBy,
+        row.Comments,
+        row.Units,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(keyword),
+    );
+  }
   const elementTotalAreaM2 = elementName
     ? getZtcElementTotalAreaM2(rows, elementName)
     : null;
@@ -947,6 +991,8 @@ export async function getZtcScopeSummary(args: {
   return {
     project: projectName || null,
     element: elementName || null,
+    worker: workerName || null,
+    filtered: Boolean(workName || keyword || Object.keys(dateFilter).length > 0),
     rows: rows.length,
     hours: totals.hours,
     money: totals.money,
