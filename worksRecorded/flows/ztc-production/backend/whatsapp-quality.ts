@@ -41,6 +41,7 @@ type QaQualityEvaluation = {
 type QaPendingPayload = {
   drawingPhotoUrl: string;
   drawingMetadata: ReturnType<typeof buildDrawingMetadata>;
+  qualityScope?: "work" | "element" | null;
   checkedWork?: string | null;
   qualityText?: string | null;
   qualityPhotoUrls?: string[];
@@ -480,6 +481,7 @@ function buildQualityMetadata(args: {
     qualityPhotoUrls: args.qualityPhotoUrls,
     projectName: args.payload.drawingMetadata.projectName,
     elementName: args.payload.drawingMetadata.elements[0]?.elementName ?? "",
+    qualityScope: args.payload.qualityScope ?? (args.checkedWork ? "work" : "element"),
     checkedWork: args.checkedWork,
     qualityText: args.qualityText,
     qualityEvaluation: args.qualityEvaluation,
@@ -527,19 +529,20 @@ async function completeQualitySession(args: {
   const qualityText = args.payload.qualityText?.trim() ?? "";
   const qualityPhotoUrls = args.payload.qualityPhotoUrls ?? [];
   if (!qualityText || qualityPhotoUrls.length === 0) return;
-  if (!args.payload.checkedWork) {
+  const isElementLevel = args.payload.qualityScope === "element";
+  if (!args.payload.checkedWork && !isElementLevel) {
     await promptForCheckedWork(args.to, args.payload);
     return;
   }
 
   const { polishedText: polishedQualityText, evaluation: qualityEvaluation } =
     await analyzeQualityMessage(qualityText);
-  const checkedWork = args.payload.checkedWork;
+  const checkedWork = isElementLevel ? null : args.payload.checkedWork ?? null;
   const elementName = args.payload.drawingMetadata.elements[0]?.elementName ?? "";
   const comments = [
     `Kvalitātes kontrole: ${polishedQualityText}`,
     `Vērtējums: ${qualityStatusLabel(qualityEvaluation.status)}`,
-    qualityEvaluation.coefficient ? `Koeficients: ${qualityEvaluation.coefficient}` : null,
+    !isElementLevel && qualityEvaluation.coefficient ? `Koeficients: ${qualityEvaluation.coefficient}` : null,
     checkedWork ? `Darbs: ${checkedWork}` : null,
   ]
     .filter(Boolean)
@@ -582,21 +585,25 @@ async function completeQualitySession(args: {
   await sendZtcMessage(
     args.to,
     `Kvalitātes kontrole saglabāta.\nProjekts: ${updated.Location}\nElements: ${updated.Location_Custom_1}${checkedWork ? `\nDarbs: ${checkedWork}` : ""}\nVērtējums: ${qualityStatusLabel(qualityEvaluation.status)}${
-      qualityEvaluation.status === "unknown"
+      isElementLevel
+        ? "\nElementa piezīme saglabāta. Koeficients netika mainīts."
+        : qualityEvaluation.status === "unknown"
         ? "\nKoeficients netika mainīts."
         : `\nKoeficients: ${qualityEvaluation.coefficient ?? "tukšs"}\nSaistītie ieraksti tiek atjaunināti.`
     }`,
   );
 
   const propagationStartedAt = Date.now();
-  const coefficientPropagation = await propagateQualityCoefficient({
-    projectName: updated.Location,
-    elementName: updated.Location_Custom_1,
-    checkedWork,
-    qaRecordId: updated.id,
-    evaluation: qualityEvaluation,
-    worker: args.worker,
-  });
+  const coefficientPropagation = isElementLevel
+    ? { count: 0, coefficient: null as string | null }
+    : await propagateQualityCoefficient({
+        projectName: updated.Location,
+        elementName: updated.Location_Custom_1,
+        checkedWork,
+        qaRecordId: updated.id,
+        evaluation: qualityEvaluation,
+        worker: args.worker,
+      });
   logZtcTiming("qa_coefficient_propagation", propagationStartedAt, {
     workerId: args.worker.id,
     sessionId: updated.id,
@@ -604,6 +611,7 @@ async function completeQualitySession(args: {
     coefficient: coefficientPropagation.coefficient,
     affectedRecordCount: coefficientPropagation.count,
     checkedWork,
+    qualityScope: args.payload.qualityScope ?? "work",
   });
 
   const metadata = buildQualityMetadata({
@@ -842,7 +850,7 @@ async function handleQualityDrawingPhoto(args: {
 
   await sendZtcMessage(
     args.to,
-    `Rasējums pieņemts kvalitātes kontrolei.\nProjekts: ${canonicalExtraction.projectName}\nElements: ${canonicalExtraction.elementName}\nDarbi:\n${formatExtractedWorksForMessage(canonicalExtraction)}\n\nVispirms izvēlieties pārbaudāmo darbu: atsūtiet darba numuru no saraksta vai darba kodu, piemēram L2/B2.`,
+    `Rasējums pieņemts kvalitātes kontrolei.\nProjekts: ${canonicalExtraction.projectName}\nElements: ${canonicalExtraction.elementName}\nDarbi:\n${formatExtractedWorksForMessage(canonicalExtraction)}\n\nJa pārbaudāt konkrētu darbu, atsūtiet darba numuru no saraksta vai darba kodu, piemēram L2/B2. Ja komentārs ir par visu elementu, atsūtiet kvalitātes aprakstu uzreiz.`,
   );
 }
 
@@ -873,8 +881,14 @@ async function handleQualityPhotos(args: {
   const caption = args.caption.trim();
   const captionCheckedWork =
     !payload.checkedWork && caption ? findCheckedWork(payload, caption) : null;
+  const captionIsElementQuality =
+    !payload.checkedWork &&
+    !captionCheckedWork &&
+    isUsefulQaText(caption) &&
+    !payload.qualityText;
   const nextPayload: QaPendingPayload = {
     ...payload,
+    qualityScope: payload.qualityScope ?? (captionIsElementQuality ? "element" : null),
     checkedWork: payload.checkedWork ?? captionCheckedWork,
     qualityText: caption && !captionCheckedWork ? caption : payload.qualityText || null,
     qualityPhotoUrls,
@@ -889,7 +903,7 @@ async function handleQualityPhotos(args: {
     },
   });
 
-  if (!nextPayload.checkedWork) {
+  if (!nextPayload.checkedWork && nextPayload.qualityScope !== "element") {
     await promptForCheckedWork(args.to, nextPayload);
     return;
   }
@@ -927,9 +941,28 @@ async function handleQualityText(args: {
     return;
   }
 
-  if (!payload.checkedWork) {
+  if (!payload.checkedWork && payload.qualityScope !== "element") {
     const checkedWork = findCheckedWork(payload, args.text);
     if (!checkedWork) {
+      if (isUsefulQaText(args.text) && !payload.qualityText && (payload.qualityPhotoUrls ?? []).length === 0) {
+        const nextPayload: QaPendingPayload = {
+          ...payload,
+          qualityScope: "element",
+          qualityText: args.text.trim(),
+          originalAudioUrl: mergeOriginalAudioUrls(payload.originalAudioUrl, args.originalAudioUrl) ?? null,
+        };
+        await prisma.ztcRecords.update({
+          where: { id: session.id },
+          data: {
+            Comments_Custom_1: makePendingState(nextPayload),
+          },
+        });
+
+        outcome = "element_quality_text_received";
+        await sendZtcMessage(args.to, "Elementa kvalitātes apraksts saņemts. Lūdzu, atsūtiet kvalitātes kontroles foto.");
+        return;
+      }
+
       outcome = "waiting_for_checked_work";
       await promptForCheckedWork(args.to, payload);
       return;
@@ -962,6 +995,12 @@ async function handleQualityText(args: {
       args.to,
       `Darbs izvēlēts: ${checkedWork}.\nTagad atsūtiet kvalitātes foto un balss ziņu vai tekstu ar kvalitātes aprakstu.`,
     );
+    return;
+  }
+
+  if (payload.qualityScope === "element" && !isUsefulQaText(args.text)) {
+    outcome = "not_useful_text";
+    await sendZtcMessage(args.to, "Neizdevās saprast kvalitātes aprakstu. Lūdzu, mēģiniet vēlreiz ar balss ziņu vai tekstu.");
     return;
   }
 
