@@ -428,7 +428,6 @@ function getZtcPlannedHours(planned: number | null, amount: number | null | unde
 
 export function buildZtcLaborNormSummaryRows(
   rows: ZtcDiaryRow[],
-  options: ZtcLaborNormSummaryOptions = {},
 ) {
   const groups = buildZtcLaborNormTaskGroups(rows);
 
@@ -438,17 +437,9 @@ export function buildZtcLaborNormSummaryRows(
         group.plannedAmount > 0
           ? Number((group.plannedWeighted / group.plannedAmount).toFixed(4))
           : null;
-      const plannedBaseAmount =
-        options.plannedAmountM2 != null && options.plannedAmountM2 > 0
-          ? options.plannedAmountM2
-          : group.plannedAmount;
-      const actualBaseAmount =
-        options.actualAmountM2 != null && options.actualAmountM2 > 0
-          ? options.actualAmountM2
-          : group.amount;
-      const plannedHours = getZtcPlannedHours(planned, plannedBaseAmount);
+      const plannedHours = getZtcPlannedHours(planned, group.plannedAmount);
       const actual =
-        actualBaseAmount > 0 ? Number((group.hours / actualBaseAmount).toFixed(4)) : null;
+        group.amount > 0 ? Number((group.hours / group.amount).toFixed(4)) : null;
       return {
         task: group.task,
         hours: Number(group.hours.toFixed(2)),
@@ -485,11 +476,7 @@ export function buildZtcLaborNormTotalSummary(
         group.plannedAmount > 0
           ? Number((group.plannedWeighted / group.plannedAmount).toFixed(4))
           : null;
-      const plannedBaseAmount =
-        options.plannedAmountM2 != null && options.plannedAmountM2 > 0
-          ? options.plannedAmountM2
-          : group.plannedAmount;
-      const plannedHours = getZtcPlannedHours(planned, plannedBaseAmount);
+      const plannedHours = getZtcPlannedHours(planned, group.plannedAmount);
       if (plannedHours != null) acc.plannedHours += plannedHours;
 
       return acc;

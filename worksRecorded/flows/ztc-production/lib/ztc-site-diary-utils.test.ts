@@ -104,6 +104,27 @@ describe("getZtcPayrollValues", () => {
     ]);
   });
 
+  it("calculates task planned hours from the task amount, not the project area", () => {
+    const rows = buildZtcLaborNormSummaryRows([
+      {
+        ...baseRow,
+        Works: "L0 - Paroc CGLTra minerālvates siltumizolācija / 245mm",
+        TimeInvolved: 0.32,
+        Amounts: 18.05,
+        Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.06", "m2"),
+      },
+    ]);
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        amount: 18.05,
+        planned: 0.06,
+        plannedHours: 1.08,
+        actual: 0.0177,
+      }),
+    ]);
+  });
+
   it("does not include planned labor norm in summaries when the work has no matched rate", () => {
     const rows = [
       {

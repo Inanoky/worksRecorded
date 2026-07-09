@@ -1001,10 +1001,7 @@ export async function getZtcScopeSummary(args: {
       : projectName
         ? projectTotalAreaM2
         : null,
-    laborNormRows: buildZtcLaborNormSummaryRows(rows, {
-      plannedAmountM2: scopeAreaM2,
-      actualAmountM2: scopeAreaM2,
-    }),
+    laborNormRows: buildZtcLaborNormSummaryRows(rows),
     laborNormTotal: buildZtcLaborNormTotalSummary(rows, {
       plannedAmountM2: scopeAreaM2,
       actualAmountM2: scopeAreaM2,
