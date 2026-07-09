@@ -2568,9 +2568,18 @@ export default function SiteDiaryCalendar({
                   <div
                     className={cn(
                       "grid gap-2 text-sm",
-                      ztcSelectedScopeSummary.elementM2 != null && ztcSelectedScopeSummary.laborNormTotal?.actual != null
+                      ztcSelectedScopeSummary.elementM2 != null &&
+                        ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
+                        ztcSelectedScopeSummary.costPerM2 != null &&
+                        !ztcSelectedScopeSummary.worker
+                        ? "grid-cols-1 sm:grid-cols-5 sm:min-w-[760px]"
+                        : ztcSelectedScopeSummary.elementM2 != null && ztcSelectedScopeSummary.laborNormTotal?.actual != null
                         ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[620px]"
-                        : ztcSelectedScopeSummary.elementM2 != null || ztcSelectedScopeSummary.laborNormTotal?.actual != null
+                        : ztcSelectedScopeSummary.elementM2 != null &&
+                            ztcSelectedScopeSummary.costPerM2 != null &&
+                            !ztcSelectedScopeSummary.worker
+                          ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[620px]"
+                          : ztcSelectedScopeSummary.elementM2 != null || ztcSelectedScopeSummary.laborNormTotal?.actual != null
                           ? "grid-cols-1 sm:grid-cols-3 sm:min-w-[460px]"
                           : "grid-cols-1 sm:grid-cols-2 sm:min-w-[320px]",
                     )}
@@ -2645,6 +2654,14 @@ export default function SiteDiaryCalendar({
                         {formatZtcMoney(ztcSelectedScopeSummary.money)}
                       </div>
                     </div>
+                    {!ztcSelectedScopeSummary.worker && ztcSelectedScopeSummary.costPerM2 != null ? (
+                      <div className="rounded-md border bg-muted/30 px-3 py-2">
+                        <div className="text-xs text-muted-foreground">Izmaksas uz m²</div>
+                        <div className="text-lg font-semibold tabular-nums">
+                          {formatZtcMoney(ztcSelectedScopeSummary.costPerM2)}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
                 {ztcSelectedScopeSummary.laborNormRows.length ? (

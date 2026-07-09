@@ -996,6 +996,10 @@ export async function getZtcScopeSummary(args: {
     rows: rows.length,
     hours: totals.hours,
     money: totals.money,
+    costPerM2:
+      scopeAreaM2 != null && scopeAreaM2 > 0
+        ? Number((totals.money / scopeAreaM2).toFixed(2))
+        : null,
     elementM2: elementName
       ? elementTotalAreaM2 ?? totals.elementM2
       : projectName
