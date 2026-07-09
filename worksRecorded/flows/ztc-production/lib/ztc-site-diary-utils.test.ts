@@ -126,6 +126,8 @@ describe("getZtcPayrollValues", () => {
     ]);
     expect(buildZtcLaborNormTotalSummary(rows)).toEqual(
       expect.objectContaining({
+        plannedHours: null,
+        hoursDifference: null,
         planned: null,
         actual: 0.0841,
         difference: null,
@@ -166,9 +168,43 @@ describe("getZtcPayrollValues", () => {
     expect(summary).toEqual({
       hours: 6,
       amount: 30,
+      plannedHours: 8,
+      hoursDifference: -2,
       planned: 0.2667,
       actual: 0.2,
       difference: -0.0667,
+    });
+  });
+
+  it("uses element area for element summary planned hours and factual output per m2", () => {
+    const summary = buildZtcLaborNormTotalSummary(
+      [
+        {
+          ...baseRow,
+          Works: "L1/B1 - Gipskartona plaksne",
+          TimeInvolved: 2,
+          Amounts: 10,
+          Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.2", "m2"),
+        },
+        {
+          ...baseRow,
+          Works: "L2/B2 - Gipskartona plaksne",
+          TimeInvolved: 4,
+          Amounts: 10,
+          Comments_Custom_2: attachZtcLaborNormToMetadata(null, "0.3", "m2"),
+        },
+      ],
+      { plannedAmountM2: 10, actualAmountM2: 10 },
+    );
+
+    expect(summary).toEqual({
+      hours: 6,
+      amount: 20,
+      plannedHours: 5,
+      hoursDifference: 1,
+      planned: 0.5,
+      actual: 0.6,
+      difference: 0.1,
     });
   });
 

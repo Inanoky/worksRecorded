@@ -2536,7 +2536,18 @@ export default function SiteDiaryCalendar({
                         </div>
                       </div>
                     ) : null}
-                    <div className="rounded-md border bg-muted/30 px-3 py-2">
+                    <div
+                      className={cn(
+                        "rounded-md border bg-muted/30 px-3 py-2",
+                        ztcSelectedScopeSummary.laborNormTotal?.hoursDifference != null &&
+                          ztcSelectedScopeSummary.laborNormTotal.hoursDifference > 0
+                          ? "border-red-200 bg-red-50"
+                          : ztcSelectedScopeSummary.laborNormTotal?.hoursDifference != null &&
+                              ztcSelectedScopeSummary.laborNormTotal.hoursDifference <= 0
+                            ? "border-emerald-200 bg-emerald-50"
+                            : "",
+                      )}
+                    >
                       <div className="text-xs text-muted-foreground">Stundas</div>
                       <div className="text-lg font-semibold tabular-nums">
                         {ztcSelectedScopeSummary.hours.toLocaleString(dateLocale, {
@@ -2544,14 +2555,38 @@ export default function SiteDiaryCalendar({
                           maximumFractionDigits: 2,
                         })}
                       </div>
+                      {ztcSelectedScopeSummary.laborNormTotal?.plannedHours != null ? (
+                        <div className="text-xs text-muted-foreground">
+                          Plāns{" "}
+                          {ztcSelectedScopeSummary.laborNormTotal.plannedHours.toLocaleString(dateLocale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
+                      ) : null}
                     </div>
                     {ztcSelectedScopeSummary.laborNormTotal?.actual != null ? (
-                      <div className="rounded-md border bg-muted/30 px-3 py-2">
-                        <div className="text-xs text-muted-foreground">Laika norma</div>
+                      <div
+                        className={cn(
+                          "rounded-md border bg-muted/30 px-3 py-2",
+                          ztcSelectedScopeSummary.laborNormTotal?.difference != null &&
+                            ztcSelectedScopeSummary.laborNormTotal.difference > 0
+                            ? "border-red-200 bg-red-50"
+                            : ztcSelectedScopeSummary.laborNormTotal?.difference != null &&
+                                ztcSelectedScopeSummary.laborNormTotal.difference <= 0
+                              ? "border-emerald-200 bg-emerald-50"
+                              : "",
+                        )}
+                      >
+                        <div className="text-xs text-muted-foreground">Faktiskā izstrāde uz m²</div>
                         <div className="text-lg font-semibold tabular-nums">
                           {formatZtcLaborNorm(ztcSelectedScopeSummary.laborNormTotal.actual, dateLocale)}
                         </div>
-                        <div className="text-xs text-muted-foreground">st/m2</div>
+                        <div className="text-xs text-muted-foreground">
+                          {ztcSelectedScopeSummary.laborNormTotal?.planned != null
+                            ? `Plāns ${formatZtcLaborNorm(ztcSelectedScopeSummary.laborNormTotal.planned, dateLocale)} st/m²`
+                            : "st/m²"}
+                        </div>
                       </div>
                     ) : null}
                     <div className="rounded-md border bg-muted/30 px-3 py-2">
@@ -2563,9 +2598,12 @@ export default function SiteDiaryCalendar({
                   </div>
                 </div>
                 {ztcSelectedScopeSummary.laborNormRows.length ? (
-                  <div className="mt-3 overflow-hidden rounded-md border">
-                    <div className="grid grid-cols-[minmax(0,1fr)_90px_90px_90px] bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+                  <div className="mt-3 overflow-x-auto rounded-md border">
+                    <div className="min-w-[760px]">
+                      <div className="grid grid-cols-[minmax(0,1fr)_90px_90px_100px_110px_90px] bg-muted/40 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
                       <div>Darbs</div>
+                      <div className="text-right">Plāna st.</div>
+                      <div className="text-right">Fakt. st.</div>
                       <div className="text-right">Plāns</div>
                       <div className="text-right">Fakts</div>
                       <div className="text-right">Starpība</div>
@@ -2573,9 +2611,32 @@ export default function SiteDiaryCalendar({
                     {ztcSelectedScopeSummary.laborNormRows.map((row) => (
                       <div
                         key={row.task}
-                        className="grid grid-cols-[minmax(0,1fr)_90px_90px_90px] border-t px-3 py-2 text-sm"
+                        className="grid grid-cols-[minmax(0,1fr)_90px_90px_100px_110px_90px] border-t px-3 py-2 text-sm"
                       >
                         <div className="truncate pr-2">{row.task}</div>
+                        <div className="text-right tabular-nums">
+                          {row.plannedHours != null
+                            ? row.plannedHours.toLocaleString(dateLocale, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })
+                            : "—"}
+                        </div>
+                        <div
+                          className={cn(
+                            "text-right tabular-nums",
+                            row.hoursDifference != null && row.hoursDifference > 0
+                              ? "text-red-600"
+                              : row.hoursDifference != null && row.hoursDifference <= 0
+                                ? "text-emerald-700"
+                                : "",
+                          )}
+                        >
+                          {row.hours.toLocaleString(dateLocale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
                         <div className="text-right tabular-nums">
                           {formatZtcLaborNorm(row.planned, dateLocale)}
                         </div>
@@ -2596,6 +2657,7 @@ export default function SiteDiaryCalendar({
                         </div>
                       </div>
                     ))}
+                    </div>
                   </div>
                 ) : null}
                 {ztcSelectedScopeSummary.relatedAdditionalRows.length ? (

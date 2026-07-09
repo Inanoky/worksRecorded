@@ -541,6 +541,22 @@ export function ZtcDialogTable({
     return [...(drawingIndex.worksByElement.get(normalizedElement)?.values() ?? [])];
   };
 
+  const getProjectWorkOptions = (projectName: string) => {
+    const projectKey = getSelectedProjectKey(projectName);
+    const projectElements = projectKey
+      ? drawingIndex.worksByProjectElement.get(projectKey)
+      : null;
+    if (!projectElements?.size) return [];
+
+    const works = new Map<string, string>();
+    for (const elementWorks of projectElements.values()) {
+      for (const workName of elementWorks.values()) {
+        works.set(normalizeZtcWorkName(workName).toLowerCase(), workName);
+      }
+    }
+    return [...works.values()];
+  };
+
   const getWorkAmountM2 = (elementName: string, workName: string, projectName?: string) => {
     const projectKey = getSelectedProjectKey(projectName ?? "");
     const normalizedElement = normalizeOption(elementName).toLowerCase();
@@ -698,10 +714,16 @@ export function ZtcDialogTable({
       }
 
       const standardOptions = getElementWorkOptions(row.Location_Custom_1, row.Location);
+      const projectWorkOptions = getProjectWorkOptions(row.Location);
       const rateOptions = getStandardRateOptions(row.Location);
       const additionalOptions = getSpecialRateOptions(row, "additionalWorks");
       const seen = new Set<string>();
-      const workOptions = [...standardOptions, ...rateOptions, ...additionalOptions].filter((label) => {
+      const workOptions = [
+        ...standardOptions,
+        ...projectWorkOptions,
+        ...rateOptions,
+        ...additionalOptions,
+      ].filter((label) => {
         const key = normalizeZtcWorkName(label).toLowerCase();
         if (!key || seen.has(key)) return false;
         seen.add(key);
@@ -766,7 +788,9 @@ export function ZtcDialogTable({
           if (isZtcQualityRow(next)) return next;
 
           const workOptions = getElementWorkOptions(value, next.Location);
-          if (!workOptions.some((option) => option === next.Works)) {
+          const projectWorkOptions = getProjectWorkOptions(next.Location);
+          const isKnownProjectWork = projectWorkOptions.some((option) => option === next.Works);
+          if (!workOptions.some((option) => option === next.Works) && !isKnownProjectWork) {
             if (!isAdditionalWorkOption(next, next.Works)) {
               next.Works = "";
               next.Amounts = "";
@@ -775,7 +799,9 @@ export function ZtcDialogTable({
               }
             }
           } else {
-            const amountM2 = getWorkAmountM2(value, next.Works, next.Location);
+            const amountM2 =
+              getWorkAmountM2(value, next.Works, next.Location) ??
+              getElementAreaM2(value, next.Location);
             if (amountM2 != null) next.Amounts = String(amountM2);
             if (normalizeSpecialLabel(next.Works_Custom_1) === "papilddarbi") {
               next.Works_Custom_1 = "";
@@ -854,7 +880,9 @@ export function ZtcDialogTable({
             next.Works_Custom_1 = "";
           }
 
-          const amountM2 = getWorkAmountM2(next.Location_Custom_1, value, next.Location);
+          const amountM2 =
+            getWorkAmountM2(next.Location_Custom_1, value, next.Location) ??
+            getElementAreaM2(next.Location_Custom_1, next.Location);
           next.Units = "m2";
           if (amountM2 != null) next.Amounts = String(amountM2);
         }

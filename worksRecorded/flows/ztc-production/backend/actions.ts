@@ -938,6 +938,12 @@ export async function getZtcScopeSummary(args: {
     }))
     .sort((a, b) => a.type.localeCompare(b.type, "lv") || a.task.localeCompare(b.task, "lv"));
 
+  const scopeAreaM2 = elementName
+    ? elementTotalAreaM2 ?? (totals.elementM2 > 0 ? totals.elementM2 : null)
+    : projectName
+      ? projectTotalAreaM2
+      : null;
+
   return {
     project: projectName || null,
     element: elementName || null,
@@ -949,8 +955,14 @@ export async function getZtcScopeSummary(args: {
       : projectName
         ? projectTotalAreaM2
         : null,
-    laborNormRows: buildZtcLaborNormSummaryRows(rows),
-    laborNormTotal: buildZtcLaborNormTotalSummary(rows),
+    laborNormRows: buildZtcLaborNormSummaryRows(rows, {
+      plannedAmountM2: scopeAreaM2,
+      actualAmountM2: scopeAreaM2,
+    }),
+    laborNormTotal: buildZtcLaborNormTotalSummary(rows, {
+      plannedAmountM2: scopeAreaM2,
+      actualAmountM2: scopeAreaM2,
+    }),
     relatedAdditionalRows,
   };
 }
