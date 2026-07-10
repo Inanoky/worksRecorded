@@ -42,6 +42,18 @@ describe("allocateZtcTaskAmountByTime", () => {
       { id: "worker-b", amount: 4 },
     ]);
   });
+
+  it("splits repeated rows for the same worker proportionally to time", () => {
+    expect(
+      allocateZtcTaskAmountByTime(21.57, [
+        { id: "day-one", workerId: "same-worker", hours: 1.65 },
+        { id: "day-two", workerId: "same-worker", hours: 1.53 },
+      ]),
+    ).toEqual([
+      { id: "day-one", amount: 11.19 },
+      { id: "day-two", amount: 10.38 },
+    ]);
+  });
 });
 
 describe("getZtcTaskIdentityKey", () => {

@@ -209,13 +209,8 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
     return { updated: 0, totalAmount: null };
   }
 
-  const distinctWorkers = new Set(
-    matchingRows
-      .map((row) => row.workerId ?? row.userId)
-      .filter((actorId): actorId is string => Boolean(actorId)),
-  );
   const allocations =
-    distinctWorkers.size >= 2
+    matchingRows.length >= 2
       ? allocateZtcTaskAmountByTime(
           originalAmount,
           matchingRows.map((row) => ({
