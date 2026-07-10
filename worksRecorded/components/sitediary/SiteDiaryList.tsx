@@ -2609,7 +2609,8 @@ export default function SiteDiaryCalendar({
                           {ztcSelectedScopeSummary.elementM2.toLocaleString(dateLocale, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
-                          })}
+                          })}{" "}
+                          m²
                         </div>
                       </div>
                     ) : null}
@@ -2632,7 +2633,8 @@ export default function SiteDiaryCalendar({
                         {(ztcSelectedScopeSummary.technicalHours ?? ztcSelectedScopeSummary.laborNormTotal?.hours ?? ztcSelectedScopeSummary.hours).toLocaleString(dateLocale, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
-                          })}
+                          })}{" "}
+                          st
                       </div>
                       {ztcSelectedScopeSummary.laborNormTotal?.plannedHours != null ? (
                         <div className="text-xs text-muted-foreground">
@@ -2640,7 +2642,8 @@ export default function SiteDiaryCalendar({
                           {ztcSelectedScopeSummary.laborNormTotal.plannedHours.toLocaleString(dateLocale, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
-                          })}
+                          })}{" "}
+                          st
                         </div>
                       ) : null}
                     </div>
@@ -2659,7 +2662,7 @@ export default function SiteDiaryCalendar({
                       >
                         <div className="text-xs text-muted-foreground">Faktiskā izstrāde uz m²</div>
                         <div className="text-lg font-semibold tabular-nums">
-                          {formatZtcLaborNorm(ztcSelectedScopeSummary.laborNormTotal.actual, dateLocale)}
+                          {formatZtcLaborNorm(ztcSelectedScopeSummary.laborNormTotal.actual, dateLocale)} st/m²
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {ztcSelectedScopeSummary.laborNormTotal?.planned != null
@@ -2680,7 +2683,8 @@ export default function SiteDiaryCalendar({
                           {ztcSelectedScopeSummary.productivity.totalWorkedHours.toLocaleString(dateLocale, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
-                          })}
+                          })}{" "}
+                          st
                         </div>
                         <div className="text-xs text-muted-foreground">
                           Neuzskaitīts{" "}
@@ -2704,7 +2708,8 @@ export default function SiteDiaryCalendar({
                           {ztcSelectedScopeSummary.hours.toLocaleString(dateLocale, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
-                          })}
+                          })}{" "}
+                          st
                         </div>
                       </div>
                     ) : null}
@@ -2715,7 +2720,8 @@ export default function SiteDiaryCalendar({
                           {(ztcSelectedScopeSummary.productivity?.totalWorkedHours ?? ztcSelectedScopeSummary.hours).toLocaleString(dateLocale, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
-                          })}
+                          })}{" "}
+                          st
                         </div>
                       </div>
                     ) : null}
@@ -2731,7 +2737,7 @@ export default function SiteDiaryCalendar({
                       <div className="rounded-md border bg-muted/30 px-3 py-2">
                         <div className="text-xs text-muted-foreground">Izmaksas uz m²</div>
                         <div className="text-lg font-semibold tabular-nums">
-                          {formatZtcMoney(ztcSelectedScopeSummary.costPerM2)} €
+                          {formatZtcMoney(ztcSelectedScopeSummary.costPerM2)} €/m²
                         </div>
                       </div>
                     ) : null}
