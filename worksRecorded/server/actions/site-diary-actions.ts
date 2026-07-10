@@ -1443,6 +1443,7 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
   correctionText: string;
   rows: Record<string, any>[];
   replyToMessageId?: string | null;
+  evalMetadata?: Record<string, unknown>;
 }) {
   const existingAudit = await prisma.siteDiaryCorrectionAudit.findUnique({
     where: { correctionMessageId: args.correctionMessageId },
@@ -1503,6 +1504,7 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
           saveBatchId: newBatch.id,
           originalUserComment: `${target.batch.originalText}\nCorrection: ${args.correctionText}`,
           originalAudioUrl: index === 0 ? first.originalAudioUrl : null,
+          evalMetadata: (args.evalMetadata ?? undefined) as any,
           Photos: [],
         },
         select: savedSiteDiaryRecordSelect,

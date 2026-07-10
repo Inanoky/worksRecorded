@@ -235,4 +235,54 @@ describe("AI eval report normalizer", () => {
       { name: "required-any", status: "fail", message: "Missing evidence." },
     ]);
   });
+
+  it("does not flag fast-path, deterministic-save, or deterministic-correction finish reasons as anomalies", () => {
+    const finishReasons = [
+      "fast-path",
+      "deterministic-save",
+      "deterministic-correction",
+      "deterministic-correction-prompt",
+    ];
+    for (const finishReason of finishReasons) {
+      const run = normalizeEvalReport({
+        runId: "run-fp",
+        flow: "whatsapp-site-manager",
+        summary: {},
+        latency: { averageMs: 1000 },
+        results: [
+          {
+            caseId: "fast-path-case",
+            answer: "Saglabāts.",
+            actualModel: "test-model",
+            finishReason,
+            latencyMs: 1000,
+            deterministic: { status: "pass", results: [] },
+          },
+        ],
+      });
+
+      expect(run.items[0].anomalies.find((a) => a.code === "unexpected-finish-reason")).toBeUndefined();
+    }
+  });
+
+  it("still flags unknown finish reasons as anomalies", () => {
+    const run = normalizeEvalReport({
+      runId: "run-unknown",
+      flow: "whatsapp-site-manager",
+      summary: {},
+      latency: { averageMs: 1000 },
+      results: [
+        {
+          caseId: "unknown-case",
+          answer: "Saglabāts.",
+          actualModel: "test-model",
+          finishReason: "content-filter",
+          latencyMs: 1000,
+          deterministic: { status: "pass", results: [] },
+        },
+      ],
+    });
+
+    expect(run.items[0].anomalies.find((a) => a.code === "unexpected-finish-reason")).toBeDefined();
+  });
 });

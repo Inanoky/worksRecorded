@@ -1,0 +1,48 @@
+{
+	"$schema": "https://opencode.ai/config.json",
+	"model": "openrouter/z-ai/glm-5.2",
+	"instructions": ["AGENTS.md"],
+	"references": {
+		"docs": {
+			"path": "docs",
+			"description": "Use for AI context engineering, LangGraph checkpoint memory, WhatsApp webhook routing, n8n/Supabase database webhooks, and rollout checklists."
+		},
+		"flows": {
+			"path": "flows",
+			"description": "Use for build-time flow module definitions (module.ts / frontend.ts / backend.ts) and the flow authoring checklist."
+		},
+		"ai-evals": {
+			"path": "test/ai-evals",
+			"description": "Use for AI eval suites: dashboard / whatsapp-site-manager / whatsapp-worker cases, validators, runners, and the command layer table."
+		}
+	},
+	"mcp": {
+		"supabase": {
+			"type": "remote",
+			"url": "https://mcp.supabase.com/mcp?project_ref=wfsvrqtzsaqngbrbatfp&read_only=true&features=docs%2Cdebugging%2Cdevelopment",
+			"enabled": true
+		},
+		"playwright": {
+			"type": "local",
+			"command": ["npx", "-y", "@playwright/mcp"],
+			"enabled": true
+		}
+	},
+	"permission": {
+		"edit": { ".env": "deny", "prisma/migrations/**": "deny", ".ai-eval-results/**": "deny", "*": "allow" },
+		"bash": {
+			"rm -rf *": "deny",
+			"rm -rf .git*": "deny",
+			"git push*": "ask",
+			"git commit*": "ask",
+			"git reset --hard*": "ask",
+			"prisma migrate*": "ask",
+			"npx prisma db push*": "ask",
+			"npm run test*": "allow",
+			"npm run eval*": "allow",
+			"npm run lint*": "allow",
+			"npx tsc --noEmit*": "allow",
+			"*": "ask"
+		}
+	}
+}

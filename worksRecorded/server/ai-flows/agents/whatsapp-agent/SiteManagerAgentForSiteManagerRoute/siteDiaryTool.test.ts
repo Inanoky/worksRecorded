@@ -81,13 +81,17 @@ jest.mock("@/server/ai-flows/ai-run-context", () => ({
 }));
 
 jest.mock("@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext", () => ({
-  getWhatsappSourceContext: jest.fn(() => ({ originalAudioUrl: null })),
+  getWhatsappSourceContext: jest.fn(() => ({
+    originalAudioUrl: null,
+    messageId: "wamid.test-correction",
+  })),
 }));
 
 import {
   bisConnectionStatusTool,
   bisMaterialRecordsTool,
   extractAndSaveSiteDiary,
+  replaceLastSiteDiaryBatchOperation,
   siteDiaryBisStatusesTool,
   siteDiaryToDatabaseTool,
 } from "@/flows/default-construction/backend/site-manager-agent/tools";
@@ -385,6 +389,99 @@ describe("save_to_database site diary tool", () => {
     );
     expect(structuredInvokeMock).not.toHaveBeenCalled();
     expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("replace_last_site_diary_batch correction operation", () => {
+  const correctionTarget = {
+    batch: {
+      id: "batch-1",
+      originalText: "Šodien salabojām durvis 2. stāvā, 5 gab., 2h.",
+    },
+    records: [{ id: "old-1", BISId: null }],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    getConfigMock.mockResolvedValue(siteConfig);
+    systemPromptMock.mockResolvedValue("Extract site diary records");
+    getSiteDiaryToolContextMock.mockReturnValue(trustedContext);
+    getSiteDiaryCorrectionTargetMock.mockResolvedValue(correctionTarget);
+    structuredInvokeMock.mockResolvedValue({
+      records: [{ Area: "2 stāvs", Activity: "Repair works", Quantity: 10 }],
+    });
+    archiveAndReplaceSiteDiaryBatchMock.mockResolvedValue({
+      ok: true,
+      idempotent: false,
+      oldCount: 1,
+      count: 1,
+      records: [
+        {
+          id: "new-1",
+          siteId: "site-1",
+          userId: "user-1",
+          Location: "2 stāvs",
+          Works: "Repair works",
+          Amounts: 10,
+        },
+      ],
+    });
+  });
+
+  it("propagates evalMetadata from run context to archiveAndReplaceSiteDiaryBatch", async () => {
+    await replaceLastSiteDiaryBatchOperation({
+      correction: "Izmaini daudzumu uz 10 gab.",
+      language: "lv",
+    });
+
+    expect(archiveAndReplaceSiteDiaryBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({ evalMetadata: { evaluationId: "eval-1" } }),
+    );
+  });
+
+  it("records a structured save trace after a successful correction", async () => {
+    await replaceLastSiteDiaryBatchOperation({
+      correction: "Izmaini daudzumu uz 10 gab.",
+      language: "lv",
+    });
+
+    expect(recordTraceMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        siteId: "site-1",
+        userId: "user-1",
+        persistedRecords: expect.arrayContaining([
+          expect.objectContaining({ id: "new-1" }),
+        ]),
+      }),
+    );
+  });
+
+  it("does not record a trace when the correction fails", async () => {
+    archiveAndReplaceSiteDiaryBatchMock.mockResolvedValue({
+      ok: false,
+      reason: "no-eligible-batch",
+    });
+
+    await replaceLastSiteDiaryBatchOperation({
+      correction: "Izmaini daudzumu uz 10 gab.",
+      language: "lv",
+    });
+
+    expect(recordTraceMock).not.toHaveBeenCalled();
+  });
+
+  it("returns replaced status with new record count on success", async () => {
+    const result = await replaceLastSiteDiaryBatchOperation({
+      correction: "Izmaini daudzumu uz 10 gab.",
+      language: "lv",
+    });
+
+    expect(result).toMatchObject({
+      kind: "site_diary_correction",
+      status: "replaced",
+      oldRecordCount: 1,
+      newRecordCount: 1,
+    });
   });
 });
 

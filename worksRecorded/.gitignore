@@ -70,3 +70,4 @@ whatsapp-keys/
 .langgraph_api
 /supabase/.temp
 /lib/generated/lib/generated/prisma
+/.vscode

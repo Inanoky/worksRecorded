@@ -225,6 +225,42 @@ The judge is an optional second model call that grades the answer as `pass`, `wa
 
 Use deterministic validators for hard rules. Use the judge for quality review.
 
+## Comparing Two Model Runs
+
+After running a suite with two different models (for example via an
+`AI_EVAL_AGENT_MODEL` override), compare the two saved reports head-to-head
+with `lib/ai-evals/compare-runs.ts`.
+
+`compareEvalRuns(a, b)` takes two `NormalizedEvalRun` objects (from
+`loadEvalReports()` / `normalizeEvalReport()` in `report-loader.ts`) and
+returns a deterministic, unit-tested `NormalizedEvalComparison`:
+
+- `tasks[]`: per-task scored matrix. Tasks are matched by `item.id`
+  (`${caseId}:${turnIndex}` for dashboard multi-turn, `${caseId}:0` for
+  WhatsApp single-record-per-case). Each row has status A/B, failed
+  validators, judge status, latency, tokens, anomalies, and a `verdict`
+  (`a` | `b` | `tie` | `incomparable` when a task is missing on one side).
+- `aggregate`: per-run totals — tasks won/tied/incomparable, deterministic
+  failures, judge failures/warnings, critical/warning anomalies, total and
+  average latency, total tokens.
+- `winner` + `winnerReason`: decided by a fixed tiebreak ladder:
+  1. tasks won
+  2. fewer deterministic failures
+  3. fewer judge failures, then fewer judge warnings
+  4. fewer critical anomalies, then fewer warning anomalies
+  5. lower total latency
+  6. lower total tokens
+  7. tie
+
+Tests live in `test/ai-evals/compare-runs.test.ts` (real-data invariants,
+skips when fewer than two reports exist for a flow) and
+`test/ai-evals/compare-runs-edge.test.ts` (synthetic edge cases covering
+every tiebreak branch, always runs).
+
+The `eval-report-analyst` opencode subagent (`.opencode/agents/`)
+wraps `compareEvalRuns` and renders the scored matrix + winner with
+short answer snippets. Invoke it with two run IDs after a pair of runs.
+
 ## Adding A Case
 
 For dashboard chat, add a new object in `dashboard-cases.ts`:
@@ -336,6 +372,67 @@ Update `validators.ts` when text matching is too strict or too loose.
 - Update `whatsapp-site-manager-validators.ts` when saved-record matching is too strict or too loose.
 - Add tests in `whatsapp-site-manager-validators.test.ts` for every WhatsApp validator change.
 
+### Loosened answer-signal cases
+
+Some WhatsApp site-manager answer-signal validators are intentionally loose
+because listing every valid phrasing is brittle and the agent's wording can
+vary. The cases below check that the agent behaves correctly (saves work,
+refuses identity redirection, explains BIS status) without requiring exact
+word combinations:
+
+- `ambigious-bis-mention-in-task-decritpion`: no longer requires `"bis"` in the
+  answer or a sentence limit — the fast-path receipt format is multi-line by
+  design and does not mention BIS.
+- `ambigious-bis-mention-in-task-decritpion-follow-up`: no longer requires the
+  platform name `"worksrecorded|tīmek|pārlūk|portāl|web"` — the agent explains
+  BIS connection steps, not the platform name.
+- `bis-entry-how-to-guidance-only-no-bis`: accepts `"čat"` in addition to
+  `"šeit|whatsapp|ziņ"`; no longer requires the platform name signal.
+- `bis-entry-how-to-guidance-only-yes-bis`: accepts `"konfigurēts|sakārtots"`
+  in addition to the active-connection signals; no longer requires the platform
+  name signal.
+- `trusted-context-rejects-identity-redirection`: now expects
+  `shouldCreateRecord: false` — the agent's cautious refusal to save for another
+  user is correct security behavior.
+
+### Fast-path finish reasons
+
+When `WHATSAPP_SITE_MANAGER_FAST_PATH_MODE=on` (the default), the site-manager
+flow reports finish reasons like `fast-path`, `deterministic-save`, and
+`deterministic-correction`. The report loader recognizes these as known finish
+reasons and does not flag them as `unexpected-finish-reason` anomalies. Only
+truly unexpected reasons (e.g. `content-filter`, `length`) are flagged.
+
+### Multi-step follow-up cases
+
+A WhatsApp site-manager case can include an optional `followUp` block that
+sends a second webhook on the same eval thread after the first turn. This is
+used for correction flows, context retention, and BIS follow-up guidance.
+
+The follow-up case gets an auto-generated id `<caseId>-follow-up` and shares
+the same thread and conversation context. The runner validates the follow-up
+independently against its own `expected` block.
+
+#### Correction path record resolution
+
+When a follow-up triggers the correction path (`replace_last_site_diary_batch`),
+the corrected records are resolved in this order:
+
+1. **Structured save trace** — `getPersistedEvalRecordsFromTrace` reads records
+   captured by `recordStructuredSaveTrace` during the correction operation.
+2. **evalMetadata DB query** — `findCreatedRecords` queries by
+   `evalMetadata.runId` + `evalMetadata.caseId` matching the follow-up.
+3. **Correction audit fallback** — if both are empty, the runner queries
+   `SiteDiaryCorrectionAudit` by `correctionMessageId` (the eval webhook
+   message ID) and fetches the `newRecordIds` records. This handles the case
+   where the correction persisted records without eval metadata (legacy path).
+
+The correction path propagates `evalMetadata` from the run context to
+`archiveAndReplaceSiteDiaryBatch`, so the corrected records carry the same
+eval tags as normal saves. The structured save trace is also recorded so
+trace-based lookup works. The audit fallback is a safety net for any future
+regression.
+
 ## Future Improvements
 
 - Store token usage from LangChain responses in the JSON report.
@@ -343,7 +440,6 @@ Update `validators.ts` when text matching is too strict or too loose.
 - Add a cleanup script for eval checkpoint rows by `eval:dashboard-chat:` prefix.
 - Add a cleanup script for eval checkpoint rows by `eval:whatsapp-site-manager:` prefix.
 - Add a real audio webhook fixture for WhatsApp site-manager audio evals.
-- Add a small HTML/CLI summary for comparing two report files before and after prompt/context changes.
 
 Next WhatsApp site-manager edge cases to add:
 

@@ -313,7 +313,19 @@ function detectItemAnomalies(
     });
   }
 
-  if (item.finishReason && item.finishReason !== "stop" && !(item.finishReason === "tool_calls" && expectedToolCalls)) {
+  const knownFinishReasons = new Set([
+    "stop",
+    "tool_calls",
+    "fast-path",
+    "deterministic-save",
+    "deterministic-correction",
+    "deterministic-correction-prompt",
+  ]);
+  if (
+    item.finishReason &&
+    !knownFinishReasons.has(item.finishReason) &&
+    !(item.finishReason === "tool_calls" && expectedToolCalls)
+  ) {
     anomalies.push({
       severity: "warning",
       code: "unexpected-finish-reason",
