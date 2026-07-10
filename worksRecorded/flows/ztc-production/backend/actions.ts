@@ -31,6 +31,7 @@ import {
   getZtcProjectTotalAreaM2,
   isZtcAdditionalDetailsRow as isZtcSummaryAdditionalDetailsRow,
   isZtcAdditionalWorkRow as isZtcSummaryAdditionalWorkRow,
+  isZtcQualityRow as isZtcSummaryQualityRow,
   type ZtcDiaryRow,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
 import { resolveAdvancedProductionWorkflowContextForSite } from "@/lib/production-flow/runtime-server";
@@ -934,13 +935,20 @@ export async function getZtcScopeSummary(args: {
     (acc, row) => {
       const payroll = getZtcPayrollValues(row);
       acc.hours += payroll.hours;
+      if (
+        !isZtcSummaryQualityRow(row) &&
+        !isZtcSummaryAdditionalWorkRow(row) &&
+        !isZtcSummaryAdditionalDetailsRow(row)
+      ) {
+        acc.technicalHours += payroll.hours;
+      }
       acc.money += payroll.sum;
       if (elementName && elementTotalAreaM2 == null && payroll.amountM2 > acc.elementM2) {
         acc.elementM2 = payroll.amountM2;
       }
       return acc;
     },
-    { hours: 0, money: 0, elementM2: 0 },
+    { hours: 0, technicalHours: 0, money: 0, elementM2: 0 },
   );
 
   const relatedAdditionalRows = Array.from(
@@ -1006,6 +1014,7 @@ export async function getZtcScopeSummary(args: {
     filtered: Boolean(workName || keyword || Object.keys(dateFilter).length > 0),
     rows: rows.length,
     hours: totals.hours,
+    technicalHours: Number(totals.technicalHours.toFixed(2)),
     money: totals.money,
     costPerM2:
       scopeAreaM2 != null && scopeAreaM2 > 0
