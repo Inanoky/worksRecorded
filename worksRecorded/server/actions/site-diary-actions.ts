@@ -19,6 +19,7 @@ import {
 } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
 import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
+import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
 
 type SiteDiaryFlowHint = {
   flowId?: "default" | "ztc" | "tgem" | string | null;
@@ -1579,7 +1580,12 @@ export async function getSiteDiaryRecord({ siteId, date }) {
         ? {
             siteId,
             Date_Custom_2: { not: null },
-            NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+            NOT: [
+              { Date: null },
+              { Works: null },
+              { Works: "" },
+              { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
+            ],
             OR: [
               { Date: { gte: start, lte: end } },
               { Date_Custom_1: { gte: start, lte: end } },
@@ -1817,7 +1823,12 @@ function buildSiteDiaryListWhere(siteId: string, options: SiteDiaryRecordsPageOp
     ? {
         siteId,
         Date_Custom_2: { not: null },
-        NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+        NOT: [
+          { Date: null },
+          { Works: null },
+          { Works: "" },
+          { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
+        ],
         ...(andFilters.length > 0 ? { AND: andFilters } : {}),
       }
     : {
@@ -2002,7 +2013,12 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, option
         ? {
             siteId,
             Date_Custom_2: { not: null },
-            NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+            NOT: [
+              { Date: null },
+              { Works: null },
+              { Works: "" },
+              { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
+            ],
             ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
           }
         : {
@@ -3340,7 +3356,12 @@ export async function getFilledDays({ siteId, year, month, flowId }: Args & Site
           where: {
             siteId,
             Date_Custom_2: { not: null },
-            NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+            NOT: [
+              { Date: null },
+              { Works: null },
+              { Works: "" },
+              { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
+            ],
             OR: [
               { Date: { gte: from, lt: to } },
               { Date_Custom_1: { gte: from, lt: to } },

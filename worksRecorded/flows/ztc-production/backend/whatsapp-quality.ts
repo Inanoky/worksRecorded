@@ -21,6 +21,7 @@ import {
 } from "@/flows/ztc-production/backend/whatsapp-worker";
 import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
 import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
+import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
 
 const QA_PENDING_PREFIX = "__ZTC_QA_PENDING__";
 const QA_COMPLETED_PHOTO_BATCH_PREFIX = "__ZTC_QA_COMPLETED_PHOTO_BATCH__";
@@ -76,6 +77,19 @@ function readPendingPayload(value: string | null | undefined): QaPendingPayload 
 
 function makePendingState(payload: QaPendingPayload) {
   return `${QA_PENDING_PREFIX} ${JSON.stringify(payload)}`;
+}
+
+function normalizeQaCommand(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isCancelCommand(text: string) {
+  const command = normalizeQaCommand(text);
+  return command === "atcelt" || command === "atcelt kvalitati" || command === "cancel";
 }
 
 function makeCompletedPhotoBatchState(now = Date.now()) {
@@ -446,6 +460,38 @@ function getPendingQaSession(worker: ZtcWorker) {
     },
     orderBy: { createdAt: "desc" },
   });
+}
+
+async function cancelPendingQaSession(args: {
+  worker: ZtcWorker;
+  to: string | null;
+  session?: Awaited<ReturnType<typeof getPendingQaSession>> | null;
+}) {
+  const session = args.session ?? (await getPendingQaSession(args.worker));
+  if (!session) {
+    await sendZtcMessage(args.to, "Nav aktīvas kvalitātes kontroles sesijas, ko atcelt.");
+    return false;
+  }
+
+  const now = new Date();
+  await prisma.ztcRecords.update({
+    where: { id: session.id },
+    data: {
+      Date_Custom_2: now,
+      Comments_Custom_1: `${ZTC_CANCELLED_SESSION_PREFIX} ${JSON.stringify({
+        cancelledAt: now.toISOString(),
+        scope: "quality",
+        project: session.Location ?? null,
+        element: session.Location_Custom_1 ?? null,
+      })}`,
+      Comments: session.Comments
+        ? `${session.Comments}\nAtcelts: lietotāja komanda.`
+        : "Atcelts: lietotāja komanda.",
+    },
+  });
+
+  await sendZtcMessage(args.to, "Kvalitātes kontroles sesija atcelta.");
+  return true;
 }
 
 async function getRecentCompletedQaSession(worker: ZtcWorker) {
@@ -934,6 +980,12 @@ async function handleQualityText(args: {
   try {
   const session = await getPendingQaSession(args.worker);
   const payload = readPendingPayload(session?.Comments_Custom_1);
+
+  if (isCancelCommand(args.text)) {
+    outcome = session ? "quality_session_cancelled" : "quality_cancel_without_session";
+    await cancelPendingQaSession({ worker: args.worker, to: args.to, session });
+    return;
+  }
 
   if (!session || !payload) {
     outcome = "missing_pending_session";

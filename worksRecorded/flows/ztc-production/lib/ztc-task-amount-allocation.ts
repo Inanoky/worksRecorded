@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/utils/db";
+import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
 
 type AllocationInput = {
   id: string;
@@ -167,6 +168,7 @@ export async function rebalanceZtcCompletedTaskAmounts(args: {
       Location: anchor.Location,
       Location_Custom_1: anchor.Location_Custom_1,
       Date_Custom_2: { not: null },
+      NOT: [{ Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } }],
     },
     select: {
       id: true,

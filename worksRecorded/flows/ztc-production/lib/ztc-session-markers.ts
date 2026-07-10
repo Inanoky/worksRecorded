@@ -1,0 +1,2 @@
+export const ZTC_CANCELLED_SESSION_PREFIX = "__ZTC_CANCELLED__";
+

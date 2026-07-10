@@ -22,6 +22,7 @@ import {
   clearZtcLaborNormFromMetadata,
   normalizeZtcLaborNorm,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
+import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
 import {
   buildZtcLaborNormSummaryRows,
   buildZtcLaborNormTotalSummary,
@@ -715,7 +716,12 @@ async function loadZtcSiteDiaryRecords(args: { siteId: string; organizationId: s
       siteId: args.siteId,
       organizationId: args.organizationId,
       Date_Custom_2: { not: null },
-      NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+      NOT: [
+        { Date: null },
+        { Works: null },
+        { Works: "" },
+        { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
+      ],
       OR: [
         { Date: { gte: start, lte: end } },
         { Date_Custom_1: { gte: start, lte: end } },
@@ -848,7 +854,12 @@ export async function getZtcScopeSummary(args: {
       ...(elementName ? { Location_Custom_1: elementName } : {}),
       ...(workName ? { Works: workName } : {}),
       ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
-      NOT: [{ Date: null }, { Works: null }, { Works: "" }],
+      NOT: [
+        { Date: null },
+        { Works: null },
+        { Works: "" },
+        { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
+      ],
     },
     orderBy: [{ Date: "desc" }, { Date_Custom_1: "desc" }, { createdAt: "desc" }],
     select: {

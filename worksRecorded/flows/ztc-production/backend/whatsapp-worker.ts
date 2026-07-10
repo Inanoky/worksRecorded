@@ -33,6 +33,7 @@ import {
   normalizeZtcLaborNorm,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
+import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -622,7 +623,10 @@ async function findExistingTlDiagonalReport(session: OpenZtcSession) {
       Location_Custom_1: session.Location_Custom_1,
       Date_Custom_2: { not: null },
       Comments: { contains: "Diagon" },
-      NOT: [{ id: session.id }],
+      NOT: [
+        { id: session.id },
+        { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
+      ],
     },
     orderBy: { Date_Custom_2: "desc" },
     take: 20,
@@ -1131,6 +1135,39 @@ function readDiagonalPhotoMeasurePayload(
   return parseJsonObject<ZtcDiagonalPayload>(readMarkerPayload(value, prefix), {
     completedText: "",
   });
+}
+
+function isAnyDiagonalFlow(value: string | null | undefined) {
+  return Boolean(
+    isDiagonalPhotoMeasureFlow(value) ||
+      value?.startsWith(DIAGONALS_PENDING_PREFIX) ||
+      value?.startsWith(DIAGONALS_CONFIRM_PREFIX),
+  );
+}
+
+function readAnyDiagonalPayload(value: string | null | undefined): ZtcDiagonalPayload {
+  if (value?.startsWith(DIAGONAL_FIRST_PHOTO_PENDING_PREFIX)) {
+    return readDiagonalPhotoMeasurePayload(value, DIAGONAL_FIRST_PHOTO_PENDING_PREFIX);
+  }
+  if (value?.startsWith(DIAGONAL_FIRST_MEASURE_PENDING_PREFIX)) {
+    return readDiagonalPhotoMeasurePayload(value, DIAGONAL_FIRST_MEASURE_PENDING_PREFIX);
+  }
+  if (value?.startsWith(DIAGONAL_SECOND_PHOTO_PENDING_PREFIX)) {
+    return readDiagonalPhotoMeasurePayload(value, DIAGONAL_SECOND_PHOTO_PENDING_PREFIX);
+  }
+  if (value?.startsWith(DIAGONAL_SECOND_MEASURE_PENDING_PREFIX)) {
+    return readDiagonalPhotoMeasurePayload(value, DIAGONAL_SECOND_MEASURE_PENDING_PREFIX);
+  }
+  if (value?.startsWith(DIAGONALS_PENDING_PREFIX)) {
+    return { completedText: readMarkerPayload(value, DIAGONALS_PENDING_PREFIX) };
+  }
+  if (value?.startsWith(DIAGONALS_CONFIRM_PREFIX)) {
+    return parseJsonObject<ZtcDiagonalPayload>(
+      readMarkerPayload(value, DIAGONALS_CONFIRM_PREFIX),
+      { completedText: "" },
+    );
+  }
+  return { completedText: "" };
 }
 
 function getMetaMessageTimestampMs(formData: FormData) {
@@ -2007,6 +2044,21 @@ function isResumeCommand(text: string) {
   return normalizeZtcCommand(text) === "turpinu";
 }
 
+function isCancelCommand(text: string) {
+  const command = normalizeZtcCommand(text);
+  return command === "atcelt" || command === "cancel";
+}
+
+function isCancelWorkCommand(text: string) {
+  const command = normalizeZtcCommand(text);
+  return [
+    "atcelt darbu",
+    "atcelt visu",
+    "cancel work",
+    "cancel all",
+  ].includes(command);
+}
+
 function normalizePauseIntervals(value: unknown): ZtcPauseInterval[] {
   if (!Array.isArray(value)) return [];
 
@@ -2142,6 +2194,90 @@ async function resumeZtcSession(args: {
   await sendZtcMessage(
     to,
     `Darbs turpināts: ${formatSessionWork(session) || "darbs"}. Pauzes laiks: ${pausedHours} stundas.`,
+  );
+}
+
+async function cancelWholeZtcSession(args: {
+  session: OpenZtcSession;
+  worker: ZtcWorker;
+  to: string | null;
+}) {
+  const { session, worker, to } = args;
+  const now = new Date();
+  const pauseIntervals = closeActivePauseInterval(session, now);
+  const timeInvolved = calculateEffectiveHours(session, now);
+  const cancellationPayload = {
+    cancelledAt: now.toISOString(),
+    work: session.Works ?? null,
+    project: session.Location ?? null,
+    element: session.Location_Custom_1 ?? null,
+  };
+
+  const updated = await prisma.ztcRecords.update({
+    where: { id: session.id },
+    data: {
+      Date_Custom_2: now,
+      pausedAt: null,
+      pauseIntervals,
+      TimeInvolved: timeInvolved,
+      Comments_Custom_1: `${ZTC_CANCELLED_SESSION_PREFIX} ${JSON.stringify(cancellationPayload)}`,
+      Comments: session.Comments
+        ? `${session.Comments}\nAtcelts: lietotāja komanda.`
+        : "Atcelts: lietotāja komanda.",
+    },
+  });
+
+  logZtcSession("session_cancelled", {
+    session: updated,
+    worker,
+    details: cancellationPayload,
+  });
+
+  await sendZtcMessage(
+    to,
+    `Atcelts: ${formatSessionWork(session) || "aktīvā sesija"}.`,
+  );
+}
+
+async function cancelTlDiagonalAttempt(args: {
+  session: OpenZtcSession;
+  worker: ZtcWorker;
+  to: string | null;
+}) {
+  const { session, worker, to } = args;
+  const state = session.Comments_Custom_1;
+  const payload = readAnyDiagonalPayload(state);
+  const resetPayload: ZtcDiagonalPayload = {
+    completedText: payload.completedText ?? "",
+    additionalDetails: payload.additionalDetails ?? [],
+  };
+  const removedPhotoUrls = [payload.firstPhotoUrl, payload.secondPhotoUrl]
+    .map((url) => String(url ?? "").trim())
+    .filter(Boolean);
+  const nextPhotos = removedPhotoUrls.length
+    ? (session.Photos ?? []).filter((url) => !removedPhotoUrls.includes(url))
+    : session.Photos ?? [];
+
+  const updated = await prisma.ztcRecords.update({
+    where: { id: session.id },
+    data: {
+      Comments_Custom_1: `${DIAGONAL_FIRST_PHOTO_PENDING_PREFIX} ${JSON.stringify(resetPayload)}`,
+      Photos: nextPhotos,
+    },
+  });
+
+  logZtcSession("tl_diagonal_attempt_cancelled", {
+    session: updated,
+    worker,
+    details: {
+      previousState: state,
+      removedPhotoCount: removedPhotoUrls.length,
+    },
+  });
+
+  await sendZtcMessage(
+    to,
+    `Diagonāļu mērīšana atcelta. TL darbu nevar pabeigt bez diagonālēm. Lūdzu, atsūtiet foto ar pirmās rāmja diagonāles mērījumu vai rakstiet "Atcelt darbu", lai atceltu visu darbu.`,
   );
 }
 
@@ -3169,6 +3305,35 @@ async function handleWorkText(args: {
   try {
   const { text, to, worker, originalAudioUrl } = args;
   let openSession = await getOpenZtcSession(worker);
+
+  if (isCancelWorkCommand(text)) {
+    if (!openSession) {
+      outcome = "cancel_work_without_session";
+      await sendZtcMessage(to, "Nav aktīvas sesijas, ko atcelt.");
+      return;
+    }
+    outcome = "session_cancelled_by_command";
+    await cancelWholeZtcSession({ session: openSession, worker, to });
+    return;
+  }
+
+  if (isCancelCommand(text)) {
+    if (!openSession) {
+      outcome = "cancel_without_session";
+      await sendZtcMessage(to, "Nav aktīvas sesijas, ko atcelt.");
+      return;
+    }
+
+    if (isAnyDiagonalFlow(openSession.Comments_Custom_1)) {
+      outcome = "tl_diagonal_attempt_cancelled";
+      await cancelTlDiagonalAttempt({ session: openSession, worker, to });
+      return;
+    }
+
+    outcome = "session_cancelled_by_command";
+    await cancelWholeZtcSession({ session: openSession, worker, to });
+    return;
+  }
 
   if (isPauseCommand(text)) {
     if (!openSession) {
