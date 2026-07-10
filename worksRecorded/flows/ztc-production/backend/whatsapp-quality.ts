@@ -407,6 +407,7 @@ async function propagateQualityCoefficient(args: {
         { id: args.qaRecordId },
         { Works: QA_WORK_LABEL },
         { Comments_Custom_2: { contains: "\"type\":\"ztc_quality_check\"" } },
+        { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
       ],
     },
     select: {
