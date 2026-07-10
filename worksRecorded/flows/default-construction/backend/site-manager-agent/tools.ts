@@ -446,6 +446,7 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
   const started = Date.now();
   const context = getSiteManagerToolContext();
   const source = getWhatsappSourceContext();
+  const runContext = getSiteManagerAgentRunContext();
   if (!context || !source.messageId) {
     recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
     return correctionResult({
@@ -495,13 +496,26 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
       correctionText: args.correction,
       rows: extraction.rows,
       replyToMessageId: source.replyToMessageId,
+      evalMetadata: runContext?.evalRecordMetadata,
     });
     if (!result.ok) {
       recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
       return correctionResult({
         status: correctionStatusFromReason(result.reason),
-        language: args.language,
+        language: args.language, 
         oldRecordCount,
+      });
+    }
+    if (result.records?.length) {
+      recordStructuredSaveTrace({
+        siteId: context.siteId,
+        userId: context.userId,
+        date: currentDiaryDate(),
+        originalUserComment: `${target.batch.originalText}\nCorrection: ${args.correction}`,
+        rawRecords: extraction.rows,
+        mappedRows: extraction.rows,
+        normalizedInsertRows: extraction.rows,
+        persistedRecords: result.records as Record<string, unknown>[],
       });
     }
     recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: true });

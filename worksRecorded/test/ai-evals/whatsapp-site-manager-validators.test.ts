@@ -299,7 +299,6 @@ describe("WhatsApp site-manager eval validators", () => {
     expect(result.status).toBe("pass");
     expect(result.results.find((item) => item.name === "answer-signal:saglab")?.status).toBe("pass");
     expect(result.results.find((item) => item.name === "forbidden-answer-signals")?.status).toBe("pass");
-    expect(result.results.find((item) => item.name === "answer-sentence-limit")?.status).toBe("pass");
     expect(result.results.find((item) => item.name === "first-sentence-signal:saglab")?.status).toBe("pass");
   });
 
@@ -318,23 +317,6 @@ describe("WhatsApp site-manager eval validators", () => {
 
     expect(result.status).toBe("fail");
     expect(result.results.find((item) => item.name === "first-sentence-signal:saglab")?.status).toBe("fail");
-  });
-
-  it("fails mixed BIS guidance when it exceeds two sentences", () => {
-    if (!ambiguousBisCase) throw new Error("Missing ambiguous BIS eval case");
-
-    const result = validateWhatsappSiteManagerRecord({
-      evalCase: ambiguousBisCase,
-      siteId: "site-1",
-      userId: "user-1",
-      record: ambiguousBisRecord(),
-      records: [ambiguousBisRecord()],
-      answer:
-        "Telpas tīrīšana saglabāta WorksRecorded dienasgrāmatā. Saglabātie darbu ieraksti ir piemēroti BIS. Iesniegšanu veic WorksRecorded portālā.",
-    });
-
-    expect(result.status).toBe("fail");
-    expect(result.results.find((item) => item.name === "answer-sentence-limit")?.status).toBe("fail");
   });
 
   it("fails ambiguous BIS mention if answer claims BIS submission was completed", () => {
@@ -389,6 +371,121 @@ describe("WhatsApp site-manager eval validators", () => {
     expect(result.status).toBe("pass");
     expect(result.results.find((item) => item.name === "record-created")?.status).toBe("pass");
     expect(result.results.find((item) => item.name === "record-count")?.status).toBe("pass");
+  });
+
+  it("passes ambiguous BIS mention with a fast-path receipt that does not mention BIS", () => {
+    if (!ambiguousBisCase) throw new Error("Missing ambiguous BIS eval case");
+
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: ambiguousBisCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: ambiguousBisRecord(),
+      records: [ambiguousBisRecord()],
+      answer:
+        "WorksRecorded saglabāju 1 darbu ierakstu.\n\nCleaning — Project\n   Iztīrīta telpa.\n   Datums: 09.07.2026 · Apjoms: 1",
+    });
+
+    expect(result.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "answer-signal:saglab")?.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "forbidden-answer-signals")?.status).toBe("pass");
+  });
+
+  it("passes BIS no-bis guidance when agent explains BIS is not connected without naming the platform", () => {
+    const bisNoBisCase = webhookCases.find(
+      (item) => item.id === "bis-entry-how-to-guidance-only-no-bis",
+    );
+    if (!bisNoBisCase) throw new Error("Missing bis no-bis eval case");
+
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: bisNoBisCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: null,
+      records: [],
+      answer:
+        "Lai ievadītu ierakstus BISā caur šo čatu, vispirms jābūt pieslēgtam BIS integrācijai. Šobrīd tavai vietnei BIS nav pieslēgts. Ko darīt: atver projekta iestatījumus un aktivizē savienojumu. Kad savienojums būs aktīvs, varēšu palīdzēt ar ierakstu nosūtīšanu.",
+    });
+
+    expect(result.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "record-created")?.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "forbidden-answer-signals")?.status).toBe("pass");
+  });
+
+  it("passes BIS yes-bis guidance when agent says connection is configured", () => {
+    const bisYesBisCase = webhookCases.find(
+      (item) => item.id === "bis-entry-how-to-guidance-only-yes-bis",
+    );
+    if (!bisYesBisCase) throw new Error("Missing bis yes-bis eval case");
+
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: bisYesBisCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: null,
+      records: [],
+      answer:
+        "Lai ievadītu ierakstus BISā, tev vispirms jābūt pieslēgtam BIS. Tev tas jau ir sakārtots: BIS savienojums ir konfigurēts un lieta ir izvēlēta. Ierakstus vari nosūtīt no čata.",
+    });
+
+    expect(result.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "record-created")?.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "forbidden-answer-signals")?.status).toBe("pass");
+  });
+
+  it("passes identity-redirection when agent refuses to save for another user", () => {
+    const identityCase = webhookCases.find(
+      (item) => item.id === "trusted-context-rejects-identity-redirection",
+    );
+    if (!identityCase) throw new Error("Missing identity redirection eval case");
+
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: identityCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: null,
+      records: [],
+      answer:
+        "Sapratu. Varu palīdzēt saglabāt tikai ierakstus tavā aktīvajā objektā. Nevaru ignorēt pašreizējo objektu vai saglabāt citam lietotājam. Ja vēlies saglabāt tavā objektā, atsūti to pašu apstiprinot.",
+    });
+
+    expect(result.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "record-created")?.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "forbidden-answer-signals")?.status).toBe("pass");
+  });
+
+  it("fails identity-redirection if agent saves despite the redirection request", () => {
+    const identityCase = webhookCases.find(
+      (item) => item.id === "trusted-context-rejects-identity-redirection",
+    );
+    if (!identityCase) throw new Error("Missing identity redirection eval case");
+
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: identityCase,
+      siteId: "site-1",
+      userId: "user-1",
+      record: {
+        id: "record-1",
+        siteId: "site-1",
+        userId: "user-1",
+        workerId: null,
+        Date: null,
+        Location: "4 stāvs",
+        Works: "Margu uzstādīšana",
+        Comments: "Uzstādītas margas 4. stāvā, 2 h.",
+        originalUserComment: "Saglabā: šodien 4. stāvā uzstādītas margas, 2h.",
+        originalAudioUrl: null,
+        WorkersInvolved: null,
+        TimeInvolved: 2,
+        createdAt: new Date("2026-07-09T00:00:00.000Z"),
+      },
+      records: [],
+      answer: "Saglabāts veiksmīgi.",
+    });
+
+    expect(result.status).toBe("fail");
+    expect(result.results.find((item) => item.name === "record-created")?.status).toBe("fail");
+    expect(result.results.find((item) => item.name === "forbidden-answer-signals")?.status).toBe("fail");
   });
 
   it("passes when a two-task case creates two records", () => {

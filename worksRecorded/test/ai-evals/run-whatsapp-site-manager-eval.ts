@@ -452,6 +452,41 @@ async function findCreatedRecords(args: {
   });
 }
 
+async function findCorrectionAuditRecords(args: {
+  correctionMessageId: string;
+}): Promise<SavedSiteDiaryRecord[]> {
+  const audit = await prisma.siteDiaryCorrectionAudit.findUnique({
+    where: { correctionMessageId: args.correctionMessageId },
+  });
+  if (!audit) return [];
+  const newIds = Array.isArray(audit.newRecordIds)
+    ? audit.newRecordIds.filter((id): id is string => typeof id === "string")
+    : [];
+  if (!newIds.length) return [];
+  const records = await prisma.sitediaryrecords.findMany({
+    where: { id: { in: newIds }, archivedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      siteId: true,
+      userId: true,
+      workerId: true,
+      Date: true,
+      Location: true,
+      Works: true,
+      Comments: true,
+      originalUserComment: true,
+      originalAudioUrl: true,
+      WorkersInvolved: true,
+      TimeInvolved: true,
+      Amounts: true,
+      evalMetadata: true,
+      createdAt: true,
+    },
+  });
+  return records as unknown as SavedSiteDiaryRecord[];
+}
+
 async function cleanupPreviousEvalCaseRows(args: {
   siteId: string;
   userId: string;
@@ -919,13 +954,19 @@ async function main() {
             includeTextFallback: false,
           });
           const followUpPersistedRecords = getPersistedEvalRecordsFromTrace(followUpTracedRun.entries);
+          let followUpAuditRecords: SavedSiteDiaryRecord[] = [];
+          if (followUpPersistedRecords.length === 0 && followUpCreatedRecords.length === 0) {
+            followUpAuditRecords = await findCorrectionAuditRecords({
+              correctionMessageId: followUpPrepared.messageId,
+            });
+          }
           const followUpRecordIds = Array.from(new Set(
-            [...followUpPersistedRecords, ...followUpCreatedRecords].map((record) => record.id),
+            [...followUpPersistedRecords, ...followUpCreatedRecords, ...followUpAuditRecords].map((record) => record.id),
           ));
           createdRecordIds = Array.from(new Set([...createdRecordIds, ...followUpRecordIds]));
           const followUpRecordsForValidation = selectRecordsForWhatsappEval({
             traceEntries: followUpTracedRun.entries,
-            fallbackRecords: followUpCreatedRecords,
+            fallbackRecords: followUpCreatedRecords.length > 0 ? followUpCreatedRecords : followUpAuditRecords,
           });
           const followUpSelectedRecord = selectNewestEvalRecord(followUpRecordsForValidation);
           const followUpDeterministic = validateWhatsappSiteManagerRecord({
