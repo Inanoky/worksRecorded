@@ -46,6 +46,9 @@ export type ZtcLaborNormComparison = {
 type ZtcLaborNormSummaryOptions = {
   plannedAmountM2?: number | null;
   actualAmountM2?: number | null;
+  requireDrawingContext?: boolean;
+  requirePlannedLaborNorm?: boolean;
+  resolvePlannedLaborNorm?: (row: ZtcDiaryRow) => unknown;
 };
 
 type ZtcDrawingMetadata = {
@@ -211,8 +214,35 @@ function isZtcProductionWorkRow(row: ZtcDiaryRow) {
   return !isZtcQualityRow(row) && !isZtcAdditionalWorkRow(row) && !isZtcAdditionalDetailsRow(row);
 }
 
+export function isZtcDrawingProductionWorkRow(row: ZtcDiaryRow) {
+  return isZtcProductionWorkRow(row) && ztcWorkMatchesDrawingMetadata(row);
+}
+
 function hasZtcMatchedRate(row: ZtcDiaryRow) {
   return Number.isFinite(parseZtcPayrollNumber(row.Location_Custom_2, Number.NaN));
+}
+
+function getZtcPlannedLaborNorm(
+  row: ZtcDiaryRow,
+  resolver?: (row: ZtcDiaryRow) => unknown,
+) {
+  if (!isZtcProductionWorkRow(row)) return null;
+
+  const metadataPlanned = hasZtcMatchedRate(row)
+    ? parseZtcLaborNormNumber(
+        readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit,
+      )
+    : null;
+  if (metadataPlanned != null) return metadataPlanned;
+
+  return parseZtcLaborNormNumber(resolver?.(row));
+}
+
+export function hasZtcPlannedLaborNorm(
+  row: ZtcDiaryRow,
+  resolver?: (row: ZtcDiaryRow) => unknown,
+) {
+  return getZtcPlannedLaborNorm(row, resolver) != null;
 }
 
 function getZtcQualityCoefficient(row: ZtcDiaryRow) {
@@ -373,7 +403,13 @@ export function getZtcLaborNormComparison(row: ZtcDiaryRow): ZtcLaborNormCompari
   return getZtcPayrollValues(row).laborNorm;
 }
 
-function buildZtcLaborNormTaskGroups(rows: ZtcDiaryRow[]) {
+function buildZtcLaborNormTaskGroups(
+  rows: ZtcDiaryRow[],
+  options: Pick<
+    ZtcLaborNormSummaryOptions,
+    "requireDrawingContext" | "requirePlannedLaborNorm" | "resolvePlannedLaborNorm"
+  > = {},
+) {
   const groups = new Map<
     string,
     {
@@ -387,6 +423,7 @@ function buildZtcLaborNormTaskGroups(rows: ZtcDiaryRow[]) {
 
   rows.forEach((row) => {
     if (!isZtcProductionWorkRow(row)) return;
+    if (options.requireDrawingContext && !ztcWorkMatchesDrawingMetadata(row)) return;
     const task = String(row.Works ?? "").trim();
     if (!task) return;
 
@@ -394,11 +431,8 @@ function buildZtcLaborNormTaskGroups(rows: ZtcDiaryRow[]) {
     const amount = parseZtcPayrollNumber(row.Amounts);
     if (amount <= 0) return;
 
-    const planned = hasZtcMatchedRate(row)
-      ? parseZtcLaborNormNumber(
-          readZtcLaborNormFromMetadata(row.Comments_Custom_2).plannedHoursPerUnit,
-        )
-      : null;
+    const planned = getZtcPlannedLaborNorm(row, options.resolvePlannedLaborNorm);
+    if (options.requirePlannedLaborNorm && planned == null) return;
     const key = normalizeZtcText(task);
     const existing = groups.get(key) ?? {
       task,
@@ -428,8 +462,12 @@ function getZtcPlannedHours(planned: number | null, amount: number | null | unde
 
 export function buildZtcLaborNormSummaryRows(
   rows: ZtcDiaryRow[],
+  options: Pick<
+    ZtcLaborNormSummaryOptions,
+    "requireDrawingContext" | "requirePlannedLaborNorm" | "resolvePlannedLaborNorm"
+  > = {},
 ) {
-  const groups = buildZtcLaborNormTaskGroups(rows);
+  const groups = buildZtcLaborNormTaskGroups(rows, options);
 
   return Array.from(groups.values())
     .map((group) => {
@@ -437,7 +475,7 @@ export function buildZtcLaborNormSummaryRows(
         group.plannedAmount > 0
           ? Number((group.plannedWeighted / group.plannedAmount).toFixed(4))
           : null;
-      const plannedHours = getZtcPlannedHours(planned, group.plannedAmount);
+      const plannedHours = getZtcPlannedHours(planned, group.amount);
       const actual =
         group.amount > 0 ? Number((group.hours / group.amount).toFixed(4)) : null;
       return {
@@ -464,7 +502,7 @@ export function buildZtcLaborNormTotalSummary(
   rows: ZtcDiaryRow[],
   options: ZtcLaborNormSummaryOptions = {},
 ) {
-  const groups = buildZtcLaborNormTaskGroups(rows);
+  const groups = buildZtcLaborNormTaskGroups(rows, options);
   const totals = groups.reduce(
     (acc, group) => {
       acc.hours += group.hours;
@@ -476,7 +514,7 @@ export function buildZtcLaborNormTotalSummary(
         group.plannedAmount > 0
           ? Number((group.plannedWeighted / group.plannedAmount).toFixed(4))
           : null;
-      const plannedHours = getZtcPlannedHours(planned, group.plannedAmount);
+      const plannedHours = getZtcPlannedHours(planned, group.amount);
       if (plannedHours != null) acc.plannedHours += plannedHours;
 
       return acc;

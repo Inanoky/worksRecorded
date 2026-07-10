@@ -21,6 +21,7 @@ import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
   normalizeZtcLaborNorm,
+  parseZtcLaborNormNumber,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
 import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
 import {
@@ -30,6 +31,7 @@ import {
   getZtcElementTotalAreaM2,
   getZtcPayrollValues,
   getZtcProjectTotalAreaM2,
+  hasZtcPlannedLaborNorm as hasZtcSummaryPlannedLaborNorm,
   isZtcAdditionalDetailsRow as isZtcSummaryAdditionalDetailsRow,
   isZtcAdditionalWorkRow as isZtcSummaryAdditionalWorkRow,
   isZtcQualityRow as isZtcSummaryQualityRow,
@@ -829,6 +831,7 @@ export async function getZtcScopeSummary(args: {
   keyword?: string | null;
 }) {
   const context = await requireZtcAccess(args.siteId);
+  const defaultRates = getDefaultTaskRatesFromConfig(await loadZtcSiteDiaryConfig(args.siteId));
   const projectName = String(args.projectName ?? "").trim();
   const elementName = String(args.elementName ?? "").trim();
   const workerName = String(args.workerName ?? "").trim();
@@ -932,15 +935,23 @@ export async function getZtcScopeSummary(args: {
   const projectTotalAreaM2 = projectName
     ? getZtcProjectTotalAreaM2(rows, projectName)
     : null;
+  const resolvePlannedLaborNormFromRates = (row: ZtcDiaryRow) =>
+    parseZtcLaborNormNumber(
+      findDefaultRateForTask(
+        row.Works,
+        getProjectCategoryRates(defaultRates, row.Location, "works"),
+        { category: "works" },
+      )?.laborNorm,
+    );
   const totals = rows.reduce(
     (acc, row) => {
       const payroll = getZtcPayrollValues(row);
       acc.hours += payroll.hours;
-      if (
+      const isTechnicalRow =
         !isZtcSummaryQualityRow(row) &&
         !isZtcSummaryAdditionalWorkRow(row) &&
-        !isZtcSummaryAdditionalDetailsRow(row)
-      ) {
+        !isZtcSummaryAdditionalDetailsRow(row);
+      if (isTechnicalRow && hasZtcSummaryPlannedLaborNorm(row, resolvePlannedLaborNormFromRates)) {
         acc.technicalHours += payroll.hours;
       }
       acc.money += payroll.sum;
@@ -1027,10 +1038,15 @@ export async function getZtcScopeSummary(args: {
       : projectName
         ? projectTotalAreaM2
         : null,
-    laborNormRows: buildZtcLaborNormSummaryRows(rows),
+    laborNormRows: buildZtcLaborNormSummaryRows(rows, {
+      requirePlannedLaborNorm: true,
+      resolvePlannedLaborNorm: resolvePlannedLaborNormFromRates,
+    }),
     laborNormTotal: buildZtcLaborNormTotalSummary(rows, {
       plannedAmountM2: scopeAreaM2,
       actualAmountM2: scopeAreaM2,
+      requirePlannedLaborNorm: true,
+      resolvePlannedLaborNorm: resolvePlannedLaborNormFromRates,
     }),
     relatedAdditionalRows,
   };

@@ -116,7 +116,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
 import { useZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend/useZtcSiteDiaryFlow";
-import { getZtcScopeSummary } from "@/flows/ztc-production/backend/actions";
+import { getZtcDefaultTaskRates, getZtcScopeSummary } from "@/flows/ztc-production/backend/actions";
 import { exportForma2ToExcel } from "@/components/sitediary/forma2-export";
 import {
   buildZtcQualityDisplayStateByRowId,
@@ -1456,7 +1456,10 @@ export default function SiteDiaryCalendar({
   const exportToExcel = async () => {
     const XLSX = await import("xlsx");
     const exportFilteredRows = await loadAllFilteredRowsForExport();
-    const exportRows = isZtcSite ? formatZtcRowsForExcel(exportFilteredRows) : exportFilteredRows;
+    const ztcDefaultRates = isZtcSite && siteId ? await getZtcDefaultTaskRates(siteId) : [];
+    const exportRows = isZtcSite
+      ? formatZtcRowsForExcel(exportFilteredRows, { defaultRates: ztcDefaultRates })
+      : exportFilteredRows;
     const worksheet = XLSX.utils.json_to_sheet(exportRows);
     if (isZtcSite) {
       applyZtcExcelNumberFormats(XLSX, worksheet);
@@ -2572,13 +2575,13 @@ export default function SiteDiaryCalendar({
                         ztcSelectedScopeSummary.elementM2 != null &&
                         ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
                         ztcSelectedScopeSummary.productivity
-                        ? "grid-cols-1 sm:grid-cols-6 sm:min-w-[980px]"
+                        ? "grid-cols-1 sm:grid-cols-7 sm:min-w-[1120px]"
                         : ztcSelectedScopeSummary.worker &&
                             ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
                             ztcSelectedScopeSummary.productivity
-                          ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[700px]"
+                          ? "grid-cols-1 sm:grid-cols-5 sm:min-w-[860px]"
                         : ztcSelectedScopeSummary.worker && ztcSelectedScopeSummary.productivity
-                          ? "grid-cols-1 sm:grid-cols-3 sm:min-w-[540px]"
+                          ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[700px]"
                         : ztcSelectedScopeSummary.elementM2 != null &&
                         ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
                         ztcSelectedScopeSummary.costPerM2 != null &&
@@ -2705,8 +2708,21 @@ export default function SiteDiaryCalendar({
                         </div>
                       </div>
                     ) : null}
+                    {ztcSelectedScopeSummary.worker ? (
+                      <div className="rounded-md border bg-muted/30 px-3 py-2">
+                        <div className="text-xs text-muted-foreground">Kopējās nostrādātās stundas</div>
+                        <div className="text-lg font-semibold tabular-nums">
+                          {(ztcSelectedScopeSummary.productivity?.totalWorkedHours ?? ztcSelectedScopeSummary.hours).toLocaleString(dateLocale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="rounded-md border bg-muted/30 px-3 py-2">
-                      <div className="text-xs text-muted-foreground">Kopējās elementa izmaksas</div>
+                      <div className="text-xs text-muted-foreground">
+                        {ztcSelectedScopeSummary.worker ? "Kopējās izmaksas" : "Kopējās elementa izmaksas"}
+                      </div>
                       <div className="text-lg font-semibold tabular-nums">
                         {formatZtcMoney(ztcSelectedScopeSummary.money)} €
                       </div>
