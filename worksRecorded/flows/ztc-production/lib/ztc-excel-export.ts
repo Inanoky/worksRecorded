@@ -10,6 +10,7 @@ const ZTC_EXCEL_COLUMNS = [
   ["Amounts", "Daudzums"],
   ["WorkersInvolved", "Sarežģītība"],
   ["TimeInvolved", "Stundas"],
+  ["__ztcSum", "Summa"],
   ["createdBy", "Darbinieks"],
 ] as const;
 
@@ -19,6 +20,7 @@ const ZTC_EXCEL_NUMERIC_FIELDS = new Set([
   "Amounts",
   "WorkersInvolved",
   "TimeInvolved",
+  "__ztcSum",
 ]);
 
 const ZTC_EXCEL_NUMERIC_HEADERS = new Set([
@@ -51,6 +53,26 @@ function parseZtcExcelNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : value;
 }
 
+function parseZtcPayrollNumber(value: unknown, fallback = 0) {
+  const parsed = parseZtcExcelNumber(value);
+  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function isZtcHourlyUnit(value: unknown) {
+  const normalized = String(value ?? "").trim().toLowerCase().replace(/\.$/, "");
+  return ["st", "h", "hr", "hour", "hours", "stunda", "stundas"].includes(normalized);
+}
+
+function getZtcExcelRowSum(row: Record<string, any>) {
+  const hours = parseZtcPayrollNumber(row.TimeInvolved);
+  const amount = parseZtcPayrollNumber(row.Amounts);
+  const quantity = isZtcHourlyUnit(row.Units) ? hours : amount;
+  const rate = parseZtcPayrollNumber(row.Location_Custom_2);
+  const coefficient = parseZtcPayrollNumber(row.Works_Custom_2, 1);
+  const complexity = parseZtcPayrollNumber(row.WorkersInvolved, 1);
+  return Number((quantity * rate * coefficient * complexity).toFixed(2));
+}
+
 export function applyZtcExcelNumberFormats(XLSX: any, worksheet: any) {
   const range = XLSX.utils.decode_range(worksheet["!ref"] ?? "A1:A1");
   const numericColumns = new Set<number>();
@@ -77,7 +99,9 @@ export function formatZtcRowsForExcel<T extends Record<string, any>>(rows: T[]) 
     Object.fromEntries(
       ZTC_EXCEL_COLUMNS.map(([field, label]) => [
         label,
-        ZTC_EXCEL_NUMERIC_FIELDS.has(field)
+        field === "__ztcSum"
+          ? getZtcExcelRowSum(row)
+          : ZTC_EXCEL_NUMERIC_FIELDS.has(field)
           ? parseZtcExcelNumber(row[field])
           : row[field] ?? "",
       ]),

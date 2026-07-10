@@ -26,6 +26,7 @@ import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-ses
 import {
   buildZtcLaborNormSummaryRows,
   buildZtcLaborNormTotalSummary,
+  buildZtcProductivitySummary,
   getZtcElementTotalAreaM2,
   getZtcPayrollValues,
   getZtcProjectTotalAreaM2,
@@ -1020,6 +1021,7 @@ export async function getZtcScopeSummary(args: {
       scopeAreaM2 != null && scopeAreaM2 > 0
         ? Number((totals.money / scopeAreaM2).toFixed(2))
         : null,
+    productivity: workerName ? buildZtcProductivitySummary(rows) : null,
     elementM2: elementName
       ? elementTotalAreaM2 ?? totals.elementM2
       : projectName

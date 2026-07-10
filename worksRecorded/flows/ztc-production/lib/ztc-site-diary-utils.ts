@@ -955,6 +955,38 @@ export function buildZtcProductivityRows(rows: ZtcDiaryRow[]) {
   return productivityRows;
 }
 
+export function buildZtcProductivitySummary(rows: ZtcDiaryRow[]) {
+  const totals = buildZtcProductivityRows(rows).reduce(
+    (acc, row) => {
+      const totalHours = parseZtcPayrollNumber(row["Kopējais laiks"]);
+      const effectiveHours = parseZtcPayrollNumber(row["Efektīvais laiks"]);
+      const pausedHours = parseZtcPayrollNumber(row["Pauzes laiks"]);
+      const unaccountedHours = parseZtcPayrollNumber(row["Neuzskaitītais laiks"]);
+
+      acc.totalEnvelopeHours += totalHours;
+      acc.productiveHours += effectiveHours;
+      acc.pausedHours += pausedHours;
+      acc.unaccountedHours += unaccountedHours;
+      return acc;
+    },
+    {
+      totalEnvelopeHours: 0,
+      productiveHours: 0,
+      pausedHours: 0,
+      unaccountedHours: 0,
+    },
+  );
+  const totalWorkedHours = totals.productiveHours + totals.unaccountedHours;
+
+  return {
+    productiveHours: roundZtcHours(totals.productiveHours),
+    totalWorkedHours: roundZtcHours(totalWorkedHours),
+    totalEnvelopeHours: roundZtcHours(totals.totalEnvelopeHours),
+    pausedHours: roundZtcHours(totals.pausedHours),
+    unaccountedHours: roundZtcHours(totals.unaccountedHours),
+  };
+}
+
 export async function exportZtcProductivityToExcel({
   rows,
 }: {

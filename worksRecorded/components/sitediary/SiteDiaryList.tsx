@@ -2568,7 +2568,18 @@ export default function SiteDiaryCalendar({
                   <div
                     className={cn(
                       "grid gap-2 text-sm",
-                      ztcSelectedScopeSummary.elementM2 != null &&
+                      ztcSelectedScopeSummary.worker &&
+                        ztcSelectedScopeSummary.elementM2 != null &&
+                        ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
+                        ztcSelectedScopeSummary.productivity
+                        ? "grid-cols-1 sm:grid-cols-6 sm:min-w-[980px]"
+                        : ztcSelectedScopeSummary.worker &&
+                            ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
+                            ztcSelectedScopeSummary.productivity
+                          ? "grid-cols-1 sm:grid-cols-4 sm:min-w-[700px]"
+                        : ztcSelectedScopeSummary.worker && ztcSelectedScopeSummary.productivity
+                          ? "grid-cols-1 sm:grid-cols-3 sm:min-w-[540px]"
+                        : ztcSelectedScopeSummary.elementM2 != null &&
                         ztcSelectedScopeSummary.laborNormTotal?.actual != null &&
                         ztcSelectedScopeSummary.costPerM2 != null &&
                         !ztcSelectedScopeSummary.worker
@@ -2612,13 +2623,10 @@ export default function SiteDiaryCalendar({
                       )}
                     >
                       <div className="text-xs text-muted-foreground">
-                        {ztcSelectedScopeSummary.worker ? "Stundas" : "Tehniskās stundas"}
+                        Tehniskās stundas
                       </div>
                       <div className="text-lg font-semibold tabular-nums">
-                        {(ztcSelectedScopeSummary.worker
-                          ? ztcSelectedScopeSummary.hours
-                          : ztcSelectedScopeSummary.technicalHours ?? ztcSelectedScopeSummary.laborNormTotal?.hours ?? ztcSelectedScopeSummary.hours
-                        ).toLocaleString(dateLocale, {
+                        {(ztcSelectedScopeSummary.technicalHours ?? ztcSelectedScopeSummary.laborNormTotal?.hours ?? ztcSelectedScopeSummary.hours).toLocaleString(dateLocale, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
@@ -2657,6 +2665,35 @@ export default function SiteDiaryCalendar({
                         </div>
                       </div>
                     ) : null}
+                    {ztcSelectedScopeSummary.worker && ztcSelectedScopeSummary.productivity ? (
+                      <div className="rounded-md border bg-muted/30 px-3 py-2">
+                        <div className="text-xs text-muted-foreground">Produktīvais / kopējais laiks</div>
+                        <div className="text-lg font-semibold tabular-nums">
+                          {ztcSelectedScopeSummary.productivity.productiveHours.toLocaleString(dateLocale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          /{" "}
+                          {ztcSelectedScopeSummary.productivity.totalWorkedHours.toLocaleString(dateLocale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Neuzskaitīts{" "}
+                          {ztcSelectedScopeSummary.productivity.unaccountedHours.toLocaleString(dateLocale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          st · Pauze{" "}
+                          {ztcSelectedScopeSummary.productivity.pausedHours.toLocaleString(dateLocale, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{" "}
+                          st
+                        </div>
+                      </div>
+                    ) : null}
                     {!ztcSelectedScopeSummary.worker ? (
                       <div className="rounded-md border bg-muted/30 px-3 py-2">
                         <div className="text-xs text-muted-foreground">Kopējās stundas</div>
@@ -2671,7 +2708,7 @@ export default function SiteDiaryCalendar({
                     <div className="rounded-md border bg-muted/30 px-3 py-2">
                       <div className="text-xs text-muted-foreground">Kopējās elementa izmaksas</div>
                       <div className="text-lg font-semibold tabular-nums">
-                        {formatZtcMoney(ztcSelectedScopeSummary.money)}
+                        {formatZtcMoney(ztcSelectedScopeSummary.money)} €
                       </div>
                     </div>
                     {!ztcSelectedScopeSummary.worker && ztcSelectedScopeSummary.costPerM2 != null ? (
