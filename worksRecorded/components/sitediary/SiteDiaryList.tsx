@@ -129,6 +129,7 @@ import {
   getZtcQualityRowToneClass,
   isZtcQualityRow,
   splitZtcWorkerDisplayName,
+  exportZtcPayrollToExcel,
   exportZtcProductivityToExcel,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
 import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
@@ -172,7 +173,7 @@ const WhatsAppIcon = ({ size = 22 }) => (
   </svg>
 );
 
-const SITE_DIARY_LIST_PAGE_SIZE = 50;
+const SITE_DIARY_LIST_PAGE_SIZE = 75;
 
 type DiaryRow = {
   id?: string;
@@ -1502,6 +1503,10 @@ export default function SiteDiaryCalendar({
     await exportZtcProductivityToExcel({ rows: visibleRows });
   };
 
+  const exportZtcPayroll = async () => {
+    await exportZtcPayrollToExcel({ rows: await loadAllFilteredRowsForExport() });
+  };
+
   const exportForma2 = async () => {
     await exportForma2ToExcel(await loadAllFilteredRowsForExport());
   };
@@ -2169,7 +2174,7 @@ export default function SiteDiaryCalendar({
                     <Button variant="outline" onClick={ztc.openRateDialog}>
                       Darbu likmes
                     </Button>
-                    <Button variant="outline" onClick={ztc.handlePayrollExcelExport}>
+                    <Button variant="outline" onClick={exportZtcPayroll}>
                       Algu Excel
                     </Button>
                     <Button variant="outline" onClick={exportZtcProductivity}>
