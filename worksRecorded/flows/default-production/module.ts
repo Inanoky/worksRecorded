@@ -5,7 +5,7 @@ export const defaultProductionFlowModule = {
   name: "Default Production",
   description: "Reusable production workflow with drawing extraction, pauses, productivity exports, quality checks, and WhatsApp handlers.",
   category: "production",
-  clientFlowId: "default",
+  clientFlowId: "ztc",
   productionConfigKey: "default-production",
   configurableAreas: [
     "labels",
@@ -29,6 +29,7 @@ export const defaultProductionFlowModule = {
     frontend: [
       "flows/default-production/frontend.ts",
       "flows/default-production/frontend",
+      "flows/default-production/lib",
     ],
     backend: [
       "flows/default-production/backend.ts",
@@ -36,6 +37,7 @@ export const defaultProductionFlowModule = {
       "flows/default-production/backend/worker-route.ts",
       "flows/default-production/backend/whatsapp-worker.ts",
       "flows/default-production/backend/whatsapp-quality.ts",
+      "flows/default-production/backend/actions.ts",
     ],
   },
 } satisfies FlowModuleDefinition;
