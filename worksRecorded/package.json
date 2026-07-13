@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:webhooks": "npx tsx scripts/test-whatsapp-webhooks.ts",
+    "import:material-spend": "tsx scripts/import-material-spend.ts",
     "test:smoke": "bun run test/app-smoke-tests.ts",
     "test:start": "bun run test/startTest.ts",
     "eval:ai:dashboard": "tsx test/ai-evals/run-dashboard-eval.ts",

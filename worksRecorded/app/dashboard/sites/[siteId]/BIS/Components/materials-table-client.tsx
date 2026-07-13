@@ -8,9 +8,19 @@ import {
   RefreshCw,
   MoreHorizontal,
   CalendarIcon,
+  CameraOff,
   Download,
   X,
 } from "lucide-react"
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -96,23 +106,68 @@ type MaterialRow = {
   invoiceNr: string | null
   invoiceDate: Date | null
   materialDate: Date | null
+  supplierName: string | null
+  importBatchId: string | null
   sourcePhoto: string | null
-  declarationAttachment?: MaterialAttachment[]
-  agreementAttachment?: MaterialAttachment[]
+  declarationAttachment?: unknown
+  agreementAttachment?: unknown
   BISId: string | null
   bisStatus: string | null
+  createdAt: Date
   bisApprovers: BisApprover[]
+}
+
+type WarehouseMaterialQueryInput = {
+  page?: number
+  pageSize?: number
+  search?: string
+  status?: "all" | "sent" | "unsent"
+  configFilter?: string
+  sortBy?: "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
+  invoiceDateFrom?: string
+  invoiceDateTo?: string
+}
+
+type WarehouseSpendInsightEntry = {
+  key: string
+  label: string
+  totalCost: number
+  count: number
+}
+
+type WarehouseSpendInsights = {
+  supplierTotals: WarehouseSpendInsightEntry[]
+  monthlyTotals: WarehouseSpendInsightEntry[]
+}
+
+type WarehouseMaterialPagination = {
+  totalCount: number
+  totalCost: number
+  page: number
+  pageSize: number
+  totalPages: number
+  spendInsights?: WarehouseSpendInsights
 }
 
 type Props = {
   siteId: string
   organizationLanguage?: string | null
+  showSpendInsights: boolean
   bisEnabled: boolean
   bisBaseUrl: string
   materials: MaterialRow[]
   materialConfigurations: MaterialCategory[]
   materialMeasures: Array<{ id: string; name: string }>
   materialTypes: Array<{ id: string; name: string }>
+  initialPagination: WarehouseMaterialPagination
+  fetchMaterials: (
+    siteId: string,
+    input: WarehouseMaterialQueryInput,
+  ) => Promise<WarehouseMaterialPagination & { rows: MaterialRow[] }>
+  exportMaterials: (
+    siteId: string,
+    input: WarehouseMaterialQueryInput,
+  ) => Promise<MaterialRow[]>
   sendToBis: (
     siteId: string,
     recordId: string,
@@ -202,6 +257,7 @@ type Props = {
       materialDate?: Date | null
       measurementUnit?: string | null
       invoiceDate?: Date | null
+      supplierName?: string | null
     },
   ) => Promise<{ success: boolean }>
   attachCertificate: (
@@ -230,6 +286,37 @@ function formatMoney(value: number | null) {
     currency: "EUR",
     maximumFractionDigits: 2,
   }).format(value)
+}
+
+function formatMonthLabel(value: string, language: string) {
+  const match = /^(\d{4})-(\d{2})$/.exec(value)
+  if (!match) return value
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const date = new Date(Date.UTC(year, month - 1, 1))
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat(language === "lv" ? "lv-LV" : "en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date)
+}
+
+function formatShortMonthLabel(value: string, language: string) {
+  const match = /^(\d{4})-(\d{2})$/.exec(value)
+  if (!match) return value
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const date = new Date(Date.UTC(year, month - 1, 1))
+  if (Number.isNaN(date.getTime())) return value
+
+  return new Intl.DateTimeFormat(language === "lv" ? "lv-LV" : "en-GB", {
+    month: "short",
+    timeZone: "UTC",
+  }).format(date)
 }
 
 function getApprovalStateStatus(status: string | null | undefined) {
@@ -316,6 +403,10 @@ export default function MaterialsTableClient({
   materialConfigurations,
   materialMeasures,
   materialTypes,
+  initialPagination,
+  fetchMaterials,
+  exportMaterials,
+  showSpendInsights,
   sendToBis,
   updateSentRecordInBis,
   getPossibleApprovers,
@@ -334,16 +425,32 @@ export default function MaterialsTableClient({
   const language = normalizeOrganizationLanguage(organizationLanguage)
   const t = getWarehouseUiMessages(language)
   const toastMessages = getToastMessages(language)
+  const getMaterialDisplayName = React.useCallback((row: Pick<MaterialRow, "name" | "invoiceNr">) => {
+    const name = row.name?.trim()
+    if (name) return name
+
+    const invoiceNr = row.invoiceNr?.trim()
+    if (invoiceNr) return t.materialFromInvoice(invoiceNr)
+
+    return t.unnamedMaterial
+  }, [t])
   const [rows, setRows] = React.useState<MaterialRow[]>(materials)
+  const [pagination, setPagination] = React.useState<WarehouseMaterialPagination>(initialPagination)
   const [configurations, setConfigurations] = React.useState<MaterialCategory[]>(materialConfigurations)
   const [measures, setMeasures] = React.useState<Array<{ id: string; name: string }>>(materialMeasures)
   const [types, setTypes] = React.useState<Array<{ id: string; name: string }>>(materialTypes)
   const [search, setSearch] = React.useState("")
   const [status, setStatus] = React.useState<"all" | "sent" | "unsent">("all")
   const [configFilter, setConfigFilter] = React.useState("all")
+  const [invoiceDateFrom, setInvoiceDateFrom] = React.useState("")
+  const [invoiceDateTo, setInvoiceDateTo] = React.useState("")
   const [sortBy, setSortBy] = React.useState<
     "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
   >("default")
+  const [page, setPage] = React.useState(initialPagination.page)
+  const [pageSize, setPageSize] = React.useState(initialPagination.pageSize)
+  const [tableLoading, setTableLoading] = React.useState(false)
+  const [exportLoading, setExportLoading] = React.useState(false)
   const [approverDialogOpen, setApproverDialogOpen] = React.useState(false)
   const [approverDialogRow, setApproverDialogRow] = React.useState<MaterialRow | null>(null)
   const [possibleApprovers, setPossibleApprovers] = React.useState<BisApprover[]>([])
@@ -381,6 +488,7 @@ export default function MaterialsTableClient({
     measurementUnitId: string | null
     invoiceDate: Date | null
     materialDate: Date | null
+    supplierName: string | null
     declarationAttachment: DraftMaterialAttachment[]
     agreementAttachment: DraftMaterialAttachment[]
   } | null>(null)
@@ -399,6 +507,12 @@ export default function MaterialsTableClient({
   }, [materials])
 
   React.useEffect(() => {
+    setPagination(initialPagination)
+    setPage(initialPagination.page)
+    setPageSize(initialPagination.pageSize)
+  }, [initialPagination])
+
+  React.useEffect(() => {
     setConfigurations(materialConfigurations)
   }, [materialConfigurations])
 
@@ -409,6 +523,55 @@ export default function MaterialsTableClient({
   React.useEffect(() => {
     setTypes(materialTypes)
   }, [materialTypes])
+
+  const queryInput = React.useMemo<WarehouseMaterialQueryInput>(() => ({
+    page,
+    pageSize,
+    search,
+    status,
+    configFilter,
+    sortBy,
+    invoiceDateFrom: showSpendInsights ? invoiceDateFrom : undefined,
+    invoiceDateTo: showSpendInsights ? invoiceDateTo : undefined,
+  }), [page, pageSize, search, status, configFilter, sortBy, showSpendInsights, invoiceDateFrom, invoiceDateTo])
+
+  const loadWarehousePage = React.useCallback(async (input: WarehouseMaterialQueryInput = queryInput) => {
+    setTableLoading(true)
+    try {
+      const result = await fetchMaterials(siteId, input)
+      setRows(result.rows)
+      setPagination({
+        totalCount: result.totalCount,
+        totalCost: result.totalCost,
+        page: result.page,
+        pageSize: result.pageSize,
+        totalPages: result.totalPages,
+        spendInsights: result.spendInsights,
+      })
+      setPage(result.page)
+      setPageSize(result.pageSize)
+      setSelectedRowIds((current) => current.filter((id) => result.rows.some((row) => row.id === id)))
+    } catch (error) {
+      console.error("[Warehouse BIS] Failed to load warehouse page", { siteId, input, error })
+      toast.error(toastMessages.failedLoadMaterials)
+    } finally {
+      setTableLoading(false)
+    }
+  }, [fetchMaterials, queryInput, siteId, toastMessages.failedLoadMaterials])
+
+  const didMountRef = React.useRef(false)
+  React.useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      void loadWarehousePage()
+    }, search.trim() ? 300 : 0)
+
+    return () => window.clearTimeout(timeout)
+  }, [loadWarehousePage, search])
 
   const approverKey = React.useCallback(
     (approver: BisApprover) =>
@@ -600,6 +763,7 @@ export default function MaterialsTableClient({
         })
         return nextRows
       })
+      void loadWarehousePage()
     } catch (error) {
       console.error("[Warehouse BIS] Refresh from BIS failed", {
         siteId,
@@ -651,8 +815,9 @@ export default function MaterialsTableClient({
       measurementUnitId: row.measurementUnitId,
       invoiceDate: row.invoiceDate ? new Date(row.invoiceDate) : null,
       materialDate: row.materialDate ? new Date(row.materialDate) : null,
-      declarationAttachment: (row.declarationAttachment ?? []).map((file, index) => ({ id: `d-${index}-${file.name}`, ...file })),
-      agreementAttachment: (row.agreementAttachment ?? []).map((file, index) => ({ id: `a-${index}-${file.name}`, ...file })),
+      supplierName: row.supplierName,
+      declarationAttachment: (Array.isArray(row.declarationAttachment) ? row.declarationAttachment as MaterialAttachment[] : []).map((file, index) => ({ id: `d-${index}-${file.name}`, ...file })),
+      agreementAttachment: (Array.isArray(row.agreementAttachment) ? row.agreementAttachment as MaterialAttachment[] : []).map((file, index) => ({ id: `a-${index}-${file.name}`, ...file })),
     })
     setEditModalMode(mode)
     setIncludeDeliveryNotePhoto(Boolean(row.sourcePhoto))
@@ -736,6 +901,7 @@ export default function MaterialsTableClient({
         materialDate: editDraft.materialDate,
         measurementUnit: trimmedMeasurementUnit || null,
         invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
+        supplierName: editDraft.supplierName,
       })
       await updateQuantity(editDraft.id, Number.isNaN(quantity as number) ? null : quantity)
       await updateMaterialAttachments(editDraft.id, {
@@ -791,6 +957,7 @@ export default function MaterialsTableClient({
                 measurementUnitId: editDraft.measurementUnitId,
                 measurementUnit: trimmedMeasurementUnit || null,
                 invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
+                supplierName: editDraft.supplierName,
                 materialDate: editDraft.materialDate,
                 declarationAttachment: savedDeclarationAttachment,
                 agreementAttachment: savedAgreementAttachment,
@@ -801,6 +968,7 @@ export default function MaterialsTableClient({
       )
       setEditModalOpen(false)
       toast.success(editModalMode === "confirm-send" ? toastMessages.materialConfirmedAndSent : toastMessages.materialUpdated)
+      void loadWarehousePage()
     } catch (error) {
       console.error(error)
       toast.error(toastMessages.failedSaveMaterial)
@@ -835,6 +1003,7 @@ export default function MaterialsTableClient({
         ]
       })
       toast.success(t.copied)
+      void loadWarehousePage()
     } catch (error) {
       console.error("[Warehouse BIS] Copy material failed", { siteId, recordId: row.id, error })
       toast.error(error instanceof Error ? error.message : t.copyFailed)
@@ -856,6 +1025,7 @@ export default function MaterialsTableClient({
       if (bisBackedRowsCount > 0) {
         toast.warning(toastMessages.someBisRecordsOnlyDeletedLocally)
       }
+      void loadWarehousePage()
     } catch (error) {
       console.error("[Warehouse BIS] Delete records failed", { siteId, selectedRowIds, error })
       toast.error(error instanceof Error ? error.message : toastMessages.failedDeleteRecords)
@@ -904,6 +1074,7 @@ export default function MaterialsTableClient({
       setApproverDialogRow(null)
       setPossibleApprovers([])
       setSelectedApproverKeys([])
+      void loadWarehousePage()
     } catch (error) {
       const message = error instanceof Error ? normalizeBisErrorMessage(error.message) : t.failedToSendRecordForApproval
       console.error("[Warehouse BIS] Send for approval failed", {
@@ -1039,84 +1210,47 @@ export default function MaterialsTableClient({
       })
       setEditableRowIds([])
       toast.success(toastMessages.changesSaved)
+      void loadWarehousePage()
     } catch (error) {
       console.error(error)
       toast.error(toastMessages.failedSaveChanges)
     }
   }
 
-  const filteredMaterials = React.useMemo(() => {
-    const q = search.trim().toLowerCase()
-
-    let filtered = rows.filter((m) => {
-      const matchesSearch =
-        !q ||
-        [
-          m.name,
-          m.categoryName,
-          m.measurementUnit,
-          m.invoiceNr,
-          m.BISId,
-          m.bisStatus,
-        ]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(q))
-
-      const matchesStatus =
-        status === "all" ||
-        (status === "sent" && !!m.BISId) ||
-        (status === "unsent" && !m.BISId)
-
-      const matchesConfig =
-        configFilter === "all" || (m.categoryId ?? "") === configFilter
-
-      return matchesSearch && matchesStatus && matchesConfig
-    })
-
-    filtered = [...filtered].sort((a, b) => {
-      switch (sortBy) {
-        case "invoiceDate_asc":
-          return (
-            new Date(a.invoiceDate ?? 0).getTime() -
-            new Date(b.invoiceDate ?? 0).getTime()
-          )
-        case "default": {
-          const aDate = new Date(a.materialDate ?? a.invoiceDate ?? 0).getTime()
-          const bDate = new Date(b.materialDate ?? b.invoiceDate ?? 0).getTime()
-          if (bDate !== aDate) return bDate - aDate
-          return String(b.id).localeCompare(String(a.id))
-        }
-        case "name_asc":
-          return (a.name ?? "").localeCompare(b.name ?? "")
-        case "quantity_desc":
-          return (b.quantity ?? 0) - (a.quantity ?? 0)
-        case "invoiceDate_desc":
-        default:
-          return (
-            new Date(b.invoiceDate ?? 0).getTime() -
-            new Date(a.invoiceDate ?? 0).getTime()
-          )
-      }
-    })
-
-    return filtered
-  }, [rows, search, status, configFilter, sortBy])
+  const filteredMaterials = rows
 
   const allVisibleSelected = filteredMaterials.length > 0 && filteredMaterials.every((row) => selectedRowIds.includes(row.id))
   const someVisibleSelected = filteredMaterials.some((row) => selectedRowIds.includes(row.id))
 
-  const totalCost = React.useMemo(
-    () => rows.reduce((sum, m) => sum + (m.cost ?? 0), 0),
-    [rows],
-  )
+  const totalCost = pagination.totalCost
+  const supplierTotals = pagination.spendInsights?.supplierTotals ?? []
+  const monthlyTotals = pagination.spendInsights?.monthlyTotals ?? []
+  const monthlyChartData = React.useMemo(() => (
+    [...monthlyTotals]
+      .reverse()
+      .slice(-6)
+      .map((month) => ({
+        month: month.key,
+        label: formatMonthLabel(month.key, language),
+        shortLabel: formatShortMonthLabel(month.key, language),
+        total: month.totalCost,
+      }))
+  ), [language, monthlyTotals])
+  const visibleFrom = pagination.totalCount === 0 ? 0 : (pagination.page - 1) * pagination.pageSize + 1
+  const visibleTo = pagination.totalCount === 0
+    ? 0
+    : Math.min(pagination.page * pagination.pageSize, pagination.totalCount)
 
   const showBisControls = bisEnabled
 
   const exportMaterialsToExcel = async () => {
-    const XLSX = await import("xlsx")
-    const worksheetData = [
-      [
+    setExportLoading(true)
+    try {
+      const exportRows = await exportMaterials(siteId, queryInput)
+      const XLSX = await import("xlsx")
+      const worksheetHeaders = [
         t.material,
+        ...(showSpendInsights ? [t.supplier] : []),
         t.status,
         t.bisMaterialConfiguration,
         t.deliveryDate,
@@ -1127,44 +1261,174 @@ export default function MaterialsTableClient({
         t.invoiceDate,
         "BIS ID",
         t.photo,
-      ],
-      ...filteredMaterials.map((material) => [
-        material.name || t.unnamedMaterial,
-        getExportStatusLabel(material, t),
-        material.categoryName || "—",
-        formatDate(material.materialDate),
-        material.quantity ?? "",
-        material.measurementUnit || "—",
-        material.cost ?? "",
-        material.invoiceNr || "—",
-        formatDate(material.invoiceDate),
-        material.BISId || "—",
-        material.sourcePhoto || "—",
-      ]),
-    ]
+      ]
+      const worksheetData = [
+        worksheetHeaders,
+        ...exportRows.map((material) => [
+          getMaterialDisplayName(material),
+          ...(showSpendInsights ? [material.supplierName || "—"] : []),
+          getExportStatusLabel(material, t),
+          material.categoryName || "—",
+          formatDate(material.materialDate),
+          material.quantity ?? "",
+          material.measurementUnit || "—",
+          material.cost ?? "",
+          material.invoiceNr || "—",
+          formatDate(material.invoiceDate),
+          material.BISId || "—",
+          material.sourcePhoto || "—",
+        ]),
+      ]
 
-    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
-    worksheet["!cols"] = [
-      { wch: 36 },
-      { wch: 18 },
-      { wch: 32 },
-      { wch: 16 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 12 },
-      { wch: 18 },
-      { wch: 16 },
-      { wch: 18 },
-      { wch: 40 },
-    ]
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData)
+      worksheet["!cols"] = [
+        { wch: 36 },
+        ...(showSpendInsights ? [{ wch: 28 }] : []),
+        { wch: 18 },
+        { wch: 32 },
+        { wch: 16 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 18 },
+        { wch: 40 },
+      ]
 
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Materials")
-    XLSX.writeFile(workbook, `WarehouseMaterials-${new Date().toISOString().slice(0, 10)}.xlsx`)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Materials")
+      XLSX.writeFile(workbook, `WarehouseMaterials-${new Date().toISOString().slice(0, 10)}.xlsx`)
+    } catch (error) {
+      console.error("[Warehouse BIS] Export materials failed", { siteId, queryInput, error })
+      toast.error(toastMessages.failedExportMaterials)
+    } finally {
+      setExportLoading(false)
+    }
   }
 
   return (
                     <div className="space-y-3">
+      {showSpendInsights ? (
+        <div className="rounded-2xl border bg-background p-4 shadow-sm">
+          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="text-base font-semibold">{t.spendInsights}</h2>
+              <div className="mt-1 text-2xl font-semibold">{formatMoney(totalCost)}</div>
+              <p className="text-sm text-muted-foreground">{t.totalCost}</p>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                {t.invoiceDateFrom}
+                <Input
+                  type="date"
+                  value={invoiceDateFrom}
+                  onChange={(event) => {
+                    setInvoiceDateFrom(event.target.value)
+                    setPage(1)
+                  }}
+                  className="mt-1 h-9"
+                />
+              </label>
+              <label className="text-xs font-medium text-muted-foreground">
+                {t.invoiceDateTo}
+                <Input
+                  type="date"
+                  value={invoiceDateTo}
+                  onChange={(event) => {
+                    setInvoiceDateTo(event.target.value)
+                    setPage(1)
+                  }}
+                  className="mt-1 h-9"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <div className="mb-2 text-sm font-medium">{t.topSuppliers}</div>
+              <div className="space-y-2">
+                {supplierTotals.slice(0, 5).map((supplier) => (
+                  <div key={supplier.key} className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                    <div className="min-w-0 truncate">{supplier.label || t.noSupplier}</div>
+                    <div className="shrink-0 font-medium">{formatMoney(supplier.totalCost)}</div>
+                  </div>
+                ))}
+                {supplierTotals.length === 0 ? (
+                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">{t.noRows}</div>
+                ) : null}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 text-sm font-medium">{t.monthlySpend}</div>
+              {monthlyChartData.length > 0 ? (
+                <div className="mb-3 h-40 rounded-md border bg-muted/20 px-2 py-3 text-foreground [&_.recharts-cartesian-axis-tick_text]:fill-foreground [&_.recharts-cartesian-grid_line]:stroke-border/70">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={monthlyChartData} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis
+                        dataKey="month"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(value) => monthlyChartData.find((item) => item.month === value)?.shortLabel ?? String(value)}
+                      />
+                      <YAxis
+                        width={44}
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 11 }}
+                        tickFormatter={(value) => new Intl.NumberFormat("en-GB", {
+                          notation: "compact",
+                          maximumFractionDigits: 1,
+                        }).format(Number(value))}
+                      />
+                      <Tooltip
+                        cursor={{ stroke: "currentColor", strokeDasharray: "3 3" }}
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null
+                          const item = payload[0]?.payload as { label: string; total: number } | undefined
+                          if (!item) return null
+
+                          return (
+                            <div className="rounded-md border bg-background px-3 py-2 text-sm shadow-sm">
+                              <div className="font-medium">{item.label}</div>
+                              <div className="text-muted-foreground">{formatMoney(item.total)}</div>
+                            </div>
+                          )
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="total"
+                        stroke="#16a34a"
+                        strokeWidth={2.5}
+                        dot={{ r: 3, fill: "#16a34a", strokeWidth: 0 }}
+                        activeDot={{ r: 5, fill: "#16a34a", stroke: "white", strokeWidth: 2 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : null}
+              <div className="space-y-2">
+                {monthlyTotals.slice(0, 5).map((month) => (
+                  <div key={month.key} className="flex items-center justify-between gap-3 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                    <div className="min-w-0 truncate">{formatMonthLabel(month.key, language)}</div>
+                    <div className="shrink-0 font-medium">{formatMoney(month.totalCost)}</div>
+                  </div>
+                ))}
+                {monthlyTotals.length === 0 ? (
+                  <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">{t.noRows}</div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
         <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-muted-foreground">
@@ -1174,7 +1438,10 @@ export default function MaterialsTableClient({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
               placeholder={t.searchMaterials}
               className="pl-9"
             />
@@ -1184,7 +1451,10 @@ export default function MaterialsTableClient({
         <div className="grid gap-3 md:grid-cols-4">
           <Select
             value={status}
-            onValueChange={(v) => setStatus(v as "all" | "sent" | "unsent")}
+            onValueChange={(v) => {
+              setStatus(v as "all" | "sent" | "unsent")
+              setPage(1)
+            }}
           >
             <SelectTrigger>
               <SelectValue placeholder={t.status} />
@@ -1196,7 +1466,10 @@ export default function MaterialsTableClient({
             </SelectContent>
           </Select>
 
-          <Select value={configFilter} onValueChange={setConfigFilter}>
+          <Select value={configFilter} onValueChange={(value) => {
+            setConfigFilter(value)
+            setPage(1)
+          }}>
             <SelectTrigger>
               <SelectValue placeholder={t.configPlaceholder} />
             </SelectTrigger>
@@ -1219,7 +1492,7 @@ export default function MaterialsTableClient({
 
           <Select
             value={sortBy}
-            onValueChange={(v) =>
+            onValueChange={(v) => {
               setSortBy(
                 v as
                   | "invoiceDate_desc"
@@ -1228,7 +1501,8 @@ export default function MaterialsTableClient({
                   | "name_asc"
                   | "quantity_desc",
               )
-            }
+              setPage(1)
+            }}
           >
             <SelectTrigger className="w-[220px]">
               <SelectValue />
@@ -1259,11 +1533,11 @@ export default function MaterialsTableClient({
             variant="outline"
             size="sm"
             onClick={exportMaterialsToExcel}
-            disabled={filteredMaterials.length === 0}
+            disabled={pagination.totalCount === 0 || exportLoading}
             className="ml-auto"
           >
             <Download className="mr-2 h-4 w-4" />
-            {t.exportToExcel}
+            {exportLoading ? t.loading : t.exportToExcel}
           </Button>
 
           {showBisControls ? (
@@ -1289,15 +1563,54 @@ export default function MaterialsTableClient({
             </Button>
           ) : null}
 
-          <div className="text-sm text-muted-foreground">
-            Showing {filteredMaterials.length} of {rows.length}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{tableLoading ? t.loading : t.showingRows(visibleFrom, visibleTo, pagination.totalCount)}</span>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                setPageSize(Number(value))
+                setPage(1)
+              }}
+            >
+              <SelectTrigger className="h-8 w-[92px]">
+                <SelectValue aria-label={t.pageSize} />
+              </SelectTrigger>
+              <SelectContent>
+                {[25, 50, 100].map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              disabled={tableLoading || pagination.page <= 1}
+            >
+              {t.previousPage}
+            </Button>
+            <span>
+              {pagination.page}/{pagination.totalPages}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
+              disabled={tableLoading || pagination.page >= pagination.totalPages}
+            >
+              {t.nextPage}
+            </Button>
           </div>
         </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
         <div className="w-full overflow-x-auto">
-          <Table className="min-w-[1220px] text-sm">
+          <Table className={`${showSpendInsights ? "min-w-[1360px]" : "min-w-[1240px]"} text-sm`}>
             <TableHeader>
               <TableRow className="bg-muted/40 [&_th]:px-3 [&_th]:py-3">
                 <TableHead className="w-12">
@@ -1308,7 +1621,8 @@ export default function MaterialsTableClient({
                   />
                 </TableHead>
                 <TableHead className="w-[76px]">{t.photo}</TableHead>
-                <TableHead className="w-[20%]">{t.material}</TableHead>
+                <TableHead className="w-[18%]">{t.material}</TableHead>
+                {showSpendInsights ? <TableHead className="w-[12%]">{t.supplier}</TableHead> : null}
                 <TableHead className="w-[9%]">{t.status}</TableHead>
                 {showBisControls ? <TableHead className="w-[16%]">{t.bisMaterialConfiguration}</TableHead> : null}
                 <TableHead className="w-[11%]">{t.deliveryDate}</TableHead>
@@ -1324,7 +1638,7 @@ export default function MaterialsTableClient({
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showBisControls ? 12 : 11} className="py-12 text-center">
+                  <TableCell colSpan={showBisControls ? 13 : 12} className="py-12 text-center">
                     <div className="space-y-1">
                       <p className="font-medium">{t.noRows}</p>
                       <p className="text-sm text-muted-foreground">
@@ -1357,7 +1671,7 @@ export default function MaterialsTableClient({
                         <Checkbox
                           checked={selectedRowIds.includes(r.id)}
                           onCheckedChange={(value) => toggleRowSelection(r.id, Boolean(value))}
-                          aria-label={`Select warehouse record ${r.name || r.id}`}
+                          aria-label={`Select warehouse record ${getMaterialDisplayName(r)}`}
                         />
                       </TableCell>
 
@@ -1367,7 +1681,7 @@ export default function MaterialsTableClient({
                             <div className="relative h-14 w-14 overflow-hidden rounded-lg border bg-muted">
                               <Image
                                 src={r.sourcePhoto}
-                                alt={r.name ?? "Material photo"}
+                                alt={getMaterialDisplayName(r)}
                                 fill
                                 className="object-cover"
                                 unoptimized
@@ -1375,8 +1689,12 @@ export default function MaterialsTableClient({
                             </div>
                           </a>
                         ) : (
-                          <div className="flex h-14 w-14 items-center justify-center rounded-lg border bg-muted text-xs text-muted-foreground">
-                            No photo
+                          <div
+                            className="flex h-14 w-14 items-center justify-center rounded-lg border bg-muted text-muted-foreground"
+                            aria-label={t.noPhoto}
+                            title={t.noPhoto}
+                          >
+                            <CameraOff className="h-5 w-5" aria-hidden="true" />
                           </div>
                         )}
                       </TableCell>
@@ -1402,9 +1720,15 @@ export default function MaterialsTableClient({
                             className="h-9 min-w-0"
                           />
                         ) : (
-                          <div className="whitespace-normal break-words leading-snug">{r.name || t.unnamedMaterial}</div>
+                          <div className="whitespace-normal break-words leading-snug">{getMaterialDisplayName(r)}</div>
                         )}
                       </TableCell>
+
+                      {showSpendInsights ? (
+                        <TableCell className="min-w-0">
+                          <div className="whitespace-normal break-words leading-snug">{r.supplierName || "—"}</div>
+                        </TableCell>
+                      ) : null}
 
                       <TableCell>
                         {!normalizedStatus ? (
@@ -1683,6 +2007,19 @@ export default function MaterialsTableClient({
                   maxLength={MAX_MATERIAL_NAME_LENGTH}
                 />
               </div>
+              {showSpendInsights ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">{t.supplier}</label>
+                    <Input
+                      value={editDraft.supplierName ?? ""}
+                      onChange={(event) => setEditDraft({ ...editDraft, supplierName: event.target.value || null })}
+                      placeholder={t.supplier}
+                      maxLength={160}
+                    />
+                  </div>
+                </div>
+              ) : null}
               {showBisControls ? (
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">{t.selectConfiguration}</label>

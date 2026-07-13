@@ -9,6 +9,13 @@ import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { getWarehousePageMessages } from "@/lib/dashboard-i18n";
 import { normalizeMaterialConfigurationTemplates } from "@/lib/bis/material-configuration-templates";
+import {
+  getWarehouseMaterialExportRows,
+  getWarehouseMaterialPage,
+  type WarehouseMaterialQueryInput,
+  type WarehouseMaterialRow,
+} from "@/lib/bis/warehouse-material-query";
+import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibility";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { createPerfTrace } from "@/lib/observability/perf";
@@ -145,25 +152,7 @@ type WarehouseBisSyncResult = {
   materialTypes: MaterialType[];
 };
 
-type WarehouseMaterialRecord = {
-  id: string;
-  name: string | null;
-  quantity: number | null;
-  categoryId: string | null;
-  categoryName: string | null;
-  measurementUnitId: string | null;
-  measurementUnit: string | null;
-  cost: number | null;
-  invoiceNr: string | null;
-  invoiceDate: Date | null;
-  materialDate: Date | null;
-  costCode: string | null;
-  sourcePhoto: string | null;
-  declarationAttachment: any;
-  agreementAttachment: any;
-  BISId: string | null;
-  bisStatus: string | null;
-};
+type WarehouseMaterialRecord = WarehouseMaterialRow;
 
 async function resolveWarehouseBisState(
   material: WarehouseMaterialRecord,
@@ -882,6 +871,8 @@ export async function copyWarehouseRecord(siteId: string, recordId: string) {
       invoiceNr: true,
       invoiceDate: true,
       materialDate: true,
+      supplierName: true,
+      importBatchId: true,
       costCode: true,
       sourcePhoto: true,
       declarationAttachment: true,
@@ -916,12 +907,15 @@ export async function copyWarehouseRecord(siteId: string, recordId: string) {
       invoiceNr: true,
       invoiceDate: true,
       materialDate: true,
+      supplierName: true,
+      importBatchId: true,
       costCode: true,
       sourcePhoto: true,
       declarationAttachment: true,
       agreementAttachment: true,
       BISId: true,
       bisStatus: true,
+      createdAt: true,
     },
   });
 
@@ -1105,6 +1099,7 @@ export async function updateMaterialDetails(
     costCode?: string | null;
     measurementUnit?: string | null;
     invoiceDate?: Date | null;
+    supplierName?: string | null;
   },
 ) {
   "use server";
@@ -1112,6 +1107,7 @@ export async function updateMaterialDetails(
   const trimmedName = payload.name?.trim() ?? null;
   const trimmedCostCode = payload.costCode?.trim() ?? null;
   const trimmedMeasurementUnit = payload.measurementUnit?.trim() ?? null;
+  const trimmedSupplierName = payload.supplierName?.trim().replace(/\s+/g, " ") ?? null;
 
   if (trimmedName !== null && trimmedName.length === 0) {
     throw new Error("Material name is required.");
@@ -1133,6 +1129,10 @@ export async function updateMaterialDetails(
     throw new Error("Units must be 20 characters or fewer.");
   }
 
+  if (trimmedSupplierName !== null && trimmedSupplierName.length > 160) {
+    throw new Error("Supplier name must be 160 characters or fewer.");
+  }
+
   const data: {
     name?: string | null;
     cost?: number | null;
@@ -1140,6 +1140,7 @@ export async function updateMaterialDetails(
     costCode?: string | null;
     measurementUnit?: string | null;
     invoiceDate?: Date | null;
+    supplierName?: string | null;
   } = {};
 
   if ("name" in payload) data.name = trimmedName;
@@ -1148,6 +1149,7 @@ export async function updateMaterialDetails(
   if ("costCode" in payload) data.costCode = trimmedCostCode;
   if ("measurementUnit" in payload) data.measurementUnit = trimmedMeasurementUnit;
   if ("invoiceDate" in payload) data.invoiceDate = payload.invoiceDate ?? null;
+  if ("supplierName" in payload) data.supplierName = trimmedSupplierName;
 
   await prisma.bISmaterialRecords.update({
     where: { id: recordId },
@@ -1318,12 +1320,15 @@ export async function syncWarehouseBisRecords(siteId: string): Promise<Warehouse
       invoiceNr: true,
       invoiceDate: true,
       materialDate: true,
+      supplierName: true,
+      importBatchId: true,
       costCode: true,
       sourcePhoto: true,
       declarationAttachment: true,
       agreementAttachment: true,
       BISId: true,
       bisStatus: true,
+      createdAt: true,
     },
   });
 
@@ -1810,6 +1815,54 @@ export async function updateSentReceivedMaterialInBis(
   );
 }
 
+export async function fetchWarehouseMaterialsPage(siteId: string, input: WarehouseMaterialQueryInput) {
+  "use server";
+
+  const user = await requireUser();
+  const [dbUser, site] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    }),
+    prisma.site.findUnique({
+      where: { id: siteId },
+      select: { organizationId: true },
+    }),
+  ]);
+  const showSpendInsights = canShowWarehouseSpendInsights({
+    siteOrganizationId: site?.organizationId,
+    userRole: dbUser?.role,
+  });
+  const pageData = await getWarehouseMaterialPage({ siteId, ...input, includeSpendInsights: showSpendInsights });
+
+  return {
+    ...pageData,
+    rows: pageData.rows.map(withoutWarehouseBisState),
+  };
+}
+
+export async function exportWarehouseMaterials(siteId: string, input: WarehouseMaterialQueryInput) {
+  "use server";
+
+  const user = await requireUser();
+  const [dbUser, site] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: user.id },
+      select: { role: true },
+    }),
+    prisma.site.findUnique({
+      where: { id: siteId },
+      select: { organizationId: true },
+    }),
+  ]);
+  const showSpendInsights = canShowWarehouseSpendInsights({
+    siteOrganizationId: site?.organizationId,
+    userRole: dbUser?.role,
+  });
+  const rows = await getWarehouseMaterialExportRows({ siteId, ...input, includeSpendInsights: showSpendInsights });
+  return rows.map(withoutWarehouseBisState);
+}
+
 export default async function MaterialsPage({
   params,
 }: {
@@ -1823,40 +1876,30 @@ export default async function MaterialsPage({
   const organizationLanguage = await trace.measure("orgLanguage", () => getOrganizationLanguageByUserId(user.id));
   const t = getWarehousePageMessages(organizationLanguage);
 
-  const [site, userBisToken] = await trace.measure("bisConfig", () =>
+  const [site, userBisToken, dbUser, siteOrg] = await trace.measure("bisConfig", () =>
     Promise.all([
       getSiteBisConfig(siteId),
       ensureUserBisAccessToken(user.id),
+      prisma.user.findUnique({
+        where: { id: user.id },
+        select: { role: true },
+      }),
+      prisma.site.findUnique({
+        where: { id: siteId },
+        select: { organizationId: true },
+      }),
     ]),
   );
 
   const bisEnabled = Boolean(site?.bisCaseId && userBisToken?.accessToken);
+  const showSpendInsights = canShowWarehouseSpendInsights({
+    siteOrganizationId: siteOrg?.organizationId,
+    userRole: dbUser?.role,
+  });
 
-  const [materials, materialConfigurationData] = await trace.measure("initialData", () =>
+  const [materialsPage, materialConfigurationData] = await trace.measure("initialData", () =>
     Promise.all([
-      prisma.bISmaterialRecords.findMany({
-        where: { siteId },
-        orderBy: [{ invoiceDate: "desc" }, { name: "asc" }],
-        select: {
-          id: true,
-          name: true,
-          quantity: true,
-          categoryId: true,
-          categoryName: true,
-          measurementUnitId: true,
-          measurementUnit: true,
-          cost: true,
-          invoiceNr: true,
-          invoiceDate: true,
-          materialDate: true,
-          costCode: true,
-          sourcePhoto: true,
-          declarationAttachment: true,
-          agreementAttachment: true,
-          BISId: true,
-          bisStatus: true,
-        },
-      }),
+      getWarehouseMaterialPage({ siteId, includeSpendInsights: showSpendInsights }),
       bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
         console.error("Failed to load BIS material configurations", error);
         const organizationTemplates = await fetchOrganizationMaterialConfigurationTemplatesForSite(siteId).catch(() => []);
@@ -1875,14 +1918,14 @@ export default async function MaterialsPage({
 
   // Keep initial page render fast by using stored DB state only.
   // BIS live refresh stays available through explicit sync actions in the UI.
-  const materialsWithBisState = materials.map(withoutWarehouseBisState);
+  const materialsWithBisState = materialsPage.rows.map(withoutWarehouseBisState);
 
   trace.end({
     status: 200,
     extra: {
       userId: user.id,
       bisEnabled,
-      materialCount: materials.length,
+      materialCount: materialsPage.totalCount,
       materialConfigurationCount: materialConfigurationData.materialConfigurations.length,
       materialMeasureCount: materialConfigurationData.materialMeasures.length,
       materialTypeCount: materialConfigurationData.materialTypes.length,
@@ -1903,12 +1946,23 @@ export default async function MaterialsPage({
       <div data-tour="warehouse-table"><MaterialsTableClient
         siteId={siteId}
         organizationLanguage={organizationLanguage}
+        showSpendInsights={showSpendInsights}
         bisEnabled={bisEnabled}
         bisBaseUrl={getBisBaseUrl()}
         materials={materialsWithBisState}
         materialConfigurations={materialConfigurationData.materialConfigurations}
         materialMeasures={materialConfigurationData.materialMeasures}
         materialTypes={materialConfigurationData.materialTypes}
+        initialPagination={{
+          totalCount: materialsPage.totalCount,
+          totalCost: materialsPage.totalCost,
+          page: materialsPage.page,
+          pageSize: materialsPage.pageSize,
+          totalPages: materialsPage.totalPages,
+          spendInsights: materialsPage.spendInsights,
+        }}
+        fetchMaterials={fetchWarehouseMaterialsPage}
+        exportMaterials={exportWarehouseMaterials}
         sendToBis={sendToBis}
         updateSentRecordInBis={updateSentReceivedMaterialInBis}
         getPossibleApprovers={getPossibleWarehouseBisApprovers}

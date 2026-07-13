@@ -547,6 +547,8 @@ model BISmaterialRecords {
   invoiceNr String?
   invoiceDate  DateTime?
   materialDate DateTime?
+  supplierName String?
+  importBatchId String?
  
   costCode String?
 

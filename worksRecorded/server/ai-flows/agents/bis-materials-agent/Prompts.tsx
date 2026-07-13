@@ -11,6 +11,8 @@ const table_definition = `
   "invoiceNr" text null,
   "invoiceDate" timestamp without time zone null,
   "materialDate" timestamp without time zone null,
+  "supplierName" text null,
+  "importBatchId" text null,
   "costCode" text null,
   "sourcePhoto" text null,
   "declarationAttachment" jsonb null,

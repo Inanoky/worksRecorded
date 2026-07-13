@@ -98,7 +98,8 @@ export async function readBisMaterialRecords(
   const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>`
         SELECT
           id, name, quantity, "measurementUnit", "categoryName", "costCode",
-          "invoiceNr", "materialDate", "BISId", "bisStatus", "createdAt"
+          "invoiceNr", "invoiceDate", "materialDate", "supplierName",
+          cost, "BISId", "bisStatus", "createdAt"
         FROM "BISmaterialRecords"
         WHERE "siteId" = ${scope.siteId}
           AND (
@@ -106,7 +107,8 @@ export async function readBisMaterialRecords(
             COALESCE(name, '') ILIKE ${pattern} OR
             COALESCE("categoryName", '') ILIKE ${pattern} OR
             COALESCE("invoiceNr", '') ILIKE ${pattern} OR
-            COALESCE("costCode", '') ILIKE ${pattern}
+            COALESCE("costCode", '') ILIKE ${pattern} OR
+            COALESCE("supplierName", '') ILIKE ${pattern}
           )
         ORDER BY "createdAt" DESC
         LIMIT ${limit}

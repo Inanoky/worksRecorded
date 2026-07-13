@@ -242,6 +242,12 @@ type WarehouseMaterialConfigSelectMessages = {
 type WarehouseUiMessages = {
   searchMaterials: string;
   totalCost: string;
+  spendInsights: string;
+  invoiceDateFrom: string;
+  invoiceDateTo: string;
+  topSuppliers: string;
+  monthlySpend: string;
+  noSupplier: string;
   refresh: string;
   exportToExcel: string;
   status: string;
@@ -257,9 +263,15 @@ type WarehouseUiMessages = {
   sortInvoiceOldest: string;
   sortNameAz: string;
   sortHighestQty: string;
+  showingRows: (from: number, to: number, total: number) => string;
+  pageSize: string;
+  previousPage: string;
+  nextPage: string;
+  loading: string;
   selectAllRows: string;
   photo: string;
   material: string;
+  supplier: string;
   bisMaterialConfiguration: string;
   costCode: string;
   deliveryDate: string;
@@ -278,7 +290,9 @@ type WarehouseUiMessages = {
   selectConfiguration: string;
   pickDate: string;
   unnamedMaterial: string;
+  materialFromInvoice: (invoiceNr: string) => string;
   unknownType: string;
+  noPhoto: string;
   submitting: string;
   editMaterial: string;
   materialName: string;
@@ -543,6 +557,8 @@ type ToastMessages = {
   recordsDeleted: (count: number) => string;
   someBisRecordsOnlyDeletedLocally: string;
   failedDeleteRecords: string;
+  failedLoadMaterials: string;
+  failedExportMaterials: string;
   changesSaved: string;
   failedSaveChanges: string;
   costCodeCannotBeEmpty: string;
@@ -979,6 +995,12 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
   en: {
     searchMaterials: "Search materials...",
     totalCost: "Total cost",
+    spendInsights: "Spend insights",
+    invoiceDateFrom: "Invoice date from",
+    invoiceDateTo: "Invoice date to",
+    topSuppliers: "Top suppliers",
+    monthlySpend: "Monthly spend",
+    noSupplier: "No supplier",
     refresh: "Refresh",
     exportToExcel: "Export to Excel",
     status: "Status",
@@ -994,9 +1016,15 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     sortInvoiceOldest: "Invoice date (oldest)",
     sortNameAz: "Name A–Z",
     sortHighestQty: "Highest quantity",
+    showingRows: (from, to, total) => `Showing ${from}-${to} of ${total}`,
+    pageSize: "Rows",
+    previousPage: "Previous",
+    nextPage: "Next",
+    loading: "Loading...",
     selectAllRows: "Select all visible warehouse records",
     photo: "Photo",
     material: "Material",
+    supplier: "Supplier",
     bisMaterialConfiguration: "BIS material configuration",
     costCode: "Cost code",
     deliveryDate: "Delivery date",
@@ -1015,7 +1043,9 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     selectConfiguration: "Select configuration",
     pickDate: "Pick date",
     unnamedMaterial: "Unnamed material",
+    materialFromInvoice: (invoiceNr) => `Materials from invoice ${invoiceNr}`,
     unknownType: "Unknown type",
+    noPhoto: "No photo",
     submitting: "Submitting...",
     editMaterial: "Edit material",
     materialName: "Material name",
@@ -1082,6 +1112,12 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
   lv: {
     searchMaterials: "Meklēt materiālus...",
     totalCost: "Kopējās izmaksas",
+    spendInsights: "Izmaksu pārskats",
+    invoiceDateFrom: "Rēķina datums no",
+    invoiceDateTo: "Rēķina datums līdz",
+    topSuppliers: "Lielākie piegādātāji",
+    monthlySpend: "Izmaksas pa mēnešiem",
+    noSupplier: "Nav piegādātāja",
     refresh: "Atjaunot",
     exportToExcel: "Eksportēt uz Excel",
     status: "Statuss",
@@ -1097,9 +1133,15 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     sortInvoiceOldest: "Rēķina datums (vecākie)",
     sortNameAz: "Nosaukums A–Z",
     sortHighestQty: "Lielākais daudzums",
+    showingRows: (from, to, total) => `Rāda ${from}-${to} no ${total}`,
+    pageSize: "Rindas",
+    previousPage: "Iepriekšējā",
+    nextPage: "Nākamā",
+    loading: "Ielādē...",
     selectAllRows: "Atlasīt visus redzamos noliktavas ierakstus",
     photo: "Foto",
     material: "Materiāls",
+    supplier: "Piegādātājs",
     bisMaterialConfiguration: "BIS materiāla konfigurācija",
     costCode: "Izmaksu kods",
     deliveryDate: "Piegādes datums",
@@ -1118,7 +1160,9 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     selectConfiguration: "Izvēlēties konfigurāciju",
     pickDate: "Izvēlēties datumu",
     unnamedMaterial: "Nenorādīts materiāls",
+    materialFromInvoice: (invoiceNr) => `Materiāli no rēķina ${invoiceNr}`,
     unknownType: "Nezināms tips",
+    noPhoto: "Nav foto",
     submitting: "Nosūta...",
     editMaterial: "Rediģēt materiālu",
     materialName: "Materiāla nosaukums",
@@ -1599,6 +1643,8 @@ const TOAST_MESSAGES: Record<OrganizationLanguage, ToastMessages> = {
     recordsDeleted: (count) => (count === 1 ? "Record deleted" : `${count} records deleted`),
     someBisRecordsOnlyDeletedLocally: "Some deleted records were already sent to BIS. They were removed only from WorksRecorded and stay in BIS.",
     failedDeleteRecords: "Failed to delete records",
+    failedLoadMaterials: "Failed to load materials",
+    failedExportMaterials: "Failed to export materials",
     changesSaved: "Changes saved",
     failedSaveChanges: "Failed to save changes",
     costCodeCannotBeEmpty: "Cost code cannot be empty",
@@ -1696,6 +1742,8 @@ const TOAST_MESSAGES: Record<OrganizationLanguage, ToastMessages> = {
     recordsDeleted: (count) => (count === 1 ? "Ieraksts dzēsts" : `Dzēsti ${count} ieraksti`),
     someBisRecordsOnlyDeletedLocally: "Daži dzēstie ieraksti jau bija nosūtīti uz BIS. Tie noņemti tikai no WorksRecorded un paliek BIS.",
     failedDeleteRecords: "Neizdevās dzēst ierakstus",
+    failedLoadMaterials: "Neizdevās ielādēt materiālus",
+    failedExportMaterials: "Neizdevās eksportēt materiālus",
     changesSaved: "Izmaiņas saglabātas",
     failedSaveChanges: "Neizdevās saglabāt izmaiņas",
     costCodeCannotBeEmpty: "Izmaksu kods nedrīkst būt tukšs",
