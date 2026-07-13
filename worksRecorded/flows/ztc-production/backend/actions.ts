@@ -17,6 +17,7 @@ import {
   type ZtcRateUnit,
 } from "@/flows/ztc-production/lib/ztc-rate-units";
 import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
+import { resolveZtcRateTaskForRow } from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
@@ -935,14 +936,10 @@ export async function getZtcScopeSummary(args: {
   const projectTotalAreaM2 = projectName
     ? getZtcProjectTotalAreaM2(rows, projectName)
     : null;
+  const resolveRateTaskFromRates = (row: ZtcDiaryRow) =>
+    resolveZtcRateTaskForRow(row, defaultRates);
   const resolvePlannedLaborNormFromRates = (row: ZtcDiaryRow) =>
-    parseZtcLaborNormNumber(
-      findDefaultRateForTask(
-        row.Works,
-        getProjectCategoryRates(defaultRates, row.Location, "works"),
-        { category: "works" },
-      )?.laborNorm,
-    );
+    parseZtcLaborNormNumber(resolveRateTaskFromRates(row)?.entry.laborNorm);
   const totals = rows.reduce(
     (acc, row) => {
       const payroll = getZtcPayrollValues(row);
@@ -1041,12 +1038,14 @@ export async function getZtcScopeSummary(args: {
     laborNormRows: buildZtcLaborNormSummaryRows(rows, {
       requirePlannedLaborNorm: true,
       resolvePlannedLaborNorm: resolvePlannedLaborNormFromRates,
+      resolveCanonicalTask: (row) => resolveRateTaskFromRates(row)?.canonicalTask,
     }),
     laborNormTotal: buildZtcLaborNormTotalSummary(rows, {
       plannedAmountM2: scopeAreaM2,
       actualAmountM2: scopeAreaM2,
       requirePlannedLaborNorm: true,
       resolvePlannedLaborNorm: resolvePlannedLaborNormFromRates,
+      resolveCanonicalTask: (row) => resolveRateTaskFromRates(row)?.canonicalTask,
     }),
     relatedAdditionalRows,
   };

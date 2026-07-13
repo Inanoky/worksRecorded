@@ -3,18 +3,12 @@ import {
   readZtcLaborNormFromMetadata,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
 import {
-  findZtcDefaultRateForTask,
-  type ZtcDefaultTaskRate,
-} from "@/flows/ztc-production/lib/ztc-rate-matching";
-import { ZTC_ALL_PROJECTS_RATE_NAME } from "@/flows/ztc-production/lib/ztc-rate-constants";
-
-type ZtcExcelProjectRates = {
-  projectName: string;
-  works?: ZtcDefaultTaskRate[];
-};
+  resolveZtcRateTaskForRow,
+  type ZtcRateProject,
+} from "@/flows/ztc-production/lib/ztc-rate-resolver";
 
 type FormatZtcRowsForExcelOptions = {
-  defaultRates?: ZtcExcelProjectRates[];
+  defaultRates?: ZtcRateProject[];
 };
 
 const ZTC_EXCEL_COLUMNS = [
@@ -85,10 +79,6 @@ function isZtcHourlyUnit(value: unknown) {
   return ["st", "h", "hr", "hour", "hours", "stunda", "stundas"].includes(normalized);
 }
 
-function normalizeZtcExcelText(value: unknown) {
-  return String(value ?? "").trim().toLowerCase();
-}
-
 function getZtcExcelRowSum(row: Record<string, any>) {
   const hours = parseZtcPayrollNumber(row.TimeInvolved);
   const amount = parseZtcPayrollNumber(row.Amounts);
@@ -97,35 +87,6 @@ function getZtcExcelRowSum(row: Record<string, any>) {
   const coefficient = parseZtcPayrollNumber(row.Works_Custom_2, 1);
   const complexity = parseZtcPayrollNumber(row.WorkersInvolved, 1);
   return Number((quantity * rate * coefficient * complexity).toFixed(2));
-}
-
-function getZtcExcelProjectWorkRates(
-  defaultRates: ZtcExcelProjectRates[] | null | undefined,
-  projectName: unknown,
-) {
-  const allProjectRates = defaultRates?.find(
-    (project) =>
-      normalizeZtcExcelText(project.projectName) ===
-      normalizeZtcExcelText(ZTC_ALL_PROJECTS_RATE_NAME),
-  );
-  const projectRates = defaultRates?.find(
-    (project) =>
-      normalizeZtcExcelText(project.projectName) === normalizeZtcExcelText(projectName),
-  );
-  const merged = [...(allProjectRates?.works ?? [])];
-
-  for (const override of projectRates?.works ?? []) {
-    const index = merged.findIndex(
-      (entry) => normalizeZtcExcelText(entry.task) === normalizeZtcExcelText(override.task),
-    );
-    if (index >= 0) {
-      merged[index] = { ...merged[index], ...override };
-    } else {
-      merged.push(override);
-    }
-  }
-
-  return merged;
 }
 
 function getZtcExcelRowLaborNorm(
@@ -137,13 +98,9 @@ function getZtcExcelRowLaborNorm(
   );
   if (metadataPlanned != null) return metadataPlanned;
 
-  const fallbackRate = findZtcDefaultRateForTask(
-    row.Works,
-    getZtcExcelProjectWorkRates(options.defaultRates, row.Location),
-    { category: "works" },
-  )?.entry;
-
-  return parseZtcLaborNormNumber(fallbackRate?.laborNorm) ?? "";
+  return parseZtcLaborNormNumber(
+    resolveZtcRateTaskForRow(row, options.defaultRates)?.entry.laborNorm,
+  ) ?? "";
 }
 
 export function applyZtcExcelNumberFormats(XLSX: any, worksheet: any) {

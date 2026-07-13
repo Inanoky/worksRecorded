@@ -49,6 +49,7 @@ type ZtcLaborNormSummaryOptions = {
   requireDrawingContext?: boolean;
   requirePlannedLaborNorm?: boolean;
   resolvePlannedLaborNorm?: (row: ZtcDiaryRow) => unknown;
+  resolveCanonicalTask?: (row: ZtcDiaryRow) => string | null | undefined;
 };
 
 type ZtcDrawingMetadata = {
@@ -407,7 +408,7 @@ function buildZtcLaborNormTaskGroups(
   rows: ZtcDiaryRow[],
   options: Pick<
     ZtcLaborNormSummaryOptions,
-    "requireDrawingContext" | "requirePlannedLaborNorm" | "resolvePlannedLaborNorm"
+    "requireDrawingContext" | "requirePlannedLaborNorm" | "resolvePlannedLaborNorm" | "resolveCanonicalTask"
   > = {},
 ) {
   const groups = new Map<
@@ -424,7 +425,7 @@ function buildZtcLaborNormTaskGroups(
   rows.forEach((row) => {
     if (!isZtcProductionWorkRow(row)) return;
     if (options.requireDrawingContext && !ztcWorkMatchesDrawingMetadata(row)) return;
-    const task = String(row.Works ?? "").trim();
+    const task = String(options.resolveCanonicalTask?.(row) ?? row.Works ?? "").trim();
     if (!task) return;
 
     const hours = parseZtcPayrollNumber(row.TimeInvolved);
@@ -464,7 +465,7 @@ export function buildZtcLaborNormSummaryRows(
   rows: ZtcDiaryRow[],
   options: Pick<
     ZtcLaborNormSummaryOptions,
-    "requireDrawingContext" | "requirePlannedLaborNorm" | "resolvePlannedLaborNorm"
+    "requireDrawingContext" | "requirePlannedLaborNorm" | "resolvePlannedLaborNorm" | "resolveCanonicalTask"
   > = {},
 ) {
   const groups = buildZtcLaborNormTaskGroups(rows, options);

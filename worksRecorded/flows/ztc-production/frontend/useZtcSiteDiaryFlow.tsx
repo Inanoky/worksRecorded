@@ -261,6 +261,7 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
   ) : null;
 
   return {
+    defaultRates,
     payrollSavingRowId,
     payrollDirtyRowIds,
     savePayrollDraft,

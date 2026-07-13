@@ -132,6 +132,7 @@ import {
   exportZtcProductivityToExcel,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
 import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
+import { resolveZtcRateTaskForRow } from "@/flows/ztc-production/lib/ztc-rate-resolver";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -801,6 +802,33 @@ export default function SiteDiaryCalendar({
     setElementFilter,
     setWorkerFilter,
   });
+  const getZtcResolvedWork = React.useCallback(
+    (row: DiaryRow) =>
+      isZtcSite ? resolveZtcRateTaskForRow(row, ztc.defaultRates) : null,
+    [isZtcSite, ztc.defaultRates],
+  );
+  const renderZtcWorkName = React.useCallback(
+    (row: DiaryRow, fallback: string) => {
+      const resolved = getZtcResolvedWork(row);
+      const primary = resolved?.canonicalTask || row.Works || fallback;
+      const extracted = resolved?.differs ? resolved.extractedTask : null;
+
+      return (
+        <span className="block min-w-0">
+          <span className="block line-clamp-2">{primary}</span>
+          {extracted ? (
+            <span
+              className="mt-0.5 block truncate text-[10px] font-normal leading-tight text-muted-foreground"
+              title={`Bilde: ${extracted}`}
+            >
+              Bilde: {extracted}
+            </span>
+          ) : null}
+        </span>
+      );
+    },
+    [getZtcResolvedWork],
+  );
   const handleZtcWorkerFilterChange = React.useCallback(
     (value: string) => {
       setWorkerFilter(value);
@@ -3052,7 +3080,7 @@ export default function SiteDiaryCalendar({
                                     onClick={() => ztc.openRowImages(r)}
                                   >
                                     <span className="inline-flex items-center gap-1">
-                                      {r.Works || t.noWorksRecorded}
+                                      {renderZtcWorkName(r, t.noWorksRecorded)}
                                       {r.id &&
                                       ztcQualityDisplayStateByRowId.get(r.id)
                                         ?.hasResolvedDefect ? (
@@ -3424,10 +3452,10 @@ export default function SiteDiaryCalendar({
                                             <div className="flex items-start gap-1">
                                               <button
                                                 type="button"
-                                                className="line-clamp-2 min-w-0 whitespace-normal break-words text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
+                                                className="min-w-0 whitespace-normal break-words text-left leading-snug underline-offset-2 hover:text-blue-700 hover:underline"
                                                 onClick={() => ztc.openRowImages(row)}
                                               >
-                                                {row.Works || "—"}
+                                                {renderZtcWorkName(row, "—")}
                                               </button>
                                               {row.id &&
                                               ztcQualityDisplayStateByRowId.get(row.id)
