@@ -8,6 +8,12 @@ export const DATA_LINKS = [
     descriptionKey: "data.whatsapp.description",
   },
   {
+    id: "Manufacturing",
+    href: "/Landing/Manufacturing",
+    titleKey: "data.manufacturing.title",
+    descriptionKey: "data.manufacturing.description",
+  },
+  {
     id: "Timesheets",
     href: "/Landing/Timesheets",
     titleKey: "data.timesheets.title",
@@ -44,6 +50,12 @@ export const COMBINED_LINKS = [
     href: "/Landing/SiteDiary",
     titleKey: "data.whatsapp.title",
     descriptionKey: "data.whatsapp.description",
+  },
+  {
+    id: "Manufacturing",
+    href: "/Landing/Manufacturing",
+    titleKey: "data.manufacturing.title",
+    descriptionKey: "data.manufacturing.description",
   },
   {
     id: "Timesheets",
