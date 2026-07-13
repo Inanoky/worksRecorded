@@ -158,6 +158,42 @@
     }
   },
 
+  "Manufacturing": {
+    "eyebrow": "WorksRecorded for manufacturing",
+    "title": "Production journal",
+    "intro": "WorksRecorded helps manufacturers see how long every operation takes, compare actual output against planned labor norms, and calculate costs automatically.",
+    "videoTitle": "WorksRecorded manufacturing production journal demo",
+    "dashboard": {
+      "title": "Production data in one place",
+      "text": "In the production journal you can see when each operation started and finished, who completed it, total time, completed volume, costs, and photos.",
+      "items": [
+        "Actual time spent on each manufacturing operation.",
+        "Planned versus actual labor norm comparison.",
+        "Element and project summaries with hours, m², costs, and plan variance.",
+        "Automatic payroll, productivity, and Excel export calculations."
+      ]
+    },
+    "whatsapp": {
+      "title": "Workers only need WhatsApp",
+      "text": "A worker photographs the drawing, says which task has started by voice or text, and sends a completion message with work photos when finished.",
+      "items": [
+        "The system automatically recognizes the project and element number.",
+        "Work can be paused or interrupted by another task, and the system accounts for it.",
+        "Completed work is saved online together with photos.",
+        "The whole reporting flow takes less than a minute."
+      ]
+    },
+    "benefits": {
+      "title": "What management gets",
+      "items": [
+        "React to time overruns in real time and minimize costs.",
+        "Estimate future projects more accurately using real production data.",
+        "Motivate workers with clear productivity visibility.",
+        "Improve quality because every operation has photos and history."
+      ]
+    }
+  },
+
   "CustomSolutions": {
     "title": "Custom digital solutions",
 
@@ -251,6 +287,10 @@
       "whatsapp": {
         "title": "Site records",
         "description": "Use custom WhatsApp channel for reporting with voice/text"
+      },
+      "manufacturing": {
+        "title": "Manufacturing",
+        "description": "Track production operations, productivity, and costs from WhatsApp reports"
       },
       "timesheets": {
         "title": "Timesheets",

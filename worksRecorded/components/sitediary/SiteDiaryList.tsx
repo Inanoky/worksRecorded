@@ -116,7 +116,7 @@ import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
 import { useZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend/useZtcSiteDiaryFlow";
-import { getZtcDefaultTaskRates, getZtcScopeSummary } from "@/flows/ztc-production/backend/actions";
+import { getZtcDefaultTaskRates, getZtcFilterOptions, getZtcScopeSummary } from "@/flows/ztc-production/backend/actions";
 import { exportForma2ToExcel } from "@/components/sitediary/forma2-export";
 import {
   buildZtcQualityDisplayStateByRowId,
@@ -204,6 +204,12 @@ type DayGroup = {
 };
 
 type ZtcScopeSummary = NonNullable<Awaited<ReturnType<typeof getZtcScopeSummary>>>;
+type ZtcFilterOptions = Awaited<ReturnType<typeof getZtcFilterOptions>>;
+
+function withSelectedOption(options: string[], selected: string) {
+  if (!selected || selected === "__ALL__" || options.includes(selected)) return options;
+  return [selected, ...options].sort((a, b) => a.localeCompare(b, "lv"));
+}
 
 function SiteDiaryListSkeleton({ label }: { label: string }) {
   return (
@@ -600,6 +606,12 @@ export default function SiteDiaryCalendar({
   const [elementFilter, setElementFilter] = React.useState<string>("__ALL__");
   const [workerFilter, setWorkerFilter] = React.useState<string>("__ALL__");
   const [keywordFilter, setKeywordFilter] = React.useState<string>("");
+  const [ztcFilterOptions, setZtcFilterOptions] = React.useState<ZtcFilterOptions>({
+    projects: [],
+    elements: [],
+    works: [],
+    workers: [],
+  });
   const [listPage, setListPage] = React.useState(1);
   const [listTotalCount, setListTotalCount] = React.useState(0);
   const [listTotalPages, setListTotalPages] = React.useState(1);
@@ -1055,8 +1067,49 @@ export default function SiteDiaryCalendar({
   const hasRecords = rows.length > 0;
   const GALLERY_PAGE_SIZE = 20;
 
+  React.useEffect(() => {
+    if (!isZtcSite || !siteId) {
+      setZtcFilterOptions({ projects: [], elements: [], works: [], workers: [] });
+      return;
+    }
+
+    let cancelled = false;
+    getZtcFilterOptions({
+      siteId,
+      projectName: floorFilter,
+      elementName: elementFilter,
+      workerName: workerFilter,
+      workName: workFilter,
+      dateFrom: dateFrom ? toLocalDateKey(dateFrom) : null,
+      dateTo: dateTo ? toLocalDateKey(dateTo) : null,
+      keyword: keywordFilter,
+    })
+      .then((options) => {
+        if (!cancelled) setZtcFilterOptions(options);
+      })
+      .catch((error: any) => {
+        if (!cancelled) {
+          toast.error(error?.message ?? "Neizdevās ielādēt filtru vērtības.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    dateFrom,
+    dateTo,
+    elementFilter,
+    floorFilter,
+    isZtcSite,
+    keywordFilter,
+    siteId,
+    workFilter,
+    workerFilter,
+  ]);
+
   // Works filter options
-  const worksOptions = React.useMemo(() => {
+  const pageWorksOptions = React.useMemo(() => {
     const set = new Set<string>();
     rows.forEach((r) => {
       if (
@@ -1078,6 +1131,14 @@ export default function SiteDiaryCalendar({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
   }, [rows, isZtcSite, floorFilter, elementFilter]);
 
+  const worksOptions = React.useMemo(
+    () =>
+      isZtcSite
+        ? withSelectedOption(ztcFilterOptions.works, workFilter)
+        : pageWorksOptions,
+    [isZtcSite, pageWorksOptions, workFilter, ztcFilterOptions.works],
+  );
+
   React.useEffect(() => {
     if (!isZtcSite || workFilter === "__ALL__") return;
     if (!worksOptions.includes(workFilter)) {
@@ -1086,7 +1147,7 @@ export default function SiteDiaryCalendar({
   }, [isZtcSite, workFilter, worksOptions]);
 
   // Floor filter options (based on Location)
-  const floorOptions = React.useMemo(() => {
+  const pageFloorOptions = React.useMemo(() => {
     const set = new Set<string>();
     rows.forEach((r) => {
       if (r.Location && String(r.Location).trim()) {
@@ -1096,7 +1157,15 @@ export default function SiteDiaryCalendar({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  const elementOptions = React.useMemo(() => {
+  const floorOptions = React.useMemo(
+    () =>
+      isZtcSite
+        ? withSelectedOption(ztcFilterOptions.projects, floorFilter)
+        : pageFloorOptions,
+    [floorFilter, isZtcSite, pageFloorOptions, ztcFilterOptions.projects],
+  );
+
+  const pageElementOptions = React.useMemo(() => {
     const set = new Set<string>();
     if (isZtcSite && elementFilter !== "__ALL__") {
       set.add(elementFilter);
@@ -1116,6 +1185,14 @@ export default function SiteDiaryCalendar({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
   }, [rows, isZtcSite, floorFilter, elementFilter]);
 
+  const elementOptions = React.useMemo(
+    () =>
+      isZtcSite
+        ? withSelectedOption(ztcFilterOptions.elements, elementFilter)
+        : pageElementOptions,
+    [elementFilter, isZtcSite, pageElementOptions, ztcFilterOptions.elements],
+  );
+
   React.useEffect(() => {
     if (!isZtcSite || elementFilter === "__ALL__") return;
     if (!elementOptions.includes(elementFilter)) {
@@ -1123,7 +1200,7 @@ export default function SiteDiaryCalendar({
     }
   }, [isZtcSite, elementFilter, elementOptions]);
 
-  const workerOptions = React.useMemo(() => {
+  const pageWorkerOptions = React.useMemo(() => {
     const set = new Set<string>();
     rows.forEach((r) => {
       if (r.createdBy && String(r.createdBy).trim()) {
@@ -1132,6 +1209,14 @@ export default function SiteDiaryCalendar({
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
   }, [rows]);
+
+  const workerOptions = React.useMemo(
+    () =>
+      isZtcSite
+        ? withSelectedOption(ztcFilterOptions.workers, workerFilter)
+        : pageWorkerOptions,
+    [isZtcSite, pageWorkerOptions, workerFilter, ztcFilterOptions.workers],
+  );
 
   // Rows after applying structured filters (date, works, floor)
   const filteredRows: DiaryRow[] = React.useMemo(() => {

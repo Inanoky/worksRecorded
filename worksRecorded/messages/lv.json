@@ -157,6 +157,42 @@
     }
   },
 
+  "Manufacturing": {
+    "eyebrow": "WorksRecorded ražotnēm",
+    "title": "Ražošanas žurnāls",
+    "intro": "WorksRecorded palīdz ražotnēm redzēt, cik ilgi aizņem katra operācija, salīdzināt faktisko izstrādi ar plānu un automātiski aprēķināt izmaksas.",
+    "videoTitle": "WorksRecorded ražošanas žurnāla demonstrācija",
+    "dashboard": {
+      "title": "Ražošanas dati vienā vietā",
+      "text": "Ražošanas žurnālā jūs redzat katras operācijas sākumu, beigas, darbinieku, patērēto laiku, izpildīto apjomu, izmaksas un attēlus.",
+      "items": [
+        "Faktiski patērētais laiks katrai ražošanas operācijai.",
+        "Plānotās un faktiskās laika normas salīdzinājums.",
+        "Elementa un projekta kopsavilkums ar stundām, m², izmaksām un novirzi no plāna.",
+        "Automātiski algu, produktivitātes un Excel eksporta aprēķini."
+      ]
+    },
+    "whatsapp": {
+      "title": "Darbiniekiem pietiek ar WhatsApp",
+      "text": "Darbinieks nofotografē rasējumu, pasaka ar balsi vai tekstu, kāds darbs sākts, un pēc pabeigšanas nosūta ziņu ar darba bildēm.",
+      "items": [
+        "Programma automātiski atpazīst projektu un elementa numuru.",
+        "Darbu var pārtraukt ar pauzi vai citu darbu, un sistēma to automātiski ņem vērā.",
+        "Pabeigtie darbi tiek saglabāti tiešsaistē kopā ar fotogrāfijām.",
+        "Visa darba reģistrācija aizņem mazāk nekā minūti."
+      ]
+    },
+    "benefits": {
+      "title": "Ko tas dod vadībai",
+      "items": [
+        "Reālā laikā pamanīt laika pārtēriņu un samazināt izmaksas.",
+        "Precīzāk tāmēt nākamos projektus, balstoties uz reāliem datiem.",
+        "Motivēt darbiniekus ar skaidru produktivitātes pārskatu.",
+        "Uzlabot kvalitāti, jo katrai operācijai ir bildes un vēsture."
+      ]
+    }
+  },
+
    "CustomSolutions": {
     "title": "Pielāgoti digitālie risinājumi",
 
@@ -250,6 +286,10 @@
       "whatsapp": {
         "title": "Būvdarbu žurnāls",
         "description": "Izmantojiet pielāgotu WhatsApp kanālu pierakstiem ar balsi vai tekstu"
+      },
+      "manufacturing": {
+        "title": "Ražošanas žurnāls",
+        "description": "Ražošanas operāciju uzskaite, produktivitāte un izmaksas no WhatsApp ziņām"
       },
       "timesheets": {
         "title": "Darba laika uzskaite",
