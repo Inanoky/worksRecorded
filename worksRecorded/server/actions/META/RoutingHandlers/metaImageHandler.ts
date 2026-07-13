@@ -377,7 +377,7 @@ export async function extractAndSaveBISMaterialsFromPublicUrl(publicUrl: string,
 
 
     const gptDocumentResponse = await client.responses.create({
-        model: "gpt-5.1",
+        model: "gpt-5.4",
         temperature: 0,
         input: [
             {
