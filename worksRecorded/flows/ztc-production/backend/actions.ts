@@ -1051,6 +1051,147 @@ export async function getZtcScopeSummary(args: {
   };
 }
 
+export async function getZtcFilterOptions(args: {
+  siteId: string;
+  projectName?: string | null;
+  elementName?: string | null;
+  workerName?: string | null;
+  workName?: string | null;
+  dateFrom?: string | Date | null;
+  dateTo?: string | Date | null;
+  keyword?: string | null;
+}) {
+  const context = await requireZtcAccess(args.siteId);
+
+  const normalizeFilter = (value: unknown) => {
+    const normalized = String(value ?? "").trim();
+    return normalized && normalized !== "__ALL__" ? normalized : null;
+  };
+  const normalizeOption = (value: unknown) => String(value ?? "").trim();
+  const uniqueSorted = (values: string[]) =>
+    Array.from(new Set(values.map(normalizeOption).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b, "lv"),
+    );
+
+  const dateFrom = normalizeDate(args.dateFrom);
+  const dateTo = normalizeDate(args.dateTo);
+  const dateFilter: Record<string, Date> = {};
+  if (dateFrom) {
+    dateFrom.setHours(0, 0, 0, 0);
+    dateFilter.gte = dateFrom;
+  }
+  if (dateTo) {
+    dateTo.setHours(23, 59, 59, 999);
+    dateFilter.lte = dateTo;
+  }
+
+  const baseWhere = {
+    siteId: context.siteId,
+    organizationId: context.organizationId,
+    Date_Custom_2: { not: null },
+    NOT: [
+      { Date: null },
+      { Works: null },
+      { Works: "" },
+      { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
+    ],
+    ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
+  };
+
+  const keyword = normalizeFilter(args.keyword);
+  const contains = (value: string) => ({ contains: value, mode: "insensitive" as const });
+  const workerCondition = (workerName: string) => {
+    const containsWorker = contains(workerName);
+    return {
+      OR: [
+        { originalUserComment: containsWorker },
+        { User: { is: { OR: [{ firstName: containsWorker }, { lastName: containsWorker }] } } },
+        { Worker: { is: { OR: [{ name: containsWorker }, { surname: containsWorker }] } } },
+      ],
+    };
+  };
+  const keywordCondition = keyword
+    ? {
+        OR: [
+          { Works: contains(keyword) },
+          { Works_Custom_1: contains(keyword) },
+          { Works_Custom_2: contains(keyword) },
+          { Location: contains(keyword) },
+          { Location_Custom_1: contains(keyword) },
+          { Location_Custom_2: contains(keyword) },
+          { Comments: contains(keyword) },
+          { Comments_Custom_1: contains(keyword) },
+          { Comments_Custom_2: contains(keyword) },
+          { Units: contains(keyword) },
+          { originalUserComment: contains(keyword) },
+          { User: { is: { OR: [{ firstName: contains(keyword) }, { lastName: contains(keyword) }] } } },
+          { Worker: { is: { OR: [{ name: contains(keyword) }, { surname: contains(keyword) }] } } },
+        ],
+      }
+    : null;
+
+  const makeWhere = (exclude: "project" | "element" | "worker" | "work") => {
+    const andFilters: any[] = [];
+    const projectName = normalizeFilter(args.projectName);
+    const elementName = normalizeFilter(args.elementName);
+    const workerName = normalizeFilter(args.workerName);
+    const workName = normalizeFilter(args.workName);
+
+    if (projectName && exclude !== "project") andFilters.push({ Location: projectName });
+    if (elementName && exclude !== "element") andFilters.push({ Location_Custom_1: elementName });
+    if (workName && exclude !== "work") andFilters.push({ Works: workName });
+    if (workerName && exclude !== "worker") andFilters.push(workerCondition(workerName));
+    if (keywordCondition) andFilters.push(keywordCondition);
+
+    return {
+      ...baseWhere,
+      ...(andFilters.length ? { AND: andFilters } : {}),
+    };
+  };
+
+  const [projectRows, elementRows, workRows, workerRows] = await Promise.all([
+    prisma.ztcRecords.findMany({
+      where: makeWhere("project"),
+      distinct: ["Location"],
+      select: { Location: true },
+      orderBy: { Location: "asc" },
+    }),
+    prisma.ztcRecords.findMany({
+      where: makeWhere("element"),
+      distinct: ["Location_Custom_1"],
+      select: { Location_Custom_1: true },
+      orderBy: { Location_Custom_1: "asc" },
+    }),
+    prisma.ztcRecords.findMany({
+      where: makeWhere("work"),
+      distinct: ["Works"],
+      select: { Works: true },
+      orderBy: { Works: "asc" },
+    }),
+    prisma.ztcRecords.findMany({
+      where: makeWhere("worker"),
+      select: {
+        originalUserComment: true,
+        User: { select: { firstName: true, lastName: true } },
+        Worker: { select: { name: true, surname: true } },
+      },
+    }),
+  ]);
+
+  const workers = workerRows.map((rec) => {
+    if (rec.User) return formatCreatorName(rec.User.firstName, rec.User.lastName);
+    if (rec.Worker) return formatCreatorName(rec.Worker.name, rec.Worker.surname);
+    return getCreatorNameFromOriginalComment(rec.originalUserComment);
+  });
+
+  return {
+    projects: uniqueSorted(projectRows.map((row) => row.Location ?? "")),
+    elements: uniqueSorted(elementRows.map((row) => row.Location_Custom_1 ?? "")),
+    works: uniqueSorted(workRows.map((row) => row.Works ?? "")),
+    workers: uniqueSorted(workers),
+  };
+}
+
 export async function getZtcDialogPrefetchData(args: { siteId: string; date: string }) {
   const context = await requireZtcAccess(args.siteId);
 
