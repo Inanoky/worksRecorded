@@ -265,6 +265,7 @@ type WarehouseUiMessages = {
   sortHighestQty: string;
   showingRows: (from: number, to: number, total: number) => string;
   pageSize: string;
+  page: string;
   previousPage: string;
   nextPage: string;
   loading: string;
@@ -1018,6 +1019,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     sortHighestQty: "Highest quantity",
     showingRows: (from, to, total) => `Showing ${from}-${to} of ${total}`,
     pageSize: "Rows",
+    page: "Page",
     previousPage: "Previous",
     nextPage: "Next",
     loading: "Loading...",
@@ -1135,6 +1137,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     sortHighestQty: "Lielākais daudzums",
     showingRows: (from, to, total) => `Rāda ${from}-${to} no ${total}`,
     pageSize: "Rindas",
+    page: "Lapa",
     previousPage: "Iepriekšējā",
     nextPage: "Nākamā",
     loading: "Ielādē...",

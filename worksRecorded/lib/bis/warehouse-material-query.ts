@@ -189,6 +189,10 @@ type WarehouseSpendInsightRow = {
   cost: number | null;
 };
 
+function isFutureInvoiceYear(date: Date) {
+  return date.getUTCFullYear() > new Date().getUTCFullYear();
+}
+
 export function getWarehouseEffectiveSpendDate(row: {
   invoiceDate: Date | null;
   createdAt: Date | null;
@@ -196,7 +200,11 @@ export function getWarehouseEffectiveSpendDate(row: {
   sourcePhoto: string | null;
 }) {
   if (row.importBatchId) return row.invoiceDate ?? row.createdAt;
-  if (row.sourcePhoto) return row.createdAt;
+  if (row.sourcePhoto) {
+    return row.invoiceDate && !isFutureInvoiceYear(row.invoiceDate)
+      ? row.invoiceDate
+      : row.createdAt;
+  }
   return row.invoiceDate ?? row.createdAt;
 }
 

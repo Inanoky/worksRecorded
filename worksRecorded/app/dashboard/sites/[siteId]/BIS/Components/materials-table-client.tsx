@@ -448,6 +448,7 @@ export default function MaterialsTableClient({
     "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
   >("default")
   const [page, setPage] = React.useState(initialPagination.page)
+  const [pageInput, setPageInput] = React.useState(String(initialPagination.page))
   const [pageSize, setPageSize] = React.useState(initialPagination.pageSize)
   const [tableLoading, setTableLoading] = React.useState(false)
   const [exportLoading, setExportLoading] = React.useState(false)
@@ -509,6 +510,7 @@ export default function MaterialsTableClient({
   React.useEffect(() => {
     setPagination(initialPagination)
     setPage(initialPagination.page)
+    setPageInput(String(initialPagination.page))
     setPageSize(initialPagination.pageSize)
   }, [initialPagination])
 
@@ -549,6 +551,7 @@ export default function MaterialsTableClient({
         spendInsights: result.spendInsights,
       })
       setPage(result.page)
+      setPageInput(String(result.page))
       setPageSize(result.pageSize)
       setSelectedRowIds((current) => current.filter((id) => result.rows.some((row) => row.id === id)))
     } catch (error) {
@@ -1243,6 +1246,16 @@ export default function MaterialsTableClient({
 
   const showBisControls = bisEnabled
 
+  const commitPageInput = React.useCallback(() => {
+    const requestedPage = Math.floor(Number(pageInput))
+    const nextPage = Number.isFinite(requestedPage)
+      ? Math.min(Math.max(requestedPage, 1), pagination.totalPages)
+      : pagination.page
+
+    setPage(nextPage)
+    setPageInput(String(nextPage))
+  }, [pageInput, pagination.page, pagination.totalPages])
+
   const exportMaterialsToExcel = async () => {
     setExportLoading(true)
     try {
@@ -1587,19 +1600,44 @@ export default function MaterialsTableClient({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              onClick={() => {
+                const nextPage = Math.max(1, pagination.page - 1)
+                setPage(nextPage)
+                setPageInput(String(nextPage))
+              }}
               disabled={tableLoading || pagination.page <= 1}
             >
               {t.previousPage}
             </Button>
-            <span>
-              {pagination.page}/{pagination.totalPages}
-            </span>
+            <label className="flex items-center gap-1">
+              <span>{t.page}</span>
+              <Input
+                type="number"
+                min={1}
+                max={pagination.totalPages}
+                value={pageInput}
+                onChange={(event) => setPageInput(event.target.value)}
+                onBlur={commitPageInput}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault()
+                    commitPageInput()
+                  }
+                }}
+                disabled={tableLoading || pagination.totalPages <= 1}
+                className="h-8 w-16 px-2 text-center"
+              />
+              <span>/ {pagination.totalPages}</span>
+            </label>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
+              onClick={() => {
+                const nextPage = Math.min(pagination.totalPages, pagination.page + 1)
+                setPage(nextPage)
+                setPageInput(String(nextPage))
+              }}
               disabled={tableLoading || pagination.page >= pagination.totalPages}
             >
               {t.nextPage}

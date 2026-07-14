@@ -301,7 +301,7 @@ describe("warehouse material query", () => {
         measurementUnit: null,
         cost: 70,
         invoiceNr: "INV-2",
-        invoiceDate: new Date("2025-01-01T00:00:00.000Z"),
+        invoiceDate: new Date("2026-07-18T00:00:00.000Z"),
         materialDate: null,
         supplierName: "Photo Supplier",
         importBatchId: null,
@@ -311,7 +311,29 @@ describe("warehouse material query", () => {
         agreementAttachment: [],
         BISId: null,
         bisStatus: null,
-        createdAt: new Date("2026-07-18T00:00:00.000Z"),
+        createdAt: new Date("2026-09-01T00:00:00.000Z"),
+      },
+      {
+        id: "future-photo-row",
+        name: null,
+        quantity: null,
+        categoryId: null,
+        categoryName: null,
+        measurementUnitId: null,
+        measurementUnit: null,
+        cost: 30,
+        invoiceNr: "INV-4",
+        invoiceDate: new Date(`${new Date().getUTCFullYear() + 1}-01-01T00:00:00.000Z`),
+        materialDate: null,
+        supplierName: "Future Photo Supplier",
+        importBatchId: null,
+        costCode: null,
+        sourcePhoto: "https://example.com/future-photo.jpg",
+        declarationAttachment: [],
+        agreementAttachment: [],
+        BISId: null,
+        bisStatus: null,
+        createdAt: new Date("2026-07-20T00:00:00.000Z"),
       },
       {
         id: "fallback-row",
@@ -344,11 +366,11 @@ describe("warehouse material query", () => {
       invoiceDateTo: "2026-07-31",
     }, client);
 
-    expect(result.rows.map((row) => row.id).sort()).toEqual(["imported-row", "photo-row"]);
-    expect(result.totalCount).toBe(2);
-    expect(result.totalCost).toBe(170);
+    expect(result.rows.map((row) => row.id).sort()).toEqual(["future-photo-row", "imported-row", "photo-row"]);
+    expect(result.totalCount).toBe(3);
+    expect(result.totalCost).toBe(200);
     expect(result.spendInsights?.monthlyTotals).toEqual([
-      { key: "2026-07", label: "2026-07", totalCost: 170, count: 2 },
+      { key: "2026-07", label: "2026-07", totalCost: 200, count: 3 },
     ]);
   });
 
@@ -363,6 +385,12 @@ describe("warehouse material query", () => {
       importBatchId: null,
       sourcePhoto: "photo",
       invoiceDate: new Date("2025-01-01T00:00:00.000Z"),
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    })?.toISOString()).toBe("2025-01-01T00:00:00.000Z");
+    expect(getWarehouseEffectiveSpendDate({
+      importBatchId: null,
+      sourcePhoto: "photo",
+      invoiceDate: new Date(`${new Date().getUTCFullYear() + 1}-01-01T00:00:00.000Z`),
       createdAt: new Date("2026-08-01T00:00:00.000Z"),
     })?.toISOString()).toBe("2026-08-01T00:00:00.000Z");
     expect(getWarehouseEffectiveSpendDate({
