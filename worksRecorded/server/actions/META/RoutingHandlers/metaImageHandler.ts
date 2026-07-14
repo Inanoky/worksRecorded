@@ -1,15 +1,16 @@
 // download_media.js
 
-import { UTApi } from "uploadthing/server";
+import { wrapOpenAI } from "langsmith/wrappers/openai";
 import OpenAI from "openai";
-import { z } from "zod";
 import { zodTextFormat } from "openai/helpers/zod";
+import { UTApi } from "uploadthing/server";
+import { z } from "zod";
 import { prisma } from "@/lib/utils/db";
+import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 import {
   metaMaterialImageClassifierModel,
   metaMaterialImageClassifierTemperature,
 } from "@/server/ai-flows/ai-models-settings";
-import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 
 
 //-------------------------------------Utilities--------------------------------
@@ -20,6 +21,7 @@ const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
 });
 
+const tracedClient = wrapOpenAI(client);
 
 const utapi = new UTApi();
 
@@ -234,6 +236,65 @@ type MetaMaterialContext = {
   siteId: string | null
 }
 
+type MetaMaterialLangSmithRunName =
+  | "MetaMaterialImageClassification"
+  | "MetaMaterialInvoiceExtraction"
+
+function describeImageForTrace(publicUrl: string) {
+  try {
+    return new URL(publicUrl).hostname
+  } catch {
+    return null
+  }
+}
+
+function buildMetaMaterialLangSmithExtra(args: {
+  name: MetaMaterialLangSmithRunName
+  model: string
+  publicUrl: string
+  context?: MetaMaterialContext | null
+}) {
+  return {
+    name: args.name,
+    tags: [
+      "whatsapp-site-manager",
+      "meta-image",
+      "material-document",
+      args.name === "MetaMaterialInvoiceExtraction"
+        ? "invoice-extraction"
+        : "image-classification",
+    ],
+    metadata: {
+      source: "meta-image-handler",
+      model: args.model,
+      imageHost: describeImageForTrace(args.publicUrl),
+      siteId: args.context?.siteId ?? null,
+      userId: args.context?.userId ?? null,
+      orgId: args.context?.orgId ?? null,
+    },
+  }
+}
+
+type TracedOpenAIResponse = {
+  output_text: string
+}
+
+type TracedOpenAIResponsesCreate = (
+  payload: unknown,
+  options: {
+    langsmithExtra: ReturnType<typeof buildMetaMaterialLangSmithExtra>
+  },
+) => Promise<TracedOpenAIResponse>
+
+function createTracedOpenAIResponse(
+  payload: unknown,
+  langsmithExtra: ReturnType<typeof buildMetaMaterialLangSmithExtra>,
+) {
+  const createResponse =
+    tracedClient.responses.create as unknown as TracedOpenAIResponsesCreate
+  return createResponse(payload, { langsmithExtra })
+}
+
 async function resolveMetaMaterialContext(senderPhone?: string | null): Promise<MetaMaterialContext | null> {
   if (!senderPhone) return null
 
@@ -276,35 +337,46 @@ const materialImageClassificationSchema = z.object({
   reason: z.string(),
 });
 
-export async function classifyMaterialDocumentImage(publicUrl: string) {
-  const response = await client.responses.create({
-    model: metaMaterialImageClassifierModel,
-    temperature: metaMaterialImageClassifierTemperature,
-    input: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "input_image",
-            image_url: publicUrl,
-          },
-          {
-            type: "input_text",
-            text: `Classify this WhatsApp image for a construction site diary workflow.
+export async function classifyMaterialDocumentImage(
+  publicUrl: string,
+  context?: MetaMaterialContext | null,
+) {
+  const response = await createTracedOpenAIResponse(
+    {
+      model: metaMaterialImageClassifierModel,
+      temperature: metaMaterialImageClassifierTemperature,
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_image",
+              image_url: publicUrl,
+            },
+            {
+              type: "input_text",
+              text: `Classify this WhatsApp image for a construction site diary workflow.
 
 Return isMaterialDocument=true only when the image is a readable document, receipt, delivery note, invoice, label, or table that lists construction materials/products/quantities/costs.
 
 Return false for normal progress photos, selfies, site photos, equipment photos, drawings without material line items, or blurry/unreadable images.
 
 Be conservative: if you cannot see material line items or document-like text, return false.`,
-          },
-        ],
+            },
+          ],
+        },
+      ],
+      text: {
+        format: zodTextFormat(materialImageClassificationSchema, "material_image_classification"),
       },
-    ],
-    text: {
-      format: zodTextFormat(materialImageClassificationSchema, "material_image_classification"),
     },
-  });
+    buildMetaMaterialLangSmithExtra({
+      name: "MetaMaterialImageClassification",
+      model: metaMaterialImageClassifierModel,
+      publicUrl,
+      context,
+    }),
+  );
 
   return materialImageClassificationSchema.parse(JSON.parse(response.output_text));
 }
@@ -313,7 +385,8 @@ export async function processMaterialDocumentImageFromPublicUrl(args: {
   publicUrl: string;
   senderPhone?: string | null;
 }) {
-  const classification = await classifyMaterialDocumentImage(args.publicUrl);
+  const context = await resolveMetaMaterialContext(args.senderPhone);
+  const classification = await classifyMaterialDocumentImage(args.publicUrl, context);
 
   console.log("Meta material image classification", classification);
 
@@ -321,7 +394,7 @@ export async function processMaterialDocumentImageFromPublicUrl(args: {
     return false;
   }
 
-  await extractAndSaveBISMaterialsFromPublicUrl(args.publicUrl, args.senderPhone);
+  await extractAndSaveBISMaterialsFromPublicUrl(args.publicUrl, args.senderPhone, context);
   return true;
 }
 
@@ -333,7 +406,12 @@ export async function sendToGpt(mediaId: string, senderPhone?: string) {
     return extractAndSaveBISMaterialsFromPublicUrl(publicUrl, senderPhone);
 }
 
-export async function extractAndSaveBISMaterialsFromPublicUrl(publicUrl: string, senderPhone?: string | null) {
+export async function extractAndSaveBISMaterialsFromPublicUrl(
+  publicUrl: string,
+  senderPhone?: string | null,
+  resolvedContext?: MetaMaterialContext | null,
+) {
+    const context = resolvedContext ?? await resolveMetaMaterialContext(senderPhone)
 
     // const categories = await getBisCategories_12I7_075() <---- uncomment when have access to IP
 
@@ -376,8 +454,10 @@ export async function extractAndSaveBISMaterialsFromPublicUrl(publicUrl: string,
 
 
 
-    const gptDocumentResponse = await client.responses.create({
-        model: "gpt-5.4",
+    const extractionModel = "gpt-5.4";
+    const gptDocumentResponse = await createTracedOpenAIResponse(
+      {
+        model: extractionModel,
         temperature: 0,
         input: [
             {
@@ -437,7 +517,14 @@ Always output the converted quantity.
         text: {
             format: zodTextFormat(responseSchema, "event"),
         },
-    });
+      },
+      buildMetaMaterialLangSmithExtra({
+            name: "MetaMaterialInvoiceExtraction",
+            model: extractionModel,
+            publicUrl,
+            context,
+        }),
+    );
 
     const payload = JSON.parse(gptDocumentResponse.output_text)
 
@@ -469,7 +556,6 @@ Always output the converted quantity.
     console.log(`And this are categories : ${categories}`)
 
 
-    const context = await resolveMetaMaterialContext(senderPhone)
     await saveBISMaterialPayloadToDatabase(payload, publicUrl, context)
 
     return gptDocumentResponse.output_text;
@@ -492,7 +578,7 @@ export async function saveBISMaterialPayloadToDatabase(
       return
     }
 
-    await prisma.BISmaterialRecords.createMany({
+    await prisma.bISmaterialRecords.createMany({
   data: payload.items.map(item => ({
     name: item.name,
     quantity: item.quantity,
