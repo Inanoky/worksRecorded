@@ -1256,6 +1256,77 @@ export default function MaterialsTableClient({
     setPageInput(String(nextPage))
   }, [pageInput, pagination.page, pagination.totalPages])
 
+  const renderPaginationControls = (className = "") => (
+    <div className={`flex flex-wrap items-center gap-2 text-sm text-muted-foreground ${className}`}>
+      <span>{tableLoading ? t.loading : t.showingRows(visibleFrom, visibleTo, pagination.totalCount)}</span>
+      <Select
+        value={String(pageSize)}
+        onValueChange={(value) => {
+          setPageSize(Number(value))
+          setPage(1)
+        }}
+      >
+        <SelectTrigger className="h-8 w-[92px]">
+          <SelectValue aria-label={t.pageSize} />
+        </SelectTrigger>
+        <SelectContent>
+          {[25, 50, 100].map((size) => (
+            <SelectItem key={size} value={String(size)}>
+              {size}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          const nextPage = Math.max(1, pagination.page - 1)
+          setPage(nextPage)
+          setPageInput(String(nextPage))
+        }}
+        disabled={tableLoading || pagination.page <= 1}
+      >
+        {t.previousPage}
+      </Button>
+      <div className="flex items-center gap-1">
+        <span>{t.page}</span>
+        <Input
+          aria-label={t.page}
+          type="number"
+          min={1}
+          max={pagination.totalPages}
+          value={pageInput}
+          onChange={(event) => setPageInput(event.target.value)}
+          onBlur={commitPageInput}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault()
+              commitPageInput()
+            }
+          }}
+          disabled={tableLoading || pagination.totalPages <= 1}
+          className="h-8 w-16 px-2 text-center"
+        />
+        <span>/ {pagination.totalPages}</span>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          const nextPage = Math.min(pagination.totalPages, pagination.page + 1)
+          setPage(nextPage)
+          setPageInput(String(nextPage))
+        }}
+        disabled={tableLoading || pagination.page >= pagination.totalPages}
+      >
+        {t.nextPage}
+      </Button>
+    </div>
+  )
+
   const exportMaterialsToExcel = async () => {
     setExportLoading(true)
     try {
@@ -1576,73 +1647,7 @@ export default function MaterialsTableClient({
             </Button>
           ) : null}
 
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{tableLoading ? t.loading : t.showingRows(visibleFrom, visibleTo, pagination.totalCount)}</span>
-            <Select
-              value={String(pageSize)}
-              onValueChange={(value) => {
-                setPageSize(Number(value))
-                setPage(1)
-              }}
-            >
-              <SelectTrigger className="h-8 w-[92px]">
-                <SelectValue aria-label={t.pageSize} />
-              </SelectTrigger>
-              <SelectContent>
-                {[25, 50, 100].map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const nextPage = Math.max(1, pagination.page - 1)
-                setPage(nextPage)
-                setPageInput(String(nextPage))
-              }}
-              disabled={tableLoading || pagination.page <= 1}
-            >
-              {t.previousPage}
-            </Button>
-            <label className="flex items-center gap-1">
-              <span>{t.page}</span>
-              <Input
-                type="number"
-                min={1}
-                max={pagination.totalPages}
-                value={pageInput}
-                onChange={(event) => setPageInput(event.target.value)}
-                onBlur={commitPageInput}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault()
-                    commitPageInput()
-                  }
-                }}
-                disabled={tableLoading || pagination.totalPages <= 1}
-                className="h-8 w-16 px-2 text-center"
-              />
-              <span>/ {pagination.totalPages}</span>
-            </label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const nextPage = Math.min(pagination.totalPages, pagination.page + 1)
-                setPage(nextPage)
-                setPageInput(String(nextPage))
-              }}
-              disabled={tableLoading || pagination.page >= pagination.totalPages}
-            >
-              {t.nextPage}
-            </Button>
-          </div>
+          {renderPaginationControls()}
         </div>
       </div>
 
@@ -1949,6 +1954,9 @@ export default function MaterialsTableClient({
               )}
             </TableBody>
           </Table>
+        </div>
+        <div className="border-t px-4 py-3">
+          {renderPaginationControls("justify-end")}
         </div>
       </div>
 
