@@ -44,9 +44,11 @@ export function MobileMenu({
     () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
     [canAccessAiContext, organizationLanguage],
   );
+  const isProjectRoute = /^\/dashboard\/sites\/[^\/]+/.test(pathname);
+
   useEffect(() => {
     let cancelled = false;
-    if (!projectId) {
+    if (!projectId || !isProjectRoute) {
       setProductionNavigationConfig(null);
       return;
     }
@@ -62,7 +64,7 @@ export function MobileMenu({
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [isProjectRoute, projectId]);
   const hiddenProjectNavPaths = useMemo(
     () => new Set(productionNavigationConfig?.navigation.hiddenProjectNavPaths ?? []),
     [productionNavigationConfig],
@@ -110,7 +112,7 @@ export function MobileMenu({
         ))}
 
         {/* Project navigation links (only shown when in a project) */}
-        {projectName && projectId && /^\/dashboard\/sites\/[^\/]+/.test(pathname) && (
+        {projectName && projectId && isProjectRoute && (
           <>
             <div className="px-2 py-1.5 text-sm font-semibold text-blue-600">
               {projectName}

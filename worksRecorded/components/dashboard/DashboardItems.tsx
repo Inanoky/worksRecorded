@@ -44,9 +44,11 @@ export function DashboardItems({
     () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
     [canAccessAiContext, organizationLanguage],
   );
+  const isProjectRoute = /^\/dashboard\/sites\/[^\/]+/.test(pathname);
+
   useEffect(() => {
     let cancelled = false;
-    if (!projectId) {
+    if (!projectId || !isProjectRoute) {
       setProductionNavigationConfig(null);
       return;
     }
@@ -62,7 +64,7 @@ export function DashboardItems({
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [isProjectRoute, projectId]);
   const hiddenProjectNavPaths = useMemo(
     () => new Set(productionNavigationConfig?.navigation.hiddenProjectNavPaths ?? []),
     [productionNavigationConfig],
@@ -96,10 +98,11 @@ export function DashboardItems({
       router.prefetch(item.href);
     });
     if (!projectId) return;
+    if (!isProjectRoute) return;
     visibleProjectNavLinks.forEach((item) => {
       router.prefetch(`/dashboard/sites/${projectId}/${item.path}`);
     });
-  }, [navLinks, projectId, router, visibleProjectNavLinks]);
+  }, [isProjectRoute, navLinks, projectId, router, visibleProjectNavLinks]);
 
 return (
     <div className="flex items-center w-full justify-between gap-3">
@@ -124,7 +127,7 @@ return (
         ))}
 
         {/* Only show project nav links when in a project subroute */}
-        {projectName && projectId && /^\/dashboard\/sites\/[^\/]+/.test(pathname) &&
+        {projectName && projectId && isProjectRoute &&
           visibleProjectNavLinks.map((item) => (
             <Link
               href={`/dashboard/sites/${projectId}/${item.path}`}

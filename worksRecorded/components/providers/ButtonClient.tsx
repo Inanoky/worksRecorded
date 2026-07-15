@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { MouseEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useProject } from "@/components/providers/ProjectProvider";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 type Props = {
@@ -13,8 +12,6 @@ type Props = {
   loadingLabel?: string;
 };
 
-const PROJECT_ROUTES = ["dashboard", "timesheets", "BIS", "settings"];
-
 export default function OpenProjectButton({
   projectId,
   projectName,
@@ -22,41 +19,44 @@ export default function OpenProjectButton({
   loadingLabel = "Opening project...",
 }: Props) {
   const { setProject } = useProject();
-  const router = useRouter();
   const [opening, setOpening] = useState(false);
   const basePath = `/dashboard/sites/${projectId}`;
+  const href = `${basePath}/dashboard`;
 
-  const prefetchProjectRoutes = () => {
-    PROJECT_ROUTES.forEach((segment) => {
-      router.prefetch(`${basePath}/${segment}`);
-    });
-  };
+  useEffect(() => {
+    if (!opening) return;
+    const timeout = window.setTimeout(() => setOpening(false), 10_000);
+    return () => window.clearTimeout(timeout);
+  }, [opening]);
 
-  const handleClick = () => {
-    if (opening) return;
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (opening) {
+      event.preventDefault();
+      return;
+    }
     setOpening(true);
     setProject(projectId, projectName);
-    localStorage.setItem("projectName", projectName);
-    prefetchProjectRoutes();
-    router.push(`${basePath}/dashboard`);
+    try {
+      window.localStorage.setItem("projectName", projectName);
+    } catch {}
   };
 
   return (
     <Button
+      asChild
       className="w-full active:scale-95 active:bg-muted transition-transform"
-      onClick={handleClick}
-      onMouseEnter={prefetchProjectRoutes}
-      onFocus={prefetchProjectRoutes}
-      disabled={opening}
+      aria-disabled={opening}
     >
-      {opening ? (
-        <span className="inline-flex items-center gap-2">
-          <Loader2 className="size-4 animate-spin" />
-          {loadingLabel}
-        </span>
-      ) : (
-        label
-      )}
+      <a href={href} onClick={handleClick}>
+        {opening ? (
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="size-4 animate-spin" />
+            {loadingLabel}
+          </span>
+        ) : (
+          label
+        )}
+      </a>
     </Button>
   );
 }

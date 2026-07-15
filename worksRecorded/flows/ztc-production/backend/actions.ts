@@ -627,15 +627,31 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     defaultRate?.task?.trim()
       ? defaultRate.task.trim()
       : row.Works || null;
+  const hasExplicitLaborNorm = Object.prototype.hasOwnProperty.call(row, "__ztcLaborNorm");
+  const explicitLaborNorm = hasExplicitLaborNorm
+    ? normalizeZtcLaborNorm(row.__ztcLaborNorm)
+    : null;
   const commentsCustom2 =
-    row.__ztcSnapshotLaborNorm === true && category === "works"
-      ? defaultRate?.rate
-        ? attachZtcLaborNormToMetadata(
-            row.Comments_Custom_2,
-            defaultRate.laborNorm,
-            units,
-          )
-        : clearZtcLaborNormFromMetadata(row.Comments_Custom_2)
+    category === "works"
+      ? hasExplicitLaborNorm
+        ? explicitLaborNorm === null
+          ? clearZtcLaborNormFromMetadata(row.Comments_Custom_2)
+          : explicitLaborNorm === undefined
+            ? row.Comments_Custom_2 || null
+            : attachZtcLaborNormToMetadata(
+                row.Comments_Custom_2,
+                explicitLaborNorm,
+                units,
+              )
+        : row.__ztcSnapshotLaborNorm === true
+          ? defaultRate?.rate
+            ? attachZtcLaborNormToMetadata(
+                row.Comments_Custom_2,
+                defaultRate.laborNorm,
+                units,
+              )
+            : clearZtcLaborNormFromMetadata(row.Comments_Custom_2)
+          : row.Comments_Custom_2 || null
       : row.Comments_Custom_2 || null;
 
   return {

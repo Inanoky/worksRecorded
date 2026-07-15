@@ -32,12 +32,31 @@ export function ProjectProvider({
   const [projectName, setProjectName] = useState("");
   const prevUserRef = useRef<string | null | undefined>(undefined);
 
+  const getStorage = () =>
+    typeof window === "undefined"
+      ? null
+      : useSessionStorage
+        ? window.sessionStorage
+        : window.localStorage;
+
+  const getStorageKey = () => `project:${userId ?? "anon"}`;
+
+  const writeProjectToStorage = (id: string, name: string) => {
+    const storage = getStorage();
+    if (!storage) return;
+
+    try {
+      storage.setItem(getStorageKey(), JSON.stringify({ id, name }));
+    } catch {}
+  };
+
   // Load from storage whenever the user changes (runs only in browser)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const storage = useSessionStorage ? window.sessionStorage : window.localStorage;
-    const storageKey = `project:${userId ?? "anon"}`;
+    const storage = getStorage();
+    const storageKey = getStorageKey();
+    if (!storage) return;
 
     // if user switched, read that user's saved project (or clear)
     if (prevUserRef.current !== userId) {
@@ -63,14 +82,16 @@ export function ProjectProvider({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const storage = useSessionStorage ? window.sessionStorage : window.localStorage;
-    const storageKey = `project:${userId ?? "anon"}`;
+    const storage = getStorage();
+    const storageKey = getStorageKey();
+    if (!storage) return;
     try {
       storage.setItem(storageKey, JSON.stringify({ id: projectId, name: projectName }));
     } catch {}
   }, [projectId, projectName, userId, useSessionStorage]);
 
   const setProject = (id: string, name: string) => {
+    writeProjectToStorage(id, name);
     setProjectId(id);
     setProjectName(name);
   };
@@ -80,9 +101,7 @@ export function ProjectProvider({
     setProjectName("");
     if (typeof window !== "undefined") {
       try {
-        const storage = useSessionStorage ? window.sessionStorage : window.localStorage;
-        const storageKey = `project:${userId ?? "anon"}`;
-        storage.removeItem(storageKey);
+        getStorage()?.removeItem(getStorageKey());
       } catch {}
     }
   };

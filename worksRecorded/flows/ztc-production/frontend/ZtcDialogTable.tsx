@@ -31,6 +31,12 @@ import defaultConfig from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMa
 import { useMediaQuery } from "@/components/sitediary/Use-media-querty";
 import { ZTC_ALL_PROJECTS_RATE_NAME } from "@/flows/ztc-production/lib/ztc-rate-constants";
 import { ZTC_RATE_UNITS } from "@/flows/ztc-production/lib/ztc-rate-units";
+import {
+  attachZtcLaborNormToMetadata,
+  clearZtcLaborNormFromMetadata,
+  normalizeZtcLaborNorm,
+  readZtcLaborNormFromMetadata,
+} from "@/flows/ztc-production/lib/ztc-labor-norm";
 
 type ZtcDrawingMetadata = {
   type: "ztc_drawing_context";
@@ -151,6 +157,7 @@ function SearchableZtcSelect({
 }
 
 const ztcDialogPrefetchCache = new Map<string, ZtcDialogPrefetchCacheEntry>();
+const ZTC_LABOR_NORM_FIELD = "__ztcLaborNorm";
 
 const HIDDEN_FIELDS_TO_KEEP = [
   "Date_Custom_1",
@@ -223,6 +230,22 @@ function normalizeNumber(value: unknown) {
   if (value === "" || value === null || value === undefined) return undefined;
   const parsed = Number(String(value).replace(",", "."));
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function getZtcLaborNormDraft(value: unknown) {
+  const planned = readZtcLaborNormFromMetadata(value).plannedHoursPerUnit;
+  return planned == null ? "" : String(planned);
+}
+
+function applyZtcLaborNormDraftToMetadata(
+  metadataValue: unknown,
+  laborNorm: unknown,
+  unit: unknown,
+) {
+  const normalized = normalizeZtcLaborNorm(laborNorm);
+  if (normalized === null) return clearZtcLaborNormFromMetadata(metadataValue);
+  if (normalized === undefined) return String(metadataValue ?? "").trim() || null;
+  return attachZtcLaborNormToMetadata(metadataValue, normalized, String(unit ?? "m2").trim() || "m2");
 }
 
 const ZTC_FIELD_MAX_LENGTHS: Record<string, number> = {
@@ -489,6 +512,7 @@ export function ZtcDialogTable({
     Comments: "",
     Comments_Custom_1: "",
     Comments_Custom_2: "",
+    [ZTC_LABOR_NORM_FIELD]: "",
     originalUserComment: "",
     createdBy: "",
   });
@@ -756,6 +780,15 @@ export function ZtcDialogTable({
 
         const next = { ...row, [field]: value };
 
+        if (field === ZTC_LABOR_NORM_FIELD) {
+          next.Comments_Custom_2 = applyZtcLaborNormDraftToMetadata(
+            next.Comments_Custom_2,
+            value,
+            next.Units || "m2",
+          );
+          return next;
+        }
+
         if (field === "Location") {
           const elementOptions = getElementOptions(value);
           if (
@@ -765,6 +798,8 @@ export function ZtcDialogTable({
             next.Location_Custom_1 = "";
             next.Works = "";
             next.Amounts = "";
+            next[ZTC_LABOR_NORM_FIELD] = "";
+            next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
             if (normalizeSpecialLabel(next.Works_Custom_1) === "papilddarbi") {
               next.Works_Custom_1 = "";
             }
@@ -781,6 +816,8 @@ export function ZtcDialogTable({
             if (next.Works && !isAdditionalWorkOption(next, next.Works)) {
               next.Works = "";
               next.Amounts = "";
+              next[ZTC_LABOR_NORM_FIELD] = "";
+              next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
             }
             return next;
           }
@@ -794,6 +831,8 @@ export function ZtcDialogTable({
             if (!isAdditionalWorkOption(next, next.Works)) {
               next.Works = "";
               next.Amounts = "";
+              next[ZTC_LABOR_NORM_FIELD] = "";
+              next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
               if (normalizeSpecialLabel(next.Works_Custom_1) === "papilddarbi") {
                 next.Works_Custom_1 = "";
               }
@@ -815,6 +854,8 @@ export function ZtcDialogTable({
           if (specialCategory) {
             const rate = getSpecialRateEntry(next, specialCategory, value);
             if (rate?.rate) next.Location_Custom_2 = rate.rate;
+            next[ZTC_LABOR_NORM_FIELD] = "";
+            next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
             if (specialCategory === "additionalDetails") {
               next.Units = rate?.unit ?? next.Units ?? "gab";
             } else {
@@ -847,6 +888,8 @@ export function ZtcDialogTable({
           if (additionalRate) {
             next.Works_Custom_1 = ZTC_ADDITIONAL_WORKS_LABEL;
             if (additionalRate.rate) next.Location_Custom_2 = additionalRate.rate;
+            next[ZTC_LABOR_NORM_FIELD] = "";
+            next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
 
             const isElementRelatedAdditionalWork =
               additionalRate.relatesToElement === true &&
@@ -876,6 +919,12 @@ export function ZtcDialogTable({
 
           const standardRate = getStandardRateEntry(next.Location, value);
           if (standardRate?.rate) next.Location_Custom_2 = standardRate.rate;
+          next[ZTC_LABOR_NORM_FIELD] = standardRate?.laborNorm ?? "";
+          next.Comments_Custom_2 = applyZtcLaborNormDraftToMetadata(
+            next.Comments_Custom_2,
+            next[ZTC_LABOR_NORM_FIELD],
+            "m2",
+          );
           if (normalizeSpecialLabel(next.Works_Custom_1) === "papilddarbi") {
             next.Works_Custom_1 = "";
           }
@@ -946,6 +995,7 @@ export function ZtcDialogTable({
         Boolean(getSpecialRateEntry(row, "additionalWorks", row.Works));
       const amount = normalizeNumber(row.Amounts);
       const hours = normalizeNumber(row.TimeInvolved);
+      const laborNorm = normalizeZtcLaborNorm(row[ZTC_LABOR_NORM_FIELD]);
       const start = normalizeDate(row.Date);
       const end = normalizeDate(row.Date_Custom_2);
 
@@ -981,6 +1031,10 @@ export function ZtcDialogTable({
 
       if (row.TimeInvolved !== "" && row.TimeInvolved != null && (hours == null || hours < 0)) {
         validationErrors.push(`${label}: stundām jābūt pozitīvam skaitlim.`);
+      }
+
+      if (laborNorm === undefined) {
+        validationErrors.push(`${label}: plānam jābūt derīgam skaitlim.`);
       }
 
     });
@@ -1040,11 +1094,13 @@ export function ZtcDialogTable({
     }
   };
 
-  const getDisplayName = (field: string) => fieldMap[field]?.DisplayName ?? field;
+  const getDisplayName = (field: string) =>
+    field === ZTC_LABOR_NORM_FIELD ? "Plāns" : fieldMap[field]?.DisplayName ?? field;
   const getCellWidth = (field: string, fallback = 180) =>
     fieldMap[field]?.customSettings?.cellWidth ?? fallback;
 
   const getControlWidth = (field: string) => {
+    if (field === ZTC_LABOR_NORM_FIELD) return 90;
     const configured = getCellWidth(field);
     if (field === "Location") return Math.max(configured, 260);
     if (field === "Location_Custom_1") return Math.max(configured, 180);
@@ -1058,6 +1114,18 @@ export function ZtcDialogTable({
     const rowKey = row.id ?? row._tempId;
     const type = fieldMap[field]?.Type;
     const width = isMobile ? "100%" : getControlWidth(field);
+
+    if (field === ZTC_LABOR_NORM_FIELD) {
+      return (
+        <Input
+          inputMode="decimal"
+          className="h-9 text-right tabular-nums"
+          style={{ width, minWidth: width }}
+          value={String(row[field] ?? "")}
+          onChange={(event) => handleChange(rowKey, field, event.target.value)}
+        />
+      );
+    }
 
     if (field === "Location") {
       const currentValue = String(row[field] ?? "");
@@ -1198,13 +1266,18 @@ export function ZtcDialogTable({
     const applyPrefetchData = (data: ZtcDialogPrefetchCacheEntry) => {
       const config = (data.config ?? defaultConfig) as Record<string, any>;
       const renderableFields = getRenderableFieldsOrdered(config);
+      const visibleFields = [...renderableFields];
+      const laborNormIndex = visibleFields.indexOf(ZTC_LABOR_NORM_FIELD);
+      if (laborNormIndex >= 0) visibleFields.splice(laborNormIndex, 1);
+      const timeIndex = visibleFields.indexOf("TimeInvolved");
+      visibleFields.splice(timeIndex >= 0 ? timeIndex + 1 : visibleFields.length, 0, ZTC_LABOR_NORM_FIELD);
       const fieldsToKeep = Array.from(new Set([...renderableFields, ...HIDDEN_FIELDS_TO_KEEP]));
       const completedRows = data.rows.filter(isCompletedZtcDiaryRow);
 
       setDirtyRowKeys(new Set());
       setFieldMap(config);
       setDefaultRates(data.rates ?? []);
-      setTableHeads(renderableFields);
+      setTableHeads(visibleFields);
       setRows(
         completedRows.length
           ? completedRows.map((row: any) => ({
@@ -1212,6 +1285,7 @@ export function ZtcDialogTable({
               _tempId: crypto.randomUUID(),
               createdBy: row.createdBy ?? "",
               ...Object.fromEntries(fieldsToKeep.map((field) => [field, row[field] ?? ""])),
+              [ZTC_LABOR_NORM_FIELD]: getZtcLaborNormDraft(row.Comments_Custom_2),
             }))
           : [newEmptyRow()],
       );
