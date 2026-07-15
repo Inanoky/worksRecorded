@@ -583,6 +583,26 @@ function ztcRowMatchesWorkFilter(row: DiaryRow, selectedWork: string) {
   return getZtcAdditionalDetailMainWork(row) === selectedWork;
 }
 
+function getDiaryRowSearchableText(row: DiaryRow) {
+  return [
+    row.Works,
+    row.Works_Custom_1,
+    row.Works_Custom_2,
+    row.Location,
+    row.Location_Custom_1,
+    row.Location_Custom_2,
+    row.createdBy,
+    row.Comments,
+    row.Comments_Custom_1,
+    row.Comments_Custom_2,
+    row.originalUserComment,
+    row.Units,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
 export default function SiteDiaryCalendar({
   siteId,
   bisEnabled = true,
@@ -1335,18 +1355,7 @@ export default function SiteDiaryCalendar({
       .map((group) => ({
         ...group,
         rows: group.rows.filter((r) => {
-          const searchableText = [
-            r.Works,
-            r.Location,
-            r.Location_Custom_1,
-            r.createdBy,
-            r.Comments,
-            r.Units,
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return searchableText.includes(normalizedKeyword);
+          return getDiaryRowSearchableText(r).includes(normalizedKeyword);
         }),
       }))
       .filter((group) => group.rows.length > 0);
@@ -1579,18 +1588,7 @@ export default function SiteDiaryCalendar({
       if (isZtcSite && elementFilter !== "__ALL__" && row.Location_Custom_1 !== elementFilter) return false;
       if (isZtcSite && workerFilter !== "__ALL__" && row.createdBy !== workerFilter) return false;
       if (!normalizedKeyword) return true;
-      const searchableText = [
-        row.Works,
-        row.Location,
-        row.Location_Custom_1,
-        row.createdBy,
-        row.Comments,
-        row.Units,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return searchableText.includes(normalizedKeyword);
+      return getDiaryRowSearchableText(row).includes(normalizedKeyword);
     });
   }, [
     dateFrom,
