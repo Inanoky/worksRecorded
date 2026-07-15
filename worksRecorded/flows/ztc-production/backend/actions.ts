@@ -24,7 +24,7 @@ import {
   normalizeZtcLaborNorm,
   parseZtcLaborNormNumber,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
-import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
+import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
 import {
   buildZtcLaborNormSummaryRows,
   buildZtcLaborNormTotalSummary,
@@ -87,6 +87,40 @@ function normalizeNullableDate(value: unknown) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(String(value));
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildZtcParentAwareWorkWhere(workName: string) {
+  const normalized = workName
+    .trim()
+    .toLocaleLowerCase("lv")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalized === "papilddetalas") {
+    return { Works_Custom_1: "Papilddetāļas" };
+  }
+
+  if (normalized === "papilddarbi") {
+    return {
+      OR: [
+        { Location: "Papilddarbi" },
+        { Location_Custom_1: "Papilddarbi" },
+        { Works_Custom_1: "Papilddarbi" },
+      ],
+    };
+  }
+
+  return {
+    OR: [
+      { Works: workName },
+      {
+        Works_Custom_1: "Papilddetāļas",
+        Comments_Custom_2: {
+          contains: `"mainWork":${JSON.stringify(workName)}`,
+        },
+      },
+    ],
+  };
 }
 
 function normalizeNumber(value: unknown) {
@@ -725,8 +759,8 @@ async function loadZtcSiteDiaryRecords(args: { siteId: string; organizationId: s
         { Date: null },
         { Works: null },
         { Works: "" },
-        { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
       ],
+      AND: [buildZtcNotCancelledWhere()],
       OR: [
         { Date: { gte: start, lte: end } },
         { Date_Custom_1: { gte: start, lte: end } },
@@ -858,13 +892,15 @@ export async function getZtcScopeSummary(args: {
       Date_Custom_2: { not: null },
       ...(projectName ? { Location: projectName } : {}),
       ...(elementName ? { Location_Custom_1: elementName } : {}),
-      ...(workName ? { Works: workName } : {}),
       ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
       NOT: [
         { Date: null },
         { Works: null },
         { Works: "" },
-        { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
+      ],
+      AND: [
+        buildZtcNotCancelledWhere(),
+        ...(workName ? [buildZtcParentAwareWorkWhere(workName)] : []),
       ],
     },
     orderBy: [{ Date: "desc" }, { Date_Custom_1: "desc" }, { createdAt: "desc" }],
@@ -1093,7 +1129,6 @@ export async function getZtcFilterOptions(args: {
       { Date: null },
       { Works: null },
       { Works: "" },
-      { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
     ],
     ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
   };
@@ -1131,7 +1166,7 @@ export async function getZtcFilterOptions(args: {
     : null;
 
   const makeWhere = (exclude: "project" | "element" | "worker" | "work") => {
-    const andFilters: any[] = [];
+    const andFilters: any[] = [buildZtcNotCancelledWhere()];
     const projectName = normalizeFilter(args.projectName);
     const elementName = normalizeFilter(args.elementName);
     const workerName = normalizeFilter(args.workerName);
@@ -1139,7 +1174,7 @@ export async function getZtcFilterOptions(args: {
 
     if (projectName && exclude !== "project") andFilters.push({ Location: projectName });
     if (elementName && exclude !== "element") andFilters.push({ Location_Custom_1: elementName });
-    if (workName && exclude !== "work") andFilters.push({ Works: workName });
+    if (workName && exclude !== "work") andFilters.push(buildZtcParentAwareWorkWhere(workName));
     if (workerName && exclude !== "worker") andFilters.push(workerCondition(workerName));
     if (keywordCondition) andFilters.push(keywordCondition);
 
@@ -1149,7 +1184,7 @@ export async function getZtcFilterOptions(args: {
     };
   };
 
-  const [projectRows, elementRows, workRows, workerRows] = await Promise.all([
+  const [projectRows, elementRows, workRows, specialWorkRows, workerRows] = await Promise.all([
     prisma.ztcRecords.findMany({
       where: makeWhere("project"),
       distinct: ["Location"],
@@ -1167,6 +1202,15 @@ export async function getZtcFilterOptions(args: {
       distinct: ["Works"],
       select: { Works: true },
       orderBy: { Works: "asc" },
+    }),
+    prisma.ztcRecords.findMany({
+      where: {
+        ...makeWhere("work"),
+        Works_Custom_1: { in: ["Papilddetāļas", "Papilddarbi"] },
+      },
+      distinct: ["Works_Custom_1"],
+      select: { Works_Custom_1: true },
+      orderBy: { Works_Custom_1: "asc" },
     }),
     prisma.ztcRecords.findMany({
       where: makeWhere("worker"),
@@ -1187,7 +1231,10 @@ export async function getZtcFilterOptions(args: {
   return {
     projects: uniqueSorted(projectRows.map((row) => row.Location ?? "")),
     elements: uniqueSorted(elementRows.map((row) => row.Location_Custom_1 ?? "")),
-    works: uniqueSorted(workRows.map((row) => row.Works ?? "")),
+    works: uniqueSorted([
+      ...workRows.map((row) => row.Works ?? ""),
+      ...specialWorkRows.map((row) => row.Works_Custom_1 ?? ""),
+    ]),
     workers: uniqueSorted(workers),
   };
 }

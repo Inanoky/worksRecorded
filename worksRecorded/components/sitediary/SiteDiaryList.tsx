@@ -548,6 +548,41 @@ function toLocalDateKey(d: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function normalizeZtcSpecialLabel(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("lv")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function getZtcAdditionalDetailMainWork(row: DiaryRow) {
+  if (normalizeZtcSpecialLabel(row.Works_Custom_1) !== "papilddetalas") return null;
+  try {
+    const metadata = JSON.parse(String(row.Comments_Custom_2 ?? ""));
+    return typeof metadata?.mainWork === "string" ? metadata.mainWork.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function ztcRowMatchesWorkFilter(row: DiaryRow, selectedWork: string) {
+  if (selectedWork === "__ALL__") return true;
+  const normalizedSelected = normalizeZtcSpecialLabel(selectedWork);
+  if (normalizedSelected === "papilddetalas") {
+    return normalizeZtcSpecialLabel(row.Works_Custom_1) === "papilddetalas";
+  }
+  if (normalizedSelected === "papilddarbi") {
+    return (
+      normalizeZtcSpecialLabel(row.Location) === "papilddarbi" ||
+      normalizeZtcSpecialLabel(row.Location_Custom_1) === "papilddarbi" ||
+      normalizeZtcSpecialLabel(row.Works_Custom_1) === "papilddarbi"
+    );
+  }
+  if (row.Works === selectedWork) return true;
+  return getZtcAdditionalDetailMainWork(row) === selectedWork;
+}
+
 export default function SiteDiaryCalendar({
   siteId,
   bisEnabled = true,
@@ -1234,9 +1269,7 @@ export default function SiteDiaryCalendar({
       if (startMs !== null && t < startMs) return false;
       if (endMs !== null && t > endMs) return false;
 
-      if (workFilter !== "__ALL__") {
-        if (!r.Works || r.Works !== workFilter) return false;
-      }
+      if (workFilter !== "__ALL__" && !ztcRowMatchesWorkFilter(r, workFilter)) return false;
 
       if (floorFilter !== "__ALL__") {
         if (!r.Location || r.Location !== floorFilter) return false;
@@ -1541,7 +1574,7 @@ export default function SiteDiaryCalendar({
     }) as DiaryRow[];
     const normalizedKeyword = keywordFilter.trim().toLowerCase();
     return allRows.filter((row) => {
-      if (workFilter !== "__ALL__" && row.Works !== workFilter) return false;
+      if (workFilter !== "__ALL__" && !ztcRowMatchesWorkFilter(row, workFilter)) return false;
       if (floorFilter !== "__ALL__" && row.Location !== floorFilter) return false;
       if (isZtcSite && elementFilter !== "__ALL__" && row.Location_Custom_1 !== elementFilter) return false;
       if (isZtcSite && workerFilter !== "__ALL__" && row.createdBy !== workerFilter) return false;

@@ -19,7 +19,7 @@ import {
 } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
 import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
-import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
+import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
 
 type SiteDiaryFlowHint = {
   flowId?: "default" | "ztc" | "tgem" | string | null;
@@ -1586,8 +1586,8 @@ export async function getSiteDiaryRecord({ siteId, date }) {
               { Date: null },
               { Works: null },
               { Works: "" },
-              { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
             ],
+            AND: [buildZtcNotCancelledWhere()],
             OR: [
               { Date: { gte: start, lte: end } },
               { Date_Custom_1: { gte: start, lte: end } },
@@ -1758,6 +1758,40 @@ function compactFilterValue(value?: string | null) {
   return trimmed && trimmed !== "__ALL__" ? trimmed : null;
 }
 
+function buildZtcWorkFilterWhere(workName: string) {
+  const normalized = workName
+    .trim()
+    .toLocaleLowerCase("lv")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  if (normalized === "papilddetalas") {
+    return { Works_Custom_1: "Papilddetāļas" };
+  }
+
+  if (normalized === "papilddarbi") {
+    return {
+      OR: [
+        { Location: "Papilddarbi" },
+        { Location_Custom_1: "Papilddarbi" },
+        { Works_Custom_1: "Papilddarbi" },
+      ],
+    };
+  }
+
+  return {
+    OR: [
+      { Works: workName },
+      {
+        Works_Custom_1: "Papilddetāļas",
+        Comments_Custom_2: {
+          contains: `"mainWork":${JSON.stringify(workName)}`,
+        },
+      },
+    ],
+  };
+}
+
 function buildSiteDiaryListDateFilter(options: SiteDiaryRecordsPageOptions) {
   const dateFrom = options.dateFrom ? new Date(options.dateFrom) : null;
   const dateTo = options.dateTo ? new Date(options.dateTo) : null;
@@ -1779,7 +1813,9 @@ function buildSiteDiaryListWhere(siteId: string, options: SiteDiaryRecordsPageOp
   if (Object.keys(dateFilter).length > 0) andFilters.push({ Date: dateFilter });
 
   const workFilter = compactFilterValue(options.workFilter);
-  if (workFilter) andFilters.push({ Works: workFilter });
+  if (workFilter) {
+    andFilters.push(useZtcRecords ? buildZtcWorkFilterWhere(workFilter) : { Works: workFilter });
+  }
 
   const floorFilter = compactFilterValue(options.floorFilter);
   if (floorFilter) andFilters.push({ Location: floorFilter });
@@ -1829,9 +1865,8 @@ function buildSiteDiaryListWhere(siteId: string, options: SiteDiaryRecordsPageOp
           { Date: null },
           { Works: null },
           { Works: "" },
-          { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
         ],
-        ...(andFilters.length > 0 ? { AND: andFilters } : {}),
+        AND: [buildZtcNotCancelledWhere(), ...andFilters],
       }
     : {
         siteId,
@@ -3375,8 +3410,8 @@ export async function getFilledDays({ siteId, year, month, flowId }: Args & Site
               { Date: null },
               { Works: null },
               { Works: "" },
-              { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
             ],
+            AND: [buildZtcNotCancelledWhere()],
             OR: [
               { Date: { gte: from, lt: to } },
               { Date_Custom_1: { gte: from, lt: to } },
