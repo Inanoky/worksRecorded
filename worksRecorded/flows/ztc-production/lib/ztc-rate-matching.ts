@@ -68,6 +68,36 @@ function rateTokenVariants(token: string) {
   return [stem.length >= 4 ? stem : normalized];
 }
 
+function normalizeDimensionToMm(value: string, unit: string) {
+  const number = Number(value.replace(",", "."));
+  if (!Number.isFinite(number) || number <= 0) return "";
+
+  const normalizedUnit = unit.toLowerCase();
+  const millimeters =
+    normalizedUnit === "m"
+      ? number * 1000
+      : normalizedUnit === "cm"
+        ? number * 10
+        : number;
+
+  return `mm:${Number(millimeters.toFixed(3))}`;
+}
+
+function ztcRateDimensionTokens(value: string) {
+  const normalized = normalizeZtcRateTaskName(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const dimensions = new Set<string>();
+
+  for (const match of normalized.matchAll(/\b(\d+(?:[.,]\d+)?)\s*(mm|cm|m)(?!\s*2\b)/gi)) {
+    const dimension = normalizeDimensionToMm(match[1], match[2]);
+    if (dimension) dimensions.add(dimension);
+  }
+
+  return dimensions;
+}
+
 export function ztcRateMatchTokens(value: string) {
   const normalized = normalizeZtcRateTaskName(value);
   const normalizedSearchText = normalized
@@ -94,8 +124,10 @@ export function findZtcDefaultRateForTask(
   rates: ZtcDefaultTaskRate[],
   options: { category?: ZtcRateCategory } = {},
 ) {
-  const taskTokens = new Set(ztcRateMatchTokens(String(task ?? "")));
+  const taskName = String(task ?? "");
+  const taskTokens = new Set(ztcRateMatchTokens(taskName));
   if (!taskTokens.size) return null;
+  const taskDimensions = ztcRateDimensionTokens(taskName);
 
   let best: { entry: ZtcDefaultTaskRate; score: number } | null = null;
 
@@ -103,13 +135,19 @@ export function findZtcDefaultRateForTask(
     if (isZtcComplexityCoefficientTask(entry.task)) continue;
     const rateTokens = new Set(ztcRateMatchTokens(entry.task));
     if (!rateTokens.size) continue;
+    const rateDimensions = ztcRateDimensionTokens(entry.task);
+    const matchingDimensions = [...rateDimensions].filter((token) => taskDimensions.has(token)).length;
+    const hasDimensionMismatch =
+      rateDimensions.size > 0 &&
+      taskDimensions.size > 0 &&
+      matchingDimensions === 0;
 
     const overlap = [...rateTokens].filter((token) => taskTokens.has(token)).length;
     const rawScore = overlap / Math.max(rateTokens.size, taskTokens.size);
     const rateCoverageScore = overlap / rateTokens.size;
     const exact =
       normalizeZtcRateTaskName(entry.task).toLowerCase() ===
-      normalizeZtcRateTaskName(String(task ?? "")).toLowerCase();
+      normalizeZtcRateTaskName(taskName).toLowerCase();
     const timberFrameTokens = ["tl", "karkas", "karkass", "timber", "frame"];
     const tlSemanticMatch =
       timberFrameTokens.some((token) => rateTokens.has(token)) &&
@@ -118,15 +156,21 @@ export function findZtcDefaultRateForTask(
       options.category === "additionalDetails" &&
       [...rateTokens].some((token) => taskTokens.has(token));
 
-    const score = exact
+    const baseScore = exact
       ? 1
       : tlSemanticMatch
         ? Math.max(rawScore, 0.8)
         : detailTokenMatch
           ? Math.max(rawScore, 0.55)
           : rateCoverageScore >= 0.75
-            ? Math.max(rawScore, 0.7 + Math.min(overlap, 4) * 0.05)
-            : rawScore;
+          ? Math.max(rawScore, 0.7 + Math.min(overlap, 4) * 0.05)
+          : rawScore;
+    const score =
+      matchingDimensions > 0
+        ? Math.min(1, baseScore + 0.2)
+        : hasDimensionMismatch
+          ? baseScore * 0.65
+          : baseScore;
     const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
     if (score >= threshold && (!best || score > best.score)) {
       best = { entry, score };

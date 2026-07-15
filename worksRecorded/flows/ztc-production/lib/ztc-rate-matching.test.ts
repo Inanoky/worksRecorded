@@ -38,6 +38,45 @@ describe("findZtcDefaultRateForTask", () => {
     expect(result?.entry).toEqual({ task: "gipškartona plāksne", rate: "2.5", unit: "m2" });
   });
 
+  it("prefers a rate with the matching dimension over the same material with another dimension", () => {
+    const result = findZtcDefaultRateForTask(
+      "L0 - Paroc Ultra minerālvates siltumizolācija / 245mm",
+      [
+        {
+          task: "Paroc Ultra minerālvates siltumizolācija 150 mm",
+          rate: "0.95",
+          unit: "m2",
+        },
+        {
+          task: "Paroc Ultra minerālvates siltumizolācija 245 mm",
+          rate: "1.8",
+          unit: "m2",
+        },
+      ],
+      { category: "works" },
+    );
+
+    expect(result?.entry).toEqual({
+      task: "Paroc Ultra minerālvates siltumizolācija 245 mm",
+      rate: "1.8",
+      unit: "m2",
+    });
+  });
+
+  it("still matches a dimensioned drawing work to a generic configured material", () => {
+    const result = findZtcDefaultRateForTask(
+      "L0 - Paroc Ultra minerālvates siltumizolācija / 245mm",
+      [{ task: "Paroc Ultra minerālvates siltumizolācija", rate: "0.95", unit: "m2" }],
+      { category: "works" },
+    );
+
+    expect(result?.entry).toEqual({
+      task: "Paroc Ultra minerālvates siltumizolācija",
+      rate: "0.95",
+      unit: "m2",
+    });
+  });
+
   it("ignores numeric dimensions and units while matching rates", () => {
     expect(ztcRateMatchTokens("TL - Koka karkass 95 mm")).toEqual(
       expect.arrayContaining(["tl", "karkas", "karkass"]),
