@@ -16,7 +16,7 @@ function splitZtcWorkCode(value: string) {
 }
 
 export function cleanZtcWorkName(value: string | null | undefined) {
-  const workName = String(value ?? "").trim();
+  const workName = String(value ?? "").trim().replace(/,/g, ".");
   if (!workName) return "";
 
   const parts = splitZtcWorkCode(workName);

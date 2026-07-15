@@ -15,4 +15,10 @@ describe("cleanZtcWorkName", () => {
       "L0 - Paroc Ultra minerālvates siltumizolācija 150 mm",
     );
   });
+
+  it("replaces every comma with a dot", () => {
+    expect(cleanZtcWorkName("L2/B2 - Plāksne 12,5 mm, balta")).toBe(
+      "L2/B2 - Plāksne 12.5 mm. balta",
+    );
+  });
 });

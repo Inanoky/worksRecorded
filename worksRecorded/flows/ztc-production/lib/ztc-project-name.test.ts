@@ -12,4 +12,10 @@ describe("normalizeZtcProjectName", () => {
       "zemgales prospekts 11 (zp)",
     );
   });
+
+  it("replaces every comma with a dot", () => {
+    expect(normalizeZtcProjectName("Rīga, centrs, 2 (RC)")).toBe(
+      "rīga. centrs. 2 (rc)",
+    );
+  });
 });
