@@ -3390,7 +3390,7 @@ async function handleWorkText(args: {
       return;
     }
 
-    await createAdditionalWorkSession({
+    const additionalWorkSession = await createAdditionalWorkSession({
       worker,
       work,
       text,
@@ -3398,10 +3398,13 @@ async function handleWorkText(args: {
       drawingContext:
         openSession && hasZtcDrawingContext(openSession) ? openSession : null,
     });
+    const startedWorkName = String(
+      additionalWorkSession.Works || work.workOption || work.additionalWorkDescription || "",
+    ).trim();
     outcome = "additional_work_started";
     await sendZtcMessage(
       to,
-      `Papilddarbs sākts${work.workOption ? `: ${work.workOption}` : ""}. Kad darbs ir pabeigts, atsūtiet foto un pasakiet, ka darbs ir pabeigts.`,
+      `Papilddarbs sākts${startedWorkName ? `: ${startedWorkName}` : ""}. Kad darbs ir pabeigts, atsūtiet foto un pasakiet, ka darbs ir pabeigts.`,
     );
     return;
   }
