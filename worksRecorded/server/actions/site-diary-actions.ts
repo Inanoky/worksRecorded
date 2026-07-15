@@ -1993,86 +1993,99 @@ export async function getSiteDiaryRecordsPage(siteId: string, options: SiteDiary
   }
 }
 
-export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, options: SiteDiaryFlowHint = {}) {
+export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, options: SiteDiaryRecordsPageOptions = {}) {
   if (!siteId) throw new Error("Missing siteId");
 
   const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", category: "action", siteId });
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
-  const dateFrom = options.dateFrom ? new Date(options.dateFrom) : null;
-  const dateTo = options.dateTo ? new Date(options.dateTo) : null;
-  const dateFilter: Record<string, Date> = {};
-  if (dateFrom && !Number.isNaN(dateFrom.getTime())) {
-    dateFrom.setHours(0, 0, 0, 0);
-    dateFilter.gte = dateFrom;
-  }
-  if (dateTo && !Number.isNaN(dateTo.getTime())) {
-    dateTo.setHours(23, 59, 59, 999);
-    dateFilter.lte = dateTo;
-  }
-  const query = {
-    where:
-      useZtcRecords
-        ? {
-            siteId,
-            Date_Custom_2: { not: null },
-            NOT: [
-              { Date: null },
-              { Works: null },
-              { Works: "" },
-              { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
-            ],
-            ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
-          }
-        : {
-            siteId,
-            archivedAt: null,
-            ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
+  const where = buildSiteDiaryListWhere(siteId, options, useZtcRecords);
+  const select = useZtcRecords
+    ? {
+        id: true,
+        createdAt: true,
+        Date: true,
+        Date_Custom_1: true,
+        Date_Custom_2: true,
+
+        Location: true,
+        Location_Custom_1: true,
+        Location_Custom_2: true,
+
+        Works: true,
+        Works_Custom_1: true,
+        Works_Custom_2: true,
+
+        Comments: true,
+        Comments_Custom_1: true,
+        Comments_Custom_2: true,
+
+        Units: true,
+        Amounts: true,
+        WorkersInvolved: true,
+        TimeInvolved: true,
+        pausedAt: true,
+        pauseIntervals: true,
+        originalUserComment: true,
+
+        User: {
+          select: {
+            firstName: true,
+            lastName: true,
           },
+        },
+        Worker: {
+          select: {
+            name: true,
+            surname: true,
+          },
+        },
+      }
+    : {
+        id: true,
+        createdAt: true,
+        Date: true,
+        Date_Custom_1: true,
+        Date_Custom_2: true,
+
+        Location: true,
+        Location_Custom_1: true,
+        Location_Custom_2: true,
+
+        Works: true,
+        Works_Custom_1: true,
+        Works_Custom_2: true,
+
+        Comments: true,
+        Comments_Custom_1: true,
+        Comments_Custom_2: true,
+
+        Units: true,
+        Amounts: true,
+        WorkersInvolved: true,
+        TimeInvolved: true,
+        Photos: true,
+        BISId: true,
+        bisStatus: true,
+        originalUserComment: true,
+        originalAudioUrl: true,
+
+        User: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+        Worker: {
+          select: {
+            name: true,
+            surname: true,
+          },
+        },
+      };
+  const query = {
+    where,
     orderBy: [{ Date: "asc" as const }],
-    select: {
-      id: true,
-      createdAt: true,
-      Date: true,
-      Date_Custom_1: true,
-      Date_Custom_2: true,
-
-      Location: true,
-      Location_Custom_1: true,
-      Location_Custom_2: true,
-
-      Works: true,
-      Works_Custom_1: true,
-      Works_Custom_2: true,
-
-      Comments: true,
-      Comments_Custom_1: true,
-      Comments_Custom_2: true,
-
-      Units: true,
-      Amounts: true,
-      WorkersInvolved: true,
-      TimeInvolved: true,
-      ...(useZtcRecords ? { pausedAt: true, pauseIntervals: true } : {}),
-      Photos: true,
-      BISId: true,
-      bisStatus: true,
-      originalUserComment: true,
-      originalAudioUrl: true,
-
-      // createdBy support
-      User: {
-        select: {
-          firstName: true,
-          lastName: true,
-        },
-      },
-      Worker: {
-        select: {
-          name: true,
-          surname: true,
-        },
-      },
-    },
+    select,
   };
 
   try {

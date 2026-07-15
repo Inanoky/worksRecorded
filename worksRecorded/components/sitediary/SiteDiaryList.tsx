@@ -1533,6 +1533,11 @@ export default function SiteDiaryCalendar({
       flowId: isZtcSite ? "ztc" : undefined,
       dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
       dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
+      workFilter,
+      floorFilter,
+      elementFilter: isZtcSite ? elementFilter : undefined,
+      workerFilter: isZtcSite ? workerFilter : undefined,
+      keyword: keywordFilter || undefined,
     }) as DiaryRow[];
     const normalizedKeyword = keywordFilter.trim().toLowerCase();
     return allRows.filter((row) => {
