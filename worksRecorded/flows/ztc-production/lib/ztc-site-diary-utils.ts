@@ -3,6 +3,7 @@ import {
   readZtcLaborNormFromMetadata,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
 import { applyZtcExcelNumberFormats } from "@/flows/ztc-production/lib/ztc-excel-export";
+import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
@@ -133,7 +134,18 @@ function parseZtcDrawingMetadata(value: unknown): ZtcDrawingMetadata | null {
     if (parsed?.type !== "ztc_drawing_context" || !Array.isArray(parsed.elements)) {
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      elements: parsed.elements.map((element) => ({
+        ...element,
+        works: Array.isArray(element.works)
+          ? element.works.map((work) => ({
+              ...work,
+              name: cleanZtcWorkName(work.name),
+            }))
+          : [],
+      })),
+    };
   } catch {
     return null;
   }
@@ -189,13 +201,15 @@ export function isZtcQualityRow(row: ZtcDiaryRow) {
 }
 
 function ztcWorkMatchesDrawingMetadata(row: ZtcDiaryRow) {
-  const normalizedWork = normalizeZtcText(row.Works);
+  const normalizedWork = normalizeZtcText(cleanZtcWorkName(row.Works));
   if (!normalizedWork) return false;
 
   const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
   return Boolean(
     metadata?.elements?.some((element) =>
-      element.works?.some((work) => normalizeZtcText(work?.name) === normalizedWork),
+      element.works?.some(
+        (work) => normalizeZtcText(cleanZtcWorkName(work?.name)) === normalizedWork,
+      ),
     ),
   );
 }

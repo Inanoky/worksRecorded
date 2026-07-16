@@ -6,6 +6,7 @@ import {
   resolveZtcRateTaskForRow,
   type ZtcRateProject,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
 type FormatZtcRowsForExcelOptions = {
   defaultRates?: ZtcRateProject[];
@@ -136,6 +137,8 @@ export function formatZtcRowsForExcel<T extends Record<string, any>>(
           ? getZtcExcelRowSum(row)
           : field === "__ztcLaborNorm"
           ? getZtcExcelRowLaborNorm(row, options)
+          : field === "Works" || field === "Works_Custom_1"
+          ? cleanZtcWorkName(row[field])
           : ZTC_EXCEL_NUMERIC_FIELDS.has(field)
           ? parseZtcExcelNumber(row[field])
           : row[field] ?? "",

@@ -18,6 +18,7 @@ import {
 } from "@/flows/ztc-production/lib/ztc-rate-units";
 import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import { resolveZtcRateTaskForRow } from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
@@ -110,15 +111,24 @@ function buildZtcParentAwareWorkWhere(workName: string) {
     };
   }
 
+  const canonicalWorkName = cleanZtcWorkName(workName);
+  const workNameVariants = Array.from(
+    new Set([
+      workName,
+      canonicalWorkName,
+      canonicalWorkName.replace(/\./g, ","),
+    ].filter(Boolean)),
+  );
+
   return {
     OR: [
-      { Works: workName },
-      {
+      { Works: { in: workNameVariants } },
+      ...workNameVariants.map((variant) => ({
         Works_Custom_1: "Papilddetāļas",
         Comments_Custom_2: {
-          contains: `"mainWork":${JSON.stringify(workName)}`,
+          contains: `"mainWork":${JSON.stringify(variant)}`,
         },
-      },
+      })),
     ],
   };
 }
@@ -137,8 +147,7 @@ function normalizePayrollTextNumber(value: unknown) {
 }
 
 function normalizeTaskName(value: unknown) {
-  return String(value ?? "")
-    .trim()
+  return cleanZtcWorkName(String(value ?? ""))
     .replace(/^T\s*\d+(?=\s|[-/]|$)/i, "TL")
     .replace(/^T(?!L)(?=\s|[-/]|$)/i, "TL");
 }
@@ -627,6 +636,7 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     defaultRate?.task?.trim()
       ? defaultRate.task.trim()
       : row.Works || null;
+  const normalizedWorks = category === "works" ? cleanZtcWorkName(works) || null : works;
   const hasExplicitLaborNorm = Object.prototype.hasOwnProperty.call(row, "__ztcLaborNorm");
   const explicitLaborNorm = hasExplicitLaborNorm
     ? normalizeZtcLaborNorm(row.__ztcLaborNorm)
@@ -661,7 +671,7 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     Location: row.Location || null,
     Location_Custom_1: row.Location_Custom_1 || null,
     Location_Custom_2: row.Location_Custom_2 || defaultRate?.rate || null,
-    Works: works,
+    Works: normalizedWorks,
     Works_Custom_1: row.Works_Custom_1 || null,
     Works_Custom_2: row.Works_Custom_2 || null,
     Comments: row.Comments || null,
@@ -1248,7 +1258,7 @@ export async function getZtcFilterOptions(args: {
     projects: uniqueSorted(projectRows.map((row) => row.Location ?? "")),
     elements: uniqueSorted(elementRows.map((row) => row.Location_Custom_1 ?? "")),
     works: uniqueSorted([
-      ...workRows.map((row) => row.Works ?? ""),
+      ...workRows.map((row) => cleanZtcWorkName(row.Works)),
       ...specialWorkRows.map((row) => row.Works_Custom_1 ?? ""),
     ]),
     workers: uniqueSorted(workers),

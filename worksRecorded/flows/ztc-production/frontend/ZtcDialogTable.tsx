@@ -37,6 +37,7 @@ import {
   normalizeZtcLaborNorm,
   readZtcLaborNormFromMetadata,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
+import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
 type ZtcDrawingMetadata = {
   type: "ztc_drawing_context";
@@ -177,7 +178,18 @@ function parseZtcDrawingMetadata(value: unknown): ZtcDrawingMetadata | null {
     if (parsed?.type !== "ztc_drawing_context" || !Array.isArray(parsed.elements)) {
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      elements: parsed.elements.map((element) => ({
+        ...element,
+        works: Array.isArray(element.works)
+          ? element.works.map((work) => ({
+              ...work,
+              name: cleanZtcWorkName(work.name),
+            }))
+          : [],
+      })),
+    };
   } catch {
     return null;
   }
@@ -188,7 +200,7 @@ function normalizeOption(value: unknown) {
 }
 
 function normalizeZtcWorkName(value: unknown) {
-  const trimmed = normalizeOption(value);
+  const trimmed = cleanZtcWorkName(normalizeOption(value));
   if (!trimmed) return "";
 
   return trimmed

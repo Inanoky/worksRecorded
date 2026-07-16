@@ -134,6 +134,7 @@ import {
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
 import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
 import { resolveZtcRateTaskForRow } from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -580,8 +581,11 @@ function ztcRowMatchesWorkFilter(row: DiaryRow, selectedWork: string) {
       normalizeZtcSpecialLabel(row.Works_Custom_1) === "papilddarbi"
     );
   }
-  if (row.Works === selectedWork) return true;
-  return getZtcAdditionalDetailMainWork(row) === selectedWork;
+  if (cleanZtcWorkName(row.Works) === cleanZtcWorkName(selectedWork)) return true;
+  return (
+    cleanZtcWorkName(getZtcAdditionalDetailMainWork(row)) ===
+    cleanZtcWorkName(selectedWork)
+  );
 }
 
 function getDiaryRowSearchableText(row: DiaryRow) {
@@ -880,8 +884,8 @@ export default function SiteDiaryCalendar({
   const renderZtcWorkName = React.useCallback(
     (row: DiaryRow, fallback: string) => {
       const resolved = getZtcResolvedWork(row);
-      const primary = resolved?.canonicalTask || row.Works || fallback;
-      const extracted = resolved?.differs ? resolved.extractedTask : null;
+      const primary = resolved?.canonicalTask || cleanZtcWorkName(row.Works) || fallback;
+      const extracted = resolved?.differs ? cleanZtcWorkName(resolved.extractedTask) : null;
 
       return (
         <span className="block min-w-0">

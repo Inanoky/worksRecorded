@@ -4,6 +4,7 @@ import {
   normalizeZtcRateTaskName,
   type ZtcDefaultTaskRate,
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
+import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
 export type ZtcRateProject = {
   projectName: string;
@@ -56,7 +57,7 @@ export function resolveZtcRateTaskForRow(
   row: Record<string, unknown>,
   defaultRates: ZtcRateProject[] | null | undefined,
 ) {
-  const extractedTask = String(row.Works ?? "").trim();
+  const extractedTask = cleanZtcWorkName(String(row.Works ?? ""));
   if (!extractedTask) return null;
 
   const match = findZtcDefaultRateForTask(
@@ -66,7 +67,7 @@ export function resolveZtcRateTaskForRow(
   )?.entry;
   if (!match?.task) return null;
 
-  const canonicalTask = String(match.task).trim();
+  const canonicalTask = cleanZtcWorkName(match.task);
   const differs =
     normalizeZtcRateTaskName(canonicalTask).toLowerCase() !==
     normalizeZtcRateTaskName(extractedTask).toLowerCase();

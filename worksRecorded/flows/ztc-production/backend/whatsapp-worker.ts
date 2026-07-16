@@ -239,7 +239,7 @@ function normalizeZtcWorkOptions(values: string[]) {
   const options: string[] = [];
 
   for (const value of values) {
-    const normalized = normalizeZtcWorkName(value);
+    const normalized = normalizeZtcDrawingWorkName(value);
     if (!normalized) continue;
     const key = normalized.toLowerCase();
     if (seen.has(key)) continue;
@@ -575,13 +575,13 @@ async function getDefaultRateMatchForWork(
 }
 
 function normalizeAllowedWorkOption(value: string | null | undefined, allowed: string[]) {
-  const normalized = normalizeZtcWorkName(value);
+  const normalized = normalizeZtcDrawingWorkName(value);
   if (!normalized) return null;
 
   return (
     allowed.find(
       (option) =>
-        normalizeZtcWorkName(option).toLowerCase() === normalized.toLowerCase(),
+        normalizeZtcDrawingWorkName(option).toLowerCase() === normalized.toLowerCase(),
     ) ?? null
   );
 }
@@ -1252,7 +1252,18 @@ function parseZtcDrawingMetadata(value: string | null | undefined): ZtcDrawingMe
     if (parsed?.type !== "ztc_drawing_context" || !Array.isArray(parsed.elements)) {
       return null;
     }
-    return parsed;
+    return {
+      ...parsed,
+      elements: parsed.elements.map((element) => ({
+        ...element,
+        works: Array.isArray(element.works)
+          ? element.works.map((work) => ({
+              ...work,
+              name: normalizeZtcDrawingWorkName(work.name),
+            }))
+          : [],
+      })),
+    };
   } catch {
     return null;
   }
@@ -1268,7 +1279,7 @@ function getDrawingWorksCustomValue(
   const metadata = parseZtcDrawingMetadata(source?.Comments_Custom_2);
   const metadataWorks = metadata?.elements
     ?.flatMap((element) => element.works ?? [])
-    .map((work) => String(work.name ?? "").trim())
+    .map((work) => normalizeZtcDrawingWorkName(work.name))
     .filter(Boolean);
 
   if (metadataWorks?.length) {
@@ -1416,7 +1427,7 @@ function getSessionWorkOptions(session: OpenZtcSession | null) {
 }
 
 function getSessionWorkAmountM2(session: OpenZtcSession, workName: string | null | undefined) {
-  const normalizedWork = normalizeZtcWorkName(workName).toLowerCase();
+  const normalizedWork = normalizeZtcDrawingWorkName(workName).toLowerCase();
   if (!normalizedWork) return null;
 
   const metadata = parseZtcDrawingMetadata(session.Comments_Custom_2);
@@ -1426,7 +1437,7 @@ function getSessionWorkAmountM2(session: OpenZtcSession, workName: string | null
       String(session.Location_Custom_1 ?? "").trim().toLowerCase(),
   );
   const work = element?.works.find(
-    (item) => normalizeZtcWorkName(item.name).toLowerCase() === normalizedWork,
+    (item) => normalizeZtcDrawingWorkName(item.name).toLowerCase() === normalizedWork,
   );
 
   return work?.amountM2 ?? element?.totalAreaM2 ?? null;
@@ -1444,7 +1455,7 @@ function getSessionWorkComplexityCode(
   session: OpenZtcSession,
   workName: string | null | undefined,
 ): ZtcComplexityCode {
-  const normalizedWork = normalizeZtcWorkName(workName).toLowerCase();
+  const normalizedWork = normalizeZtcDrawingWorkName(workName).toLowerCase();
   if (!normalizedWork) return "";
 
   const metadata = parseZtcDrawingMetadata(session.Comments_Custom_2);
@@ -1454,7 +1465,7 @@ function getSessionWorkComplexityCode(
       String(session.Location_Custom_1 ?? "").trim().toLowerCase(),
   );
   const work = element?.works.find(
-    (item) => normalizeZtcWorkName(item.name).toLowerCase() === normalizedWork,
+    (item) => normalizeZtcDrawingWorkName(item.name).toLowerCase() === normalizedWork,
   );
 
   return normalizeZtcComplexityCode(work?.complexityCode);
@@ -3509,13 +3520,14 @@ async function handleWorkText(args: {
     return;
   }
 
-  const amountM2 = getSessionWorkAmountM2(session, work.workOption);
-  const complexityCode = getSessionWorkComplexityCode(session, work.workOption);
+  const selectedWorkName = normalizeZtcDrawingWorkName(work.workOption);
+  const amountM2 = getSessionWorkAmountM2(session, selectedWorkName);
+  const complexityCode = getSessionWorkComplexityCode(session, selectedWorkName);
   const comments = work.polishedText?.trim()
     ? buildZtcUserComments({ startText: work.polishedText })
     : await buildPolishedZtcUserComments({ startText: text });
   const rateStartedAt = Date.now();
-  const defaultRateMatch = await getDefaultRateMatchForWork(work.workOption, {
+  const defaultRateMatch = await getDefaultRateMatchForWork(selectedWorkName, {
     projectName: session.Location,
     category: "works",
     worker,
@@ -3546,7 +3558,7 @@ async function handleWorkText(args: {
     where: { id: session.id },
     data: {
       Date: now,
-      Works: work.workOption,
+      Works: selectedWorkName,
       Location_Custom_2: session.Location_Custom_2 ?? defaultRateMatch?.rate ?? null,
       WorkersInvolved: Number(complexity),
       Units: "m2",
