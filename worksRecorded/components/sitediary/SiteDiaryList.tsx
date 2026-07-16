@@ -205,6 +205,7 @@ type DayGroup = {
 
 type ZtcScopeSummary = NonNullable<Awaited<ReturnType<typeof getZtcScopeSummary>>>;
 type ZtcFilterOptions = Awaited<ReturnType<typeof getZtcFilterOptions>>;
+type ExcelExportKind = "siteDiary" | "ztcPayroll" | "ztcProductivity" | "forma2";
 
 function withSelectedOption(options: string[], selected: string) {
   if (!selected || selected === "__ALL__" || options.includes(selected)) return options;
@@ -841,6 +842,7 @@ export default function SiteDiaryCalendar({
   const [showBisUi, setShowBisUi] = React.useState(true);
   const [selectedRecordIds, setSelectedRecordIds] = React.useState<Set<string>>(new Set());
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
+  const [excelExportLoading, setExcelExportLoading] = React.useState<ExcelExportKind | null>(null);
   const bisUiEnabled = bisEnabled && showBisUi;
   const isZtcSite = isZtcFlow;
   const ztcQualityDisplayStateByRowId = React.useMemo(
@@ -1602,34 +1604,58 @@ export default function SiteDiaryCalendar({
     workerFilter,
   ]);
 
+  const runExcelExport = React.useCallback(
+    async (kind: ExcelExportKind, exportAction: () => Promise<void>) => {
+      if (excelExportLoading) return;
+
+      try {
+        setExcelExportLoading(kind);
+        await exportAction();
+      } catch (error: any) {
+        toast.error(error?.message ?? "Neizdevās sagatavot Excel eksportu.");
+      } finally {
+        setExcelExportLoading(null);
+      }
+    },
+    [excelExportLoading],
+  );
+
   // Export all rows matching the active filters, not just the currently loaded page.
   const exportToExcel = async () => {
-    const XLSX = await import("xlsx");
-    const exportFilteredRows = await loadAllFilteredRowsForExport();
-    const ztcDefaultRates = isZtcSite && siteId ? await getZtcDefaultTaskRates(siteId) : [];
-    const exportRows = isZtcSite
-      ? formatZtcRowsForExcel(exportFilteredRows, { defaultRates: ztcDefaultRates })
-      : exportFilteredRows;
-    const worksheet = XLSX.utils.json_to_sheet(exportRows);
-    if (isZtcSite) {
-      applyZtcExcelNumberFormats(XLSX, worksheet);
-    }
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
-    XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
+    await runExcelExport("siteDiary", async () => {
+      const XLSX = await import("xlsx");
+      const exportFilteredRows = await loadAllFilteredRowsForExport();
+      const ztcDefaultRates = isZtcSite && siteId ? await getZtcDefaultTaskRates(siteId) : [];
+      const exportRows = isZtcSite
+        ? formatZtcRowsForExcel(exportFilteredRows, { defaultRates: ztcDefaultRates })
+        : exportFilteredRows;
+      const worksheet = XLSX.utils.json_to_sheet(exportRows);
+      if (isZtcSite) {
+        applyZtcExcelNumberFormats(XLSX, worksheet);
+      }
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Site diary records");
+      XLSX.writeFile(workbook, "SiteDiaryRecords.xlsx");
+    });
   };
 
   const exportZtcProductivity = async () => {
-    const visibleRows = await loadAllFilteredRowsForExport();
-    await exportZtcProductivityToExcel({ rows: visibleRows });
+    await runExcelExport("ztcProductivity", async () => {
+      const visibleRows = await loadAllFilteredRowsForExport();
+      await exportZtcProductivityToExcel({ rows: visibleRows });
+    });
   };
 
   const exportZtcPayroll = async () => {
-    await exportZtcPayrollToExcel({ rows: await loadAllFilteredRowsForExport() });
+    await runExcelExport("ztcPayroll", async () => {
+      await exportZtcPayrollToExcel({ rows: await loadAllFilteredRowsForExport() });
+    });
   };
 
   const exportForma2 = async () => {
-    await exportForma2ToExcel(await loadAllFilteredRowsForExport());
+    await runExcelExport("forma2", async () => {
+      await exportForma2ToExcel(await loadAllFilteredRowsForExport());
+    });
   };
 
   const openDayDialog = (date: Date) => {
@@ -2282,11 +2308,25 @@ export default function SiteDiaryCalendar({
                   </button>
                 ) : null}
 
-                <Button variant="outline" onClick={exportToExcel}>
+                <Button
+                  variant="outline"
+                  onClick={exportToExcel}
+                  disabled={Boolean(excelExportLoading)}
+                >
+                  {excelExportLoading === "siteDiary" ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
                   {t.exportToExcel}
                 </Button>
                 {!isZtcSite ? (
-                  <Button variant="outline" onClick={exportForma2}>
+                  <Button
+                    variant="outline"
+                    onClick={exportForma2}
+                    disabled={Boolean(excelExportLoading)}
+                  >
+                    {excelExportLoading === "forma2" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
                     Forma 2
                   </Button>
                 ) : null}
@@ -2295,10 +2335,24 @@ export default function SiteDiaryCalendar({
                     <Button variant="outline" onClick={ztc.openRateDialog}>
                       Darbu likmes
                     </Button>
-                    <Button variant="outline" onClick={exportZtcPayroll}>
+                    <Button
+                      variant="outline"
+                      onClick={exportZtcPayroll}
+                      disabled={Boolean(excelExportLoading)}
+                    >
+                      {excelExportLoading === "ztcPayroll" ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
                       Algu Excel
                     </Button>
-                    <Button variant="outline" onClick={exportZtcProductivity}>
+                    <Button
+                      variant="outline"
+                      onClick={exportZtcProductivity}
+                      disabled={Boolean(excelExportLoading)}
+                    >
+                      {excelExportLoading === "ztcProductivity" ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
                       Produktivitāte
                     </Button>
                   </>
