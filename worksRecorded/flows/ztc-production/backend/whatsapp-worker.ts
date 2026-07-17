@@ -57,7 +57,7 @@ const ZTC_TEXT_TIMEOUT_MS = 30_000;
 const ZTC_TRANSCRIPTION_TIMEOUT_MS = 30_000;
 const ZTC_DROPDOWN_CACHE_MS = 60_000;
 const ZTC_COMMENT_POLISH_TIMEOUT_MS = 15_000;
-const ZTC_DEFAULT_VISION_MODEL = "gpt-5.4";
+const ZTC_DEFAULT_VISION_MODEL = "gpt-5.5";
 
 export type ProductionDrawingExtractionProfile = "ztc" | "default-production";
 
