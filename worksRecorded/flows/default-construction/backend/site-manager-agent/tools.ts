@@ -159,7 +159,7 @@ export async function extractAndSaveSiteDiary(args: {
     siteId,
     userId,
     channel: "tool",
-    model: "gpt-5.4",
+    model: "gpt-5.5",
     metadata: {
       date,
       hasOriginalAudioUrl: Boolean(whatsappSourceContext.originalAudioUrl),
@@ -209,7 +209,7 @@ export async function extractAndSaveSiteDiary(args: {
       })
     : baseSchema;
 
-  const llm = new ChatOpenAI({ model: "gpt-5.4", reasoning: { effort: "low" } });
+  const llm = new ChatOpenAI({ model: "gpt-5.5", reasoning: { effort: "low" } });
   const structuredLlm = llm.withStructuredOutput(responseSchema, { includeRaw: true }) as any;
   const extractionStarted = Date.now();
   let envelope: any;
@@ -232,7 +232,7 @@ export async function extractAndSaveSiteDiary(args: {
     recordSiteManagerTiming("structuredExtractionMs", durationMs);
     recordSiteManagerModelCall({
       purpose: args.allowFallback ? "fast-path-extraction" : "structured-extraction",
-      model: "gpt-5.4",
+      model: "gpt-5.5",
       actualModel: null,
       durationMs,
       inputTokens: 0,
@@ -258,7 +258,7 @@ export async function extractAndSaveSiteDiary(args: {
   recordSiteManagerTiming("structuredExtractionMs", extractionDurationMs);
   recordSiteManagerModelCall({
     purpose: args.allowFallback ? "fast-path-extraction" : "structured-extraction",
-    model: "gpt-5.4",
+    model: "gpt-5.5",
     actualModel: rawMessage?.response_metadata?.model_name ?? null,
     durationMs: extractionDurationMs,
     ...usage,
