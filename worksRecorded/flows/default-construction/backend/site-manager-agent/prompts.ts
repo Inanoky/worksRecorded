@@ -145,6 +145,10 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   Expected structured fields: Workers: 2, Hours: 3, and Comments mention floor laying on the 3rd floor.
   Input: "Šodien apmestas sienas 2 stāvā, 4h"
   Expected structured fields: Workers: null, Hours: 4, and Comments mention wall plastering on the 2nd floor.
+
+  Completion status is not a quantity. Never set Amounts to 1 merely because one work is mentioned or described as completed. Populate Amounts only when the source explicitly states a quantity; otherwise set both Amounts and Units to null.
+  Example: "Pabeigta siltinājuma montāža" → Amounts: null, Units: null.
+  Example: "Pabeigta 10 m2 siltinājuma montāža" → Amounts: 10, Units: "m2".
   
   `
 
