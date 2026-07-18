@@ -26,6 +26,6 @@ export const clockInAgentForWorkersModelTemperature = 0.5
 
 export const siteManagerAgentForSiteManagerRouteModelModel = "gpt-5.6-terra"
 export const siteManagerAgentForSiteManagerRouteModelModelTemperature = 0
-export const siteManagerAgentForSiteManagerRouteModelReasoningEffort = "medium" as const
+export const siteManagerAgentForSiteManagerRouteModelReasoningEffort = "none" as const
 export const metaMaterialImageClassifierModel = "gpt-4.1-mini"
 export const metaMaterialImageClassifierTemperature = 0
