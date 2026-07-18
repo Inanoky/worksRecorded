@@ -66,6 +66,7 @@ export const allowedUnits = [
 ] as const;
 
 const structuredSiteDiaryModel = "gpt-5.6-terra";
+const structuredSiteDiaryReasoningEffort = "medium" as const;
 
 type StructuredSaveResult = {
   action: "save_new_report" | "correct_existing_report" | "fallback" | "clarify";
@@ -211,7 +212,10 @@ export async function extractAndSaveSiteDiary(args: {
       })
     : baseSchema;
 
-  const llm = new ChatOpenAI({ model: structuredSiteDiaryModel, reasoning: { effort: "low" } });
+  const llm = new ChatOpenAI({
+    model: structuredSiteDiaryModel,
+    reasoning: { effort: structuredSiteDiaryReasoningEffort },
+  });
   const structuredLlm = llm.withStructuredOutput(responseSchema, { includeRaw: true }) as any;
   const extractionStarted = Date.now();
   let envelope: any;
