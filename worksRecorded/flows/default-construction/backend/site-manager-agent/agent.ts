@@ -14,7 +14,6 @@ import {
 import {
     siteManagerAgentForSiteManagerRouteModelModel,
     siteManagerAgentForSiteManagerRouteModelModelTemperature,
-    siteManagerAgentForSiteManagerRouteModelReasoningEffort,
 } from "@/server/ai-flows/ai-models-settings";
 import { getUserFullNameById } from "@/server/actions/whatsapp-actions";
 import { getPendingSiteDiaryCorrection } from "@/server/actions/site-diary-actions";
@@ -380,7 +379,6 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
         const llm = new ChatOpenAI({
             temperature: siteManagerAgentForSiteManagerRouteModelModelTemperature,
             model: requestedModel,
-            reasoning: { effort: siteManagerAgentForSiteManagerRouteModelReasoningEffort },
         }).bindTools(tools);
 
         try {
