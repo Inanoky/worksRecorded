@@ -56,6 +56,7 @@ import {
 } from "./fastPath";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { getUserAddressName, shouldSampleUserAddress } from "./nameAddressing";
+import { getFinalAssistantResponse } from "./responseContent";
 
 export { runWithSiteManagerAgentEvalContext };
 export type { SiteManagerAgentRunDetails };
@@ -524,8 +525,9 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     );
 
     if (finalState && finalState.messages && finalState.messages.length > 0) {
-        const lastContentMsg = finalState.messages.findLast((msg: BaseMessage) => typeof msg.content === "string" && msg.content.length > 0);
-        const content = lastContentMsg ? String(lastContentMsg.content) : "Completed action with no response.";
+        const finalResponse = getFinalAssistantResponse(finalState.messages as BaseMessage[]);
+        const lastContentMsg = finalResponse?.message ?? null;
+        const content = finalResponse?.content ?? "WorkRecorded: Sorry, there was a temporary issue while processing your message. Please send it once more.";
         const responseMetadata = (lastContentMsg as any)?.response_metadata ?? null;
         const usageMetadata = (lastContentMsg as any)?.usage_metadata ?? null;
 
