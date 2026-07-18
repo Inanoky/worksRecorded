@@ -125,10 +125,33 @@ const savedSiteDiaryRecordSelect = {
 } as const;
 
 const numericSiteDiaryFields = ["Amounts", "WorkersInvolved", "TimeInvolved"] as const;
+const meaningfulSiteDiaryTextFields = [
+  "Location",
+  "Location_Custom_1",
+  "Location_Custom_2",
+  "Works",
+  "Works_Custom_1",
+  "Works_Custom_2",
+  "Comments",
+  "Comments_Custom_1",
+  "Comments_Custom_2",
+] as const;
 
 type NumericSiteDiaryField = (typeof numericSiteDiaryFields)[number];
 type NormalizedSiteDiaryInsertRow = Record<string, any> & Record<NumericSiteDiaryField, number | null>;
 type SavedSiteDiaryRecordForIntegrity = Record<string, any> & Record<NumericSiteDiaryField, number | null>;
+
+function hasMeaningfulSiteDiaryContent(row: unknown) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return false;
+  const record = row as Record<string, unknown>;
+
+  const hasTextContent = meaningfulSiteDiaryTextFields.some((field) => {
+    const value = record[field];
+    return typeof value === "string" && value.trim().length > 0;
+  });
+
+  return hasTextContent || numericSiteDiaryFields.some((field) => toNullableNumber(record[field]) !== null);
+}
 
 function numbersMatch(expected: number, actual: unknown) {
   return typeof actual === "number" && Number.isFinite(actual) && Math.abs(actual - expected) < 0.01;
@@ -1090,7 +1113,7 @@ export async function saveSiteDiaryRecord({
   evalMetadata?: Record<string, unknown>;
   sourceMessageId?: string | null;
 }) {
-  const validRows = rows.filter((r) => r.Location || r.Works);
+  const validRows = rows.filter(hasMeaningfulSiteDiaryContent);
 
   if (!validRows.length) {
     const rawOriginalAudioUrlPreview = originalAudioUrl ?? getWhatsappSourceContext().originalAudioUrl ?? null;
@@ -1167,7 +1190,7 @@ export async function saveSiteDiaryRecord({
   console.log("---------------------------------");
 
   // Make sure requireUser() is not triggering a redirect!
-  // Defensive: Only save if at least one row with location or works
+  // Defensive: Only save rows containing diary content.
   const toInsert: NormalizedSiteDiaryInsertRow[] = validRows
     .map((row, idx) => {
       const out = {
@@ -1473,7 +1496,7 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
   if (target.records.some((record) => Boolean(record.BISId))) {
     return { ok: false as const, reason: "bis-linked" as const };
   }
-  const validRows = args.rows.filter((row) => row.Location || row.Works);
+  const validRows = args.rows.filter(hasMeaningfulSiteDiaryContent);
   if (!validRows.length) return { ok: false as const, reason: "no-records" as const };
 
   const result = await prisma.$transaction(async (tx) => {

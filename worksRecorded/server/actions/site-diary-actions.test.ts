@@ -181,6 +181,52 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     });
   });
 
+  it("saves a comment-only row without work or location", async () => {
+    const result = await saveSiteDiaryRecord({
+      rows: [
+        {
+          Date: "2026-07-18T00:00:00.000Z",
+          Location: null,
+          Works: null,
+          Comments: "Samontētas 3 sienas.",
+          Units: "gab.",
+          Amounts: 3,
+        },
+      ],
+      userId: "user-1",
+      siteId: "site-1",
+      originalUserComment: "Assembled 3 walls",
+    });
+
+    expectSuccessfulSave(result, 1);
+    expect(createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        Location: undefined,
+        Works: undefined,
+        Comments: "Samontētas 3 sienas.",
+        Units: "gab.",
+        Amounts: 3,
+      }),
+      select: expect.any(Object),
+    });
+  });
+
+  it("rejects rows without meaningful diary content", async () => {
+    const result = await saveSiteDiaryRecord({
+      rows: [
+        { Date: "2026-07-18T00:00:00.000Z" },
+        { Units: "gab." },
+        { Amounts: "not-a-number" },
+      ],
+      userId: "user-1",
+      siteId: "site-1",
+      originalUserComment: "",
+    });
+
+    expect(result).toEqual({ ok: false, message: "No records to insert" });
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
   it("stores eval metadata only when provided", async () => {
     const evalMetadata = {
       isEval: true,
