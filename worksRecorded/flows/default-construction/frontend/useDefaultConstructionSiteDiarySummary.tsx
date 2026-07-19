@@ -116,21 +116,6 @@ function SummaryPanel({
     selection.scope === "project"
       ? `${t.project}: ${t.wholeProject}`
       : `${selection.scope === "location" ? t.location : t.work}: ${selection.value}`;
-  const configuredQuantities = React.useMemo(() => {
-    const totals = new Map<string, number>();
-    for (const row of summary?.breakdown ?? []) {
-      if (!row.matchesConfiguredUnit) continue;
-      const unit = row.unit || "—";
-      totals.set(unit, (totals.get(unit) ?? 0) + row.amount);
-    }
-    return Array.from(totals.entries()).sort(([a], [b]) => a.localeCompare(b, "lv"));
-  }, [summary]);
-  const configuredQuantityDisplay = configuredQuantities.length
-    ? configuredQuantities
-        .map(([unit, amount]) => `${formatNumber(amount, locale)} ${unit}`)
-        .join(" / ")
-    : "—";
-
   return (
     <div className="mb-4 rounded-md border bg-background px-3 py-3 shadow-sm sm:px-4">
       <div className="flex items-start justify-between gap-3">
@@ -186,10 +171,6 @@ function SummaryPanel({
                     ? `${formatNumber(summary.comparison.actualHours, locale)} h`
                     : "—",
                   status: summary.comparison.status,
-                },
-                {
-                  label: t.amount,
-                  value: configuredQuantityDisplay,
                 },
               ].map((tile) => {
                 const status = "status" in tile ? tile.status : undefined;

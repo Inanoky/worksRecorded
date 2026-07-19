@@ -35,6 +35,7 @@ export type DefaultConstructionSummaryBreakdownRow = {
   normDifference: number | null;
   comparisonStatus: DefaultConstructionComparisonStatus;
   matchesConfiguredUnit: boolean;
+  hasConfiguredPlan: boolean;
   comparedAmount: number;
   comparedHours: number;
   comparedRecords: number;
@@ -170,10 +171,10 @@ export function buildDefaultConstructionScopeSummary(args: {
       const plannedNorm = Number(setting?.laborNormHoursPerUnit);
       const unitMatches =
         Boolean(setting?.unit) && normalizedKey(setting?.unit) === normalizedKey(row.unit);
+      const hasConfiguredPlan =
+        unitMatches && Number.isFinite(plannedNorm) && plannedNorm > 0;
       const isComparable =
-        unitMatches &&
-        Number.isFinite(plannedNorm) &&
-        plannedNorm > 0 &&
+        hasConfiguredPlan &&
         row.comparedAmount > 0 &&
         row.comparedRecords > 0;
 
@@ -192,6 +193,7 @@ export function buildDefaultConstructionScopeSummary(args: {
           normDifference: null,
           comparisonStatus: "neutral" as const,
           matchesConfiguredUnit: unitMatches,
+          hasConfiguredPlan,
           comparedAmount: round(row.comparedAmount),
           comparedHours: round(row.comparedHours),
           comparedRecords: row.comparedRecords,
@@ -218,6 +220,7 @@ export function buildDefaultConstructionScopeSummary(args: {
         normDifference: round(normDifference, 4),
         comparisonStatus: comparisonStatus(hoursDifference),
         matchesConfiguredUnit: true,
+        hasConfiguredPlan: true,
         comparedAmount: round(row.comparedAmount),
         comparedHours: round(row.comparedHours),
         comparedRecords: row.comparedRecords,
@@ -225,10 +228,12 @@ export function buildDefaultConstructionScopeSummary(args: {
         isComparable: true,
       };
     })
-    .sort(
-      (a, b) =>
-        a.label.localeCompare(b.label, "lv") || a.unit.localeCompare(b.unit, "lv"),
-    );
+    .sort((a, b) => {
+      if (args.scope === "project" && a.hasConfiguredPlan !== b.hasConfiguredPlan) {
+        return a.hasConfiguredPlan ? -1 : 1;
+      }
+      return a.label.localeCompare(b.label, "lv") || a.unit.localeCompare(b.unit, "lv");
+    });
 
   const comparableRows = breakdownRows.filter((row) => row.isComparable);
   const plannedHours = comparableRows.reduce(

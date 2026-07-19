@@ -81,6 +81,38 @@ describe("default-construction site diary summaries", () => {
     });
   });
 
+  it("lists productivity-mapped rows before other rows in project summaries", () => {
+    const projectRows = [
+      { ...rows[0], Works: "A other work", Units: "tn" },
+      { ...rows[0], Works: "Z planned work", Units: "m2" },
+    ];
+    const settings = [
+      { work: "Z planned work", unit: "m2", laborNormHoursPerUnit: 0.5 },
+    ];
+
+    const project = buildDefaultConstructionScopeSummary({
+      scope: "project",
+      value: "project",
+      rows: projectRows,
+      productivitySettings: settings,
+    });
+    const location = buildDefaultConstructionScopeSummary({
+      scope: "location",
+      value: "Floor 1",
+      rows: projectRows,
+      productivitySettings: settings,
+    });
+
+    expect(project.breakdown.map((row) => row.label)).toEqual([
+      "Z planned work",
+      "A other work",
+    ]);
+    expect(location.breakdown.map((row) => row.label)).toEqual([
+      "A other work",
+      "Z planned work",
+    ]);
+  });
+
   it("groups a clicked work by unit without splitting by location", () => {
     const result = buildDefaultConstructionScopeSummary({
       scope: "work",
@@ -122,6 +154,7 @@ describe("default-construction site diary summaries", () => {
       normDifference: 0.2,
       comparisonStatus: "behind",
       matchesConfiguredUnit: true,
+      hasConfiguredPlan: true,
       isComparable: true,
     });
     expect(result.breakdown[1]).toMatchObject({
@@ -131,6 +164,7 @@ describe("default-construction site diary summaries", () => {
       hoursDifference: null,
       comparisonStatus: "neutral",
       matchesConfiguredUnit: false,
+      hasConfiguredPlan: false,
       isComparable: false,
     });
     expect(result.comparison).toEqual({
