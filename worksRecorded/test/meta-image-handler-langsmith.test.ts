@@ -1,30 +1,17 @@
-const mockResponsesCreate = jest.fn();
-
-const mockOpenAIClient = {
-	responses: {
-		create: mockResponsesCreate,
-	},
-	chat: {
-		completions: {
-			create: jest.fn(),
-			parse: jest.fn(),
-		},
-	},
-	completions: {
-		create: jest.fn(),
-	},
-};
+const mockStructuredInvoke = jest.fn();
+const mockWithStructuredOutput = jest.fn(() => ({
+	invoke: mockStructuredInvoke,
+}));
 
 const mockUserFindFirst = jest.fn();
 const mockCreateMany = jest.fn();
+const uuidV7Pattern =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
-jest.mock("openai", () => ({
-	__esModule: true,
-	default: jest.fn(() => mockOpenAIClient),
-}));
-
-jest.mock("langsmith/wrappers/openai", () => ({
-	wrapOpenAI: jest.fn((client) => client),
+jest.mock("@langchain/openai", () => ({
+	ChatOpenAI: jest.fn(() => ({
+		withStructuredOutput: mockWithStructuredOutput,
+	})),
 }));
 
 jest.mock("uploadthing/server", () => ({
@@ -52,7 +39,7 @@ jest.mock("@/server/ai-flows/ai-models-settings", () => ({
 	metaMaterialImageClassifierTemperature: 0,
 }));
 
-import { wrapOpenAI } from "langsmith/wrappers/openai";
+import { ChatOpenAI } from "@langchain/openai";
 import {
 	classifyMaterialDocumentImage,
 	extractAndSaveBISMaterialsFromPublicUrl,
@@ -60,25 +47,25 @@ import {
 } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 
 describe("meta image handler LangSmith tracing", () => {
+	let consoleLogSpy: jest.SpyInstance;
+
 	beforeEach(() => {
-		mockResponsesCreate.mockReset();
-		mockUserFindFirst.mockReset();
-		mockCreateMany.mockReset();
+		jest.clearAllMocks();
+		consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+		mockWithStructuredOutput.mockReturnValue({ invoke: mockStructuredInvoke });
 	});
 
-	it("wraps the OpenAI Responses client for LangSmith tracing", () => {
-		expect(wrapOpenAI).toHaveBeenCalledWith(mockOpenAIClient);
+	afterEach(() => {
+		consoleLogSpy.mockRestore();
 	});
 
-	it("adds LangSmith trace metadata to image classification calls", async () => {
+	it("uses ChatOpenAI structured output with Responses API for image classification", async () => {
 		const publicUrl = "https://utfs.io/f/secret-image-key.jpg?token=hidden";
 
-		mockResponsesCreate.mockResolvedValueOnce({
-			output_text: JSON.stringify({
-				isMaterialDocument: false,
-				confidence: 0.2,
-				reason: "site photo",
-			}),
+		mockStructuredInvoke.mockResolvedValueOnce({
+			isMaterialDocument: false,
+			confidence: 0.2,
+			reason: "site photo",
 		});
 
 		await classifyMaterialDocumentImage(publicUrl, {
@@ -87,15 +74,25 @@ describe("meta image handler LangSmith tracing", () => {
 			siteId: "site-1",
 		});
 
-		expect(mockResponsesCreate).toHaveBeenCalledTimes(1);
-		const [payload, options] = mockResponsesCreate.mock.calls[0];
-
-		expect(payload.input[0].content[0]).toEqual({
-			type: "input_image",
-			image_url: publicUrl,
+		expect(ChatOpenAI).toHaveBeenCalledWith({
+			model: "gpt-test-classifier",
+			temperature: 0,
+			useResponsesApi: true,
 		});
-		expect(options.langsmithExtra).toMatchObject({
-			name: "MetaMaterialImageClassification",
+		expect(mockWithStructuredOutput).toHaveBeenCalledWith(expect.any(Object), {
+			name: "material_image_classification",
+			method: "jsonSchema",
+			strict: true,
+		});
+		expect(mockStructuredInvoke).toHaveBeenCalledTimes(1);
+		const [messages, config] = mockStructuredInvoke.mock.calls[0];
+
+		expect(messages[0].content[1]).toEqual({
+			type: "image_url",
+			image_url: { url: publicUrl },
+		});
+		expect(config).toMatchObject({
+			runName: "MetaMaterialImageClassification",
 			tags: [
 				"whatsapp-site-manager",
 				"meta-image",
@@ -111,12 +108,11 @@ describe("meta image handler LangSmith tracing", () => {
 				orgId: "org-1",
 			},
 		});
-		expect(JSON.stringify(options.langsmithExtra.metadata)).not.toContain(
-			publicUrl,
-		);
+		expect(JSON.stringify(config.metadata)).not.toContain(publicUrl);
+		expect(config.runId).toMatch(uuidV7Pattern);
 	});
 
-	it("adds LangSmith trace metadata to invoice extraction calls", async () => {
+	it("adds native LangChain run metadata to invoice extraction calls", async () => {
 		const publicUrl = "https://utfs.io/f/invoice-private-key.jpg?token=hidden";
 
 		mockUserFindFirst.mockResolvedValueOnce({
@@ -125,33 +121,41 @@ describe("meta image handler LangSmith tracing", () => {
 			lastSelectedSiteIdforWhatsapp: "site-1",
 			siteManagerSelectIdforWhatsapp: null,
 		});
-		mockResponsesCreate.mockResolvedValueOnce({
-			output_text: JSON.stringify({
-				items: [
-					{
-						name: "Cements",
-						cost: 12.34,
-						invoiceNr: "INV-1",
-						invoiceDate: null,
-						costCode: "MAT",
-						quantity: 2,
-						construction_material_id: "no_match",
-					},
-				],
-			}),
+		mockStructuredInvoke.mockResolvedValueOnce({
+			items: [
+				{
+					name: "Cements",
+					cost: 12.34,
+					invoiceNr: "INV-1",
+					invoiceDate: null,
+					costCode: "MAT",
+					quantity: 2,
+					construction_material_id: "no_match",
+				},
+			],
 		});
 
 		await extractAndSaveBISMaterialsFromPublicUrl(publicUrl, "37120000000");
 
-		expect(mockResponsesCreate).toHaveBeenCalledTimes(1);
-		const [payload, options] = mockResponsesCreate.mock.calls[0];
-
-		expect(payload.input[0].content[0]).toEqual({
-			type: "input_image",
-			image_url: publicUrl,
+		expect(ChatOpenAI).toHaveBeenCalledWith({
+			model: "gpt-5.4",
+			temperature: 0,
+			useResponsesApi: true,
 		});
-		expect(options.langsmithExtra).toMatchObject({
-			name: "MetaMaterialInvoiceExtraction",
+		expect(mockWithStructuredOutput).toHaveBeenCalledWith(expect.any(Object), {
+			name: "material_invoice_extraction",
+			method: "jsonSchema",
+			strict: true,
+		});
+		expect(mockStructuredInvoke).toHaveBeenCalledTimes(1);
+		const [messages, config] = mockStructuredInvoke.mock.calls[0];
+
+		expect(messages[0].content[1]).toEqual({
+			type: "image_url",
+			image_url: { url: publicUrl },
+		});
+		expect(config).toMatchObject({
+			runName: "MetaMaterialInvoiceExtraction",
 			tags: [
 				"whatsapp-site-manager",
 				"meta-image",
@@ -167,9 +171,8 @@ describe("meta image handler LangSmith tracing", () => {
 				orgId: "org-1",
 			},
 		});
-		expect(JSON.stringify(options.langsmithExtra.metadata)).not.toContain(
-			publicUrl,
-		);
+		expect(JSON.stringify(config.metadata)).not.toContain(publicUrl);
+		expect(config.runId).toMatch(uuidV7Pattern);
 		expect(mockCreateMany).toHaveBeenCalledWith({
 			data: [
 				expect.objectContaining({
@@ -192,28 +195,24 @@ describe("meta image handler LangSmith tracing", () => {
 			lastSelectedSiteIdforWhatsapp: "site-1",
 			siteManagerSelectIdforWhatsapp: null,
 		});
-		mockResponsesCreate
+		mockStructuredInvoke
 			.mockResolvedValueOnce({
-				output_text: JSON.stringify({
-					isMaterialDocument: true,
-					confidence: 0.9,
-					reason: "readable invoice",
-				}),
+				isMaterialDocument: true,
+				confidence: 0.9,
+				reason: "readable invoice",
 			})
 			.mockResolvedValueOnce({
-				output_text: JSON.stringify({
-					items: [
-						{
-							name: "Cements",
-							cost: 12.34,
-							invoiceNr: "INV-1",
-							invoiceDate: null,
-							costCode: "MAT",
-							quantity: 2,
-							construction_material_id: "no_match",
-						},
-					],
-				}),
+				items: [
+					{
+						name: "Cements",
+						cost: 12.34,
+						invoiceNr: "INV-1",
+						invoiceDate: null,
+						costCode: "MAT",
+						quantity: 2,
+						construction_material_id: "no_match",
+					},
+				],
 			});
 
 		const handled = await processMaterialDocumentImageFromPublicUrl({
@@ -223,20 +222,18 @@ describe("meta image handler LangSmith tracing", () => {
 
 		expect(handled).toBe(true);
 		expect(mockUserFindFirst).toHaveBeenCalledTimes(1);
-		expect(mockResponsesCreate).toHaveBeenCalledTimes(2);
-		expect(
-			mockResponsesCreate.mock.calls[0][1].langsmithExtra.metadata,
-		).toMatchObject({
+		expect(mockStructuredInvoke).toHaveBeenCalledTimes(2);
+		expect(mockStructuredInvoke.mock.calls[0][1].metadata).toMatchObject({
 			siteId: "site-1",
 			userId: "user-1",
 			orgId: "org-1",
 		});
-		expect(
-			mockResponsesCreate.mock.calls[1][1].langsmithExtra.metadata,
-		).toMatchObject({
+		expect(mockStructuredInvoke.mock.calls[1][1].metadata).toMatchObject({
 			siteId: "site-1",
 			userId: "user-1",
 			orgId: "org-1",
 		});
+		expect(mockStructuredInvoke.mock.calls[0][1].runId).toMatch(uuidV7Pattern);
+		expect(mockStructuredInvoke.mock.calls[1][1].runId).toMatch(uuidV7Pattern);
 	});
 });

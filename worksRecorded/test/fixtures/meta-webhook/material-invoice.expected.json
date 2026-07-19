@@ -1,0 +1,52 @@
+
+
+{
+  "items": [
+    {
+      "name": "Weber JB 600/3 P 25kg Bezrukuma java -15°C ziemas",
+      "cost": 1025.06,
+      "invoiceNr": "OLM547927",
+      "invoiceDate": "2025-12-04T00:00:00Z",
+      "costCode": "CC-1001",
+      "quantity": 80,
+      "construction_material_id": "2232",
+      "units_of_measurement": "pcs"
+    },
+    {
+      "name": "EUROPALETE",
+      "cost": 9,
+      "invoiceNr": "OLM547927",
+      "invoiceDate": "2025-12-04T00:00:00Z",
+      "costCode": "CC-1002",
+      "quantity": 2,
+      "construction_material_id": "no_match"
+    },
+    {
+      "name": "Transporta pakalpojums KA",
+      "cost": 70,
+      "invoiceNr": "OLM547927",
+      "invoiceDate": "2025-12-04T00:00:00Z",
+      "costCode": "CC-1003",
+      "quantity": 1,
+      "construction_material_id": "no_match"
+    },
+    {
+      "name": "Siešanas Stieple 1.2x400mm 5kg/iep stienīši",
+      "cost": 25.54,
+      "invoiceNr": "OLM547927",
+      "invoiceDate": "2025-12-04T00:00:00Z",
+      "costCode": "CC-1004",
+      "quantity": 0.01,
+      "construction_material_id": "2230"
+    },
+    {
+      "name": "Prožektors LED 1x30W IP44 ar statīvu 2400lm",
+      "cost": 54.63,
+      "invoiceNr": "OLM547927",
+      "invoiceDate": "2025-12-04T00:00:00Z",
+      "costCode": "CC-1005",
+      "quantity": 2,
+      "construction_material_id": "no_match"
+    }
+  ]
+}

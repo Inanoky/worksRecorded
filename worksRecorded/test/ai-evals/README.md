@@ -29,8 +29,10 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 | --- | --- | --- |
 | All safe local checks | `npm run test:all` | None |
 | All Jest tests | `npm run test:unit` | None |
+| Image extraction Jest tests | `npm run test:image-extraction` | None |
 | Eval validator/runner unit tests | `npm run test:ai:validators` | None |
 | Validate all eval fixtures | `npm run test:ai:dry-run` | None |
+| Real image extraction eval | `npm run test:image-extraction:real` | Image model and LangSmith if tracing is enabled |
 | Run all real deterministic evals | `npm run eval:ai:deterministic` | Models and eval database |
 | Run supported judges plus worker deterministic evals | `npm run eval:ai:judge` | Agent models, judge model, and eval database |
 
@@ -65,6 +67,30 @@ Run validator unit tests:
 ```bash
 npm run test:ai:validators
 ```
+
+Run safe image extraction tests:
+
+```bash
+npm run test:image-extraction
+```
+
+This runs only the mocked LangSmith/image-handler test and the mocked upload-to-material-extraction route test. It does not call models and does not import the real image extraction eval file.
+
+Run the real material invoice image extraction eval after loading `.env`:
+
+```bash
+set -a
+source .env
+set +a
+npm run test:image-extraction:real
+```
+
+This is the only image extraction test script that imports the real image extraction eval file. It calls the image extraction model against `test/fixtures/meta-webhook/material-invoice.jpg` and compares the extracted rows with `test/fixtures/meta-webhook/material-invoice.expected.json`. It prints a row-by-row, field-by-field comparison for `name`, `cost`, `invoiceNr`, `invoiceDate`, `costCode`, `quantity`, and `construction_material_id`, including missing and extra extracted rows. It does not write BIS records or send WhatsApp messages.
+
+If this command prints warnings before the test result:
+
+- `ts-jest` `globals` deprecation means Jest is still configuring ts-jest under `globals`. Keep the ts-jest options inside `jest.config.js` `transform` by passing them to `createDefaultPreset(...)`.
+- LangSmith UUID v7 warnings mean a LangChain run was created with a UUID v4 or other custom ID. Image extraction traces should pass `runId: uuid7()` from `langsmith` in the runnable config so LangSmith receives a UUID v7 root run ID.
 
 Run real dashboard AI evals after loading `.env`:
 
@@ -137,6 +163,12 @@ OPENAI_API_KEY=...
 DATABASE_URL=...
 AI_EVAL_SITE_ID=...
 AI_EVAL_USER_ID=...
+```
+
+The real image extraction eval also requires:
+
+```env
+RUN_META_IMAGE_AI_EVAL=true
 ```
 
 WhatsApp site-manager preconditions:
