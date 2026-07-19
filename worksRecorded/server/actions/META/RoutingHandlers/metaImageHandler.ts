@@ -1,8 +1,7 @@
 // download_media.js
 
-import { wrapOpenAI } from "langsmith/wrappers/openai";
-import OpenAI from "openai";
-import { zodTextFormat } from "openai/helpers/zod";
+import { ChatOpenAI } from "@langchain/openai";
+import { uuid7 } from "langsmith";
 import { UTApi } from "uploadthing/server";
 import { z } from "zod";
 import { prisma } from "@/lib/utils/db";
@@ -17,15 +16,9 @@ import {
 
 const TOKEN = process.env.META_ACCESS_TOKEN
 
-const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-});
-
-const tracedClient = wrapOpenAI(client);
-
 const utapi = new UTApi();
 
-//This we use for just when we have no acess to IP.
+//This we use for just when we have no access to IP.
 export const mockupCategories = [
   {
     id: '2195',
@@ -275,24 +268,42 @@ function buildMetaMaterialLangSmithExtra(args: {
   }
 }
 
-type TracedOpenAIResponse = {
-  output_text: string
+function buildLangChainRunConfig(args: {
+  name: MetaMaterialLangSmithRunName
+  model: string
+  publicUrl: string
+  context?: MetaMaterialContext | null
+}) {
+  const extra = buildMetaMaterialLangSmithExtra(args)
+  return {
+    runId: uuid7(),
+    runName: extra.name,
+    tags: extra.tags,
+    metadata: extra.metadata,
+  }
 }
 
-type TracedOpenAIResponsesCreate = (
-  payload: unknown,
-  options: {
-    langsmithExtra: ReturnType<typeof buildMetaMaterialLangSmithExtra>
-  },
-) => Promise<TracedOpenAIResponse>
-
-function createTracedOpenAIResponse(
-  payload: unknown,
-  langsmithExtra: ReturnType<typeof buildMetaMaterialLangSmithExtra>,
-) {
-  const createResponse =
-    tracedClient.responses.create as unknown as TracedOpenAIResponsesCreate
-  return createResponse(payload, { langsmithExtra })
+function buildImageMessage(args: {
+  publicUrl: string
+  prompt: string
+}) {
+  return [
+    {
+      role: "user" as const,
+      content: [
+        {
+          type: "text",
+          text: args.prompt,
+        },
+        {
+          type: "image_url",
+          image_url: {
+            url: args.publicUrl,
+          },
+        },
+      ],
+    },
+  ]
 }
 
 async function resolveMetaMaterialContext(senderPhone?: string | null): Promise<MetaMaterialContext | null> {
@@ -341,44 +352,204 @@ export async function classifyMaterialDocumentImage(
   publicUrl: string,
   context?: MetaMaterialContext | null,
 ) {
-  const response = await createTracedOpenAIResponse(
-    {
-      model: metaMaterialImageClassifierModel,
-      temperature: metaMaterialImageClassifierTemperature,
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_image",
-              image_url: publicUrl,
-            },
-            {
-              type: "input_text",
-              text: `Classify this WhatsApp image for a construction site diary workflow.
+  const llm = new ChatOpenAI({
+    model: metaMaterialImageClassifierModel,
+    temperature: metaMaterialImageClassifierTemperature,
+    useResponsesApi: true,
+  });
+  const classifier = llm.withStructuredOutput(materialImageClassificationSchema, {
+    name: "material_image_classification",
+    method: "jsonSchema",
+    strict: true,
+  });
 
-Return isMaterialDocument=true only when the image is a readable document, receipt, delivery note, invoice, label, or table that lists construction materials/products/quantities/costs.
+  return classifier.invoke(
+    buildImageMessage({
+      publicUrl,
+      prompt: `You are routing WhatsApp images for a construction site diary.
 
-Return false for normal progress photos, selfies, site photos, equipment photos, drawings without material line items, or blurry/unreadable images.
+Task:
+Decide whether this image should go to construction-material invoice extraction.
 
-Be conservative: if you cannot see material line items or document-like text, return false.`,
-            },
-          ],
-        },
-      ],
-      text: {
-        format: zodTextFormat(materialImageClassificationSchema, "material_image_classification"),
-      },
-    },
-    buildMetaMaterialLangSmithExtra({
+Return isMaterialDocument=true only when all of these are true:
+1. The image is readable enough to inspect text.
+2. It is a document-like source, such as an invoice, receipt, delivery note, bill of lading, purchase order, product label, price table, or supplier document.
+3. It contains construction material or product line items, quantities, units, prices, invoice numbers, delivery references, or similar purchasing details.
+
+Return isMaterialDocument=false for:
+- normal site progress photos
+- selfies or people photos
+- equipment-only photos
+- drawings/plans without material purchase rows
+- screenshots or chat messages without material line items
+- unreadable, cropped, or blurry images
+- documents that are not about construction materials
+
+Confidence guidance:
+- 0.90-1.00: clear material invoice/receipt/delivery note with readable rows
+- 0.70-0.89: likely material document, but some fields are partly unclear
+- 0.40-0.69: document-like image, but material rows are uncertain
+- 0.00-0.39: not a material document or not readable
+
+Be conservative. If material line items are not visible, return false.`,
+    }),
+    buildLangChainRunConfig({
       name: "MetaMaterialImageClassification",
       model: metaMaterialImageClassifierModel,
       publicUrl,
       context,
     }),
   );
+}
 
-  return materialImageClassificationSchema.parse(JSON.parse(response.output_text));
+function buildMaterialExtractionSchema(ids: string[]) {
+  return z.object({
+    items: z.array(z.object({
+      name: z.string().describe("Invoice line name exactly as written in the document. Do not translate."),
+      cost: z.number().describe("Line total cost for this invoice row. Use 0 only when no price or line total is visible."),
+      invoiceNr : z.string().describe("Invoice, receipt, delivery note, or document number. Use an empty string if not visible."),
+      invoiceDate : z.string().nullable().describe("Document date as an ISO string, for example 2025-12-04T00:00:00Z. Use null if not visible."),
+      costCode: z.string().describe("Visible cost/project code. If no code is visible, generate a stable row code in order: CC-1001, CC-1002, CC-1003, ..."),
+      quantity: z.number().describe("Quantity for this invoice row. Prefer the row quantity visible in the document; do not multiply by package size unless the document explicitly provides only package count and package size as the usable quantity."),
+      construction_material_id: z.enum(ids as [string, ...string[]]).describe("Best matching category id from the allowed category list, or no_match.")
+    }))
+  })
+}
+
+type MaterialExtractionPayload = z.infer<ReturnType<typeof buildMaterialExtractionSchema>>
+
+export async function extractBISMaterialsFromPublicUrl(args: {
+  publicUrl: string
+  context?: MetaMaterialContext | null
+  categories?: typeof mockupCategories
+}) {
+  const categories = args.categories ?? mockupCategories
+  const ids = [...categories.map(m => m.id), "no_match"];
+  const responseSchema = buildMaterialExtractionSchema(ids)
+  const extractionModel = "gpt-5.4";
+  const llm = new ChatOpenAI({
+    model: extractionModel,
+    temperature: 0,
+    useResponsesApi: true,
+  });
+  const extractor = llm.withStructuredOutput(responseSchema, {
+    name: "material_invoice_extraction",
+    method: "jsonSchema",
+    strict: true,
+  });
+
+  return extractor.invoke(
+    buildImageMessage({
+      publicUrl: args.publicUrl,
+      prompt: `You are extracting construction material purchases from one WhatsApp image.
+
+Goal:
+Return an object with an items array. Each item represents one invoice line that should be tracked from a construction material/spend invoice.
+
+Include:
+- construction materials and products
+- tools, equipment, lighting, fixtures, consumables, pallets, packaging, deposits, and delivery/transport service rows when they are invoice lines related to the material purchase
+- rows that do not match a BIS material category, using construction_material_id = no_match
+
+Ignore only:
+- VAT/tax-only rows
+- totals, subtotals, balance due, payment rows, and discount summary rows
+- unreadable rows
+
+Allowed material categories:
+${categories.map(c =>
+                            `- ${c.id}: ${c.material_kind}; target_unit=${c.measurement_unit}`
+                        ).join("\n")}
+
+Output fields:
+- name: copy the product/material name from the document in the original language. Do not translate or normalize brand names.
+- invoiceNr: copy the invoice, receipt, delivery note, waybill, or document number. Use an empty string if no document number is visible.
+- invoiceDate: use the document date when visible. If multiple dates exist, prefer invoice/receipt issue date over due date or delivery date. Return an ISO string at midnight UTC, for example 2025-12-04T00:00:00Z. Use null if no date is visible.
+- costCode: copy a visible project/cost code from the document. If no row cost code is visible, generate a stable row code in invoice order: CC-1001, CC-1002, CC-1003, and so on.
+- cost: use the line total for that material row, excluding VAT when both net and gross are visible. If only gross total is visible, use it. If only unit price is visible, multiply by the extracted invoice quantity. Use 0 only when no price is visible.
+- construction_material_id: select the best id from the allowed material categories. Use no_match when none fits confidently.
+- quantity: return the numeric quantity for the row.
+
+Quantity rules:
+1. Prefer the row quantity printed in the invoice table.
+2. Preserve decimals. Convert comma decimals to dot decimals.
+3. Do not multiply quantity by package size when the invoice already has a row quantity.
+4. Use package size from the product name only when the printed row quantity is not directly usable.
+5. If a category unit is tonnes and the visible row quantity is kilograms, convert kilograms to tonnes.
+6. If the row unit is unclear, keep the visible numeric row quantity.
+
+Category matching rules:
+1. Match by material meaning, not by supplier or brand.
+2. Prefer the most specific category that clearly matches the line item.
+3. Do not force a category when the material kind is ambiguous.
+4. Never output a category id that is not in the allowed list.
+
+Examples:
+- "80 maisi x Cements 25 kg" matched to a unit category means quantity = 80, the total amount can be calculated by user later.
+- "5 gab. Grunts 10 L" matched to a unit category means quantity = 5.
+- "Armatūra 12 mm, 120 m" matched to a meter category means quantity = 120.
+- "1 palete bloki, 48 gab." matched to a piece category means quantity = 48.
+- "10 kg Siešanas stieple" matched to a tonne category means quantity = 0.01.
+
+Quality rules:
+- Extract only facts visible in the image.
+- If a row is unreadable, skip it.
+- Do not merge distinct material rows unless the document itself groups them as one line.
+- Return an empty items array if no material line item is readable.`,
+    }),
+    buildLangChainRunConfig({
+      name: "MetaMaterialInvoiceExtraction",
+      model: extractionModel,
+      publicUrl: args.publicUrl,
+      context: args.context,
+    }),
+  );
+}
+
+export function enrichBISMaterialPayload(
+  payload: MaterialExtractionPayload,
+  categories: typeof mockupCategories = mockupCategories,
+) {
+  const categoryMap = new Map(
+    categories.map(c => [c.id, c])
+  )
+
+  return {
+    items: payload.items.map(item => {
+      if (item.construction_material_id === "no_match") {
+        return {
+          ...item,
+          measurementId: null,
+          measurementUnit: null,
+          categoryName: null
+        }
+      }
+
+      const category = categoryMap.get(item.construction_material_id)
+
+      return {
+        ...item,
+        measurementId: category?.measurement ?? null,
+        measurementUnit: category?.measurement_unit ?? null,
+        categoryName: category?.material_kind ?? null
+      }
+    })
+  }
+}
+
+export async function extractAndEnrichBISMaterialsFromPublicUrl(args: {
+  publicUrl: string
+  context?: MetaMaterialContext | null
+  categories?: typeof mockupCategories
+}) {
+  const categories = args.categories ?? mockupCategories
+  const payload = await extractBISMaterialsFromPublicUrl({
+    publicUrl: args.publicUrl,
+    context: args.context,
+    categories,
+  })
+
+  return enrichBISMaterialPayload(payload, categories)
 }
 
 export async function processMaterialDocumentImageFromPublicUrl(args: {
@@ -412,159 +583,17 @@ export async function extractAndSaveBISMaterialsFromPublicUrl(
   resolvedContext?: MetaMaterialContext | null,
 ) {
     const context = resolvedContext ?? await resolveMetaMaterialContext(senderPhone)
-
-    // const categories = await getBisCategories_12I7_075() <---- uncomment when have access to IP
-
-
-    const categories = mockupCategories
-
-    // Create map of categories by id
-        const categoryMap = new Map(
-        categories.map(c => [c.id, c])
-        )
-
-    const ids = [...categories.map(m => m.id), "no_match"];
-
-
-
-
-
-
-    const responseSchema = z.object({
-
-        items: z.array(z.object({
-
-            name: z.string(),
-            cost: z.number(),
-            invoiceNr : z.string(),
-            invoiceDate : z.coerce.date().nullable().optional(),
-            costCode: z.string(),
-            quantity: z.number().describe(`Extract quantity for every invoice line. When category matched convert to measurement_unit; when no_match keep the original invoice quantity`),
-            construction_material_id: z.enum(ids as [string, ...string[]])
-        }))
-
-
-
+    const payload = await extractAndEnrichBISMaterialsFromPublicUrl({
+      publicUrl,
+      context,
     })
 
-
-
-
-
-
-
-
-    const extractionModel = "gpt-5.4";
-    const gptDocumentResponse = await createTracedOpenAIResponse(
-      {
-        model: extractionModel,
-        temperature: 0,
-        input: [
-            {
-                role: "user",
-                content: [
-                    {
-                        type: "input_image",
-                        image_url: publicUrl
-                    },
-                    {
-                        type: "input_text",
-                        text: `
-Extract construction invoice line items from the image.
-
-Return:
-- name (original language from the document, do NOT translate)
-- quantity
-- invoice Nr
-- invoice Nr
-- cost code (just make it up)
-- cost
-- construction_material_id
-
-Available categories:
-
-${categories.map(c =>
-                            `${c.id} | ${c.material_kind} | unit: ${c.measurement_unit}`
-                        ).join("\n")}
-
-Rules:
-
-1. Match each invoice item to the best material_kind.
-2. If nothing matches, return "no_match".
-3. Quantity MUST always be extracted, even if no category match is found.
-4. If a category is selected, convert quantity to that category unit.
-5. If construction_material_id is "no_match", keep quantity in original invoice unit (do not skip quantity).
-6. If the invoice unit is "gabals", "iepakojums", "pack", "bag", etc, extract the real weight or volume from the product name.
-7. Keep extracted textual values in the original document language. Never translate names.
-
-Important:
-Packaging size is often written in the product name.
-
-Examples:
-"25kg grout bag" → 25 kg per bag
-"5kg plaster pack" → 5 kg per pack
-"1m3 concrete" → 1 m3
-
-If invoice says:
-80 bags × 25 kg → quantity = 2000 kg
-
-Always output the converted quantity.
-`
-                    }
-                ]
-            }
-        ],
-        text: {
-            format: zodTextFormat(responseSchema, "event"),
-        },
-      },
-      buildMetaMaterialLangSmithExtra({
-            name: "MetaMaterialInvoiceExtraction",
-            model: extractionModel,
-            publicUrl,
-            context,
-        }),
-    );
-
-    const payload = JSON.parse(gptDocumentResponse.output_text)
-
-        payload.items = payload.items.map(item => {
-        if (item.construction_material_id === "no_match") {
-            return {
-            ...item,
-            measurementId: null,
-            measurementUnit: null,
-            categoryName: null
-            }
-        }
-
-        const category = categoryMap.get(item.construction_material_id)
-
-        return {
-            ...item,
-            measurementId: category?.measurement ?? null,
-            measurementUnit: category?.measurement_unit ?? null,
-            categoryName: category?.material_kind ?? null
-        }
-        })
-
-
-
-    //Here we need to enrich this payload with
-
-    console.log(`THis is GPT output : ${gptDocumentResponse.output_text}`)
-    console.log(`And this are categories : ${categories}`)
-
+    console.log(`THis is GPT output : ${JSON.stringify(payload)}`)
+    console.log(`And this are categories : ${mockupCategories}`)
 
     await saveBISMaterialPayloadToDatabase(payload, publicUrl, context)
 
-    return gptDocumentResponse.output_text;
-
-
-
-
-
-
+    return JSON.stringify(payload);
 }
 
 //Ok now need to save the response
