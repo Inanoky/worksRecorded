@@ -140,7 +140,12 @@ describe("default-construction site diary summaries", () => {
         { ...rows[0], Units: "pcs", Amounts: 3, TimeInvolved: 1 },
       ],
       productivitySettings: [
-        { work: "MASONRY", unit: "m2", laborNormHoursPerUnit: 0.5 },
+        {
+          work: "MASONRY",
+          unit: "m2",
+          laborNormHoursPerUnit: 0.5,
+          hourlyCost: 20,
+        },
       ],
     });
 
@@ -152,6 +157,12 @@ describe("default-construction site diary summaries", () => {
       actualNorm: 0.7,
       hoursDifference: 4,
       normDifference: 0.2,
+      hourlyCost: 20,
+      plannedCost: 200,
+      actualCost: 280,
+      costDifference: 80,
+      plannedUnitCost: 10,
+      actualUnitCost: 14,
       comparisonStatus: "behind",
       matchesConfiguredUnit: true,
       hasConfiguredPlan: true,
@@ -174,6 +185,11 @@ describe("default-construction site diary summaries", () => {
       actualHours: 14,
       hoursDifference: 4,
       status: "behind",
+      costComparableGroups: 1,
+      plannedCost: 200,
+      actualCost: 280,
+      costDifference: 80,
+      costStatus: "behind",
     });
   });
 
@@ -200,7 +216,12 @@ describe("default-construction site diary summaries", () => {
         { ...rows[0], Amounts: 2, TimeInvolved: null },
       ],
       productivitySettings: [
-        { work: "Masonry", unit: "m2", laborNormHoursPerUnit: 1 },
+        {
+          work: "Masonry",
+          unit: "m2",
+          laborNormHoursPerUnit: 1,
+          hourlyCost: 20,
+        },
       ],
     });
 
@@ -214,6 +235,10 @@ describe("default-construction site diary summaries", () => {
       plannedHours: 10,
       actualNorm: 0.5,
       hoursDifference: -5,
+      plannedUnitCost: 20,
+      actualUnitCost: 8.33,
+      plannedCost: 200,
+      actualCost: 100,
       comparisonStatus: "on_or_ahead",
       isComparable: true,
     });

@@ -30,6 +30,7 @@ type WorkDraft = {
   work: string;
   unit: string;
   laborNormHoursPerUnit: string;
+  hourlyCost: string;
 };
 
 const PRODUCTIVITY_MESSAGES = {
@@ -38,9 +39,12 @@ const PRODUCTIVITY_MESSAGES = {
     unit: "Unit",
     timeNorm: "Time norm",
     normHint: "hours / unit",
+    hourlyCost: "Hourly cost",
+    hourlyCostHint: "EUR / hour",
     selectUnit: "No unit",
     addWork: "Add work",
     invalidNorm: "Time norm must be a number greater than zero.",
+    invalidHourlyCost: "Hourly cost must be a number greater than zero.",
     unitRequired: "Select a unit when a time norm is set.",
   },
   lv: {
@@ -48,9 +52,12 @@ const PRODUCTIVITY_MESSAGES = {
     unit: "Mērv.",
     timeNorm: "Laika norma",
     normHint: "stundas / mērv.",
+    hourlyCost: "Stundas likme",
+    hourlyCostHint: "EUR / stundā",
     selectUnit: "Nav norādīta",
     addWork: "Pievienot darbu",
     invalidNorm: "Laika normai jābūt skaitlim, kas lielāks par nulli.",
+    invalidHourlyCost: "Stundas likmei jābūt skaitlim, kas lielāks par nulli.",
     unitRequired: "Ja norādīta laika norma, izvēlieties mērvienību.",
   },
 } as const;
@@ -105,6 +112,7 @@ export function SiteDiaryOptionsManager({
               row.laborNormHoursPerUnit == null
                 ? ""
                 : String(row.laborNormHoursPerUnit),
+            hourlyCost: row.hourlyCost == null ? "" : String(row.hourlyCost),
           })),
         );
       })
@@ -186,6 +194,7 @@ export function SiteDiaryOptionsManager({
       work: string;
       unit: string;
       laborNormHoursPerUnit: number | null;
+      hourlyCost: number | null;
     }> = [];
     for (const row of works) {
       const work = row.work.trim();
@@ -215,10 +224,21 @@ export function SiteDiaryOptionsManager({
         toast.error(p.unitRequired);
         return;
       }
+      const rawHourlyCost = row.hourlyCost.trim();
+      const parsedHourlyCost =
+        rawHourlyCost === "" ? null : Number(rawHourlyCost.replace(",", "."));
+      if (
+        rawHourlyCost !== "" &&
+        (!Number.isFinite(parsedHourlyCost) || Number(parsedHourlyCost) <= 0)
+      ) {
+        toast.error(p.invalidHourlyCost);
+        return;
+      }
       normalizedWorks.push({
         work,
         unit,
         laborNormHoursPerUnit: parsedNorm,
+        hourlyCost: parsedHourlyCost,
       });
     }
 
@@ -247,7 +267,7 @@ export function SiteDiaryOptionsManager({
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="flex h-[75vh] max-h-[75vh] w-[96vw] max-w-[980px] flex-col overflow-hidden sm:max-w-[980px]">
+        <DialogContent className="flex h-[75vh] max-h-[75vh] w-[96vw] max-w-[1120px] flex-col overflow-hidden sm:max-w-[1120px]">
           <DialogHeader>
             <DialogTitle>{t.manageOptionsTitle}</DialogTitle>
           </DialogHeader>
@@ -301,7 +321,7 @@ export function SiteDiaryOptionsManager({
                 setSearch("");
                 setWorks((current) => [
                   ...current,
-                  { work: "", unit: "", laborNormHoursPerUnit: "" },
+                  { work: "", unit: "", laborNormHoursPerUnit: "", hourlyCost: "" },
                 ]);
               }}
             >
@@ -360,16 +380,17 @@ export function SiteDiaryOptionsManager({
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-[minmax(220px,1fr)_150px_160px_40px] gap-2 px-2 text-xs font-medium text-muted-foreground">
+                <div className="grid grid-cols-[minmax(220px,1fr)_140px_150px_150px_40px] gap-2 px-2 text-xs font-medium text-muted-foreground">
                   <div>{p.workName}</div>
                   <div>{p.unit}</div>
                   <div>{p.timeNorm}</div>
+                  <div>{p.hourlyCost}</div>
                   <div />
                 </div>
                 {visibleWorks.map(({ work, index }) => {
                   const availableUnits = Array.from(new Set([...unitOptions, work.unit].filter(Boolean)));
                   return (
-                    <div key={index} className="grid grid-cols-[minmax(220px,1fr)_150px_160px_40px] items-center gap-2 rounded-md border p-2">
+                    <div key={index} className="grid grid-cols-[minmax(220px,1fr)_140px_150px_150px_40px] items-center gap-2 rounded-md border p-2">
                       <Input value={work.work} maxLength={MAX_OPTION_LENGTH} onChange={(event) => updateWork(index, { work: event.target.value })} />
                       <select
                         value={work.unit}
@@ -384,6 +405,12 @@ export function SiteDiaryOptionsManager({
                         inputMode="decimal"
                         placeholder={p.normHint}
                         onChange={(event) => updateWork(index, { laborNormHoursPerUnit: event.target.value })}
+                      />
+                      <Input
+                        value={work.hourlyCost}
+                        inputMode="decimal"
+                        placeholder={p.hourlyCostHint}
+                        onChange={(event) => updateWork(index, { hourlyCost: event.target.value })}
                       />
                       <Button type="button" size="icon" variant="ghost" onClick={() => setWorks((current) => current.filter((_, rowIndex) => rowIndex !== index))} aria-label={t.deleteOption}>
                         <Trash2 className="h-4 w-4 text-destructive" />

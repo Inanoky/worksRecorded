@@ -5,10 +5,11 @@ export type DefaultConstructionWorkProductivitySetting = {
   work: string;
   unit: string;
   laborNormHoursPerUnit: number | null;
+  hourlyCost?: number | null;
 };
 
 export type DefaultConstructionProductivitySettings = {
-  version: 1;
+  version: 2;
   works: DefaultConstructionWorkProductivitySetting[];
 };
 
@@ -50,6 +51,7 @@ export function getDefaultConstructionProductivitySettings(
       work,
       unit: String(raw?.unit ?? "").trim(),
       laborNormHoursPerUnit: readPositiveNorm(raw?.laborNormHoursPerUnit),
+      hourlyCost: readPositiveNorm(raw?.hourlyCost),
     });
   }
 
@@ -60,10 +62,11 @@ export function getDefaultConstructionProductivitySettings(
       work,
       unit: saved?.unit ?? "",
       laborNormHoursPerUnit: saved?.laborNormHoursPerUnit ?? null,
+      hourlyCost: saved?.hourlyCost ?? null,
     };
   });
 
-  return { version: 1, works };
+  return { version: 2, works };
 }
 
 export function getDefaultConstructionOptionValues(config: Record<string, any>) {
@@ -98,7 +101,12 @@ export function normalizeDefaultConstructionWorkSettings(
       throw new Error(`Select a unit for the time norm: ${work}`);
     }
 
-    result.push({ work, unit, laborNormHoursPerUnit: norm });
+    const hourlyCost = readPositiveNorm(row?.hourlyCost);
+    if (row?.hourlyCost != null && hourlyCost == null) {
+      throw new Error(`Hourly cost must be greater than zero for: ${work}`);
+    }
+
+    result.push({ work, unit, laborNormHoursPerUnit: norm, hourlyCost });
   }
 
   return result;

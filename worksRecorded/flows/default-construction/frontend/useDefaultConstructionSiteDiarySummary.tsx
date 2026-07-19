@@ -32,9 +32,10 @@ const MESSAGES = {
     plannedHours: "Planned hours",
     actualHours: "Actual hours",
     comparedActualHours: "Actual hours",
-    plannedNorm: "Planned norm",
-    actualNorm: "Actual norm",
-    difference: "Difference",
+    plannedUnitCost: "Planned unit cost",
+    actualUnitCost: "Actual unit cost",
+    plannedCost: "Total planned cost",
+    actualCost: "Total actual cost",
     loading: "Loading summary...",
     loadFailed: "Failed to load summary.",
     close: "Close summary",
@@ -58,9 +59,10 @@ const MESSAGES = {
     plannedHours: "Plāna stundas",
     actualHours: "Faktiskās stundas",
     comparedActualHours: "Faktiskās stundas",
-    plannedNorm: "Plāna norma",
-    actualNorm: "Fakt. norma",
-    difference: "Starpība",
+    plannedUnitCost: "Plāna vienības izmaksas",
+    actualUnitCost: "Faktiskās vienības izmaksas",
+    plannedCost: "Kopējās plāna izmaksas",
+    actualCost: "Kopējās faktiskās izmaksas",
     loading: "Ielādē kopsavilkumu...",
     loadFailed: "Neizdevās ielādēt kopsavilkumu.",
     close: "Aizvērt kopsavilkumu",
@@ -79,9 +81,13 @@ function formatNumber(value: number, locale: string, maximumFractionDigits = 2) 
   });
 }
 
-function formatDifference(value: number, locale: string) {
-  const formatted = formatNumber(value, locale);
-  return value > 0 ? `+${formatted}` : formatted;
+function formatCurrency(value: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function badgeComparisonClasses(status: DefaultConstructionComparisonStatus) {
@@ -116,6 +122,44 @@ function SummaryPanel({
     selection.scope === "project"
       ? `${t.project}: ${t.wholeProject}`
       : `${selection.scope === "location" ? t.location : t.work}: ${selection.value}`;
+  const badgeTiles: Array<{
+    label: string;
+    value: string;
+    status?: DefaultConstructionComparisonStatus;
+  }> = summary
+    ? [
+        {
+          label: t.plannedHours,
+          value: summary.comparison.comparableGroups
+            ? `${formatNumber(summary.comparison.plannedHours, locale)} h`
+            : "—",
+        },
+        {
+          label: t.comparedActualHours,
+          value: summary.comparison.comparableGroups
+            ? `${formatNumber(summary.comparison.actualHours, locale)} h`
+            : "—",
+          status: summary.comparison.status,
+        },
+        ...(selection.scope === "project"
+          ? [
+              {
+                label: t.plannedCost,
+                value: summary.comparison.costComparableGroups
+                  ? formatCurrency(summary.comparison.plannedCost, locale)
+                  : "—",
+              },
+              {
+                label: t.actualCost,
+                value: summary.comparison.costComparableGroups
+                  ? formatCurrency(summary.comparison.actualCost, locale)
+                  : "—",
+                status: summary.comparison.costStatus,
+              },
+            ]
+          : []),
+      ]
+    : [];
   return (
     <div className="mb-4 rounded-md border bg-background px-3 py-3 shadow-sm sm:px-4">
       <div className="flex items-start justify-between gap-3">
@@ -158,22 +202,8 @@ function SummaryPanel({
         ) : (
           <>
             <div className="mt-4 flex flex-wrap gap-2">
-              {[
-                {
-                  label: t.plannedHours,
-                  value: summary.comparison.comparableGroups
-                    ? `${formatNumber(summary.comparison.plannedHours, locale)} h`
-                    : "—",
-                },
-                {
-                  label: t.comparedActualHours,
-                  value: summary.comparison.comparableGroups
-                    ? `${formatNumber(summary.comparison.actualHours, locale)} h`
-                    : "—",
-                  status: summary.comparison.status,
-                },
-              ].map((tile) => {
-                const status = "status" in tile ? tile.status : undefined;
+              {badgeTiles.map((tile) => {
+                const status = tile.status;
                 return (
                   <div
                     key={tile.label}
@@ -193,19 +223,20 @@ function SummaryPanel({
 
             {summary.breakdown.length ? (
               <div className="mt-3 overflow-x-auto rounded-md border">
-                <div className="min-w-[1120px]">
+                <div className="min-w-[1320px]">
                   <div className="border-b bg-muted/40 px-3 py-2 text-sm font-semibold">
                     {t.breakdownWorks}
                   </div>
-                  <div className="grid grid-cols-[minmax(260px,1fr)_90px_110px_110px_110px_130px_130px_110px] bg-muted/20 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
+                  <div className="grid grid-cols-[minmax(260px,1fr)_80px_100px_115px_115px_145px_145px_150px_150px] bg-muted/20 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
                     <div>{t.itemWork}</div>
                     <div>{t.unit}</div>
                     <div className="text-right">{t.amount}</div>
                     <div className="text-right">{t.plannedHours}</div>
                     <div className="text-right">{t.actualHours}</div>
-                    <div className="text-right">{t.plannedNorm}</div>
-                    <div className="text-right">{t.actualNorm}</div>
-                    <div className="text-right">{t.difference}</div>
+                    <div className="text-right">{t.plannedUnitCost}</div>
+                    <div className="text-right">{t.actualUnitCost}</div>
+                    <div className="text-right">{t.plannedCost}</div>
+                    <div className="text-right">{t.actualCost}</div>
                   </div>
                   {summary.breakdown.map((row) => (
                     <div
@@ -216,7 +247,7 @@ function SummaryPanel({
                           : undefined
                       }
                       className={cn(
-                        "grid grid-cols-[minmax(260px,1fr)_90px_110px_110px_110px_130px_130px_110px] border-t px-3 py-2 text-sm",
+                        "grid grid-cols-[minmax(260px,1fr)_80px_100px_115px_115px_145px_145px_150px_150px] border-t px-3 py-2 text-sm",
                         row.comparisonStatus === "behind" && "bg-red-50",
                         row.comparisonStatus === "on_or_ahead" && "bg-emerald-50",
                       )}
@@ -231,10 +262,17 @@ function SummaryPanel({
                         {formatNumber(row.isComparable ? row.comparedHours : row.hours, locale)} h
                       </div>
                       <div className="text-right tabular-nums">
-                        {row.plannedNorm == null ? "—" : formatNumber(row.plannedNorm, locale, 4)}
+                        {row.plannedUnitCost == null
+                          ? "—"
+                          : formatCurrency(row.plannedUnitCost, locale)}
                       </div>
                       <div className="text-right tabular-nums">
-                        {row.actualNorm == null ? "—" : formatNumber(row.actualNorm, locale, 4)}
+                        {row.actualUnitCost == null
+                          ? "—"
+                          : formatCurrency(row.actualUnitCost, locale)}
+                      </div>
+                      <div className="text-right tabular-nums">
+                        {row.plannedCost == null ? "—" : formatCurrency(row.plannedCost, locale)}
                       </div>
                       <div className={cn(
                         "text-right font-medium tabular-nums",
@@ -242,7 +280,7 @@ function SummaryPanel({
                         row.comparisonStatus === "on_or_ahead" && "text-emerald-700",
                         row.comparisonStatus === "neutral" && "text-muted-foreground",
                       )}>
-                        {row.hoursDifference == null ? "—" : `${formatDifference(row.hoursDifference, locale)} h`}
+                        {row.actualCost == null ? "—" : formatCurrency(row.actualCost, locale)}
                       </div>
                     </div>
                   ))}

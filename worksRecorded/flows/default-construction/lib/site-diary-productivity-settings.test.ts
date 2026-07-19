@@ -10,7 +10,7 @@ describe("default-construction productivity settings", () => {
         Works: { DropDownOptions: { Masonry: "Masonry" } },
       }).works,
     ).toEqual([
-      { work: "Masonry", unit: "", laborNormHoursPerUnit: null },
+      { work: "Masonry", unit: "", laborNormHoursPerUnit: null, hourlyCost: null },
     ]);
   });
 
@@ -21,7 +21,7 @@ describe("default-construction productivity settings", () => {
         defaultConstructionProductivity: {
           version: 1,
           works: [
-            { work: "masonry", unit: "m2", laborNormHoursPerUnit: 0.4 },
+            { work: "masonry", unit: "m2", laborNormHoursPerUnit: 0.4, hourlyCost: 18.5 },
             { work: "Deleted", unit: "pcs", laborNormHoursPerUnit: 1 },
           ],
         },
@@ -29,17 +29,17 @@ describe("default-construction productivity settings", () => {
     });
 
     expect(result.works).toEqual([
-      { work: "Masonry", unit: "m2", laborNormHoursPerUnit: 0.4 },
+      { work: "Masonry", unit: "m2", laborNormHoursPerUnit: 0.4, hourlyCost: 18.5 },
     ]);
   });
 
   it("preserves a setting when its work is renamed in the structured editor", () => {
     expect(
       normalizeDefaultConstructionWorkSettings([
-        { work: "New work name", unit: "m3", laborNormHoursPerUnit: 0.75 },
+        { work: "New work name", unit: "m3", laborNormHoursPerUnit: 0.75, hourlyCost: 22 },
       ]),
     ).toEqual([
-      { work: "New work name", unit: "m3", laborNormHoursPerUnit: 0.75 },
+      { work: "New work name", unit: "m3", laborNormHoursPerUnit: 0.75, hourlyCost: 22 },
     ]);
   });
 
@@ -49,5 +49,18 @@ describe("default-construction productivity settings", () => {
         { work: "Masonry", unit: "m2", laborNormHoursPerUnit: 0 },
       ]),
     ).toThrow("Time norm");
+  });
+
+  it("rejects non-positive hourly cost", () => {
+    expect(() =>
+      normalizeDefaultConstructionWorkSettings([
+        {
+          work: "Masonry",
+          unit: "m2",
+          laborNormHoursPerUnit: 0.5,
+          hourlyCost: 0,
+        },
+      ]),
+    ).toThrow("Hourly cost");
   });
 });

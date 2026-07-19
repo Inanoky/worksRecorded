@@ -77,7 +77,7 @@ export async function saveDefaultConstructionSiteDiaryOptions(args: {
   config.otherSettings = {
     ...(config.otherSettings ?? {}),
     [DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY]: {
-      version: 1,
+      version: 2,
       works,
     },
   };
