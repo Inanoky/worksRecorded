@@ -157,6 +157,40 @@ describe("default-construction site diary summaries", () => {
     expect(result.breakdown[0].hoursDifference).toBe(0);
   });
 
+  it("compares complete rows without treating an incomplete row as zero hours", () => {
+    const result = buildDefaultConstructionScopeSummary({
+      scope: "work",
+      value: "Masonry",
+      rows: [
+        { ...rows[0], Amounts: 10, TimeInvolved: 5 },
+        { ...rows[0], Amounts: 2, TimeInvolved: null },
+      ],
+      productivitySettings: [
+        { work: "Masonry", unit: "m2", laborNormHoursPerUnit: 1 },
+      ],
+    });
+
+    expect(result.breakdown[0]).toMatchObject({
+      amount: 12,
+      hours: 5,
+      comparedAmount: 10,
+      comparedHours: 5,
+      comparedRecords: 1,
+      excludedRecords: 1,
+      plannedHours: 10,
+      actualNorm: 0.5,
+      hoursDifference: -5,
+      comparisonStatus: "on_or_ahead",
+      isComparable: true,
+    });
+    expect(result.comparison).toMatchObject({
+      plannedHours: 10,
+      actualHours: 5,
+      hoursDifference: -5,
+      status: "on_or_ahead",
+    });
+  });
+
   it.each([
     { Amounts: null, TimeInvolved: 5 },
     { Amounts: 10, TimeInvolved: null },

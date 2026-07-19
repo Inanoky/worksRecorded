@@ -40,6 +40,8 @@ const MESSAGES = {
     close: "Close summary",
     hideProject: "Hide project summary",
     showProject: "Show project summary",
+    partialComparison: (compared: number, total: number) =>
+      `Productivity calculated from ${compared} of ${total} complete records.`,
     noData: "No records found for this selection.",
   },
   lv: {
@@ -64,6 +66,8 @@ const MESSAGES = {
     close: "Aizvērt kopsavilkumu",
     hideProject: "Paslēpt projekta kopsavilkumu",
     showProject: "Rādīt projekta kopsavilkumu",
+    partialComparison: (compared: number, total: number) =>
+      `Produktivitāte aprēķināta no ${compared} no ${total} pilnīgiem ierakstiem.`,
     noData: "Šai atlasei nav atrasts neviens ieraksts.",
   },
 } as const;
@@ -225,6 +229,11 @@ function SummaryPanel({
                   {summary.breakdown.map((row) => (
                     <div
                       key={`${row.label}::${row.unit}`}
+                      title={
+                        row.excludedRecords > 0
+                          ? t.partialComparison(row.comparedRecords, row.records)
+                          : undefined
+                      }
                       className={cn(
                         "grid grid-cols-[minmax(260px,1fr)_90px_110px_110px_110px_130px_130px_110px] border-t px-3 py-2 text-sm",
                         row.comparisonStatus === "behind" && "bg-red-50",
@@ -237,7 +246,9 @@ function SummaryPanel({
                       <div className="text-right tabular-nums">
                         {row.plannedHours == null ? "—" : `${formatNumber(row.plannedHours, locale)} h`}
                       </div>
-                      <div className="text-right tabular-nums">{formatNumber(row.hours, locale)} h</div>
+                      <div className="text-right tabular-nums">
+                        {formatNumber(row.isComparable ? row.comparedHours : row.hours, locale)} h
+                      </div>
                       <div className="text-right tabular-nums">
                         {row.plannedNorm == null ? "—" : formatNumber(row.plannedNorm, locale, 4)}
                       </div>

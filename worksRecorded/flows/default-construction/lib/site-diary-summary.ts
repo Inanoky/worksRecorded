@@ -35,6 +35,10 @@ export type DefaultConstructionSummaryBreakdownRow = {
   normDifference: number | null;
   comparisonStatus: DefaultConstructionComparisonStatus;
   matchesConfiguredUnit: boolean;
+  comparedAmount: number;
+  comparedHours: number;
+  comparedRecords: number;
+  excludedRecords: number;
   isComparable: boolean;
 };
 
@@ -111,8 +115,9 @@ export function buildDefaultConstructionScopeSummary(args: {
       amount: number;
       workers: number;
       hours: number;
-      hasCompleteAmount: boolean;
-      hasCompleteHours: boolean;
+      comparedAmount: number;
+      comparedHours: number;
+      comparedRecords: number;
     }
   >();
   const dates: Date[] = [];
@@ -139,15 +144,19 @@ export function buildDefaultConstructionScopeSummary(args: {
       amount: 0,
       workers: 0,
       hours: 0,
-      hasCompleteAmount: true,
-      hasCompleteHours: true,
+      comparedAmount: 0,
+      comparedHours: 0,
+      comparedRecords: 0,
     };
     current.records += 1;
     current.amount += finiteNumber(row.Amounts);
     current.workers += workers;
     current.hours += hours;
-    current.hasCompleteAmount &&= isPresentFiniteNumber(row.Amounts);
-    current.hasCompleteHours &&= isPresentFiniteNumber(row.TimeInvolved);
+    if (isPresentFiniteNumber(row.Amounts) && isPresentFiniteNumber(row.TimeInvolved)) {
+      current.comparedAmount += Number(row.Amounts);
+      current.comparedHours += Number(row.TimeInvolved);
+      current.comparedRecords += 1;
+    }
     breakdown.set(key, current);
   }
 
@@ -165,9 +174,8 @@ export function buildDefaultConstructionScopeSummary(args: {
         unitMatches &&
         Number.isFinite(plannedNorm) &&
         plannedNorm > 0 &&
-        row.hasCompleteAmount &&
-        row.amount > 0 &&
-        row.hasCompleteHours;
+        row.comparedAmount > 0 &&
+        row.comparedRecords > 0;
 
       if (!isComparable) {
         return {
@@ -184,13 +192,17 @@ export function buildDefaultConstructionScopeSummary(args: {
           normDifference: null,
           comparisonStatus: "neutral" as const,
           matchesConfiguredUnit: unitMatches,
+          comparedAmount: round(row.comparedAmount),
+          comparedHours: round(row.comparedHours),
+          comparedRecords: row.comparedRecords,
+          excludedRecords: row.records - row.comparedRecords,
           isComparable: false,
         };
       }
 
-      const plannedHours = row.amount * plannedNorm;
-      const actualNorm = row.hours / row.amount;
-      const hoursDifference = row.hours - plannedHours;
+      const plannedHours = row.comparedAmount * plannedNorm;
+      const actualNorm = row.comparedHours / row.comparedAmount;
+      const hoursDifference = row.comparedHours - plannedHours;
       const normDifference = actualNorm - plannedNorm;
       return {
         label: row.label,
@@ -206,6 +218,10 @@ export function buildDefaultConstructionScopeSummary(args: {
         normDifference: round(normDifference, 4),
         comparisonStatus: comparisonStatus(hoursDifference),
         matchesConfiguredUnit: true,
+        comparedAmount: round(row.comparedAmount),
+        comparedHours: round(row.comparedHours),
+        comparedRecords: row.comparedRecords,
+        excludedRecords: row.records - row.comparedRecords,
         isComparable: true,
       };
     })
@@ -219,7 +235,7 @@ export function buildDefaultConstructionScopeSummary(args: {
     (sum, row) => sum + Number(row.plannedHours ?? 0),
     0,
   );
-  const actualHours = comparableRows.reduce((sum, row) => sum + row.hours, 0);
+  const actualHours = comparableRows.reduce((sum, row) => sum + row.comparedHours, 0);
   const hoursDifference = actualHours - plannedHours;
 
   return {
