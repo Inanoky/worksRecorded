@@ -451,6 +451,10 @@ type SiteDiaryDialogMessages = {
   previous: string;
   next: string;
   manageOptions: string;
+  manageOptionsTitle: string;
+  locationsWorks: string;
+  locationsTab: string;
+  worksTab: string;
   manageLocationsTitle: string;
   manageWorksTitle: string;
   searchOption: string;
@@ -1454,6 +1458,10 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     previous: "Previous",
     next: "Next",
     manageOptions: "Manage options…",
+    manageOptionsTitle: "Manage options",
+    locationsWorks: "Locations/Works",
+    locationsTab: "Locations",
+    worksTab: "Works",
     manageLocationsTitle: "Manage locations",
     manageWorksTitle: "Manage works",
     searchOption: "Search option",
@@ -1523,6 +1531,10 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     previous: "Iepriekšējā",
     next: "Nākamā",
     manageOptions: "Pārvaldīt opcijas…",
+    manageOptionsTitle: "Pārvaldīt opcijas",
+    locationsWorks: "Lokācijas/Darbi",
+    locationsTab: "Lokācijas",
+    worksTab: "Darbi",
     manageLocationsTitle: "Pārvaldīt lokācijas",
     manageWorksTitle: "Pārvaldīt darbus",
     searchOption: "Meklēt opciju",

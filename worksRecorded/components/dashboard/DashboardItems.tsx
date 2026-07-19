@@ -78,8 +78,8 @@ export function DashboardItems({
   );
   const productionJournalLabel =
     normalizeLanguageLabel(organizationLanguage) === "lv"
-      ? "Ražošanas žurnāls"
-      : "Production journal";
+      ? "Būvdarbu žurnāls"
+      : "Construction journal";
 
   const configuredProductionJournalLabel = productionNavigationConfig
     ? normalizeLanguageLabel(organizationLanguage) === "lv"

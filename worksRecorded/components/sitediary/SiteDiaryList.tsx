@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
+import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
 import {
   copySiteDiaryRecordToDate,
@@ -632,6 +633,7 @@ export default function SiteDiaryCalendar({
   // Shared dialog for editing a day
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogDate, setDialogDate] = React.useState<Date | null>(null);
+  const [optionsRevision, setOptionsRevision] = React.useState(0);
 
   // Photos dialog
   const [photosDialogOpen, setPhotosDialogOpen] = React.useState(false);
@@ -1122,7 +1124,7 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [refreshRowsWithBisSync, siteId]);
+  }, [optionsRevision, refreshRowsWithBisSync, siteId]);
 
   const hasFilledDays = filledDays.length > 0;
   const hasRecords = rows.length > 0;
@@ -2323,16 +2325,25 @@ export default function SiteDiaryCalendar({
                   {t.exportToExcel}
                 </Button>
                 {!isZtcSite ? (
-                  <Button
-                    variant="outline"
-                    onClick={exportForma2}
-                    disabled={Boolean(excelExportLoading)}
-                  >
-                    {excelExportLoading === "forma2" ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <>
+                    {siteId ? (
+                      <SiteDiaryOptionsManager
+                        siteId={siteId}
+                        organizationLanguage={organizationLanguage}
+                        onSaved={() => setOptionsRevision((revision) => revision + 1)}
+                      />
                     ) : null}
-                    Forma 2
-                  </Button>
+                    <Button
+                      variant="outline"
+                      onClick={exportForma2}
+                      disabled={Boolean(excelExportLoading)}
+                    >
+                      {excelExportLoading === "forma2" ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Forma 2
+                    </Button>
+                  </>
                 ) : null}
                 {isZtcSite ? (
                   <>
@@ -4219,6 +4230,7 @@ export default function SiteDiaryCalendar({
 
         {/* Dialog for editing / adding records (shared for both views) */}
         <DialogWindow
+          key={optionsRevision}
           open={dialogOpen}
           setOpen={setDialogOpen}
           date={dialogDate ?? calendarDate}
