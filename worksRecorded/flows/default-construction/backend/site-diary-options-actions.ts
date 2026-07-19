@@ -1,0 +1,91 @@
+"use server";
+
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import {
+  DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY,
+  getDefaultConstructionOptionValues,
+  normalizeDefaultConstructionWorkSettings,
+  type DefaultConstructionWorkProductivitySetting,
+} from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import { prisma } from "@/lib/utils/db";
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "@/server/actions/shared-actions";
+
+const MAX_OPTION_LENGTH = 200;
+
+function normalizeSimpleOptions(input: string[], label: string) {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of input) {
+    const value = String(raw ?? "").trim();
+    if (!value) throw new Error(`${label} cannot be empty`);
+    if (value.length > MAX_OPTION_LENGTH) {
+      throw new Error(`${label} must be ${MAX_OPTION_LENGTH} characters or less`);
+    }
+    const key = value.toLocaleLowerCase("lv");
+    if (seen.has(key)) throw new Error(`${label} already exists: ${value}`);
+    seen.add(key);
+    result.push(value);
+  }
+
+  return result;
+}
+
+async function readAuthorizedConfig(siteId: string) {
+  const user = await requireUser();
+  await orgCheck(user.id, siteId);
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { siteDiaryRecordsMap: true },
+  });
+  if (!site) throw new Error("Site not found");
+
+  const config =
+    site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
+      ? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
+      : structuredClone(defaultConfig as Record<string, any>);
+  return config;
+}
+
+export async function getDefaultConstructionSiteDiaryOptions(siteId: string) {
+  const config = await readAuthorizedConfig(siteId);
+  return getDefaultConstructionOptionValues(config);
+}
+
+export async function saveDefaultConstructionSiteDiaryOptions(args: {
+  siteId: string;
+  locations: string[];
+  works: DefaultConstructionWorkProductivitySetting[];
+}) {
+  const config = await readAuthorizedConfig(args.siteId);
+  const locations = normalizeSimpleOptions(args.locations, "Location");
+  const works = normalizeDefaultConstructionWorkSettings(args.works);
+
+  if (!locations.length || !works.length) {
+    throw new Error("At least one location and one work are required");
+  }
+
+  config.Location = {
+    ...(config.Location ?? (defaultConfig as Record<string, any>).Location),
+    DropDownOptions: Object.fromEntries(locations.map((value) => [value, value])),
+  };
+  config.Works = {
+    ...(config.Works ?? (defaultConfig as Record<string, any>).Works),
+    DropDownOptions: Object.fromEntries(works.map(({ work }) => [work, work])),
+  };
+  config.otherSettings = {
+    ...(config.otherSettings ?? {}),
+    [DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY]: {
+      version: 1,
+      works,
+    },
+  };
+
+  await prisma.site.update({
+    where: { id: args.siteId },
+    data: { siteDiaryRecordsMap: config },
+  });
+
+  return getDefaultConstructionOptionValues(config);
+}

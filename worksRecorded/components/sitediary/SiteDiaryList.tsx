@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
 import DialogWindow from "@/components/sitediary/DialogWindow";
 import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
+import { useDefaultConstructionSiteDiarySummary } from "@/flows/default-construction/frontend/useDefaultConstructionSiteDiarySummary";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
 import {
   copySiteDiaryRecordToDate,
@@ -878,6 +879,16 @@ export default function SiteDiaryCalendar({
     setElementFilter,
     setWorkerFilter,
   });
+  const defaultConstructionSummary = useDefaultConstructionSiteDiarySummary({
+    enabled: !isZtcSite,
+    siteId,
+    organizationLanguage,
+    locationFilter: floorFilter,
+    workFilter,
+    setViewMode,
+    setLocationFilter: setFloorFilter,
+    setWorkFilter,
+  });
   const getZtcResolvedWork = React.useCallback(
     (row: DiaryRow) =>
       isZtcSite ? resolveZtcRateTaskForRow(row, ztc.defaultRates) : null,
@@ -1569,6 +1580,7 @@ export default function SiteDiaryCalendar({
     setElementFilter("__ALL__");
     setWorkerFilter("__ALL__");
     setKeywordFilter("");
+    defaultConstructionSummary.clearSummary();
     if (keywordDebounceRef.current) {
       window.clearTimeout(keywordDebounceRef.current);
     }
@@ -2747,6 +2759,8 @@ export default function SiteDiaryCalendar({
               </Card>
             )}
 
+            {defaultConstructionSummary.panel}
+
             {ztcScopeSummaryLoading ? (
               <div className="mb-4 rounded-md border bg-background px-3 py-3 text-sm text-muted-foreground shadow-sm sm:px-4">
                 Ielādē kopsavilkumu...
@@ -3247,9 +3261,19 @@ export default function SiteDiaryCalendar({
                                     {r.Location}
                                   </button>
                                 ) : (
-                                  <span className="font-medium">
-                                    {r.Location || t.noLocation}
-                                  </span>
+                                  r.Location ? (
+                                    <button
+                                      type="button"
+                                      className="font-medium underline-offset-2 hover:text-blue-700 hover:underline"
+                                      onClick={() =>
+                                        defaultConstructionSummary.openLocationSummary(r.Location)
+                                      }
+                                    >
+                                      {r.Location}
+                                    </button>
+                                  ) : (
+                                    <span className="font-medium">{t.noLocation}</span>
+                                  )
                                 )}
                                 <span className="text-[10px] text-muted-foreground">
                                   {r.Units && r.Amounts != null
@@ -3290,9 +3314,19 @@ export default function SiteDiaryCalendar({
                                     </span>
                                   </button>
                                 ) : (
-                                  <div className="font-semibold">
-                                    {r.Works || t.noWorksRecorded}
-                                  </div>
+                                  r.Works ? (
+                                    <button
+                                      type="button"
+                                      className="block text-left font-semibold underline-offset-2 hover:text-blue-700 hover:underline"
+                                      onClick={() =>
+                                        defaultConstructionSummary.openWorkSummary(r.Works)
+                                      }
+                                    >
+                                      {r.Works}
+                                    </button>
+                                  ) : (
+                                    <div className="font-semibold">{t.noWorksRecorded}</div>
+                                  )
                                 )}
                               </div>
 
@@ -4020,6 +4054,27 @@ export default function SiteDiaryCalendar({
                                                   )}
                                                   dateLocale={dateLocale}
                                                 />
+                                              ) : !isZtcSite &&
+                                                (field === "Location" || field === "Works") ? (
+                                                <button
+                                                  type="button"
+                                                  className="line-clamp-4 text-left underline-offset-2 hover:text-blue-700 hover:underline"
+                                                  onClick={() =>
+                                                    field === "Location"
+                                                      ? defaultConstructionSummary.openLocationSummary(
+                                                          String(row[field]),
+                                                        )
+                                                      : defaultConstructionSummary.openWorkSummary(
+                                                          String(row[field]),
+                                                        )
+                                                  }
+                                                >
+                                                  {formatValueByConfig(
+                                                    field,
+                                                    row[field],
+                                                    defaultMap,
+                                                  )}
+                                                </button>
                                               ) : (
                                                 <div className="line-clamp-4">
                                                   {formatValueByConfig(
