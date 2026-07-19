@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, X } from "lucide-react";
+import { BarChart3, Loader2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getDefaultConstructionScopeSummary } from "@/flows/default-construction/backend/site-diary-summary-actions";
@@ -20,6 +20,8 @@ type SummarySelection = {
 const MESSAGES = {
   en: {
     title: "Summary",
+    project: "Project",
+    wholeProject: "Whole project",
     location: "Location",
     work: "Work",
     allPeriod: "All time",
@@ -36,10 +38,14 @@ const MESSAGES = {
     loading: "Loading summary...",
     loadFailed: "Failed to load summary.",
     close: "Close summary",
+    hideProject: "Hide project summary",
+    showProject: "Show project summary",
     noData: "No records found for this selection.",
   },
   lv: {
     title: "Kopsavilkums",
+    project: "Projekts",
+    wholeProject: "Viss projekts",
     location: "Lokācija",
     work: "Darbs",
     allPeriod: "Viss periods",
@@ -56,6 +62,8 @@ const MESSAGES = {
     loading: "Ielādē kopsavilkumu...",
     loadFailed: "Neizdevās ielādēt kopsavilkumu.",
     close: "Aizvērt kopsavilkumu",
+    hideProject: "Paslēpt projekta kopsavilkumu",
+    showProject: "Rādīt projekta kopsavilkumu",
     noData: "Šai atlasei nav atrasts neviens ieraksts.",
   },
 } as const;
@@ -100,6 +108,10 @@ function SummaryPanel({
     : "en";
   const t = MESSAGES[language];
   const locale = language === "lv" ? "lv-LV" : "en-GB";
+  const selectionLabel =
+    selection.scope === "project"
+      ? `${t.project}: ${t.wholeProject}`
+      : `${selection.scope === "location" ? t.location : t.work}: ${selection.value}`;
   const configuredQuantities = React.useMemo(() => {
     const totals = new Map<string, number>();
     for (const row of summary?.breakdown ?? []) {
@@ -122,12 +134,18 @@ function SummaryPanel({
           <div className="text-sm font-semibold text-foreground">{t.title}</div>
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span className="rounded-md bg-muted px-2 py-1">
-              {selection.scope === "location" ? t.location : t.work}: {selection.value}
+              {selectionLabel}
             </span>
             <span className="rounded-md bg-muted px-2 py-1">{t.allPeriod}</span>
           </div>
         </div>
-        <Button type="button" size="icon" variant="ghost" onClick={onClose} aria-label={t.close}>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          onClick={onClose}
+          aria-label={selection.scope === "project" ? t.hideProject : t.close}
+        >
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -250,6 +268,8 @@ export function useDefaultConstructionSiteDiarySummary(args: {
   enabled: boolean;
   siteId: string | null | undefined;
   organizationLanguage?: string | null;
+  refreshKey?: unknown;
+  optionsRevision?: number;
   locationFilter: string;
   workFilter: string;
   setViewMode: (mode: "calendar" | "list" | "gallery") => void;
@@ -260,6 +280,54 @@ export function useDefaultConstructionSiteDiarySummary(args: {
   const [summary, setSummary] = React.useState<DefaultConstructionScopeSummary | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [projectSummaryVisible, setProjectSummaryVisible] = React.useState(true);
+  const [projectSummary, setProjectSummary] =
+    React.useState<DefaultConstructionScopeSummary | null>(null);
+  const [projectLoading, setProjectLoading] = React.useState(false);
+  const [projectError, setProjectError] = React.useState<string | null>(null);
+  const language = String(args.organizationLanguage ?? "").toLowerCase().startsWith("lv")
+    ? "lv"
+    : "en";
+
+  React.useEffect(() => {
+    if (!args.enabled || !args.siteId) {
+      setProjectSummary(null);
+      setProjectLoading(false);
+      setProjectError(null);
+      return;
+    }
+    if (!projectSummaryVisible) return;
+
+    let cancelled = false;
+    setProjectLoading(true);
+    setProjectError(null);
+    getDefaultConstructionScopeSummary({
+      siteId: args.siteId,
+      scope: "project",
+    })
+      .then((result) => {
+        if (!cancelled) setProjectSummary(result);
+      })
+      .catch((loadError: any) => {
+        if (cancelled) return;
+        setProjectSummary(null);
+        setProjectError(loadError?.message ?? MESSAGES[language].loadFailed);
+      })
+      .finally(() => {
+        if (!cancelled) setProjectLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    args.enabled,
+    args.optionsRevision,
+    args.refreshKey,
+    args.siteId,
+    language,
+    projectSummaryVisible,
+  ]);
 
   React.useEffect(() => {
     if (!selection) return;
@@ -290,12 +358,7 @@ export function useDefaultConstructionSiteDiarySummary(args: {
       .catch((loadError: any) => {
         if (cancelled) return;
         setSummary(null);
-        const selectedLanguage = String(args.organizationLanguage ?? "")
-          .toLowerCase()
-          .startsWith("lv")
-          ? "lv"
-          : "en";
-        setError(loadError?.message ?? MESSAGES[selectedLanguage].loadFailed);
+        setError(loadError?.message ?? MESSAGES[language].loadFailed);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -304,7 +367,14 @@ export function useDefaultConstructionSiteDiarySummary(args: {
     return () => {
       cancelled = true;
     };
-  }, [args.enabled, args.organizationLanguage, args.siteId, selection]);
+  }, [
+    args.enabled,
+    args.optionsRevision,
+    args.refreshKey,
+    args.siteId,
+    language,
+    selection,
+  ]);
 
   const openLocationSummary = React.useCallback(
     (value: string | null | undefined) => {
@@ -336,16 +406,39 @@ export function useDefaultConstructionSiteDiarySummary(args: {
     openLocationSummary,
     openWorkSummary,
     clearSummary,
-    panel:
-      args.enabled && selection ? (
-        <SummaryPanel
-          selection={selection}
-          summary={summary}
-          loading={loading}
-          error={error}
-          organizationLanguage={args.organizationLanguage}
-          onClose={clearSummary}
-        />
-      ) : null,
+    panel: args.enabled ? (
+      <>
+        {projectSummaryVisible ? (
+          <SummaryPanel
+            selection={{ scope: "project", value: "project" }}
+            summary={projectSummary}
+            loading={projectLoading}
+            error={projectError}
+            organizationLanguage={args.organizationLanguage}
+            onClose={() => setProjectSummaryVisible(false)}
+          />
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            className="mb-4"
+            onClick={() => setProjectSummaryVisible(true)}
+          >
+            <BarChart3 className="mr-2 h-4 w-4" />
+            {MESSAGES[language].showProject}
+          </Button>
+        )}
+        {selection ? (
+          <SummaryPanel
+            selection={selection}
+            summary={summary}
+            loading={loading}
+            error={error}
+            organizationLanguage={args.organizationLanguage}
+            onClose={clearSummary}
+          />
+        ) : null}
+      </>
+    ) : null,
   };
 }

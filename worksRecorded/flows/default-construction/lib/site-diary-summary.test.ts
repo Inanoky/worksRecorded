@@ -54,6 +54,33 @@ describe("default-construction site diary summaries", () => {
     ]);
   });
 
+  it("aggregates all project rows with the same mapping rules", () => {
+    const result = buildDefaultConstructionScopeSummary({
+      scope: "project",
+      value: "project",
+      rows: [
+        ...rows,
+        { ...rows[0], Location: "Floor 2", Amounts: 2.5, TimeInvolved: 1 },
+      ],
+      productivitySettings: [
+        { work: "Masonry", unit: "m2", laborNormHoursPerUnit: 0.5 },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      scope: "project",
+      records: 4,
+      comparison: {
+        comparableGroups: 1,
+        totalGroups: 2,
+        plannedHours: 11.25,
+        actualHours: 15,
+        hoursDifference: 3.75,
+        status: "behind",
+      },
+    });
+  });
+
   it("groups a clicked work by unit without splitting by location", () => {
     const result = buildDefaultConstructionScopeSummary({
       scope: "work",

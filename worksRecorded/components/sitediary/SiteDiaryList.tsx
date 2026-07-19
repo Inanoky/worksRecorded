@@ -883,6 +883,8 @@ export default function SiteDiaryCalendar({
     enabled: !isZtcSite,
     siteId,
     organizationLanguage,
+    refreshKey: rows,
+    optionsRevision,
     locationFilter: floorFilter,
     workFilter,
     setViewMode,

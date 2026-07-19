@@ -13,13 +13,13 @@ import {
 export async function getDefaultConstructionScopeSummary(args: {
   siteId: string;
   scope: DefaultConstructionSummaryScope;
-  value: string;
+  value?: string;
 }) {
   const user = await requireUser();
   await orgCheck(user.id, args.siteId);
 
   const value = String(args.value ?? "").trim();
-  if (!value) throw new Error("Summary value is required");
+  if (args.scope !== "project" && !value) throw new Error("Summary value is required");
 
   const [site, rows] = await Promise.all([
     prisma.site.findUnique({
@@ -30,7 +30,11 @@ export async function getDefaultConstructionScopeSummary(args: {
       where: {
         siteId: args.siteId,
         archivedAt: null,
-        ...(args.scope === "location" ? { Location: value } : { Works: value }),
+        ...(args.scope === "location"
+          ? { Location: value }
+          : args.scope === "work"
+            ? { Works: value }
+            : {}),
       },
       orderBy: [{ Date: "asc" }, { createdAt: "asc" }],
       select: {
@@ -54,7 +58,7 @@ export async function getDefaultConstructionScopeSummary(args: {
 
   return buildDefaultConstructionScopeSummary({
     scope: args.scope,
-    value,
+    value: args.scope === "project" ? "project" : value,
     rows,
     productivitySettings: productivitySettings.works,
   });

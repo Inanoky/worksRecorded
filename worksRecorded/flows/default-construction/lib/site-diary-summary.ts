@@ -1,6 +1,6 @@
 import type { DefaultConstructionWorkProductivitySetting } from "./site-diary-productivity-settings";
 
-export type DefaultConstructionSummaryScope = "location" | "work";
+export type DefaultConstructionSummaryScope = "project" | "location" | "work";
 export type DefaultConstructionComparisonStatus =
   | "on_or_ahead"
   | "behind"
