@@ -93,6 +93,19 @@ export async function handleSiteManagerRoute(args: {
 
         return false;
       },
+      onSavedImage: async ({ body: imageComment }) => {
+        const normalizedComment = imageComment.trim();
+        if (!normalizedComment) return false;
+
+        await sendProcessingAcknowledgement(from);
+        await handleText({
+          body: normalizedComment,
+          user,
+          to: from,
+          agent: currentAgent,
+        });
+        return true;
+      },
     });
     if (img) return;
 

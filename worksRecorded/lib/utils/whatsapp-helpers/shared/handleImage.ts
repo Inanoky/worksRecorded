@@ -14,6 +14,10 @@ export type UploadedImageContext = {
   formData: FormData;
 };
 
+export type SavedImageContext = UploadedImageContext & {
+  savedPhoto: Awaited<ReturnType<typeof savePhoto>>;
+};
+
 const utapi = new UTApi();
 
 /**
@@ -32,8 +36,20 @@ export async function handleImage(args: {
   photographerName?: string | null;
   agent: AgentFn;
   onUploadedImage?: (context: UploadedImageContext) => Promise<boolean>;
+  onSavedImage?: (context: SavedImageContext) => Promise<boolean | void>;
 }): Promise<boolean> {
-  const { formData, numMedia, workerId, siteId, to, body, userId, photographerName, onUploadedImage } = args;
+  const {
+    formData,
+    numMedia,
+    workerId,
+    siteId,
+    to,
+    body,
+    userId,
+    photographerName,
+    onUploadedImage,
+    onSavedImage,
+  } = args;
 
   const idx = findFirstImageIndex(formData, numMedia);
   if (idx < 0) return false;
@@ -83,7 +99,7 @@ export async function handleImage(args: {
         : trimmedPhotographerName
       : trimmedBody || null;
 
-    await savePhoto({
+    const savedPhoto = await savePhoto({
       workerId: workerId ?? null, // ✅ worker images
       userId: userId ?? null,     // ✅ site-manager images
       siteId,
@@ -94,7 +110,22 @@ export async function handleImage(args: {
       date: new Date(),
     });
 
-    await sendMessage(to, "✅");
+    const acknowledgementHandled = onSavedImage
+      ? Boolean(
+          await onSavedImage({
+            publicUrl,
+            contentType,
+            body,
+            to,
+            formData,
+            savedPhoto,
+          }),
+        )
+      : false;
+
+    if (!acknowledgementHandled) {
+      await sendMessage(to, "✅");
+    }
   } catch (e) {
     console.error("❌ [handleImage] error:", e);
     await sendMessage(to, "Sorry, we couldn't process your image.");
