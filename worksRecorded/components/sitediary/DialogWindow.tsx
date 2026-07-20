@@ -49,6 +49,10 @@ export default function DialogWindow({
   const [refreshKey, setRefreshKey] = React.useState(0);
   const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
   const dateLocale = normalizeOrganizationLanguage(organizationLanguage) === "lv" ? "lv-LV" : "en-GB";
+  const handleSaved = async () => {
+    await onSaved?.();
+    setRefreshKey((key) => key + 1);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -103,10 +107,7 @@ export default function DialogWindow({
                   date={date}
                   siteId={siteId}
                   organizationLanguage={organizationLanguage}
-                  onSaved={() => {
-                    onSaved && onSaved();
-                    setRefreshKey((k) => k + 1);
-                  }}
+                  onSaved={handleSaved}
                 />
               ) : (
                 <DialogTable
@@ -116,10 +117,7 @@ export default function DialogWindow({
                   organizationLanguage={organizationLanguage}
                   initialRows={initialRows}
                   initialConfig={initialConfig}
-                  onSaved={() => {
-                    onSaved && onSaved();
-                    setRefreshKey((k) => k + 1);
-                  }}
+                  onSaved={handleSaved}
                 />
               )}
             </div>

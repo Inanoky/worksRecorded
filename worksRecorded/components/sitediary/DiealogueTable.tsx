@@ -334,7 +334,7 @@ export function DialogTable({
 }: {
   date: Date | null;
   siteId: string | null;
-  onSaved?: () => void;
+  onSaved?: () => void | Promise<void>;
   organizationLanguage?: string | null;
   initialRows?: Record<string, any>[] | null;
   initialConfig?: Record<string, any> | null;
@@ -354,6 +354,9 @@ export function DialogTable({
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [defaultMap, setMap] = useState<Record<string, any>>(defaultConfig);
   const hasClientEditsRef = React.useRef(false);
+  const uncontrolledFieldRefs = React.useRef(
+    new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
+  );
 
   const newEmptyRow = () => ({
     id: undefined as string | undefined,
@@ -403,28 +406,85 @@ export function DialogTable({
       });
 
       toast.success(toastMessages.diaryRowDeleted);
-      onSaved?.();
+      await onSaved?.();
     } else {
       setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
       toast.success(toastMessages.unsavedRowRemoved);
     }
   };
 
-  const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
+  const markRowDirty = (rowIdOrTemp: string) => {
     hasClientEditsRef.current = true;
     const existingRowId = rows.find(
       (row) => row.id === rowIdOrTemp || row._tempId === rowIdOrTemp,
     )?.id;
+
+    if (existingRowId) {
+      setDirtyRowIds((current) => {
+        if (current.has(existingRowId)) return current;
+        return new Set(current).add(existingRowId);
+      });
+    }
+  };
+
+  const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
+    markRowDirty(rowIdOrTemp);
 
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
       )
     );
-    if (existingRowId) {
-      setDirtyRowIds((current) => new Set(current).add(existingRowId));
-    }
   };
+
+  const getUncontrolledFieldKey = (rowKey: string, field: string) =>
+    `${rowKey}:${field}`;
+
+  const setUncontrolledFieldRef = (
+    rowKey: string,
+    field: string,
+    element: HTMLInputElement | HTMLTextAreaElement | null,
+  ) => {
+    const key = getUncontrolledFieldKey(rowKey, field);
+    if (element) uncontrolledFieldRefs.current.set(key, element);
+    else uncontrolledFieldRefs.current.delete(key);
+  };
+
+  const getRowsWithUncontrolledValues = () =>
+    rows.map((row) => {
+      const rowKey = String(row.id ?? row._tempId);
+      const nextRow = { ...row };
+
+      for (const field of tableHeads) {
+        const type = getTypeByKey(field);
+        if (!["timePicker", "calendarPicker", "textInput", "float"].includes(type)) {
+          continue;
+        }
+
+        const element = uncontrolledFieldRefs.current.get(
+          getUncontrolledFieldKey(rowKey, field),
+        );
+        if (!element) continue;
+
+        if (type === "timePicker") {
+          if (!element.value) {
+            nextRow[field] = null;
+            continue;
+          }
+          const [hours, minutes] = element.value.split(":").map(Number);
+          const baseDate = new Date(row.Date ?? date ?? new Date());
+          if (!Number.isNaN(baseDate.getTime())) {
+            baseDate.setHours(hours, minutes, 0, 0);
+            nextRow[field] = baseDate;
+          }
+          continue;
+        }
+
+        nextRow[field] = element.value;
+      }
+
+      return nextRow;
+    });
 
   //-------------------------------------------------------------Hanlde Submit----------------------------------------------
 
@@ -433,7 +493,7 @@ export function DialogTable({
     if (isSaving) return;
 
 
-    const validated = validateRows(rows, toastMessages);
+    const validated = validateRows(getRowsWithUncontrolledValues(), toastMessages);
     if (!validated.ok) return;
 
     setIsSaving(true);
@@ -549,7 +609,7 @@ export function DialogTable({
     }
 
     toast.success(toastMessages.diarySaved(updatedCount, createdCount));
-    onSaved?.();
+    await onSaved?.();
     } finally {
       setIsSaving(false);
     }
@@ -674,13 +734,11 @@ export function DialogTable({
 
       return (
         <Input
+          ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           type="time"
           style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
-          value={dateTimeToHHmm(row[field])}
-          onChange={(e) => {
-            const dt = hhmmToDateTime(e.target.value, row.Date);
-            handleChange(rowKey, field, dt); // ✅ Date in state
-          }}
+          defaultValue={dateTimeToHHmm(row[field])}
+          onChange={() => markRowDirty(rowKey)}
         />
       );
     }
@@ -692,10 +750,11 @@ export function DialogTable({
 
       return (
         <Input
+          ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           type="date"
           style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
-          value={v.length >= 10 ? ymd : v}
-          onChange={(e) => handleChange(rowKey, field, e.target.value)}
+          defaultValue={v.length >= 10 ? ymd : v}
+          onChange={() => markRowDirty(rowKey)}
         />
       );
     }
@@ -730,10 +789,11 @@ export function DialogTable({
     if (type === "textInput") {
       return (
         <Textarea
+          ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
           rows={1}
-          value={String(row[field] ?? "")}
-          onChange={(e) => handleChange(rowKey, field, e.target.value)}
+          defaultValue={String(row[field] ?? "")}
+          onChange={() => markRowDirty(rowKey)}
         />
       );
     }
@@ -742,10 +802,11 @@ export function DialogTable({
     if (type === "float") {
       return (
         <Input
+          ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           inputMode="decimal"
           style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
-          value={String(row[field] ?? "")}
-          onChange={(e) => handleChange(rowKey, field, e.target.value)}
+          defaultValue={String(row[field] ?? "")}
+          onChange={() => markRowDirty(rowKey)}
         />
       );
     }
@@ -1003,7 +1064,30 @@ export function DialogTable({
 
       console.dir(formattedRows)
       if (!hasClientEditsRef.current) {
-        setRows(nextRows);
+        if (cachedRows) {
+          setRows((currentRows) => {
+            const serverRowsById = new Map(
+              nextRows
+                .filter((row) => row.id)
+                .map((row) => [String(row.id), row]),
+            );
+            const currentIds = new Set(
+              currentRows
+                .filter((row) => row.id)
+                .map((row) => String(row.id)),
+            );
+            return [
+              ...currentRows.flatMap((row) => {
+                if (!row.id) return [row];
+                const refreshedRow = serverRowsById.get(String(row.id));
+                return refreshedRow ? [refreshedRow] : [];
+              }),
+              ...nextRows.filter((row) => row.id && !currentIds.has(String(row.id))),
+            ];
+          });
+        } else {
+          setRows(nextRows);
+        }
         setDirtyRowIds(new Set());
       }
 

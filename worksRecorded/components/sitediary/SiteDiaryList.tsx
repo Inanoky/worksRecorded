@@ -4311,8 +4311,44 @@ export default function SiteDiaryCalendar({
 
             if (!siteId) return;
             setLoading(true);
-            await refreshRowsWithBisSync();
-            setLoading(false);
+            try {
+              const refreshedRows = await refreshRowsWithBisSync();
+              const activeDialogDate = dialogDate ?? calendarDate;
+              if (!isZtcSite && activeDialogDate) {
+                const dateKey = toLocalDateKey(activeDialogDate);
+                const refreshedDayRows = refreshedRows.filter((row) => {
+                  const rowDate = new Date(row.Date);
+                  return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
+                });
+                setDialogInitialRows((currentRows) => {
+                  if (!refreshedDayRows.length) return null;
+                  if (!currentRows?.length) return refreshedDayRows;
+
+                  const refreshedById = new Map(
+                    refreshedDayRows
+                      .filter((row) => row.id)
+                      .map((row) => [String(row.id), row]),
+                  );
+                  const currentIds = new Set(
+                    currentRows
+                      .filter((row) => row.id)
+                      .map((row) => String(row.id)),
+                  );
+                  return [
+                    ...currentRows.flatMap((row) => {
+                      if (!row.id) return [row];
+                      const refreshedRow = refreshedById.get(String(row.id));
+                      return refreshedRow ? [refreshedRow] : [];
+                    }),
+                    ...refreshedDayRows.filter(
+                      (row) => row.id && !currentIds.has(String(row.id)),
+                    ),
+                  ];
+                });
+              }
+            } finally {
+              setLoading(false);
+            }
           }}
         >
           <div className="grid gap-3" />
