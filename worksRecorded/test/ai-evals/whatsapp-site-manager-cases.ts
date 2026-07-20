@@ -223,6 +223,25 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
       },
     },
     {
+      id: "latvian-layer-count-is-not-amount",
+      intent:
+        "Verify Latvian layer counts and apartment identifiers stay out of structured completed quantity fields.",
+      notes:
+        "Protects against mapping 'reģipsis 2 kārtās' to Amounts=2, Units=gab.",
+      webhook: textWebhookFixture({
+        senderKey: "eval-site-manager-layer-count-no-amount",
+        body:
+          "Dz ukraiņi. Wc profils, reģipsis 2 kārtās, vate, elektrība. darbs izdarīts",
+        timestamp: "1782197590",
+      }),
+      expected: {
+        requiredTextSignals: ["wc", "profil", "reģips", "2", "kārt", "vate", "elektr"],
+        workersInvolved: null,
+        amounts: null,
+        minHeuristicScore: 0.75,
+      },
+    },
+    {
       id: "latvian-multiple-works-total-hours-no-split",
       intent:
         "Verify multiple mentioned works with one total duration stay as one site diary record when the duration cannot be safely split.",

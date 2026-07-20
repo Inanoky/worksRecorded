@@ -11,14 +11,19 @@ jest.mock("@/server/actions/shared-actions", () => ({
 }));
 
 import { getConfig } from "@/server/actions/site-diary-actions";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
-import { systemPromptFunction } from "./prompts";
+import {
+  systemPromptFunction,
+  systemPromptSaveToDatabaseFunction,
+} from "./prompts";
 
 describe("site-manager BIS routing prompt", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getConfig as jest.Mock).mockResolvedValue(null);
     (getUserFirstNameById as jest.Mock).mockResolvedValue("Deivids");
+    (getOrganizationLanguageByUserId as jest.Mock).mockResolvedValue("Latvian");
   });
 
   it("provides canonical and Latvian greeting-only address names", async () => {
@@ -60,5 +65,16 @@ describe("site-manager BIS routing prompt", () => {
     expect(prompt).toContain("read_bis_material_records");
     expect(prompt).toContain("Confirm the save first");
     expect(prompt).toContain("1-2 sentences");
+  });
+
+  it("keeps construction context numbers out of structured amounts", async () => {
+    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
+
+    expect(prompt).toContain("Amounts/Daudzums and Units/Mrv are for completed work quantity only");
+    expect(prompt).toContain("Do not use apartment numbers, floor numbers, layer counts, worker counts, hours");
+    expect(prompt).toContain('"reģipsis 2 kārtās" → Amounts: null, Units: null');
+    expect(prompt).toContain('"Dz 6 45m2 vate, osb" → Amounts: 45, Units: "m2"');
+    expect(prompt).toContain('"Dz 6, 2 cilvēki, 3h" → Workers: 2, Hours: 3, Amounts: null, Units: null');
+    expect(prompt).toContain('"Dz5f durvju aile demontāža" → Amounts: null, Units: null');
   });
 });
