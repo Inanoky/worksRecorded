@@ -43,6 +43,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import {
 	classifyMaterialDocumentImage,
 	extractAndSaveBISMaterialsFromPublicUrl,
+	normalizeExtractedInvoiceDate,
 	processMaterialDocumentImageFromPublicUrl,
 } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 
@@ -57,6 +58,7 @@ describe("meta image handler LangSmith tracing", () => {
 
 	afterEach(() => {
 		consoleLogSpy.mockRestore();
+		jest.useRealTimers();
 	});
 
 	it("uses ChatOpenAI structured output with Responses API for image classification", async () => {
@@ -128,6 +130,8 @@ describe("meta image handler LangSmith tracing", () => {
 					cost: 12.34,
 					invoiceNr: "INV-1",
 					invoiceDate: null,
+					invoiceDateText: "",
+					invoiceDateYearVisible: false,
 					costCode: "MAT",
 					quantity: 2,
 					construction_material_id: "no_match",
@@ -154,6 +158,8 @@ describe("meta image handler LangSmith tracing", () => {
 			type: "image_url",
 			image_url: { url: publicUrl },
 		});
+		expect(messages[0].content[0].text).toContain("Today is");
+		expect(messages[0].content[0].text).toContain("Europe/Riga");
 		expect(config).toMatchObject({
 			runName: "MetaMaterialInvoiceExtraction",
 			tags: [
@@ -208,6 +214,8 @@ describe("meta image handler LangSmith tracing", () => {
 						cost: 12.34,
 						invoiceNr: "INV-1",
 						invoiceDate: null,
+						invoiceDateText: "",
+						invoiceDateYearVisible: false,
 						costCode: "MAT",
 						quantity: 2,
 						construction_material_id: "no_match",
@@ -235,5 +243,84 @@ describe("meta image handler LangSmith tracing", () => {
 		});
 		expect(mockStructuredInvoke.mock.calls[0][1].runId).toMatch(uuidV7Pattern);
 		expect(mockStructuredInvoke.mock.calls[1][1].runId).toMatch(uuidV7Pattern);
+	});
+
+	it("preserves an explicitly visible old invoice year", async () => {
+		expect(
+			normalizeExtractedInvoiceDate({
+				invoiceDate: "2024-12-04T00:00:00Z",
+				invoiceDateText: "04.12.2024",
+				invoiceDateYearVisible: true,
+				now: new Date("2026-07-20T10:00:00.000Z"),
+			})?.toISOString(),
+		).toBe("2024-12-04T00:00:00.000Z");
+	});
+
+	it("uses the current Riga year when only day and month are visible recently", async () => {
+		expect(
+			normalizeExtractedInvoiceDate({
+				invoiceDate: "2025-07-15T00:00:00Z",
+				invoiceDateText: "15.07.",
+				invoiceDateYearVisible: false,
+				now: new Date("2026-07-20T10:00:00.000Z"),
+			})?.toISOString(),
+		).toBe("2026-07-15T00:00:00.000Z");
+	});
+
+	it("rejects suspicious future or stale inferred invoice years", async () => {
+		expect(
+			normalizeExtractedInvoiceDate({
+				invoiceDate: "2042-01-01T00:00:00Z",
+				invoiceDateText: "",
+				invoiceDateYearVisible: false,
+				now: new Date("2026-07-20T10:00:00.000Z"),
+			}),
+		).toBeNull();
+
+		expect(
+			normalizeExtractedInvoiceDate({
+				invoiceDate: "2042-07-20T00:00:00Z",
+				invoiceDateText: "20.07.2042",
+				invoiceDateYearVisible: true,
+				now: new Date("2026-07-20T10:00:00.000Z"),
+			}),
+		).toBeNull();
+	});
+
+	it("saves normalized invoice dates to BIS material records", async () => {
+		jest.useFakeTimers().setSystemTime(new Date("2026-07-20T10:00:00.000Z"));
+		const publicUrl = "https://utfs.io/f/invoice-private-key.jpg?token=hidden";
+
+		mockUserFindFirst.mockResolvedValueOnce({
+			id: "user-1",
+			organizationId: "org-1",
+			lastSelectedSiteIdforWhatsapp: "site-1",
+			siteManagerSelectIdforWhatsapp: null,
+		});
+		mockStructuredInvoke.mockResolvedValueOnce({
+			items: [
+				{
+					name: "Cements",
+					cost: 12.34,
+					invoiceNr: "INV-1",
+					invoiceDate: "2025-07-15T00:00:00Z",
+					invoiceDateText: "15.07.",
+					invoiceDateYearVisible: false,
+					costCode: "MAT",
+					quantity: 2,
+					construction_material_id: "no_match",
+				},
+			],
+		});
+
+		await extractAndSaveBISMaterialsFromPublicUrl(publicUrl, "37120000000");
+
+		expect(mockCreateMany).toHaveBeenCalledWith({
+			data: [
+				expect.objectContaining({
+					invoiceDate: new Date("2026-07-15T00:00:00.000Z"),
+				}),
+			],
+		});
 	});
 });

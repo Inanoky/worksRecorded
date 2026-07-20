@@ -113,6 +113,12 @@ import { handleSiteManagerRoute } from "@/flows/default-construction/backend/sit
 import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import expectedFixture from "./fixtures/meta-webhook/material-invoice.expected.json";
 
+const expectedItemsWithDateEvidence = expectedFixture.items.map(item => ({
+	...item,
+	invoiceDateText: "04.12.2025",
+	invoiceDateYearVisible: true,
+}));
+
 describe("site-manager material image upload extraction", () => {
 	let consoleLogSpy: jest.SpyInstance;
 
@@ -150,7 +156,7 @@ describe("site-manager material image upload extraction", () => {
 				reason: "readable invoice with construction material rows",
 			})
 			.mockResolvedValueOnce({
-				items: expectedFixture.items,
+				items: expectedItemsWithDateEvidence,
 			});
 	});
 
@@ -210,7 +216,7 @@ describe("site-manager material image upload extraction", () => {
 						name: expected.name,
 						quantity: expected.quantity,
 						invoiceNr: expected.invoiceNr,
-						invoiceDate: expected.invoiceDate,
+						invoiceDate: new Date(expected.invoiceDate),
 						cost: expected.cost,
 						costCode: expected.costCode,
 						categoryId: expected.construction_material_id,
