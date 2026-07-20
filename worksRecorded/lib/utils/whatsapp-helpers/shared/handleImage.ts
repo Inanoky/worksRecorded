@@ -26,6 +26,12 @@ export type HandleImageResult =
 
 const utapi = new UTApi();
 
+function getEvalUploadedImageUrl() {
+  if (process.env.RUN_AI_EVALS !== "true") return null;
+  const value = process.env.AI_EVAL_UPLOADED_IMAGE_URL;
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 export async function handleImage(args: {
   formData: FormData;
   numMedia: number;
@@ -71,24 +77,28 @@ export async function handleImage(args: {
     const fileName = `whatsapp_${Date.now()}.${ext}`;
     const file = new File([buf], fileName, { type: contentType });
 
-    const uploaded = await utapi.uploadFiles([file]);
-    const first = Array.isArray(uploaded) ? uploaded[0] : uploaded;
+    let resolvedPublicUrl = getEvalUploadedImageUrl();
 
-    if (first?.error || !first?.data) {
-      await sendMessage(to, "Sorry, failed to store the image.");
-      return { outcome: "upload_failed" };
+    if (!resolvedPublicUrl) {
+      const uploaded = await utapi.uploadFiles([file]);
+      const first = Array.isArray(uploaded) ? uploaded[0] : uploaded;
+
+      if (first?.error || !first?.data) {
+        await sendMessage(to, "Sorry, failed to store the image.");
+        return { outcome: "upload_failed" };
+      }
+
+      resolvedPublicUrl = getUploadThingFileUrl(first.data);
     }
 
-    const publicUrl = getUploadThingFileUrl(first.data);
-
-    if (!publicUrl) {
+    if (!resolvedPublicUrl) {
       await sendMessage(to, "Sorry, failed to store the image.");
       return { outcome: "upload_failed" };
     }
 
     if (onUploadedImage) {
       const wasHandled = await onUploadedImage({
-        publicUrl,
+        publicUrl: resolvedPublicUrl,
         contentType,
         body,
         to,
@@ -110,8 +120,8 @@ export async function handleImage(args: {
       workerId: workerId ?? null, // ✅ worker images
       userId: userId ?? null, // ✅ site-manager images
       siteId,
-      url: publicUrl,
-      fileUrl: publicUrl,
+      url: resolvedPublicUrl,
+      fileUrl: resolvedPublicUrl,
       comment: prefixedComment,
       location: null,
       date: new Date(),

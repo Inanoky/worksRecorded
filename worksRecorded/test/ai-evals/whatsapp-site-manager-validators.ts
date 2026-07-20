@@ -116,11 +116,12 @@ export function validateWhatsappSiteManagerRecord(args: {
   evalCase: WebhookWhatsAppSiteManagerEvalCase;
   record: SavedSiteDiaryRecord | null;
   records?: SavedSiteDiaryRecord[];
+  createdPhotoCount?: number;
   answer?: string;
   siteId: string;
   userId: string;
 }): WhatsAppTurnValidationResult {
-  const { evalCase, record, records, answer, siteId, userId } = args;
+  const { evalCase, record, records, createdPhotoCount, answer, siteId, userId } = args;
   const results: WhatsAppValidatorResult[] = [];
   const heuristicResults: WhatsAppValidatorResult[] = [];
   const searchText = (records ?? (record ? [record] : []))
@@ -147,6 +148,16 @@ export function validateWhatsappSiteManagerRecord(args: {
         "record-count",
         records.length === expectedCount,
         `Expected ${expectedCount} site diary record(s); got ${records.length}.`,
+      ),
+    );
+  }
+  if (evalCase.expected.expectedPhotoCount !== undefined) {
+    const expectedCount = evalCase.expected.expectedPhotoCount;
+    results.push(
+      createResult(
+        "photo-count",
+        createdPhotoCount === expectedCount,
+        `Expected ${expectedCount} saved photo(s); got ${createdPhotoCount ?? 0}.`,
       ),
     );
   }

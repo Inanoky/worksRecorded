@@ -137,6 +137,11 @@ describe("site-manager material image upload extraction", () => {
 				ufsUrl: mockUploadedPublicUrl,
 			},
 		});
+		mockSavePhoto.mockResolvedValue({ id: "photo-1" });
+		mockHandleText.mockResolvedValue(true);
+		mockGetRandomSiteManagerProcessingAcknowledgement.mockReturnValue(
+			"Apstrādāju",
+		);
 		mockWithStructuredOutput.mockReturnValue({ invoke: mockStructuredInvoke });
 		mockStructuredInvoke
 			.mockResolvedValueOnce({
@@ -223,6 +228,63 @@ describe("site-manager material image upload extraction", () => {
 		expect(mockSendMessage).toHaveBeenCalledWith(
 			"whatsapp:+37120000000",
 			"✅ Materiālu dokuments saņemts. Materiāli tika izvilkti un saglabāti.",
+		);
+	});
+
+	it("saves a non-material progress image and processes only the supplied caption", async () => {
+		mockStructuredInvoke.mockReset();
+		mockStructuredInvoke.mockResolvedValueOnce({
+			isMaterialDocument: false,
+			confidence: 0.18,
+			reason: "site progress report without material invoice rows",
+		});
+
+		const formData = new FormData();
+		formData.set("Body", "Šodien pabeidzām starpsienu montāžu 2. stāvā");
+		formData.set("NumMedia", "1");
+		formData.set("MediaUrl0", "https://meta.test/progress-photo.jpg");
+		formData.set("MediaContentType0", "image/jpeg");
+		const user = {
+			id: "user-1",
+			phone: "37120000000",
+			firstName: "Jānis",
+			lastName: "Bērziņš",
+			lastSelectedSiteIdforWhatsapp: "site-1",
+		};
+
+		await handleSiteManagerRoute({
+			from: "whatsapp:+37120000000",
+			formData,
+			user,
+		});
+
+		expect(fetchWhatsAppMediaAsBuffer).toHaveBeenCalledWith(
+			"https://meta.test/progress-photo.jpg",
+		);
+		expect(mockUploadFiles).toHaveBeenCalledTimes(1);
+		expect(mockStructuredInvoke).toHaveBeenCalledTimes(1);
+		expect(mockCreateMany).not.toHaveBeenCalled();
+		expect(mockSavePhoto).toHaveBeenCalledWith(
+			expect.objectContaining({
+				userId: "user-1",
+				siteId: "site-1",
+				url: mockUploadedPublicUrl,
+				fileUrl: mockUploadedPublicUrl,
+				comment:
+					"Jānis Bērziņš : Šodien pabeidzām starpsienu montāžu 2. stāvā",
+			}),
+		);
+		expect(mockHandleText).toHaveBeenCalledWith(
+			expect.objectContaining({
+				body: "Šodien pabeidzām starpsienu montāžu 2. stāvā",
+				user,
+				to: "whatsapp:+37120000000",
+				agent: expect.any(Function),
+			}),
+		);
+		expect(mockSendMessage).toHaveBeenCalledWith(
+			"whatsapp:+37120000000",
+			"Apstrādāju",
 		);
 	});
 });

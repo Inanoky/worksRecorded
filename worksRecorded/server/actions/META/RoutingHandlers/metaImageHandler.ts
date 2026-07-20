@@ -378,6 +378,7 @@ Return isMaterialDocument=true only when all of these are true:
 
 Return isMaterialDocument=false for:
 - normal site progress photos
+- progress report images, site diary notes, work summaries, or instructions to save completed work
 - selfies or people photos
 - equipment-only photos
 - drawings/plans without material purchase rows
@@ -556,6 +557,14 @@ export async function processMaterialDocumentImageFromPublicUrl(args: {
   publicUrl: string;
   senderPhone?: string | null;
 }) {
+  if (
+    process.env.RUN_AI_EVALS === "true" &&
+    process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER === "true"
+  ) {
+    console.log("Meta material image classification skipped for AI eval image route");
+    return false;
+  }
+
   const context = await resolveMetaMaterialContext(args.senderPhone);
   const classification = await classifyMaterialDocumentImage(args.publicUrl, context);
 
