@@ -1,16 +1,15 @@
-
-import { getString } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
-import { handleProjectSelector } from "@/lib/utils/whatsapp-helpers/shared/projectSelector";
-import { handleImage } from "@/lib/utils/whatsapp-helpers/shared/handleImage";
-import { handleAudio } from "@/lib/utils/whatsapp-helpers/shared/handleAudio";
-import { handleText } from "@/lib/utils/whatsapp-helpers/shared/handleText";
-import talkToWhatsappAgent from "@/flows/default-construction/backend/site-manager-agent/agent";
-import { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
-import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
-import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
-import { processMaterialDocumentImageFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 import { getRandomSiteManagerProcessingAcknowledgement } from "@/flows/default-construction/backend/site-manager-acknowledgements";
+import talkToWhatsappAgent from "@/flows/default-construction/backend/site-manager-agent/agent";
+import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
+import { handleAudio } from "@/lib/utils/whatsapp-helpers/shared/handleAudio";
+import { handleImage } from "@/lib/utils/whatsapp-helpers/shared/handleImage";
+import { handleText } from "@/lib/utils/whatsapp-helpers/shared/handleText";
+import { getString } from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { handleProjectSelector } from "@/lib/utils/whatsapp-helpers/shared/projectSelector";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import type { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
+import { processMaterialDocumentImageFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
+import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 
 const currentAgent: AgentFn = async (input, siteId, userId, originalAudioUrl) =>
   (await talkToWhatsappAgent(input, siteId, userId, originalAudioUrl)) ?? "";
@@ -37,14 +36,19 @@ export async function handleSiteManagerRoute(args: {
   const numMedia = parseInt(getString(formData, "NumMedia") || "0", 10) || 0;
 
   // 1) Project selector can reply & exit early
-  const handledSelection = await handleProjectSelector({ user, body, to: from, username: userName });
+  const handledSelection = await handleProjectSelector({
+    user,
+    body,
+    to: from,
+    username: userName,
+  });
   if (handledSelection) return;
 
   // 2) Check if schema exists for selected site
   if (!user.lastSelectedSiteIdforWhatsapp) {
     await sendMessage(
       from,
-      `Hello ${userName}! Please first select a project. Type "Change", "Project", or "Projekts" to see the project list.`
+      `Hello ${userName}! Please first select a project. Type "Change", "Project", or "Projekts" to see the project list.`,
     );
     return;
   }
@@ -56,7 +60,7 @@ export async function handleSiteManagerRoute(args: {
   if (!settings || !settings.schema) {
     await sendMessage(
       from,
-      `Hello ${userName}! Please first upload site schema in the project settings menu. Contact project admin.`
+      `Hello ${userName}! Please first upload site schema in the project settings menu. Contact project admin.`,
     );
     return;
   }
@@ -67,49 +71,73 @@ export async function handleSiteManagerRoute(args: {
       formData,
       numMedia,
       siteId: user.lastSelectedSiteIdforWhatsapp,
-      userId: user.id,      // ✅ used inside savePhoto as userId
-      workerId: null,       // ✅ make sure org lookup uses userId path
+      userId: user.id, // ✅ used inside savePhoto as userId
+      workerId: null, // ✅ make sure org lookup uses userId path
       to: from,
       body,
-      photographerName: [user.firstName, user.lastName].filter(Boolean).join(" "),
-      agent: currentAgent,
+      photographerName: [user.firstName, user.lastName]
+        .filter(Boolean)
+        .join(" "),
+      acknowledgeSavedPhoto: false,
       onUploadedImage: async ({ publicUrl }) => {
         try {
-          const handledAsMaterialDocument = await processMaterialDocumentImageFromPublicUrl({
-            publicUrl,
-            senderPhone: user.phone ?? from,
-          });
+          const handledAsMaterialDocument =
+            await processMaterialDocumentImageFromPublicUrl({
+              publicUrl,
+              senderPhone: user.phone ?? from,
+            });
 
           if (handledAsMaterialDocument) {
             await sendMessage(
               from,
-              "✅ Materiālu dokuments saņemts. Materiāli tika izvilkti un saglabāti."
+              "✅ Materiālu dokuments saņemts. Materiāli tika izvilkti un saglabāti.",
             );
             return true;
           }
         } catch (error) {
-          console.error("Materiālu dokumenta atpazīšana neizdevās, saglabāju kā parastu fotoattēlu.", error);
+          console.error(
+            "Materiālu dokumenta atpazīšana neizdevās, saglabāju kā parastu fotoattēlu.",
+            error,
+          );
         }
 
         return false;
       },
-      onSavedImage: async ({ body: imageComment }) => {
-        const normalizedComment = imageComment.trim();
-        if (!normalizedComment) return false;
+    });
+    if (img) {
+      if (img.outcome === "photo_saved") {
+        const normalizedComment = body.trim();
+        const messageId = getString(formData, "MessageId") || null;
 
+        if (!normalizedComment) {
+          await sendMessage(from, "✅");
+          return;
+        }
+
+        console.log("Site manager image caption processing started", {
+          messageId,
+          photoId: img.savedPhoto?.id ?? null,
+          siteId: user.lastSelectedSiteIdforWhatsapp,
+        });
         await sendProcessingAcknowledgement(from);
-        await handleText({
+        const agentInvocationSucceeded = await handleText({
           body: normalizedComment,
           user,
           to: from,
           agent: currentAgent,
         });
-        return true;
-      },
-    });
-    if (img) return;
+        console.log("Site manager image caption processing finished", {
+          messageId,
+          photoId: img.savedPhoto?.id ?? null,
+          agentInvocationSucceeded,
+        });
+      }
+      return;
+    }
 
-    const mediaContentType0 = (getString(formData, "MediaContentType0") || "").toLowerCase();
+    const mediaContentType0 = (
+      getString(formData, "MediaContentType0") || ""
+    ).toLowerCase();
     if (mediaContentType0.startsWith("audio")) {
       await sendProcessingAcknowledgement(from);
     }

@@ -1,10 +1,11 @@
-
 import { UTApi } from "uploadthing/server";
-import { savePhoto } from "@/server/actions/site-diary-actions";
-import { getString, fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
-import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
-import { AgentFn } from "./types";
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
+import {
+  fetchWhatsAppMediaAsBuffer,
+  getString,
+} from "@/lib/utils/whatsapp-helpers/shared/helpers";
+import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
+import { savePhoto } from "@/server/actions/site-diary-actions";
 
 export type UploadedImageContext = {
   publicUrl: string;
@@ -14,30 +15,29 @@ export type UploadedImageContext = {
   formData: FormData;
 };
 
-export type SavedImageContext = UploadedImageContext & {
-  savedPhoto: Awaited<ReturnType<typeof savePhoto>>;
-};
+export type HandleImageResult =
+  | {
+      outcome: "photo_saved";
+      savedPhoto: Awaited<ReturnType<typeof savePhoto>>;
+    }
+  | { outcome: "handled_after_upload" }
+  | { outcome: "upload_failed" }
+  | { outcome: "error" };
 
 const utapi = new UTApi();
 
-/**
- * Try to handle the first image in the payload.
- * Currently does NOT call the agent, but we accept it for future use.
- * Returns true if handled, false if no image present.
- */
 export async function handleImage(args: {
   formData: FormData;
   numMedia: number;
-  userId?: string | null;     // ✅ allow userId for site manager route
-  workerId?: string | null;   // ✅ optional workerId for worker route
+  userId?: string | null; // ✅ allow userId for site manager route
+  workerId?: string | null; // ✅ optional workerId for worker route
   siteId: string;
   to: string | null;
   body: string;
   photographerName?: string | null;
-  agent: AgentFn;
   onUploadedImage?: (context: UploadedImageContext) => Promise<boolean>;
-  onSavedImage?: (context: SavedImageContext) => Promise<boolean | void>;
-}): Promise<boolean> {
+  acknowledgeSavedPhoto?: boolean;
+}): Promise<HandleImageResult | false> {
   const {
     formData,
     numMedia,
@@ -48,17 +48,24 @@ export async function handleImage(args: {
     userId,
     photographerName,
     onUploadedImage,
-    onSavedImage,
+    acknowledgeSavedPhoto = true,
   } = args;
 
   const idx = findFirstImageIndex(formData, numMedia);
   if (idx < 0) return false;
 
   const mediaUrl = getString(formData, `MediaUrl${idx}`);
-  const contentType = (getString(formData, `MediaContentType${idx}`) || "image/jpeg").toLowerCase();
+  const contentType = (
+    getString(formData, `MediaContentType${idx}`) || "image/jpeg"
+  ).toLowerCase();
 
   try {
-    const buf = await fetchWhatsAppMediaAsBuffer(mediaUrl!);
+    if (!mediaUrl) {
+      await sendMessage(to, "Sorry, failed to retrieve the image.");
+      return { outcome: "upload_failed" };
+    }
+
+    const buf = await fetchWhatsAppMediaAsBuffer(mediaUrl);
 
     const ext = contentType.split("/")[1] || "jpg";
     const fileName = `whatsapp_${Date.now()}.${ext}`;
@@ -69,14 +76,14 @@ export async function handleImage(args: {
 
     if (first?.error || !first?.data) {
       await sendMessage(to, "Sorry, failed to store the image.");
-      return true;
+      return { outcome: "upload_failed" };
     }
 
     const publicUrl = getUploadThingFileUrl(first.data);
 
     if (!publicUrl) {
       await sendMessage(to, "Sorry, failed to store the image.");
-      return true;
+      return { outcome: "upload_failed" };
     }
 
     if (onUploadedImage) {
@@ -88,7 +95,7 @@ export async function handleImage(args: {
         formData,
       });
 
-      if (wasHandled) return true;
+      if (wasHandled) return { outcome: "handled_after_upload" };
     }
 
     const trimmedBody = body.trim();
@@ -101,7 +108,7 @@ export async function handleImage(args: {
 
     const savedPhoto = await savePhoto({
       workerId: workerId ?? null, // ✅ worker images
-      userId: userId ?? null,     // ✅ site-manager images
+      userId: userId ?? null, // ✅ site-manager images
       siteId,
       url: publicUrl,
       fileUrl: publicUrl,
@@ -110,32 +117,23 @@ export async function handleImage(args: {
       date: new Date(),
     });
 
-    const acknowledgementHandled = onSavedImage
-      ? Boolean(
-          await onSavedImage({
-            publicUrl,
-            contentType,
-            body,
-            to,
-            formData,
-            savedPhoto,
-          }),
-        )
-      : false;
-
-    if (!acknowledgementHandled) {
+    if (acknowledgeSavedPhoto) {
       await sendMessage(to, "✅");
     }
+
+    return { outcome: "photo_saved", savedPhoto };
   } catch (e) {
     console.error("❌ [handleImage] error:", e);
     await sendMessage(to, "Sorry, we couldn't process your image.");
+    return { outcome: "error" };
   }
-  return true;
 }
 
 function findFirstImageIndex(formData: FormData, numMedia: number) {
   for (let i = 0; i < numMedia; i++) {
-    const ct = (getString(formData, `MediaContentType${i}`) || "").toLowerCase();
+    const ct = (
+      getString(formData, `MediaContentType${i}`) || ""
+    ).toLowerCase();
     if (ct.startsWith("image/")) return i;
   }
   return -1;

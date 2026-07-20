@@ -36,12 +36,10 @@ describe("handleImage", () => {
     mockSavePhoto.mockResolvedValue({ id: "photo-1" });
   });
 
-  it("passes the caption to the post-save handler and lets it own acknowledgement", async () => {
+  it("returns the saved photo so the caller can process its caption", async () => {
     const formData = new FormData();
     formData.set("MediaUrl0", "https://meta.example.com/image");
     formData.set("MediaContentType0", "image/jpeg");
-    const onSavedImage = jest.fn().mockResolvedValue(true);
-
     await expect(
       handleImage({
         formData,
@@ -51,23 +49,18 @@ describe("handleImage", () => {
         to: "whatsapp:+37100000000",
         body: "Pabeigta sienu montāža",
         photographerName: "Site Manager",
-        agent: jest.fn(),
-        onSavedImage,
+        acknowledgeSavedPhoto: false,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({
+      outcome: "photo_saved",
+      savedPhoto: { id: "photo-1" },
+    });
 
     expect(mockSavePhoto).toHaveBeenCalledWith(
       expect.objectContaining({
         comment: "Site Manager : Pabeigta sienu montāža",
         siteId: "site-1",
         userId: "user-1",
-      }),
-    );
-    expect(onSavedImage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: "Pabeigta sienu montāža",
-        publicUrl: "https://cdn.example.com/photo.jpg",
-        savedPhoto: { id: "photo-1" },
       }),
     );
     expect(mockSendMessage).not.toHaveBeenCalledWith(
@@ -88,12 +81,8 @@ describe("handleImage", () => {
       userId: "user-1",
       to: "whatsapp:+37100000000",
       body: "",
-      agent: jest.fn(),
     });
 
-    expect(mockSendMessage).toHaveBeenCalledWith(
-      "whatsapp:+37100000000",
-      "✅",
-    );
+    expect(mockSendMessage).toHaveBeenCalledWith("whatsapp:+37100000000", "✅");
   });
 });
