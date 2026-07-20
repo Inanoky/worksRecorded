@@ -21,6 +21,9 @@ describe("WhatsApp site-manager eval validators", () => {
   const ambiguousBisCase = webhookCases.find(
     (item) => item.id === "ambigious-bis-mention-in-task-decritpion",
   );
+  const imageCaptionCase = webhookCases.find(
+    (item) => item.id === "latvian-image-caption-site-diary",
+  );
 
   function workerlessRecord(workersInvolved: number | null) {
     return {
@@ -121,6 +124,37 @@ describe("WhatsApp site-manager eval validators", () => {
 
     expect(result.status).toBe("pass");
     expect(result.heuristic.status).toBe("pass");
+  });
+
+  it("checks expected photo count for image caption cases", () => {
+    expect(imageCaptionCase).toBeDefined();
+    const result = validateWhatsappSiteManagerRecord({
+      evalCase: imageCaptionCase!,
+      siteId: "site-1",
+      userId: "user-1",
+      createdPhotoCount: 1,
+      record: {
+        id: "record-1",
+        siteId: "site-1",
+        userId: "user-1",
+        workerId: null,
+        Date: null,
+        Location: "2. stāvs",
+        Works: "Starpsienu montāža",
+        Comments: "Pabeigta starpsienu montāža 2. stāvā, 2 cilvēki, 3 h.",
+        originalUserComment:
+          "Test Manager : Šodien pabeidzām starpsienu montāžu 2. stāvā, 2 cilvēki, 3h.",
+        originalAudioUrl: null,
+        WorkersInvolved: 2,
+        TimeInvolved: 3,
+        createdAt: new Date("2026-06-23T00:00:00.000Z"),
+      },
+    });
+
+    expect(result.status).toBe("pass");
+    expect(result.results.find((item) => item.name === "photo-count")).toMatchObject({
+      status: "pass",
+    });
   });
 
   it("fails when the saved record loses core quantities", () => {

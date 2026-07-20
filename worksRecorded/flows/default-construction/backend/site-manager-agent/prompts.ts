@@ -132,7 +132,7 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
 
 
 
-  const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map Location and Works
+  const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Analyze and map Location and Works
   according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
@@ -146,9 +146,16 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   Input: "Šodien apmestas sienas 2 stāvā, 4h"
   Expected structured fields: Workers: null, Hours: 4, and Comments mention wall plastering on the 2nd floor.
 
-  Completion status is not a quantity. Never set Amounts to 1 merely because one work is mentioned or described as completed. Populate Amounts only when the source explicitly states a quantity; otherwise set both Amounts and Units to null.
+  Completion status is not a quantity. Never set Amounts to 1 merely because one work is mentioned or described as completed. Populate Amounts only when the source explicitly states a real completed work quantity or measured completed scope; otherwise set both Amounts and Units to null.
+  Amounts/Daudzums and Units/Mrv are for completed work quantity only, for example "52 m2 osb", "5 gab. durvis", or "10 m3 betons".
+  Do not use apartment numbers, floor numbers, layer counts, worker counts, hours, or other construction-method/context numbers as Amounts.
+  If a number describes context or construction method, keep it in Comments only and leave Amounts and Units null.
   Example: "Pabeigta siltinājuma montāža" → Amounts: null, Units: null.
   Example: "Pabeigta 10 m2 siltinājuma montāža" → Amounts: 10, Units: "m2".
+  Example: "reģipsis 2 kārtās" → Amounts: null, Units: null.
+  Example: "Dz 6 45m2 vate, osb" → Amounts: 45, Units: "m2".
+  Example: "Dz 6, 2 cilvēki, 3h" → Workers: 2, Hours: 3, Amounts: null, Units: null.
+  Example: "Dz5f durvju aile demontāža" → Amounts: null, Units: null.
   
   `
 
@@ -178,9 +185,9 @@ Please follow the guidelines below:
 - HCS stands for 'hollow core slabs' or 'floor slabs' or "Pārseguma paneļis" .
 - CSW means 'concrete sandwich walls'.
 - Choose the best fitting works enum
-- Amounts - means amount of work completed. If not clear - leave blank
-- Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear.
-- Amounts and Units don't guess, if not clear - leave blank.
+- Amounts - means amount of work completed. If not clear - leave blank.
+- Units  - units of works completed. For example m3, tn, m2, m, gab. Leave blank if not clear.
+- Amounts and Units don't guess. Do not use apartment numbers, floor numbers, layer counts, workers, hours, or method/context numbers as Amounts.
 - All units convert to standarts units (m,kg,m2,m3,tn., gab, komplekts, stunda, pacelšana, minute, projekt )
 
 
@@ -207,7 +214,7 @@ When mapping, try to select the most suitable work category from the provided Zo
 
 
 
-  const NoSortingPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Save the message in comments.
+  const NoSortingPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Save the message in comments.
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
   `
@@ -230,7 +237,7 @@ Store message as it is without changes. Do not extract locations, mark records a
 
 
 
-  const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activites on site. Analyze and map according to the zod schema you are given
+  const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Analyze and map according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
   For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)`
@@ -252,9 +259,10 @@ Please follow the guidelines below:
 
 - If there is relevant information present, include it.
 - When multiple works are mentioned in the same text, create separate diary entries for each.
-- Works Ctegory - if work is about some changes or something unexpected - mark it CE
-- Amounts - means amount of work completed. If not clear - leave blank
-- Units  - units of works completed. For examplem m3, tn, pcs. leave blank if not clear.
+- Works Category - if work is about some changes or something unexpected - mark it CE
+- Amounts - means amount of work completed. If not clear - leave blank.
+- Units  - units of works completed. For example m3, tn, m2, m, gab. Leave blank if not clear.
+- Amounts and Units don't guess. Do not use apartment numbers, floor numbers, layer counts, workers, hours, or method/context numbers as Amounts.
 
 
 When mapping, try to select the most suitable work category from the provided Zod schema. After each mapping action, briefly validate the outcome in 1–2 lines and proceed or self-correct if necessary.

@@ -41,11 +41,23 @@ type JudgeResult = {
 
 type EvalResultStatus = "pass" | "warn" | "fail" | "skipped";
 
+type SavedPhotoRecord = {
+  id: string;
+  siteId: string | null;
+  userId: string | null;
+  workerId: string | null;
+  URL: string | null;
+  fileUrl: string | null;
+  Comment: string | null;
+  createdAt: Date;
+};
+
 type CaseRunResult = {
   caseId: string;
   webhookMessageId: string | null;
   inputPreview: string | null;
   createdRecordIds: string[];
+  createdPhotoIds: string[];
   selectedRecord: SavedSiteDiaryRecord | null;
   answer: string | null;
   requestedModel: string | null;
@@ -132,6 +144,12 @@ type WhatsAppSiteManagerEvalReport = {
 };
 
 const GRAPH_API_PREFIX = "https://graph.facebook.com/";
+const EVAL_IMAGE_MEDIA_URL = "https://eval.test/meta-media/site-manager-image-caption.jpg";
+const EVAL_UPLOADED_IMAGE_URL = "https://eval.test/uploads/site-manager-image-caption.jpg";
+const EVAL_IMAGE_BYTES = new Uint8Array([
+  0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46,
+  0x49, 0x46, 0x00, 0x01, 0xff, 0xd9,
+]);
 
 const JudgeSchema = {
   parse(value: unknown): JudgeResult {
@@ -325,9 +343,26 @@ function installGraphApiFetchMock() {
   global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
     if (url.startsWith(GRAPH_API_PREFIX)) {
+      if (url.includes("eval-image-media-")) {
+        return new Response(JSON.stringify({
+          url: EVAL_IMAGE_MEDIA_URL,
+          mime_type: "image/jpeg",
+        }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       return new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (url === EVAL_IMAGE_MEDIA_URL) {
+      return new Response(EVAL_IMAGE_BYTES, {
+        status: 200,
+        headers: { "Content-Type": "image/jpeg" },
       });
     }
 
@@ -452,6 +487,36 @@ async function findCreatedRecords(args: {
   });
 }
 
+async function findCreatedPhotos(args: {
+  siteId: string;
+  userId: string;
+  startedAt: Date;
+  inputText: string;
+}): Promise<SavedPhotoRecord[]> {
+  return prisma.photos.findMany({
+    where: {
+      siteId: args.siteId,
+      userId: args.userId,
+      workerId: null,
+      createdAt: { gte: args.startedAt },
+      Comment: {
+        contains: args.inputText,
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      siteId: true,
+      userId: true,
+      workerId: true,
+      URL: true,
+      fileUrl: true,
+      Comment: true,
+      createdAt: true,
+    },
+  });
+}
+
 async function findCorrectionAuditRecords(args: {
   correctionMessageId: string;
 }): Promise<SavedSiteDiaryRecord[]> {
@@ -516,12 +581,22 @@ async function cleanupPreviousEvalCaseRows(args: {
         },
       },
     });
+    await prisma.photos.deleteMany({
+      where: {
+        siteId: args.siteId,
+        userId: args.userId,
+        Comment: {
+          contains: args.inputText,
+        },
+      },
+    });
   }
 }
 
 async function cleanupEvalRows(args: {
   businessPhoneNumberId: string;
   recordIds: string[];
+  photoIds: string[];
   runId: string;
   caseId: string;
 }) {
@@ -539,6 +614,11 @@ async function cleanupEvalRows(args: {
   await prisma.sitediaryrecords.deleteMany({
     where: {
       id: { in: args.recordIds },
+    },
+  });
+  await prisma.photos.deleteMany({
+    where: {
+      id: { in: args.photoIds },
     },
   });
   if (prismaAny.whatsAppIdentity) {
@@ -668,6 +748,10 @@ async function main() {
   const judgeClient = enableJudge ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
   const senderPhone = process.env.AI_EVAL_WHATSAPP_PHONE ?? "37129391891";
   const businessPhoneNumberId = `eval-business-phone-${runId}`;
+  const previousUploadedImageUrl = process.env.AI_EVAL_UPLOADED_IMAGE_URL;
+  const previousSkipMetaImageClassifier = process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER;
+  process.env.AI_EVAL_UPLOADED_IMAGE_URL = EVAL_UPLOADED_IMAGE_URL;
+  process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER = "true";
   const restoreFetch = installGraphApiFetchMock();
   const { POST } = await import("@/app/api/webhook/meta/webhook/route");
 
@@ -709,6 +793,7 @@ async function main() {
           webhookMessageId: null,
           inputPreview: null,
           createdRecordIds: [],
+          createdPhotoIds: [],
           selectedRecord: null,
           answer: null,
           requestedModel: null,
@@ -739,6 +824,7 @@ async function main() {
       const bsuid = `LV.eval.${runId}.${evalCase.id}`;
       const threadId = `eval:whatsapp-site-manager:${siteId}:${webhookEvalCase.id}:${runId}`;
       let createdRecordIds: string[] = [];
+      let createdPhotoIds: string[] = [];
       const prepared = prepareWebhookPayload({
         evalCase: webhookEvalCase,
         runId,
@@ -824,6 +910,13 @@ async function main() {
           runId,
           caseId: evalCase.id,
         });
+        const createdPhotos = await findCreatedPhotos({
+          siteId,
+          userId,
+          startedAt: caseStartedAt,
+          inputText: prepared.inputText,
+        });
+        createdPhotoIds = createdPhotos.map((photo) => photo.id);
         const persistedRecords = getPersistedEvalRecordsFromTrace(tracedRun.entries);
         createdRecordIds = Array.from(
           new Set([...persistedRecords, ...createdRecords].map((record) => record.id)),
@@ -839,6 +932,7 @@ async function main() {
           userId,
           record: selectedRecord,
           records: recordsForValidation,
+          createdPhotoCount: createdPhotos.length,
           answer: agentRun.details?.content ?? "",
         });
         const judge =
@@ -862,6 +956,7 @@ async function main() {
           webhookMessageId: prepared.messageId,
           inputPreview: preview(prepared.inputText),
           createdRecordIds,
+          createdPhotoIds,
           selectedRecord,
           answer: agentRun.details?.content ?? "",
           requestedModel: agentRun.details?.requestedModel ?? agentModel,
@@ -997,6 +1092,7 @@ async function main() {
             webhookMessageId: followUpPrepared.messageId,
             inputPreview: preview(followUpPrepared.inputText),
             createdRecordIds: followUpRecordIds,
+            createdPhotoIds: [],
             selectedRecord: followUpSelectedRecord,
             answer: followUpAgentRun.details?.content ?? "",
             requestedModel: followUpAgentRun.details?.requestedModel ?? agentModel,
@@ -1029,6 +1125,7 @@ async function main() {
           cleanupEvalRows({
             businessPhoneNumberId,
             recordIds: createdRecordIds,
+            photoIds: createdPhotoIds,
             runId,
             caseId: evalCase.id,
           }),
@@ -1038,6 +1135,16 @@ async function main() {
     }
   } finally {
     restoreFetch();
+    if (previousUploadedImageUrl === undefined) {
+      delete process.env.AI_EVAL_UPLOADED_IMAGE_URL;
+    } else {
+      process.env.AI_EVAL_UPLOADED_IMAGE_URL = previousUploadedImageUrl;
+    }
+    if (previousSkipMetaImageClassifier === undefined) {
+      delete process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER;
+    } else {
+      process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER = previousSkipMetaImageClassifier;
+    }
   }
 
   const latency = summarizeLatency(results, slowThresholdMs);

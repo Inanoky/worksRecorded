@@ -306,6 +306,141 @@ function buildImageMessage(args: {
   ]
 }
 
+function getRigaLocalDateParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Riga",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date)
+
+  const value = (type: "year" | "month" | "day") =>
+    Number(parts.find(part => part.type === type)?.value)
+
+  return {
+    year: value("year"),
+    month: value("month"),
+    day: value("day"),
+  }
+}
+
+function toUtcMidnightDate(parts: { year: number; month: number; day: number }) {
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day))
+}
+
+function getRigaLocalIsoDate(date = new Date()) {
+  const parts = getRigaLocalDateParts(date)
+  return [
+    String(parts.year).padStart(4, "0"),
+    String(parts.month).padStart(2, "0"),
+    String(parts.day).padStart(2, "0"),
+  ].join("-")
+}
+
+function parseIsoDateOnly(value: unknown) {
+  if (typeof value !== "string") return null
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/)
+  if (!match) return null
+
+  const parts = {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+  }
+  const date = toUtcMidnightDate(parts)
+
+  if (
+    date.getUTCFullYear() !== parts.year ||
+    date.getUTCMonth() !== parts.month - 1 ||
+    date.getUTCDate() !== parts.day
+  ) {
+    return null
+  }
+
+  return date
+}
+
+function extractVisibleDayMonth(value: unknown) {
+  if (typeof value !== "string") return null
+
+  const numeric = value.match(/(?:^|\D)(\d{1,2})[./-](\d{1,2})(?:\D|$)/)
+  if (numeric) {
+    return {
+      day: Number(numeric[1]),
+      month: Number(numeric[2]),
+    }
+  }
+
+  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/)
+  if (iso) {
+    return {
+      day: Number(iso[3]),
+      month: Number(iso[2]),
+    }
+  }
+
+  return null
+}
+
+function isWithinRecentInvoiceWindow(date: Date, now = new Date()) {
+  const today = toUtcMidnightDate(getRigaLocalDateParts(now))
+  const lowerBound = new Date(today)
+  lowerBound.setUTCDate(lowerBound.getUTCDate() - 45)
+  const upperBound = new Date(today)
+  upperBound.setUTCDate(upperBound.getUTCDate() + 1)
+
+  return date >= lowerBound && date <= upperBound
+}
+
+export function normalizeExtractedInvoiceDate(args: {
+  invoiceDate: unknown
+  invoiceDateText?: unknown
+  invoiceDateYearVisible?: unknown
+  now?: Date
+}) {
+  const now = args.now ?? new Date()
+  const parsedInvoiceDate = parseIsoDateOnly(args.invoiceDate)
+  const currentYear = getRigaLocalDateParts(now).year
+  const yearVisible = args.invoiceDateYearVisible === true
+
+  if (yearVisible) {
+    if (!parsedInvoiceDate) return null
+    return parsedInvoiceDate.getUTCFullYear() > currentYear
+      ? null
+      : parsedInvoiceDate
+  }
+
+  const visibleDayMonth =
+    extractVisibleDayMonth(args.invoiceDateText) ??
+    extractVisibleDayMonth(args.invoiceDate)
+
+  if (visibleDayMonth) {
+    const currentYearDate = toUtcMidnightDate({
+      year: currentYear,
+      month: visibleDayMonth.month,
+      day: visibleDayMonth.day,
+    })
+
+    if (
+      currentYearDate.getUTCMonth() === visibleDayMonth.month - 1 &&
+      currentYearDate.getUTCDate() === visibleDayMonth.day &&
+      isWithinRecentInvoiceWindow(currentYearDate, now)
+    ) {
+      return currentYearDate
+    }
+  }
+
+  if (
+    parsedInvoiceDate &&
+    parsedInvoiceDate.getUTCFullYear() <= currentYear &&
+    isWithinRecentInvoiceWindow(parsedInvoiceDate, now)
+  ) {
+    return parsedInvoiceDate
+  }
+
+  return null
+}
+
 async function resolveMetaMaterialContext(senderPhone?: string | null): Promise<MetaMaterialContext | null> {
   if (!senderPhone) return null
 
@@ -378,6 +513,7 @@ Return isMaterialDocument=true only when all of these are true:
 
 Return isMaterialDocument=false for:
 - normal site progress photos
+- progress report images, site diary notes, work summaries, or instructions to save completed work
 - selfies or people photos
 - equipment-only photos
 - drawings/plans without material purchase rows
@@ -409,6 +545,8 @@ function buildMaterialExtractionSchema(ids: string[]) {
       cost: z.number().describe("Line total cost for this invoice row. Use 0 only when no price or line total is visible."),
       invoiceNr : z.string().describe("Invoice, receipt, delivery note, or document number. Use an empty string if not visible."),
       invoiceDate : z.string().nullable().describe("Document date as an ISO string, for example 2025-12-04T00:00:00Z. Use null if not visible."),
+      invoiceDateText: z.string().describe("Exact visible document date text copied from the image. Use an empty string if no document date text is visible."),
+      invoiceDateYearVisible: z.boolean().describe("True only when the document date visibly includes a year."),
       costCode: z.string().describe("Visible cost/project code. If no code is visible, generate a stable row code in order: CC-1001, CC-1002, CC-1003, ..."),
       quantity: z.number().describe("Quantity for this invoice row. Prefer the row quantity visible in the document; do not multiply by package size unless the document explicitly provides only package count and package size as the usable quantity."),
       construction_material_id: z.enum(ids as [string, ...string[]]).describe("Best matching category id from the allowed category list, or no_match.")
@@ -427,6 +565,7 @@ export async function extractBISMaterialsFromPublicUrl(args: {
   const ids = [...categories.map(m => m.id), "no_match"];
   const responseSchema = buildMaterialExtractionSchema(ids)
   const extractionModel = "gpt-5.4";
+  const todayIso = getRigaLocalIsoDate()
   const llm = new ChatOpenAI({
     model: extractionModel,
     temperature: 0,
@@ -442,6 +581,8 @@ export async function extractBISMaterialsFromPublicUrl(args: {
     buildImageMessage({
       publicUrl: args.publicUrl,
       prompt: `You are extracting construction material purchases from one WhatsApp image.
+
+Today is ${todayIso} in Europe/Riga.
 
 Goal:
 Return an object with an items array. Each item represents one invoice line that should be tracked from a construction material/spend invoice.
@@ -465,10 +606,18 @@ Output fields:
 - name: copy the product/material name from the document in the original language. Do not translate or normalize brand names.
 - invoiceNr: copy the invoice, receipt, delivery note, waybill, or document number. Use an empty string if no document number is visible.
 - invoiceDate: use the document date when visible. If multiple dates exist, prefer invoice/receipt issue date over due date or delivery date. Return an ISO string at midnight UTC, for example 2025-12-04T00:00:00Z. Use null if no date is visible.
+- invoiceDateText: copy the exact visible document date text, for example "04.12.2025" or "04.12.". Use an empty string if no document date text is visible.
+- invoiceDateYearVisible: return true only when the document date visibly includes a year. Return false when the year is missing, cropped, unreadable, or inferred.
 - costCode: copy a visible project/cost code from the document. If no row cost code is visible, generate a stable row code in invoice order: CC-1001, CC-1002, CC-1003, and so on.
 - cost: use the line total for that material row, excluding VAT when both net and gross are visible. If only gross total is visible, use it. If only unit price is visible, multiply by the extracted invoice quantity. Use 0 only when no price is visible.
 - construction_material_id: select the best id from the allowed material categories. Use no_match when none fits confidently.
 - quantity: return the numeric quantity for the row.
+
+Invoice date rules:
+1. Material invoices sent over WhatsApp are normally from today or the previous month.
+2. If the date shows day and month but no clear year, assume the current year from today's date.
+3. Only return an old year when that year is clearly visible in the document date.
+4. Do not invent a year from document numbers, totals, product codes, phone numbers, or page text.
 
 Quantity rules:
 1. Prefer the row quantity printed in the invoice table.
@@ -556,6 +705,14 @@ export async function processMaterialDocumentImageFromPublicUrl(args: {
   publicUrl: string;
   senderPhone?: string | null;
 }) {
+  if (
+    process.env.RUN_AI_EVALS === "true" &&
+    process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER === "true"
+  ) {
+    console.log("Meta material image classification skipped for AI eval image route");
+    return false;
+  }
+
   const context = await resolveMetaMaterialContext(args.senderPhone);
   const classification = await classifyMaterialDocumentImage(args.publicUrl, context);
 
@@ -611,7 +768,11 @@ export async function saveBISMaterialPayloadToDatabase(
   data: payload.items.map(item => ({
     name: item.name,
     quantity: item.quantity,
-    invoiceDate :  item.invoiceDate,
+    invoiceDate :  normalizeExtractedInvoiceDate({
+      invoiceDate: item.invoiceDate,
+      invoiceDateText: item.invoiceDateText,
+      invoiceDateYearVisible: item.invoiceDateYearVisible,
+    }),
     invoiceNr : item.invoiceNr,
     cost : item.cost,
     costCode : item.costCode,

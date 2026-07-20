@@ -5,7 +5,7 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 ## Current State
 
 - Jest currently has 150 passing tests across 31 suites and covers deterministic application and eval infrastructure behavior. Use the command output as the source of truth as this count grows.
-- AI eval fixtures currently contain 23 cases / 27 evaluated interactions: 7 dashboard cases (10 turns), 12 WhatsApp site-manager cases (13 interactions), and 4 WhatsApp worker cases.
+- AI eval fixtures currently contain 25 cases / 30 evaluated interactions: 7 dashboard cases (10 turns), 14 WhatsApp site-manager cases (16 interactions), and 4 WhatsApp worker cases.
 - Dashboard chat flow: `dashboard-chat` / `OrchestratingAgentV2`.
 - WhatsApp site-manager flow: `whatsapp-site-manager` via the real Meta webhook route.
 - WhatsApp worker flow: `whatsapp-worker` / `ClockinAgentForWorkerRoute` via the real Meta webhook route.
@@ -13,6 +13,7 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 - One English compatibility case is kept intentionally.
 - Dashboard eval prompts use read-only tools only.
 - WhatsApp site-manager evals write temporary site diary records and delete records created by the eval run.
+- WhatsApp site-manager image-caption evals also write temporary photo rows and delete photo rows created by the eval run.
 - Results are saved locally in `.ai-eval-results/dashboard-*.json`.
 - WhatsApp site-manager results are saved locally in `.ai-eval-results/whatsapp-site-manager-*.json`.
 - WhatsApp worker results are saved locally in `.ai-eval-results/whatsapp-worker-*.json`.
@@ -177,6 +178,7 @@ WhatsApp site-manager preconditions:
 - The eval user's `lastSelectedSiteIdforWhatsapp` must equal `AI_EVAL_SITE_ID`.
 - `AI_EVAL_SITE_ID` must have a site diary settings schema.
 - The runner creates a temporary Meta `WhatsAppIdentity` for the eval run and mocks outbound Graph API calls, so it does not send real WhatsApp replies.
+- The runner mocks Meta image media lookup/download and UploadThing image upload for image-caption cases. It still goes through the real Meta webhook route and real site-manager AI flow, but does not depend on live Meta media or UploadThing.
 
 WhatsApp worker preconditions:
 
@@ -215,6 +217,7 @@ WhatsApp site-manager cases are checked by deterministic and heuristic validator
 
 - webhook route must return HTTP 200
 - exactly one site diary record should be created by default; `expectedRecordCount` can require multiple records, and cases with `shouldCreateRecord: false` require zero records
+- image-caption cases can assert `expectedPhotoCount` to verify the image was saved as a project photo
 - saved record must belong to the eval site and user
 - an `expectedDateISO` value requires the persisted diary date to match exactly
 - saved record must preserve the expected activity/location text signals
@@ -238,6 +241,7 @@ Worker-count expectations for normal WhatsApp site-manager site diary rows:
 The WhatsApp JSON report includes:
 
 - per-case selected record and created record IDs
+- per-case created photo IDs for image-caption webhook cases
 - per-case `structuredSaveTrace` with raw structured LLM records, mapped DB rows, normalized insert rows, and persisted records
 - deterministic status, heuristic score, and optional judge result, including advisory `improvements`
 - requested model, actual provider model, token usage, and finish reason when available
@@ -330,6 +334,24 @@ For WhatsApp site-manager, add a new object in `whatsapp-site-manager-cases.ts`:
     workersInvolved: 2,
     timeInvolved: 3,
     minHeuristicScore: 0.75,
+  },
+}
+```
+
+For a Meta image webhook with a site-diary caption, use an image-shaped payload. The runner mocks the media URL, image bytes, and UploadThing upload, then validates that the caption still creates a normal site diary record:
+
+```ts
+{
+  id: "latvian-image-caption-site-diary",
+  intent: "Verify a Meta image webhook with a Latvian site diary caption saves the photo and creates a diary record from the caption.",
+  webhook: {
+    // Sanitized Meta image webhook with type: "image" and image.caption.
+  },
+  expected: {
+    expectedPhotoCount: 1,
+    requiredTextSignals: ["starpsien", "2", "stāv"],
+    workersInvolved: 2,
+    timeInvolved: 3,
   },
 }
 ```

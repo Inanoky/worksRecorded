@@ -3,6 +3,7 @@ import { z } from "zod";
 const ExpectedSavedRecordSchema = z.object({
   shouldCreateRecord: z.boolean().default(true),
   expectedRecordCount: z.number().int().nonnegative().optional(),
+  expectedPhotoCount: z.number().int().nonnegative().optional(),
   requiredTextSignals: z.array(z.string().min(1)).default([]),
   requiredAnswerSignals: z.array(z.string().min(1)).default([]),
   forbiddenAnswerSignals: z.array(z.string().min(1)).default([]),
@@ -111,6 +112,58 @@ function textWebhookFixture(args: {
   };
 }
 
+function imageWebhookFixture(args: {
+  senderKey: string;
+  caption: string;
+  timestamp: string;
+  mediaId?: string;
+  mimeType?: string;
+}) {
+  return {
+    object: "whatsapp_business_account",
+    entry: [
+      {
+        id: "eval-waba",
+        changes: [
+          {
+            value: {
+              messaging_product: "whatsapp",
+              metadata: {
+                display_phone_number: "37127445304",
+                phone_number_id: "eval-business-phone",
+              },
+              contacts: [
+                {
+                  profile: {
+                    name: "Eval Site Manager",
+                  },
+                  wa_id: "37129391891",
+                  user_id: `LV.${args.senderKey}`,
+                },
+              ],
+              messages: [
+                {
+                  from: "37129391891",
+                  from_user_id: `LV.${args.senderKey}`,
+                  id: `wamid.${args.senderKey}`,
+                  timestamp: args.timestamp,
+                  image: {
+                    id: args.mediaId ?? `eval-image-media-${args.senderKey}`,
+                    mime_type: args.mimeType ?? "image/jpeg",
+                    caption: args.caption,
+                  },
+                  type: "image",
+                },
+              ],
+            },
+            field: "messages",
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
   WhatsAppSiteManagerEvalSuiteSchema.parse([
     {
@@ -132,6 +185,25 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
       },
     },
     {
+      id: "latvian-image-caption-site-diary",
+      intent:
+        "Verify a Meta image webhook with a Latvian site diary caption saves the photo and creates a diary record from the caption.",
+      notes:
+        "The eval runner mocks Meta media bytes and UploadThing; image content is not extracted for diary text.",
+      webhook: imageWebhookFixture({
+        senderKey: "eval-site-manager-image-caption",
+        caption: "Šodien pabeidzām starpsienu montāžu 2. stāvā, 2 cilvēki, 3h.",
+        timestamp: "1782197580",
+      }),
+      expected: {
+        expectedPhotoCount: 1,
+        requiredTextSignals: ["starpsien", "montāž", "2", "stāv"],
+        workersInvolved: 2,
+        timeInvolved: 3,
+        minHeuristicScore: 0.75,
+      },
+    },
+    {
       id: "latvian-wall-plaster-hours-without-workers",
       intent:
         "Verify a Latvian site-manager text webhook leaves workers empty when work and hours are reported without an explicit worker count.",
@@ -146,6 +218,25 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
         requiredTextSignals: ["apmest", "sien", "2", "stāv"],
         workersInvolved: null,
         timeInvolved: 4,
+        amounts: null,
+        minHeuristicScore: 0.75,
+      },
+    },
+    {
+      id: "latvian-layer-count-is-not-amount",
+      intent:
+        "Verify Latvian layer counts and apartment identifiers stay out of structured completed quantity fields.",
+      notes:
+        "Protects against mapping 'reģipsis 2 kārtās' to Amounts=2, Units=gab.",
+      webhook: textWebhookFixture({
+        senderKey: "eval-site-manager-layer-count-no-amount",
+        body:
+          "Dz ukraiņi. Wc profils, reģipsis 2 kārtās, vate, elektrība. darbs izdarīts",
+        timestamp: "1782197590",
+      }),
+      expected: {
+        requiredTextSignals: ["wc", "profil", "reģips", "2", "kārt", "vate", "elektr"],
+        workersInvolved: null,
         amounts: null,
         minHeuristicScore: 0.75,
       },
