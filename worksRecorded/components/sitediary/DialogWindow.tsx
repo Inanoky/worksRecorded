@@ -30,6 +30,8 @@ type DialogWindowProps = {
   onSaved: any;
   organizationLanguage?: any;
   isZtcFlow?: boolean;
+  initialRows?: Record<string, any>[] | null;
+  initialConfig?: Record<string, any> | null;
   children?: React.ReactNode;
 };
 
@@ -41,11 +43,12 @@ export default function DialogWindow({
   onSaved,
   organizationLanguage,
   isZtcFlow = false,
+  initialRows,
+  initialConfig,
 }: DialogWindowProps) {
   const [refreshKey, setRefreshKey] = React.useState(0);
   const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
   const dateLocale = normalizeOrganizationLanguage(organizationLanguage) === "lv" ? "lv-LV" : "en-GB";
-  const TableComponent = isZtcFlow ? ZtcDialogTable : DialogTable;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -93,17 +96,32 @@ export default function DialogWindow({
             className="mt-0 min-h-0 flex-1 overflow-y-auto"
           >
             <div data-tour="dialog-table">
-              <TableComponent
-                key={refreshKey}
-                className="flex-none"
-                date={date}
-                siteId={siteId}
-                organizationLanguage={organizationLanguage}
-                onSaved={() => {
-                  onSaved && onSaved();
-                  setRefreshKey((k) => k + 1);
-                }}
-              />
+              {isZtcFlow ? (
+                <ZtcDialogTable
+                  key={refreshKey}
+                  className="flex-none"
+                  date={date}
+                  siteId={siteId}
+                  organizationLanguage={organizationLanguage}
+                  onSaved={() => {
+                    onSaved && onSaved();
+                    setRefreshKey((k) => k + 1);
+                  }}
+                />
+              ) : (
+                <DialogTable
+                  key={refreshKey}
+                  date={date}
+                  siteId={siteId}
+                  organizationLanguage={organizationLanguage}
+                  initialRows={initialRows}
+                  initialConfig={initialConfig}
+                  onSaved={() => {
+                    onSaved && onSaved();
+                    setRefreshKey((k) => k + 1);
+                  }}
+                />
+              )}
             </div>
           </TabsContent>
 

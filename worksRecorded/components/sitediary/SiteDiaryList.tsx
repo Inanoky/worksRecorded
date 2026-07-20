@@ -634,6 +634,7 @@ export default function SiteDiaryCalendar({
   // Shared dialog for editing a day
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogDate, setDialogDate] = React.useState<Date | null>(null);
+  const [dialogInitialRows, setDialogInitialRows] = React.useState<DiaryRow[] | null>(null);
   const [optionsRevision, setOptionsRevision] = React.useState(0);
 
   // Photos dialog
@@ -1679,6 +1680,15 @@ export default function SiteDiaryCalendar({
   };
 
   const openDayDialog = (date: Date) => {
+    const dateKey = toLocalDateKey(date);
+    const cachedRows = isZtcSite
+      ? []
+      : rows.filter((row) => {
+          const rowDate = new Date(row.Date);
+          return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
+        });
+
+    setDialogInitialRows(cachedRows.length ? cachedRows : null);
     setDialogDate(date);
     setCalendarDate(date);
     setDialogOpen(true);
@@ -4294,6 +4304,8 @@ export default function SiteDiaryCalendar({
           siteId={siteId}
           organizationLanguage={organizationLanguage}
           isZtcFlow={isZtcSite}
+          initialRows={isZtcSite ? null : dialogInitialRows}
+          initialConfig={isZtcSite ? null : defaultMap}
           onSaved={async () => {
             reloadFilledDays();
 

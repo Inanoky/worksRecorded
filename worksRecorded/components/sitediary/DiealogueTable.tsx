@@ -329,11 +329,15 @@ export function DialogTable({
   siteId,
   onSaved,
   organizationLanguage,
+  initialRows,
+  initialConfig,
 }: {
   date: Date | null;
   siteId: string | null;
   onSaved?: () => void;
   organizationLanguage?: string | null;
+  initialRows?: Record<string, any>[] | null;
+  initialConfig?: Record<string, any> | null;
 }) {
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryDialogMessages(language);
@@ -349,6 +353,7 @@ export function DialogTable({
   const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [defaultMap, setMap] = useState<Record<string, any>>(defaultConfig);
+  const hasClientEditsRef = React.useRef(false);
 
   const newEmptyRow = () => ({
     id: undefined as string | undefined,
@@ -379,7 +384,7 @@ export function DialogTable({
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
 
   const handleAddRow = () => {
-
+    hasClientEditsRef.current = true;
     setRows((prev) => [...prev, newEmptyRow()]);
   };
 
@@ -387,6 +392,7 @@ export function DialogTable({
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
     const confirmed = window.confirm("Delete this diary row? This action cannot be undone.");
     if (!confirmed) return;
+    hasClientEditsRef.current = true;
 
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
@@ -405,6 +411,7 @@ export function DialogTable({
   };
 
   const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
+    hasClientEditsRef.current = true;
     const existingRowId = rows.find(
       (row) => row.id === rowIdOrTemp || row._tempId === rowIdOrTemp,
     )?.id;
@@ -816,17 +823,7 @@ export function DialogTable({
 
 
   useEffect(() => {
-    console.log("rows state changed:", rows);
-    console.log("tableheades ", tableHeads)
-    
-  }, [rows]);
-
-  //Downloadinf map 
-
-
-  useEffect(() => {
     let cancelled = false;
-    setLoading(true);
 
     if (!date || !siteId) {
       setRows([newEmptyRow()]);
@@ -834,10 +831,51 @@ export function DialogTable({
       return;
     }
 
+    const cachedRows = initialRows?.length ? initialRows : null;
+    const cachedConfig = (initialConfig ?? defaultConfig) as Record<string, any>;
+    hasClientEditsRef.current = false;
+
+    if (cachedRows) {
+      const renderableFields = Object.entries(cachedConfig)
+        .filter(([_, cfg]) => cfg?.Type !== "noRender")
+        .sort((a, b) => {
+          const aOrder = typeof a[1]?.customSettings?.order === "number"
+            ? a[1].customSettings.order
+            : Number.POSITIVE_INFINITY;
+          const bOrder = typeof b[1]?.customSettings?.order === "number"
+            ? b[1].customSettings.order
+            : Number.POSITIVE_INFINITY;
+          return aOrder !== bOrder ? aOrder - bOrder : a[0].localeCompare(b[0]);
+        })
+        .map(([key]) => key.trim());
+      const editableRows = cachedRows.map((row) => ({
+        id: row.id ?? undefined,
+        createdBy: row.createdBy ?? undefined,
+        ...Object.fromEntries(
+          renderableFields.map((field) => [field, row[field] ?? ""]),
+        ),
+        _tempId: crypto.randomUUID(),
+        Location_code: "",
+        Works_code: "",
+        Location_mode: "select",
+        Works_mode: "select",
+        Location_manual: "",
+        Works_manual: "",
+      }));
+
+      setMap(cachedConfig);
+      setTableHeads(renderableFields);
+      setRows(editableRows);
+      setDirtyRowIds(new Set());
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
-      const config = await getConfig(siteId);
-      setMap(config ?? defaultConfig);
+      const config = (initialConfig ?? (await getConfig(siteId)) ?? defaultConfig) as Record<string, any>;
+      setMap(config);
 
 
 
@@ -867,7 +905,7 @@ export function DialogTable({
       //Here we load config from database, and if no config we use default. 
 
    
-      const cfg = (await getConfig(siteId)) ?? defaultConfig;
+      const cfg = config;
           if (cancelled) return;
 
           setMap(cfg);
@@ -964,16 +1002,23 @@ export function DialogTable({
         : [newEmptyRow()];
 
       console.dir(formattedRows)
-      setRows(nextRows);
-      setDirtyRowIds(new Set());
+      if (!hasClientEditsRef.current) {
+        setRows(nextRows);
+        setDirtyRowIds(new Set());
+      }
 
       setLoading(false);
-    })();
+    })().catch((error: any) => {
+      if (cancelled || cachedRows) return;
+      toast.error(error?.message ?? toastMessages.somethingWentWrong);
+      setRows([newEmptyRow()]);
+      setLoading(false);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [date, siteId]);
+  }, [date, initialConfig, initialRows, siteId]);
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-[300px]">{t.loading}</div>;
