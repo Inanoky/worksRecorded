@@ -1,4 +1,5 @@
 import {
+  canonicalizeZtcMatchedWorkName,
   findZtcDefaultRateForTask,
   ztcRateMatchTokens,
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
@@ -84,5 +85,49 @@ describe("findZtcDefaultRateForTask", () => {
     expect(ztcRateMatchTokens("TL - Koka karkass 95 mm")).not.toEqual(
       expect.arrayContaining(["95", "mm"]),
     );
+  });
+
+  it("matches Blue GKF OCR text to the configured GKFI task", () => {
+    const result = findZtcDefaultRateForTask(
+      "R1/T1 - Blue GKF 12.5",
+      [
+        {
+          task: "Ģipškartona plāksne GKFI12.5",
+          rate: "2.1",
+          unit: "m2",
+          laborNorm: "0.14",
+        },
+      ],
+      { category: "works" },
+    );
+
+    expect(result?.entry.task).toBe("Ģipškartona plāksne GKFI12.5");
+    expect(result?.entry.rate).toBe("2.1");
+  });
+
+  it("does not map similar board names when their thicknesses differ", () => {
+    const result = findZtcDefaultRateForTask(
+      "R1/T1 - Blue GKF 15",
+      [{ task: "Ģipškartona plāksne GKFI12.5", rate: "2.1", unit: "m2" }],
+      { category: "works" },
+    );
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("canonicalizeZtcMatchedWorkName", () => {
+  it("keeps the drawing code and displays the configured task name", () => {
+    expect(
+      canonicalizeZtcMatchedWorkName(
+        "R1/T1 - Blue GKFI 12.5",
+        "Ģipškartona plāksne GKFI12.5",
+      ),
+    ).toBe("R1/T1 - Ģipškartona plāksne GKFI12.5");
+  });
+
+  it("preserves TL for timber-frame workflow rules", () => {
+    expect(canonicalizeZtcMatchedWorkName("TL - Timber frame", "Koka karkass"))
+      .toBe("TL - Koka karkass");
   });
 });

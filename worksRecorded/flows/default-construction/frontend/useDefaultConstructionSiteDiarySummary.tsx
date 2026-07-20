@@ -310,7 +310,7 @@ export function useDefaultConstructionSiteDiarySummary(args: {
   const [summary, setSummary] = React.useState<DefaultConstructionScopeSummary | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [projectSummaryVisible, setProjectSummaryVisible] = React.useState(true);
+  const [projectSummaryVisible, setProjectSummaryVisible] = React.useState(false);
   const [projectSummary, setProjectSummary] =
     React.useState<DefaultConstructionScopeSummary | null>(null);
   const [projectLoading, setProjectLoading] = React.useState(false);

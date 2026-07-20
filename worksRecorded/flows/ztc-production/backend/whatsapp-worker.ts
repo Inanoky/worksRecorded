@@ -21,7 +21,10 @@ import {
   normalizeZtcRateUnit,
   type ZtcRateUnit,
 } from "@/flows/ztc-production/lib/ztc-rate-units";
-import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
+import {
+  canonicalizeZtcMatchedWorkName,
+  findZtcDefaultRateForTask,
+} from "@/flows/ztc-production/lib/ztc-rate-matching";
 import {
   getZtcTaskIdentityKey,
   rebalanceZtcCompletedTaskAmounts,
@@ -3544,6 +3547,9 @@ async function handleWorkText(args: {
     projectName: session.Location,
     matchedRate: defaultRateMatch?.rate ?? null,
   });
+  const canonicalWorkName = defaultRateMatch?.task
+    ? canonicalizeZtcMatchedWorkName(selectedWorkName, defaultRateMatch.task)
+    : selectedWorkName;
 
   const complexityStartedAt = Date.now();
   const complexity = await getComplexityForCode(
@@ -3564,7 +3570,7 @@ async function handleWorkText(args: {
     where: { id: session.id },
     data: {
       Date: now,
-      Works: selectedWorkName,
+      Works: canonicalWorkName,
       Location_Custom_2: session.Location_Custom_2 ?? defaultRateMatch?.rate ?? null,
       WorkersInvolved: Number(complexity),
       Units: "m2",
@@ -3585,6 +3591,7 @@ async function handleWorkText(args: {
     workerId: worker.id,
     sessionId: session.id,
     workOption: work.workOption,
+    canonicalWorkName,
   });
 
   logZtcSession("work_started", {
@@ -3596,6 +3603,7 @@ async function handleWorkText(args: {
       complexityCode,
       complexity,
       matchedRate: defaultRateMatch?.rate ?? null,
+      canonicalWorkName,
     },
   });
 

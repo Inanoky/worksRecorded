@@ -65,7 +65,41 @@ function rateTokenVariants(token: string) {
   const normalized = normalizeRateToken(token);
   if (!normalized) return [];
   const stem = normalized.replace(/(iem|am|us|as|es|is|ai|ei|am|em|i|a|e|u|s)$/i, "");
-  return [stem.length >= 4 ? stem : normalized];
+  const primary = stem.length >= 4 ? stem : normalized;
+  return primary === "gkf" ? [primary, "gkfi"] : [primary];
+}
+
+function stripZtcDrawingWorkCode(value: string) {
+  return normalizeZtcRateTaskName(value).replace(
+    /^(?:(?:r[1-5]\/t[1-5])|(?:l[1-5](?:\/b[1-5])?)|tl|l0|(?:[a-z]{1,4}\d+(?:\/[a-z]{1,4}\d+)?))\s*[-:/]?\s*/i,
+    "",
+  );
+}
+
+function getZtcDrawingWorkCode(value: string) {
+  const match = normalizeZtcRateTaskName(value).match(
+    /^((?:r[1-5]\/t[1-5])|(?:l[1-5](?:\/b[1-5])?)|tl|l0|(?:[a-z]{1,4}\d+(?:\/[a-z]{1,4}\d+)?))(?=\s*[-:/])/i,
+  );
+  return match?.[1] ?? null;
+}
+
+function ztcRateNumberTokens(value: string) {
+  return new Set(
+    Array.from(stripZtcDrawingWorkCode(value).matchAll(/\d+(?:[.,]\d+)?/g), (match) =>
+      String(Number(match[0].replace(",", "."))),
+    ),
+  );
+}
+
+export function canonicalizeZtcMatchedWorkName(
+  extractedWork: string,
+  matchedRateTask: string,
+) {
+  const canonicalTask = stripZtcDrawingWorkCode(matchedRateTask).trim();
+  if (!canonicalTask) return normalizeZtcRateTaskName(extractedWork).trim();
+
+  const workCode = getZtcDrawingWorkCode(extractedWork);
+  return workCode ? `${workCode} - ${canonicalTask}` : canonicalTask;
 }
 
 function normalizeDimensionToMm(value: string, unit: string) {
@@ -104,10 +138,15 @@ export function ztcRateMatchTokens(value: string) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
-  const tokens = normalizedSearchText
-    .replace(/^(r[1-5]|tl|l[1-5])\s*[-:/]?\s*/i, "")
+  const tokens = stripZtcDrawingWorkCode(normalizedSearchText)
+    .replace(/([a-z])(?=\d)/gi, "$1 ")
+    .replace(/(\d)(?=[a-z])/gi, "$1 ")
     .split(/[^a-z0-9]+/i)
     .flatMap(rateTokenVariants);
+
+  if (/\bblue\b/i.test(normalizedSearchText) && /\bgkfi?(?:\d|\b)/i.test(normalizedSearchText)) {
+    tokens.push("gipskarton", "plaksn", "gkfi");
+  }
 
   if (/^tl(\b|\s*[-/:])/i.test(normalized)) {
     tokens.push("karkas", "karkass", "timber", "frame");
@@ -128,6 +167,7 @@ export function findZtcDefaultRateForTask(
   const taskTokens = new Set(ztcRateMatchTokens(taskName));
   if (!taskTokens.size) return null;
   const taskDimensions = ztcRateDimensionTokens(taskName);
+  const taskNumbers = ztcRateNumberTokens(taskName);
 
   let best: { entry: ZtcDefaultTaskRate; score: number } | null = null;
 
@@ -136,11 +176,18 @@ export function findZtcDefaultRateForTask(
     const rateTokens = new Set(ztcRateMatchTokens(entry.task));
     if (!rateTokens.size) continue;
     const rateDimensions = ztcRateDimensionTokens(entry.task);
+    const rateNumbers = ztcRateNumberTokens(entry.task);
     const matchingDimensions = [...rateDimensions].filter((token) => taskDimensions.has(token)).length;
     const hasDimensionMismatch =
       rateDimensions.size > 0 &&
       taskDimensions.size > 0 &&
       matchingDimensions === 0;
+    const hasNumberMismatch =
+      rateNumbers.size > 0 &&
+      taskNumbers.size > 0 &&
+      ![...rateNumbers].some((token) => taskNumbers.has(token));
+
+    if (hasNumberMismatch) continue;
 
     const overlap = [...rateTokens].filter((token) => taskTokens.has(token)).length;
     const rawScore = overlap / Math.max(rateTokens.size, taskTokens.size);
