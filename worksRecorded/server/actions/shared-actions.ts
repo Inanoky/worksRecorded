@@ -62,46 +62,14 @@ export async function getSiteOrganizationIdBySiteId(siteId: string): Promise<str
 
 //Action to create a construction project
 
-export async function CreateSiteAction(prevState: unknown,formData: FormData){
+export async function CreateSiteAction(_prevState: unknown,formData: FormData){
 
     const user = await requireUser();    
     const org = await getOrganizationIdByUserId(user.id)
 
-    const [subStatus, sites] = await Promise.all([
-
-        prisma.subscription.findUnique({
-            where:{
-                userId: user.id,
-            },
-            select:{
-
-                status:true,
-
-            },
-        }),
-        prisma.site.findMany({
-            where: {
-                userId: user.id,
-            }
-        })
-    ])
-
-
-
-    if(!subStatus || subStatus.status !== "active" ){
-
-        if(sites.length < 5){
-            
-           await createSite()
-
-        } else {
-            
-            return redirect("/dashboard/pricing")
-        }
-
-    } else if (subStatus.status === "active"){
-        
-        await createSite()
+    const result = await createSite()
+    if (result) {
+        return result;
     }
 
     async function createSite(){
@@ -348,7 +316,7 @@ export async function getUserEmailByUserId(userId: string): Promise<string | nul
     select: { email: true },
   });
 
-  return user.email ?? null;
+  return user?.email ?? null;
 }
 
 
