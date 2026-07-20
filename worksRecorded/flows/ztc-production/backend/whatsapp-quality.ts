@@ -20,7 +20,7 @@ import {
   type ZtcWorker,
 } from "@/flows/ztc-production/backend/whatsapp-worker";
 import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
-import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
+import { canonicalizeZtcExtractedProjectName } from "@/flows/ztc-production/backend/project-name-canonicalization";
 import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
 
 const QA_PENDING_PREFIX = "__ZTC_QA_PENDING__";
@@ -860,9 +860,14 @@ async function handleQualityDrawingPhoto(args: {
     return;
   }
 
+  const context = getZtcFlowContext(args.worker);
+  const canonicalProjectName = await canonicalizeZtcExtractedProjectName({
+    siteId: context.siteId,
+    extractedProjectName: extraction.projectName,
+  });
   const canonicalExtraction = {
     ...extraction,
-    projectName: normalizeZtcProjectName(extraction.projectName) || extraction.projectName,
+    projectName: canonicalProjectName,
   };
   const drawingMetadata = buildDrawingMetadata(canonicalExtraction);
   const payload: QaPendingPayload = {
@@ -874,8 +879,8 @@ async function handleQualityDrawingPhoto(args: {
   const created = await prisma.ztcRecords.create({
     data: {
       workerId: args.worker.id,
-      siteId: getZtcFlowContext(args.worker).siteId,
-      organizationId: getZtcFlowContext(args.worker).organizationId,
+      siteId: context.siteId,
+      organizationId: context.organizationId,
       Date: new Date(),
       Date_Custom_1: new Date(),
       Location: canonicalExtraction.projectName,

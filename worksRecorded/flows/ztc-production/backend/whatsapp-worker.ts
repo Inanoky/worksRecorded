@@ -27,6 +27,7 @@ import {
   rebalanceZtcCompletedTaskAmounts,
 } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
 import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
+import { canonicalizeZtcExtractedProjectName } from "@/flows/ztc-production/backend/project-name-canonicalization";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
@@ -1352,13 +1353,16 @@ async function canonicalizeDrawingExtractionFromPreviousContext(
   const elementName = String(extraction.elementName ?? "").trim();
   if (!projectName || !elementName) return extraction;
 
-  const canonicalProjectName = normalizeZtcProjectName(projectName);
+  const context = getZtcFlowContext(worker);
+  const canonicalProjectName = await canonicalizeZtcExtractedProjectName({
+    siteId: context.siteId,
+    extractedProjectName: projectName,
+  });
   const projectCanonicalized =
     canonicalProjectName === projectName
       ? extraction
       : { ...extraction, projectName: canonicalProjectName };
 
-  const context = getZtcFlowContext(worker);
   const previousContexts = await prisma.ztcRecords.findMany({
     where: {
       siteId: context.siteId,
@@ -1376,7 +1380,9 @@ async function canonicalizeDrawingExtractionFromPreviousContext(
   });
 
   for (const context of previousContexts.filter(
-    (context) => normalizeZtcProjectName(context.Location) === canonicalProjectName,
+    (context) =>
+      normalizeZtcProjectName(context.Location) ===
+      normalizeZtcProjectName(canonicalProjectName),
   )) {
     const canonicalized = canonicalizeDrawingExtractionFromMetadata(
       projectCanonicalized,
