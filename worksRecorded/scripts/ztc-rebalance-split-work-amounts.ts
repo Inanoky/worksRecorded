@@ -23,7 +23,7 @@ type ZtcRecord = {
   Comments_Custom_1: string | null;
   Comments_Custom_2: string | null;
 };
-
+//nothing
 type DrawingMetadata = {
   type?: string;
   elements?: Array<{
