@@ -17,9 +17,14 @@ import {
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import { normalizeZtcRateUnit } from "@/flows/ztc-production/lib/ztc-rate-units";
 import { prisma } from "@/lib/utils/db";
+import {
+	ZTC_OPENAI_MODEL,
+	ZTC_OPENAI_REASONING_EFFORT,
+} from "@/flows/ztc-production/backend/openai-config";
 
-export const ZTC_CANONICAL_MATCH_MODEL = "gpt-5.6-terra";
-export const ZTC_CANONICAL_MATCH_REASONING_EFFORT = "medium" as const;
+export const ZTC_CANONICAL_MATCH_MODEL = ZTC_OPENAI_MODEL;
+export const ZTC_CANONICAL_MATCH_REASONING_EFFORT =
+	ZTC_OPENAI_REASONING_EFFORT;
 
 const ZTC_CANONICAL_MATCH_TIMEOUT_MS = 30_000;
 const ZTC_CANONICAL_MATCH_CACHE_MS = 60 * 60 * 1000;

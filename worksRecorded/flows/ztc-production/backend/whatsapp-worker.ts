@@ -33,6 +33,11 @@ import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-
 import { matchZtcCanonicalEntities } from "@/flows/ztc-production/backend/canonical-entity-matching";
 import { canonicalizeZtcExtractedProjectName } from "@/flows/ztc-production/backend/project-name-canonicalization";
 import {
+  ZTC_OPENAI_MODEL,
+  ZTC_OPENAI_REASONING_EFFORT,
+  ZTC_TRANSCRIPTION_MODEL,
+} from "@/flows/ztc-production/backend/openai-config";
+import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
   normalizeZtcLaborNorm,
@@ -62,7 +67,6 @@ const ZTC_TEXT_TIMEOUT_MS = 30_000;
 const ZTC_TRANSCRIPTION_TIMEOUT_MS = 30_000;
 const ZTC_DROPDOWN_CACHE_MS = 60_000;
 const ZTC_COMMENT_POLISH_TIMEOUT_MS = 15_000;
-const ZTC_DEFAULT_VISION_MODEL = "gpt-5.5";
 
 export type ProductionDrawingExtractionProfile = "ztc" | "default-production";
 
@@ -809,7 +813,8 @@ export async function polishZtcCommentText(value: string | null | undefined) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await withZtcTimeout(
       openai.chat.completions.create({
-        model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+        model: ZTC_OPENAI_MODEL,
+        reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
         messages: [
           {
             role: "system",
@@ -1078,7 +1083,8 @@ async function extractDiagonalMeasureMm(text: string) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await withZtcTimeout(
       openai.chat.completions.create({
-        model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+        model: ZTC_OPENAI_MODEL,
+        reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -1728,7 +1734,7 @@ export async function transcribeAudioWithSource(formData: FormData, idx: number)
       const result = await withZtcTimeout(
         openai.audio.transcriptions.create({
           file,
-          model: "gpt-4o-transcribe",
+          model: ZTC_TRANSCRIPTION_MODEL,
           prompt:
             "This is a production factory WhatsApp voice note. Preserve diagonal measurements carefully. If the speaker says measurement digits one by one in Latvian, Russian, or English, transcribe them as digits when possible, for example 'pieci divi četri nulle' as '5240'.",
         }),
@@ -1776,7 +1782,8 @@ export async function extractDrawingInfo(
   const prompt = getDrawingExtractionPrompt(drawingProfile);
   const response = await withZtcTimeout(
     openai.chat.completions.create({
-      model: process.env.ZTC_VISION_MODEL || ZTC_DEFAULT_VISION_MODEL,
+      model: ZTC_OPENAI_MODEL,
+      reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
       response_format: { type: "json_object" },
       messages: drawingProfile === "default-production" ? [
         {
@@ -1831,7 +1838,7 @@ export async function extractDrawingInfo(
     ZTC_VISION_TIMEOUT_MS,
   );
   logZtcTiming("drawing_extraction_openai", openaiStartedAt, {
-    model: process.env.ZTC_VISION_MODEL || ZTC_DEFAULT_VISION_MODEL,
+    model: ZTC_OPENAI_MODEL,
     imageSource: imageUrl.startsWith("data:") ? "data_url" : "url",
     drawingProfile,
   });
@@ -1904,7 +1911,8 @@ async function extractWorkInfo(
   const openaiStartedAt = Date.now();
   const response = await withZtcTimeout(
     openai.chat.completions.create({
-      model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+      model: ZTC_OPENAI_MODEL,
+      reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -1919,7 +1927,7 @@ async function extractWorkInfo(
     ZTC_TEXT_TIMEOUT_MS,
   );
   logZtcTiming("work_text_extraction_openai", openaiStartedAt, {
-    model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+    model: ZTC_OPENAI_MODEL,
     textLength: normalized.length,
     effectiveWorkOptionCount: effectiveWorkOptions.length,
   });
