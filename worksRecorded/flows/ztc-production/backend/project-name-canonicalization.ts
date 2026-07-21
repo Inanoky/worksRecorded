@@ -5,7 +5,7 @@ import {
 } from "@/flows/ztc-production/lib/ztc-project-name";
 import { ZTC_ALL_PROJECTS_RATE_NAME } from "@/flows/ztc-production/lib/ztc-rate-constants";
 
-function getManualProjectNames(config: unknown) {
+function getConfiguredProjectNames(config: unknown, manual: boolean) {
   const root =
     config && typeof config === "object"
       ? (config as Record<string, unknown>)
@@ -32,7 +32,9 @@ function getManualProjectNames(config: unknown) {
         : null,
     )
     .filter(
-      (project): project is Record<string, unknown> => project?.manual === true,
+      (project): project is Record<string, unknown> =>
+        Boolean(project) &&
+        (manual ? project.manual === true : project.manual !== true),
     )
     .map((project) => String(project.projectName ?? "").trim())
     .filter(
@@ -61,7 +63,14 @@ export async function canonicalizeZtcExtractedProjectName(args: {
 
   const resolution = resolveZtcCanonicalProjectName({
     extractedProjectName: args.extractedProjectName,
-    manualProjectNames: getManualProjectNames(site?.siteDiaryRecordsMap),
+    manualProjectNames: getConfiguredProjectNames(
+      site?.siteDiaryRecordsMap,
+      true,
+    ),
+    configuredProjectNames: getConfiguredProjectNames(
+      site?.siteDiaryRecordsMap,
+      false,
+    ),
     existingProjectNames: existingRows
       .map((row) => String(row.Location ?? "").trim())
       .filter(

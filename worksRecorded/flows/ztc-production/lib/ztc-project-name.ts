@@ -10,7 +10,7 @@ export function normalizeZtcProjectName(value: unknown) {
 
 export type ZtcCanonicalProjectResolution = {
   projectName: string;
-  source: "manual" | "existing" | "new";
+  source: "manual" | "configured" | "existing" | "new";
 };
 
 function getZtcProjectIdentityKey(value: unknown) {
@@ -123,6 +123,7 @@ function findCanonicalProjectMatch(
 export function resolveZtcCanonicalProjectName(args: {
   extractedProjectName: unknown;
   manualProjectNames?: string[];
+  configuredProjectNames?: string[];
   existingProjectNames?: string[];
 }): ZtcCanonicalProjectResolution {
   const normalizedExtractedName = normalizeZtcProjectName(
@@ -138,6 +139,14 @@ export function resolveZtcCanonicalProjectName(args: {
   );
   if (manualMatch) {
     return { projectName: manualMatch, source: "manual" };
+  }
+
+  const configuredMatch = findCanonicalProjectMatch(
+    normalizedExtractedName,
+    args.configuredProjectNames ?? [],
+  );
+  if (configuredMatch) {
+    return { projectName: configuredMatch, source: "configured" };
   }
 
   const existingMatch = findCanonicalProjectMatch(

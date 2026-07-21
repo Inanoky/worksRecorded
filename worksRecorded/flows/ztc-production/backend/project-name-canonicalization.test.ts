@@ -64,4 +64,31 @@ describe("canonicalizeZtcExtractedProjectName", () => {
       expect.objectContaining({ orderBy: { createdAt: "asc" } }),
     );
   });
+
+  it("prefers an automatically created rate project over bad history", async () => {
+    mockSiteFindUnique.mockResolvedValue({
+      siteDiaryRecordsMap: {
+        otherSettings: {
+          ztcDefaultTaskRates: {
+            projects: [
+              {
+                projectName: "dz. ēka. auto nojume (rd)",
+                manual: false,
+              },
+            ],
+          },
+        },
+      },
+    });
+    mockZtcRecordsFindMany.mockResolvedValue([
+      { Location: "dzīka auto nojume (rd)" },
+    ]);
+
+    await expect(
+      canonicalizeZtcExtractedProjectName({
+        siteId: "site-1",
+        extractedProjectName: "dzīka auto nojume (rd)",
+      }),
+    ).resolves.toBe("dz. ēka. auto nojume (rd)");
+  });
 });
