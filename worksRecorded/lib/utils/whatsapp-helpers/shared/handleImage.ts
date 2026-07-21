@@ -43,6 +43,7 @@ export async function handleImage(args: {
   photographerName?: string | null;
   onUploadedImage?: (context: UploadedImageContext) => Promise<boolean>;
   acknowledgeSavedPhoto?: boolean;
+  imageIndex?: number;
 }): Promise<HandleImageResult | false> {
   const {
     formData,
@@ -55,15 +56,21 @@ export async function handleImage(args: {
     photographerName,
     onUploadedImage,
     acknowledgeSavedPhoto = true,
+    imageIndex,
   } = args;
 
-  const idx = findFirstImageIndex(formData, numMedia);
+  const idx = imageIndex ?? findFirstImageIndex(formData, numMedia);
   if (idx < 0) return false;
 
-  const mediaUrl = getString(formData, `MediaUrl${idx}`);
-  const contentType = (
-    getString(formData, `MediaContentType${idx}`) || "image/jpeg"
+  const selectedContentType = (
+    getString(formData, `MediaContentType${idx}`) || ""
   ).toLowerCase();
+  if (imageIndex != null && !selectedContentType.startsWith("image/")) {
+    return false;
+  }
+
+  const mediaUrl = getString(formData, `MediaUrl${idx}`);
+  const contentType = (selectedContentType || "image/jpeg").toLowerCase();
 
   try {
     if (!mediaUrl) {

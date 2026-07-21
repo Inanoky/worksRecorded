@@ -72,3 +72,21 @@ export function getRandomSiteManagerProcessingAcknowledgement(
   lastAcknowledgement[normalizedLanguage] = next;
   return next;
 }
+
+export function getSiteManagerPhotoSavingAcknowledgement(
+  language?: string | null,
+) {
+  return normalizeAcknowledgementLanguage(language) === "lv"
+    ? "📷 Foto saņemts. Saglabāju attēlus, lūdzu uzgaidiet..."
+    : "📷 Photo received. Saving pictures, please wait...";
+}
+
+export function getSiteManagerPhotoSaveSummary(
+  savedCount: number,
+  totalCount: number,
+  language?: string | null,
+) {
+  return normalizeAcknowledgementLanguage(language) === "lv"
+    ? `✅ Saglabāti ${savedCount}/${totalCount} attēli.`
+    : `✅ ${savedCount}/${totalCount} pictures saved.`;
+}

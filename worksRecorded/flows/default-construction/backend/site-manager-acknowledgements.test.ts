@@ -1,5 +1,7 @@
 import {
   getRandomSiteManagerProcessingAcknowledgement,
+  getSiteManagerPhotoSaveSummary,
+  getSiteManagerPhotoSavingAcknowledgement,
   siteManagerProcessingAcknowledgements,
 } from "@/flows/default-construction/backend/site-manager-acknowledgements";
 
@@ -61,6 +63,24 @@ describe("site manager acknowledgements", () => {
     );
     expect(siteManagerProcessingAcknowledgements.en).toContain(
       getRandomSiteManagerProcessingAcknowledgement("de"),
+    );
+  });
+
+  it("localizes the photo-saving acknowledgement", () => {
+    expect(getSiteManagerPhotoSavingAcknowledgement("lv")).toContain(
+      "Saglabāju attēlus",
+    );
+    expect(getSiteManagerPhotoSavingAcknowledgement("en")).toContain(
+      "Saving pictures",
+    );
+  });
+
+  it("localizes the final saved-photo count", () => {
+    expect(getSiteManagerPhotoSaveSummary(8, 8, "lv")).toBe(
+      "✅ Saglabāti 8/8 attēli.",
+    );
+    expect(getSiteManagerPhotoSaveSummary(7, 8, "en")).toBe(
+      "✅ 7/8 pictures saved.",
     );
   });
 });

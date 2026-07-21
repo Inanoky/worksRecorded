@@ -17,6 +17,9 @@ import {
 } from "@/flows/default-production/backend/whatsapp-worker";
 
 import { handleSiteManagerRoute } from "@/flows/default-construction/backend";
+import { getSiteManagerPhotoSavingAcknowledgement } from "@/flows/default-construction/backend/site-manager-acknowledgements";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { runWithMetaReplyContext } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { getMetaGraphBaseUrl } from "@/lib/utils/whatsapp-helpers/meta/config";
@@ -54,6 +57,8 @@ const ROUTING_LOCK_WAIT_MS = 120_000;
 const ROUTING_LOCK_RETRY_MS = 500;
 const ZTC_IMAGE_BATCH_QUIET_MS = 5_000;
 const ZTC_IMAGE_BATCH_STALE_MS = 2 * 60_000;
+const DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS = 5_000;
+const DEFAULT_CONSTRUCTION_IMAGE_BATCH_STALE_MS = 2 * 60_000;
 const ZTC_DIAGONAL_STATE_PREFIXES = [
   "__ZTC_DIAGONAL_FIRST_PHOTO_PENDING__",
   "__ZTC_DIAGONAL_FIRST_MEASURE_PENDING__",
@@ -442,6 +447,8 @@ function buildBatchedImageFormData(items: SerializedZtcImageMessage[]) {
     formData.set(`MediaUrl${index}`, getSerializedEntry(item, "MediaUrl0"));
     formData.set(`MediaContentType${index}`, getSerializedEntry(item, "MediaContentType0"));
     formData.set(`MediaProvider${index}`, getSerializedEntry(item, "MediaProvider0"));
+    formData.set(`MediaBody${index}`, getSerializedEntry(item, "Body"));
+    formData.set(`MediaMessageId${index}`, item.messageId);
   });
 
   return formData;
@@ -672,6 +679,178 @@ async function deleteZtcImageBatch(batchId: string | null | undefined) {
   `;
 }
 
+async function stageDefaultConstructionImageBatch(args: {
+  identityKey: string;
+  user: {
+    id: string;
+    organizationId?: string | null;
+    organization?: { orgLanguage?: string | null } | null;
+  };
+  formData: FormData;
+  businessPhoneNumberId: string;
+  ackRecipient?: string | null;
+}) {
+  if (!isSingleMetaImageFormData(args.formData)) {
+    return { ready: true as const, formData: args.formData, batchId: null, batchSize: 1 };
+  }
+
+  const messageId = getString(args.formData, "MessageId");
+  const batchKey = `default_construction_site_manager:${args.identityKey}`;
+  const item: SerializedZtcImageMessage = {
+    messageId,
+    receivedAt: new Date().toISOString(),
+    entries: serializeFormData(args.formData),
+  };
+
+  const stageStartedAt = Date.now();
+  const stagedRows = await prisma.$queryRaw<Array<{ itemCount: number | bigint }>>`
+    INSERT INTO "DefaultConstructionInboundMediaBatch" (
+      "id",
+      "batchKey",
+      "userId",
+      "organizationId",
+      "status",
+      "items",
+      "firstReceivedAt",
+      "lastReceivedAt",
+      "lastMessageId",
+      "processAfter",
+      "createdAt",
+      "updatedAt"
+    )
+    VALUES (
+      ${randomUUID()},
+      ${batchKey},
+      ${args.user.id},
+      ${args.user.organizationId ?? null},
+      'collecting',
+      ${JSON.stringify([item])}::jsonb,
+      NOW(),
+      NOW(),
+      ${messageId || null},
+      NOW() + (${DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS}::int * INTERVAL '1 millisecond'),
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT ("batchKey") DO UPDATE SET
+      "userId" = EXCLUDED."userId",
+      "organizationId" = EXCLUDED."organizationId",
+      "status" = 'collecting',
+      "items" = CASE
+        WHEN "DefaultConstructionInboundMediaBatch"."status" = 'collecting'
+          AND "DefaultConstructionInboundMediaBatch"."updatedAt" > NOW() - (${DEFAULT_CONSTRUCTION_IMAGE_BATCH_STALE_MS}::int * INTERVAL '1 millisecond')
+        THEN "DefaultConstructionInboundMediaBatch"."items" || EXCLUDED."items"
+        ELSE EXCLUDED."items"
+      END,
+      "lastReceivedAt" = NOW(),
+      "lastMessageId" = EXCLUDED."lastMessageId",
+      "processAfter" = EXCLUDED."processAfter",
+      "updatedAt" = NOW()
+    RETURNING jsonb_array_length("items") AS "itemCount"
+  `;
+  const stagedItemCount = Number(stagedRows[0]?.itemCount ?? 0);
+  logMetaWebhookTiming("default_construction_image_batch_stage", stageStartedAt, {
+    batchKey,
+    userId: args.user.id,
+    messageId,
+    stagedItemCount,
+  });
+
+  if (stagedItemCount === 1 && args.ackRecipient) {
+    await sendMetaGraphMessage({
+      businessPhoneNumberId: args.businessPhoneNumberId,
+      recipient: args.ackRecipient,
+      body: {
+        text: {
+          body: getSiteManagerPhotoSavingAcknowledgement(args.user.organization?.orgLanguage),
+        },
+      },
+    }).catch((error) => {
+      console.error("Default construction image batch acknowledgement failed", error);
+    });
+  }
+
+  await sleep(DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS);
+
+  const rows = await prisma.$queryRaw<Array<{
+    id: string;
+    items: unknown;
+    lastMessageId: string | null;
+    processAfter: Date;
+  }>>`
+    SELECT "id", "items", "lastMessageId", "processAfter"
+    FROM "DefaultConstructionInboundMediaBatch"
+    WHERE "batchKey" = ${batchKey}
+      AND "status" = 'collecting'
+    LIMIT 1
+  `;
+
+  const row = rows[0];
+  if (!row || row.lastMessageId !== messageId) {
+    console.log("[Meta webhook timing]", {
+      event: "default_construction_image_batch_deferred_to_later_image",
+      batchKey,
+      userId: args.user.id,
+      messageId,
+      latestMessageId: row?.lastMessageId ?? null,
+    });
+    return { ready: false as const };
+  }
+
+  const processAfterMs = new Date(row.processAfter).getTime();
+  if (Number.isFinite(processAfterMs) && processAfterMs > Date.now()) {
+    await sleep(Math.min(
+      processAfterMs - Date.now(),
+      DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS,
+    ));
+  }
+
+  const claimedRows = await prisma.$queryRaw<Array<{ id: string; items: unknown }>>`
+    UPDATE "DefaultConstructionInboundMediaBatch"
+    SET "status" = 'processing',
+        "updatedAt" = NOW()
+    WHERE "id" = ${row.id}
+      AND "status" = 'collecting'
+      AND "lastMessageId" = ${messageId || null}
+    RETURNING "id", "items"
+  `;
+
+  const claimed = claimedRows[0];
+  if (!claimed) return { ready: false as const };
+
+  const items = Array.isArray(claimed.items)
+    ? (claimed.items as SerializedZtcImageMessage[])
+    : [];
+  const batchedFormData = buildBatchedImageFormData(items);
+
+  console.log("[Meta webhook timing]", {
+    event: "default_construction_image_batch_ready",
+    batchKey,
+    userId: args.user.id,
+    batchId: claimed.id,
+    batchSize: items.length,
+    messageIds: items.map((image) => image.messageId).filter(Boolean),
+  });
+
+  return {
+    ready: true as const,
+    formData: batchedFormData,
+    batchId: claimed.id,
+    batchSize: items.length,
+  };
+}
+
+async function deleteDefaultConstructionImageBatch(
+  batchId: string | null | undefined,
+) {
+  if (!batchId) return;
+  await prisma.$executeRaw`
+    DELETE FROM "DefaultConstructionInboundMediaBatch"
+    WHERE "id" = ${batchId}
+      AND "status" = 'processing'
+  `;
+}
+
 async function runWhatsappRoutingForMeta(args: {
   message: any;
   value: any;
@@ -701,6 +880,7 @@ async function runWhatsappRoutingForMeta(args: {
   let lockHeld = false;
   let lockKey: string | null = null;
   let ztcImageBatchId: string | null = null;
+  let defaultConstructionImageBatchId: string | null = null;
 
   try {
     const smsStatus = getString(formData, "SmsStatus");
@@ -786,6 +966,34 @@ async function runWhatsappRoutingForMeta(args: {
       ztcImageBatchId = batchDecision.batchId;
       numMedia = Number(getString(formData, "NumMedia") || "0") || 0;
       messageId = getString(formData, "MessageId") || messageId;
+    }
+
+    const siteManagerUser = !worker ? resolved.user : null;
+    if (siteManagerUser && isSingleMetaImageFormData(formData)) {
+      const flowModuleKey = await resolveFlowModuleKeyForRuntime({
+        organizationId: siteManagerUser.organizationId,
+        siteId: siteManagerUser.lastSelectedSiteIdforWhatsapp,
+      });
+
+      if (flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) {
+        const batchDecision = await stageDefaultConstructionImageBatch({
+          identityKey,
+          user: siteManagerUser,
+          formData,
+          businessPhoneNumberId,
+          ackRecipient: resolved.replyTarget || from,
+        });
+
+        if (!batchDecision.ready) {
+          routeOutcome = "default_construction_image_batch_deferred";
+          return;
+        }
+
+        formData = batchDecision.formData;
+        defaultConstructionImageBatchId = batchDecision.batchId;
+        numMedia = Number(getString(formData, "NumMedia") || "0") || 0;
+        messageId = getString(formData, "MessageId") || messageId;
+      }
     }
 
     const lockStartedAt = Date.now();
@@ -910,6 +1118,12 @@ async function runWhatsappRoutingForMeta(args: {
     if (ztcImageBatchId) {
       await deleteZtcImageBatch(ztcImageBatchId).catch((e) => {
         console.error("deleteZtcImageBatch error", e);
+      });
+    }
+
+    if (defaultConstructionImageBatchId) {
+      await deleteDefaultConstructionImageBatch(defaultConstructionImageBatchId).catch((e) => {
+        console.error("deleteDefaultConstructionImageBatch error", e);
       });
     }
 
