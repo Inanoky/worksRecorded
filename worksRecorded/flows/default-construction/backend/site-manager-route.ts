@@ -10,14 +10,29 @@ import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import type { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
 import { processMaterialDocumentImageFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 
 const currentAgent: AgentFn = async (input, siteId, userId, originalAudioUrl) =>
   (await talkToWhatsappAgent(input, siteId, userId, originalAudioUrl)) ?? "";
 
-async function sendProcessingAcknowledgement(to: string | null) {
+async function sendProcessingAcknowledgement(
+  to: string | null,
+  userId: string,
+) {
   if (!to) return;
+  let organizationLanguage = "en";
+
   try {
-    await sendMessage(to, getRandomSiteManagerProcessingAcknowledgement());
+    organizationLanguage = await getOrganizationLanguageByUserId(userId);
+  } catch (error) {
+    console.error("Site manager organization language lookup failed", error);
+  }
+
+  try {
+    await sendMessage(
+      to,
+      getRandomSiteManagerProcessingAcknowledgement(organizationLanguage),
+    );
   } catch (error) {
     console.error("Site manager processing acknowledgement failed", error);
   }
@@ -119,7 +134,7 @@ export async function handleSiteManagerRoute(args: {
           photoId: img.savedPhoto?.id ?? null,
           siteId: user.lastSelectedSiteIdforWhatsapp,
         });
-        await sendProcessingAcknowledgement(from);
+        await sendProcessingAcknowledgement(from, user.id);
         const agentInvocationSucceeded = await handleText({
           body: normalizedComment,
           user,
@@ -139,7 +154,7 @@ export async function handleSiteManagerRoute(args: {
       getString(formData, "MediaContentType0") || ""
     ).toLowerCase();
     if (mediaContentType0.startsWith("audio")) {
-      await sendProcessingAcknowledgement(from);
+      await sendProcessingAcknowledgement(from, user.id);
     }
     const aud = await handleAudio({
       formData,
@@ -155,7 +170,7 @@ export async function handleSiteManagerRoute(args: {
 
   // 4) Text-only
   if (body) {
-    await sendProcessingAcknowledgement(from);
+    await sendProcessingAcknowledgement(from, user.id);
   }
   await handleText({ body, user, to: from, agent: currentAgent });
 }
