@@ -635,6 +635,7 @@ export default function SiteDiaryCalendar({
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogDate, setDialogDate] = React.useState<Date | null>(null);
   const [dialogInitialRows, setDialogInitialRows] = React.useState<DiaryRow[] | null>(null);
+  const [dialogRecordId, setDialogRecordId] = React.useState<string | null>(null);
   const [optionsRevision, setOptionsRevision] = React.useState(0);
 
   // Photos dialog
@@ -1689,6 +1690,19 @@ export default function SiteDiaryCalendar({
         });
 
     setDialogInitialRows(cachedRows.length ? cachedRows : null);
+    setDialogRecordId(null);
+    setDialogDate(date);
+    setCalendarDate(date);
+    setDialogOpen(true);
+  };
+
+  const openRecordDialog = (row: DiaryRow, fallbackDate: Date) => {
+    if (!row.id) return;
+    const rowDate = new Date(row.Date);
+    const date = Number.isNaN(rowDate.getTime()) ? fallbackDate : rowDate;
+
+    setDialogInitialRows([row]);
+    setDialogRecordId(row.id);
     setDialogDate(date);
     setCalendarDate(date);
     setDialogOpen(true);
@@ -3515,7 +3529,13 @@ export default function SiteDiaryCalendar({
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => openDayDialog(group.date)}>
+                                      <DropdownMenuItem
+                                        onClick={() =>
+                                          isZtcSite
+                                            ? openDayDialog(group.date)
+                                            : openRecordDialog(r, group.date)
+                                        }
+                                      >
                                         {t.edit}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
@@ -3863,7 +3883,13 @@ export default function SiteDiaryCalendar({
                                                 </Button>
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => openDayDialog(group.date)}>
+                                                <DropdownMenuItem
+                                                  onClick={() =>
+                                                    isZtcSite
+                                                      ? openDayDialog(group.date)
+                                                      : openRecordDialog(row, group.date)
+                                                  }
+                                                >
                                                   {t.edit}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => openCopyDialog(row)} disabled={!row.id}>
@@ -4217,7 +4243,13 @@ export default function SiteDiaryCalendar({
                                             </Button>
                                           </DropdownMenuTrigger>
                                           <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => openDayDialog(group.date)}>
+                                            <DropdownMenuItem
+                                              onClick={() =>
+                                                isZtcSite
+                                                  ? openDayDialog(group.date)
+                                                  : openRecordDialog(group.rows[i] ?? row, group.date)
+                                              }
+                                            >
                                               {t.edit}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
@@ -4306,6 +4338,7 @@ export default function SiteDiaryCalendar({
           isZtcFlow={isZtcSite}
           initialRows={isZtcSite ? null : dialogInitialRows}
           initialConfig={isZtcSite ? null : defaultMap}
+          focusedRecordId={isZtcSite ? null : dialogRecordId}
           onSaved={async () => {
             reloadFilledDays();
 
@@ -4321,6 +4354,12 @@ export default function SiteDiaryCalendar({
                   return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
                 });
                 setDialogInitialRows((currentRows) => {
+                  if (dialogRecordId) {
+                    const refreshedRecord = refreshedDayRows.find(
+                      (row) => row.id === dialogRecordId,
+                    );
+                    return refreshedRecord ? [refreshedRecord] : null;
+                  }
                   if (!refreshedDayRows.length) return null;
                   if (!currentRows?.length) return refreshedDayRows;
 

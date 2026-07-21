@@ -331,6 +331,7 @@ export function DialogTable({
   organizationLanguage,
   initialRows,
   initialConfig,
+  focusedRecordId,
 }: {
   date: Date | null;
   siteId: string | null;
@@ -338,6 +339,7 @@ export function DialogTable({
   organizationLanguage?: string | null;
   initialRows?: Record<string, any>[] | null;
   initialConfig?: Record<string, any> | null;
+  focusedRecordId?: string | null;
 }) {
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryDialogMessages(language);
@@ -892,7 +894,11 @@ export function DialogTable({
       return;
     }
 
-    const cachedRows = initialRows?.length ? initialRows : null;
+    const cachedRows = initialRows?.length
+      ? focusedRecordId
+        ? initialRows.filter((row) => row.id === focusedRecordId)
+        : initialRows
+      : null;
     const cachedConfig = (initialConfig ?? defaultConfig) as Record<string, any>;
     hasClientEditsRef.current = false;
 
@@ -1024,7 +1030,9 @@ export function DialogTable({
 
 
       const formattedRows = pickRenderableRows(
-        loadedRows,
+        focusedRecordId
+          ? loadedRows.filter((row) => row.id === focusedRecordId)
+          : loadedRows,
         renderableFields
       );
 
@@ -1060,7 +1068,9 @@ export function DialogTable({
 
 
         }))
-        : [newEmptyRow()];
+        : focusedRecordId
+          ? []
+          : [newEmptyRow()];
 
       console.dir(formattedRows)
       if (!hasClientEditsRef.current) {
@@ -1102,7 +1112,7 @@ export function DialogTable({
     return () => {
       cancelled = true;
     };
-  }, [date, initialConfig, initialRows, siteId]);
+  }, [date, focusedRecordId, initialConfig, initialRows, siteId]);
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-[300px]">{t.loading}</div>;
@@ -1120,15 +1130,17 @@ export function DialogTable({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-md border">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleAddRow}
-          disabled={isSaving}
-          className="w-full sm:w-auto"
-        >
-          {t.addTask}
-        </Button>
+        {!focusedRecordId ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddRow}
+            disabled={isSaving}
+            className="w-full sm:w-auto"
+          >
+            {t.addTask}
+          </Button>
+        ) : null}
         <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
           {isSaving ? (
             <>
@@ -1142,7 +1154,13 @@ export function DialogTable({
       </div>
 
       {isMobile ? (
-        <ScrollArea className="w-full h-[48vh] rounded-md border p-2">
+        <ScrollArea
+          className={
+            focusedRecordId
+              ? "w-full max-h-[60vh] rounded-md border p-2"
+              : "w-full h-[48vh] rounded-md border p-2"
+          }
+        >
           <div className="space-y-3 pr-1">
             {rows.map((row, rowIndex) => (
               <div
@@ -1151,15 +1169,17 @@ export function DialogTable({
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">{t.task} #{rowIndex + 1}</p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => handleDeleteRow(row.id, row._tempId)}
-                    aria-label={`${t.deleteTaskAria} ${rowIndex + 1}`}
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </Button>
+                  {!focusedRecordId ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      onClick={() => handleDeleteRow(row.id, row._tempId)}
+                      aria-label={`${t.deleteTaskAria} ${rowIndex + 1}`}
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  ) : null}
                 </div>
 
                 {mobileFieldGroups.map((group, groupIdx) => (
@@ -1186,7 +1206,13 @@ export function DialogTable({
           <ScrollBar orientation="vertical" />
         </ScrollArea>
       ) : (
-        <ScrollArea className="w-full h-[56vh] rounded-none border">
+        <ScrollArea
+          className={
+            focusedRecordId
+              ? "w-full max-h-[56vh] rounded-none border"
+              : "w-full h-[56vh] rounded-none border"
+          }
+        >
           <div className="overflow-x-auto">
             <div className="min-w-[1000px]">
               <Table>
@@ -1206,7 +1232,9 @@ export function DialogTable({
                     )}
 
                     <TableHead className="text-center w-[150px]">{t.createdBy}</TableHead>
-                    <TableHead className="text-center w-[80px]">{t.delete}</TableHead>
+                    {!focusedRecordId ? (
+                      <TableHead className="text-center w-[80px]">{t.delete}</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1225,16 +1253,18 @@ export function DialogTable({
 
                       <TableCell className="text-center">{row.createdBy ?? ""}</TableCell>
 
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          type="button"
-                          onClick={() => handleDeleteRow(row.id, row._tempId)}
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
-                      </TableCell>
+                      {!focusedRecordId ? (
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => handleDeleteRow(row.id, row._tempId)}
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </Button>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>
