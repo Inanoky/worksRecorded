@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/tabs";
 import { DialogTable } from "@/components/sitediary/DiealogueTable";
 import { ZtcDialogTable } from "@/flows/ztc-production/frontend/ZtcDialogTable";
+import type { ZtcProjectTaskRates } from "@/flows/ztc-production/backend/actions";
 import ImageGallery from "@/components/sitediary/ImageGallery";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -32,6 +33,7 @@ type DialogWindowProps = {
   isZtcFlow?: boolean;
   initialRows?: Record<string, any>[] | null;
   initialConfig?: Record<string, any> | null;
+  initialRates?: ZtcProjectTaskRates[] | null;
   focusedRecordId?: string | null;
   children?: React.ReactNode;
 };
@@ -46,6 +48,7 @@ export default function DialogWindow({
   isZtcFlow = false,
   initialRows,
   initialConfig,
+  initialRates,
   focusedRecordId,
 }: DialogWindowProps) {
   const [refreshKey, setRefreshKey] = React.useState(0);
@@ -63,10 +66,15 @@ export default function DialogWindow({
           focusedRecordId
             ? `
               w-[100vw] max-w-[100vw] rounded-none p-0
-              sm:w-[92vw] sm:max-w-[1400px] sm:rounded-lg sm:p-6
+              ${
+                isZtcFlow
+                  ? "sm:w-[88vw] sm:max-w-[1100px] sm:max-h-[70vh]"
+                  : "sm:w-[92vw] sm:max-w-[1400px] sm:max-h-[88vh]"
+              }
+              sm:rounded-lg sm:p-6
               flex flex-col
               h-[100dvh] max-h-[100dvh]
-              sm:h-auto sm:max-h-[88vh]
+              sm:h-auto
               !top-0 !translate-y-0
               sm:!top-1/2 sm:!-translate-y-1/2
             `
@@ -130,6 +138,10 @@ export default function DialogWindow({
                   date={date}
                   siteId={siteId}
                   organizationLanguage={organizationLanguage}
+                  initialRows={initialRows}
+                  initialConfig={initialConfig}
+                  initialRates={initialRates}
+                  focusedRecordId={focusedRecordId}
                   onSaved={handleSaved}
                 />
               ) : (

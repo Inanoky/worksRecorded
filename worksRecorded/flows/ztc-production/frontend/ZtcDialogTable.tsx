@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Table,
   TableBody,
@@ -58,6 +58,10 @@ type ZtcDialogTableProps = {
   siteId: string | null;
   onSaved?: () => void;
   organizationLanguage?: string | null;
+  initialRows?: Record<string, any>[] | null;
+  initialConfig?: Record<string, any> | null;
+  initialRates?: ZtcProjectTaskRates[] | null;
+  focusedRecordId?: string | null;
 };
 
 type ZtcDialogPrefetchCacheEntry = {
@@ -491,6 +495,10 @@ export function ZtcDialogTable({
   siteId,
   onSaved,
   organizationLanguage,
+  initialRows,
+  initialConfig,
+  initialRates,
+  focusedRecordId,
 }: ZtcDialogTableProps) {
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryDialogMessages(language);
@@ -504,6 +512,8 @@ export function ZtcDialogTable({
   const [fieldMap, setFieldMap] = useState<Record<string, any>>(defaultConfig);
   const [defaultRates, setDefaultRates] = useState<ZtcProjectTaskRates[]>([]);
   const [dirtyRowKeys, setDirtyRowKeys] = useState<Set<string>>(new Set());
+  const hasClientEditsRef = useRef(false);
+  const hydrationContextRef = useRef("");
 
   const newEmptyRow = () => ({
     id: undefined as string | undefined,
@@ -785,6 +795,7 @@ export function ZtcDialogTable({
   };
 
   const handleChange = (rowKey: string, field: string, value: any) => {
+    hasClientEditsRef.current = true;
     setDirtyRowKeys((prev) => new Set(prev).add(rowKey));
     setRows((prev) =>
       prev.map((row) => {
@@ -967,6 +978,7 @@ export function ZtcDialogTable({
     }
 
     setRows((prev) => prev.filter((item) => item._tempId !== row._tempId));
+    hasClientEditsRef.current = true;
     toast.success(toastMessages.unsavedRowRemoved);
   };
 
@@ -1098,6 +1110,7 @@ export function ZtcDialogTable({
       invalidateCurrentPrefetchCache();
       toast.success(toastMessages.diarySaved(existingRows.length, newRows.length));
       setDirtyRowKeys(new Set());
+      hasClientEditsRef.current = false;
       onSaved?.();
     } catch (error: any) {
       toast.error(error?.message ?? toastMessages.somethingWentWrong);
@@ -1275,7 +1288,10 @@ export function ZtcDialogTable({
   useEffect(() => {
     let cancelled = false;
 
-    const applyPrefetchData = (data: ZtcDialogPrefetchCacheEntry) => {
+    const applyPrefetchData = (
+      data: ZtcDialogPrefetchCacheEntry,
+      options?: { mergeRows?: boolean; preserveRows?: boolean },
+    ) => {
       const config = (data.config ?? defaultConfig) as Record<string, any>;
       const renderableFields = getRenderableFieldsOrdered(config);
       const visibleFields = [...renderableFields];
@@ -1284,22 +1300,55 @@ export function ZtcDialogTable({
       const timeIndex = visibleFields.indexOf("TimeInvolved");
       visibleFields.splice(timeIndex >= 0 ? timeIndex + 1 : visibleFields.length, 0, ZTC_LABOR_NORM_FIELD);
       const fieldsToKeep = Array.from(new Set([...renderableFields, ...HIDDEN_FIELDS_TO_KEEP]));
-      const completedRows = data.rows.filter(isCompletedZtcDiaryRow);
+      const completedRows = data.rows
+        .filter(isCompletedZtcDiaryRow)
+        .filter((row) => !focusedRecordId || row.id === focusedRecordId);
 
-      setDirtyRowKeys(new Set());
       setFieldMap(config);
       setDefaultRates(data.rates ?? []);
       setTableHeads(visibleFields);
+      if (options?.preserveRows) return;
+
+      const editableRows = completedRows.map((row: any) => ({
+        id: row.id ?? undefined,
+        _tempId: crypto.randomUUID(),
+        createdBy: row.createdBy ?? "",
+        ...Object.fromEntries(fieldsToKeep.map((field) => [field, row[field] ?? ""])),
+        [ZTC_LABOR_NORM_FIELD]: getZtcLaborNormDraft(row.Comments_Custom_2),
+      }));
+      setDirtyRowKeys(new Set());
+      if (options?.mergeRows) {
+        setRows((currentRows) => {
+          const serverRowsById = new Map(
+            editableRows
+              .filter((row) => row.id)
+              .map((row) => [String(row.id), row]),
+          );
+          const currentIds = new Set(
+            currentRows
+              .filter((row) => row.id)
+              .map((row) => String(row.id)),
+          );
+          return [
+            ...currentRows.flatMap((row) => {
+              if (!row.id) return [row];
+              const refreshedRow = serverRowsById.get(String(row.id));
+              return refreshedRow ? [refreshedRow] : [];
+            }),
+            ...editableRows.filter(
+              (row) => row.id && !currentIds.has(String(row.id)),
+            ),
+          ];
+        });
+        return;
+      }
+
       setRows(
-        completedRows.length
-          ? completedRows.map((row: any) => ({
-              id: row.id ?? undefined,
-              _tempId: crypto.randomUUID(),
-              createdBy: row.createdBy ?? "",
-              ...Object.fromEntries(fieldsToKeep.map((field) => [field, row[field] ?? ""])),
-              [ZTC_LABOR_NORM_FIELD]: getZtcLaborNormDraft(row.Comments_Custom_2),
-            }))
-          : [newEmptyRow()],
+        editableRows.length
+          ? editableRows
+          : focusedRecordId
+            ? []
+            : [newEmptyRow()],
       );
     };
 
@@ -1326,8 +1375,6 @@ export function ZtcDialogTable({
     };
 
     async function loadRows() {
-      setLoading(true);
-
       if (!date || !siteId) {
         setRows([newEmptyRow()]);
         setDefaultRates([]);
@@ -1335,9 +1382,32 @@ export function ZtcDialogTable({
         return;
       }
 
+      const hydrationContext = `${siteId}:${date.toISOString()}:${focusedRecordId ?? "day"}`;
+      if (hydrationContextRef.current !== hydrationContext) {
+        hydrationContextRef.current = hydrationContext;
+        hasClientEditsRef.current = false;
+      }
+
       const cacheKey = getZtcDialogCacheKey(siteId, date);
+      const clientData = initialRows?.length
+        ? {
+            config: (initialConfig ?? defaultConfig) as Record<string, any>,
+            rows: initialRows,
+            rates: initialRates ?? [],
+          }
+        : null;
+
+      if (clientData) {
+        applyPrefetchData(clientData, {
+          preserveRows: hasClientEditsRef.current,
+        });
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+
       const cachedData = ztcDialogPrefetchCache.get(cacheKey);
-      if (cachedData) {
+      if (!clientData && cachedData) {
         applyPrefetchData(cachedData);
         setLoading(false);
         prefetchAdjacentDates(date, siteId);
@@ -1358,12 +1428,15 @@ export function ZtcDialogTable({
           rates: data.rates,
         };
         ztcDialogPrefetchCache.set(cacheKey, cacheEntry);
-        applyPrefetchData(cacheEntry);
+        applyPrefetchData(cacheEntry, {
+          mergeRows: Boolean(clientData),
+          preserveRows: clientData ? hasClientEditsRef.current : false,
+        });
         prefetchAdjacentDates(date, siteId);
       } catch (error: any) {
-        if (!cancelled) {
+        if (!cancelled && !clientData) {
           toast.error(error?.message ?? toastMessages.somethingWentWrong);
-          setRows([newEmptyRow()]);
+          setRows(focusedRecordId ? [] : [newEmptyRow()]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -1375,23 +1448,39 @@ export function ZtcDialogTable({
     return () => {
       cancelled = true;
     };
-  }, [date, siteId]);
+  }, [date, focusedRecordId, initialConfig, initialRates, initialRows, siteId]);
 
   if (loading) return <div className="p-4">{t.loading}</div>;
 
   return (
     <form onSubmit={handleSubmit} className={`${className ?? ""} flex min-h-0 flex-1 flex-col`}>
       <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/95 pb-3 backdrop-blur">
-        <Button type="button" variant="outline" disabled={saving} onClick={() => setRows((prev) => [...prev, newEmptyRow()])}>
-          Pievienot
-        </Button>
+        {!focusedRecordId ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            onClick={() => {
+              hasClientEditsRef.current = true;
+              setRows((prev) => [...prev, newEmptyRow()]);
+            }}
+          >
+            Pievienot
+          </Button>
+        ) : null}
         <Button type="submit" disabled={saving}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           {t.save || "Saglabāt"}
         </Button>
       </div>
 
-      <ScrollArea className="h-[calc(100dvh-13rem)] min-h-[280px] w-full rounded-md border bg-background sm:h-[calc(100dvh-17rem)]">
+      <ScrollArea
+        className={
+          focusedRecordId
+            ? "h-[180px] min-h-0 w-full rounded-md border bg-background sm:h-[200px]"
+            : "h-[calc(100dvh-13rem)] min-h-[280px] w-full rounded-md border bg-background sm:h-[calc(100dvh-17rem)]"
+        }
+      >
         <Table className="min-w-max">
           <TableHeader>
             <TableRow className="bg-muted/60 hover:bg-muted/60">
@@ -1400,7 +1489,7 @@ export function ZtcDialogTable({
                   {getDisplayName(field)}
                 </TableHead>
               ))}
-              <TableHead className="w-[60px]" />
+              {!focusedRecordId ? <TableHead className="w-[60px]" /> : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1412,17 +1501,19 @@ export function ZtcDialogTable({
                   {tableHeads.map((field) => (
                     <TableCell key={field} className="align-top py-2" style={{ width: getControlWidth(field), minWidth: getControlWidth(field) }}>{renderCell(field, row)}</TableCell>
                   ))}
-                  <TableCell>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      disabled={saving}
-                      onClick={() => handleDeleteRow(row)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+                  {!focusedRecordId ? (
+                    <TableCell>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        disabled={saving}
+                        onClick={() => handleDeleteRow(row)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  ) : null}
                 </TableRow>
               );
             })}

@@ -1682,12 +1682,10 @@ export default function SiteDiaryCalendar({
 
   const openDayDialog = (date: Date) => {
     const dateKey = toLocalDateKey(date);
-    const cachedRows = isZtcSite
-      ? []
-      : rows.filter((row) => {
-          const rowDate = new Date(row.Date);
-          return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
-        });
+    const cachedRows = rows.filter((row) => {
+      const rowDate = new Date(row.Date);
+      return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
+    });
 
     setDialogInitialRows(cachedRows.length ? cachedRows : null);
     setDialogRecordId(null);
@@ -3530,11 +3528,7 @@ export default function SiteDiaryCalendar({
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                       <DropdownMenuItem
-                                        onClick={() =>
-                                          isZtcSite
-                                            ? openDayDialog(group.date)
-                                            : openRecordDialog(r, group.date)
-                                        }
+                                        onClick={() => openRecordDialog(r, group.date)}
                                       >
                                         {t.edit}
                                       </DropdownMenuItem>
@@ -3884,11 +3878,7 @@ export default function SiteDiaryCalendar({
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent align="end">
                                                 <DropdownMenuItem
-                                                  onClick={() =>
-                                                    isZtcSite
-                                                      ? openDayDialog(group.date)
-                                                      : openRecordDialog(row, group.date)
-                                                  }
+                                                  onClick={() => openRecordDialog(row, group.date)}
                                                 >
                                                   {t.edit}
                                                 </DropdownMenuItem>
@@ -4245,9 +4235,7 @@ export default function SiteDiaryCalendar({
                                           <DropdownMenuContent align="end">
                                             <DropdownMenuItem
                                               onClick={() =>
-                                                isZtcSite
-                                                  ? openDayDialog(group.date)
-                                                  : openRecordDialog(group.rows[i] ?? row, group.date)
+                                                openRecordDialog(group.rows[i] ?? row, group.date)
                                               }
                                             >
                                               {t.edit}
@@ -4336,9 +4324,10 @@ export default function SiteDiaryCalendar({
           siteId={siteId}
           organizationLanguage={organizationLanguage}
           isZtcFlow={isZtcSite}
-          initialRows={isZtcSite ? null : dialogInitialRows}
-          initialConfig={isZtcSite ? null : defaultMap}
-          focusedRecordId={isZtcSite ? null : dialogRecordId}
+          initialRows={dialogInitialRows}
+          initialConfig={defaultMap}
+          initialRates={isZtcSite ? ztc.defaultRates : null}
+          focusedRecordId={dialogRecordId}
           onSaved={async () => {
             reloadFilledDays();
 
@@ -4347,7 +4336,7 @@ export default function SiteDiaryCalendar({
             try {
               const refreshedRows = await refreshRowsWithBisSync();
               const activeDialogDate = dialogDate ?? calendarDate;
-              if (!isZtcSite && activeDialogDate) {
+              if (activeDialogDate) {
                 const dateKey = toLocalDateKey(activeDialogDate);
                 const refreshedDayRows = refreshedRows.filter((row) => {
                   const rowDate = new Date(row.Date);
