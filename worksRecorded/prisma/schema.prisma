@@ -543,6 +543,7 @@ model DefaultConstructionInboundMediaBatch {
   firstReceivedAt DateTime @default(now())
   lastReceivedAt  DateTime @default(now())
   lastMessageId   String?
+  acknowledgedAt  DateTime?
   processAfter    DateTime
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

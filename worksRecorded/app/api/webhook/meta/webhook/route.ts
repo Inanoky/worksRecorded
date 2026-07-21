@@ -680,7 +680,6 @@ async function deleteZtcImageBatch(batchId: string | null | undefined) {
 }
 
 async function stageDefaultConstructionImageBatch(args: {
-  identityKey: string;
   user: {
     id: string;
     organizationId?: string | null;
@@ -695,7 +694,7 @@ async function stageDefaultConstructionImageBatch(args: {
   }
 
   const messageId = getString(args.formData, "MessageId");
-  const batchKey = `default_construction_site_manager:${args.identityKey}`;
+  const batchKey = `default_construction_site_manager:${args.user.id}`;
   const item: SerializedZtcImageMessage = {
     messageId,
     receivedAt: new Date().toISOString(),
@@ -714,6 +713,7 @@ async function stageDefaultConstructionImageBatch(args: {
       "firstReceivedAt",
       "lastReceivedAt",
       "lastMessageId",
+      "acknowledgedAt",
       "processAfter",
       "createdAt",
       "updatedAt"
@@ -728,6 +728,7 @@ async function stageDefaultConstructionImageBatch(args: {
       NOW(),
       NOW(),
       ${messageId || null},
+      NULL,
       NOW() + (${DEFAULT_CONSTRUCTION_IMAGE_BATCH_QUIET_MS}::int * INTERVAL '1 millisecond'),
       NOW(),
       NOW()
@@ -744,6 +745,12 @@ async function stageDefaultConstructionImageBatch(args: {
       END,
       "lastReceivedAt" = NOW(),
       "lastMessageId" = EXCLUDED."lastMessageId",
+      "acknowledgedAt" = CASE
+        WHEN "DefaultConstructionInboundMediaBatch"."status" = 'collecting'
+          AND "DefaultConstructionInboundMediaBatch"."updatedAt" > NOW() - (${DEFAULT_CONSTRUCTION_IMAGE_BATCH_STALE_MS}::int * INTERVAL '1 millisecond')
+        THEN "DefaultConstructionInboundMediaBatch"."acknowledgedAt"
+        ELSE NULL
+      END,
       "processAfter" = EXCLUDED."processAfter",
       "updatedAt" = NOW()
     RETURNING jsonb_array_length("items") AS "itemCount"
@@ -756,7 +763,16 @@ async function stageDefaultConstructionImageBatch(args: {
     stagedItemCount,
   });
 
-  if (stagedItemCount === 1 && args.ackRecipient) {
+  const acknowledgementClaim = await prisma.$queryRaw<Array<{ id: string }>>`
+    UPDATE "DefaultConstructionInboundMediaBatch"
+    SET "acknowledgedAt" = NOW()
+    WHERE "batchKey" = ${batchKey}
+      AND "status" = 'collecting'
+      AND "acknowledgedAt" IS NULL
+    RETURNING "id"
+  `;
+
+  if (acknowledgementClaim.length === 1 && args.ackRecipient) {
     await sendMetaGraphMessage({
       businessPhoneNumberId: args.businessPhoneNumberId,
       recipient: args.ackRecipient,
@@ -977,7 +993,6 @@ async function runWhatsappRoutingForMeta(args: {
 
       if (flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) {
         const batchDecision = await stageDefaultConstructionImageBatch({
-          identityKey,
           user: siteManagerUser,
           formData,
           businessPhoneNumberId,
