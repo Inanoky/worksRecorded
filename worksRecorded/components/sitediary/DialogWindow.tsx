@@ -81,7 +81,9 @@ export default function DialogWindow({
               sm:!top-1/2 sm:!-translate-y-1/2
             `
         }
-        onInteractOutside={(e) => e.preventDefault()} // 👈 don’t close on outside click
+        onInteractOutside={(event) => {
+          if (!focusedRecordId) event.preventDefault();
+        }}
       >
         <Tabs
           defaultValue="records"
