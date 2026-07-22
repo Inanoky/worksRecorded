@@ -1,47 +1,100 @@
+"use client";
 
-import Image from "next/image"
-import DepromLogo from '@/public/logos/deprom.svg'
-import Nextjs from '@/public/logos/nextjs.svg'
+import type { StaticImageData } from "next/image";
+import Image from "next/image";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import DepromLogo from "@/public/logos/deprom.webp";
+import LecLogo from "@/public/logos/lec.png";
+import ZtcLogo from "@/public/logos/ztc.jpg";
 
-export function Logos(){
+type Client = {
+	name: string;
+	descriptionKey: string;
+	href: string;
+	logo: StaticImageData;
+};
 
+const CLIENTS: Client[] = [
+	{
+		name: "Deprom",
+		descriptionKey: "clientDepromDescription",
+		href: "https://deprom.lv/",
+		logo: DepromLogo,
+	},
+	{
+		name: "LEC — Latvijas Energoceltnieks",
+		descriptionKey: "clientLecDescription",
+		href: "https://www.lec.lv/",
+		logo: LecLogo,
+	},
+	{
+		name: "ZTC",
+		descriptionKey: "clientZtcDescription",
+		href: "https://ztc.lv/",
+		logo: ZtcLogo,
+	},
+];
 
-    return (
+export function Logos() {
+	const t = useTranslations("LandingPageDesktop");
 
-        <div className="py-10">
-            <h2 className="text-center text-lg font-semibold leading-7">Trusted by the best companies in the world</h2>
-            <div className="mt-10 grid max-w-lg mx-auto grid-cols-4 items-center gap-x-8
-            gap-y-10 sm:max-w-xl sm:grid-cols-6 sm:gap-x-10 lg:mx-0 lg:max-w-none lg:grid-cols-5">
+	return (
+		<section className="bg-[#f7f8f5] dark:bg-slate-950">
+			<div className="w-full max-w-6xl mx-auto px-4 lg:px-6 py-12 lg:py-16 text-center">
+				<h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+					{t("clientsHeading")}
+				</h2>
+				<p className="mt-3 text-base sm:text-lg text-slate-700 dark:text-slate-300">
+					{t("clientsSubheading")}
+				</p>
 
-                <Image
-                    src={DepromLogo}
-                    alt="Logo"
-                    className="col-span-2 max-h-12 w-full
-                    object-containt lg:col-span-1 dark:invert"/>
-                <Image
-                    src={Nextjs}
-                    alt="Logo"
-                    className="col-span-2 max-h-12 w-full
-                    object-containt lg:col-span-1 dark:invert"/>
-                <Image
-                    src={DepromLogo}
-                    alt="Logo"
-                    className="col-span-2 max-h-12 w-full
-                    object-containt lg:col-span-1 dark:invert"/>
-                 <Image
-                    src={Nextjs}
-                    alt="Logo"
-                    className="col-span-2 max-h-12 w-full
-                    object-containt lg:col-span-1 dark:invert"/>
-                <Image
-                    src={DepromLogo}
-                    alt="Logo"
-                    className="col-span-2 max-h-12 w-full
-                    object-containt lg:col-span-1 dark:invert"/>
+				{/* Logo strip */}
+				<div className="mt-8 grid grid-cols-1 sm:grid-cols-3 items-center gap-6">
+					{CLIENTS.map((client) => (
+						<Link
+							key={client.name}
+							href={client.href}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="group flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-6 shadow-sm ring-1 ring-black/5 transition hover:shadow-md hover:ring-emerald-200 dark:border-slate-800 dark:bg-slate-900 dark:ring-white/5 dark:hover:ring-emerald-900"
+						>
+							<Image
+								src={client.logo}
+								alt={client.name}
+								className="max-h-10 w-auto object-contain"
+							/>
+						</Link>
+					))}
+				</div>
 
-
-            </div>
-        </div>
-
-    )
+				{/* Description cards */}
+				<div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
+					{CLIENTS.map((client) => {
+						const paragraphs = t.raw(client.descriptionKey) as string[];
+						return (
+							<div
+								key={client.name}
+								className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-900 dark:ring-white/5"
+							>
+								<h3 className="text-sm font-semibold text-slate-950 dark:text-white">
+									{client.name}
+								</h3>
+								<div className="mt-2 space-y-3">
+									{paragraphs.map((paragraph) => (
+										<p
+											key={paragraph}
+											className="text-sm leading-6 text-slate-600 dark:text-slate-300"
+										>
+											{paragraph}
+										</p>
+									))}
+								</div>
+							</div>
+						);
+					})}
+				</div>
+			</div>
+		</section>
+	);
 }

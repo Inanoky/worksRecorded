@@ -17,7 +17,21 @@
     "logoStripLabel": "Darbojas ar",
     "whatsappLogoAlt": "WhatsApp logo",
     "bisLogoAlt": "BIS logo",
-    "bisLogoLabel": "BIS integrācija"
+    "bisLogoLabel": "BIS integrācija",
+    "clientsHeading": "Mūsu klienti",
+    "clientsSubheading": "Būvniecības uzņēmumi, kas jau uzticas worksRecorded",
+    "clientDepromDescription": [
+      "Deprom ir Lielbritānijā bāzēts saliekto betona konstrukciju speciālists, kas palīdz būvuzņēmējiem sasniegt izmaksu stabilitāti, ātrākus grafikus un lielāku ilgtspēju. Uzņēmums piedāvā pilna cikla saliekto risinājumus — ķieģeļu fasādes, arhitektonisko betona apšuvumu, kā arī dzīvojamo un komerciālo ēku karkasus — ar pašu inženiertehnisko, fasāžu un karkasu servisu.",
+      "Pārceļot konstrukciju un fasāžu darbus no būvlaukuma uz kontrolētu rūpnīcas vidi, Deprom samazina grafiku risku, uzlabo kvalitātes kontroli un saīsina darbu uz objekta. Uzņēmuma portfelī ietilpst dzīvojamās ēkas, komerciālās ēkas un individuāli fasāžu pasūtījumi visā Lielbritānijā."
+    ],
+    "clientLecDescription": [
+      "LEC — SIA Latvijas Energoceltnieks — ir Baltijas līderis ar vairāk nekā 30 gadu pieredzi enerģētikas un telekomunikāciju būvniecībā, ar 280 profesionālu darbinieku komandu. Uzņēmums projektē un būvē augstsprieguma līnijas, apakšstacijas, kabeļu maršrutus un elektroenerģijas ražošanas objektus, kā arī lielā mērogā izbūvē optiskā šķiedra tīklus.",
+      "Ar Latviju un Vāciju kā galvenajiem tirgiem, LEC darbojas pilna cikla pieejā — Ideja, Izaicinājums, Risinājums — aptverot projektēšanu, būvniecību, modernizāciju un kritiskās infrastruktūras apkopi. Uzņēmums ir uzticams partneris energoapgādes un telekomunikāciju operatoriem visā Ziemeļeiropā."
+    ],
+    "clientZtcDescription": [
+      "ZTC ir Latvijā bāzēts saliekto koka karkasa un CLT (krustlīmētā koka) māju ražotājs ar vairāk nekā 30 gadu pieredzi Eiropas koka būvniecībā. Rūpnīcā ar CNC precizitāti tiek ražoti sienas un grīdas paneļi ar iemontētiem logiem, apvienojot CLT un koka karkasa tehnoloģijas dzīvojamo, komerciālo un rūpniecisko ēku vajadzībām. ZTC eksportē gatavās mājas uz Norvēģiju, Zviedriju, Nīderlandi un Islandi.",
+      "ZTC darbs ir ieguvis Latvijas Būvniecības gada balvu koka ēkās, un katrs panelis nes CE marķējumu saskaņā ar ETA-21/0014. Pēc sarunām ar diviem citiem piegādātājiem par ražošanas līnijas automatizāciju, ZTC izvēlējās worksRecorded — trešais mēģinājums, kas beidzot izdevās — sniedzot struktūru un pārredzamību viņu ražošanas un būvju ierakstiem."
+    ]
   },
 
   "LandingText": {

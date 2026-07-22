@@ -1500,8 +1500,14 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
   if (!validRows.length) return { ok: false as const, reason: "no-records" as const };
 
   const result = await prisma.$transaction(async (tx) => {
+    const activeBatch = await tx.siteDiarySaveBatch.findFirst({
+      where: { id: target.batch.id, siteId: args.siteId, userId: args.userId, status: "active" },
+    });
+    if (!activeBatch) {
+      throw new Error("Correction target changed or no longer belongs to this site");
+    }
     const locked = await tx.sitediaryrecords.findMany({
-      where: { saveBatchId: target.batch.id, archivedAt: null },
+      where: { saveBatchId: target.batch.id, siteId: args.siteId, userId: args.userId, archivedAt: null },
     });
     if (locked.length !== target.records.length || locked.some((record) => Boolean(record.BISId))) {
       throw new Error("Correction target changed or became BIS-linked");
@@ -1535,13 +1541,16 @@ export async function archiveAndReplaceSiteDiaryBatch(args: {
     }
     const now = new Date();
     await tx.sitediaryrecords.updateMany({
-      where: { saveBatchId: target.batch.id, archivedAt: null },
+      where: { saveBatchId: target.batch.id, siteId: args.siteId, userId: args.userId, archivedAt: null },
       data: { archivedAt: now, archiveReason: "whatsapp-correction", archivedByMessageId: args.correctionMessageId },
     });
-    await tx.siteDiarySaveBatch.update({
-      where: { id: target.batch.id },
+    const archivedBatch = await tx.siteDiarySaveBatch.updateMany({
+      where: { id: target.batch.id, siteId: args.siteId, userId: args.userId, status: "active" },
       data: { status: "archived", archivedAt: now, replacementBatchId: newBatch.id },
     });
+    if (archivedBatch.count !== 1) {
+      throw new Error("Correction target changed before archiving");
+    }
     await tx.siteDiaryCorrectionAudit.create({
       data: {
         siteId: args.siteId,

@@ -1,5 +1,11 @@
 import { getRandomSiteManagerProcessingAcknowledgement } from "@/flows/default-construction/backend/site-manager-acknowledgements";
 import talkToWhatsappAgent from "@/flows/default-construction/backend/site-manager-agent/agent";
+import {
+  buildSiteManagerSenderTraceContext,
+  setSiteManagerSenderTraceContext,
+  getSiteManagerAgentRunContext,
+  runWithSiteManagerAgentEvalContext,
+} from "@/flows/default-construction/backend/site-manager-agent/runContext";
 import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
 import { handleAudio } from "@/lib/utils/whatsapp-helpers/shared/handleAudio";
 import { handleImage } from "@/lib/utils/whatsapp-helpers/shared/handleImage";
@@ -13,6 +19,26 @@ import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 
 const currentAgent: AgentFn = async (input, siteId, userId, originalAudioUrl) =>
   (await talkToWhatsappAgent(input, siteId, userId, originalAudioUrl)) ?? "";
+
+function buildTraceAwareAgent(user: any): AgentFn {
+  const senderTraceContext = buildSiteManagerSenderTraceContext({
+    firstName: user?.firstName,
+    lastName: user?.lastName,
+  });
+
+  return async (input, siteId, userId, originalAudioUrl) => {
+    if (getSiteManagerAgentRunContext()) {
+      setSiteManagerSenderTraceContext(senderTraceContext);
+      return currentAgent(input, siteId, userId, originalAudioUrl);
+    }
+
+    const run = await runWithSiteManagerAgentEvalContext(
+      senderTraceContext,
+      () => currentAgent(input, siteId, userId, originalAudioUrl),
+    );
+    return run.result;
+  };
+}
 
 async function sendProcessingAcknowledgement(to: string | null) {
   if (!to) return;
@@ -31,6 +57,7 @@ export async function handleSiteManagerRoute(args: {
   const { from, formData, user } = args;
 
   const userName = await getUserFirstNameById(user.id);
+  const traceAwareAgent = buildTraceAwareAgent(user);
 
   const body = (getString(formData, "Body") || "").trim();
   const numMedia = parseInt(getString(formData, "NumMedia") || "0", 10) || 0;
@@ -124,7 +151,7 @@ export async function handleSiteManagerRoute(args: {
           body: normalizedComment,
           user,
           to: from,
-          agent: currentAgent,
+          agent: traceAwareAgent,
         });
         console.log("Site manager image caption processing finished", {
           messageId,
@@ -145,7 +172,7 @@ export async function handleSiteManagerRoute(args: {
       formData,
       user,
       to: from,
-      agent: currentAgent,
+      agent: traceAwareAgent,
     });
     if (aud) return;
 
@@ -157,5 +184,5 @@ export async function handleSiteManagerRoute(args: {
   if (body) {
     await sendProcessingAcknowledgement(from);
   }
-  await handleText({ body, user, to: from, agent: currentAgent });
+  await handleText({ body, user, to: from, agent: traceAwareAgent });
 }

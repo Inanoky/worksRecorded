@@ -73,6 +73,11 @@ export type SiteManagerAgentRunOptions = {
   threadId?: string;
   traceMetadata?: Record<string, string | number | boolean | null | undefined>;
   traceTags?: string[];
+  senderFirstName?: string | null;
+  senderLastName?: string | null;
+  senderName?: string | null;
+  senderInitials?: string | null;
+  senderLabel?: string | null;
   evalRecordMetadata?: Record<string, unknown>;
   model?: string;
   bisConnectionOverride?: {
@@ -90,6 +95,70 @@ export type SiteManagerAgentRunContext = SiteManagerAgentRunOptions & {
 };
 
 const siteManagerAgentRunStorage = new AsyncLocalStorage<SiteManagerAgentRunContext>();
+
+function normalizeTraceNamePart(value: unknown) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function buildInitials(parts: string[]) {
+  const initials = parts
+    .map((part) => [...part][0])
+    .filter(Boolean)
+    .join("")
+    .toUpperCase();
+  return initials || null;
+}
+
+export function buildSiteManagerSenderTraceContext(args: {
+  firstName?: string | null;
+  lastName?: string | null;
+}) {
+  const firstName = normalizeTraceNamePart(args.firstName);
+  const lastName = normalizeTraceNamePart(args.lastName);
+  const nameParts = [firstName, lastName].filter(Boolean);
+  const senderName = nameParts.join(" ") || null;
+  const senderInitials = buildInitials(nameParts);
+  const senderLabel = senderName ?? senderInitials;
+
+  return {
+    senderFirstName: firstName || null,
+    senderLastName: lastName || null,
+    senderName,
+    senderInitials,
+    senderLabel,
+  };
+}
+
+export function getSiteManagerSenderTraceMetadata(
+  context: Pick<SiteManagerAgentRunOptions, "senderFirstName" | "senderLastName" | "senderName" | "senderInitials" | "senderLabel"> | null | undefined,
+) {
+  return {
+    senderFirstName: context?.senderFirstName ?? undefined,
+    senderLastName: context?.senderLastName ?? undefined,
+    senderName: context?.senderName ?? undefined,
+    senderInitials: context?.senderInitials ?? undefined,
+    senderLabel: context?.senderLabel ?? undefined,
+  };
+}
+
+export function getSiteManagerSenderTraceTags(
+  context: Pick<SiteManagerAgentRunOptions, "senderLabel"> | null | undefined,
+) {
+  return context?.senderLabel ? [`sender:${context.senderLabel}`] : [];
+}
+
+export function setSiteManagerSenderTraceContext(
+  senderContext: Pick<SiteManagerAgentRunOptions, "senderFirstName" | "senderLastName" | "senderName" | "senderInitials" | "senderLabel">,
+) {
+  const context = getSiteManagerAgentRunContext();
+  if (!context) return false;
+  context.senderFirstName = senderContext.senderFirstName;
+  context.senderLastName = senderContext.senderLastName;
+  context.senderName = senderContext.senderName;
+  context.senderInitials = senderContext.senderInitials;
+  context.senderLabel = senderContext.senderLabel;
+  return true;
+}
 
 export async function runWithSiteManagerAgentEvalContext<T>(
   options: SiteManagerAgentRunOptions,

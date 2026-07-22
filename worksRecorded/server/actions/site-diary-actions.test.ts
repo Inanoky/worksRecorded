@@ -7,6 +7,13 @@ const updateManyMock = jest.fn();
 const photosFindManyMock = jest.fn();
 const siteDiaryFindManyMock = jest.fn();
 const batchCreateMock = jest.fn();
+const batchFindFirstMock = jest.fn();
+const batchFindUniqueMock = jest.fn();
+const batchUpdateManyMock = jest.fn();
+const correctionAuditFindUniqueMock = jest.fn();
+const correctionAuditCreateMock = jest.fn();
+const correctionSessionFindUniqueMock = jest.fn();
+const correctionSessionDeleteManyMock = jest.fn();
 let createdRowIndex = 0;
 
 jest.mock("@/lib/utils/db", () => ({
@@ -25,6 +32,17 @@ jest.mock("@/lib/utils/db", () => ({
     },
     siteDiarySaveBatch: {
       create: batchCreateMock,
+      findFirst: batchFindFirstMock,
+      findUnique: batchFindUniqueMock,
+      updateMany: batchUpdateManyMock,
+    },
+    siteDiaryCorrectionAudit: {
+      findUnique: correctionAuditFindUniqueMock,
+      create: correctionAuditCreateMock,
+    },
+    siteDiaryCorrectionSession: {
+      findUnique: correctionSessionFindUniqueMock,
+      deleteMany: correctionSessionDeleteManyMock,
     },
   },
 }));
@@ -53,7 +71,7 @@ jest.mock("./whatsapp-actions", () => ({
   getWorkerFullNameById: jest.fn(async () => "Test Worker"),
 }));
 
-import { getPhotosByDate, saveSiteDiaryRecord } from "./site-diary-actions";
+import { archiveAndReplaceSiteDiaryBatch, getPhotosByDate, saveSiteDiaryRecord } from "./site-diary-actions";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 function buildCreatedRow(row: any, index = createdRowIndex++) {
@@ -97,6 +115,20 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     createManyAndReturnMock.mockResolvedValue([]);
     createMock.mockImplementation(({ data }) => Promise.resolve(buildCreatedRow(data)));
     batchCreateMock.mockResolvedValue({ id: "batch-1" });
+    batchFindFirstMock.mockResolvedValue({
+      id: "batch-1",
+      siteId: "site-1",
+      userId: "user-1",
+      sourceMessageId: "wamid.original",
+      originalText: "Original report",
+      status: "active",
+    });
+    batchFindUniqueMock.mockResolvedValue(null);
+    batchUpdateManyMock.mockResolvedValue({ count: 1 });
+    correctionAuditFindUniqueMock.mockResolvedValue(null);
+    correctionAuditCreateMock.mockResolvedValue({ id: "audit-1" });
+    correctionSessionFindUniqueMock.mockResolvedValue(null);
+    correctionSessionDeleteManyMock.mockResolvedValue({ count: 0 });
     updateMock.mockImplementation(({ data, where }) =>
       Promise.resolve({
         ...buildCreatedRow(data),
@@ -107,10 +139,20 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
       callback({
         sitediaryrecords: {
           create: createMock,
+          findMany: siteDiaryFindManyMock,
           update: updateMock,
+          updateMany: updateManyMock,
         },
         siteDiarySaveBatch: {
           create: batchCreateMock,
+          findFirst: batchFindFirstMock,
+          updateMany: batchUpdateManyMock,
+        },
+        siteDiaryCorrectionAudit: {
+          create: correctionAuditCreateMock,
+        },
+        siteDiaryCorrectionSession: {
+          deleteMany: correctionSessionDeleteManyMock,
         },
       }),
     );
@@ -593,5 +635,139 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         }),
       }),
     );
+  });
+});
+
+describe("archiveAndReplaceSiteDiaryBatch correction guardrails", () => {
+  const originalRecord = {
+    id: "old-1",
+    saveBatchId: "batch-1",
+    siteId: "site-1",
+    userId: "user-1",
+    organizationId: "org-1",
+    Date: new Date("2026-06-20T00:00:00.000Z"),
+    Location: "Site A",
+    Works: "Concrete pour",
+    Comments: null,
+    originalAudioUrl: null,
+    BISId: null,
+    archivedAt: null,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    createdRowIndex = 0;
+    correctionAuditFindUniqueMock.mockResolvedValue(null);
+    correctionAuditCreateMock.mockResolvedValue({ id: "audit-1" });
+    correctionSessionFindUniqueMock.mockResolvedValue(null);
+    correctionSessionDeleteManyMock.mockResolvedValue({ count: 0 });
+    batchFindFirstMock.mockImplementation(({ where }) => {
+      if ((where.id === undefined || where.id === "batch-1") && where.siteId === "site-1" && where.userId === "user-1" && where.status === "active") {
+        return Promise.resolve({
+          id: "batch-1",
+          siteId: "site-1",
+          userId: "user-1",
+          sourceMessageId: "wamid.original",
+          originalText: "Original report",
+          status: "active",
+        });
+      }
+      return Promise.resolve(null);
+    });
+    batchCreateMock.mockResolvedValue({ id: "batch-2" });
+    batchUpdateManyMock.mockResolvedValue({ count: 1 });
+    siteDiaryFindManyMock.mockImplementation(({ where }) => {
+      if (where.saveBatchId === "batch-1" && where.siteId === "site-1" && where.userId === "user-1" && where.archivedAt === null) {
+        return Promise.resolve([originalRecord]);
+      }
+      return Promise.resolve([]);
+    });
+    createMock.mockImplementation(({ data }) => Promise.resolve(buildCreatedRow(data)));
+    updateManyMock.mockResolvedValue({ count: 1 });
+    transactionMock.mockImplementation((callback) =>
+      callback({
+        sitediaryrecords: {
+          create: createMock,
+          findMany: siteDiaryFindManyMock,
+          updateMany: updateManyMock,
+        },
+        siteDiarySaveBatch: {
+          create: batchCreateMock,
+          findFirst: batchFindFirstMock,
+          updateMany: batchUpdateManyMock,
+        },
+        siteDiaryCorrectionAudit: {
+          create: correctionAuditCreateMock,
+        },
+        siteDiaryCorrectionSession: {
+          deleteMany: correctionSessionDeleteManyMock,
+        },
+      }),
+    );
+  });
+
+  it("locks and archives correction records by save batch, site, and user", async () => {
+    const result = await archiveAndReplaceSiteDiaryBatch({
+      siteId: "site-1",
+      userId: "user-1",
+      correctionMessageId: "wamid.correction",
+      correctionText: "Izmaini daudzumu uz 10 gab.",
+      rows: [{ Date: originalRecord.Date, Location: "Site A", Works: "Concrete pour", Amounts: 10 }],
+    });
+
+    expect(result).toEqual(expect.objectContaining({ ok: true, count: 1, oldCount: 1 }));
+    expect(siteDiaryFindManyMock).toHaveBeenCalledWith({
+      where: { saveBatchId: "batch-1", siteId: "site-1", userId: "user-1", archivedAt: null },
+    });
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { saveBatchId: "batch-1", siteId: "site-1", userId: "user-1", archivedAt: null },
+      data: expect.objectContaining({ archiveReason: "whatsapp-correction" }),
+    });
+    expect(batchUpdateManyMock).toHaveBeenCalledWith({
+      where: { id: "batch-1", siteId: "site-1", userId: "user-1", status: "active" },
+      data: expect.objectContaining({ status: "archived", replacementBatchId: "batch-2" }),
+    });
+  });
+
+  it("refuses a correction target that no longer belongs to the trusted site and user", async () => {
+    batchFindFirstMock.mockImplementation(({ where }) => {
+      if (where.id === "batch-1") {
+        return Promise.resolve({
+          id: "batch-1",
+          siteId: "other-site",
+          userId: "other-user",
+          sourceMessageId: "wamid.original",
+          originalText: "Original report",
+          status: "active",
+        });
+      }
+      return Promise.resolve(null);
+    });
+
+    const result = await archiveAndReplaceSiteDiaryBatch({
+      siteId: "site-1",
+      userId: "user-1",
+      correctionMessageId: "wamid.correction",
+      correctionText: "Izmaini daudzumu uz 10 gab.",
+      rows: [{ Date: originalRecord.Date, Location: "Site A", Works: "Concrete pour", Amounts: 10 }],
+    });
+
+    expect(result).toEqual({ ok: false, reason: "no-eligible-batch" });
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps BIS-linked correction rows blocked", async () => {
+    siteDiaryFindManyMock.mockResolvedValueOnce([{ ...originalRecord, BISId: "bis-1" }]);
+
+    const result = await archiveAndReplaceSiteDiaryBatch({
+      siteId: "site-1",
+      userId: "user-1",
+      correctionMessageId: "wamid.correction",
+      correctionText: "Izmaini daudzumu uz 10 gab.",
+      rows: [{ Date: originalRecord.Date, Location: "Site A", Works: "Concrete pour", Amounts: 10 }],
+    });
+
+    expect(result).toEqual({ ok: false, reason: "bis-linked" });
+    expect(createMock).not.toHaveBeenCalled();
   });
 });

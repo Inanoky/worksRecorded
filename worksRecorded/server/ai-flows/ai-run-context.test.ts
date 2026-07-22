@@ -68,6 +68,29 @@ describe("AI run context helpers", () => {
     });
   });
 
+  it("allows a trace run name override without changing metadata or tags", () => {
+    const context = buildAiRunContext({
+      flow: "whatsapp-site-manager",
+      threadId: "thread-1",
+      runName: "WhatsAppSiteManagerAgent - Anna Bērziņa",
+      userId: "user-1",
+      tags: ["sender:Anna Bērziņa"],
+      metadata: { senderLabel: "Anna Bērziņa" },
+    });
+
+    expect(context.runName).toBe("WhatsAppSiteManagerAgent - Anna Bērziņa");
+    expect(context.runnableConfig.runName).toBe("WhatsAppSiteManagerAgent - Anna Bērziņa");
+    expect(context.tags).toEqual(expect.arrayContaining([
+      "flow:whatsapp-site-manager",
+      "sender:Anna-B_rzi_a",
+    ]));
+    expect(context.metadata).toMatchObject({
+      flow: "whatsapp-site-manager",
+      senderLabel: "Anna Bērziņa",
+      userId: "user-1",
+    });
+  });
+
   it("summarizes text for trace metadata", () => {
     expect(summarizeForTrace("  hello\n\nworld  ")).toBe("hello world");
     expect(summarizeForTrace("abcdef", 4)).toBe("abcd...");

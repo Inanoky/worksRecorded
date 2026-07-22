@@ -12,6 +12,9 @@ const readSiteDiaryBisStatusesMock = jest.fn();
 const archiveAndReplaceSiteDiaryBatchMock = jest.fn();
 const getSiteDiaryCorrectionTargetMock = jest.fn();
 const startSiteDiaryCorrectionMock = jest.fn();
+const mockBuildAiRunContext = jest.fn(() => ({
+  runnableConfig: { configurable: { thread_id: "test-thread" }, metadata: {} },
+}));
 
 jest.mock("@langchain/openai", () => ({
   ChatOpenAI: jest.fn().mockImplementation(() => ({
@@ -48,17 +51,30 @@ jest.mock("@/flows/default-construction/backend/site-manager-agent/runContext", 
     evalRecordMetadata: { evaluationId: "eval-1" },
     traceMetadata: { scenario: "unit-test" },
     traceTags: ["site-diary-test"],
-    metrics: {
-      executionPath: "legacy-agent",
-      fastPathMode: "off",
-      timings: {},
-      modelCalls: [],
-      toolCalls: [],
-    },
-  })),
+	    metrics: {
+	      executionPath: "legacy-agent",
+	      fastPathMode: "off",
+	      timings: {},
+	      modelCalls: [],
+	      toolCalls: [],
+	    },
+	    senderFirstName: "Anna",
+	    senderLastName: "Bērziņa",
+	    senderName: "Anna Bērziņa",
+	    senderInitials: "AB",
+	    senderLabel: "Anna Bērziņa",
+	  })),
   recordSiteManagerModelCall: jest.fn(),
   recordSiteManagerTiming: jest.fn(),
   recordSiteManagerToolCall: jest.fn(),
+	  getSiteManagerSenderTraceMetadata: jest.fn(() => ({
+	    senderFirstName: "Anna",
+	    senderLastName: "Bērziņa",
+	    senderName: "Anna Bērziņa",
+	    senderInitials: "AB",
+	    senderLabel: "Anna Bērziņa",
+	  })),
+	  getSiteManagerSenderTraceTags: jest.fn(() => ["sender:Anna Bērziņa"]),
 }));
 
 jest.mock("./siteDiaryToolContext", () => ({
@@ -74,9 +90,7 @@ jest.mock("@/server/ai-flows/agents/bis-support-agent/tools", () => ({
 }));
 
 jest.mock("@/server/ai-flows/ai-run-context", () => ({
-  buildAiRunContext: jest.fn(() => ({
-    runnableConfig: { configurable: { thread_id: "test-thread" }, metadata: {} },
-  })),
+  buildAiRunContext: mockBuildAiRunContext,
   summarizeForTrace: jest.fn((value) => value),
 }));
 
@@ -203,11 +217,23 @@ describe("save_to_database site diary tool", () => {
     expect(messages[0].content).toContain(toolInput.date);
     expect(messages[0].content).not.toContain(trustedContext.originalUserComment);
     expect(messages[1].content).toContain(trustedContext.siteId);
-    expect(runnableConfig).toEqual(expect.objectContaining({
-      configurable: { thread_id: "test-thread" },
-      metadata: expect.objectContaining({ fastPathOutcome: "save" }),
-    }));
-    expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith({
+	    expect(runnableConfig).toEqual(expect.objectContaining({
+	      configurable: { thread_id: "test-thread" },
+	      metadata: expect.objectContaining({ fastPathOutcome: "save" }),
+	    }));
+    expect(mockBuildAiRunContext).toHaveBeenCalledWith(
+	      expect.objectContaining({
+	        metadata: expect.objectContaining({
+	          senderFirstName: "Anna",
+	          senderLastName: "Bērziņa",
+	          senderName: "Anna Bērziņa",
+	          senderInitials: "AB",
+	          senderLabel: "Anna Bērziņa",
+	        }),
+	        tags: expect.arrayContaining(["sender:Anna Bērziņa"]),
+	      }),
+	    );
+	    expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith({
       rows: [
         { Location: "Building A", Works: "Concrete pour", Amounts: 12.5 },
       ],
@@ -398,7 +424,7 @@ describe("replace_last_site_diary_batch correction operation", () => {
       id: "batch-1",
       originalText: "Šodien salabojām durvis 2. stāvā, 5 gab., 2h.",
     },
-    records: [{ id: "old-1", BISId: null }],
+    records: [{ id: "old-1", BISId: null, Date: new Date("2026-06-20T00:00:00.000Z") }],
   };
 
   beforeEach(() => {
@@ -439,6 +465,38 @@ describe("replace_last_site_diary_batch correction operation", () => {
     );
   });
 
+  it("passes the target record date into correction extraction", async () => {
+    await replaceLastSiteDiaryBatchOperation({
+      correction: "Izmaini daudzumu uz 10 gab.",
+      language: "lv",
+    });
+
+    const [messages] = structuredInvokeMock.mock.calls[0];
+    expect(messages[0].content).toContain("Date is : 20-06-2026");
+    expect(messages[1].content).toContain("today is : 20-06-2026");
+  });
+
+  it("forces replacement rows to keep the target record date", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      records: [{ Area: "2 stāvs", Activity: "Repair works", Quantity: 10, Date: "2026-07-21T00:00:00.000Z" }],
+    });
+
+    await replaceLastSiteDiaryBatchOperation({
+      correction: "Izmaini daudzumu uz 10 gab.",
+      language: "lv",
+    });
+
+    expect(archiveAndReplaceSiteDiaryBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rows: [
+          expect.objectContaining({
+            Date: new Date("2026-06-20T00:00:00.000Z"),
+          }),
+        ],
+      }),
+    );
+  });
+
   it("records a structured save trace after a successful correction", async () => {
     await replaceLastSiteDiaryBatchOperation({
       correction: "Izmaini daudzumu uz 10 gab.",
@@ -449,6 +507,12 @@ describe("replace_last_site_diary_batch correction operation", () => {
       expect.objectContaining({
         siteId: "site-1",
         userId: "user-1",
+        date: "20-06-2026",
+        mappedRows: [
+          expect.objectContaining({
+            Date: new Date("2026-06-20T00:00:00.000Z"),
+          }),
+        ],
         persistedRecords: expect.arrayContaining([
           expect.objectContaining({ id: "new-1" }),
         ]),

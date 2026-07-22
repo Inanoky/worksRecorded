@@ -16,6 +16,7 @@ type MetadataValue = string | number | boolean | null | undefined;
 type BuildAiRunContextArgs = {
   flow: AiFlowName;
   threadId: string;
+  runName?: string;
   siteId?: string | null;
   userId?: string | null;
   workerId?: string | null;
@@ -77,6 +78,7 @@ export function getBisMaterialsAgentThreadId(siteId: string) {
 }
 
 export function buildAiRunContext(args: BuildAiRunContextArgs) {
+  const runName = args.runName ?? FLOW_RUN_NAMES[args.flow];
   const tags = [
     "works-recorded",
     `flow:${args.flow}`,
@@ -102,12 +104,12 @@ export function buildAiRunContext(args: BuildAiRunContextArgs) {
   });
 
   return {
-    runName: FLOW_RUN_NAMES[args.flow],
+    runName,
     threadId: args.threadId,
     tags,
     metadata,
     runnableConfig: {
-      runName: FLOW_RUN_NAMES[args.flow],
+      runName,
       tags,
       metadata,
     },
