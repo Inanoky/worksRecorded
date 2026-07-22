@@ -68,8 +68,7 @@ export function Logos() {
 					))}
 				</div>
 
-				{/* Description cards */}
-				<div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
+				<div className="hidden mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
 					{CLIENTS.map((client) => {
 						const paragraphs = t.raw(client.descriptionKey) as string[];
 						return (
