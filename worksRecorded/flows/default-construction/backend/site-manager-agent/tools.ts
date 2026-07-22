@@ -24,6 +24,8 @@ import {
   recordSiteManagerModelCall,
   recordSiteManagerTiming,
   recordSiteManagerToolCall,
+  getSiteManagerSenderTraceMetadata,
+  getSiteManagerSenderTraceTags,
   type FastPathTraceMetadata,
 } from "./runContext";
 import {
@@ -55,6 +57,20 @@ function currentDiaryDate() {
     month: "2-digit",
     year: "numeric",
   }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.day}-${values.month}-${values.year}`;
+}
+
+function formatDiaryDateForPrompt(value: Date | string | null | undefined) {
+  if (!value) return currentDiaryDate();
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return currentDiaryDate();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Riga",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(date);
   const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
   return `${values.day}-${values.month}-${values.year}`;
 }
@@ -148,6 +164,8 @@ export async function extractAndSaveSiteDiary(args: {
   const whatsappSourceContext = getWhatsappSourceContext();
   const runContext = getSiteManagerAgentRunContext();
   const runMetrics = runContext?.metrics;
+  const senderTraceMetadata = getSiteManagerSenderTraceMetadata(runContext);
+  const senderTraceTags = getSiteManagerSenderTraceTags(runContext);
   const structuredTrace = fastPathTraceConfig(args.fastPathTrace ?? runContext?.fastPathTrace ?? {
     fastPathMode: runMetrics?.fastPathMode ?? "off",
     fastPathCandidate: false,
@@ -169,10 +187,11 @@ export async function extractAndSaveSiteDiary(args: {
       whatsappMessageId: whatsappSourceContext.messageId ?? null,
       originalUserCommentPreview: summarizeForTrace(originalUserComment),
       fastPath: Boolean(args.allowFallback),
+      ...senderTraceMetadata,
       ...(runContext?.traceMetadata ?? {}),
       ...structuredTrace.metadata,
     },
-    tags: [...(runContext?.traceTags ?? []), ...structuredTrace.tags],
+    tags: [...senderTraceTags, ...(runContext?.traceTags ?? []), ...structuredTrace.tags],
   });
 
   const updateTraceOutcome = (
@@ -477,8 +496,11 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
       recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
       return correctionResult({ status: "blocked_bis", language: args.language, oldRecordCount });
     }
+    const targetDiaryDate = target.records[0]?.Date ?? null;
+    const targetDiaryDateForPrompt = formatDiaryDateForPrompt(targetDiaryDate);
     const extraction = await extractAndSaveSiteDiary({
       question: `ORIGINAL REPORT (trusted):\n${target.batch.originalText}\n\nUSER CORRECTION (takes precedence):\n${args.correction}\n\nReturn the complete corrected diary batch.`,
+      requestedDate: targetDiaryDateForPrompt,
       persist: false,
     });
     if (!extraction.ok || !extraction.rows?.length) {
@@ -495,12 +517,16 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
         oldRecordCount,
       });
     }
+    const correctionRows = extraction.rows.map((row) => ({
+      ...row,
+      Date: targetDiaryDate ?? row.Date,
+    }));
     const result = await archiveAndReplaceSiteDiaryBatch({
       siteId: context.siteId,
       userId: context.userId,
       correctionMessageId: source.messageId,
       correctionText: args.correction,
-      rows: extraction.rows,
+      rows: correctionRows,
       replyToMessageId: source.replyToMessageId,
       evalMetadata: runContext?.evalRecordMetadata,
     });
@@ -516,11 +542,11 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
       recordStructuredSaveTrace({
         siteId: context.siteId,
         userId: context.userId,
-        date: currentDiaryDate(),
+        date: targetDiaryDateForPrompt,
         originalUserComment: `${target.batch.originalText}\nCorrection: ${args.correction}`,
         rawRecords: extraction.rows,
-        mappedRows: extraction.rows,
-        normalizedInsertRows: extraction.rows,
+        mappedRows: correctionRows,
+        normalizedInsertRows: correctionRows,
         persistedRecords: result.records as Record<string, unknown>[],
       });
     }

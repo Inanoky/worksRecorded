@@ -10,6 +10,7 @@ import {
   metaMaterialImageClassifierModel,
   metaMaterialImageClassifierTemperature,
 } from "@/server/ai-flows/ai-models-settings";
+import { buildSiteManagerSenderTraceContext } from "@/flows/default-construction/backend/site-manager-agent/runContext";
 
 
 //-------------------------------------Utilities--------------------------------
@@ -227,6 +228,11 @@ type MetaMaterialContext = {
   userId: string
   orgId: string | null
   siteId: string | null
+  senderFirstName?: string | null
+  senderLastName?: string | null
+  senderName?: string | null
+  senderInitials?: string | null
+  senderLabel?: string | null
 }
 
 type MetaMaterialLangSmithRunName =
@@ -241,14 +247,22 @@ function describeImageForTrace(publicUrl: string) {
   }
 }
 
+function cleanLangSmithTag(value: string) {
+  return value.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9:._-]/g, "_")
+}
+
 function buildMetaMaterialLangSmithExtra(args: {
   name: MetaMaterialLangSmithRunName
   model: string
   publicUrl: string
   context?: MetaMaterialContext | null
 }) {
+  const runName = args.context?.senderLabel
+    ? `${args.name} - ${args.context.senderLabel}`
+    : args.name
+
   return {
-    name: args.name,
+    name: runName,
     tags: [
       "whatsapp-site-manager",
       "meta-image",
@@ -256,7 +270,10 @@ function buildMetaMaterialLangSmithExtra(args: {
       args.name === "MetaMaterialInvoiceExtraction"
         ? "invoice-extraction"
         : "image-classification",
-    ],
+      args.context?.senderLabel
+        ? `sender:${cleanLangSmithTag(args.context.senderLabel)}`
+        : null,
+    ].filter((tag): tag is string => Boolean(tag)),
     metadata: {
       source: "meta-image-handler",
       model: args.model,
@@ -264,6 +281,11 @@ function buildMetaMaterialLangSmithExtra(args: {
       siteId: args.context?.siteId ?? null,
       userId: args.context?.userId ?? null,
       orgId: args.context?.orgId ?? null,
+      senderFirstName: args.context?.senderFirstName ?? null,
+      senderLastName: args.context?.senderLastName ?? null,
+      senderName: args.context?.senderName ?? null,
+      senderInitials: args.context?.senderInitials ?? null,
+      senderLabel: args.context?.senderLabel ?? null,
     },
   }
 }
@@ -458,6 +480,8 @@ async function resolveMetaMaterialContext(senderPhone?: string | null): Promise<
     },
     select: {
       id: true,
+      firstName: true,
+      lastName: true,
       organizationId: true,
       lastSelectedSiteIdforWhatsapp: true,
       siteManagerSelectIdforWhatsapp: true,
@@ -466,6 +490,11 @@ async function resolveMetaMaterialContext(senderPhone?: string | null): Promise<
 
   if (!user) return null
 
+  const senderTraceContext = buildSiteManagerSenderTraceContext({
+    firstName: user.firstName,
+    lastName: user.lastName,
+  })
+
   return {
     userId: user.id,
     orgId: user.organizationId ?? null,
@@ -473,6 +502,7 @@ async function resolveMetaMaterialContext(senderPhone?: string | null): Promise<
       user.lastSelectedSiteIdforWhatsapp ??
       user.siteManagerSelectIdforWhatsapp ??
       null,
+    ...senderTraceContext,
   }
 }
 

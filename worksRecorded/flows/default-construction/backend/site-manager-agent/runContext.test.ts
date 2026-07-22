@@ -1,11 +1,16 @@
 import {
+  buildSiteManagerSenderTraceContext,
   fastPathTraceConfig,
+  getSiteManagerAgentRunContext,
   getSiteManagerMetricsSnapshot,
+  getSiteManagerSenderTraceMetadata,
+  getSiteManagerSenderTraceTags,
   recordSiteManagerModelCall,
   recordSiteManagerTiming,
   recordSiteManagerToolCall,
   runWithSiteManagerAgentEvalContext,
   setSiteManagerExecutionPath,
+  setSiteManagerSenderTraceContext,
 } from "./runContext";
 import { buildAiRunContext } from "@/server/ai-flows/ai-run-context";
 
@@ -128,5 +133,105 @@ describe("site-manager fast-path trace metadata", () => {
       "eval:whatsapp-site-manager",
       "execution-path:fast-path",
     ]));
+  });
+});
+
+describe("site-manager sender trace metadata", () => {
+  it.each([
+    {
+      name: "full name",
+      input: { firstName: " Anna ", lastName: " Bērziņa " },
+      expected: {
+        senderFirstName: "Anna",
+        senderLastName: "Bērziņa",
+        senderName: "Anna Bērziņa",
+        senderInitials: "AB",
+        senderLabel: "Anna Bērziņa",
+      },
+    },
+    {
+      name: "first name only",
+      input: { firstName: "Jānis", lastName: "" },
+      expected: {
+        senderFirstName: "Jānis",
+        senderLastName: null,
+        senderName: "Jānis",
+        senderInitials: "J",
+        senderLabel: "Jānis",
+      },
+    },
+    {
+      name: "empty values",
+      input: { firstName: " ", lastName: null },
+      expected: {
+        senderFirstName: null,
+        senderLastName: null,
+        senderName: null,
+        senderInitials: null,
+        senderLabel: null,
+      },
+    },
+  ])("builds trace-safe sender labels for $name", ({ input, expected }) => {
+    expect(buildSiteManagerSenderTraceContext(input)).toEqual(expected);
+  });
+
+  it("exposes sender metadata and tags from run context options", async () => {
+    await runWithSiteManagerAgentEvalContext(
+      {
+        senderFirstName: "Anna",
+        senderLastName: "Bērziņa",
+        senderName: "Anna Bērziņa",
+        senderInitials: "AB",
+        senderLabel: "Anna Bērziņa",
+      },
+      async () => {
+        const runContext = getSiteManagerAgentRunContext();
+        const context = buildAiRunContext({
+          flow: "whatsapp-site-manager",
+          threadId: "thread-1",
+          metadata: getSiteManagerSenderTraceMetadata(runContext),
+          tags: getSiteManagerSenderTraceTags(runContext),
+        });
+
+        expect(context.metadata).toMatchObject({
+          senderFirstName: "Anna",
+          senderLastName: "Bērziņa",
+          senderName: "Anna Bērziņa",
+          senderInitials: "AB",
+          senderLabel: "Anna Bērziņa",
+        });
+        expect(context.tags).toEqual(expect.arrayContaining(["sender:Anna-B_rzi_a"]));
+      },
+    );
+  });
+
+  it("adds sender fields to an existing run context without replacing caller metadata", async () => {
+    await runWithSiteManagerAgentEvalContext(
+      {
+        traceMetadata: { evalRunId: "run-1" },
+        traceTags: ["eval:whatsapp-site-manager"],
+      },
+      async () => {
+        expect(setSiteManagerSenderTraceContext({
+          senderFirstName: "Anna",
+          senderLastName: "Bērziņa",
+          senderName: "Anna Bērziņa",
+          senderInitials: "AB",
+          senderLabel: "Anna Bērziņa",
+        })).toBe(true);
+
+        expect(getSiteManagerAgentRunContext()).toEqual(
+          expect.objectContaining({
+            traceMetadata: { evalRunId: "run-1" },
+            traceTags: ["eval:whatsapp-site-manager"],
+            senderFirstName: "Anna",
+            senderLastName: "Bērziņa",
+            senderName: "Anna Bērziņa",
+            senderInitials: "AB",
+            senderLabel: "Anna Bērziņa",
+          }),
+        );
+      },
+    );
   });
 });

@@ -9,6 +9,7 @@ import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiar
 import BisLogo from "@/public/logos/bislogo.png";
 
 import { WhatDoWeDo, HowDoWeDoThat, Why } from "@/components/landing/Landing/Text";
+import { Logos } from "@/components/landing/Logos";
 
 export default function LandingPage() {
   const t = useTranslations("LandingPageDesktop");
@@ -99,6 +100,9 @@ export default function LandingPage() {
           </p>
         </div>
       </section>
+
+      {/* CLIENTS – trusted by */}
+      <Logos />
 
       {/* SECTION 2 – What you capture every day */}
       <section className="bg-white dark:bg-slate-950">

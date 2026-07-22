@@ -445,7 +445,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
         "Distinguish a completed repair report from a later imperative correction and replace rather than duplicate the diary batch. The follow-up correction path propagates evalMetadata and records a structured save trace; the runner also falls back to SiteDiaryCorrectionAudit when both are empty.",
       webhook: textWebhookFixture({
         senderKey: "eval-site-manager-repair-correction",
-        body: "Šodien salabojām durvis 2. stāvā, 5 gab., 2h.",
+        body: "Saglabā par 2026. gada 15. jūniju: salabojām durvis 2. stāvā, 5 gab., 2h.",
         timestamp: "1782197640",
       }),
       expected: {
@@ -453,6 +453,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
         requiredTextSignals: ["salab", "durv", "2", "stāv"],
         amounts: 5,
         timeInvolved: 2,
+        expectedDateISO: "2026-06-15",
         minHeuristicScore: 0.75,
       },
       followUp: {
@@ -462,6 +463,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
           requiredTextSignals: ["salab", "durv", "2", "stāv"],
           amounts: 10,
           timeInvolved: 2,
+          expectedDateISO: "2026-06-15",
           minHeuristicScore: 0.75,
         },
       },

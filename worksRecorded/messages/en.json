@@ -17,7 +17,21 @@
     "logoStripLabel": "Works with",
     "whatsappLogoAlt": "WhatsApp logo",
     "bisLogoAlt": "BIS logo",
-    "bisLogoLabel": "BIS integration"
+    "bisLogoLabel": "BIS integration",
+    "clientsHeading": "Our clients",
+    "clientsSubheading": "Construction companies that already trust worksRecorded",
+    "clientDepromDescription": [
+      "Deprom is a UK-based precast concrete specialist that helps contractors achieve cost certainty, faster programmes, and more sustainable builds. They deliver full-scope precast solutions — brick facades, architectural concrete cladding, and complete residential and commercial frames — backed by in-house engineering, facade, and framing services.",
+      "By moving structural and facade work off-site into a controlled factory environment, Deprom reduces programme risk, tightens quality control, and shortens on-site time. Their portfolio spans residential blocks, commercial buildings, and bespoke facade commissions across the UK."
+    ],
+    "clientLecDescription": [
+      "LEC — SIA Latvijas Energoceltnieks — is a Baltic leader with more than 30 years of experience in energy and telecommunications construction, supported by a team of 280 professionals. The company designs and builds high-voltage power lines, substations, cable routes, and power generation assets, and rolls out fibre-optic networks at scale.",
+      "With Latvia and Germany as its core markets, LEC follows a full-cycle approach — Idea, Challenge, Solution — covering design, construction, modernisation, and maintenance of critical infrastructure. The company is a trusted partner for utilities and telecom operators across Northern Europe."
+    ],
+    "clientZtcDescription": [
+      "ZTC is a Latvian manufacturer of prefabricated timber-frame and CLT (cross-laminated timber) houses with over 30 years of experience in European timber construction. Their factory uses CNC precision to produce wall and floor panels with integrated windows, combining CLT and timber-frame technology for residential, commercial, and industrial buildings. ZTC exports turnkey homes to Norway, Sweden, the Netherlands, and Iceland.",
+      "ZTC's work has earned the Latvian Construction Annual Award for wooden buildings, and every panel carries CE marking under ETA-21/0014. After talks with two other vendors about automating their manufacturing line, ZTC chose worksRecorded — the third attempt that finally delivered — bringing structure and visibility to their production and site records."
+    ]
   },
 
   "LandingText": {

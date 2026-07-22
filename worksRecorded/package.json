@@ -20,8 +20,8 @@
     "postinstall": "prisma generate",
     "test": "jest",
     "test:unit": "jest --runInBand",
-    "test:image-extraction": "cross-env RUN_AI_EVALS=false RUN_META_IMAGE_AI_EVAL=false jest --runInBand test/meta-image-handler-langsmith.test.ts test/meta-image-upload-material-extraction.test.ts",
-    "test:image-extraction:real": "cross-env RUN_AI_EVALS=true RUN_META_IMAGE_AI_EVAL=true jest --runInBand test/meta-image-real-extraction.eval.test.ts",
+    "eval:ai:image-extraction": "cross-env RUN_AI_EVALS=false RUN_META_IMAGE_AI_EVAL=false jest --runInBand test/meta-image-handler-langsmith.test.ts test/meta-image-upload-material-extraction.test.ts",
+    "eval:ai:image-extraction:real": "cross-env RUN_AI_EVALS=true RUN_META_IMAGE_AI_EVAL=true jest --runInBand test/meta-image-real-extraction.eval.test.ts",
     "test:ai:validators": "jest --runInBand test/ai-evals",
     "test:ai:dry-run": "npm run eval:ai:dashboard -- --dry-run && npm run eval:ai:whatsapp-site-manager -- --dry-run && npm run eval:ai:whatsapp-worker -- --dry-run",
     "test:all": "npm run test:unit && npm run test:ai:dry-run"

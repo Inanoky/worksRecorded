@@ -70,11 +70,16 @@ describe("meta image handler LangSmith tracing", () => {
 			reason: "site photo",
 		});
 
-		await classifyMaterialDocumentImage(publicUrl, {
-			userId: "user-1",
-			orgId: "org-1",
-			siteId: "site-1",
-		});
+			await classifyMaterialDocumentImage(publicUrl, {
+				userId: "user-1",
+				orgId: "org-1",
+				siteId: "site-1",
+				senderFirstName: "Anna",
+				senderLastName: "Bērziņa",
+				senderName: "Anna Bērziņa",
+				senderInitials: "AB",
+				senderLabel: "Anna Bērziņa",
+			});
 
 		expect(ChatOpenAI).toHaveBeenCalledWith({
 			model: "gpt-test-classifier",
@@ -89,40 +94,48 @@ describe("meta image handler LangSmith tracing", () => {
 		expect(mockStructuredInvoke).toHaveBeenCalledTimes(1);
 		const [messages, config] = mockStructuredInvoke.mock.calls[0];
 
-		expect(messages[0].content[1]).toEqual({
-			type: "image_url",
-			image_url: { url: publicUrl },
-		});
-		expect(config).toMatchObject({
-			runName: "MetaMaterialImageClassification",
-			tags: [
-				"whatsapp-site-manager",
-				"meta-image",
-				"material-document",
-				"image-classification",
-			],
-			metadata: {
-				source: "meta-image-handler",
-				model: "gpt-test-classifier",
-				imageHost: "utfs.io",
-				siteId: "site-1",
-				userId: "user-1",
-				orgId: "org-1",
-			},
-		});
+			expect(messages[0].content[1]).toEqual({
+				type: "image_url",
+				image_url: { url: publicUrl },
+			});
+			expect(config).toMatchObject({
+				runName: "MetaMaterialImageClassification - Anna Bērziņa",
+				tags: [
+					"whatsapp-site-manager",
+					"meta-image",
+					"material-document",
+					"image-classification",
+					"sender:Anna-B_rzi_a",
+				],
+				metadata: {
+					source: "meta-image-handler",
+					model: "gpt-test-classifier",
+					imageHost: "utfs.io",
+					siteId: "site-1",
+					userId: "user-1",
+					orgId: "org-1",
+					senderFirstName: "Anna",
+					senderLastName: "Bērziņa",
+					senderName: "Anna Bērziņa",
+					senderInitials: "AB",
+					senderLabel: "Anna Bērziņa",
+				},
+			});
 		expect(JSON.stringify(config.metadata)).not.toContain(publicUrl);
 		expect(config.runId).toMatch(uuidV7Pattern);
 	});
 
-	it("adds native LangChain run metadata to invoice extraction calls", async () => {
-		const publicUrl = "https://utfs.io/f/invoice-private-key.jpg?token=hidden";
+		it("adds native LangChain run metadata to invoice extraction calls", async () => {
+			const publicUrl = "https://utfs.io/f/invoice-private-key.jpg?token=hidden";
 
-		mockUserFindFirst.mockResolvedValueOnce({
-			id: "user-1",
-			organizationId: "org-1",
-			lastSelectedSiteIdforWhatsapp: "site-1",
-			siteManagerSelectIdforWhatsapp: null,
-		});
+			mockUserFindFirst.mockResolvedValueOnce({
+				id: "user-1",
+				firstName: "Anna",
+				lastName: "Bērziņa",
+				organizationId: "org-1",
+				lastSelectedSiteIdforWhatsapp: "site-1",
+				siteManagerSelectIdforWhatsapp: null,
+			});
 		mockStructuredInvoke.mockResolvedValueOnce({
 			items: [
 				{
@@ -157,26 +170,32 @@ describe("meta image handler LangSmith tracing", () => {
 		expect(messages[0].content[1]).toEqual({
 			type: "image_url",
 			image_url: { url: publicUrl },
-		});
-		expect(messages[0].content[0].text).toContain("Today is");
-		expect(messages[0].content[0].text).toContain("Europe/Riga");
-		expect(config).toMatchObject({
-			runName: "MetaMaterialInvoiceExtraction",
-			tags: [
-				"whatsapp-site-manager",
-				"meta-image",
-				"material-document",
-				"invoice-extraction",
-			],
-			metadata: {
-				source: "meta-image-handler",
-				model: "gpt-5.4",
-				imageHost: "utfs.io",
-				siteId: "site-1",
-				userId: "user-1",
-				orgId: "org-1",
-			},
-		});
+			});
+			expect(messages[0].content[0].text).toContain("Today is");
+			expect(messages[0].content[0].text).toContain("Europe/Riga");
+			expect(config).toMatchObject({
+				runName: "MetaMaterialInvoiceExtraction - Anna Bērziņa",
+				tags: [
+					"whatsapp-site-manager",
+					"meta-image",
+					"material-document",
+					"invoice-extraction",
+					"sender:Anna-B_rzi_a",
+				],
+				metadata: {
+					source: "meta-image-handler",
+					model: "gpt-5.4",
+					imageHost: "utfs.io",
+					siteId: "site-1",
+					userId: "user-1",
+					orgId: "org-1",
+					senderFirstName: "Anna",
+					senderLastName: "Bērziņa",
+					senderName: "Anna Bērziņa",
+					senderInitials: "AB",
+					senderLabel: "Anna Bērziņa",
+				},
+			});
 		expect(JSON.stringify(config.metadata)).not.toContain(publicUrl);
 		expect(config.runId).toMatch(uuidV7Pattern);
 		expect(mockCreateMany).toHaveBeenCalledWith({
@@ -196,10 +215,12 @@ describe("meta image handler LangSmith tracing", () => {
 		const publicUrl = "https://utfs.io/f/invoice-private-key.jpg?token=hidden";
 
 		mockUserFindFirst.mockResolvedValueOnce({
-			id: "user-1",
-			organizationId: "org-1",
-			lastSelectedSiteIdforWhatsapp: "site-1",
-			siteManagerSelectIdforWhatsapp: null,
+				id: "user-1",
+				firstName: "Anna",
+				lastName: "Bērziņa",
+				organizationId: "org-1",
+				lastSelectedSiteIdforWhatsapp: "site-1",
+				siteManagerSelectIdforWhatsapp: null,
 		});
 		mockStructuredInvoke
 			.mockResolvedValueOnce({
@@ -228,19 +249,29 @@ describe("meta image handler LangSmith tracing", () => {
 			senderPhone: "37120000000",
 		});
 
-		expect(handled).toBe(true);
-		expect(mockUserFindFirst).toHaveBeenCalledTimes(1);
-		expect(mockStructuredInvoke).toHaveBeenCalledTimes(2);
-		expect(mockStructuredInvoke.mock.calls[0][1].metadata).toMatchObject({
-			siteId: "site-1",
-			userId: "user-1",
-			orgId: "org-1",
-		});
-		expect(mockStructuredInvoke.mock.calls[1][1].metadata).toMatchObject({
-			siteId: "site-1",
-			userId: "user-1",
-			orgId: "org-1",
-		});
+			expect(handled).toBe(true);
+			expect(mockUserFindFirst).toHaveBeenCalledTimes(1);
+			expect(mockStructuredInvoke).toHaveBeenCalledTimes(2);
+			expect(mockStructuredInvoke.mock.calls[0][1].runName).toBe("MetaMaterialImageClassification - Anna Bērziņa");
+			expect(mockStructuredInvoke.mock.calls[1][1].runName).toBe("MetaMaterialInvoiceExtraction - Anna Bērziņa");
+			expect(mockStructuredInvoke.mock.calls[0][1].metadata).toMatchObject({
+				siteId: "site-1",
+				userId: "user-1",
+				orgId: "org-1",
+				senderFirstName: "Anna",
+				senderLastName: "Bērziņa",
+				senderName: "Anna Bērziņa",
+			});
+			expect(mockStructuredInvoke.mock.calls[1][1].metadata).toMatchObject({
+				siteId: "site-1",
+				userId: "user-1",
+				orgId: "org-1",
+				senderFirstName: "Anna",
+				senderLastName: "Bērziņa",
+				senderName: "Anna Bērziņa",
+			});
+			expect(mockStructuredInvoke.mock.calls[0][1].tags).toContain("sender:Anna-B_rzi_a");
+			expect(mockStructuredInvoke.mock.calls[1][1].tags).toContain("sender:Anna-B_rzi_a");
 		expect(mockStructuredInvoke.mock.calls[0][1].runId).toMatch(uuidV7Pattern);
 		expect(mockStructuredInvoke.mock.calls[1][1].runId).toMatch(uuidV7Pattern);
 	});

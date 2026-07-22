@@ -68,6 +68,7 @@ jest.mock(
 );
 
 import { handleSiteManagerRoute } from "./site-manager-route";
+import { getSiteManagerAgentRunContext } from "./site-manager-agent/runContext";
 
 describe("default-construction site-manager image captions", () => {
   beforeEach(() => {
@@ -121,6 +122,46 @@ describe("default-construction site-manager image captions", () => {
     expect(mockSendMessage).not.toHaveBeenCalledWith(
       "whatsapp:+37100000000",
       "✅",
+    );
+  });
+
+  it("runs the site-manager agent with sender trace context", async () => {
+    mockHandleImage.mockResolvedValue(false);
+    mockHandleText.mockImplementationOnce(async ({ body, user, agent }) => {
+      await agent(body, user.lastSelectedSiteIdforWhatsapp, user.id);
+      return true;
+    });
+    mockTalkToWhatsappAgent.mockImplementationOnce(async () => {
+      expect(getSiteManagerAgentRunContext()).toEqual(
+        expect.objectContaining({
+          senderName: "Anna Bērziņa",
+          senderInitials: "AB",
+          senderLabel: "Anna Bērziņa",
+        }),
+      );
+      return "Saglabāts";
+    });
+
+    const formData = new FormData();
+    formData.set("Body", "Pabeigta sienu montāža");
+    formData.set("NumMedia", "0");
+
+    await handleSiteManagerRoute({
+      from: "whatsapp:+37100000000",
+      formData,
+      user: {
+        id: "user-1",
+        firstName: "Anna",
+        lastName: "Bērziņa",
+        lastSelectedSiteIdforWhatsapp: "site-1",
+      },
+    });
+
+    expect(mockTalkToWhatsappAgent).toHaveBeenCalledWith(
+      "Pabeigta sienu montāža",
+      "site-1",
+      "user-1",
+      undefined,
     );
   });
 

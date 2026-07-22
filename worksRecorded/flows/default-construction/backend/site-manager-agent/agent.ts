@@ -34,6 +34,8 @@ import {
 import {
     getSiteManagerAgentRunContext,
     getSiteManagerMetricsSnapshot,
+    getSiteManagerSenderTraceMetadata,
+    getSiteManagerSenderTraceTags,
     recordSiteManagerModelCall,
     recordSiteManagerTiming,
     runWithSiteManagerAgentEvalContext,
@@ -109,6 +111,11 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     console.log("=== talkToWhatsappAgent (Site Manager) called ===", { hasAudio: !!originalAudioUrl });
     const runContext = getSiteManagerAgentRunContext();
     const requestedModel = runContext?.model ?? siteManagerAgentForSiteManagerRouteModelModel;
+    const senderTraceMetadata = getSiteManagerSenderTraceMetadata(runContext);
+    const senderTraceTags = getSiteManagerSenderTraceTags(runContext);
+    const runName = runContext?.senderLabel
+        ? `WhatsAppSiteManagerAgent - ${runContext.senderLabel}`
+        : undefined;
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
     const whatsappMessageId = getWhatsappSourceContext().messageId ?? null;
@@ -329,6 +336,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
     const aiContext = buildAiRunContext({
         flow: "whatsapp-site-manager",
         threadId: runContext?.threadId ?? getSiteManagerThreadId(siteId, userId),
+        runName,
         siteId,
         userId,
         channel: "whatsapp",
@@ -343,10 +351,11 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
             correctionMode: classifiedCorrectionMode,
             intentConfidence: classifiedIntentConfidence,
             intentReason: classifiedIntentReason,
+            ...senderTraceMetadata,
             ...(runContext?.traceMetadata ?? {}),
             ...legacyTrace.metadata,
         },
-        tags: [...(runContext?.traceTags ?? []), ...legacyTrace.tags],
+        tags: [...senderTraceTags, ...(runContext?.traceTags ?? []), ...legacyTrace.tags],
     });
 
     const shouldContinue = (state) => {
