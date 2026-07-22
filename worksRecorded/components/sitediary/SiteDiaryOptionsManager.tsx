@@ -23,10 +23,13 @@ import {
   getSiteDiaryDialogMessages,
   normalizeOrganizationLanguage,
 } from "@/lib/dashboard-i18n";
+import { matchesPersistedWorkSearch } from "@/flows/default-construction/lib/site-diary-options-search";
 
 const MAX_OPTION_LENGTH = 200;
 type ManagedField = "Location" | "Works";
 type WorkDraft = {
+  id: string;
+  savedWork: string;
   work: string;
   unit: string;
   laborNormHoursPerUnit: string;
@@ -85,6 +88,13 @@ export function SiteDiaryOptionsManager({
   const [editingValue, setEditingValue] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const nextWorkDraftId = React.useRef(0);
+
+  const createWorkDraftId = React.useCallback(() => {
+    const id = `site-diary-work-draft-${nextWorkDraftId.current}`;
+    nextWorkDraftId.current += 1;
+    return id;
+  }, []);
 
   const resetEditor = React.useCallback(() => {
     setSearch("");
@@ -106,6 +116,8 @@ export function SiteDiaryOptionsManager({
         setUnitOptions(result.units);
         setWorks(
           result.productivity.works.map((row) => ({
+            id: createWorkDraftId(),
+            savedWork: row.work,
             work: row.work,
             unit: row.unit,
             laborNormHoursPerUnit:
@@ -126,7 +138,13 @@ export function SiteDiaryOptionsManager({
     return () => {
       cancelled = true;
     };
-  }, [open, resetEditor, siteId, t.failedUpdateDropdownOptions]);
+  }, [
+    createWorkDraftId,
+    open,
+    resetEditor,
+    siteId,
+    t.failedUpdateDropdownOptions,
+  ]);
 
   const normalizedSearch = search.trim().toLocaleLowerCase("lv");
   const visibleLocations = locations
@@ -134,7 +152,7 @@ export function SiteDiaryOptionsManager({
     .filter(({ option }) => option.toLocaleLowerCase("lv").includes(normalizedSearch));
   const visibleWorks = works
     .map((work, index) => ({ work, index }))
-    .filter(({ work }) => work.work.toLocaleLowerCase("lv").includes(normalizedSearch));
+    .filter(({ work }) => matchesPersistedWorkSearch(work, normalizedSearch));
 
   const validateLocation = (rawValue: string, ignoredIndex?: number) => {
     const value = rawValue.trim();
@@ -321,7 +339,14 @@ export function SiteDiaryOptionsManager({
                 setSearch("");
                 setWorks((current) => [
                   ...current,
-                  { work: "", unit: "", laborNormHoursPerUnit: "", hourlyCost: "" },
+                  {
+                    id: createWorkDraftId(),
+                    savedWork: "",
+                    work: "",
+                    unit: "",
+                    laborNormHoursPerUnit: "",
+                    hourlyCost: "",
+                  },
                 ]);
               }}
             >
@@ -390,7 +415,7 @@ export function SiteDiaryOptionsManager({
                 {visibleWorks.map(({ work, index }) => {
                   const availableUnits = Array.from(new Set([...unitOptions, work.unit].filter(Boolean)));
                   return (
-                    <div key={index} className="grid grid-cols-[minmax(220px,1fr)_140px_150px_150px_40px] items-center gap-2 rounded-md border p-2">
+                    <div key={work.id} className="grid grid-cols-[minmax(220px,1fr)_140px_150px_150px_40px] items-center gap-2 rounded-md border p-2">
                       <Input value={work.work} maxLength={MAX_OPTION_LENGTH} onChange={(event) => updateWork(index, { work: event.target.value })} />
                       <select
                         value={work.unit}
