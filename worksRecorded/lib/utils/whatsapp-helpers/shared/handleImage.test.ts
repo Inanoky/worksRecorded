@@ -69,6 +69,32 @@ describe("handleImage", () => {
     );
   });
 
+  it("saves the explicitly selected image from a batch", async () => {
+    const formData = new FormData();
+    formData.set("MediaUrl0", "https://meta.example.com/first");
+    formData.set("MediaContentType0", "image/jpeg");
+    formData.set("MediaUrl1", "https://meta.example.com/second");
+    formData.set("MediaContentType1", "image/png");
+
+    await handleImage({
+      formData,
+      numMedia: 2,
+      imageIndex: 1,
+      siteId: "site-1",
+      userId: "user-1",
+      to: "whatsapp:+37100000000",
+      body: "Second photo",
+      acknowledgeSavedPhoto: false,
+    });
+
+    expect(mockFetchWhatsAppMediaAsBuffer).toHaveBeenCalledWith(
+      "https://meta.example.com/second",
+    );
+    expect(mockSavePhoto).toHaveBeenCalledWith(
+      expect.objectContaining({ comment: "Second photo" }),
+    );
+  });
+
   it("keeps the existing checkmark acknowledgement without a post-save handler", async () => {
     const formData = new FormData();
     formData.set("MediaUrl0", "https://meta.example.com/image");

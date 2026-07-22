@@ -49,6 +49,19 @@ describe("resolveZtcCanonicalProjectName", () => {
     });
   });
 
+  it("prefers a configured rate project over an exact bad historical extraction", () => {
+    expect(
+      resolveZtcCanonicalProjectName({
+        extractedProjectName: "dzīka auto nojume (rd)",
+        configuredProjectNames: ["dz. ēka. auto nojume (rd)"],
+        existingProjectNames: ["dzīka auto nojume (rd)"],
+      }),
+    ).toEqual({
+      projectName: "dz. ēka. auto nojume (rd)",
+      source: "configured",
+    });
+  });
+
   it("matches punctuation variants without creating a new project", () => {
     expect(
       resolveZtcCanonicalProjectName({

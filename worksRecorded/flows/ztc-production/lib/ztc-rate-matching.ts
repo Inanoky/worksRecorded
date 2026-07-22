@@ -91,6 +91,31 @@ function ztcRateNumberTokens(value: string) {
   );
 }
 
+function isKnownZtcRateAlias(taskName: string, rateTask: string) {
+  const normalizedTask = stripZtcDrawingWorkCode(taskName)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const normalizedRate = stripZtcDrawingWorkCode(rateTask)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const isParoc245Alias =
+    /\bparoc\b.*\bultra\b/.test(normalizedTask) &&
+    /\b245\s*mm\b/.test(normalizedTask) &&
+    /\bparoc\b.*\bultra\b/.test(normalizedRate) &&
+    /\b150\s*mm\b/.test(normalizedRate);
+  const isKts95Alias =
+    /\bgipskarton\w*\b/.test(normalizedTask) &&
+    /\b9[.,]5\b/.test(normalizedTask) &&
+    /\bkts\b/.test(normalizedTask) &&
+    /\bgipskarton\w*\b/.test(normalizedRate) &&
+    /\bgkfi\s*12[.,]?5\b/.test(normalizedRate);
+
+  return isParoc245Alias || isKts95Alias;
+}
+
 export function canonicalizeZtcMatchedWorkName(
   extractedWork: string,
   matchedRateTask: string,
@@ -144,8 +169,14 @@ export function ztcRateMatchTokens(value: string) {
     .split(/[^a-z0-9]+/i)
     .flatMap(rateTokenVariants);
 
-  if (/\bblue\b/i.test(normalizedSearchText) && /\bgkfi?(?:\d|\b)/i.test(normalizedSearchText)) {
+  if (
+    /\bblue\b/i.test(normalizedSearchText) &&
+    /\bgk(?:fi?|l)(?:\d|\b)/i.test(normalizedSearchText)
+  ) {
     tokens.push("gipskarton", "plaksn", "gkfi");
+  }
+  if (/\b9[.,]5\b/.test(normalizedSearchText) && /\bkts\b/i.test(normalizedSearchText)) {
+    tokens.push("gkfi");
   }
 
   if (/^tl(\b|\s*[-/:])/i.test(normalized)) {
@@ -187,7 +218,9 @@ export function findZtcDefaultRateForTask(
       taskNumbers.size > 0 &&
       ![...rateNumbers].some((token) => taskNumbers.has(token));
 
-    if (hasNumberMismatch) continue;
+    if (hasNumberMismatch && !isKnownZtcRateAlias(taskName, entry.task)) {
+      continue;
+    }
 
     const overlap = [...rateTokens].filter((token) => taskTokens.has(token)).length;
     const rawScore = overlap / Math.max(rateTokens.size, taskTokens.size);

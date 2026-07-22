@@ -105,6 +105,24 @@ describe("findZtcDefaultRateForTask", () => {
     expect(result?.entry.rate).toBe("2.1");
   });
 
+  it("matches Blue GKL OCR text to the configured GKFI task", () => {
+    const result = findZtcDefaultRateForTask(
+      "R1/T1 - Blue GKL 12.5",
+      [
+        {
+          task: "Ģipškartona plāksne GKFI12.5",
+          rate: "2.1",
+          unit: "m2",
+          laborNorm: "0.14",
+        },
+      ],
+      { category: "works" },
+    );
+
+    expect(result?.entry.task).toBe("Ģipškartona plāksne GKFI12.5");
+    expect(result?.entry.rate).toBe("2.1");
+  });
+
   it("does not map similar board names when their thicknesses differ", () => {
     const result = findZtcDefaultRateForTask(
       "R1/T1 - Blue GKF 15",
@@ -113,6 +131,54 @@ describe("findZtcDefaultRateForTask", () => {
     );
 
     expect(result).toBeNull();
+  });
+
+  it("does not map Blue GKL when its thickness differs", () => {
+    const result = findZtcDefaultRateForTask(
+      "R1/T1 - Blue GKL 15",
+      [{ task: "Ģipškartona plāksne GKFI12.5", rate: "2.1", unit: "m2" }],
+      { category: "works" },
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("maps the known Paroc Ultra 245 drawing variant to the configured Paroc rate", () => {
+    const result = findZtcDefaultRateForTask(
+      "L0 - Paroc Ultra minerālvates siltumizolācija / 245mm",
+      [
+        {
+          task: "Paroc Ultra minerālvates siltumizolācija 150 mm",
+          rate: "0.9",
+          unit: "m2",
+          laborNorm: "0.06",
+        },
+      ],
+      { category: "works" },
+    );
+
+    expect(result?.entry.task).toBe(
+      "Paroc Ultra minerālvates siltumizolācija 150 mm",
+    );
+    expect(result?.entry.rate).toBe("0.9");
+  });
+
+  it("maps the known 9.5 KTS drawing variant to the configured GKFI task", () => {
+    const result = findZtcDefaultRateForTask(
+      "R1/T1 - Ģipškartona plāksne 9.5 KTS",
+      [
+        {
+          task: "Ģipškartona plāksne GKFI12.5",
+          rate: "2.1",
+          unit: "m2",
+          laborNorm: "0.14",
+        },
+      ],
+      { category: "works" },
+    );
+
+    expect(result?.entry.task).toBe("Ģipškartona plāksne GKFI12.5");
+    expect(result?.entry.rate).toBe("2.1");
   });
 });
 

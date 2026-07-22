@@ -20,7 +20,12 @@ import {
   type ZtcWorker,
 } from "@/flows/ztc-production/backend/whatsapp-worker";
 import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
+import { matchZtcCanonicalEntities } from "@/flows/ztc-production/backend/canonical-entity-matching";
 import { canonicalizeZtcExtractedProjectName } from "@/flows/ztc-production/backend/project-name-canonicalization";
+import {
+  ZTC_OPENAI_MODEL,
+  ZTC_OPENAI_REASONING_EFFORT,
+} from "@/flows/ztc-production/backend/openai-config";
 import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
 
 const QA_PENDING_PREFIX = "__ZTC_QA_PENDING__";
@@ -242,7 +247,8 @@ async function analyzeQualityMessage(text: string): Promise<{
     const openaiStartedAt = Date.now();
     const response = await withQaTimeout(
       openai.chat.completions.create({
-        model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+        model: ZTC_OPENAI_MODEL,
+        reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -257,7 +263,7 @@ async function analyzeQualityMessage(text: string): Promise<{
       QA_TEXT_TIMEOUT_MS,
     );
     logZtcTiming("qa_message_analysis_openai", openaiStartedAt, {
-      model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+      model: ZTC_OPENAI_MODEL,
       textLength: normalized.length,
     });
 
@@ -861,13 +867,39 @@ async function handleQualityDrawingPhoto(args: {
   }
 
   const context = getZtcFlowContext(args.worker);
-  const canonicalProjectName = await canonicalizeZtcExtractedProjectName({
+  const rawWorks = extraction.workItems.length
+    ? extraction.workItems.map((item) => item.name)
+    : extraction.workList;
+  const entityMatch = await matchZtcCanonicalEntities({
     siteId: context.siteId,
-    extractedProjectName: extraction.projectName,
+    rawProjectName: extraction.projectName,
+    rawWorks,
+    category: "works",
   });
+  const canonicalProjectName =
+    entityMatch.project?.source === "exact" || entityMatch.project?.source === "llm"
+      ? entityMatch.project.name
+      : await canonicalizeZtcExtractedProjectName({
+          siteId: context.siteId,
+          extractedProjectName: extraction.projectName,
+        });
+  const workMatchesByIndex = new Map(
+    entityMatch.works.map((match) => [match.rawIndex, match]),
+  );
+  const workItems = extraction.workItems.map((item, index) => ({
+    ...item,
+    name: workMatchesByIndex.get(index)?.canonicalWork ?? item.name,
+  }));
+  const workList = extraction.workItems.length
+    ? workItems.map((item) => item.name)
+    : extraction.workList.map(
+        (workName, index) => workMatchesByIndex.get(index)?.canonicalWork ?? workName,
+      );
   const canonicalExtraction = {
     ...extraction,
     projectName: canonicalProjectName,
+    workItems,
+    workList,
   };
   const drawingMetadata = buildDrawingMetadata(canonicalExtraction);
   const payload: QaPendingPayload = {

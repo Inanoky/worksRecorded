@@ -533,6 +533,24 @@ model ZtcInboundMediaBatch {
   @@index([workerId, status, processAfter], map: "ZtcInboundMediaBatch_worker_status_process_idx")
 }
 
+model DefaultConstructionInboundMediaBatch {
+  id              String   @id @default(uuid())
+  batchKey        String   @unique
+  userId          String
+  organizationId  String?
+  status          String   @default("collecting")
+  items           Json
+  firstReceivedAt DateTime @default(now())
+  lastReceivedAt  DateTime @default(now())
+  lastMessageId   String?
+  acknowledgedAt  DateTime?
+  processAfter    DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId, status, processAfter], map: "DefaultConstructionInboundMediaBatch_user_status_process_idx")
+}
+
 
 model BISmaterialRecords {
 

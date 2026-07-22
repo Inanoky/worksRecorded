@@ -30,7 +30,13 @@ import {
   rebalanceZtcCompletedTaskAmounts,
 } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
 import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
+import { matchZtcCanonicalEntities } from "@/flows/ztc-production/backend/canonical-entity-matching";
 import { canonicalizeZtcExtractedProjectName } from "@/flows/ztc-production/backend/project-name-canonicalization";
+import {
+  ZTC_OPENAI_MODEL,
+  ZTC_OPENAI_REASONING_EFFORT,
+  ZTC_TRANSCRIPTION_MODEL,
+} from "@/flows/ztc-production/backend/openai-config";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
@@ -61,7 +67,6 @@ const ZTC_TEXT_TIMEOUT_MS = 30_000;
 const ZTC_TRANSCRIPTION_TIMEOUT_MS = 30_000;
 const ZTC_DROPDOWN_CACHE_MS = 60_000;
 const ZTC_COMMENT_POLISH_TIMEOUT_MS = 15_000;
-const ZTC_DEFAULT_VISION_MODEL = "gpt-5.5";
 
 export type ProductionDrawingExtractionProfile = "ztc" | "default-production";
 
@@ -808,7 +813,8 @@ export async function polishZtcCommentText(value: string | null | undefined) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await withZtcTimeout(
       openai.chat.completions.create({
-        model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+        model: ZTC_OPENAI_MODEL,
+        reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
         messages: [
           {
             role: "system",
@@ -1077,7 +1083,8 @@ async function extractDiagonalMeasureMm(text: string) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const response = await withZtcTimeout(
       openai.chat.completions.create({
-        model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+        model: ZTC_OPENAI_MODEL,
+        reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -1273,6 +1280,20 @@ function parseZtcDrawingMetadata(value: string | null | undefined): ZtcDrawingMe
   }
 }
 
+function canonicalizeDrawingMetadataProject(
+  value: string | null | undefined,
+  projectName: string | null | undefined,
+) {
+  const metadata = parseZtcDrawingMetadata(value);
+  const canonicalProjectName = String(projectName ?? "").trim();
+  if (!metadata || !canonicalProjectName) return value ?? null;
+
+  return JSON.stringify({
+    ...metadata,
+    projectName: canonicalProjectName,
+  });
+}
+
 function hasZtcDrawingContext(session: Pick<OpenZtcSession, "Comments_Custom_2"> | null | undefined) {
   return Boolean(parseZtcDrawingMetadata(session?.Comments_Custom_2));
 }
@@ -1357,14 +1378,40 @@ async function canonicalizeDrawingExtractionFromPreviousContext(
   if (!projectName || !elementName) return extraction;
 
   const context = getZtcFlowContext(worker);
-  const canonicalProjectName = await canonicalizeZtcExtractedProjectName({
+  const rawWorks = extraction.workItems.length
+    ? extraction.workItems.map((item) => item.name)
+    : extraction.workList;
+  const entityMatch = await matchZtcCanonicalEntities({
     siteId: context.siteId,
-    extractedProjectName: projectName,
+    rawProjectName: projectName,
+    rawWorks,
+    category: "works",
   });
-  const projectCanonicalized =
-    canonicalProjectName === projectName
-      ? extraction
-      : { ...extraction, projectName: canonicalProjectName };
+  const canonicalProjectName =
+    entityMatch.project?.source === "exact" || entityMatch.project?.source === "llm"
+      ? entityMatch.project.name
+      : await canonicalizeZtcExtractedProjectName({
+          siteId: context.siteId,
+          extractedProjectName: projectName,
+        });
+  const workMatchesByIndex = new Map(
+    entityMatch.works.map((match) => [match.rawIndex, match]),
+  );
+  const workItems = extraction.workItems.map((item, index) => ({
+    ...item,
+    name: workMatchesByIndex.get(index)?.canonicalWork ?? item.name,
+  }));
+  const workList = extraction.workItems.length
+    ? workItems.map((item) => item.name)
+    : extraction.workList.map(
+        (workName, index) => workMatchesByIndex.get(index)?.canonicalWork ?? workName,
+      );
+  const projectCanonicalized = {
+    ...extraction,
+    projectName: canonicalProjectName,
+    workItems,
+    workList,
+  };
 
   const previousContexts = await prisma.ztcRecords.findMany({
     where: {
@@ -1687,7 +1734,7 @@ export async function transcribeAudioWithSource(formData: FormData, idx: number)
       const result = await withZtcTimeout(
         openai.audio.transcriptions.create({
           file,
-          model: "gpt-4o-transcribe",
+          model: ZTC_TRANSCRIPTION_MODEL,
           prompt:
             "This is a production factory WhatsApp voice note. Preserve diagonal measurements carefully. If the speaker says measurement digits one by one in Latvian, Russian, or English, transcribe them as digits when possible, for example 'pieci divi četri nulle' as '5240'.",
         }),
@@ -1735,7 +1782,8 @@ export async function extractDrawingInfo(
   const prompt = getDrawingExtractionPrompt(drawingProfile);
   const response = await withZtcTimeout(
     openai.chat.completions.create({
-      model: process.env.ZTC_VISION_MODEL || ZTC_DEFAULT_VISION_MODEL,
+      model: ZTC_OPENAI_MODEL,
+      reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
       response_format: { type: "json_object" },
       messages: drawingProfile === "default-production" ? [
         {
@@ -1790,7 +1838,7 @@ export async function extractDrawingInfo(
     ZTC_VISION_TIMEOUT_MS,
   );
   logZtcTiming("drawing_extraction_openai", openaiStartedAt, {
-    model: process.env.ZTC_VISION_MODEL || ZTC_DEFAULT_VISION_MODEL,
+    model: ZTC_OPENAI_MODEL,
     imageSource: imageUrl.startsWith("data:") ? "data_url" : "url",
     drawingProfile,
   });
@@ -1863,7 +1911,8 @@ async function extractWorkInfo(
   const openaiStartedAt = Date.now();
   const response = await withZtcTimeout(
     openai.chat.completions.create({
-      model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+      model: ZTC_OPENAI_MODEL,
+      reasoning_effort: ZTC_OPENAI_REASONING_EFFORT,
       response_format: { type: "json_object" },
       messages: [
         {
@@ -1878,7 +1927,7 @@ async function extractWorkInfo(
     ZTC_TEXT_TIMEOUT_MS,
   );
   logZtcTiming("work_text_extraction_openai", openaiStartedAt, {
-    model: process.env.ZTC_TEXT_MODEL || "gpt-5.4-mini",
+    model: ZTC_OPENAI_MODEL,
     textLength: normalized.length,
     effectiveWorkOptionCount: effectiveWorkOptions.length,
   });
@@ -2336,13 +2385,29 @@ async function createAdditionalDetailRows(args: {
     siteId: args.session.siteId ?? ZTC_SITE_ID,
     organizationId: args.session.organizationId ?? ZTC_ORGANIZATION_ID,
   };
+  const entityMatch = await matchZtcCanonicalEntities({
+    siteId: context.siteId,
+    rawProjectName: args.session.Location,
+    rawWorks: details.map((detail) => detail.description),
+    category: "additionalDetails",
+  });
+  const canonicalProjectName = entityMatch.project?.name ?? args.session.Location;
+  const workMatchesByIndex = new Map(
+    entityMatch.works.map((match) => [match.rawIndex, match]),
+  );
   const rows = await Promise.all(
-    details.map(async (detail) => {
-      const defaultRateMatch = await getDefaultRateMatchForWork(detail.description, {
-        projectName: args.session.Location,
-        category: "additionalDetails",
-        siteId: context.siteId,
-      });
+    details.map(async (detail, index) => {
+      const entityWorkMatch = workMatchesByIndex.get(index);
+      const defaultRateMatch =
+        entityWorkMatch?.rate ??
+        (await getDefaultRateMatchForWork(
+          entityWorkMatch?.task || detail.description,
+          {
+            projectName: canonicalProjectName,
+            category: "additionalDetails",
+            siteId: context.siteId,
+          },
+        ));
       const mappedDescription = defaultRateMatch?.task?.trim() || detail.description;
 
       return {
@@ -2352,7 +2417,7 @@ async function createAdditionalDetailRows(args: {
         Date: now,
         Date_Custom_1: args.session.Date_Custom_1 ?? args.session.Date ?? now,
         Date_Custom_2: now,
-        Location: args.session.Location,
+        Location: canonicalProjectName,
         Location_Custom_1: args.session.Location_Custom_1,
         Works_Custom_1: "Papilddetāļas",
         Works: mappedDescription,
@@ -2367,7 +2432,7 @@ async function createAdditionalDetailRows(args: {
         Comments_Custom_2: JSON.stringify({
           type: "ztc_additional_detail",
           parentSessionId: args.session.id,
-          projectName: args.session.Location,
+          projectName: canonicalProjectName,
           elementName: args.session.Location_Custom_1,
           mainWork: args.session.Works,
           extractedWork: detail.description,
@@ -3192,17 +3257,26 @@ async function handleDrawingPhoto(args: {
 async function createSessionFromLatestDrawing(worker: ZtcWorker) {
   const previous = await getLatestZtcDrawingContext(worker);
   if (!previous) return null;
+  const context = getZtcFlowContext(worker);
+  const entityMatch = await matchZtcCanonicalEntities({
+    siteId: context.siteId,
+    rawProjectName: previous.Location,
+  });
+  const canonicalProjectName = entityMatch.project?.name ?? previous.Location;
 
   const created = await prisma.ztcRecords.create({
     data: {
       workerId: worker.id,
-      siteId: getZtcFlowContext(worker).siteId,
-      organizationId: getZtcFlowContext(worker).organizationId,
+      siteId: context.siteId,
+      organizationId: context.organizationId,
       Date_Custom_1: new Date(),
-      Location: previous.Location,
+      Location: canonicalProjectName,
       Location_Custom_1: previous.Location_Custom_1,
       Works_Custom_1: getDrawingWorksCustomValue(previous),
-      Comments_Custom_2: previous.Comments_Custom_2,
+      Comments_Custom_2: canonicalizeDrawingMetadataProject(
+        previous.Comments_Custom_2,
+        canonicalProjectName,
+      ),
       Comments: null,
       originalUserComment: `${workerFullName(worker)} : atkārtots darbs pie tā paša rasējuma`,
       Photos: previous.Photos?.[0] ? [previous.Photos[0]] : [],
@@ -3232,16 +3306,30 @@ async function createAdditionalWorkSession(args: {
   const comments = work.polishedText?.trim()
     ? buildZtcUserComments({ startText: work.polishedText })
     : await buildPolishedZtcUserComments({ startText: text });
-  const defaultRateMatch = await getDefaultRateMatchForWork(
-    work.additionalWorkDescription || workOption,
-    {
-      projectName: drawingContext?.Location,
-      category: "additionalWorks",
-    },
-  );
+  const rawAdditionalWork = work.additionalWorkDescription || workOption;
+  const context = getZtcFlowContext(worker);
+  const entityMatch = await matchZtcCanonicalEntities({
+    siteId: context.siteId,
+    rawProjectName: drawingContext?.Location,
+    rawWorks: [rawAdditionalWork],
+    category: "additionalWorks",
+  });
+  const canonicalProjectName =
+    entityMatch.project?.name ?? drawingContext?.Location ?? null;
+  const entityWorkMatch = entityMatch.works[0];
+  const defaultRateMatch =
+    entityWorkMatch?.rate ??
+    (await getDefaultRateMatchForWork(
+      entityWorkMatch?.task || rawAdditionalWork,
+      {
+        projectName: canonicalProjectName,
+        category: "additionalWorks",
+        siteId: context.siteId,
+      },
+    ));
   const mappedWorkOption = defaultRateMatch?.task?.trim() || workOption;
   const relatesToElement = defaultRateMatch?.relatesToElement === true;
-  const shouldAttachToProject = Boolean(drawingContext?.Location);
+  const shouldAttachToProject = Boolean(canonicalProjectName);
   const shouldAttachToElement =
     shouldAttachToProject &&
     relatesToElement &&
@@ -3259,18 +3347,23 @@ async function createAdditionalWorkSession(args: {
 
   const data = {
       workerId: worker.id,
-      siteId: getZtcFlowContext(worker).siteId,
-      organizationId: getZtcFlowContext(worker).organizationId,
+      siteId: context.siteId,
+      organizationId: context.organizationId,
       Date: now,
       Date_Custom_1: now,
-      Location: shouldAttachToProject ? drawingContext?.Location : "Papilddarbi",
+      Location: shouldAttachToProject ? canonicalProjectName : "Papilddarbi",
       Location_Custom_1: shouldAttachToElement
         ? drawingContext?.Location_Custom_1
         : shouldAttachToProject
           ? "Papilddarbi"
           : null,
       Works_Custom_1: shouldAttachToProject ? "Papilddarbi" : null,
-      Comments_Custom_2: shouldAttachToProject ? drawingContext?.Comments_Custom_2 : null,
+      Comments_Custom_2: shouldAttachToProject
+        ? canonicalizeDrawingMetadataProject(
+            drawingContext?.Comments_Custom_2,
+            canonicalProjectName,
+          )
+        : null,
       Photos: shouldAttachToProject && drawingContext?.Photos?.[0] ? [drawingContext.Photos[0]] : [],
       Works: mappedWorkOption,
       Location_Custom_2: defaultRateMatch?.rate ?? null,
@@ -3300,7 +3393,7 @@ async function createAdditionalWorkSession(args: {
       relatesToElement,
       attachedToProject: shouldAttachToProject,
       attachedToElement: shouldAttachToElement,
-      projectName: shouldAttachToProject ? drawingContext?.Location : null,
+      projectName: shouldAttachToProject ? canonicalProjectName : null,
       elementName: shouldAttachToElement
         ? drawingContext?.Location_Custom_1
         : shouldAttachToProject
@@ -3535,41 +3628,62 @@ async function handleWorkText(args: {
   const comments = work.polishedText?.trim()
     ? buildZtcUserComments({ startText: work.polishedText })
     : await buildPolishedZtcUserComments({ startText: text });
-  const rateStartedAt = Date.now();
-  const defaultRateMatch = await getDefaultRateMatchForWork(selectedWorkName, {
-    projectName: session.Location,
+  const context = getZtcFlowContext(worker);
+  const entityMatch = await matchZtcCanonicalEntities({
+    siteId: context.siteId,
+    rawProjectName: session.Location,
+    rawWorks: [selectedWorkName],
     category: "works",
-    worker,
   });
+  const canonicalProjectName = entityMatch.project?.name ?? session.Location;
+  const entityWorkMatch = entityMatch.works[0];
+  const rateStartedAt = Date.now();
+  const defaultRateMatch =
+    entityWorkMatch?.rate ??
+    (await getDefaultRateMatchForWork(
+      entityWorkMatch?.task || selectedWorkName,
+      {
+        projectName: canonicalProjectName,
+        category: "works",
+        worker,
+      },
+    ));
   logZtcTiming("default_rate_lookup", rateStartedAt, {
     workerId: worker.id,
     workOption: work.workOption,
-    projectName: session.Location,
+    projectName: canonicalProjectName,
     matchedRate: defaultRateMatch?.rate ?? null,
   });
-  const canonicalWorkName = defaultRateMatch?.task
-    ? canonicalizeZtcMatchedWorkName(selectedWorkName, defaultRateMatch.task)
-    : selectedWorkName;
+  const canonicalWorkName =
+    entityWorkMatch?.canonicalWork ||
+    (defaultRateMatch?.task
+      ? canonicalizeZtcMatchedWorkName(selectedWorkName, defaultRateMatch.task)
+      : selectedWorkName);
 
   const complexityStartedAt = Date.now();
   const complexity = await getComplexityForCode(
     complexityCode,
-    session.Location,
+    canonicalProjectName,
     worker,
   );
   logZtcTiming("complexity_lookup", complexityStartedAt, {
     workerId: worker.id,
     workOption: work.workOption,
-    projectName: session.Location,
+    projectName: canonicalProjectName,
     complexityCode,
     complexity,
   });
+  const canonicalDrawingMetadata = canonicalizeDrawingMetadataProject(
+    session.Comments_Custom_2,
+    canonicalProjectName,
+  );
 
   const dbStartedAt = Date.now();
   const updated = await prisma.ztcRecords.update({
     where: { id: session.id },
     data: {
       Date: now,
+      Location: canonicalProjectName,
       Works: canonicalWorkName,
       Location_Custom_2: session.Location_Custom_2 ?? defaultRateMatch?.rate ?? null,
       WorkersInvolved: Number(complexity),
@@ -3578,11 +3692,11 @@ async function handleWorkText(args: {
       Comments: comments,
       Comments_Custom_2: defaultRateMatch?.rate
         ? attachZtcLaborNormToMetadata(
-            session.Comments_Custom_2,
+            canonicalDrawingMetadata,
             defaultRateMatch.laborNorm,
             "m2",
           )
-        : clearZtcLaborNormFromMetadata(session.Comments_Custom_2),
+        : clearZtcLaborNormFromMetadata(canonicalDrawingMetadata),
       originalUserComment: `${workerFullName(worker)} : ${text}`,
       originalAudioUrl: mergeOriginalAudioUrls(session.originalAudioUrl, originalAudioUrl),
     },

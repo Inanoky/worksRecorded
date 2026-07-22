@@ -5,6 +5,14 @@ const mockHandleAudio = jest.fn();
 const mockHandleText = jest.fn();
 const mockTalkToWhatsappAgent = jest.fn();
 const mockFindSettings = jest.fn();
+const mockGetOrganizationLanguageByUserId = jest.fn();
+const mockGetProcessingAcknowledgement = jest.fn(
+  (language?: string) => `Processing:${language ?? "missing"}`,
+);
+const mockGetPhotoSaveSummary = jest.fn(
+  (savedCount: number, totalCount: number, language?: string) =>
+    `Saved:${savedCount}/${totalCount}:${language ?? "missing"}`,
+);
 
 jest.mock("@/lib/utils/whatsapp-helpers/shared/sender", () => ({
   sendMessage: (...args: unknown[]) => mockSendMessage(...args),
@@ -39,13 +47,23 @@ jest.mock("@/lib/utils/db", () => ({
 jest.mock("@/server/actions/whatsapp-actions", () => ({
   getUserFirstNameById: jest.fn().mockResolvedValue("Anna"),
 }));
+jest.mock("@/server/actions/shared-actions", () => ({
+  getOrganizationLanguageByUserId: (...args: unknown[]) =>
+    mockGetOrganizationLanguageByUserId(...args),
+}));
 jest.mock("@/server/actions/META/RoutingHandlers/metaImageHandler", () => ({
   processMaterialDocumentImageFromPublicUrl: jest.fn().mockResolvedValue(false),
 }));
 jest.mock(
   "@/flows/default-construction/backend/site-manager-acknowledgements",
   () => ({
-    getRandomSiteManagerProcessingAcknowledgement: () => "Processing",
+    getRandomSiteManagerProcessingAcknowledgement: (language?: string) =>
+      mockGetProcessingAcknowledgement(language),
+    getSiteManagerPhotoSaveSummary: (
+      savedCount: number,
+      totalCount: number,
+      language?: string,
+    ) => mockGetPhotoSaveSummary(savedCount, totalCount, language),
   }),
 );
 
@@ -59,6 +77,7 @@ describe("default-construction site-manager image captions", () => {
     mockFindSettings.mockResolvedValue({ schema: { fields: [] } });
     mockHandleAudio.mockResolvedValue(false);
     mockHandleText.mockResolvedValue(true);
+    mockGetOrganizationLanguageByUserId.mockResolvedValue("en");
   });
 
   it("sends a saved image caption through the site-manager text agent path", async () => {
@@ -97,8 +116,9 @@ describe("default-construction site-manager image captions", () => {
     );
     expect(mockSendMessage).toHaveBeenCalledWith(
       "whatsapp:+37100000000",
-      "Processing",
+      "Processing:en",
     );
+    expect(mockGetOrganizationLanguageByUserId).toHaveBeenCalledWith("user-1");
     expect(mockSendMessage).not.toHaveBeenCalledWith(
       "whatsapp:+37100000000",
       "✅",
@@ -121,6 +141,7 @@ describe("default-construction site-manager image captions", () => {
       );
       return "Saglabāts";
     });
+
     const formData = new FormData();
     formData.set("Body", "Pabeigta sienu montāža");
     formData.set("NumMedia", "0");
@@ -141,6 +162,31 @@ describe("default-construction site-manager image captions", () => {
       "site-1",
       "user-1",
       undefined,
+    );
+  });
+
+  it("uses the organization's Latvian language for text acknowledgements", async () => {
+    mockGetOrganizationLanguageByUserId.mockResolvedValue("lv");
+    const formData = new FormData();
+    formData.set("Body", "Pabeigta sienu montāža");
+    formData.set("NumMedia", "0");
+
+    await handleSiteManagerRoute({
+      from: "whatsapp:+37100000000",
+      formData,
+      user: {
+        id: "user-1",
+        firstName: "Anna",
+        lastName: "Bērziņa",
+        lastSelectedSiteIdforWhatsapp: "site-1",
+      },
+    });
+
+    expect(mockGetOrganizationLanguageByUserId).toHaveBeenCalledWith("user-1");
+    expect(mockGetProcessingAcknowledgement).toHaveBeenCalledWith("lv");
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      "whatsapp:+37100000000",
+      "Processing:lv",
     );
   });
 
@@ -167,6 +213,71 @@ describe("default-construction site-manager image captions", () => {
 
     expect(mockHandleText).not.toHaveBeenCalled();
     expect(mockSendMessage).toHaveBeenCalledWith("whatsapp:+37100000000", "✅");
+  });
+
+  it("saves a collected image batch and sends one localized count", async () => {
+    mockHandleImage
+      .mockResolvedValueOnce({
+        outcome: "photo_saved",
+        savedPhoto: { id: "photo-1" },
+      })
+      .mockResolvedValueOnce({
+        outcome: "photo_saved",
+        savedPhoto: { id: "photo-2" },
+      })
+      .mockResolvedValueOnce({
+        outcome: "photo_saved",
+        savedPhoto: { id: "photo-3" },
+      });
+    mockGetOrganizationLanguageByUserId.mockResolvedValue("lv");
+
+    const formData = new FormData();
+    formData.set("Body", "Otrā stāva sienas");
+    formData.set("NumMedia", "3");
+    formData.set("MetaBatchSize", "3");
+    for (let index = 0; index < 3; index += 1) {
+      formData.set(`MediaUrl${index}`, `https://meta.example.com/${index}`);
+      formData.set(`MediaContentType${index}`, "image/jpeg");
+      formData.set(`MediaMessageId${index}`, `message-${index}`);
+      formData.set(`MediaBody${index}`, "");
+    }
+    formData.set("MediaBody1", "Otrā stāva sienas");
+
+    const user = {
+      id: "user-1",
+      phone: "37100000000",
+      firstName: "Anna",
+      lastName: "Bērziņa",
+      lastSelectedSiteIdforWhatsapp: "site-1",
+    };
+
+    await handleSiteManagerRoute({
+      from: "whatsapp:+37100000000",
+      formData,
+      user,
+    });
+
+    expect(mockHandleImage).toHaveBeenCalledTimes(3);
+    expect(mockHandleImage).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ imageIndex: 0, body: "" }),
+    );
+    expect(mockHandleImage).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ imageIndex: 1, body: "Otrā stāva sienas" }),
+    );
+    expect(mockHandleImage).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ imageIndex: 2, body: "" }),
+    );
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      "whatsapp:+37100000000",
+      "Saved:3/3:lv",
+    );
+    expect(mockHandleText).toHaveBeenCalledTimes(1);
+    expect(mockHandleText).toHaveBeenCalledWith(
+      expect.objectContaining({ body: "Otrā stāva sienas" }),
+    );
   });
 
   it("does not send a material document caption to the site diary agent", async () => {

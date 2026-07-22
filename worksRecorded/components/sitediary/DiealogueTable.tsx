@@ -329,11 +329,17 @@ export function DialogTable({
   siteId,
   onSaved,
   organizationLanguage,
+  initialRows,
+  initialConfig,
+  focusedRecordId,
 }: {
   date: Date | null;
   siteId: string | null;
-  onSaved?: () => void;
+  onSaved?: () => void | Promise<void>;
   organizationLanguage?: string | null;
+  initialRows?: Record<string, any>[] | null;
+  initialConfig?: Record<string, any> | null;
+  focusedRecordId?: string | null;
 }) {
   const language = normalizeOrganizationLanguage(organizationLanguage);
   const t = getSiteDiaryDialogMessages(language);
@@ -349,6 +355,10 @@ export function DialogTable({
   const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [defaultMap, setMap] = useState<Record<string, any>>(defaultConfig);
+  const hasClientEditsRef = React.useRef(false);
+  const uncontrolledFieldRefs = React.useRef(
+    new Map<string, HTMLInputElement | HTMLTextAreaElement>(),
+  );
 
   const newEmptyRow = () => ({
     id: undefined as string | undefined,
@@ -379,7 +389,7 @@ export function DialogTable({
   const [rows, setRows] = useState<any[]>([newEmptyRow()]);
 
   const handleAddRow = () => {
-
+    hasClientEditsRef.current = true;
     setRows((prev) => [...prev, newEmptyRow()]);
   };
 
@@ -387,6 +397,7 @@ export function DialogTable({
     const row = rows.find((r) => r.id === idOrTemp || r._tempId === tempId);
     const confirmed = window.confirm("Delete this diary row? This action cannot be undone.");
     if (!confirmed) return;
+    hasClientEditsRef.current = true;
 
     if (row?.id) {
       await deleteSiteDiaryRecord({ id: row.id });
@@ -397,27 +408,85 @@ export function DialogTable({
       });
 
       toast.success(toastMessages.diaryRowDeleted);
-      onSaved?.();
+      await onSaved?.();
     } else {
       setRows((prev) => prev.filter((r) => r._tempId !== (tempId ?? idOrTemp)));
       toast.success(toastMessages.unsavedRowRemoved);
     }
   };
 
-  const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
+  const markRowDirty = (rowIdOrTemp: string) => {
+    hasClientEditsRef.current = true;
     const existingRowId = rows.find(
       (row) => row.id === rowIdOrTemp || row._tempId === rowIdOrTemp,
     )?.id;
+
+    if (existingRowId) {
+      setDirtyRowIds((current) => {
+        if (current.has(existingRowId)) return current;
+        return new Set(current).add(existingRowId);
+      });
+    }
+  };
+
+  const handleChange = (rowIdOrTemp: string, field: string, value: any) => {
+    markRowDirty(rowIdOrTemp);
 
     setRows((prev) =>
       prev.map((r) =>
         r.id === rowIdOrTemp || r._tempId === rowIdOrTemp ? { ...r, [field]: value } : r
       )
     );
-    if (existingRowId) {
-      setDirtyRowIds((current) => new Set(current).add(existingRowId));
-    }
   };
+
+  const getUncontrolledFieldKey = (rowKey: string, field: string) =>
+    `${rowKey}:${field}`;
+
+  const setUncontrolledFieldRef = (
+    rowKey: string,
+    field: string,
+    element: HTMLInputElement | HTMLTextAreaElement | null,
+  ) => {
+    const key = getUncontrolledFieldKey(rowKey, field);
+    if (element) uncontrolledFieldRefs.current.set(key, element);
+    else uncontrolledFieldRefs.current.delete(key);
+  };
+
+  const getRowsWithUncontrolledValues = () =>
+    rows.map((row) => {
+      const rowKey = String(row.id ?? row._tempId);
+      const nextRow = { ...row };
+
+      for (const field of tableHeads) {
+        const type = getTypeByKey(field);
+        if (!["timePicker", "calendarPicker", "textInput", "float"].includes(type)) {
+          continue;
+        }
+
+        const element = uncontrolledFieldRefs.current.get(
+          getUncontrolledFieldKey(rowKey, field),
+        );
+        if (!element) continue;
+
+        if (type === "timePicker") {
+          if (!element.value) {
+            nextRow[field] = null;
+            continue;
+          }
+          const [hours, minutes] = element.value.split(":").map(Number);
+          const baseDate = new Date(row.Date ?? date ?? new Date());
+          if (!Number.isNaN(baseDate.getTime())) {
+            baseDate.setHours(hours, minutes, 0, 0);
+            nextRow[field] = baseDate;
+          }
+          continue;
+        }
+
+        nextRow[field] = element.value;
+      }
+
+      return nextRow;
+    });
 
   //-------------------------------------------------------------Hanlde Submit----------------------------------------------
 
@@ -426,7 +495,7 @@ export function DialogTable({
     if (isSaving) return;
 
 
-    const validated = validateRows(rows, toastMessages);
+    const validated = validateRows(getRowsWithUncontrolledValues(), toastMessages);
     if (!validated.ok) return;
 
     setIsSaving(true);
@@ -542,7 +611,7 @@ export function DialogTable({
     }
 
     toast.success(toastMessages.diarySaved(updatedCount, createdCount));
-    onSaved?.();
+    await onSaved?.();
     } finally {
       setIsSaving(false);
     }
@@ -667,13 +736,11 @@ export function DialogTable({
 
       return (
         <Input
+          ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           type="time"
           style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
-          value={dateTimeToHHmm(row[field])}
-          onChange={(e) => {
-            const dt = hhmmToDateTime(e.target.value, row.Date);
-            handleChange(rowKey, field, dt); // ✅ Date in state
-          }}
+          defaultValue={dateTimeToHHmm(row[field])}
+          onChange={() => markRowDirty(rowKey)}
         />
       );
     }
@@ -685,10 +752,11 @@ export function DialogTable({
 
       return (
         <Input
+          ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           type="date"
           style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
-          value={v.length >= 10 ? ymd : v}
-          onChange={(e) => handleChange(rowKey, field, e.target.value)}
+          defaultValue={v.length >= 10 ? ymd : v}
+          onChange={() => markRowDirty(rowKey)}
         />
       );
     }
@@ -723,10 +791,11 @@ export function DialogTable({
     if (type === "textInput") {
       return (
         <Textarea
+          ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
           rows={1}
-          value={String(row[field] ?? "")}
-          onChange={(e) => handleChange(rowKey, field, e.target.value)}
+          defaultValue={String(row[field] ?? "")}
+          onChange={() => markRowDirty(rowKey)}
         />
       );
     }
@@ -735,10 +804,11 @@ export function DialogTable({
     if (type === "float") {
       return (
         <Input
+          ref={(element) => setUncontrolledFieldRef(rowKey, field, element)}
           inputMode="decimal"
           style={{ width: isMobile ? "100%" : getCellWidthByKey(field, defaultMap) }}
-          value={String(row[field] ?? "")}
-          onChange={(e) => handleChange(rowKey, field, e.target.value)}
+          defaultValue={String(row[field] ?? "")}
+          onChange={() => markRowDirty(rowKey)}
         />
       );
     }
@@ -816,17 +886,7 @@ export function DialogTable({
 
 
   useEffect(() => {
-    console.log("rows state changed:", rows);
-    console.log("tableheades ", tableHeads)
-    
-  }, [rows]);
-
-  //Downloadinf map 
-
-
-  useEffect(() => {
     let cancelled = false;
-    setLoading(true);
 
     if (!date || !siteId) {
       setRows([newEmptyRow()]);
@@ -834,10 +894,55 @@ export function DialogTable({
       return;
     }
 
+    const cachedRows = initialRows?.length
+      ? focusedRecordId
+        ? initialRows.filter((row) => row.id === focusedRecordId)
+        : initialRows
+      : null;
+    const cachedConfig = (initialConfig ?? defaultConfig) as Record<string, any>;
+    hasClientEditsRef.current = false;
+
+    if (cachedRows) {
+      const renderableFields = Object.entries(cachedConfig)
+        .filter(([_, cfg]) => cfg?.Type !== "noRender")
+        .sort((a, b) => {
+          const aOrder = typeof a[1]?.customSettings?.order === "number"
+            ? a[1].customSettings.order
+            : Number.POSITIVE_INFINITY;
+          const bOrder = typeof b[1]?.customSettings?.order === "number"
+            ? b[1].customSettings.order
+            : Number.POSITIVE_INFINITY;
+          return aOrder !== bOrder ? aOrder - bOrder : a[0].localeCompare(b[0]);
+        })
+        .map(([key]) => key.trim());
+      const editableRows = cachedRows.map((row) => ({
+        id: row.id ?? undefined,
+        createdBy: row.createdBy ?? undefined,
+        ...Object.fromEntries(
+          renderableFields.map((field) => [field, row[field] ?? ""]),
+        ),
+        _tempId: crypto.randomUUID(),
+        Location_code: "",
+        Works_code: "",
+        Location_mode: "select",
+        Works_mode: "select",
+        Location_manual: "",
+        Works_manual: "",
+      }));
+
+      setMap(cachedConfig);
+      setTableHeads(renderableFields);
+      setRows(editableRows);
+      setDirtyRowIds(new Set());
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     (async () => {
       const isoDate = typeof date === "string" ? date : date.toISOString();
-      const config = await getConfig(siteId);
-      setMap(config ?? defaultConfig);
+      const config = (initialConfig ?? (await getConfig(siteId)) ?? defaultConfig) as Record<string, any>;
+      setMap(config);
 
 
 
@@ -867,7 +972,7 @@ export function DialogTable({
       //Here we load config from database, and if no config we use default. 
 
    
-      const cfg = (await getConfig(siteId)) ?? defaultConfig;
+      const cfg = config;
           if (cancelled) return;
 
           setMap(cfg);
@@ -925,7 +1030,9 @@ export function DialogTable({
 
 
       const formattedRows = pickRenderableRows(
-        loadedRows,
+        focusedRecordId
+          ? loadedRows.filter((row) => row.id === focusedRecordId)
+          : loadedRows,
         renderableFields
       );
 
@@ -961,19 +1068,51 @@ export function DialogTable({
 
 
         }))
-        : [newEmptyRow()];
+        : focusedRecordId
+          ? []
+          : [newEmptyRow()];
 
       console.dir(formattedRows)
-      setRows(nextRows);
-      setDirtyRowIds(new Set());
+      if (!hasClientEditsRef.current) {
+        if (cachedRows) {
+          setRows((currentRows) => {
+            const serverRowsById = new Map(
+              nextRows
+                .filter((row) => row.id)
+                .map((row) => [String(row.id), row]),
+            );
+            const currentIds = new Set(
+              currentRows
+                .filter((row) => row.id)
+                .map((row) => String(row.id)),
+            );
+            return [
+              ...currentRows.flatMap((row) => {
+                if (!row.id) return [row];
+                const refreshedRow = serverRowsById.get(String(row.id));
+                return refreshedRow ? [refreshedRow] : [];
+              }),
+              ...nextRows.filter((row) => row.id && !currentIds.has(String(row.id))),
+            ];
+          });
+        } else {
+          setRows(nextRows);
+        }
+        setDirtyRowIds(new Set());
+      }
 
       setLoading(false);
-    })();
+    })().catch((error: any) => {
+      if (cancelled || cachedRows) return;
+      toast.error(error?.message ?? toastMessages.somethingWentWrong);
+      setRows([newEmptyRow()]);
+      setLoading(false);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [date, siteId]);
+  }, [date, focusedRecordId, initialConfig, initialRows, siteId]);
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-[300px]">{t.loading}</div>;
@@ -991,15 +1130,17 @@ export function DialogTable({
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="flex flex-col sm:flex-row justify-end gap-2 sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 p-2 rounded-md border">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleAddRow}
-          disabled={isSaving}
-          className="w-full sm:w-auto"
-        >
-          {t.addTask}
-        </Button>
+        {!focusedRecordId ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddRow}
+            disabled={isSaving}
+            className="w-full sm:w-auto"
+          >
+            {t.addTask}
+          </Button>
+        ) : null}
         <Button type="submit" disabled={isSaving} className="w-full sm:w-auto">
           {isSaving ? (
             <>
@@ -1013,7 +1154,13 @@ export function DialogTable({
       </div>
 
       {isMobile ? (
-        <ScrollArea className="w-full h-[48vh] rounded-md border p-2">
+        <ScrollArea
+          className={
+            focusedRecordId
+              ? "w-full max-h-[60vh] rounded-md border p-2"
+              : "w-full h-[48vh] rounded-md border p-2"
+          }
+        >
           <div className="space-y-3 pr-1">
             {rows.map((row, rowIndex) => (
               <div
@@ -1022,15 +1169,17 @@ export function DialogTable({
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">{t.task} #{rowIndex + 1}</p>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={() => handleDeleteRow(row.id, row._tempId)}
-                    aria-label={`${t.deleteTaskAria} ${rowIndex + 1}`}
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </Button>
+                  {!focusedRecordId ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      type="button"
+                      onClick={() => handleDeleteRow(row.id, row._tempId)}
+                      aria-label={`${t.deleteTaskAria} ${rowIndex + 1}`}
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </Button>
+                  ) : null}
                 </div>
 
                 {mobileFieldGroups.map((group, groupIdx) => (
@@ -1057,7 +1206,13 @@ export function DialogTable({
           <ScrollBar orientation="vertical" />
         </ScrollArea>
       ) : (
-        <ScrollArea className="w-full h-[56vh] rounded-none border">
+        <ScrollArea
+          className={
+            focusedRecordId
+              ? "w-full max-h-[56vh] rounded-none border"
+              : "w-full h-[56vh] rounded-none border"
+          }
+        >
           <div className="overflow-x-auto">
             <div className="min-w-[1000px]">
               <Table>
@@ -1077,7 +1232,9 @@ export function DialogTable({
                     )}
 
                     <TableHead className="text-center w-[150px]">{t.createdBy}</TableHead>
-                    <TableHead className="text-center w-[80px]">{t.delete}</TableHead>
+                    {!focusedRecordId ? (
+                      <TableHead className="text-center w-[80px]">{t.delete}</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1096,16 +1253,18 @@ export function DialogTable({
 
                       <TableCell className="text-center">{row.createdBy ?? ""}</TableCell>
 
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          type="button"
-                          onClick={() => handleDeleteRow(row.id, row._tempId)}
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
-                      </TableCell>
+                      {!focusedRecordId ? (
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            onClick={() => handleDeleteRow(row.id, row._tempId)}
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </Button>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>

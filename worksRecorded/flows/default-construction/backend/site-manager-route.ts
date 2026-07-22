@@ -1,10 +1,13 @@
-import { getRandomSiteManagerProcessingAcknowledgement } from "@/flows/default-construction/backend/site-manager-acknowledgements";
+import {
+  getRandomSiteManagerProcessingAcknowledgement,
+  getSiteManagerPhotoSaveSummary,
+} from "@/flows/default-construction/backend/site-manager-acknowledgements";
 import talkToWhatsappAgent from "@/flows/default-construction/backend/site-manager-agent/agent";
 import {
   buildSiteManagerSenderTraceContext,
-  setSiteManagerSenderTraceContext,
   getSiteManagerAgentRunContext,
   runWithSiteManagerAgentEvalContext,
+  setSiteManagerSenderTraceContext,
 } from "@/flows/default-construction/backend/site-manager-agent/runContext";
 import { prisma } from "@/lib/utils/db"; // ⬅️ need prisma
 import { handleAudio } from "@/lib/utils/whatsapp-helpers/shared/handleAudio";
@@ -16,6 +19,7 @@ import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import type { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
 import { processMaterialDocumentImageFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 
 const currentAgent: AgentFn = async (input, siteId, userId, originalAudioUrl) =>
   (await talkToWhatsappAgent(input, siteId, userId, originalAudioUrl)) ?? "";
@@ -40,13 +44,41 @@ function buildTraceAwareAgent(user: any): AgentFn {
   };
 }
 
-async function sendProcessingAcknowledgement(to: string | null) {
-  if (!to) return;
+async function resolveOrganizationLanguage(userId: string) {
   try {
-    await sendMessage(to, getRandomSiteManagerProcessingAcknowledgement());
+    return await getOrganizationLanguageByUserId(userId);
+  } catch (error) {
+    console.error("Site manager organization language lookup failed", error);
+    return "en";
+  }
+}
+
+async function sendProcessingAcknowledgement(
+  to: string | null,
+  userId: string,
+) {
+  if (!to) return;
+  const organizationLanguage = await resolveOrganizationLanguage(userId);
+
+  try {
+    await sendMessage(
+      to,
+      getRandomSiteManagerProcessingAcknowledgement(organizationLanguage),
+    );
   } catch (error) {
     console.error("Site manager processing acknowledgement failed", error);
   }
+}
+
+function findImageIndexes(formData: FormData, numMedia: number) {
+  const indexes: number[] = [];
+  for (let index = 0; index < numMedia; index += 1) {
+    const contentType = (
+      getString(formData, `MediaContentType${index}`) || ""
+    ).toLowerCase();
+    if (contentType.startsWith("image/")) indexes.push(index);
+  }
+  return indexes;
 }
 
 export async function handleSiteManagerRoute(args: {
@@ -94,6 +126,110 @@ export async function handleSiteManagerRoute(args: {
 
   // 3) Media path
   if (numMedia > 0) {
+    const imageIndexes = findImageIndexes(formData, numMedia);
+    const collectedBatchSize =
+      Number(getString(formData, "MetaBatchSize") || "0") || 0;
+
+    if (collectedBatchSize > 0 && imageIndexes.length > 0) {
+      let savedCount = 0;
+      const savedCaptions: Array<{
+        body: string;
+        messageId: string | null;
+        photoId: string | null;
+      }> = [];
+
+      for (const [batchPosition, imageIndex] of imageIndexes.entries()) {
+        const mediaBodyKey = `MediaBody${imageIndex}`;
+        const imageBody = (
+          formData.has(mediaBodyKey)
+            ? getString(formData, mediaBodyKey) || ""
+            : batchPosition === 0
+              ? body
+              : ""
+        ).trim();
+        const img = await handleImage({
+          formData,
+          numMedia,
+          imageIndex,
+          siteId: user.lastSelectedSiteIdforWhatsapp,
+          userId: user.id,
+          workerId: null,
+          to: from,
+          body: imageBody,
+          photographerName: [user.firstName, user.lastName]
+            .filter(Boolean)
+            .join(" "),
+          acknowledgeSavedPhoto: false,
+          onUploadedImage: async ({ publicUrl }) => {
+            try {
+              const handledAsMaterialDocument =
+                await processMaterialDocumentImageFromPublicUrl({
+                  publicUrl,
+                  senderPhone: user.phone ?? from,
+                });
+
+              if (handledAsMaterialDocument) {
+                await sendMessage(
+                  from,
+                  "✅ Materiālu dokuments saņemts. Materiāli tika izvilkti un saglabāti.",
+                );
+                return true;
+              }
+            } catch (error) {
+              console.error(
+                "Materiālu dokumenta atpazīšana neizdevās, saglabāju kā parastu fotoattēlu.",
+                error,
+              );
+            }
+
+            return false;
+          },
+        });
+
+        if (img && img.outcome === "photo_saved") {
+          savedCount += 1;
+          if (imageBody) {
+            savedCaptions.push({
+              body: imageBody,
+              messageId:
+                getString(formData, `MediaMessageId${imageIndex}`) || null,
+              photoId: img.savedPhoto?.id ?? null,
+            });
+          }
+        }
+      }
+
+      const organizationLanguage = await resolveOrganizationLanguage(user.id);
+      await sendMessage(
+        from,
+        getSiteManagerPhotoSaveSummary(
+          savedCount,
+          imageIndexes.length,
+          organizationLanguage,
+        ),
+      );
+
+      for (const caption of savedCaptions) {
+        console.log("Site manager batched image caption processing started", {
+          messageId: caption.messageId,
+          photoId: caption.photoId,
+          siteId: user.lastSelectedSiteIdforWhatsapp,
+        });
+        const agentInvocationSucceeded = await handleText({
+          body: caption.body,
+          user,
+          to: from,
+          agent: traceAwareAgent,
+        });
+        console.log("Site manager batched image caption processing finished", {
+          messageId: caption.messageId,
+          photoId: caption.photoId,
+          agentInvocationSucceeded,
+        });
+      }
+      return;
+    }
+
     const img = await handleImage({
       formData,
       numMedia,
@@ -146,7 +282,7 @@ export async function handleSiteManagerRoute(args: {
           photoId: img.savedPhoto?.id ?? null,
           siteId: user.lastSelectedSiteIdforWhatsapp,
         });
-        await sendProcessingAcknowledgement(from);
+        await sendProcessingAcknowledgement(from, user.id);
         const agentInvocationSucceeded = await handleText({
           body: normalizedComment,
           user,
@@ -166,7 +302,7 @@ export async function handleSiteManagerRoute(args: {
       getString(formData, "MediaContentType0") || ""
     ).toLowerCase();
     if (mediaContentType0.startsWith("audio")) {
-      await sendProcessingAcknowledgement(from);
+      await sendProcessingAcknowledgement(from, user.id);
     }
     const aud = await handleAudio({
       formData,
@@ -182,7 +318,7 @@ export async function handleSiteManagerRoute(args: {
 
   // 4) Text-only
   if (body) {
-    await sendProcessingAcknowledgement(from);
+    await sendProcessingAcknowledgement(from, user.id);
   }
   await handleText({ body, user, to: from, agent: traceAwareAgent });
 }

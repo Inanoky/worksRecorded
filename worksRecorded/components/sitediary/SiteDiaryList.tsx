@@ -634,6 +634,8 @@ export default function SiteDiaryCalendar({
   // Shared dialog for editing a day
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [dialogDate, setDialogDate] = React.useState<Date | null>(null);
+  const [dialogInitialRows, setDialogInitialRows] = React.useState<DiaryRow[] | null>(null);
+  const [dialogRecordId, setDialogRecordId] = React.useState<string | null>(null);
   const [optionsRevision, setOptionsRevision] = React.useState(0);
 
   // Photos dialog
@@ -1679,6 +1681,26 @@ export default function SiteDiaryCalendar({
   };
 
   const openDayDialog = (date: Date) => {
+    const dateKey = toLocalDateKey(date);
+    const cachedRows = rows.filter((row) => {
+      const rowDate = new Date(row.Date);
+      return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
+    });
+
+    setDialogInitialRows(cachedRows.length ? cachedRows : null);
+    setDialogRecordId(null);
+    setDialogDate(date);
+    setCalendarDate(date);
+    setDialogOpen(true);
+  };
+
+  const openRecordDialog = (row: DiaryRow, fallbackDate: Date) => {
+    if (!row.id) return;
+    const rowDate = new Date(row.Date);
+    const date = Number.isNaN(rowDate.getTime()) ? fallbackDate : rowDate;
+
+    setDialogInitialRows([row]);
+    setDialogRecordId(row.id);
     setDialogDate(date);
     setCalendarDate(date);
     setDialogOpen(true);
@@ -3505,7 +3527,9 @@ export default function SiteDiaryCalendar({
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem onClick={() => openDayDialog(group.date)}>
+                                      <DropdownMenuItem
+                                        onClick={() => openRecordDialog(r, group.date)}
+                                      >
                                         {t.edit}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
@@ -3853,7 +3877,9 @@ export default function SiteDiaryCalendar({
                                                 </Button>
                                               </DropdownMenuTrigger>
                                               <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => openDayDialog(group.date)}>
+                                                <DropdownMenuItem
+                                                  onClick={() => openRecordDialog(row, group.date)}
+                                                >
                                                   {t.edit}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => openCopyDialog(row)} disabled={!row.id}>
@@ -4207,7 +4233,11 @@ export default function SiteDiaryCalendar({
                                             </Button>
                                           </DropdownMenuTrigger>
                                           <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => openDayDialog(group.date)}>
+                                            <DropdownMenuItem
+                                              onClick={() =>
+                                                openRecordDialog(group.rows[i] ?? row, group.date)
+                                              }
+                                            >
                                               {t.edit}
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
@@ -4294,13 +4324,59 @@ export default function SiteDiaryCalendar({
           siteId={siteId}
           organizationLanguage={organizationLanguage}
           isZtcFlow={isZtcSite}
+          initialRows={dialogInitialRows}
+          initialConfig={defaultMap}
+          initialRates={isZtcSite ? ztc.defaultRates : null}
+          focusedRecordId={dialogRecordId}
           onSaved={async () => {
             reloadFilledDays();
 
             if (!siteId) return;
             setLoading(true);
-            await refreshRowsWithBisSync();
-            setLoading(false);
+            try {
+              const refreshedRows = await refreshRowsWithBisSync();
+              const activeDialogDate = dialogDate ?? calendarDate;
+              if (activeDialogDate) {
+                const dateKey = toLocalDateKey(activeDialogDate);
+                const refreshedDayRows = refreshedRows.filter((row) => {
+                  const rowDate = new Date(row.Date);
+                  return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
+                });
+                setDialogInitialRows((currentRows) => {
+                  if (dialogRecordId) {
+                    const refreshedRecord = refreshedDayRows.find(
+                      (row) => row.id === dialogRecordId,
+                    );
+                    return refreshedRecord ? [refreshedRecord] : null;
+                  }
+                  if (!refreshedDayRows.length) return null;
+                  if (!currentRows?.length) return refreshedDayRows;
+
+                  const refreshedById = new Map(
+                    refreshedDayRows
+                      .filter((row) => row.id)
+                      .map((row) => [String(row.id), row]),
+                  );
+                  const currentIds = new Set(
+                    currentRows
+                      .filter((row) => row.id)
+                      .map((row) => String(row.id)),
+                  );
+                  return [
+                    ...currentRows.flatMap((row) => {
+                      if (!row.id) return [row];
+                      const refreshedRow = refreshedById.get(String(row.id));
+                      return refreshedRow ? [refreshedRow] : [];
+                    }),
+                    ...refreshedDayRows.filter(
+                      (row) => row.id && !currentIds.has(String(row.id)),
+                    ),
+                  ];
+                });
+              }
+            } finally {
+              setLoading(false);
+            }
           }}
         >
           <div className="grid gap-3" />
