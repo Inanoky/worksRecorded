@@ -22,7 +22,7 @@ export default function LandingPage() {
 
   const videoSrc =
     locale === "lv"
-      ? "https://www.youtube-nocookie.com/embed/lzRHv2wR_sM?rel=0&modestbranding=1&playsinline=1"
+      ? "https://www.youtube-nocookie.com/embed/i0vXRFjvogA?rel=0&modestbranding=1&playsinline=1"
       : "https://www.youtube-nocookie.com/embed/-CfwJd-hI4I?rel=0&modestbranding=1&playsinline=1";
 
   return (
