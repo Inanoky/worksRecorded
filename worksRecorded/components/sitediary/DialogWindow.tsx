@@ -35,6 +35,7 @@ type DialogWindowProps = {
   initialConfig?: Record<string, any> | null;
   initialRates?: ZtcProjectTaskRates[] | null;
   focusedRecordId?: string | null;
+  initialTab?: "records" | "media";
   children?: React.ReactNode;
 };
 
@@ -50,14 +51,21 @@ export default function DialogWindow({
   initialConfig,
   initialRates,
   focusedRecordId,
+  initialTab = "records",
 }: DialogWindowProps) {
   const [refreshKey, setRefreshKey] = React.useState(0);
+  const [selectedTab, setSelectedTab] = React.useState<"records" | "media">("records");
   const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
   const dateLocale = normalizeOrganizationLanguage(organizationLanguage) === "lv" ? "lv-LV" : "en-GB";
   const handleSaved = async () => {
     await onSaved?.();
     setRefreshKey((key) => key + 1);
   };
+
+  React.useEffect(() => {
+    if (!open) return;
+    setSelectedTab(focusedRecordId ? "records" : initialTab);
+  }, [focusedRecordId, initialTab, open]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -91,7 +99,8 @@ export default function DialogWindow({
         }
       >
         <Tabs
-          defaultValue="records"
+          value={selectedTab}
+          onValueChange={(value) => setSelectedTab(value === "media" ? "media" : "records")}
           className="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-0 sm:pb-0"
         >
           <div
@@ -131,6 +140,11 @@ export default function DialogWindow({
             className="mt-0 min-h-0 flex-1 overflow-y-auto"
           >
             <div data-tour="dialog-table">
+              {initialTab === "media" && !initialRows?.length && !focusedRecordId ? (
+                <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+                  {t.photosOnlyEmptyRows}
+                </div>
+              ) : null}
               {isZtcFlow ? (
                 <ZtcDialogTable
                   key={refreshKey}

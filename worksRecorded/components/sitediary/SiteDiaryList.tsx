@@ -26,6 +26,7 @@ import {
   getSiteDiaryBisApprovalStatus,
   getSiteGalleryAttachments,
   getSiteDiaryRecordsPage,
+  getSiteDiaryMediaOnlyDays,
   getSitediaryRecordsBySiteIdForExcel,
   sendSiteDiaryRecordToBis,
   syncDeletedSiteDiaryBisRecords,
@@ -204,7 +205,12 @@ type DayGroup = {
   key: string; // yyyy-mm-dd
   date: Date;
   rows: DiaryRow[];
+  mediaOnly?: boolean;
+  photoCount?: number;
+  mediaSearchableText?: string;
 };
+
+type MediaOnlyDaySummary = Awaited<ReturnType<typeof getSiteDiaryMediaOnlyDays>>[number];
 
 type ZtcScopeSummary = NonNullable<Awaited<ReturnType<typeof getZtcScopeSummary>>>;
 type ZtcFilterOptions = Awaited<ReturnType<typeof getZtcFilterOptions>>;
@@ -636,6 +642,7 @@ export default function SiteDiaryCalendar({
   const [dialogDate, setDialogDate] = React.useState<Date | null>(null);
   const [dialogInitialRows, setDialogInitialRows] = React.useState<DiaryRow[] | null>(null);
   const [dialogRecordId, setDialogRecordId] = React.useState<string | null>(null);
+  const [dialogInitialTab, setDialogInitialTab] = React.useState<"records" | "media">("records");
   const [optionsRevision, setOptionsRevision] = React.useState(0);
 
   // Photos dialog
@@ -660,6 +667,7 @@ export default function SiteDiaryCalendar({
 
   // List view state
   const [rows, setRows] = React.useState<DiaryRow[]>([]);
+  const [mediaOnlyDays, setMediaOnlyDays] = React.useState<MediaOnlyDaySummary[]>([]);
   const [loading, setLoading] = React.useState(Boolean(siteId));
   const [hasLoadedRowsOnce, setHasLoadedRowsOnce] = React.useState(false);
   const [showDelayedListSkeleton, setShowDelayedListSkeleton] = React.useState(false);
@@ -947,11 +955,14 @@ export default function SiteDiaryCalendar({
   }, [siteId, currentMonth, currentYear, isZtcSite]);
 
   const refreshRowsWithBisSync = React.useCallback(async (options?: { skipSync?: boolean }) => {
-    if (!siteId) return [];
+    if (!siteId) {
+      setMediaOnlyDays([]);
+      return [];
+    }
     if (bisUiEnabled && !options?.skipSync) {
       await syncDeletedSiteDiaryBisRecords(siteId);
     }
-    const result = await getSiteDiaryRecordsPage(siteId, {
+    const commonOptions = {
       flowId: isZtcSite ? "ztc" : undefined,
       dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
       dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
@@ -960,11 +971,25 @@ export default function SiteDiaryCalendar({
       elementFilter: isZtcSite ? elementFilter : undefined,
       workerFilter: isZtcSite ? workerFilter : undefined,
       keyword: keywordFilter,
-      page: listPage,
-      pageSize: SITE_DIARY_LIST_PAGE_SIZE,
-    });
+    };
+    const canShowMediaOnlyDays =
+      workFilter === "__ALL__" &&
+      (!isZtcSite || elementFilter === "__ALL__") &&
+      (!isZtcSite || workerFilter === "__ALL__") &&
+      (!isZtcSite || floorFilter === "__ALL__");
+    const [result, mediaOnlyResult] = await Promise.all([
+      getSiteDiaryRecordsPage(siteId, {
+        ...commonOptions,
+        page: listPage,
+        pageSize: SITE_DIARY_LIST_PAGE_SIZE,
+      }),
+      canShowMediaOnlyDays
+        ? getSiteDiaryMediaOnlyDays(siteId, commonOptions)
+        : Promise.resolve([]),
+    ]);
     const data: DiaryRow[] = result.rows || [];
     setRows(data || []);
+    setMediaOnlyDays(mediaOnlyResult);
     setListTotalCount(result.totalCount ?? 0);
     setListTotalPages(result.totalPages ?? 1);
     setBisApprovalStatusByRowId(
@@ -1369,20 +1394,42 @@ export default function SiteDiaryCalendar({
     return Object.values(res).sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [filteredRows, isZtcSite]);
 
-  // Client-side keyword filtering, scoped to rows (not day buckets)
+  const mediaOnlyDayGroups: DayGroup[] = React.useMemo(
+    () =>
+      mediaOnlyDays.map((day) => ({
+        key: day.key,
+        date: new Date(day.date),
+        rows: [],
+        mediaOnly: true,
+        photoCount: day.photoCount,
+        mediaSearchableText: day.searchableText.toLowerCase(),
+      })),
+    [mediaOnlyDays],
+  );
+
   const keywordMatchedDayGroups: DayGroup[] = React.useMemo(() => {
     const normalizedKeyword = keywordFilter.trim().toLowerCase();
-    if (!normalizedKeyword) return dayGroups;
+    const recordGroups = !normalizedKeyword
+      ? dayGroups
+      : dayGroups
+          .map((group) => ({
+            ...group,
+            rows: group.rows.filter((r) => {
+              return getDiaryRowSearchableText(r).includes(normalizedKeyword);
+            }),
+          }))
+          .filter((group) => group.rows.length > 0);
 
-    return dayGroups
-      .map((group) => ({
-        ...group,
-        rows: group.rows.filter((r) => {
-          return getDiaryRowSearchableText(r).includes(normalizedKeyword);
-        }),
-      }))
-      .filter((group) => group.rows.length > 0);
-  }, [dayGroups, keywordFilter]);
+    const mediaGroups = !normalizedKeyword
+      ? mediaOnlyDayGroups
+      : mediaOnlyDayGroups.filter((group) =>
+          group.mediaSearchableText?.includes(normalizedKeyword),
+        );
+
+    return [...recordGroups, ...mediaGroups].sort(
+      (a, b) => b.date.getTime() - a.date.getTime(),
+    );
+  }, [dayGroups, keywordFilter, mediaOnlyDayGroups]);
 
   const showInitialListSkeleton = loading && !hasLoadedRowsOnce && !error;
   const showUpdatingListSkeleton = loading && hasLoadedRowsOnce && showDelayedListSkeleton && !error;
@@ -1686,9 +1733,11 @@ export default function SiteDiaryCalendar({
       const rowDate = new Date(row.Date);
       return !Number.isNaN(rowDate.getTime()) && toLocalDateKey(rowDate) === dateKey;
     });
+    const hasMediaOnlyDay = mediaOnlyDays.some((day) => day.key === dateKey);
 
     setDialogInitialRows(cachedRows.length ? cachedRows : null);
     setDialogRecordId(null);
+    setDialogInitialTab(!cachedRows.length && hasMediaOnlyDay ? "media" : "records");
     setDialogDate(date);
     setCalendarDate(date);
     setDialogOpen(true);
@@ -1701,6 +1750,7 @@ export default function SiteDiaryCalendar({
 
     setDialogInitialRows([row]);
     setDialogRecordId(row.id);
+    setDialogInitialTab("records");
     setDialogDate(date);
     setCalendarDate(date);
     setDialogOpen(true);
@@ -3139,6 +3189,7 @@ export default function SiteDiaryCalendar({
                   <div className="space-y-3 p-2 sm:p-3">
                     {keywordMatchedDayGroups.map((group) => {
                       const totalTasks = group.rows.length;
+                      const isMediaOnlyGroup = group.mediaOnly === true;
                       const totalHours = group.rows.reduce((sum, r) => {
                         const workers = Number(r.WorkersInvolved ?? 0);
                         const hours = Number(r.TimeInvolved ?? 0);
@@ -3176,6 +3227,16 @@ export default function SiteDiaryCalendar({
                             <span>
                               {totalTasks} {totalTasks === 1 ? t.taskSingular : t.taskPlural}
                             </span>
+                            {isMediaOnlyGroup ? (
+                              <Badge variant="secondary" className="h-5 rounded-full px-2 text-[11px]">
+                                {t.photosOnly}
+                              </Badge>
+                            ) : null}
+                            {isMediaOnlyGroup && group.photoCount ? (
+                              <span>
+                                {group.photoCount} {t.photosCount}
+                              </span>
+                            ) : null}
                             {isZtcSite ? (
                               <span>
                                 Dienas summa: {formatZtcMoney(ztcDayPayrollSum)}
@@ -3203,39 +3264,43 @@ export default function SiteDiaryCalendar({
 
                           {!isZtcSite ? (
                             <>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="rounded-full"
-                                    onClick={() => openWeather(group.date)}
-                                  >
-                                    <CloudSun className="h-5 w-5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>
-                                    {t.viewWeatherForDay}
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
+                              {!isMediaOnlyGroup ? (
+                                <>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="rounded-full"
+                                        onClick={() => openWeather(group.date)}
+                                      >
+                                        <CloudSun className="h-5 w-5" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>
+                                        {t.viewWeatherForDay}
+                                      </p>
+                                    </TooltipContent>
+                                  </Tooltip>
 
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                disabled={isPdfLoading}
-                                onClick={() => handleDownloadPdf(group.key, group.date)}
-                              >
-                                {isPdfLoading ? (
-                                  <>
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                    {t.generating}
-                                  </>
-                                ) : (
-                                  t.pdfReport
-                                )}
-                              </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    disabled={isPdfLoading}
+                                    onClick={() => handleDownloadPdf(group.key, group.date)}
+                                  >
+                                    {isPdfLoading ? (
+                                      <>
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                        {t.generating}
+                                      </>
+                                    ) : (
+                                      t.pdfReport
+                                    )}
+                                  </Button>
+                                </>
+                              ) : null}
                             </>
                           ) : null}
 
@@ -3250,8 +3315,14 @@ export default function SiteDiaryCalendar({
                       </CardHeader>
 
                       <CardContent className="px-2 pb-3 sm:px-4">
+                        {isMediaOnlyGroup ? (
+                          <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
+                            {t.photosOnlyEmptyRows}
+                          </div>
+                        ) : null}
+
                         {/* MOBILE: stacked record cards */}
-                        <div className="space-y-2 lg:hidden">
+                        <div className={cn("space-y-2 lg:hidden", isMediaOnlyGroup && "hidden")}>
                           {group.rows.map((r, idx) => (
                             <div
                               key={r.id ?? `${group.key}-${idx}`}
@@ -3585,7 +3656,7 @@ export default function SiteDiaryCalendar({
                         </div>
 
                         {/* DESKTOP: table view */}
-                        <div className="hidden lg:block overflow-x-auto">
+                        <div className={cn("hidden overflow-x-auto lg:block", isMediaOnlyGroup && "lg:hidden")}>
                           {(() => {
                             const dayRecordIds = group.rows
                               .map((r) => r.id)
@@ -4328,6 +4399,7 @@ export default function SiteDiaryCalendar({
           initialConfig={defaultMap}
           initialRates={isZtcSite ? ztc.defaultRates : null}
           focusedRecordId={dialogRecordId}
+          initialTab={dialogInitialTab}
           onSaved={async () => {
             reloadFilledDays();
 
