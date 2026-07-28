@@ -71,7 +71,7 @@ jest.mock("./whatsapp-actions", () => ({
   getWorkerFullNameById: jest.fn(async () => "Test Worker"),
 }));
 
-import { archiveAndReplaceSiteDiaryBatch, getPhotosByDate, saveSiteDiaryRecord } from "./site-diary-actions";
+import { archiveAndReplaceSiteDiaryBatch, getPhotosByDate, getSiteDiaryMediaOnlyDays, saveSiteDiaryRecord } from "./site-diary-actions";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 function buildCreatedRow(row: any, index = createdRowIndex++) {
@@ -635,6 +635,116 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         }),
       }),
     );
+  });
+});
+
+describe("getSiteDiaryMediaOnlyDays", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    photosFindManyMock.mockResolvedValue([]);
+    siteDiaryFindManyMock.mockResolvedValue([]);
+  });
+
+  it("returns grouped photo-only days when no diary records exist for the date", async () => {
+    photosFindManyMock.mockResolvedValue([
+      {
+        Date: new Date("2026-06-08T10:00:00.000Z"),
+        Comment: "Wall photo",
+        Location: "Site A",
+      },
+      {
+        Date: new Date("2026-06-08T15:00:00.000Z"),
+        Comment: "Second wall photo",
+        Location: "Site A",
+      },
+      {
+        Date: new Date("2026-06-07T09:00:00.000Z"),
+        Comment: "Foundation photo",
+        Location: "Site B",
+      },
+    ]);
+    siteDiaryFindManyMock.mockResolvedValue([]);
+
+    const result = await getSiteDiaryMediaOnlyDays("site-1", {
+      flowId: "default",
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-30",
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        key: "2026-06-08",
+        photoCount: 2,
+        latestPhotoDate: new Date("2026-06-08T15:00:00.000Z"),
+      }),
+      expect.objectContaining({
+        key: "2026-06-07",
+        photoCount: 1,
+      }),
+    ]);
+    expect(photosFindManyMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          siteId: "site-1",
+          OR: [
+            { AND: [{ URL: { not: null } }, { URL: { not: "" } }] },
+            { AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }] },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("does not return dates that already have diary records", async () => {
+    photosFindManyMock.mockResolvedValue([
+      {
+        Date: new Date("2026-06-08T10:00:00.000Z"),
+        Comment: "Wall photo",
+        Location: "Site A",
+      },
+      {
+        Date: new Date("2026-06-09T10:00:00.000Z"),
+        Comment: "Roof photo",
+        Location: "Site B",
+      },
+    ]);
+    siteDiaryFindManyMock.mockResolvedValue([
+      {
+        Date: new Date("2026-06-08T12:00:00.000Z"),
+        Date_Custom_1: null,
+      },
+    ]);
+
+    const result = await getSiteDiaryMediaOnlyDays("site-1", {
+      flowId: "default",
+    });
+
+    expect(result.map((day) => day.key)).toEqual(["2026-06-09"]);
+  });
+
+  it("applies date range and valid-url filters to the photo query", async () => {
+    photosFindManyMock.mockResolvedValue([]);
+    siteDiaryFindManyMock.mockResolvedValue([]);
+
+    await getSiteDiaryMediaOnlyDays("site-1", {
+      flowId: "default",
+      dateFrom: "2026-06-08",
+      dateTo: "2026-06-09",
+    });
+
+    const photoWhere = photosFindManyMock.mock.calls[0][0].where;
+    expect(photoWhere.OR).toEqual([
+      { AND: [{ URL: { not: null } }, { URL: { not: "" } }] },
+      { AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }] },
+    ]);
+    expect(photoWhere.Date.gte).toBeInstanceOf(Date);
+    expect(photoWhere.Date.lte).toBeInstanceOf(Date);
+    expect(photoWhere.Date.gte.getFullYear()).toBe(2026);
+    expect(photoWhere.Date.gte.getMonth()).toBe(5);
+    expect(photoWhere.Date.gte.getDate()).toBe(8);
+    expect(photoWhere.Date.lte.getFullYear()).toBe(2026);
+    expect(photoWhere.Date.lte.getMonth()).toBe(5);
+    expect(photoWhere.Date.lte.getDate()).toBe(9);
   });
 });
 

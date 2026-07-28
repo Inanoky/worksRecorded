@@ -30,6 +30,7 @@ type SiteDiaryFlowHint = {
 async function shouldUseZtcRecordsForSite(siteId?: string | null, hint?: SiteDiaryFlowHint) {
   if (!siteId) return false;
   if (hint?.flowId === "ztc") return true;
+  if (hint?.flowId) return false;
 
   const site = await prisma.site.findUnique({
     where: { id: siteId },
@@ -753,6 +754,16 @@ function toDayISOFromDate(value: Date | string | null | undefined): string | nul
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString().slice(0, 10);
+}
+
+function toLocalDayISOFromDate(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function isRecentDay(dayISO: string): boolean {
@@ -2055,6 +2066,128 @@ export async function getSiteDiaryRecordsPage(siteId: string, options: SiteDiary
     trace.fail(error, {
       status: 500,
       extra: { page, pageSize },
+    });
+    throw error;
+  }
+}
+
+export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDiaryRecordsPageOptions = {}) {
+  if (!siteId) throw new Error("Missing siteId");
+
+  const trace = createPerfTrace({ route: "action.siteDiary.mediaOnlyDays", category: "action", siteId });
+  const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
+  const dateFilter = buildSiteDiaryListDateFilter(options);
+  const photoWhere: any = {
+    siteId,
+    Date: Object.keys(dateFilter).length > 0 ? dateFilter : { not: null },
+    OR: [
+      { AND: [{ URL: { not: null } }, { URL: { not: "" } }] },
+      { AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }] },
+    ],
+  };
+
+  const locationFilter = compactFilterValue(options.floorFilter);
+  if (locationFilter && !useZtcRecords) {
+    photoWhere.Location = locationFilter;
+  }
+
+  const keyword = compactFilterValue(options.keyword);
+  if (keyword) {
+    const containsKeyword = { contains: keyword, mode: "insensitive" as const };
+    photoWhere.AND = [
+      ...(photoWhere.AND ?? []),
+      {
+        OR: [
+          { Comment: containsKeyword },
+          { Location: containsKeyword },
+        ],
+      },
+    ];
+  }
+
+  try {
+    const [photos, records] = await trace.measure("mediaOnlyDaysQuery", () =>
+      Promise.all([
+        prisma.photos.findMany({
+          where: photoWhere,
+          orderBy: { Date: "desc" },
+          select: {
+            Date: true,
+            Comment: true,
+            Location: true,
+          },
+        }),
+        useZtcRecords
+          ? prisma.ztcRecords.findMany({
+              where: buildSiteDiaryListWhere(siteId, options, true),
+              select: { Date: true, Date_Custom_1: true },
+            })
+          : prisma.sitediaryrecords.findMany({
+              where: buildSiteDiaryListWhere(siteId, options, false),
+              select: { Date: true, Date_Custom_1: true },
+            }),
+      ]),
+    );
+
+    const recordDays = new Set<string>();
+    records.forEach((record) => {
+      const dateKey = toLocalDayISOFromDate(record.Date);
+      if (dateKey) recordDays.add(dateKey);
+      const customDateKey = toLocalDayISOFromDate(record.Date_Custom_1);
+      if (customDateKey) recordDays.add(customDateKey);
+    });
+
+    const summariesByDay = new Map<
+      string,
+      { key: string; date: Date; photoCount: number; latestPhotoDate: Date; searchableText: string }
+    >();
+
+    photos.forEach((photo) => {
+      const dateKey = toLocalDayISOFromDate(photo.Date);
+      if (!dateKey || recordDays.has(dateKey) || !photo.Date) return;
+
+      const date = photo.Date instanceof Date ? photo.Date : new Date(photo.Date);
+      const existing = summariesByDay.get(dateKey);
+      if (!existing) {
+        summariesByDay.set(dateKey, {
+          key: dateKey,
+          date,
+          photoCount: 1,
+          latestPhotoDate: date,
+          searchableText: [photo.Comment, photo.Location].filter(Boolean).join(" "),
+        });
+        return;
+      }
+
+      existing.photoCount += 1;
+      existing.searchableText = [existing.searchableText, photo.Comment, photo.Location]
+        .filter(Boolean)
+        .join(" ");
+      if (date.getTime() > existing.latestPhotoDate.getTime()) {
+        existing.latestPhotoDate = date;
+      }
+    });
+
+    const days = Array.from(summariesByDay.values()).sort(
+      (a, b) => b.latestPhotoDate.getTime() - a.latestPhotoDate.getTime(),
+    );
+
+    trace.end({
+      status: 200,
+      extra: {
+        returnedCount: days.length,
+        photoCount: photos.length,
+      },
+    });
+
+    return days;
+  } catch (error) {
+    trace.fail(error, {
+      status: 500,
+      extra: {
+        dateFrom: options.dateFrom ? String(options.dateFrom) : null,
+        dateTo: options.dateTo ? String(options.dateTo) : null,
+      },
     });
     throw error;
   }

@@ -48,6 +48,9 @@ type SiteDiaryListMessages = {
   recordsPagination: string;
   listPaginationSummary: (first: number, last: number, total: number) => string;
   noRecords: string;
+  photosOnly: string;
+  photosOnlyEmptyRows: string;
+  photosCount: string;
   taskSingular: string;
   taskPlural: string;
   viewPhotosForDay: string;
@@ -446,6 +449,7 @@ type SiteDiaryDialogMessages = {
   voiceMessages: string;
   noMediaForDate: string;
   noPhotosForDate: string;
+  photosOnlyEmptyRows: string;
   photo: string;
   deletePhoto: string;
   previous: string;
@@ -651,6 +655,9 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     recordsPagination: "Site diary records pagination",
     listPaginationSummary: (first, last, total) => `Showing ${first}-${last} of ${total}`,
     noRecords: "No site diary records match your filters.",
+    photosOnly: "Photos only",
+    photosOnlyEmptyRows: "This day has photos but no diary rows yet. Open the photos or add a diary entry for this date.",
+    photosCount: "photos",
     taskSingular: "task",
     taskPlural: "tasks",
     viewPhotosForDay: "View photos for this day",
@@ -758,6 +765,9 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     recordsPagination: "Būvdarbu žurnāla ierakstu lapošana",
     listPaginationSummary: (first, last, total) => `Rāda ${first}-${last} no ${total}`,
     noRecords: "Neviens būvdarbu žurnāla ieraksts neatbilst izvēlētajiem filtriem.",
+    photosOnly: "Tikai foto",
+    photosOnlyEmptyRows: "Šai dienai ir foto, bet vēl nav žurnāla rindu. Atveriet foto vai pievienojiet žurnāla ierakstu šim datumam.",
+    photosCount: "foto",
     taskSingular: "uzdevums",
     taskPlural: "uzdevumi",
     viewPhotosForDay: "Skatīt šīs dienas foto",
@@ -1453,6 +1463,7 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     voiceMessages: "Voice messages",
     noMediaForDate: "No photos or voice messages for this date.",
     noPhotosForDate: "No photos for this date.",
+    photosOnlyEmptyRows: "This date has photos but no saved diary rows yet.",
     photo: "Photo",
     deletePhoto: "Delete photo",
     previous: "Previous",
@@ -1526,6 +1537,7 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     voiceMessages: "Balss ziņas",
     noMediaForDate: "Šim datumam nav foto vai balss ziņu.",
     noPhotosForDate: "Šim datumam nav foto.",
+    photosOnlyEmptyRows: "Šim datumam ir foto, bet vēl nav saglabātu žurnāla rindu.",
     photo: "Foto",
     deletePhoto: "Dzēst foto",
     previous: "Iepriekšējā",
