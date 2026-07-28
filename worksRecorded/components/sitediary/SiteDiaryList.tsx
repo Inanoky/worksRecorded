@@ -137,6 +137,7 @@ import {
 import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
 import { resolveZtcRateTaskForRow } from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
+import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -212,7 +213,7 @@ type ExcelExportKind = "siteDiary" | "ztcPayroll" | "ztcProductivity" | "forma2"
 
 function withSelectedOption(options: string[], selected: string) {
   if (!selected || selected === "__ALL__" || options.includes(selected)) return options;
-  return [selected, ...options].sort((a, b) => a.localeCompare(b, "lv"));
+  return [selected, ...options].sort(compareSiteDiaryWorks);
 }
 
 function SiteDiaryListSkeleton({ label }: { label: string }) {
@@ -1206,7 +1207,7 @@ export default function SiteDiaryCalendar({
       }
       if (r.Works && String(r.Works).trim()) set.add(String(r.Works).trim());
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "lv"));
+    return Array.from(set).sort(compareSiteDiaryWorks);
   }, [rows, isZtcSite, floorFilter, elementFilter]);
 
   const worksOptions = React.useMemo(

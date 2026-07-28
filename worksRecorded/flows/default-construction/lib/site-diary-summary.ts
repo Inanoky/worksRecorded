@@ -1,4 +1,8 @@
 import type { DefaultConstructionWorkProductivitySetting } from "./site-diary-productivity-settings";
+import {
+  compareSiteDiaryWorkPrefixes,
+  compareSiteDiaryWorks,
+} from "./site-diary-work-order";
 
 export type DefaultConstructionSummaryScope = "project" | "location" | "work";
 export type DefaultConstructionComparisonStatus =
@@ -274,10 +278,12 @@ export function buildDefaultConstructionScopeSummary(args: {
       };
     })
     .sort((a, b) => {
+      const prefixOrder = compareSiteDiaryWorkPrefixes(a.label, b.label);
+      if (prefixOrder !== 0) return prefixOrder;
       if (args.scope === "project" && a.hasConfiguredPlan !== b.hasConfiguredPlan) {
         return a.hasConfiguredPlan ? -1 : 1;
       }
-      return a.label.localeCompare(b.label, "lv") || a.unit.localeCompare(b.unit, "lv");
+      return compareSiteDiaryWorks(a.label, b.label) || a.unit.localeCompare(b.unit, "lv");
     });
 
   const comparableRows = breakdownRows.filter((row) => row.isComparable);

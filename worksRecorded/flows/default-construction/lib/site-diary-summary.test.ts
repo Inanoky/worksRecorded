@@ -113,6 +113,31 @@ describe("default-construction site diary summaries", () => {
     ]);
   });
 
+  it("orders summary rows by numeric work prefixes", () => {
+    const numberedRows = [
+      { ...rows[0], Works: "18.1 Dažādi darbi", Units: "m2" },
+      { ...rows[0], Works: "3.1 Grīdu flīzēšana", Units: "m2" },
+      { ...rows[0], Works: "1.10 Demontāžas darbi", Units: "m2" },
+      { ...rows[0], Works: "1.9 Demontāžas darbi", Units: "m2" },
+    ];
+
+    const result = buildDefaultConstructionScopeSummary({
+      scope: "project",
+      value: "project",
+      rows: numberedRows,
+      productivitySettings: [
+        { work: "18.1 Dažādi darbi", unit: "m2", laborNormHoursPerUnit: 0.5 },
+      ],
+    });
+
+    expect(result.breakdown.map((row) => row.label)).toEqual([
+      "1.9 Demontāžas darbi",
+      "1.10 Demontāžas darbi",
+      "3.1 Grīdu flīzēšana",
+      "18.1 Dažādi darbi",
+    ]);
+  });
+
   it("groups a clicked work by unit without splitting by location", () => {
     const result = buildDefaultConstructionScopeSummary({
       scope: "work",

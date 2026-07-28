@@ -1,3 +1,5 @@
+import { compareSiteDiaryWorks } from "./site-diary-work-order";
+
 export const DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY =
   "defaultConstructionProductivity";
 
@@ -55,7 +57,7 @@ export function getDefaultConstructionProductivitySettings(
     });
   }
 
-  const dropdownWorks = readDropdownOptions(config, "Works");
+  const dropdownWorks = readDropdownOptions(config, "Works").sort(compareSiteDiaryWorks);
   const works = dropdownWorks.map((work) => {
     const saved = savedByWork.get(normalizedKey(work));
     return {

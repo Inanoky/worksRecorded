@@ -24,6 +24,7 @@ import {
   normalizeOrganizationLanguage,
 } from "@/lib/dashboard-i18n";
 import { matchesPersistedWorkSearch } from "@/flows/default-construction/lib/site-diary-options-search";
+import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
 
 const MAX_OPTION_LENGTH = 200;
 type ManagedField = "Location" | "Works";
@@ -152,7 +153,8 @@ export function SiteDiaryOptionsManager({
     .filter(({ option }) => option.toLocaleLowerCase("lv").includes(normalizedSearch));
   const visibleWorks = works
     .map((work, index) => ({ work, index }))
-    .filter(({ work }) => matchesPersistedWorkSearch(work, normalizedSearch));
+    .filter(({ work }) => matchesPersistedWorkSearch(work, normalizedSearch))
+    .sort((left, right) => compareSiteDiaryWorks(left.work.work, right.work.work));
 
   const validateLocation = (rawValue: string, ignoredIndex?: number) => {
     const value = rawValue.trim();
