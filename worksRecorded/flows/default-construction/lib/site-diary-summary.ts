@@ -188,7 +188,8 @@ export function buildDefaultConstructionScopeSummary(args: {
       const setting = settings.get(normalizedKey(row.label));
       const plannedNorm = Number(setting?.laborNormHoursPerUnit);
       const hourlyCost = Number(setting?.hourlyCost);
-      const hasHourlyCost = Number.isFinite(hourlyCost) && hourlyCost > 0;
+      const hasHourlyCost =
+        setting?.hourlyCost != null && Number.isFinite(hourlyCost) && hourlyCost >= 0;
       const unitMatches =
         Boolean(setting?.unit) && normalizedKey(setting?.unit) === normalizedKey(row.unit);
       const hasConfiguredPlan =

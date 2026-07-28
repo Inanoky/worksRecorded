@@ -10,7 +10,12 @@ describe("default-construction productivity settings", () => {
         Works: { DropDownOptions: { Masonry: "Masonry" } },
       }).works,
     ).toEqual([
-      { work: "Masonry", unit: "", laborNormHoursPerUnit: null, hourlyCost: null },
+      {
+        work: "Masonry",
+        unit: "",
+        laborNormHoursPerUnit: null,
+        hourlyCost: null,
+      },
     ]);
   });
 
@@ -29,7 +34,12 @@ describe("default-construction productivity settings", () => {
     });
 
     expect(result.works).toEqual([
-      { work: "Masonry", unit: "m2", laborNormHoursPerUnit: 0.4, hourlyCost: 18.5 },
+      {
+        work: "Masonry",
+        unit: "m2",
+        laborNormHoursPerUnit: 0.4,
+        hourlyCost: 18.5,
+      },
     ]);
   });
 
@@ -58,10 +68,20 @@ describe("default-construction productivity settings", () => {
   it("preserves a setting when its work is renamed in the structured editor", () => {
     expect(
       normalizeDefaultConstructionWorkSettings([
-        { work: "New work name", unit: "m3", laborNormHoursPerUnit: 0.75, hourlyCost: 22 },
+        {
+          work: "New work name",
+          unit: "m3",
+          laborNormHoursPerUnit: 0.75,
+          hourlyCost: 22,
+        },
       ]),
     ).toEqual([
-      { work: "New work name", unit: "m3", laborNormHoursPerUnit: 0.75, hourlyCost: 22 },
+      {
+        work: "New work name",
+        unit: "m3",
+        laborNormHoursPerUnit: 0.75,
+        hourlyCost: 22,
+      },
     ]);
   });
 
@@ -73,14 +93,34 @@ describe("default-construction productivity settings", () => {
     ).toThrow("Time norm");
   });
 
-  it("rejects non-positive hourly cost", () => {
+  it("preserves a zero hourly cost", () => {
+    expect(
+      normalizeDefaultConstructionWorkSettings([
+        {
+          work: "No labor cost",
+          unit: "m2",
+          laborNormHoursPerUnit: 0.5,
+          hourlyCost: 0,
+        },
+      ]),
+    ).toEqual([
+      {
+        work: "No labor cost",
+        unit: "m2",
+        laborNormHoursPerUnit: 0.5,
+        hourlyCost: 0,
+      },
+    ]);
+  });
+
+  it("rejects negative hourly cost", () => {
     expect(() =>
       normalizeDefaultConstructionWorkSettings([
         {
           work: "Masonry",
           unit: "m2",
           laborNormHoursPerUnit: 0.5,
-          hourlyCost: 0,
+          hourlyCost: -1,
         },
       ]),
     ).toThrow("Hourly cost");

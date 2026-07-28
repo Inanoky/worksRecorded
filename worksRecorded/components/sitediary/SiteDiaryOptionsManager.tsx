@@ -48,7 +48,7 @@ const PRODUCTIVITY_MESSAGES = {
     selectUnit: "No unit",
     addWork: "Add work",
     invalidNorm: "Time norm must be a number greater than zero.",
-    invalidHourlyCost: "Hourly cost must be a number greater than zero.",
+    invalidHourlyCost: "Hourly cost must be a number equal to or greater than zero.",
     unitRequired: "Select a unit when a time norm is set.",
   },
   lv: {
@@ -61,7 +61,7 @@ const PRODUCTIVITY_MESSAGES = {
     selectUnit: "Nav norādīta",
     addWork: "Pievienot darbu",
     invalidNorm: "Laika normai jābūt skaitlim, kas lielāks par nulli.",
-    invalidHourlyCost: "Stundas likmei jābūt skaitlim, kas lielāks par nulli.",
+    invalidHourlyCost: "Stundas likmei jābūt skaitlim, kas nav mazāks par nulli.",
     unitRequired: "Ja norādīta laika norma, izvēlieties mērvienību.",
   },
 } as const;
@@ -249,7 +249,7 @@ export function SiteDiaryOptionsManager({
         rawHourlyCost === "" ? null : Number(rawHourlyCost.replace(",", "."));
       if (
         rawHourlyCost !== "" &&
-        (!Number.isFinite(parsedHourlyCost) || Number(parsedHourlyCost) <= 0)
+        (!Number.isFinite(parsedHourlyCost) || Number(parsedHourlyCost) < 0)
       ) {
         toast.error(p.invalidHourlyCost);
         return;
