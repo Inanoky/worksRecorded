@@ -479,6 +479,7 @@ export function buildForma2AnalyticsView(args: {
 	positions: Forma2Position[];
 	sources: Forma2ActualSource[];
 	allocations: Forma2Allocation[];
+	includeSuggestions?: boolean;
 }): Forma2AnalyticsView {
 	const positionsById = new Map(
 		args.positions.map((position) => [position.id, position]),
@@ -493,9 +494,10 @@ export function buildForma2AnalyticsView(args: {
 	);
 	const mappingRows = args.sources.map((source) => {
 		const allocation = allocationsBySource.get(`${source.type}:${source.id}`);
-		const suggestion = allocation
-			? null
-			: suggestForma2Position(source, args.positions);
+		const suggestion =
+			allocation || args.includeSuggestions === false
+				? null
+				: suggestForma2Position(source, args.positions);
 		return {
 			...source,
 			assignedPositionId: allocation?.positionId ?? null,

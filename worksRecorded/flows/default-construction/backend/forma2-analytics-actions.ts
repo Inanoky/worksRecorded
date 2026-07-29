@@ -148,7 +148,7 @@ function isoDate(value: Date | null | undefined) {
 	return value ? value.toISOString() : null;
 }
 
-export async function getDefaultConstructionForma2Dashboard(siteId: string) {
+async function loadDefaultConstructionForma2Data(siteId: string) {
 	await requireDefaultConstructionSite(siteId);
 	const [state, site, workRows, materialRows] = await Promise.all([
 		readStoredState(siteId),
@@ -230,7 +230,7 @@ export async function getDefaultConstructionForma2Dashboard(siteId: string) {
 
 	const materialSources: Forma2ActualSource[] = materialRows.map((row) => ({
 		id: row.id,
-		type: "material",
+		type: "material" as const,
 		label:
 			text(row.name) ||
 			(text(row.invoiceNr)
@@ -246,16 +246,296 @@ export async function getDefaultConstructionForma2Dashboard(siteId: string) {
 		actualCost: nullableNumber(row.cost),
 	}));
 
-	const sources = [...workSources, ...materialSources];
-	const positions = state.document?.positions ?? [];
 	return {
 		siteName: site.name,
 		state,
+		sources: [...workSources, ...materialSources],
+	};
+}
+
+function documentMetadata(state: DefaultConstructionForma2State) {
+	if (!state.document) return null;
+	return {
+		id: state.document.id,
+		fileName: state.document.fileName,
+		sheetName: state.document.sheetName,
+		importedAt: state.document.importedAt,
+		positionCount: state.document.positions.length,
+	};
+}
+
+export async function getDefaultConstructionForma2Dashboard(siteId: string) {
+	const data = await loadDefaultConstructionForma2Data(siteId);
+	const positions = data.state.document?.positions ?? [];
+	return {
+		siteName: data.siteName,
+		state: data.state,
 		view: buildForma2AnalyticsView({
 			positions,
-			sources,
-			allocations: state.allocations,
+			sources: data.sources,
+			allocations: data.state.allocations,
 		}),
+	};
+}
+
+export async function getDefaultConstructionForma2Overview(siteId: string) {
+	const data = await loadDefaultConstructionForma2Data(siteId);
+	const positions = data.state.document?.positions ?? [];
+	const view = buildForma2AnalyticsView({
+		positions,
+		sources: data.sources,
+		allocations: data.state.allocations,
+		includeSuggestions: false,
+	});
+	return {
+		siteName: data.siteName,
+		document: documentMetadata(data.state),
+		summary: view.summary,
+	};
+}
+
+export async function getDefaultConstructionForma2Results(siteId: string) {
+	const data = await loadDefaultConstructionForma2Data(siteId);
+	const positions = data.state.document?.positions ?? [];
+	const view = buildForma2AnalyticsView({
+		positions,
+		sources: data.sources,
+		allocations: data.state.allocations,
+		includeSuggestions: false,
+	});
+	return {
+		siteName: data.siteName,
+		document: documentMetadata(data.state),
+		summary: view.summary,
+		resultRows: view.resultRows,
+	};
+}
+
+export async function getDefaultConstructionForma2MappingPage(args: {
+	siteId: string;
+	page?: number;
+	pageSize?: number;
+	sourceType?: "all" | Forma2SourceType;
+	assignment?: "all" | "assigned" | "unassigned";
+	search?: string;
+}) {
+	await requireDefaultConstructionSite(args.siteId);
+	const [state, site] = await Promise.all([
+		readStoredState(args.siteId),
+		prisma.site.findUnique({
+			where: { id: args.siteId },
+			select: { name: true, siteDiaryRecordsMap: true },
+		}),
+	]);
+	if (!site) throw new Error("Site not found");
+	const positions = state.document?.positions ?? [];
+	const positionIds = new Set(positions.map((position) => position.id));
+	const allocationsBySource = new Map(
+		state.allocations
+			.filter((allocation) => positionIds.has(allocation.positionId))
+			.map((allocation) => [
+				`${allocation.sourceType}:${allocation.sourceId}`,
+				allocation,
+			]),
+	);
+	const sourceType =
+		args.sourceType === "work" || args.sourceType === "material"
+			? args.sourceType
+			: "all";
+	const assignment =
+		args.assignment === "assigned" || args.assignment === "all"
+			? args.assignment
+			: "unassigned";
+	const search = text(args.search, 120);
+	const allocatedWorkIds = Array.from(allocationsBySource.values())
+		.filter((allocation) => allocation.sourceType === "work")
+		.map((allocation) => allocation.sourceId);
+	const allocatedMaterialIds = Array.from(allocationsBySource.values())
+		.filter((allocation) => allocation.sourceType === "material")
+		.map((allocation) => allocation.sourceId);
+	const workWhere: Prisma.sitediaryrecordsWhereInput = {
+		siteId: args.siteId,
+		archivedAt: null,
+		Works: { not: null },
+		...(assignment === "assigned"
+			? { id: { in: allocatedWorkIds } }
+			: assignment === "unassigned"
+				? { id: { notIn: allocatedWorkIds } }
+				: {}),
+		...(search
+			? {
+					OR: [
+						{ Works: { contains: search, mode: "insensitive" } },
+						{ Location: { contains: search, mode: "insensitive" } },
+						{ Units: { contains: search, mode: "insensitive" } },
+					],
+				}
+			: {}),
+	};
+	const materialWhere: Prisma.BISmaterialRecordsWhereInput = {
+		siteId: args.siteId,
+		...(assignment === "assigned"
+			? { id: { in: allocatedMaterialIds } }
+			: assignment === "unassigned"
+				? { id: { notIn: allocatedMaterialIds } }
+				: {}),
+		...(search
+			? {
+					OR: [
+						{ name: { contains: search, mode: "insensitive" } },
+						{ invoiceNr: { contains: search, mode: "insensitive" } },
+						{ supplierName: { contains: search, mode: "insensitive" } },
+						{ measurementUnit: { contains: search, mode: "insensitive" } },
+					],
+				}
+			: {}),
+	};
+	const [workCount, materialCount] = await Promise.all([
+		sourceType === "material"
+			? 0
+			: prisma.sitediaryrecords.count({ where: workWhere }),
+		sourceType === "work"
+			? 0
+			: prisma.bISmaterialRecords.count({ where: materialWhere }),
+	]);
+	const pageSize = Math.min(50, Math.max(10, Math.trunc(args.pageSize ?? 25)));
+	const totalRows = workCount + materialCount;
+	const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+	const page = Math.min(
+		totalPages,
+		Math.max(1, Math.trunc(Number(args.page) || 1)),
+	);
+	const offset = (page - 1) * pageSize;
+	const workSkip = Math.min(offset, workCount);
+	const workTake = Math.min(pageSize, Math.max(0, workCount - workSkip));
+	const materialSkip = Math.max(0, offset - workCount);
+	const materialTake = Math.min(
+		pageSize - workTake,
+		Math.max(0, materialCount - materialSkip),
+	);
+	const [workRows, materialRows] = await Promise.all([
+		workTake
+			? prisma.sitediaryrecords.findMany({
+					where: workWhere,
+					orderBy: [{ Date: "desc" }, { createdAt: "desc" }],
+					skip: workSkip,
+					take: workTake,
+					select: {
+						id: true,
+						Date: true,
+						Works: true,
+						Location: true,
+						Units: true,
+						Amounts: true,
+						TimeInvolved: true,
+					},
+				})
+			: [],
+		materialTake
+			? prisma.bISmaterialRecords.findMany({
+					where: materialWhere,
+					orderBy: [
+						{ materialDate: "desc" },
+						{ invoiceDate: "desc" },
+						{ createdAt: "desc" },
+					],
+					skip: materialSkip,
+					take: materialTake,
+					select: {
+						id: true,
+						name: true,
+						quantity: true,
+						measurementUnit: true,
+						cost: true,
+						invoiceNr: true,
+						supplierName: true,
+						invoiceDate: true,
+						materialDate: true,
+					},
+				})
+			: [],
+	]);
+	const config =
+		site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
+			? (site.siteDiaryRecordsMap as Parameters<
+					typeof getDefaultConstructionProductivitySettings
+				>[0])
+			: (defaultConfig as Parameters<
+					typeof getDefaultConstructionProductivitySettings
+				>[0]);
+	const settingsByWork = new Map(
+		getDefaultConstructionProductivitySettings(config).works.map((setting) => [
+			setting.work.trim().toLocaleLowerCase("lv"),
+			setting,
+		]),
+	);
+	const workSources: Forma2ActualSource[] = workRows
+		.filter((row) => text(row.Works))
+		.map((row) => {
+			const work = text(row.Works);
+			const setting = settingsByWork.get(work.toLocaleLowerCase("lv"));
+			const hours = nullableNumber(row.TimeInvolved);
+			const hourlyRate = nullableNumber(setting?.hourlyCost);
+			return {
+				id: row.id,
+				type: "work",
+				label: work,
+				secondaryLabel: text(row.Location),
+				date: isoDate(row.Date),
+				unit: text(row.Units, 40),
+				quantity: nullableNumber(row.Amounts),
+				hours,
+				actualCost:
+					hours != null && hourlyRate != null ? hours * hourlyRate : null,
+			};
+		});
+	const materialSources: Forma2ActualSource[] = materialRows.map((row) => ({
+		id: row.id,
+		type: "material" as const,
+		label:
+			text(row.name) ||
+			(text(row.invoiceNr)
+				? `Rēķins ${text(row.invoiceNr)}`
+				: "Materiālu izmaksas"),
+		secondaryLabel: [text(row.supplierName), text(row.invoiceNr)]
+			.filter(Boolean)
+			.join(" · "),
+		date: isoDate(row.materialDate ?? row.invoiceDate),
+		unit: text(row.measurementUnit, 40),
+		quantity: nullableNumber(row.quantity),
+		hours: null,
+		actualCost: nullableNumber(row.cost),
+	}));
+	const pageSources = [...workSources, ...materialSources];
+	const pageView = buildForma2AnalyticsView({
+		positions,
+		sources: pageSources,
+		allocations: state.allocations,
+	});
+
+	return {
+		siteName: site.name,
+		document: documentMetadata(state),
+		rows: pageView.mappingRows,
+		positionOptions: positions
+			.filter(
+				(position) => position.kind === "work" || position.kind === "material",
+			)
+			.map((position) => ({
+				id: position.id,
+				code: position.code,
+				name: position.name,
+				kind: position.kind as Forma2SourceType,
+				parentId: position.parentId,
+				categoryName: position.categoryName,
+			})),
+		pagination: {
+			page,
+			pageSize,
+			totalRows,
+			totalPages,
+		},
+		filters: { sourceType, assignment, search: text(args.search, 120) },
 	};
 }
 
