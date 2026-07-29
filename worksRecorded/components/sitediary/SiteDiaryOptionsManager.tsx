@@ -24,6 +24,7 @@ import {
   normalizeOrganizationLanguage,
 } from "@/lib/dashboard-i18n";
 import { matchesPersistedWorkSearch } from "@/flows/default-construction/lib/site-diary-options-search";
+import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
 
 const MAX_OPTION_LENGTH = 200;
 type ManagedField = "Location" | "Works";
@@ -47,7 +48,7 @@ const PRODUCTIVITY_MESSAGES = {
     selectUnit: "No unit",
     addWork: "Add work",
     invalidNorm: "Time norm must be a number greater than zero.",
-    invalidHourlyCost: "Hourly cost must be a number greater than zero.",
+    invalidHourlyCost: "Hourly cost must be a number equal to or greater than zero.",
     unitRequired: "Select a unit when a time norm is set.",
   },
   lv: {
@@ -60,7 +61,7 @@ const PRODUCTIVITY_MESSAGES = {
     selectUnit: "Nav norādīta",
     addWork: "Pievienot darbu",
     invalidNorm: "Laika normai jābūt skaitlim, kas lielāks par nulli.",
-    invalidHourlyCost: "Stundas likmei jābūt skaitlim, kas lielāks par nulli.",
+    invalidHourlyCost: "Stundas likmei jābūt skaitlim, kas nav mazāks par nulli.",
     unitRequired: "Ja norādīta laika norma, izvēlieties mērvienību.",
   },
 } as const;
@@ -152,7 +153,8 @@ export function SiteDiaryOptionsManager({
     .filter(({ option }) => option.toLocaleLowerCase("lv").includes(normalizedSearch));
   const visibleWorks = works
     .map((work, index) => ({ work, index }))
-    .filter(({ work }) => matchesPersistedWorkSearch(work, normalizedSearch));
+    .filter(({ work }) => matchesPersistedWorkSearch(work, normalizedSearch))
+    .sort((left, right) => compareSiteDiaryWorks(left.work.work, right.work.work));
 
   const validateLocation = (rawValue: string, ignoredIndex?: number) => {
     const value = rawValue.trim();
@@ -247,7 +249,7 @@ export function SiteDiaryOptionsManager({
         rawHourlyCost === "" ? null : Number(rawHourlyCost.replace(",", "."));
       if (
         rawHourlyCost !== "" &&
-        (!Number.isFinite(parsedHourlyCost) || Number(parsedHourlyCost) <= 0)
+        (!Number.isFinite(parsedHourlyCost) || Number(parsedHourlyCost) < 0)
       ) {
         toast.error(p.invalidHourlyCost);
         return;

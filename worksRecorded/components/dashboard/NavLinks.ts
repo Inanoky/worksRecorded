@@ -23,11 +23,17 @@ export function getNavLinks(
   return links;
 }
 
-export function getProjectNavLinks(language?: string | null, options?: { canAccessAiContext?: boolean }) {
+export function getProjectNavLinks(
+  language?: string | null,
+  options?: { canAccessAiContext?: boolean; showAnalytics?: boolean },
+) {
   const t = getNavigationMessages(normalizeOrganizationLanguage(language));
 
   const links = [
     { name: t.siteDiary, href: "/dashboard/dashboard", path: "dashboard", icon: ReceiptText },
+    ...(options?.showAnalytics
+      ? [{ name: t.analytics, href: "/dashboard/analytics", path: "analytics", icon: ChartNoAxesCombined }]
+      : []),
     { name: t.timesheets, href: "/dashboard/timesheets", path: "timesheets", icon: Clock8 },
     { name: t.warehouse, href: "/dashboard/BIS", path: "BIS", icon: Package },
     { name: "AI Context", href: "/dashboard/ai-context", path: "ai-context", icon: Bot },

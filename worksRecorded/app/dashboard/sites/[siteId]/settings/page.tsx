@@ -42,6 +42,7 @@ import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { getFlowModuleUi } from "@/lib/flows/registry";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 
 export default async function SettingsSiteRoute({
   params,
@@ -247,7 +248,13 @@ export default async function SettingsSiteRoute({
       <TourRunner steps={getJoyRideSteps(organizationLanguage).steps_siteid_settings} stepName="steps_siteid_settings" />
       <div className="flex items-center gap-x-2 mb-6">
         <Button variant="outline" size="icon" asChild>
-          <Link href={`/dashboard/sites/${siteId}/analytics`}>
+          <Link
+            href={`/dashboard/sites/${siteId}/${
+              flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION
+                ? "analytics"
+                : "dashboard"
+            }`}
+          >
             <ChevronLeft className="size-4" />
           </Link>
         </Button>

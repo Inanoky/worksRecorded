@@ -46,6 +46,7 @@ import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
 
 type SearchableWorksSelectProps = {
   value: string;
@@ -821,7 +822,7 @@ export function DialogTable({
 
       const optionsObj = defaultMap[field]?.DropDownOptions ?? {};
 
-      let options = Object.entries(optionsObj).map(([value, label]) => ({
+      const options = Object.entries(optionsObj).map(([value, label]) => ({
         value,
         label: String(label),
       }));
@@ -834,13 +835,14 @@ export function DialogTable({
         currentValue &&
         !options.some((opt) => opt.label  === currentValue)
       ) {
-        options.unshift({
+        options.push({
           value: currentValue,
           label: currentValue,
         });
       }
 
       if (field === "Works") {
+        options.sort((left, right) => compareSiteDiaryWorks(left.label, right.label));
         return (
           <SearchableWorksSelect
             value={currentValue}

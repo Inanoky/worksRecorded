@@ -1,3 +1,5 @@
+import { compareSiteDiaryWorks } from "./site-diary-work-order";
+
 export const DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY =
   "defaultConstructionProductivity";
 
@@ -35,6 +37,12 @@ function readPositiveNorm(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+function readNonNegativeCost(value: unknown): number | null {
+  if (value == null || value === "") return null;
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
 export function getDefaultConstructionProductivitySettings(
   config: Record<string, any>,
 ): DefaultConstructionProductivitySettings {
@@ -51,11 +59,11 @@ export function getDefaultConstructionProductivitySettings(
       work,
       unit: String(raw?.unit ?? "").trim(),
       laborNormHoursPerUnit: readPositiveNorm(raw?.laborNormHoursPerUnit),
-      hourlyCost: readPositiveNorm(raw?.hourlyCost),
+      hourlyCost: readNonNegativeCost(raw?.hourlyCost),
     });
   }
 
-  const dropdownWorks = readDropdownOptions(config, "Works");
+  const dropdownWorks = readDropdownOptions(config, "Works").sort(compareSiteDiaryWorks);
   const works = dropdownWorks.map((work) => {
     const saved = savedByWork.get(normalizedKey(work));
     return {
@@ -101,9 +109,9 @@ export function normalizeDefaultConstructionWorkSettings(
       throw new Error(`Select a unit for the time norm: ${work}`);
     }
 
-    const hourlyCost = readPositiveNorm(row?.hourlyCost);
+    const hourlyCost = readNonNegativeCost(row?.hourlyCost);
     if (row?.hourlyCost != null && hourlyCost == null) {
-      throw new Error(`Hourly cost must be greater than zero for: ${work}`);
+      throw new Error(`Hourly cost must be zero or greater for: ${work}`);
     }
 
     result.push({ work, unit, laborNormHoursPerUnit: norm, hourlyCost });

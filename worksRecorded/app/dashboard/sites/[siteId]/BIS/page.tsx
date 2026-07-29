@@ -19,6 +19,10 @@ import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibil
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { createPerfTrace } from "@/lib/observability/perf";
+import {
+  applyDefaultConstructionForma2MaterialRules,
+  getDefaultConstructionForma2MaterialAssignments,
+} from "@/flows/default-construction/backend/forma2-analytics-actions";
 
 type BisApprover = {
   memberId: string;
@@ -257,6 +261,35 @@ function withoutWarehouseBisState(material: WarehouseMaterialRecord) {
     ...material,
     bisStatus: material.bisStatus,
     bisApprovers: [],
+  };
+}
+
+async function addForma2AssignmentsToMaterials(
+  siteId: string,
+  materials: Array<ReturnType<typeof withoutWarehouseBisState>>,
+) {
+  await applyDefaultConstructionForma2MaterialRules({
+    siteId,
+    sourceIds: materials.map((material) => material.id),
+  });
+  const forma2 = await getDefaultConstructionForma2MaterialAssignments({
+    siteId,
+    sourceIds: materials.map((material) => material.id),
+  });
+  const assignmentsBySource = new Map(
+    forma2.assignments.map((assignment) => [assignment.sourceId, assignment]),
+  );
+  return {
+    ...forma2,
+    materials: materials.map((material) => {
+      const assignment = assignmentsBySource.get(material.id);
+      return {
+        ...material,
+        forma2PositionId: assignment?.positionId ?? null,
+        forma2AssignmentMethod: assignment?.method ?? null,
+        forma2AssignmentConfidence: assignment?.confidence ?? null,
+      };
+    }),
   };
 }
 
@@ -1835,9 +1868,14 @@ export async function fetchWarehouseMaterialsPage(siteId: string, input: Warehou
   });
   const pageData = await getWarehouseMaterialPage({ siteId, ...input, includeSpendInsights: showSpendInsights });
 
+  const forma2 = await addForma2AssignmentsToMaterials(
+    siteId,
+    pageData.rows.map(withoutWarehouseBisState),
+  );
+
   return {
     ...pageData,
-    rows: pageData.rows.map(withoutWarehouseBisState),
+    rows: forma2.materials,
   };
 }
 
@@ -1918,7 +1956,13 @@ export default async function MaterialsPage({
 
   // Keep initial page render fast by using stored DB state only.
   // BIS live refresh stays available through explicit sync actions in the UI.
-  const materialsWithBisState = materialsPage.rows.map(withoutWarehouseBisState);
+  const forma2 = await trace.measure("forma2Assignments", () =>
+    addForma2AssignmentsToMaterials(
+      siteId,
+      materialsPage.rows.map(withoutWarehouseBisState),
+    ),
+  );
+  const materialsWithBisState = forma2.materials;
 
   trace.end({
     status: 200,
@@ -1950,6 +1994,8 @@ export default async function MaterialsPage({
         bisEnabled={bisEnabled}
         bisBaseUrl={getBisBaseUrl()}
         materials={materialsWithBisState}
+        forma2Enabled={forma2.enabled}
+        forma2PositionOptions={forma2.positionOptions}
         materialConfigurations={materialConfigurationData.materialConfigurations}
         materialMeasures={materialConfigurationData.materialMeasures}
         materialTypes={materialConfigurationData.materialTypes}
