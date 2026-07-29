@@ -4,6 +4,10 @@ const createMock = jest.fn();
 const updateMock = jest.fn();
 const transactionMock = jest.fn();
 const updateManyMock = jest.fn();
+const siteFindManyMock = jest.fn();
+const siteFindUniqueMock = jest.fn();
+const productionFlowConfigOverrideFindManyMock = jest.fn();
+const flowAssignmentFindUniqueMock = jest.fn();
 const photosFindManyMock = jest.fn();
 const siteDiaryFindManyMock = jest.fn();
 const batchCreateMock = jest.fn();
@@ -19,6 +23,16 @@ let createdRowIndex = 0;
 jest.mock("@/lib/utils/db", () => ({
   prisma: {
     $transaction: transactionMock,
+    site: {
+      findMany: siteFindManyMock,
+      findUnique: siteFindUniqueMock,
+    },
+    productionFlowConfigOverride: {
+      findMany: productionFlowConfigOverrideFindManyMock,
+    },
+    flowAssignment: {
+      findUnique: flowAssignmentFindUniqueMock,
+    },
     photos: {
       findMany: photosFindManyMock,
     },
@@ -71,7 +85,16 @@ jest.mock("./whatsapp-actions", () => ({
   getWorkerFullNameById: jest.fn(async () => "Test Worker"),
 }));
 
-import { archiveAndReplaceSiteDiaryBatch, getPhotosByDate, getSiteDiaryMediaOnlyDays, saveSiteDiaryRecord } from "./site-diary-actions";
+import {
+  archiveAndReplaceSiteDiaryBatch,
+  copySiteDiaryRecordsToProject,
+  getPhotosByDate,
+  getSiteDiaryMediaOnlyDays,
+  getSiteDiaryProjectCopyTargets,
+  saveSiteDiaryRecord,
+} from "./site-diary-actions";
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "./shared-actions";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 
 function buildCreatedRow(row: any, index = createdRowIndex++) {
@@ -111,6 +134,19 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     createdRowIndex = 0;
+    (requireUser as jest.Mock).mockResolvedValue({ id: "user-1" });
+    (orgCheck as jest.Mock).mockImplementation((_userId: string, siteId: string) => {
+      if (siteId === "site-1") return Promise.resolve({ id: "site-1", name: "Source", organizationId: "org-1" });
+      if (siteId === "site-2") return Promise.resolve({ id: "site-2", name: "Target", organizationId: "org-1" });
+      if (siteId === "site-other-org") {
+        return Promise.resolve({ id: "site-other-org", name: "Other", organizationId: "org-2" });
+      }
+      return Promise.resolve(false);
+    });
+    siteFindManyMock.mockResolvedValue([]);
+    siteFindUniqueMock.mockResolvedValue({ organizationId: "org-1" });
+    productionFlowConfigOverrideFindManyMock.mockResolvedValue([]);
+    flowAssignmentFindUniqueMock.mockResolvedValue(null);
     createManyMock.mockResolvedValue({ count: 1 });
     createManyAndReturnMock.mockResolvedValue([]);
     createMock.mockImplementation(({ data }) => Promise.resolve(buildCreatedRow(data)));
@@ -635,6 +671,170 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
         }),
       }),
     );
+  });
+});
+
+describe("site diary project copy actions", () => {
+  const sourceRecord = {
+    id: "record-1",
+    userId: "user-1",
+    workerId: "worker-1",
+    siteId: "site-1",
+    organizationId: "org-1",
+    Date: new Date("2026-07-20T08:00:00.000Z"),
+    Date_Custom_1: new Date("2026-07-20T09:00:00.000Z"),
+    Date_Custom_2: new Date("2026-07-20T17:00:00.000Z"),
+    Location: "Stāvs 1",
+    Location_Custom_1: "Zona A",
+    Location_Custom_2: "Sekcija B",
+    Works: "Betonēšana",
+    Works_Custom_1: "Papilddarbi",
+    Works_Custom_2: "Koeficients",
+    Comments: "Pabeigts",
+    Comments_Custom_1: "Komentārs 1",
+    Comments_Custom_2: "Komentārs 2",
+    originalUserComment: "Jānis : Betonēšana",
+    originalAudioUrl: "https://ut.test.ufs.sh/f/audio.ogg",
+    Units: "m3",
+    Amounts: 12,
+    WorkersInvolved: 3,
+    TimeInvolved: 8,
+    Photos: ["https://ut.test.ufs.sh/f/photo.jpg"],
+    BISId: "bis-1",
+    bisStatus: "submitted",
+    saveBatchId: "batch-1",
+    archivedAt: new Date("2026-07-21T00:00:00.000Z"),
+    archiveReason: "test",
+    archivedByMessageId: "wamid.test",
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    createdRowIndex = 0;
+    (requireUser as jest.Mock).mockResolvedValue({ id: "user-1" });
+    (orgCheck as jest.Mock).mockImplementation((_userId: string, siteId: string) => {
+      if (siteId === "site-1") return Promise.resolve({ id: "site-1", name: "Source", organizationId: "org-1" });
+      if (siteId === "site-2") return Promise.resolve({ id: "site-2", name: "Target", organizationId: "org-1" });
+      if (siteId === "site-other-org") {
+        return Promise.resolve({ id: "site-other-org", name: "Other", organizationId: "org-2" });
+      }
+      return Promise.resolve(false);
+    });
+    siteFindManyMock.mockResolvedValue([]);
+    siteFindUniqueMock.mockResolvedValue({ organizationId: "org-1" });
+    productionFlowConfigOverrideFindManyMock.mockResolvedValue([]);
+    flowAssignmentFindUniqueMock.mockResolvedValue(null);
+    siteDiaryFindManyMock.mockResolvedValue([sourceRecord]);
+    createMock.mockImplementation(({ data }) => Promise.resolve(buildCreatedRow(data)));
+    transactionMock.mockImplementation((callback) =>
+      callback({
+        sitediaryrecords: {
+          create: createMock,
+          findMany: siteDiaryFindManyMock,
+        },
+      }),
+    );
+  });
+
+  it("lists only same-organization target projects and excludes the current project", async () => {
+    siteFindManyMock.mockResolvedValue([
+      { id: "site-2", name: "Target", description: "Target description", subdirectory: "target" },
+    ]);
+
+    const targets = await getSiteDiaryProjectCopyTargets("site-1");
+
+    expect(targets).toEqual([
+      { id: "site-2", name: "Target", description: "Target description", subdirectory: "target" },
+    ]);
+    expect(siteFindManyMock).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", id: { not: "site-1" } },
+      orderBy: [{ name: "asc" }, { createdAt: "desc" }],
+      select: { id: true, name: true, description: true, subdirectory: true },
+    });
+  });
+
+  it("returns no project copy targets when the organization has no other projects", async () => {
+    siteFindManyMock.mockResolvedValue([]);
+
+    await expect(getSiteDiaryProjectCopyTargets("site-1")).resolves.toEqual([]);
+  });
+
+  it("copies selected records to another same-organization project and clears external lineage", async () => {
+    const result = await copySiteDiaryRecordsToProject({
+      sourceSiteId: "site-1",
+      targetSiteId: "site-2",
+      recordIds: ["record-1"],
+    });
+
+    expect(result).toEqual({ count: 1, recordIds: ["record-1"], targetSiteId: "site-2" });
+    expect(siteDiaryFindManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ["record-1"] }, siteId: "site-1", archivedAt: null },
+      select: expect.any(Object),
+    });
+    expect(createMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: "user-1",
+        workerId: "worker-1",
+        siteId: "site-2",
+        organizationId: "org-1",
+        Date: sourceRecord.Date,
+        Date_Custom_1: sourceRecord.Date_Custom_1,
+        Date_Custom_2: sourceRecord.Date_Custom_2,
+        Location: "Stāvs 1",
+        Works: "Betonēšana",
+        Comments: "Pabeigts",
+        originalUserComment: "Jānis : Betonēšana",
+        originalAudioUrl: "https://ut.test.ufs.sh/f/audio.ogg",
+        Units: "m3",
+        Amounts: 12,
+        WorkersInvolved: 3,
+        TimeInvolved: 8,
+        Photos: ["https://ut.test.ufs.sh/f/photo.jpg"],
+        BISId: null,
+        bisStatus: null,
+        saveBatchId: null,
+        archivedAt: null,
+        archiveReason: null,
+        archivedByMessageId: null,
+      }),
+      select: { id: true },
+    });
+  });
+
+  it("rejects copying to a project in a different organization", async () => {
+    await expect(
+      copySiteDiaryRecordsToProject({
+        sourceSiteId: "site-1",
+        targetSiteId: "site-other-org",
+        recordIds: ["record-1"],
+      }),
+    ).rejects.toThrow("Target project must belong to the same organization");
+    expect(transactionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects selected records that do not belong to the source project", async () => {
+    siteDiaryFindManyMock.mockResolvedValueOnce([sourceRecord]);
+
+    await expect(
+      copySiteDiaryRecordsToProject({
+        sourceSiteId: "site-1",
+        targetSiteId: "site-2",
+        recordIds: ["record-1", "record-other-site"],
+      }),
+    ).rejects.toThrow("Some selected records were not found in the source project");
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects ZTC project copy attempts", async () => {
+    await expect(
+      copySiteDiaryRecordsToProject({
+        sourceSiteId: "site-1",
+        targetSiteId: "site-2",
+        recordIds: ["record-1"],
+        flowId: "ztc",
+      }),
+    ).rejects.toThrow("Copying ZTC site diary records to another project is not supported.");
+    expect(orgCheck).not.toHaveBeenCalled();
   });
 });
 
