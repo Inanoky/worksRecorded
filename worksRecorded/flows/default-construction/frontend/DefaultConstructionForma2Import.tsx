@@ -24,10 +24,7 @@ import {
 	clearDefaultConstructionForma2Import,
 	saveDefaultConstructionForma2Import,
 } from "@/flows/default-construction/backend/forma2-analytics-actions";
-import {
-	type ParsedForma2Sheet,
-	parseForma2Workbook,
-} from "@/flows/default-construction/lib/forma2-analytics";
+import type { ParsedForma2Sheet } from "@/flows/default-construction/lib/forma2-analytics";
 import { getForma2AnalyticsCopy } from "@/flows/default-construction/lib/forma2-analytics-copy";
 
 type DocumentMetadata = {
@@ -64,7 +61,21 @@ export function DefaultConstructionForma2Import({
 		if (!file) return;
 		setParsing(true);
 		try {
-			const sheets = await parseForma2Workbook(await file.arrayBuffer());
+			const formData = new FormData();
+			formData.set("file", file);
+			const response = await fetch(
+				`/api/sites/${encodeURIComponent(siteId)}/forma2/extract`,
+				{
+					method: "POST",
+					body: formData,
+				},
+			);
+			const payload = (await response.json()) as {
+				error?: string;
+				sheets?: ParsedForma2Sheet[];
+			};
+			if (!response.ok) throw new Error(payload.error || t.parseError);
+			const sheets = Array.isArray(payload.sheets) ? payload.sheets : [];
 			if (!sheets.length) throw new Error(t.parseError);
 			const preferred = [...sheets].sort(
 				(left, right) => right.positions.length - left.positions.length,
@@ -134,7 +145,7 @@ export function DefaultConstructionForma2Import({
 					<Input
 						ref={fileInputRef}
 						type="file"
-						accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+						accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 						className="hidden"
 						onChange={(event) => handleFile(event.target.files?.[0])}
 					/>
@@ -148,7 +159,7 @@ export function DefaultConstructionForma2Import({
 						) : (
 							<Upload className="mr-2 size-4" />
 						)}
-						{document ? t.replaceFile : t.chooseFile}
+						{parsing ? t.analyzing : document ? t.replaceFile : t.chooseFile}
 					</Button>
 					{document ? (
 						<Button

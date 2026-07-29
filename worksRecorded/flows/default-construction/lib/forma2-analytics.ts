@@ -150,7 +150,7 @@ function safeIdPart(value: string) {
 		.slice(0, 48);
 }
 
-function positionId(args: {
+export function createForma2PositionId(args: {
 	kind: Forma2PositionKind;
 	code: string;
 	name: string;
@@ -265,7 +265,7 @@ export function extractForma2PositionsFromRows(
 
 		if (code && primaryName && unit) {
 			const sourceRow = index + 1;
-			const id = positionId({
+			const id = createForma2PositionId({
 				kind: "work",
 				code,
 				name: primaryName,
@@ -312,7 +312,7 @@ export function extractForma2PositionsFromRows(
 		const componentTotal =
 			plannedWorkCost + plannedMaterialCost + plannedMechanismCost;
 		positions.push({
-			id: positionId({
+			id: createForma2PositionId({
 				kind,
 				code: currentParentCode,
 				name: nestedName,

@@ -5,9 +5,10 @@ const COPY = {
 			"Import Forma 2, assign factual work and material spending, and reconcile the result.",
 		importTitle: "Forma 2 document",
 		importDescription:
-			"Upload an XLSX file. The document is parsed locally and only the reviewed positions are saved.",
+			"Upload an XLS or XLSX file. AI extracts the positions, and nothing is saved until you confirm the reviewed result.",
 		chooseFile: "Choose Forma 2",
 		replaceFile: "Replace Forma 2",
+		analyzing: "Analyzing Forma 2",
 		detectedSheet: "Detected sheet",
 		positions: "positions",
 		import: "Import positions",
@@ -80,9 +81,10 @@ const COPY = {
 			"Importējiet Formu 2, piesaistiet faktiskās darbu un materiālu izmaksas un pārbaudiet rezultātu.",
 		importTitle: "Forma 2 dokuments",
 		importDescription:
-			"Augšupielādējiet XLSX failu. Dokuments tiek analizēts lokāli, un saglabātas tiek tikai pārskatītās pozīcijas.",
+			"Augšupielādējiet XLS vai XLSX failu. MI izvelk pozīcijas, un nekas netiek saglabāts, kamēr neapstiprināt pārskatīto rezultātu.",
 		chooseFile: "Izvēlēties Formu 2",
 		replaceFile: "Aizstāt Formu 2",
+		analyzing: "Analizē Formu 2",
 		detectedSheet: "Atrasta lapa",
 		positions: "pozīcijas",
 		import: "Importēt pozīcijas",
