@@ -157,8 +157,8 @@ export function DefaultConstructionForma2CostBreakdown({
 				{formatCurrency(amount, locale)}
 			</Button>
 			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent className="max-h-[85vh] overflow-hidden p-0 sm:max-w-5xl">
-					<DialogHeader className="border-b px-6 py-5 pr-12">
+				<DialogContent className="flex h-[90dvh] max-h-[900px] flex-col overflow-hidden p-0 sm:max-w-5xl">
+					<DialogHeader className="shrink-0 border-b px-6 py-5 pr-12">
 						<DialogTitle>{copy.title}</DialogTitle>
 						<DialogDescription>
 							{details
@@ -168,11 +168,11 @@ export function DefaultConstructionForma2CostBreakdown({
 					</DialogHeader>
 
 					{loading ? (
-						<div className="flex min-h-64 items-center justify-center">
+						<div className="flex min-h-0 flex-1 items-center justify-center">
 							<Loader2 className="size-6 animate-spin text-muted-foreground" />
 						</div>
 					) : details ? (
-						<div className="overflow-y-auto px-6 pb-6">
+						<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pb-6 [scrollbar-gutter:stable]">
 							<div className="grid gap-3 py-5 sm:grid-cols-3">
 								<div className="rounded-lg border p-3">
 									<div className="text-xs text-muted-foreground">
