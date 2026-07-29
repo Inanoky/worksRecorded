@@ -73,6 +73,7 @@ import {
   DefaultConstructionForma2AssignmentSelect,
   type Forma2MaterialPositionOption,
 } from "@/flows/default-construction/frontend/DefaultConstructionForma2AssignmentSelect"
+import { DefaultConstructionForma2MaterialRulesDialog } from "@/flows/default-construction/frontend/DefaultConstructionForma2MaterialRulesDialog"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
 const MAX_MEASUREMENT_UNIT_LENGTH = 20
@@ -120,7 +121,7 @@ type MaterialRow = {
   createdAt: Date
   bisApprovers: BisApprover[]
   forma2PositionId?: string | null
-  forma2AssignmentMethod?: "manual" | "automatic" | null
+  forma2AssignmentMethod?: "manual" | "automatic" | "rule" | null
   forma2AssignmentConfidence?: number | null
 }
 
@@ -1621,6 +1622,16 @@ export default function MaterialsTableClient({
             >
               {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
             </Button>
+          ) : null}
+
+          {forma2Enabled ? (
+            <DefaultConstructionForma2MaterialRulesDialog
+              siteId={siteId}
+              organizationLanguage={organizationLanguage}
+              onAssignmentsChanged={() => {
+                void loadWarehousePage()
+              }}
+            />
           ) : null}
 
           <Button

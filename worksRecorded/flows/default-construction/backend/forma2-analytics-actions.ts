@@ -11,10 +11,12 @@ import {
 	emptyDefaultConstructionForma2State,
 	type Forma2ActualSource,
 	type Forma2Allocation,
+	type Forma2MaterialRule,
 	type Forma2Position,
 	type Forma2PositionKind,
 	type Forma2SourceType,
 	normalizeDefaultConstructionForma2State,
+	normalizeForma2MaterialRuleName,
 	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import { getDefaultConstructionProductivitySettings } from "@/flows/default-construction/lib/site-diary-productivity-settings";
@@ -287,6 +289,64 @@ function documentMetadata(state: DefaultConstructionForma2State) {
 		importedAt: state.document.importedAt,
 		positionCount: state.document.positions.length,
 	};
+}
+
+function isCompatibleMaterialPosition(position: Forma2Position) {
+	return (
+		position.kind === "material" ||
+		(position.kind === "work" && !position.parentId)
+	);
+}
+
+function materialPositionOptions(positions: Forma2Position[]) {
+	return positions.filter(isCompatibleMaterialPosition).map((position) => ({
+		id: position.id,
+		code: position.code,
+		name: position.name,
+		categoryName: position.categoryName,
+		kind: position.kind,
+		parentId: position.parentId,
+		unit: position.unit,
+	}));
+}
+
+function createRuleAllocations(args: {
+	sources: Forma2ActualSource[];
+	rules: Forma2MaterialRule[];
+	existingAllocations: Forma2Allocation[];
+	includeSourceIds?: Set<string>;
+}) {
+	const allocatedSourceIds = new Set(
+		args.existingAllocations
+			.filter((allocation) => allocation.sourceType === "material")
+			.map((allocation) => allocation.sourceId),
+	);
+	const rulesByName = new Map(
+		args.rules.map((rule) => [rule.normalizedName, rule]),
+	);
+	const assignedAt = new Date().toISOString();
+	return args.sources.flatMap((source) => {
+		if (
+			source.type !== "material" ||
+			allocatedSourceIds.has(source.id) ||
+			(args.includeSourceIds && !args.includeSourceIds.has(source.id))
+		) {
+			return [];
+		}
+		const rule = rulesByName.get(normalizeForma2MaterialRuleName(source.label));
+		if (!rule) return [];
+		return [
+			{
+				sourceType: "material" as const,
+				sourceId: source.id,
+				positionId: rule.positionId,
+				method: "rule" as const,
+				confidence: 1,
+				assignedAt,
+				ruleId: rule.id,
+			},
+		];
+	});
 }
 
 export async function getDefaultConstructionForma2Dashboard(siteId: string) {
@@ -669,6 +729,9 @@ export async function saveDefaultConstructionForma2Import(args: {
 		allocations: existing.allocations.filter((allocation) =>
 			positionIds.has(allocation.positionId),
 		),
+		materialRules: existing.materialRules.filter((rule) =>
+			positionIds.has(rule.positionId),
+		),
 	};
 	await writeStoredState(args.siteId, state);
 	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
@@ -682,7 +745,7 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 		sourceType: Forma2SourceType;
 		sourceId: string;
 		positionId: string | null;
-		method?: "manual" | "automatic";
+		method?: "manual" | "automatic" | "rule";
 		confidence?: number | null;
 	}>;
 }) {
@@ -749,7 +812,10 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 			sourceType: allocation.sourceType,
 			sourceId: text(allocation.sourceId, 180),
 			positionId: position.id,
-			method: allocation.method === "automatic" ? "automatic" : "manual",
+			method:
+				allocation.method === "automatic" || allocation.method === "rule"
+					? allocation.method
+					: "manual",
 			confidence:
 				allocation.confidence == null
 					? null
@@ -781,11 +847,21 @@ export async function getDefaultConstructionForma2MaterialAssignments(args: {
 }) {
 	const access = await getDefaultConstructionSite(args.siteId);
 	if (!access.enabled) {
-		return { enabled: false, positionOptions: [], assignments: [] };
+		return {
+			enabled: false,
+			positionOptions: [],
+			assignments: [],
+			materialRules: [],
+		};
 	}
 	const state = await readStoredState(args.siteId);
 	if (!state.document) {
-		return { enabled: false, positionOptions: [], assignments: [] };
+		return {
+			enabled: false,
+			positionOptions: [],
+			assignments: [],
+			materialRules: [],
+		};
 	}
 	const sourceIds = new Set(
 		(args.sourceIds ?? []).map((sourceId) => text(sourceId, 180)),
@@ -793,21 +869,7 @@ export async function getDefaultConstructionForma2MaterialAssignments(args: {
 	const filterBySource = Array.isArray(args.sourceIds);
 	return {
 		enabled: true,
-		positionOptions: state.document.positions
-			.filter(
-				(position) =>
-					position.kind === "material" ||
-					(position.kind === "work" && !position.parentId),
-			)
-			.map((position) => ({
-				id: position.id,
-				code: position.code,
-				name: position.name,
-				categoryName: position.categoryName,
-				kind: position.kind,
-				parentId: position.parentId,
-				unit: position.unit,
-			})),
+		positionOptions: materialPositionOptions(state.document.positions),
 		assignments: state.allocations
 			.filter(
 				(allocation) =>
@@ -820,6 +882,12 @@ export async function getDefaultConstructionForma2MaterialAssignments(args: {
 				method: allocation.method,
 				confidence: allocation.confidence,
 			})),
+		materialRules: state.materialRules.map((rule) => ({
+			id: rule.id,
+			displayName: rule.displayName,
+			positionId: rule.positionId,
+			createdAt: rule.createdAt,
+		})),
 	};
 }
 
@@ -830,27 +898,293 @@ export async function runDefaultConstructionForma2AutoAssignment(
 	const positions = data.state.document?.positions;
 	if (!positions?.length)
 		throw new Error("Import Forma 2 before assigning records");
+	const validPositionIds = new Set(positions.map((position) => position.id));
+	const ruleAllocations = createRuleAllocations({
+		sources: data.sources,
+		rules: data.state.materialRules.filter((rule) =>
+			validPositionIds.has(rule.positionId),
+		),
+		existingAllocations: data.state.allocations,
+	});
 	const allocations = await automaticallyAssignForma2Sources({
 		sources: data.sources,
 		positions,
-		existingAllocations: data.state.allocations,
+		existingAllocations: [...data.state.allocations, ...ruleAllocations],
 	});
-	if (allocations.length) {
+	const newAllocations = [...ruleAllocations, ...allocations];
+	if (newAllocations.length) {
 		await writeStoredState(siteId, {
 			...data.state,
-			allocations: [...data.state.allocations, ...allocations],
+			allocations: [...data.state.allocations, ...newAllocations],
 		});
 	}
 	revalidatePath(`/dashboard/sites/${siteId}/analytics`);
 	revalidatePath(`/dashboard/sites/${siteId}/BIS`);
 	revalidatePath(`/dashboard/sites/${siteId}/siteDiary`);
 	return {
-		assignedRecords: allocations.length,
+		assignedRecords: newAllocations.length,
 		unassignedRecords: Math.max(
 			0,
-			data.sources.length - data.state.allocations.length - allocations.length,
+			data.sources.length -
+				data.state.allocations.length -
+				newAllocations.length,
 		),
 	};
+}
+
+export async function applyDefaultConstructionForma2MaterialRules(args: {
+	siteId: string;
+	sourceIds?: string[];
+}) {
+	const access = await getDefaultConstructionSite(args.siteId);
+	if (!access.enabled) return { assignedRecords: 0 };
+	const state = await readStoredState(args.siteId);
+	const positions = state.document?.positions ?? [];
+	if (!positions.length || !state.materialRules.length) {
+		return { assignedRecords: 0 };
+	}
+	const sourceIds = args.sourceIds?.map((sourceId) => text(sourceId, 180));
+	if (sourceIds && !sourceIds.length) return { assignedRecords: 0 };
+	const materialRows = await prisma.bISmaterialRecords.findMany({
+		where: {
+			siteId: args.siteId,
+			...(sourceIds ? { id: { in: sourceIds } } : {}),
+		},
+		select: { id: true, name: true, invoiceNr: true },
+	});
+	const sources: Forma2ActualSource[] = materialRows.map((row) => ({
+		id: row.id,
+		type: "material",
+		label: text(row.name) || `Rēķins ${text(row.invoiceNr)}`,
+		secondaryLabel: "",
+		date: null,
+		unit: "",
+		quantity: null,
+		hours: null,
+		actualCost: null,
+	}));
+	const validPositionIds = new Set(positions.map((position) => position.id));
+	const allocations = createRuleAllocations({
+		sources,
+		rules: state.materialRules.filter((rule) =>
+			validPositionIds.has(rule.positionId),
+		),
+		existingAllocations: state.allocations,
+	});
+	if (allocations.length) {
+		await writeStoredState(args.siteId, {
+			...state,
+			allocations: [...state.allocations, ...allocations],
+		});
+		revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
+		revalidatePath(`/dashboard/sites/${args.siteId}/BIS`);
+	}
+	return { assignedRecords: allocations.length };
+}
+
+export async function getDefaultConstructionForma2MaterialReviewData(
+	siteId: string,
+) {
+	const data = await loadDefaultConstructionForma2Data(siteId);
+	const positions = data.state.document?.positions ?? [];
+	if (!positions.length) {
+		return { enabled: false, groups: [], rules: [], positionOptions: [] };
+	}
+	const validPositionIds = new Set(positions.map((position) => position.id));
+	const ruleAllocations = createRuleAllocations({
+		sources: data.sources,
+		rules: data.state.materialRules.filter((rule) =>
+			validPositionIds.has(rule.positionId),
+		),
+		existingAllocations: data.state.allocations,
+	});
+	const allocations = [...data.state.allocations, ...ruleAllocations];
+	if (ruleAllocations.length) {
+		await writeStoredState(siteId, { ...data.state, allocations });
+	}
+	const allocatedMaterialIds = new Set(
+		allocations
+			.filter((allocation) => allocation.sourceType === "material")
+			.map((allocation) => allocation.sourceId),
+	);
+	const groupsByName = new Map<
+		string,
+		{
+			normalizedName: string;
+			displayName: string;
+			representativeSourceId: string;
+			count: number;
+			totalCost: number;
+			units: Set<string>;
+			context: string;
+		}
+	>();
+	for (const source of data.sources) {
+		if (source.type !== "material" || allocatedMaterialIds.has(source.id))
+			continue;
+		const normalizedName = normalizeForma2MaterialRuleName(source.label);
+		if (normalizedName.length < 3) continue;
+		const current = groupsByName.get(normalizedName) ?? {
+			normalizedName,
+			displayName: source.label,
+			representativeSourceId: source.id,
+			count: 0,
+			totalCost: 0,
+			units: new Set<string>(),
+			context: source.secondaryLabel,
+		};
+		current.count += 1;
+		current.totalCost += Number(source.actualCost ?? 0);
+		if (source.unit) current.units.add(source.unit);
+		groupsByName.set(normalizedName, current);
+	}
+	const positionsById = new Map(
+		positions.map((position) => [position.id, position]),
+	);
+	return {
+		enabled: true,
+		groups: Array.from(groupsByName.values())
+			.sort(
+				(left, right) =>
+					right.totalCost - left.totalCost ||
+					right.count - left.count ||
+					left.displayName.localeCompare(right.displayName, "lv"),
+			)
+			.slice(0, 200)
+			.map((group) => ({
+				...group,
+				totalCost: Number(group.totalCost.toFixed(2)),
+				units: Array.from(group.units).slice(0, 4),
+			})),
+		rules: data.state.materialRules.flatMap((rule) => {
+			const position = positionsById.get(rule.positionId);
+			if (!position) return [];
+			return [
+				{
+					id: rule.id,
+					displayName: rule.displayName,
+					positionId: rule.positionId,
+					positionLabel: `${position.code ? `${position.code} ` : ""}${position.name}`,
+					createdAt: rule.createdAt,
+					matchingRecords: data.sources.filter(
+						(source) =>
+							source.type === "material" &&
+							normalizeForma2MaterialRuleName(source.label) ===
+								rule.normalizedName,
+					).length,
+				},
+			];
+		}),
+		positionOptions: materialPositionOptions(positions),
+	};
+}
+
+export async function saveDefaultConstructionForma2MaterialRule(args: {
+	siteId: string;
+	sourceId: string;
+	positionId: string;
+}) {
+	const [data, user] = await Promise.all([
+		loadDefaultConstructionForma2Data(args.siteId),
+		requireUser(),
+	]);
+	const positions = data.state.document?.positions ?? [];
+	const position = positions.find((item) => item.id === args.positionId);
+	if (!position || !isCompatibleMaterialPosition(position)) {
+		throw new Error("Forma 2 material position was not found");
+	}
+	const source = data.sources.find(
+		(item) => item.type === "material" && item.id === args.sourceId,
+	);
+	if (!source) throw new Error("Warehouse material was not found");
+	const normalizedName = normalizeForma2MaterialRuleName(source.label);
+	if (normalizedName.length < 3) {
+		throw new Error("Material name is too short to create a safe rule");
+	}
+	const previousRule = data.state.materialRules.find(
+		(rule) => rule.normalizedName === normalizedName,
+	);
+	const rule: Forma2MaterialRule = {
+		id: previousRule?.id ?? crypto.randomUUID(),
+		normalizedName,
+		displayName: source.label,
+		positionId: position.id,
+		createdAt: previousRule?.createdAt ?? new Date().toISOString(),
+		createdBy: previousRule?.createdBy ?? user.id,
+	};
+	const matchingSources = data.sources.filter(
+		(item) =>
+			item.type === "material" &&
+			normalizeForma2MaterialRuleName(item.label) === normalizedName,
+	);
+	const allocationsBySource = new Map(
+		data.state.allocations
+			.filter((allocation) => allocation.sourceType === "material")
+			.map((allocation) => [allocation.sourceId, allocation]),
+	);
+	const replaceSourceIds = new Set(
+		matchingSources.flatMap((item) => {
+			const allocation = allocationsBySource.get(item.id);
+			return item.id === args.sourceId || allocation?.method !== "manual"
+				? [item.id]
+				: [];
+		}),
+	);
+	const assignedAt = new Date().toISOString();
+	const ruleAllocations: Forma2Allocation[] = matchingSources
+		.filter((item) => replaceSourceIds.has(item.id))
+		.map((item) => ({
+			sourceType: "material",
+			sourceId: item.id,
+			positionId: position.id,
+			method: "rule",
+			confidence: 1,
+			assignedAt,
+			ruleId: rule.id,
+		}));
+	const allocations = data.state.allocations.filter(
+		(allocation) =>
+			allocation.sourceType !== "material" ||
+			!replaceSourceIds.has(allocation.sourceId),
+	);
+	await writeStoredState(args.siteId, {
+		...data.state,
+		allocations: [...allocations, ...ruleAllocations],
+		materialRules: [
+			...data.state.materialRules.filter(
+				(existingRule) => existingRule.normalizedName !== normalizedName,
+			),
+			rule,
+		],
+	});
+	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
+	revalidatePath(`/dashboard/sites/${args.siteId}/BIS`);
+	return {
+		ruleId: rule.id,
+		assignedRecords: ruleAllocations.length,
+		skippedManualRecords: matchingSources.length - ruleAllocations.length,
+		totalCost: Number(
+			matchingSources
+				.filter((item) => replaceSourceIds.has(item.id))
+				.reduce((sum, item) => sum + Number(item.actualCost ?? 0), 0)
+				.toFixed(2),
+		),
+	};
+}
+
+export async function deleteDefaultConstructionForma2MaterialRule(args: {
+	siteId: string;
+	ruleId: string;
+}) {
+	await requireDefaultConstructionSite(args.siteId);
+	const state = await readStoredState(args.siteId);
+	const rules = state.materialRules.filter((rule) => rule.id !== args.ruleId);
+	if (rules.length === state.materialRules.length) {
+		throw new Error("Material rule was not found");
+	}
+	await writeStoredState(args.siteId, { ...state, materialRules: rules });
+	revalidatePath(`/dashboard/sites/${args.siteId}/BIS`);
+	return { deletedRuleId: args.ruleId };
 }
 
 export async function syncDefaultConstructionForma2WorkAssignments(args: {

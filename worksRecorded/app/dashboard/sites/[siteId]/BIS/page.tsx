@@ -19,7 +19,10 @@ import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibil
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { createPerfTrace } from "@/lib/observability/perf";
-import { getDefaultConstructionForma2MaterialAssignments } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import {
+  applyDefaultConstructionForma2MaterialRules,
+  getDefaultConstructionForma2MaterialAssignments,
+} from "@/flows/default-construction/backend/forma2-analytics-actions";
 
 type BisApprover = {
   memberId: string;
@@ -265,6 +268,10 @@ async function addForma2AssignmentsToMaterials(
   siteId: string,
   materials: Array<ReturnType<typeof withoutWarehouseBisState>>,
 ) {
+  await applyDefaultConstructionForma2MaterialRules({
+    siteId,
+    sourceIds: materials.map((material) => material.id),
+  });
   const forma2 = await getDefaultConstructionForma2MaterialAssignments({
     siteId,
     sourceIds: materials.map((material) => material.id),

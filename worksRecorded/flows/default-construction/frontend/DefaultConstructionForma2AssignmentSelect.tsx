@@ -10,7 +10,10 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { saveDefaultConstructionForma2Allocations } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import {
+	saveDefaultConstructionForma2Allocations,
+	saveDefaultConstructionForma2MaterialRule,
+} from "@/flows/default-construction/backend/forma2-analytics-actions";
 
 export type Forma2MaterialPositionOption = {
 	id: string;
@@ -28,6 +31,7 @@ export function DefaultConstructionForma2AssignmentSelect({
 	value,
 	options,
 	organizationLanguage,
+	assignmentMode = "single",
 	onAssigned,
 }: {
 	siteId: string;
@@ -35,6 +39,7 @@ export function DefaultConstructionForma2AssignmentSelect({
 	value: string | null;
 	options: Forma2MaterialPositionOption[];
 	organizationLanguage?: string | null;
+	assignmentMode?: "single" | "similar-rule";
 	onAssigned: (positionId: string | null) => void;
 }) {
 	const isLatvian = String(organizationLanguage ?? "")
@@ -57,22 +62,38 @@ export function DefaultConstructionForma2AssignmentSelect({
 	const assign = async (positionId: string | null) => {
 		setSaving(true);
 		try {
-			await saveDefaultConstructionForma2Allocations({
-				siteId,
-				allocations: [
-					{
-						sourceType: "material",
-						sourceId,
-						positionId,
-						method: "manual",
-					},
-				],
-			});
+			const ruleResult =
+				assignmentMode === "similar-rule" && positionId
+					? await saveDefaultConstructionForma2MaterialRule({
+							siteId,
+							sourceId,
+							positionId,
+						})
+					: null;
+			if (!ruleResult) {
+				await saveDefaultConstructionForma2Allocations({
+					siteId,
+					allocations: [
+						{
+							sourceType: "material",
+							sourceId,
+							positionId,
+							method: "manual",
+						},
+					],
+				});
+			}
 			onAssigned(positionId);
 			setOpen(false);
 			setSearch("");
 			toast.success(
-				isLatvian ? "Formas 2 pozīcija saglabāta." : "Forma 2 position saved.",
+				ruleResult
+					? isLatvian
+						? `Noteikums saglabāts; piesaistīti ${ruleResult.assignedRecords} ieraksti.`
+						: `Rule saved; ${ruleResult.assignedRecords} records assigned.`
+					: isLatvian
+						? "Formas 2 pozīcija saglabāta."
+						: "Forma 2 position saved.",
 			);
 		} catch (error) {
 			toast.error(

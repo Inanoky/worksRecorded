@@ -89,6 +89,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				material: "Materiāls",
 				manual: "Manuāla",
 				automatic: "Automātiska",
+				rule: "Noteikums",
 				invoiceTotal: "Rēķina pozīcijas summa",
 				missingRate: "Trūkst stundu vai stundas likmes",
 				unpriced: "Nav aprēķināms",
@@ -116,6 +117,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				material: "Material",
 				manual: "Manual",
 				automatic: "Automatic",
+				rule: "Rule",
 				invoiceTotal: "Invoice-line total",
 				missingRate: "Hours or hourly rate unavailable",
 				unpriced: "Not calculable",
@@ -264,7 +266,9 @@ export function DefaultConstructionForma2CostBreakdown({
 													<Badge variant="secondary">
 														{record.assignmentMethod === "manual"
 															? copy.manual
-															: copy.automatic}
+															: record.assignmentMethod === "rule"
+																? copy.rule
+																: copy.automatic}
 													</Badge>
 													{record.assignmentConfidence != null ? (
 														<div className="mt-1 text-muted-foreground">

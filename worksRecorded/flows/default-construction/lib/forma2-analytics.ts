@@ -35,15 +35,26 @@ export type Forma2Allocation = {
 	sourceType: Forma2SourceType;
 	sourceId: string;
 	positionId: string;
-	method: "manual" | "automatic";
+	method: "manual" | "automatic" | "rule";
 	confidence: number | null;
 	assignedAt: string;
+	ruleId?: string | null;
+};
+
+export type Forma2MaterialRule = {
+	id: string;
+	normalizedName: string;
+	displayName: string;
+	positionId: string;
+	createdAt: string;
+	createdBy: string | null;
 };
 
 export type DefaultConstructionForma2State = {
 	version: 1;
 	document: Forma2Document | null;
 	allocations: Forma2Allocation[];
+	materialRules: Forma2MaterialRule[];
 };
 
 export type Forma2ActualSource = {
@@ -103,6 +114,7 @@ const EMPTY_STATE: DefaultConstructionForma2State = {
 	version: 1,
 	document: null,
 	allocations: [],
+	materialRules: [],
 };
 
 const round = (value: number) => Number(value.toFixed(2));
@@ -115,6 +127,16 @@ function text(value: unknown) {
 
 function key(value: unknown) {
 	return text(value).toLocaleLowerCase("lv");
+}
+
+export function normalizeForma2MaterialRuleName(value: unknown) {
+	return key(value)
+		.normalize("NFKC")
+		.replace(/(\d)(\p{L})/gu, "$1 $2")
+		.replace(/(\p{L})(\d)/gu, "$1 $2")
+		.replace(/[^\p{L}\p{N}]+/gu, " ")
+		.replace(/\s+/g, " ")
+		.trim();
 }
 
 function numberOrNull(value: unknown) {
@@ -461,6 +483,11 @@ export function normalizeDefaultConstructionForma2State(
 				(allocation: unknown) => allocation && typeof allocation === "object",
 			)
 		: [];
+	const materialRules = Array.isArray(raw.materialRules)
+		? raw.materialRules.filter(
+				(rule: unknown) => rule && typeof rule === "object",
+			)
+		: [];
 
 	if (!document) return emptyDefaultConstructionForma2State();
 	return {
@@ -473,6 +500,7 @@ export function normalizeDefaultConstructionForma2State(
 			positions: positions as Forma2Position[],
 		},
 		allocations: allocations as Forma2Allocation[],
+		materialRules: materialRules as Forma2MaterialRule[],
 	};
 }
 

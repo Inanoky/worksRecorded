@@ -2,6 +2,7 @@ import {
 	buildForma2AnalyticsView,
 	extractForma2PositionsFromRows,
 	type Forma2ActualSource,
+	normalizeForma2MaterialRuleName,
 	suggestForma2Position,
 } from "./forma2-analytics";
 
@@ -63,6 +64,12 @@ const rows = [
 ];
 
 describe("Forma 2 analytics", () => {
+	it("normalizes equivalent material descriptions into a reusable rule key", () => {
+		expect(normalizeForma2MaterialRuleName("Sakret BH 25kg — C35")).toBe(
+			normalizeForma2MaterialRuleName("  SAKRET-BH 25 kg / C 35 "),
+		);
+	});
+
 	it("extracts work and nested cost positions from industry-style rows", () => {
 		const result = extractForma2PositionsFromRows(rows, "1-1");
 
