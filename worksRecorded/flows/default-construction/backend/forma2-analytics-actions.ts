@@ -1079,6 +1079,78 @@ export async function getDefaultConstructionForma2MaterialReviewData(
 	};
 }
 
+export async function getDefaultConstructionForma2MaterialGroupDetails(args: {
+	siteId: string;
+	normalizedName: string;
+}) {
+	await requireDefaultConstructionSite(args.siteId);
+	const normalizedName = normalizeForma2MaterialRuleName(args.normalizedName);
+	if (normalizedName.length < 3) {
+		throw new Error("Material group was not found");
+	}
+	const [state, materialRows] = await Promise.all([
+		readStoredState(args.siteId),
+		prisma.bISmaterialRecords.findMany({
+			where: { siteId: args.siteId },
+			orderBy: [
+				{ materialDate: "desc" },
+				{ invoiceDate: "desc" },
+				{ createdAt: "desc" },
+			],
+			select: {
+				id: true,
+				name: true,
+				quantity: true,
+				measurementUnit: true,
+				cost: true,
+				invoiceNr: true,
+				invoiceDate: true,
+				materialDate: true,
+				supplierName: true,
+				categoryName: true,
+				costCode: true,
+			},
+		}),
+	]);
+	const allocatedMaterialIds = new Set(
+		state.allocations
+			.filter((allocation) => allocation.sourceType === "material")
+			.map((allocation) => allocation.sourceId),
+	);
+	const records = materialRows.flatMap((row) => {
+		const label = text(row.name) || `Rēķins ${text(row.invoiceNr)}`;
+		if (
+			allocatedMaterialIds.has(row.id) ||
+			normalizeForma2MaterialRuleName(label) !== normalizedName
+		) {
+			return [];
+		}
+		return [
+			{
+				id: row.id,
+				label,
+				date: isoDate(row.materialDate ?? row.invoiceDate),
+				quantity: nullableNumber(row.quantity),
+				unit: text(row.measurementUnit, 40),
+				cost: nullableNumber(row.cost),
+				supplierName: text(row.supplierName),
+				invoiceNr: text(row.invoiceNr),
+				categoryName: text(row.categoryName),
+				costCode: text(row.costCode),
+			},
+		];
+	});
+	return {
+		normalizedName,
+		records,
+		totalCost: Number(
+			records
+				.reduce((sum, record) => sum + Number(record.cost ?? 0), 0)
+				.toFixed(2),
+		),
+	};
+}
+
 export async function saveDefaultConstructionForma2MaterialRule(args: {
 	siteId: string;
 	sourceId: string;

@@ -1,6 +1,12 @@
 "use client";
 
-import { Loader2, Sparkles, Trash2 } from "lucide-react";
+import {
+	ChevronDown,
+	ChevronRight,
+	Loader2,
+	Sparkles,
+	Trash2,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -13,15 +19,27 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	deleteDefaultConstructionForma2MaterialRule,
+	getDefaultConstructionForma2MaterialGroupDetails,
 	getDefaultConstructionForma2MaterialReviewData,
 } from "@/flows/default-construction/backend/forma2-analytics-actions";
 import { DefaultConstructionForma2AssignmentSelect } from "@/flows/default-construction/frontend/DefaultConstructionForma2AssignmentSelect";
 
 type ReviewData = Awaited<
 	ReturnType<typeof getDefaultConstructionForma2MaterialReviewData>
+>;
+type GroupDetails = Awaited<
+	ReturnType<typeof getDefaultConstructionForma2MaterialGroupDetails>
 >;
 
 function formatCurrency(value: number, locale: string) {
@@ -31,6 +49,20 @@ function formatCurrency(value: number, locale: string) {
 		minimumFractionDigits: 2,
 		maximumFractionDigits: 2,
 	}).format(value);
+}
+
+function formatNumber(value: number, locale: string) {
+	return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(
+		value,
+	);
+}
+
+function formatDate(value: string | null, locale: string) {
+	if (!value) return "—";
+	const date = new Date(value);
+	return Number.isNaN(date.getTime())
+		? "—"
+		: new Intl.DateTimeFormat(locale).format(date);
 }
 
 export function DefaultConstructionForma2MaterialRulesDialog({
@@ -65,6 +97,13 @@ export function DefaultConstructionForma2MaterialRulesDialog({
 				deleteSuccess: "Noteikums izdzēsts.",
 				loadError: "Neizdevās ielādēt materiālu grupas.",
 				matching: "atbilstoši ieraksti",
+				clickToExpand: "Noklikšķiniet, lai skatītu grupas ierakstus",
+				date: "Datums",
+				item: "Materiāls",
+				supplierInvoice: "Piegādātājs / rēķins",
+				quantity: "Daudzums",
+				cost: "Izmaksas",
+				detailsError: "Neizdevās ielādēt grupas ierakstus.",
 			}
 		: {
 				button: "Review unassigned",
@@ -84,12 +123,26 @@ export function DefaultConstructionForma2MaterialRulesDialog({
 				deleteSuccess: "Rule deleted.",
 				loadError: "Could not load material groups.",
 				matching: "matching records",
+				clickToExpand: "Click to view the records in this group",
+				date: "Date",
+				item: "Material",
+				supplierInvoice: "Supplier / invoice",
+				quantity: "Quantity",
+				cost: "Cost",
+				detailsError: "Could not load the group records.",
 			};
 	const [open, setOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [data, setData] = useState<ReviewData | null>(null);
 	const [search, setSearch] = useState("");
 	const [deletingRuleId, setDeletingRuleId] = useState<string | null>(null);
+	const [expandedGroupName, setExpandedGroupName] = useState<string | null>(
+		null,
+	);
+	const [groupDetails, setGroupDetails] = useState<
+		Record<string, GroupDetails>
+	>({});
+	const [loadingGroupName, setLoadingGroupName] = useState<string | null>(null);
 
 	const loadData = async () => {
 		setLoading(true);
@@ -102,9 +155,42 @@ export function DefaultConstructionForma2MaterialRulesDialog({
 		}
 	};
 
+	const toggleGroup = async (normalizedName: string) => {
+		if (expandedGroupName === normalizedName) {
+			setExpandedGroupName(null);
+			return;
+		}
+		setExpandedGroupName(normalizedName);
+		if (groupDetails[normalizedName]) return;
+		setLoadingGroupName(normalizedName);
+		try {
+			const details = await getDefaultConstructionForma2MaterialGroupDetails({
+				siteId,
+				normalizedName,
+			});
+			setGroupDetails((current) => ({
+				...current,
+				[normalizedName]: details,
+			}));
+		} catch (error) {
+			toast.error(error instanceof Error ? error.message : copy.detailsError);
+			setExpandedGroupName(null);
+		} finally {
+			setLoadingGroupName((current) =>
+				current === normalizedName ? null : current,
+			);
+		}
+	};
+
 	const handleOpenChange = (nextOpen: boolean) => {
 		setOpen(nextOpen);
-		if (nextOpen && !loading) void loadData();
+		if (nextOpen && !loading) {
+			void loadData();
+		} else if (!nextOpen) {
+			setExpandedGroupName(null);
+			setGroupDetails({});
+			setLoadingGroupName(null);
+		}
 	};
 
 	const filteredGroups = useMemo(() => {
@@ -177,45 +263,144 @@ export function DefaultConstructionForma2MaterialRulesDialog({
 									className="mb-4 max-w-md"
 								/>
 								<div className="space-y-3">
-									{filteredGroups.map((group) => (
-										<div
-											key={group.normalizedName}
-											className="grid gap-4 rounded-xl border p-4 md:grid-cols-[minmax(0,1fr)_320px] md:items-center"
-										>
-											<div className="min-w-0">
-												<div className="font-medium">{group.displayName}</div>
-												<div className="mt-1 text-sm text-muted-foreground">
-													{group.count} {copy.records} ·{" "}
-													{formatCurrency(group.totalCost, locale)}
-													{group.units.length
-														? ` · ${group.units.join(", ")}`
-														: ""}
+									{filteredGroups.map((group) => {
+										const isExpanded =
+											expandedGroupName === group.normalizedName;
+										const details = groupDetails[group.normalizedName];
+										const isLoadingDetails =
+											loadingGroupName === group.normalizedName;
+										return (
+											<div
+												key={group.normalizedName}
+												className="grid gap-4 rounded-xl border p-4 md:grid-cols-[minmax(0,1fr)_320px] md:items-center"
+											>
+												<button
+													type="button"
+													className="flex min-w-0 gap-3 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+													onClick={() => void toggleGroup(group.normalizedName)}
+													aria-expanded={isExpanded}
+													title={copy.clickToExpand}
+												>
+													{isExpanded ? (
+														<ChevronDown className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+													) : (
+														<ChevronRight className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+													)}
+													<span className="min-w-0">
+														<span className="block font-medium">
+															{group.displayName}
+														</span>
+														<span className="mt-1 block text-sm text-muted-foreground">
+															{group.count} {copy.records} ·{" "}
+															{formatCurrency(group.totalCost, locale)}
+															{group.units.length
+																? ` · ${group.units.join(", ")}`
+																: ""}
+														</span>
+														{group.context ? (
+															<span className="mt-1 line-clamp-2 block text-xs text-muted-foreground">
+																{group.context}
+															</span>
+														) : null}
+													</span>
+												</button>
+												<div>
+													<DefaultConstructionForma2AssignmentSelect
+														siteId={siteId}
+														sourceId={group.representativeSourceId}
+														value={null}
+														options={data.positionOptions}
+														organizationLanguage={organizationLanguage}
+														assignmentMode="similar-rule"
+														onAssigned={() => {
+															setExpandedGroupName(null);
+															setGroupDetails({});
+															void loadData();
+															onAssignmentsChanged();
+														}}
+													/>
+													<p className="mt-1 text-xs text-muted-foreground">
+														{copy.applyHint}
+													</p>
 												</div>
-												{group.context ? (
-													<div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-														{group.context}
+												{isExpanded ? (
+													<div className="min-w-0 border-t pt-4 md:col-span-2">
+														{isLoadingDetails ? (
+															<div className="flex h-28 items-center justify-center">
+																<Loader2 className="size-5 animate-spin text-muted-foreground" />
+															</div>
+														) : details ? (
+															<div className="max-h-72 overflow-auto rounded-lg border">
+																<Table className="min-w-[860px] text-xs">
+																	<TableHeader className="sticky top-0 z-10 bg-background">
+																		<TableRow>
+																			<TableHead>{copy.date}</TableHead>
+																			<TableHead>{copy.item}</TableHead>
+																			<TableHead>
+																				{copy.supplierInvoice}
+																			</TableHead>
+																			<TableHead>{copy.quantity}</TableHead>
+																			<TableHead className="text-right">
+																				{copy.cost}
+																			</TableHead>
+																		</TableRow>
+																	</TableHeader>
+																	<TableBody>
+																		{details.records.map((record) => (
+																			<TableRow key={record.id}>
+																				<TableCell className="whitespace-nowrap align-top">
+																					{formatDate(record.date, locale)}
+																				</TableCell>
+																				<TableCell className="max-w-64 whitespace-normal align-top">
+																					<div className="font-medium">
+																						{record.label}
+																					</div>
+																					{record.categoryName ||
+																					record.costCode ? (
+																						<div className="mt-1 text-muted-foreground">
+																							{[
+																								record.categoryName,
+																								record.costCode,
+																							]
+																								.filter(Boolean)
+																								.join(" · ")}
+																						</div>
+																					) : null}
+																				</TableCell>
+																				<TableCell className="max-w-52 whitespace-normal align-top">
+																					<div>
+																						{record.supplierName || "—"}
+																					</div>
+																					{record.invoiceNr ? (
+																						<div className="mt-1 text-muted-foreground">
+																							{record.invoiceNr}
+																						</div>
+																					) : null}
+																				</TableCell>
+																				<TableCell className="whitespace-nowrap align-top tabular-nums">
+																					{record.quantity == null
+																						? "—"
+																						: `${formatNumber(record.quantity, locale)} ${record.unit}`}
+																				</TableCell>
+																				<TableCell className="whitespace-nowrap text-right align-top font-medium tabular-nums">
+																					{record.cost == null
+																						? "—"
+																						: formatCurrency(
+																								record.cost,
+																								locale,
+																							)}
+																				</TableCell>
+																			</TableRow>
+																		))}
+																	</TableBody>
+																</Table>
+															</div>
+														) : null}
 													</div>
 												) : null}
 											</div>
-											<div>
-												<DefaultConstructionForma2AssignmentSelect
-													siteId={siteId}
-													sourceId={group.representativeSourceId}
-													value={null}
-													options={data.positionOptions}
-													organizationLanguage={organizationLanguage}
-													assignmentMode="similar-rule"
-													onAssigned={() => {
-														void loadData();
-														onAssignmentsChanged();
-													}}
-												/>
-												<p className="mt-1 text-xs text-muted-foreground">
-													{copy.applyHint}
-												</p>
-											</div>
-										</div>
-									))}
+										);
+									})}
 									{filteredGroups.length === 0 ? (
 										<div className="py-16 text-center text-sm text-muted-foreground">
 											{copy.noGroups}
