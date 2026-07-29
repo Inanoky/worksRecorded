@@ -49,7 +49,7 @@ const COPY = {
 		mechanism: "Mechanism",
 		noRecords: "No matching records.",
 		resultsDescription:
-			"Contract costs come from Forma 2. Factual costs come only from assigned WorksRecorded records.",
+			"Contract costs come from Forma 2. Factual costs come only from assigned WorksRecorded records. Click a factual amount to see its calculation and included records.",
 		codeAndName: "Position",
 		unit: "Unit",
 		contractQuantity: "Contract quantity",
@@ -131,7 +131,7 @@ const COPY = {
 		mechanism: "Mehānisms",
 		noRecords: "Atbilstoši ieraksti nav atrasti.",
 		resultsDescription:
-			"Līguma izmaksas ir no Formas 2. Faktiskās izmaksas veido tikai piesaistītie WorksRecorded ieraksti.",
+			"Līguma izmaksas ir no Formas 2. Faktiskās izmaksas veido tikai piesaistītie WorksRecorded ieraksti. Noklikšķiniet uz faktiskās summas, lai redzētu aprēķinu un iekļautos ierakstus.",
 		codeAndName: "Pozīcija",
 		unit: "Mērv.",
 		contractQuantity: "Līguma daudzums",

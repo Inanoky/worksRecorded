@@ -242,6 +242,7 @@ async function loadDefaultConstructionForma2Data(siteId: string) {
 				unit: text(row.Units, 40),
 				quantity: nullableNumber(row.Amounts),
 				hours,
+				hourlyRate,
 				actualCost:
 					hours != null && hourlyRate != null ? hours * hourlyRate : null,
 			};
@@ -332,6 +333,81 @@ export async function getDefaultConstructionForma2Results(siteId: string) {
 		document: documentMetadata(data.state),
 		summary: view.summary,
 		resultRows: view.resultRows,
+	};
+}
+
+export async function getDefaultConstructionForma2PositionCostDetails(args: {
+	siteId: string;
+	positionId: string;
+	costType: "work" | "material" | "total";
+}) {
+	const data = await loadDefaultConstructionForma2Data(args.siteId);
+	const positions = data.state.document?.positions ?? [];
+	const position = positions.find((item) => item.id === args.positionId);
+	if (!position) throw new Error("Forma 2 position was not found");
+	const includedPositionIds = new Set([
+		position.id,
+		...positions
+			.filter((item) => item.parentId === position.id)
+			.map((item) => item.id),
+	]);
+	const positionsById = new Map(positions.map((item) => [item.id, item]));
+	const allocationsBySource = new Map(
+		data.state.allocations.map((allocation) => [
+			`${allocation.sourceType}:${allocation.sourceId}`,
+			allocation,
+		]),
+	);
+	const records = data.sources
+		.flatMap((source) => {
+			if (args.costType !== "total" && source.type !== args.costType) return [];
+			const allocation = allocationsBySource.get(`${source.type}:${source.id}`);
+			if (!allocation || !includedPositionIds.has(allocation.positionId))
+				return [];
+			const assignedPosition = positionsById.get(allocation.positionId);
+			if (!assignedPosition) return [];
+			return [
+				{
+					id: source.id,
+					type: source.type,
+					label: source.label,
+					secondaryLabel: source.secondaryLabel,
+					date: source.date,
+					unit: source.unit,
+					quantity: source.quantity,
+					hours: source.hours,
+					hourlyRate: source.hourlyRate ?? null,
+					actualCost: source.actualCost,
+					assignmentMethod: allocation.method,
+					assignmentConfidence: allocation.confidence,
+					assignedPosition: {
+						id: assignedPosition.id,
+						code: assignedPosition.code,
+						name: assignedPosition.name,
+					},
+				},
+			];
+		})
+		.sort((left, right) =>
+			String(right.date ?? "").localeCompare(String(left.date ?? "")),
+		);
+	const calculatedTotal = records.reduce(
+		(sum, record) => sum + Number(record.actualCost ?? 0),
+		0,
+	);
+	return {
+		position: {
+			id: position.id,
+			code: position.code,
+			name: position.name,
+		},
+		costType: args.costType,
+		calculatedTotal: Number(calculatedTotal.toFixed(2)),
+		assignedRecords: records.length,
+		pricedRecords: records.filter((record) => record.actualCost != null).length,
+		unpricedRecords: records.filter((record) => record.actualCost == null)
+			.length,
+		records,
 	};
 }
 
@@ -511,6 +587,7 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 				unit: text(row.Units, 40),
 				quantity: nullableNumber(row.Amounts),
 				hours,
+				hourlyRate,
 				actualCost:
 					hours != null && hourlyRate != null ? hours * hourlyRate : null,
 			};
