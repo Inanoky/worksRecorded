@@ -74,7 +74,7 @@ describe("default-construction site diary summaries", () => {
         comparableGroups: 1,
         totalGroups: 2,
         plannedHours: 11.25,
-        actualHours: 15,
+        actualHours: 16,
         hoursDifference: 3.75,
         status: "behind",
       },
@@ -206,13 +206,17 @@ describe("default-construction site diary summaries", () => {
     expect(result.comparison).toEqual({
       comparableGroups: 1,
       totalGroups: 2,
+      plannedGroups: 1,
+      actualGroups: 2,
       plannedHours: 10,
-      actualHours: 14,
+      actualHours: 15,
       hoursDifference: 4,
       status: "behind",
       costComparableGroups: 1,
+      plannedCostGroups: 1,
+      actualCostGroups: 2,
       plannedCost: 200,
-      actualCost: 280,
+      actualCost: 300,
       costDifference: 80,
       costStatus: "behind",
     });
@@ -257,32 +261,29 @@ describe("default-construction site diary summaries", () => {
       comparedHours: 5,
       comparedRecords: 1,
       excludedRecords: 1,
-      plannedHours: 10,
+      plannedHours: 12,
       actualNorm: 0.5,
       hoursDifference: -5,
       plannedUnitCost: 20,
       actualUnitCost: 8.33,
-      plannedCost: 200,
+      plannedCost: 240,
       actualCost: 100,
       comparisonStatus: "on_or_ahead",
       isComparable: true,
     });
     expect(result.comparison).toMatchObject({
-      plannedHours: 10,
+      plannedHours: 12,
       actualHours: 5,
       hoursDifference: -5,
       status: "on_or_ahead",
     });
   });
 
-  it.each([
-    { Amounts: null, TimeInvolved: 5 },
-    { Amounts: 10, TimeInvolved: null },
-  ])("keeps incomplete groups neutral: %o", (incomplete) => {
+  it("does not calculate a plan without an amount", () => {
     const result = buildDefaultConstructionScopeSummary({
       scope: "work",
       value: "Masonry",
-      rows: [{ ...rows[0], ...incomplete }],
+      rows: [{ ...rows[0], Amounts: null, TimeInvolved: 5 }],
       productivitySettings: [
         { work: "Masonry", unit: "m2", laborNormHoursPerUnit: 0.5 },
       ],
@@ -292,6 +293,48 @@ describe("default-construction site diary summaries", () => {
       isComparable: false,
       comparisonStatus: "neutral",
       plannedHours: null,
+    });
+  });
+
+  it("calculates planned values when actual hours are blank", () => {
+    const result = buildDefaultConstructionScopeSummary({
+      scope: "project",
+      value: "project",
+      rows: [
+        {
+          Works: "5.3 Logu bloki un ailu apdare",
+          Units: "m",
+          Amounts: 68,
+          TimeInvolved: null,
+        },
+      ],
+      productivitySettings: [
+        {
+          work: "5.3 Logu bloki un ailu apdare",
+          unit: "m",
+          laborNormHoursPerUnit: 0.48,
+          hourlyCost: 15,
+        },
+      ],
+    });
+
+    expect(result.breakdown[0]).toMatchObject({
+      amount: 68,
+      plannedHours: 32.64,
+      plannedUnitCost: 7.2,
+      plannedCost: 489.6,
+      actualCost: null,
+      comparisonStatus: "neutral",
+      isComparable: false,
+    });
+    expect(result.comparison).toMatchObject({
+      plannedGroups: 1,
+      actualGroups: 0,
+      plannedHours: 32.64,
+      plannedCostGroups: 1,
+      actualCostGroups: 0,
+      plannedCost: 489.6,
+      comparableGroups: 0,
     });
   });
 });

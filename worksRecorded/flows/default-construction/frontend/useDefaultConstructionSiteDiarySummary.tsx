@@ -130,13 +130,13 @@ function SummaryPanel({
     ? [
         {
           label: t.plannedHours,
-          value: summary.comparison.comparableGroups
+          value: summary.comparison.plannedGroups
             ? `${formatNumber(summary.comparison.plannedHours, locale)} h`
             : "—",
         },
         {
           label: t.comparedActualHours,
-          value: summary.comparison.comparableGroups
+          value: summary.comparison.actualGroups
             ? `${formatNumber(summary.comparison.actualHours, locale)} h`
             : "—",
           status: summary.comparison.status,
@@ -145,13 +145,13 @@ function SummaryPanel({
           ? [
               {
                 label: t.plannedCost,
-                value: summary.comparison.costComparableGroups
+                value: summary.comparison.plannedCostGroups
                   ? formatCurrency(summary.comparison.plannedCost, locale)
                   : "—",
               },
               {
                 label: t.actualCost,
-                value: summary.comparison.costComparableGroups
+                value: summary.comparison.actualCostGroups
                   ? formatCurrency(summary.comparison.actualCost, locale)
                   : "—",
                 status: summary.comparison.costStatus,
