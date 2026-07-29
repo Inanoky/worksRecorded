@@ -9,7 +9,8 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/utils";
 import { Menu } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { getProductionFlowNavigationConfigForSite } from "@/lib/production-flow/runtime-server";
+import { getProjectNavigationRuntimeForSite } from "@/lib/production-flow/runtime-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 
 type FlowNavigationConfig = {
   labels: {
@@ -35,14 +36,15 @@ export function MobileMenu({
   const { projectId, projectName } = useProject();
   const [productionNavigationConfig, setProductionNavigationConfig] =
     useState<FlowNavigationConfig | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const pathname = usePathname();
   const navLinks = useMemo(
     () => getNavLinks(organizationLanguage, { canAccessAiEvals, canAccessFlowConfigAdmin }),
     [canAccessAiEvals, canAccessFlowConfigAdmin, organizationLanguage],
   );
   const projectNavLinks = useMemo(
-    () => getProjectNavLinks(organizationLanguage, { canAccessAiContext }),
-    [canAccessAiContext, organizationLanguage],
+    () => getProjectNavLinks(organizationLanguage, { canAccessAiContext, showAnalytics }),
+    [canAccessAiContext, organizationLanguage, showAnalytics],
   );
   const isProjectRoute = /^\/dashboard\/sites\/[^\/]+/.test(pathname);
 
@@ -50,15 +52,22 @@ export function MobileMenu({
     let cancelled = false;
     if (!projectId || !isProjectRoute) {
       setProductionNavigationConfig(null);
+      setShowAnalytics(false);
       return;
     }
 
-    getProductionFlowNavigationConfigForSite(projectId)
-      .then((config) => {
-        if (!cancelled) setProductionNavigationConfig(config);
+    getProjectNavigationRuntimeForSite(projectId)
+      .then((runtime) => {
+        if (!cancelled) {
+          setProductionNavigationConfig(runtime?.productionConfig ?? null);
+          setShowAnalytics(runtime?.flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION);
+        }
       })
       .catch(() => {
-        if (!cancelled) setProductionNavigationConfig(null);
+        if (!cancelled) {
+          setProductionNavigationConfig(null);
+          setShowAnalytics(false);
+        }
       });
 
     return () => {

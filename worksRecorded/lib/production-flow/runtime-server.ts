@@ -1,6 +1,7 @@
 "use server";
 
 import { resolveProductionFlowConfigForRuntime } from "@/lib/production-flow/config-server";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { prisma } from "@/lib/utils/db";
 
 export type ProductionFlowRuntimeContext = {
@@ -108,4 +109,26 @@ export async function getProductionFlowNavigationConfigForSite(siteId?: string |
     organizationId: site?.organizationId ?? null,
     siteId,
   });
+}
+
+export async function getProjectNavigationRuntimeForSite(siteId?: string | null) {
+  if (!siteId) return null;
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { organizationId: true },
+  });
+  if (!site) return null;
+
+  const [productionConfig, flowModuleKey] = await Promise.all([
+    resolveProductionFlowConfigForRuntime({
+      organizationId: site.organizationId ?? null,
+      siteId,
+    }),
+    resolveFlowModuleKeyForRuntime({
+      organizationId: site.organizationId ?? null,
+      siteId,
+    }),
+  ]);
+
+  return { productionConfig, flowModuleKey };
 }

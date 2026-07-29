@@ -364,6 +364,7 @@ type NavigationMessages = {
   projects: string;
   organizationSettings: string;
   siteDiary: string;
+  analytics: string;
   timesheets: string;
   warehouse: string;
   settings: string;
@@ -1317,6 +1318,7 @@ const NAVIGATION_MESSAGES: Record<OrganizationLanguage, NavigationMessages> = {
     projects: "Projects",
     organizationSettings: "Organization settings",
     siteDiary: "Site Diary",
+    analytics: "Analytics",
     timesheets: "Timesheets",
     warehouse: "Warehouse",
     settings: "Settings",
@@ -1325,6 +1327,7 @@ const NAVIGATION_MESSAGES: Record<OrganizationLanguage, NavigationMessages> = {
     projects: "Projekti",
     organizationSettings: "Organizācijas iestatījumi",
     siteDiary: "Būvdarbu žurnāls",
+    analytics: "Analītika",
     timesheets: "Darba laika uzskaites lapas",
     warehouse: "Noliktava",
     settings: "Iestatījumi",
