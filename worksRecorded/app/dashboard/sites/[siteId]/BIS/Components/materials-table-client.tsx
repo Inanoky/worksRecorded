@@ -69,6 +69,10 @@ import { toast } from "sonner"
 import { getToastMessages, getWarehouseUiMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n"
 import { UploadButton } from "@/lib/utils/UploadthingsComponents"
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url"
+import {
+  DefaultConstructionForma2AssignmentSelect,
+  type Forma2MaterialPositionOption,
+} from "@/flows/default-construction/frontend/DefaultConstructionForma2AssignmentSelect"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
 const MAX_MEASUREMENT_UNIT_LENGTH = 20
@@ -115,6 +119,9 @@ type MaterialRow = {
   bisStatus: string | null
   createdAt: Date
   bisApprovers: BisApprover[]
+  forma2PositionId?: string | null
+  forma2AssignmentMethod?: "manual" | "automatic" | null
+  forma2AssignmentConfidence?: number | null
 }
 
 type WarehouseMaterialQueryInput = {
@@ -156,6 +163,8 @@ type Props = {
   bisEnabled: boolean
   bisBaseUrl: string
   materials: MaterialRow[]
+  forma2Enabled: boolean
+  forma2PositionOptions: Forma2MaterialPositionOption[]
   materialConfigurations: MaterialCategory[]
   materialMeasures: Array<{ id: string; name: string }>
   materialTypes: Array<{ id: string; name: string }>
@@ -400,6 +409,8 @@ export default function MaterialsTableClient({
   bisEnabled,
   bisBaseUrl,
   materials,
+  forma2Enabled,
+  forma2PositionOptions,
   materialConfigurations,
   materialMeasures,
   materialTypes,
@@ -1653,7 +1664,7 @@ export default function MaterialsTableClient({
 
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
         <div className="w-full overflow-x-auto">
-          <Table className={`${showSpendInsights ? "min-w-[1360px]" : "min-w-[1240px]"} text-sm`}>
+          <Table className={`${forma2Enabled ? "min-w-[1600px]" : showSpendInsights ? "min-w-[1360px]" : "min-w-[1240px]"} text-sm`}>
             <TableHeader>
               <TableRow className="bg-muted/40 [&_th]:px-3 [&_th]:py-3">
                 <TableHead className="w-12">
@@ -1668,6 +1679,11 @@ export default function MaterialsTableClient({
                 {showSpendInsights ? <TableHead className="w-[12%]">{t.supplier}</TableHead> : null}
                 <TableHead className="w-[9%]">{t.status}</TableHead>
                 {showBisControls ? <TableHead className="w-[16%]">{t.bisMaterialConfiguration}</TableHead> : null}
+                {forma2Enabled ? (
+                  <TableHead className="w-[18%]">
+                    {language === "lv" ? "Formas 2 pozīcija" : "Forma 2 position"}
+                  </TableHead>
+                ) : null}
                 <TableHead className="w-[11%]">{t.deliveryDate}</TableHead>
                 <TableHead className="w-[6%]">{t.qty}</TableHead>
                 <TableHead className="w-[5%]">{t.unit}</TableHead>
@@ -1681,7 +1697,10 @@ export default function MaterialsTableClient({
             <TableBody>
               {filteredMaterials.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={showBisControls ? 13 : 12} className="py-12 text-center">
+                  <TableCell
+                    colSpan={11 + Number(showSpendInsights) + Number(showBisControls) + Number(forma2Enabled)}
+                    className="py-12 text-center"
+                  >
                     <div className="space-y-1">
                       <p className="font-medium">{t.noRows}</p>
                       <p className="text-sm text-muted-foreground">
@@ -1812,6 +1831,32 @@ export default function MaterialsTableClient({
                             materialTypes={types}
                             selectConfigurationLabel={t.selectConfiguration}
                             messages={t.materialConfigSelect}
+                          />
+                        </TableCell>
+                      ) : null}
+
+                      {forma2Enabled ? (
+                        <TableCell className="min-w-0 align-top">
+                          <DefaultConstructionForma2AssignmentSelect
+                            siteId={siteId}
+                            sourceId={r.id}
+                            value={r.forma2PositionId ?? null}
+                            options={forma2PositionOptions}
+                            organizationLanguage={organizationLanguage}
+                            onAssigned={(positionId) =>
+                              setRows((current) =>
+                                current.map((row) =>
+                                  row.id === r.id
+                                    ? {
+                                        ...row,
+                                        forma2PositionId: positionId,
+                                        forma2AssignmentMethod: positionId ? "manual" : null,
+                                        forma2AssignmentConfidence: null,
+                                      }
+                                    : row,
+                                ),
+                              )
+                            }
                           />
                         </TableCell>
                       ) : null}

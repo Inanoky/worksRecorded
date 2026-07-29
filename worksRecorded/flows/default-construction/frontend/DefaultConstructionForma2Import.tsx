@@ -104,11 +104,35 @@ export function DefaultConstructionForma2Import({
 				sheetName: selectedSheet.sheetName,
 				positions: selectedSheet.positions,
 			});
+			let assignmentResult: {
+				assignedRecords?: number;
+				error?: string;
+			} = {};
+			let assignmentSucceeded = false;
+			try {
+				const assignmentResponse = await fetch(
+					`/api/sites/${encodeURIComponent(siteId)}/forma2/auto-assign`,
+					{ method: "POST" },
+				);
+				assignmentResult =
+					(await assignmentResponse.json()) as typeof assignmentResult;
+				assignmentSucceeded = assignmentResponse.ok;
+			} catch {
+				assignmentResult = {};
+			}
 			setParsedSheets([]);
 			setSelectedSheetName("");
 			setSelectedFileName("");
 			router.refresh();
-			toast.success(t.importSuccess);
+			if (assignmentSucceeded) {
+				toast.success(
+					t.importAndAssignmentSuccess(
+						Number(assignmentResult.assignedRecords) || 0,
+					),
+				);
+			} else {
+				toast.warning(assignmentResult.error || t.assignmentWarning);
+			}
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : t.saveError);
 		} finally {

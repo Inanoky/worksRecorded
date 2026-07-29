@@ -166,4 +166,42 @@ describe("Forma 2 analytics", () => {
 			assignedRecords: 1,
 		});
 	});
+
+	it("counts material spending assigned directly to a parent work position", () => {
+		const positions = extractForma2PositionsFromRows(rows, "1-1").positions;
+		const material: Forma2ActualSource = {
+			id: "material-parent-1",
+			type: "material",
+			label: "Caurules un savienojumi",
+			secondaryLabel: "Rēķins A-2",
+			date: null,
+			unit: "gab.",
+			quantity: 12,
+			hours: null,
+			actualCost: 315,
+		};
+		const view = buildForma2AnalyticsView({
+			positions,
+			sources: [material],
+			allocations: [
+				{
+					sourceType: "material",
+					sourceId: material.id,
+					positionId: positions[0].id,
+					method: "manual",
+					confidence: null,
+					assignedAt: "2026-07-29T00:00:00.000Z",
+				},
+			],
+		});
+
+		expect(view.summary).toMatchObject({
+			assignedRecords: 1,
+			assignedCost: 315,
+		});
+		expect(view.resultRows[0]).toMatchObject({
+			actualMaterialCost: 315,
+			actualTotalCost: 315,
+		});
+	});
 });

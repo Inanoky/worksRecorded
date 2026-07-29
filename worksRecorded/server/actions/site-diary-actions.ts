@@ -20,6 +20,7 @@ import {
 import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
 import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
 import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
+import { syncDefaultConstructionForma2WorkAssignments } from "@/flows/default-construction/backend/forma2-analytics-actions";
 
 type SiteDiaryFlowHint = {
   flowId?: "default" | "ztc" | "tgem" | string | null;
@@ -1364,11 +1365,25 @@ export async function saveSiteDiaryRecordFromWeb({ rows, siteId }) {
   }
 
   // Bulk insert
+  let createdRecords: Array<{ id: string; Works: string | null }> = [];
   try {
-    await prisma.sitediaryrecords.createMany({ data: toInsert });
+    createdRecords = await prisma.sitediaryrecords.createManyAndReturn({
+      data: toInsert,
+      select: { id: true, Works: true },
+    });
   } catch (err: any) {
     return { ok: false, message: err.message };
   }
+
+  await syncDefaultConstructionForma2WorkAssignments({
+    siteId,
+    records: createdRecords.map((record) => ({
+      id: record.id,
+      work: record.Works,
+    })),
+  }).catch((error) => {
+    console.error("Failed to sync Forma 2 assignments for new diary records", error);
+  });
 
   // Optionally, revalidate data on page
   // revalidatePath("/site-diary");
@@ -1386,6 +1401,14 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
       where: { id },
       data: fields,
     });
+    if (updated.siteId) {
+      await syncDefaultConstructionForma2WorkAssignments({
+        siteId: updated.siteId,
+        records: [{ id: updated.id, work: updated.Works }],
+      }).catch((error) => {
+        console.error("Failed to sync Forma 2 assignment for diary record", error);
+      });
+    }
     console.log("Update result:", updated);
     return { ok: true, record: updated };
   } catch (err: any) {

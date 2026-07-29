@@ -73,7 +73,12 @@ export function DefaultConstructionForma2MappingTable({
 		if (!selectedRow) return [];
 		const search = positionSearch.trim().toLocaleLowerCase("lv");
 		return data.positionOptions.filter((position) => {
-			if (position.kind !== selectedRow.type) return false;
+			const compatible =
+				selectedRow.type === "work"
+					? position.kind === "work"
+					: position.kind === "material" ||
+						(position.kind === "work" && !position.parentId);
+			if (!compatible) return false;
 			if (!search) return true;
 			return `${position.code} ${position.name} ${position.categoryName}`
 				.toLocaleLowerCase("lv")
@@ -113,30 +118,19 @@ export function DefaultConstructionForma2MappingTable({
 	};
 
 	const applySuggestions = async () => {
-		const confident = data.rows.filter(
-			(row) =>
-				!row.assignedPositionId &&
-				row.suggestedPositionId &&
-				Number(row.suggestionConfidence) >= 0.9,
-		);
-		if (!confident.length) {
-			toast.info(t.noSuggestions);
-			return;
-		}
 		setApplying(true);
 		try {
-			await saveDefaultConstructionForma2Allocations({
-				siteId,
-				allocations: confident.map((row) => ({
-					sourceType: row.type,
-					sourceId: row.id,
-					positionId: row.suggestedPositionId,
-					method: "automatic" as const,
-					confidence: row.suggestionConfidence,
-				})),
-			});
+			const response = await fetch(
+				`/api/sites/${encodeURIComponent(siteId)}/forma2/auto-assign`,
+				{ method: "POST" },
+			);
+			const result = (await response.json()) as {
+				assignedRecords?: number;
+				error?: string;
+			};
+			if (!response.ok) throw new Error(result.error || t.saveError);
 			router.refresh();
-			toast.success(t.suggestionsApplied);
+			toast.success(t.suggestionsApplied(Number(result.assignedRecords) || 0));
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : t.saveError);
 		} finally {

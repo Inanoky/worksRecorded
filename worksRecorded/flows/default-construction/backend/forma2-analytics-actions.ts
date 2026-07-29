@@ -3,6 +3,7 @@
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import { automaticallyAssignForma2Sources } from "@/flows/default-construction/backend/forma2-auto-assignment";
 import {
 	buildForma2AnalyticsView,
 	DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY,
@@ -14,6 +15,7 @@ import {
 	type Forma2PositionKind,
 	type Forma2SourceType,
 	normalizeDefaultConstructionForma2State,
+	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import { getDefaultConstructionProductivitySettings } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
@@ -109,6 +111,21 @@ async function requireDefaultConstructionSite(siteId: string) {
 	return { user, site };
 }
 
+async function getDefaultConstructionSite(siteId: string) {
+	const user = await requireUser();
+	const site = await orgCheck(user.id, siteId);
+	if (!site) throw new Error("Site not found");
+	const flowModuleKey = await resolveFlowModuleKeyForRuntime({
+		organizationId: site.organizationId ?? null,
+		siteId,
+	});
+	return {
+		user,
+		site,
+		enabled: flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION,
+	};
+}
+
 function analyticsRoot(value: unknown) {
 	return value && typeof value === "object" && !Array.isArray(value)
 		? structuredClone(value as Record<string, unknown>)
@@ -179,6 +196,8 @@ async function loadDefaultConstructionForma2Data(siteId: string) {
 			select: {
 				id: true,
 				name: true,
+				categoryName: true,
+				costCode: true,
 				quantity: true,
 				measurementUnit: true,
 				cost: true,
@@ -236,7 +255,12 @@ async function loadDefaultConstructionForma2Data(siteId: string) {
 			(text(row.invoiceNr)
 				? `Rēķins ${text(row.invoiceNr)}`
 				: "Materiālu izmaksas"),
-		secondaryLabel: [text(row.supplierName), text(row.invoiceNr)]
+		secondaryLabel: [
+			text(row.categoryName),
+			text(row.costCode),
+			text(row.supplierName),
+			text(row.invoiceNr),
+		]
 			.filter(Boolean)
 			.join(" · "),
 		date: isoDate(row.materialDate ?? row.invoiceDate),
@@ -444,6 +468,8 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 					select: {
 						id: true,
 						name: true,
+						categoryName: true,
+						costCode: true,
 						quantity: true,
 						measurementUnit: true,
 						cost: true,
@@ -497,7 +523,12 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 			(text(row.invoiceNr)
 				? `Rēķins ${text(row.invoiceNr)}`
 				: "Materiālu izmaksas"),
-		secondaryLabel: [text(row.supplierName), text(row.invoiceNr)]
+		secondaryLabel: [
+			text(row.categoryName),
+			text(row.costCode),
+			text(row.supplierName),
+			text(row.invoiceNr),
+		]
 			.filter(Boolean)
 			.join(" · "),
 		date: isoDate(row.materialDate ?? row.invoiceDate),
@@ -564,6 +595,7 @@ export async function saveDefaultConstructionForma2Import(args: {
 	};
 	await writeStoredState(args.siteId, state);
 	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
+	revalidatePath(`/dashboard/sites/${args.siteId}/BIS`);
 	return { importedPositions: positions.length };
 }
 
@@ -626,10 +658,14 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 		}
 		const position = positionsById.get(allocation.positionId);
 		if (!position) throw new Error("Forma 2 position was not found");
-		const expectedKind = allocation.sourceType === "work" ? "work" : "material";
-		if (position.kind !== expectedKind) {
+		const compatible =
+			allocation.sourceType === "work"
+				? position.kind === "work"
+				: position.kind === "material" ||
+					(position.kind === "work" && !position.parentId);
+		if (!compatible) {
 			throw new Error(
-				"Work and material records must be assigned to matching position types",
+				"The factual record is not compatible with this Forma 2 position",
 			);
 		}
 		replacements.set(sourceKey, {
@@ -657,11 +693,155 @@ export async function saveDefaultConstructionForma2Allocations(args: {
 		allocations: nextAllocations,
 	});
 	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
+	revalidatePath(`/dashboard/sites/${args.siteId}/BIS`);
+	revalidatePath(`/dashboard/sites/${args.siteId}/siteDiary`);
 	return { savedAllocations: replacements.size };
+}
+
+export async function getDefaultConstructionForma2MaterialAssignments(args: {
+	siteId: string;
+	sourceIds?: string[];
+}) {
+	const access = await getDefaultConstructionSite(args.siteId);
+	if (!access.enabled) {
+		return { enabled: false, positionOptions: [], assignments: [] };
+	}
+	const state = await readStoredState(args.siteId);
+	if (!state.document) {
+		return { enabled: false, positionOptions: [], assignments: [] };
+	}
+	const sourceIds = new Set(
+		(args.sourceIds ?? []).map((sourceId) => text(sourceId, 180)),
+	);
+	const filterBySource = Array.isArray(args.sourceIds);
+	return {
+		enabled: true,
+		positionOptions: state.document.positions
+			.filter(
+				(position) =>
+					position.kind === "material" ||
+					(position.kind === "work" && !position.parentId),
+			)
+			.map((position) => ({
+				id: position.id,
+				code: position.code,
+				name: position.name,
+				categoryName: position.categoryName,
+				kind: position.kind,
+				parentId: position.parentId,
+				unit: position.unit,
+			})),
+		assignments: state.allocations
+			.filter(
+				(allocation) =>
+					allocation.sourceType === "material" &&
+					(!filterBySource || sourceIds.has(allocation.sourceId)),
+			)
+			.map((allocation) => ({
+				sourceId: allocation.sourceId,
+				positionId: allocation.positionId,
+				method: allocation.method,
+				confidence: allocation.confidence,
+			})),
+	};
+}
+
+export async function runDefaultConstructionForma2AutoAssignment(
+	siteId: string,
+) {
+	const data = await loadDefaultConstructionForma2Data(siteId);
+	const positions = data.state.document?.positions;
+	if (!positions?.length)
+		throw new Error("Import Forma 2 before assigning records");
+	const allocations = await automaticallyAssignForma2Sources({
+		sources: data.sources,
+		positions,
+		existingAllocations: data.state.allocations,
+	});
+	if (allocations.length) {
+		await writeStoredState(siteId, {
+			...data.state,
+			allocations: [...data.state.allocations, ...allocations],
+		});
+	}
+	revalidatePath(`/dashboard/sites/${siteId}/analytics`);
+	revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+	revalidatePath(`/dashboard/sites/${siteId}/siteDiary`);
+	return {
+		assignedRecords: allocations.length,
+		unassignedRecords: Math.max(
+			0,
+			data.sources.length - data.state.allocations.length - allocations.length,
+		),
+	};
+}
+
+export async function syncDefaultConstructionForma2WorkAssignments(args: {
+	siteId: string;
+	records: Array<{ id: string; work: string | null | undefined }>;
+}) {
+	const access = await getDefaultConstructionSite(args.siteId);
+	if (!access.enabled || !args.records.length) return { syncedRecords: 0 };
+	const state = await readStoredState(args.siteId);
+	const positions = state.document?.positions;
+	if (!positions?.length) return { syncedRecords: 0 };
+	const recordIds = args.records.map((record) => text(record.id, 180));
+	const existingIds = new Set(
+		(
+			await prisma.sitediaryrecords.findMany({
+				where: { siteId: args.siteId, id: { in: recordIds }, archivedAt: null },
+				select: { id: true },
+			})
+		).map((record) => record.id),
+	);
+	const replacements = new Map<string, Forma2Allocation | null>();
+	for (const record of args.records) {
+		const sourceId = text(record.id, 180);
+		if (!existingIds.has(sourceId)) continue;
+		const suggestion = suggestForma2Position(
+			{
+				id: sourceId,
+				type: "work",
+				label: text(record.work),
+				secondaryLabel: "",
+				date: null,
+				unit: "",
+				quantity: null,
+				hours: null,
+				actualCost: null,
+			},
+			positions,
+		);
+		replacements.set(
+			sourceId,
+			suggestion && suggestion.confidence >= 0.9
+				? {
+						sourceType: "work",
+						sourceId,
+						positionId: suggestion.positionId,
+						method: "manual",
+						confidence: suggestion.confidence,
+						assignedAt: new Date().toISOString(),
+					}
+				: null,
+		);
+	}
+	const allocations = state.allocations.filter(
+		(allocation) =>
+			allocation.sourceType !== "work" ||
+			!replacements.has(allocation.sourceId),
+	);
+	for (const allocation of replacements.values()) {
+		if (allocation) allocations.push(allocation);
+	}
+	await writeStoredState(args.siteId, { ...state, allocations });
+	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
+	return { syncedRecords: replacements.size };
 }
 
 export async function clearDefaultConstructionForma2Import(siteId: string) {
 	await requireDefaultConstructionSite(siteId);
 	await writeStoredState(siteId, emptyDefaultConstructionForma2State());
 	revalidatePath(`/dashboard/sites/${siteId}/analytics`);
+	revalidatePath(`/dashboard/sites/${siteId}/BIS`);
 }
