@@ -120,7 +120,6 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
 import { useZtcSiteDiaryFlow } from "@/flows/ztc-production/frontend/useZtcSiteDiaryFlow";
 import { getZtcDefaultTaskRates, getZtcFilterOptions, getZtcScopeSummary } from "@/flows/ztc-production/backend/actions";
-import { exportForma2ToExcel } from "@/components/sitediary/forma2-export";
 import {
   buildZtcQualityDisplayStateByRowId,
   formatZtcLaborNorm,
@@ -215,7 +214,7 @@ type MediaOnlyDaySummary = Awaited<ReturnType<typeof getSiteDiaryMediaOnlyDays>>
 
 type ZtcScopeSummary = NonNullable<Awaited<ReturnType<typeof getZtcScopeSummary>>>;
 type ZtcFilterOptions = Awaited<ReturnType<typeof getZtcFilterOptions>>;
-type ExcelExportKind = "siteDiary" | "ztcPayroll" | "ztcProductivity" | "forma2";
+type ExcelExportKind = "siteDiary" | "ztcPayroll" | "ztcProductivity";
 
 function withSelectedOption(options: string[], selected: string) {
   if (!selected || selected === "__ALL__" || options.includes(selected)) return options;
@@ -1722,12 +1721,6 @@ export default function SiteDiaryCalendar({
     });
   };
 
-  const exportForma2 = async () => {
-    await runExcelExport("forma2", async () => {
-      await exportForma2ToExcel(await loadAllFilteredRowsForExport());
-    });
-  };
-
   const openDayDialog = (date: Date) => {
     const dateKey = toLocalDateKey(date);
     const cachedRows = rows.filter((row) => {
@@ -2411,26 +2404,12 @@ export default function SiteDiaryCalendar({
                   ) : null}
                   {t.exportToExcel}
                 </Button>
-                {!isZtcSite ? (
-                  <>
-                    {siteId ? (
-                      <SiteDiaryOptionsManager
-                        siteId={siteId}
-                        organizationLanguage={organizationLanguage}
-                        onSaved={() => setOptionsRevision((revision) => revision + 1)}
-                      />
-                    ) : null}
-                    <Button
-                      variant="outline"
-                      onClick={exportForma2}
-                      disabled={Boolean(excelExportLoading)}
-                    >
-                      {excelExportLoading === "forma2" ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : null}
-                      Forma 2
-                    </Button>
-                  </>
+                {!isZtcSite && siteId ? (
+                  <SiteDiaryOptionsManager
+                    siteId={siteId}
+                    organizationLanguage={organizationLanguage}
+                    onSaved={() => setOptionsRevision((revision) => revision + 1)}
+                  />
                 ) : null}
                 {isZtcSite ? (
                   <>
