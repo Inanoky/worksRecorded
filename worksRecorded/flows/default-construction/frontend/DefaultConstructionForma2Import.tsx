@@ -26,6 +26,10 @@ import {
 } from "@/flows/default-construction/backend/forma2-analytics-actions";
 import type { ParsedForma2Sheet } from "@/flows/default-construction/lib/forma2-analytics";
 import { getForma2AnalyticsCopy } from "@/flows/default-construction/lib/forma2-analytics-copy";
+import type {
+	Forma2ExtractionProgress,
+	Forma2ExtractionStreamEvent,
+} from "@/flows/default-construction/lib/forma2-extraction-progress";
 
 type DocumentMetadata = {
 	id: string;
@@ -39,10 +43,128 @@ type ImportProgress = {
 	value: number;
 	ceiling: number;
 	label: string;
+	active?: boolean;
 };
 
 const progressDelay = (milliseconds: number) =>
 	new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+function formatElapsedTime(totalSeconds: number) {
+	const minutes = Math.floor(totalSeconds / 60);
+	const seconds = totalSeconds % 60;
+	return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function progressFromExtractionEvent(
+	event: Forma2ExtractionProgress,
+	t: ReturnType<typeof getForma2AnalyticsCopy>,
+): ImportProgress {
+	const total = Math.max(1, event.totalSheets ?? 1);
+	const completed = Math.min(total, Math.max(0, event.completedSheets ?? 0));
+	const sheetName = event.sheetName || "Forma 2";
+	const perSheet = 70 / total;
+
+	switch (event.phase) {
+		case "reading_workbook":
+			return { value: 6, ceiling: 6, label: t.readingWorkbook, active: true };
+		case "selecting_worksheets":
+			return {
+				value: 12,
+				ceiling: 12,
+				label: t.selectingWorksheets,
+				active: true,
+			};
+		case "worksheets_selected":
+			return {
+				value: 18,
+				ceiling: 18,
+				label: t.selectedWorksheets(event.totalSheets ?? 0),
+				active: true,
+			};
+		case "analyzing_worksheet": {
+			const value = Math.round(20 + completed * perSheet);
+			return {
+				value,
+				ceiling: value,
+				label: t.analyzingWorksheet(sheetName, completed, total),
+				active: true,
+			};
+		}
+		case "receiving_ai_result": {
+			const value = Math.round(20 + (completed + 0.4) * perSheet);
+			return {
+				value,
+				ceiling: value,
+				label: t.receivingAiResult(sheetName, completed, total),
+				active: true,
+			};
+		}
+		case "worksheet_completed": {
+			const value = Math.round(20 + completed * perSheet);
+			return {
+				value,
+				ceiling: value,
+				label: t.analyzingWorksheet(sheetName, completed, total),
+				active: true,
+			};
+		}
+		case "finalizing":
+			return {
+				value: 94,
+				ceiling: 94,
+				label: t.finalizingExtraction,
+				active: true,
+			};
+	}
+}
+
+async function readExtractionResponse(
+	response: Response,
+	onProgress: (progress: Forma2ExtractionProgress) => void,
+) {
+	if (!response.ok) {
+		const payload = (await response.json().catch(() => ({}))) as {
+			error?: string;
+		};
+		throw new Error(payload.error || "Forma 2 extraction failed");
+	}
+
+	if (!response.headers.get("content-type")?.includes("application/x-ndjson")) {
+		const payload = (await response.json()) as {
+			error?: string;
+			sheets?: ParsedForma2Sheet[];
+		};
+		if (payload.error) throw new Error(payload.error);
+		return Array.isArray(payload.sheets) ? payload.sheets : [];
+	}
+
+	const reader = response.body?.getReader();
+	if (!reader) throw new Error("Forma 2 extraction returned no response body");
+	const decoder = new TextDecoder();
+	let buffer = "";
+	let sheets: ParsedForma2Sheet[] | null = null;
+	let streamError: string | null = null;
+	const handleLine = (line: string) => {
+		if (!line.trim()) return;
+		const event = JSON.parse(line) as Forma2ExtractionStreamEvent;
+		if (event.type === "progress") onProgress(event);
+		if (event.type === "complete") sheets = event.sheets;
+		if (event.type === "error") streamError = event.error;
+	};
+
+	while (true) {
+		const { done, value } = await reader.read();
+		buffer += decoder.decode(value, { stream: !done });
+		const lines = buffer.split("\n");
+		buffer = lines.pop() ?? "";
+		for (const line of lines) handleLine(line);
+		if (done) break;
+	}
+	if (buffer.trim()) handleLine(buffer);
+	if (streamError) throw new Error(streamError);
+	if (!sheets) throw new Error("Forma 2 extraction ended before completion");
+	return sheets;
+}
 
 export function DefaultConstructionForma2Import({
 	siteId,
@@ -63,12 +185,18 @@ export function DefaultConstructionForma2Import({
 	const [parsing, setParsing] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [progress, setProgress] = useState<ImportProgress | null>(null);
+	const [progressStartedAt, setProgressStartedAt] = useState<number | null>(
+		null,
+	);
+	const [elapsedSeconds, setElapsedSeconds] = useState(0);
 	const selectedSheet = parsedSheets.find(
 		(sheet) => sheet.sheetName === selectedSheetName,
 	);
+	const hasAnimatedProgress =
+		progress != null && progress.value < progress.ceiling;
 
 	useEffect(() => {
-		if (!progress || progress.value >= progress.ceiling) return;
+		if (!hasAnimatedProgress) return;
 		const timer = window.setInterval(() => {
 			setProgress((current) => {
 				if (!current || current.value >= current.ceiling) return current;
@@ -83,12 +211,30 @@ export function DefaultConstructionForma2Import({
 			});
 		}, 600);
 		return () => window.clearInterval(timer);
-	}, [progress?.ceiling]);
+	}, [hasAnimatedProgress]);
+
+	useEffect(() => {
+		if (progressStartedAt == null) return;
+		const updateElapsed = () =>
+			setElapsedSeconds(
+				Math.max(0, Math.floor((Date.now() - progressStartedAt) / 1_000)),
+			);
+		updateElapsed();
+		const timer = window.setInterval(updateElapsed, 1_000);
+		return () => window.clearInterval(timer);
+	}, [progressStartedAt]);
 
 	const handleFile = async (file: File | undefined) => {
 		if (!file) return;
 		setParsing(true);
-		setProgress({ value: 5, ceiling: 90, label: t.uploadingAndAnalyzing });
+		setProgressStartedAt(Date.now());
+		setElapsedSeconds(0);
+		setProgress({
+			value: 2,
+			ceiling: 2,
+			label: t.uploadingAndAnalyzing,
+			active: true,
+		});
 		let completed = false;
 		try {
 			const formData = new FormData();
@@ -100,12 +246,9 @@ export function DefaultConstructionForma2Import({
 					body: formData,
 				},
 			);
-			const payload = (await response.json()) as {
-				error?: string;
-				sheets?: ParsedForma2Sheet[];
-			};
-			if (!response.ok) throw new Error(payload.error || t.parseError);
-			const sheets = Array.isArray(payload.sheets) ? payload.sheets : [];
+			const sheets = await readExtractionResponse(response, (event) =>
+				setProgress(progressFromExtractionEvent(event, t)),
+			);
 			if (!sheets.length) throw new Error(t.parseError);
 			const preferred = [...sheets].sort(
 				(left, right) => right.positions.length - left.positions.length,
@@ -114,7 +257,12 @@ export function DefaultConstructionForma2Import({
 			setParsedSheets(sheets);
 			setSelectedSheetName(preferred.sheetName);
 			completed = true;
-			setProgress({ value: 100, ceiling: 100, label: t.finishingImport });
+			setProgress({
+				value: 100,
+				ceiling: 100,
+				label: t.finishingImport,
+				active: false,
+			});
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : t.parseError);
 			setParsedSheets([]);
@@ -124,6 +272,7 @@ export function DefaultConstructionForma2Import({
 			if (completed) await progressDelay(350);
 			setParsing(false);
 			setProgress(null);
+			setProgressStartedAt(null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
 		}
 	};
@@ -131,7 +280,14 @@ export function DefaultConstructionForma2Import({
 	const importSelectedSheet = async () => {
 		if (!selectedSheet) return;
 		setSaving(true);
-		setProgress({ value: 5, ceiling: 35, label: t.savingPositions });
+		setProgressStartedAt(Date.now());
+		setElapsedSeconds(0);
+		setProgress({
+			value: 5,
+			ceiling: 35,
+			label: t.savingPositions,
+			active: true,
+		});
 		let completed = false;
 		try {
 			await saveDefaultConstructionForma2Import({
@@ -140,7 +296,12 @@ export function DefaultConstructionForma2Import({
 				sheetName: selectedSheet.sheetName,
 				positions: selectedSheet.positions,
 			});
-			setProgress({ value: 40, ceiling: 92, label: t.assigningRecords });
+			setProgress({
+				value: 40,
+				ceiling: 92,
+				label: t.assigningRecords,
+				active: true,
+			});
 			let assignmentResult: {
 				assignedRecords?: number;
 				error?: string;
@@ -161,7 +322,12 @@ export function DefaultConstructionForma2Import({
 			setSelectedSheetName("");
 			setSelectedFileName("");
 			completed = true;
-			setProgress({ value: 100, ceiling: 100, label: t.finishingImport });
+			setProgress({
+				value: 100,
+				ceiling: 100,
+				label: t.finishingImport,
+				active: false,
+			});
 			router.refresh();
 			if (assignmentSucceeded) {
 				toast.success(
@@ -178,6 +344,7 @@ export function DefaultConstructionForma2Import({
 			if (completed) await progressDelay(350);
 			setSaving(false);
 			setProgress(null);
+			setProgressStartedAt(null);
 		}
 	};
 
@@ -243,7 +410,12 @@ export function DefaultConstructionForma2Import({
 				{progress ? (
 					<div className="mb-4 rounded-lg border bg-muted/30 p-4">
 						<div className="mb-2 flex items-center justify-between gap-4 text-sm">
-							<span className="font-medium">{progress.label}</span>
+							<span className="flex min-w-0 items-center gap-2 font-medium">
+								{progress.active ? (
+									<Loader2 className="size-4 shrink-0 animate-spin text-primary" />
+								) : null}
+								<span className="truncate">{progress.label}</span>
+							</span>
 							<span className="font-semibold tabular-nums">
 								{Math.round(progress.value)}%
 							</span>
@@ -257,9 +429,17 @@ export function DefaultConstructionForma2Import({
 							className="h-2 overflow-hidden rounded-full bg-muted"
 						>
 							<div
-								className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
+								className={`h-full rounded-full bg-primary transition-[width] duration-500 ease-out ${
+									progress.active ? "animate-pulse" : ""
+								}`}
 								style={{ width: `${progress.value}%` }}
 							/>
+						</div>
+						<div className="mt-2 flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+							<span>{t.elapsedTime(formatElapsedTime(elapsedSeconds))}</span>
+							{parsing && elapsedSeconds >= 15 ? (
+								<span>{t.longAiWait}</span>
+							) : null}
 						</div>
 					</div>
 				) : null}

@@ -1,6 +1,7 @@
 import {
 	normalizeForma2AiExtraction,
 	reconcileForma2Extractions,
+	selectForma2AiWorksheets,
 } from "./forma2-ai-extractor";
 
 describe("Forma 2 AI extraction", () => {
@@ -103,5 +104,54 @@ describe("Forma 2 AI extraction", () => {
 			["1-1", 2],
 			["1-2", 1],
 		]);
+	});
+
+	it("sends likely detail worksheets to AI and skips unrelated workbook tabs", () => {
+		const worksheets = [
+			{
+				sheetName: "Titullapa",
+				rows: Array.from({ length: 10 }, () => []),
+				worksheetText: 'R1: A="Projekts"\nR8: A="Paraksts"',
+				deterministicPositionCount: 0,
+			},
+			{
+				sheetName: "Forma 2",
+				rows: Array.from({ length: 40 }, () => []),
+				worksheetText:
+					'R5: A="Pozīcija" | B="Nosaukums" | C="Mērv." | D="Daudzums" | E="Darba alga" | F="Materiāli" | G="Kopā"\nR6: A="1.1" | B="Demontāža"',
+				deterministicPositionCount: 0,
+			},
+			{
+				sheetName: "Forma 3 kopsavilkums",
+				rows: Array.from({ length: 20 }, () => []),
+				worksheetText: 'R4: A="Kopā" | B="Summa"',
+				deterministicPositionCount: 0,
+			},
+		];
+
+		expect(
+			selectForma2AiWorksheets(worksheets).map((sheet) => sheet.sheetName),
+		).toEqual(["Forma 2"]);
+	});
+
+	it("always includes a worksheet recognized by the deterministic extractor", () => {
+		const worksheets = [
+			{
+				sheetName: "Unusual tab name",
+				rows: Array.from({ length: 20 }, () => []),
+				worksheetText: 'R1: A="Custom construction table"',
+				deterministicPositionCount: 12,
+			},
+			{
+				sheetName: "Notes",
+				rows: Array.from({ length: 20 }, () => []),
+				worksheetText: 'R1: A="Notes"',
+				deterministicPositionCount: 0,
+			},
+		];
+
+		expect(
+			selectForma2AiWorksheets(worksheets).map((sheet) => sheet.sheetName),
+		).toEqual(["Unusual tab name"]);
 	});
 });

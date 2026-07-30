@@ -1,6 +1,7 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { NextResponse } from "next/server";
 import { extractForma2WorkbookWithAi } from "@/flows/default-construction/backend/forma2-ai-extractor";
+import type { Forma2ExtractionStreamEvent } from "@/flows/default-construction/lib/forma2-extraction-progress";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { orgCheck } from "@/server/actions/shared-actions";
@@ -50,17 +51,60 @@ export async function POST(
 			return errorResponse("Forma 2 file must be smaller than 25 MB", 400);
 		}
 
-		const sheets = await extractForma2WorkbookWithAi({
-			fileName: file.name.slice(0, 240),
-			buffer: await file.arrayBuffer(),
+		const fileName = file.name.slice(0, 240);
+		const buffer = await file.arrayBuffer();
+		const encoder = new TextEncoder();
+		const stream = new ReadableStream<Uint8Array>({
+			start(controller) {
+				let closed = false;
+				const send = (event: Forma2ExtractionStreamEvent) => {
+					if (closed) return;
+					try {
+						controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+					} catch {
+						closed = true;
+					}
+				};
+				void extractForma2WorkbookWithAi({
+					fileName,
+					buffer,
+					onProgress: (progress) => send({ type: "progress", ...progress }),
+				})
+					.then((sheets) => {
+						if (!sheets.length) {
+							send({
+								type: "error",
+								error:
+									"No detailed Forma 2 positions were found in this workbook",
+							});
+							return;
+						}
+						send({ type: "complete", sheets });
+					})
+					.catch((error) => {
+						console.error("[api/sites/forma2/extract] failed", {
+							siteId,
+							error: error instanceof Error ? error.message : String(error),
+						});
+						send({
+							type: "error",
+							error: "Could not extract Forma 2 positions",
+						});
+					})
+					.finally(() => {
+						if (closed) return;
+						closed = true;
+						controller.close();
+					});
+			},
 		});
-		if (!sheets.length) {
-			return errorResponse(
-				"No detailed Forma 2 positions were found in this workbook",
-				422,
-			);
-		}
-		return NextResponse.json({ sheets });
+		return new NextResponse(stream, {
+			headers: {
+				"Cache-Control": "no-cache, no-transform",
+				"Content-Type": "application/x-ndjson; charset=utf-8",
+				"X-Accel-Buffering": "no",
+			},
+		});
 	} catch (error) {
 		console.error("[api/sites/forma2/extract] failed", {
 			siteId,

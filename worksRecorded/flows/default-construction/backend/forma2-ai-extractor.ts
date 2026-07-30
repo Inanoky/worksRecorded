@@ -7,6 +7,7 @@ import {
 	type Forma2Position,
 	type ParsedForma2Sheet,
 } from "@/flows/default-construction/lib/forma2-analytics";
+import type { Forma2ExtractionProgress } from "@/flows/default-construction/lib/forma2-extraction-progress";
 
 const FORMA2_EXTRACTION_MODEL =
 	process.env.FORMA2_EXTRACTION_MODEL?.trim() || "gpt-5.6-terra";
@@ -223,8 +224,10 @@ async function extractWorksheet(args: {
 	fileName: string;
 	sheetName: string;
 	worksheetText: string;
+	onResponseStarted?: () => void;
 }) {
-	const response = await args.openai.responses.parse(
+	let responseStarted = false;
+	const stream = args.openai.responses.stream(
 		{
 			model: FORMA2_EXTRACTION_MODEL,
 			reasoning: { effort: "low" },
@@ -241,12 +244,84 @@ async function extractWorksheet(args: {
 		},
 		{ timeout: FORMA2_EXTRACTION_TIMEOUT_MS },
 	);
+	stream.on("response.output_text.delta", () => {
+		if (responseStarted) return;
+		responseStarted = true;
+		args.onResponseStarted?.();
+	});
+	const response = await stream.finalResponse();
 	if (!response.output_parsed) {
 		throw new Error(
 			`The AI extractor returned no structured data for ${args.sheetName}`,
 		);
 	}
 	return response.output_parsed;
+}
+
+type Forma2AiWorksheetCandidate = {
+	sheetName: string;
+	rows: unknown[][];
+	worksheetText: string;
+	deterministicPositionCount: number;
+};
+
+function scoreForma2Worksheet(candidate: Forma2AiWorksheetCandidate) {
+	if (candidate.deterministicPositionCount > 0) {
+		return 100 + Math.min(candidate.deterministicPositionCount, 50);
+	}
+
+	const sheetName = candidate.sheetName.trim().toLocaleLowerCase();
+	const sample = candidate.worksheetText.slice(0, 160_000);
+	let score = 0;
+	if (
+		/(?:forma\s*(?:nr\.?\s*)?2|lok[aā]l[aā]\s+t[aā]m|estimate|bill\s+of\s+quantities|\bboq\b)/iu.test(
+			sheetName,
+		)
+	) {
+		score += 8;
+	}
+	if (/^(?:\d+[.-]\d+|[a-z]\d+[.-]\d+)$/iu.test(sheetName)) score += 3;
+	if (
+		/(?:forma\s*(?:nr\.?\s*)?3|kopsavilk|summary|cover|titullap|parakst)/iu.test(
+			sheetName,
+		)
+	) {
+		score -= 8;
+	}
+
+	const signals = [
+		/(?:daudzum|quantity|\bqty\b|apjom)/iu,
+		/(?:m[ēe]rv|merv|vien[iī]b|\bunit\b)/iu,
+		/(?:poz[iī]c|position|nosaukum|description)/iu,
+		/(?:darba\s+alga|darbi|labor|labour|work\s+cost)/iu,
+		/(?:materi[aā]l|material)/iu,
+		/(?:izmaks|summa|kop[aā]|total|cost|amount)/iu,
+	];
+	for (const signal of signals) {
+		if (signal.test(sample)) score += 1;
+	}
+	if (/=["']?\d{1,3}[.,]\d{1,3}(?:[.,]\d+)?/u.test(sample)) score += 2;
+	return score;
+}
+
+export function selectForma2AiWorksheets(
+	worksheets: Forma2AiWorksheetCandidate[],
+) {
+	const ranked = worksheets
+		.filter((sheet) => sheet.worksheetText && sheet.rows.length >= 5)
+		.map((sheet, sourceIndex) => ({
+			sheet,
+			score: scoreForma2Worksheet(sheet),
+			sourceIndex,
+		}))
+		.sort(
+			(left, right) =>
+				right.score - left.score || left.sourceIndex - right.sourceIndex,
+		);
+	const likelySheets = ranked.filter(({ score }) => score >= 7);
+	return (likelySheets.length ? likelySheets : ranked.slice(0, 2))
+		.slice(0, MAX_WORKSHEETS)
+		.map(({ sheet }) => sheet);
 }
 
 export function reconcileForma2Extractions(args: {
@@ -271,11 +346,13 @@ export function reconcileForma2Extractions(args: {
 export async function extractForma2WorkbookWithAi(args: {
 	fileName: string;
 	buffer: ArrayBuffer;
+	onProgress?: (progress: Forma2ExtractionProgress) => void;
 }) {
 	if (!process.env.OPENAI_API_KEY) {
 		throw new Error("OPENAI_API_KEY is not configured");
 	}
 	const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+	args.onProgress?.({ phase: "reading_workbook" });
 	const XLSX = await import("xlsx");
 	const workbook = XLSX.read(args.buffer, { type: "array" });
 	const worksheets = workbook.SheetNames.map((sheetName) => {
@@ -293,24 +370,38 @@ export async function extractForma2WorkbookWithAi(args: {
 	const deterministicSheets = worksheets
 		.map((sheet) => extractForma2PositionsFromRows(sheet.rows, sheet.sheetName))
 		.filter((sheet) => sheet.positions.length > 0);
-	const worksheetInputs = worksheets
-		.flatMap((sheet) => {
-			if (!sheet.worksheetText || sheet.rows.length < 5) return [];
-			if (sheet.worksheetText.length > MAX_WORKSHEET_TEXT_CHARS) {
-				throw new Error(
-					`Worksheet ${sheet.sheetName} is too large for AI extraction`,
-				);
-			}
-			return [
-				{
-					sheetName: sheet.sheetName,
-					worksheetText: sheet.worksheetText,
-				},
-			];
-		})
-		.slice(0, MAX_WORKSHEETS);
+	const deterministicCounts = new Map(
+		deterministicSheets.map((sheet) => [
+			sheet.sheetName,
+			sheet.positions.length,
+		]),
+	);
+	args.onProgress?.({
+		phase: "selecting_worksheets",
+		totalWorksheets: worksheets.length,
+	});
+	const worksheetInputs = selectForma2AiWorksheets(
+		worksheets.map((sheet) => ({
+			...sheet,
+			deterministicPositionCount: deterministicCounts.get(sheet.sheetName) ?? 0,
+		})),
+	);
+	for (const sheet of worksheetInputs) {
+		if (sheet.worksheetText.length > MAX_WORKSHEET_TEXT_CHARS) {
+			throw new Error(
+				`Worksheet ${sheet.sheetName} is too large for AI extraction`,
+			);
+		}
+	}
+	args.onProgress?.({
+		phase: "worksheets_selected",
+		completedSheets: 0,
+		totalSheets: worksheetInputs.length,
+		totalWorksheets: worksheets.length,
+	});
 
 	const extractedSheets: ExtractedWorkbook["sheets"] = [];
+	let completedSheets = 0;
 	for (
 		let index = 0;
 		index < worksheetInputs.length;
@@ -318,15 +409,35 @@ export async function extractForma2WorkbookWithAi(args: {
 	) {
 		const batch = worksheetInputs.slice(index, index + SHEET_BATCH_SIZE);
 		const extracted = await Promise.all(
-			batch.map(async (sheet) => ({
-				sheetName: sheet.sheetName,
-				result: await extractWorksheet({
+			batch.map(async (sheet) => {
+				args.onProgress?.({
+					phase: "analyzing_worksheet",
+					sheetName: sheet.sheetName,
+					completedSheets,
+					totalSheets: worksheetInputs.length,
+				});
+				const result = await extractWorksheet({
 					openai,
 					fileName: args.fileName,
 					sheetName: sheet.sheetName,
 					worksheetText: sheet.worksheetText,
-				}),
-			})),
+					onResponseStarted: () =>
+						args.onProgress?.({
+							phase: "receiving_ai_result",
+							sheetName: sheet.sheetName,
+							completedSheets,
+							totalSheets: worksheetInputs.length,
+						}),
+				});
+				completedSheets += 1;
+				args.onProgress?.({
+					phase: "worksheet_completed",
+					sheetName: sheet.sheetName,
+					completedSheets,
+					totalSheets: worksheetInputs.length,
+				});
+				return { sheetName: sheet.sheetName, result };
+			}),
 		);
 		for (const sheet of extracted) {
 			if (sheet.result.isForma2DetailSheet && sheet.result.positions.length) {
@@ -338,6 +449,11 @@ export async function extractForma2WorkbookWithAi(args: {
 		}
 	}
 
+	args.onProgress?.({
+		phase: "finalizing",
+		completedSheets,
+		totalSheets: worksheetInputs.length,
+	});
 	const aiSheets = normalizeForma2AiExtraction({ sheets: extractedSheets });
 	return reconcileForma2Extractions({
 		sheetNames: workbook.SheetNames,

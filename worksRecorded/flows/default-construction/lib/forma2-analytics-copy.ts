@@ -10,6 +10,18 @@ const COPY = {
 		replaceFile: "Replace Forma 2",
 		analyzing: "Analyzing Forma 2",
 		uploadingAndAnalyzing: "Uploading and analyzing Forma 2",
+		readingWorkbook: "Reading workbook",
+		selectingWorksheets: "Finding Forma 2 worksheets",
+		selectedWorksheets: (count: number) =>
+			`Found ${count} worksheet${count === 1 ? "" : "s"} for AI analysis`,
+		analyzingWorksheet: (sheetName: string, completed: number, total: number) =>
+			`AI is analyzing “${sheetName}” (${completed}/${total} completed)`,
+		receivingAiResult: (sheetName: string, completed: number, total: number) =>
+			`Receiving extracted positions from “${sheetName}” (${completed}/${total} completed)`,
+		finalizingExtraction: "Checking extracted positions",
+		elapsedTime: (value: string) => `Elapsed ${value}`,
+		longAiWait:
+			"Large worksheets can take a few minutes. AI is still working; keep this page open.",
 		savingPositions: "Saving Forma 2 and synchronizing Darbi options",
 		assigningRecords: "Assigning work and material records",
 		finishingImport: "Finishing import",
@@ -97,6 +109,18 @@ const COPY = {
 		replaceFile: "Aizstāt Formu 2",
 		analyzing: "Analizē Formu 2",
 		uploadingAndAnalyzing: "Augšupielādē un analizē Formu 2",
+		readingWorkbook: "Nolasa darbgrāmatu",
+		selectingWorksheets: "Meklē Formas 2 darblapas",
+		selectedWorksheets: (count: number) =>
+			`MI analīzei atrastas ${count} darblapas`,
+		analyzingWorksheet: (sheetName: string, completed: number, total: number) =>
+			`MI analizē “${sheetName}” (${completed}/${total} pabeigtas)`,
+		receivingAiResult: (sheetName: string, completed: number, total: number) =>
+			`Saņem pozīcijas no “${sheetName}” (${completed}/${total} pabeigtas)`,
+		finalizingExtraction: "Pārbauda iegūtās pozīcijas",
+		elapsedTime: (value: string) => `Pagājis ${value}`,
+		longAiWait:
+			"Lielu darblapu analīze var ilgt dažas minūtes. MI turpina darbu; neaizveriet šo lapu.",
 		savingPositions: "Saglabā Formu 2 un sinhronizē Darbi opcijas",
 		assigningRecords: "Piesaista darbu un materiālu ierakstus",
 		finishingImport: "Pabeidz importu",
