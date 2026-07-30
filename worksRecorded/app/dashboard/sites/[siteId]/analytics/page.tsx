@@ -19,6 +19,10 @@ import { getDefaultConstructionForma2Results } from "@/flows/default-constructio
 import { DefaultConstructionForma2CostBreakdown } from "@/flows/default-construction/frontend/DefaultConstructionForma2CostBreakdown";
 import { DefaultConstructionForma2Import } from "@/flows/default-construction/frontend/DefaultConstructionForma2Import";
 import {
+	calculateForma2MoneyTotals,
+	type Forma2MoneyTotals,
+} from "@/flows/default-construction/lib/forma2-analytics";
+import {
 	getForma2AnalyticsCopy,
 	getForma2AnalyticsLocale,
 } from "@/flows/default-construction/lib/forma2-analytics-copy";
@@ -48,6 +52,93 @@ function formatNumber(value: number | null, locale: string) {
 	);
 }
 
+function Forma2TotalsRow({
+	totals,
+	t,
+	locale,
+}: {
+	totals: Forma2MoneyTotals;
+	t: Forma2AnalyticsCopy;
+	locale: string;
+}) {
+	return (
+		<TableRow className="border-y-2 bg-muted/80 hover:bg-muted/80">
+			<TableCell colSpan={3} className="pl-4 font-bold">
+				{t.total}
+			</TableCell>
+			<TableCell className="border-l px-1 text-right font-bold tabular-nums">
+				{formatCurrency(totals.plannedWorkCost, locale)}
+			</TableCell>
+			<TableCell className="px-1 text-right font-bold tabular-nums">
+				{formatCurrency(totals.plannedMaterialCost, locale)}
+			</TableCell>
+			<TableCell className="px-1 text-right font-bold tabular-nums">
+				{formatCurrency(totals.plannedTotalCost, locale)}
+			</TableCell>
+			<TableCell className="border-l px-1 text-right font-bold tabular-nums">
+				{formatCurrency(totals.actualWorkCost, locale)}
+			</TableCell>
+			<TableCell className="px-1 text-right font-bold tabular-nums">
+				{formatCurrency(totals.actualMaterialCost, locale)}
+			</TableCell>
+			<TableCell className="px-1 text-right font-bold tabular-nums">
+				{formatCurrency(totals.actualTotalCost, locale)}
+			</TableCell>
+			<TableCell
+				className={cn(
+					"border-l px-1 pr-4 text-right font-bold tabular-nums",
+					totals.variance < 0 && "text-red-600",
+				)}
+			>
+				{formatCurrency(totals.variance, locale)}
+			</TableCell>
+		</TableRow>
+	);
+}
+
+function Forma2MobileTotals({
+	totals,
+	t,
+	locale,
+}: {
+	totals: Forma2MoneyTotals;
+	t: Forma2AnalyticsCopy;
+	locale: string;
+}) {
+	const metrics = [
+		{ label: t.plannedWork, value: totals.plannedWorkCost },
+		{ label: t.plannedMaterials, value: totals.plannedMaterialCost },
+		{ label: t.plannedTotal, value: totals.plannedTotalCost },
+		{ label: t.actualWork, value: totals.actualWorkCost },
+		{ label: t.actualMaterials, value: totals.actualMaterialCost },
+		{ label: t.actualTotal, value: totals.actualTotalCost },
+		{ label: t.remaining, value: totals.variance, isRemaining: true },
+	];
+
+	return (
+		<div className="bg-muted/80 px-4 py-4">
+			<div className="mb-3 text-sm font-bold">{t.total}</div>
+			<div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+				{metrics.map((metric) => (
+					<div key={metric.label} className="min-w-0">
+						<div className="text-[10px] uppercase leading-tight text-muted-foreground">
+							{metric.label}
+						</div>
+						<div
+							className={cn(
+								"mt-1 text-sm font-bold tabular-nums",
+								metric.isRemaining && metric.value < 0 && "text-red-600",
+							)}
+						>
+							{formatCurrency(metric.value, locale)}
+						</div>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
+
 function Forma2ResultsView({
 	siteId,
 	rows,
@@ -68,6 +159,7 @@ function Forma2ResultsView({
 			</div>
 		);
 	}
+	const totals = calculateForma2MoneyTotals(rows);
 
 	return (
 		<>
@@ -146,6 +238,7 @@ function Forma2ResultsView({
 						</TableRow>
 					</TableHeader>
 					<TableBody>
+						<Forma2TotalsRow totals={totals} t={t} locale={locale} />
 						{rows.map((row, index) => {
 							const previous = rows[index - 1];
 							const showCategory =
@@ -231,11 +324,13 @@ function Forma2ResultsView({
 								</Fragment>
 							);
 						})}
+						<Forma2TotalsRow totals={totals} t={t} locale={locale} />
 					</TableBody>
 				</Table>
 			</div>
 
 			<div className="divide-y border-y lg:hidden">
+				<Forma2MobileTotals totals={totals} t={t} locale={locale} />
 				{rows.map((row, index) => {
 					const previous = rows[index - 1];
 					const showCategory =
@@ -325,6 +420,7 @@ function Forma2ResultsView({
 						</Fragment>
 					);
 				})}
+				<Forma2MobileTotals totals={totals} t={t} locale={locale} />
 			</div>
 		</>
 	);

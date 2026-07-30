@@ -1,5 +1,6 @@
 import {
 	buildForma2AnalyticsView,
+	calculateForma2MoneyTotals,
 	extractForma2PositionsFromRows,
 	type Forma2ActualSource,
 	normalizeForma2MaterialRuleName,
@@ -209,6 +210,26 @@ describe("Forma 2 analytics", () => {
 		expect(view.resultRows[0]).toMatchObject({
 			actualMaterialCost: 315,
 			actualTotalCost: 315,
+		});
+	});
+
+	it("calculates money totals without double-counting nested positions", () => {
+		const positions = extractForma2PositionsFromRows(rows, "1-1").positions;
+		const view = buildForma2AnalyticsView({
+			positions,
+			sources: [],
+			allocations: [],
+		});
+		const parent = view.resultRows.find((row) => !row.parentId)!;
+
+		expect(calculateForma2MoneyTotals(view.resultRows)).toEqual({
+			plannedWorkCost: parent.plannedWorkCost,
+			plannedMaterialCost: parent.plannedMaterialCost,
+			plannedTotalCost: parent.plannedTotalCost,
+			actualWorkCost: parent.actualWorkCost,
+			actualMaterialCost: parent.actualMaterialCost,
+			actualTotalCost: parent.actualTotalCost,
+			variance: parent.variance,
 		});
 	});
 });

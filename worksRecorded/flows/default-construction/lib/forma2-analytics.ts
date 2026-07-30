@@ -88,6 +88,16 @@ export type Forma2ResultRow = Forma2Position & {
 	assignedRecords: number;
 };
 
+export type Forma2MoneyTotals = {
+	plannedWorkCost: number;
+	plannedMaterialCost: number;
+	plannedTotalCost: number;
+	actualWorkCost: number;
+	actualMaterialCost: number;
+	actualTotalCost: number;
+	variance: number;
+};
+
 export type Forma2AnalyticsView = {
 	summary: {
 		positions: number;
@@ -120,6 +130,39 @@ const EMPTY_STATE: DefaultConstructionForma2State = {
 };
 
 const round = (value: number) => Number(value.toFixed(2));
+
+export function calculateForma2MoneyTotals(
+	rows: Forma2ResultRow[],
+): Forma2MoneyTotals {
+	const totals = rows
+		.filter((row) => !row.parentId)
+		.reduce<Forma2MoneyTotals>(
+			(current, row) => ({
+				plannedWorkCost: current.plannedWorkCost + row.plannedWorkCost,
+				plannedMaterialCost:
+					current.plannedMaterialCost + row.plannedMaterialCost,
+				plannedTotalCost: current.plannedTotalCost + row.plannedTotalCost,
+				actualWorkCost: current.actualWorkCost + row.actualWorkCost,
+				actualMaterialCost:
+					current.actualMaterialCost + row.actualMaterialCost,
+				actualTotalCost: current.actualTotalCost + row.actualTotalCost,
+				variance: current.variance + row.variance,
+			}),
+			{
+				plannedWorkCost: 0,
+				plannedMaterialCost: 0,
+				plannedTotalCost: 0,
+				actualWorkCost: 0,
+				actualMaterialCost: 0,
+				actualTotalCost: 0,
+				variance: 0,
+			},
+		);
+
+	return Object.fromEntries(
+		Object.entries(totals).map(([key, value]) => [key, round(value)]),
+	) as Forma2MoneyTotals;
+}
 
 function text(value: unknown) {
 	return String(value ?? "")
