@@ -19,7 +19,10 @@ import {
 	normalizeForma2MaterialRuleName,
 	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
-import { getDefaultConstructionProductivitySettings } from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import {
+	calculateDefaultConstructionWorkCost,
+	getDefaultConstructionProductivitySettings,
+} from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { prisma } from "@/lib/utils/db";
@@ -256,19 +259,27 @@ async function loadDefaultConstructionForma2Data(
 			const work = text(row.Works);
 			const setting = settingsByWork.get(work.toLocaleLowerCase("lv"));
 			const hours = nullableNumber(row.TimeInvolved);
-			const hourlyRate = nullableNumber(setting?.hourlyCost);
+			const unit = text(row.Units, 40);
+			const quantity = nullableNumber(row.Amounts);
+			const cost = calculateDefaultConstructionWorkCost({
+				setting,
+				unit,
+				amount: quantity,
+				hours,
+			});
 			return {
 				id: row.id,
 				type: "work",
 				label: work,
 				secondaryLabel: text(row.Location),
 				date: isoDate(row.Date),
-				unit: text(row.Units, 40),
-				quantity: nullableNumber(row.Amounts),
+				unit,
+				quantity,
 				hours,
-				hourlyRate,
-				actualCost:
-					hours != null && hourlyRate != null ? hours * hourlyRate : null,
+				hourlyRate: cost.hourlyRate,
+				unitRate: cost.unitRate,
+				costCalculationMode: cost.mode,
+				actualCost: cost.actualCost,
 			};
 		});
 
@@ -462,6 +473,8 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 					quantity: source.quantity,
 					hours: source.hours,
 					hourlyRate: source.hourlyRate ?? null,
+					unitRate: source.unitRate ?? null,
+          costCalculationMode: source.costCalculationMode ?? "output",
 					actualCost: source.actualCost,
 					assignmentMethod: allocation.method,
 					assignmentConfidence: allocation.confidence,
@@ -662,19 +675,27 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 			const work = text(row.Works);
 			const setting = settingsByWork.get(work.toLocaleLowerCase("lv"));
 			const hours = nullableNumber(row.TimeInvolved);
-			const hourlyRate = nullableNumber(setting?.hourlyCost);
+			const unit = text(row.Units, 40);
+			const quantity = nullableNumber(row.Amounts);
+			const cost = calculateDefaultConstructionWorkCost({
+				setting,
+				unit,
+				amount: quantity,
+				hours,
+			});
 			return {
 				id: row.id,
 				type: "work",
 				label: work,
 				secondaryLabel: text(row.Location),
 				date: isoDate(row.Date),
-				unit: text(row.Units, 40),
-				quantity: nullableNumber(row.Amounts),
+				unit,
+				quantity,
 				hours,
-				hourlyRate,
-				actualCost:
-					hours != null && hourlyRate != null ? hours * hourlyRate : null,
+				hourlyRate: cost.hourlyRate,
+				unitRate: cost.unitRate,
+				costCalculationMode: cost.mode,
+				actualCost: cost.actualCost,
 			};
 		});
 	const materialSources: Forma2ActualSource[] = materialRows.map((row) => ({

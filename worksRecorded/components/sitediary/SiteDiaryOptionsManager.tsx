@@ -1,7 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { Check, Loader2, Pencil, Plus, Settings2, Trash2, X } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  Pencil,
+  Plus,
+  Settings2,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -18,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getSiteDiaryDialogMessages,
@@ -35,6 +44,7 @@ type WorkDraft = {
   unit: string;
   laborNormHoursPerUnit: string;
   hourlyCost: string;
+  costCalculationMode: "hourly" | "output";
 };
 
 const PRODUCTIVITY_MESSAGES = {
@@ -45,10 +55,16 @@ const PRODUCTIVITY_MESSAGES = {
     normHint: "hours / unit",
     hourlyCost: "Hourly cost",
     hourlyCostHint: "EUR / hour",
+    costMode: "Payment method",
+    hourlyMode: "Hourly",
+    outputMode: "Output",
+    costModeHint:
+      "Output: planned and factual costs both follow completed quantity × output rate. Hourly rate: factual cost follows recorded hours × hourly rate.",
     selectUnit: "No unit",
     addWork: "Add work",
     invalidNorm: "Time norm must be a number greater than zero.",
-    invalidHourlyCost: "Hourly cost must be a number equal to or greater than zero.",
+    invalidHourlyCost:
+      "Hourly cost must be a number equal to or greater than zero.",
     unitRequired: "Select a unit when a time norm is set.",
   },
   lv: {
@@ -58,10 +74,16 @@ const PRODUCTIVITY_MESSAGES = {
     normHint: "stundas / mērv.",
     hourlyCost: "Stundas likme",
     hourlyCostHint: "EUR / stundā",
+    costMode: "Apmaksas veids",
+    hourlyMode: "Stundas likme",
+    outputMode: "Izpilde",
+    costModeHint:
+      "Izpilde: plāna un faktiskās izmaksas = izpildītais daudzums × izpildes likme. Stundas likme: faktiskās izmaksas = reģistrētās stundas × stundas likme.",
     selectUnit: "Nav norādīta",
     addWork: "Pievienot darbu",
     invalidNorm: "Laika normai jābūt skaitlim, kas lielāks par nulli.",
-    invalidHourlyCost: "Stundas likmei jābūt skaitlim, kas nav mazāks par nulli.",
+    invalidHourlyCost:
+      "Stundas likmei jābūt skaitlim, kas nav mazāks par nulli.",
     unitRequired: "Ja norādīta laika norma, izvēlieties mērvienību.",
   },
 } as const;
@@ -79,7 +101,8 @@ export function SiteDiaryOptionsManager({
   const t = getSiteDiaryDialogMessages(language);
   const p = PRODUCTIVITY_MESSAGES[language === "lv" ? "lv" : "en"];
   const [open, setOpen] = React.useState(false);
-  const [activeField, setActiveField] = React.useState<ManagedField>("Location");
+  const [activeField, setActiveField] =
+    React.useState<ManagedField>("Location");
   const [locations, setLocations] = React.useState<string[]>([]);
   const [works, setWorks] = React.useState<WorkDraft[]>([]);
   const [unitOptions, setUnitOptions] = React.useState<string[]>([]);
@@ -126,11 +149,13 @@ export function SiteDiaryOptionsManager({
                 ? ""
                 : String(row.laborNormHoursPerUnit),
             hourlyCost: row.hourlyCost == null ? "" : String(row.hourlyCost),
+            costCalculationMode: row.costCalculationMode ?? "output",
           })),
         );
       })
       .catch((error: any) => {
-        if (!cancelled) toast.error(error?.message ?? t.failedUpdateDropdownOptions);
+        if (!cancelled)
+          toast.error(error?.message ?? t.failedUpdateDropdownOptions);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -150,11 +175,15 @@ export function SiteDiaryOptionsManager({
   const normalizedSearch = search.trim().toLocaleLowerCase("lv");
   const visibleLocations = locations
     .map((option, index) => ({ option, index }))
-    .filter(({ option }) => option.toLocaleLowerCase("lv").includes(normalizedSearch));
+    .filter(({ option }) =>
+      option.toLocaleLowerCase("lv").includes(normalizedSearch),
+    );
   const visibleWorks = works
     .map((work, index) => ({ work, index }))
     .filter(({ work }) => matchesPersistedWorkSearch(work, normalizedSearch))
-    .sort((left, right) => compareSiteDiaryWorks(left.work.work, right.work.work));
+    .sort((left, right) =>
+      compareSiteDiaryWorks(left.work.work, right.work.work),
+    );
 
   const validateLocation = (rawValue: string, ignoredIndex?: number) => {
     const value = rawValue.trim();
@@ -199,7 +228,9 @@ export function SiteDiaryOptionsManager({
 
   const updateWork = (index: number, patch: Partial<WorkDraft>) => {
     setWorks((current) =>
-      current.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)),
+      current.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...patch } : row,
+      ),
     );
   };
 
@@ -215,6 +246,7 @@ export function SiteDiaryOptionsManager({
       unit: string;
       laborNormHoursPerUnit: number | null;
       hourlyCost: number | null;
+      costCalculationMode: "hourly" | "output";
     }> = [];
     for (const row of works) {
       const work = row.work.trim();
@@ -235,8 +267,12 @@ export function SiteDiaryOptionsManager({
       seenWorks.add(key);
 
       const rawNorm = row.laborNormHoursPerUnit.trim();
-      const parsedNorm = rawNorm === "" ? null : Number(rawNorm.replace(",", "."));
-      if (rawNorm !== "" && (!Number.isFinite(parsedNorm) || Number(parsedNorm) <= 0)) {
+      const parsedNorm =
+        rawNorm === "" ? null : Number(rawNorm.replace(",", "."));
+      if (
+        rawNorm !== "" &&
+        (!Number.isFinite(parsedNorm) || Number(parsedNorm) <= 0)
+      ) {
         toast.error(p.invalidNorm);
         return;
       }
@@ -259,6 +295,7 @@ export function SiteDiaryOptionsManager({
         unit,
         laborNormHoursPerUnit: parsedNorm,
         hourlyCost: parsedHourlyCost,
+        costCalculationMode: row.costCalculationMode,
       });
     }
 
@@ -327,7 +364,12 @@ export function SiteDiaryOptionsManager({
                 placeholder={t.addNewOption}
                 disabled={loading}
               />
-              <Button type="button" variant="outline" onClick={appendLocation} disabled={loading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={appendLocation}
+                disabled={loading}
+              >
                 {t.add}
               </Button>
             </div>
@@ -348,6 +390,7 @@ export function SiteDiaryOptionsManager({
                     unit: "",
                     laborNormHoursPerUnit: "",
                     hourlyCost: "",
+                    costCalculationMode: "output",
                   },
                 ]);
               }}
@@ -372,7 +415,9 @@ export function SiteDiaryOptionsManager({
                     {editingIndex === index ? (
                       <Input
                         value={editingValue}
-                        onChange={(event) => setEditingValue(event.target.value)}
+                        onChange={(event) =>
+                          setEditingValue(event.target.value)
+                        }
                         onKeyDown={(event) => {
                           if (event.key === "Enter") saveEditedLocation();
                         }}
@@ -380,80 +425,205 @@ export function SiteDiaryOptionsManager({
                         className="h-8"
                       />
                     ) : (
-                      <p className="truncate text-sm" title={option}>{option}</p>
+                      <p className="truncate text-sm" title={option}>
+                        {option}
+                      </p>
                     )}
                     <div className="flex items-center gap-1">
                       {editingIndex === index ? (
                         <>
-                          <Button type="button" size="icon" variant="ghost" onClick={saveEditedLocation} aria-label={t.saveOption}>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={saveEditedLocation}
+                            aria-label={t.saveOption}
+                          >
                             <Check className="h-4 w-4" />
                           </Button>
-                          <Button type="button" size="icon" variant="ghost" onClick={() => setEditingIndex(null)} aria-label={t.cancelEditingOption}>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => setEditingIndex(null)}
+                            aria-label={t.cancelEditingOption}
+                          >
                             <X className="h-4 w-4" />
                           </Button>
                         </>
                       ) : (
-                        <Button type="button" size="icon" variant="ghost" onClick={() => { setEditingIndex(index); setEditingValue(option); }} aria-label={t.editOption}>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditingIndex(index);
+                            setEditingValue(option);
+                          }}
+                          aria-label={t.editOption}
+                        >
                           <Pencil className="h-4 w-4" />
                         </Button>
                       )}
-                      <Button type="button" size="icon" variant="ghost" onClick={() => setLocations((current) => current.filter((_, rowIndex) => rowIndex !== index))} aria-label={t.deleteOption}>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() =>
+                          setLocations((current) =>
+                            current.filter((_, rowIndex) => rowIndex !== index),
+                          )
+                        }
+                        aria-label={t.deleteOption}
+                      >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </div>
                 ))}
-                {!visibleLocations.length ? <p className="py-4 text-center text-sm text-muted-foreground">{t.noOptionsFound}</p> : null}
+                {!visibleLocations.length ? (
+                  <p className="py-4 text-center text-sm text-muted-foreground">
+                    {t.noOptionsFound}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="grid grid-cols-[minmax(220px,1fr)_140px_150px_150px_40px] gap-2 px-2 text-xs font-medium text-muted-foreground">
+                <div className="grid grid-cols-[minmax(220px,1fr)_120px_135px_135px_220px_40px] gap-2 px-2 text-xs font-medium text-muted-foreground">
                   <div>{p.workName}</div>
                   <div>{p.unit}</div>
                   <div>{p.timeNorm}</div>
                   <div>{p.hourlyCost}</div>
+                  <div title={p.costModeHint}>{p.costMode}</div>
                   <div />
                 </div>
                 {visibleWorks.map(({ work, index }) => {
-                  const availableUnits = Array.from(new Set([...unitOptions, work.unit].filter(Boolean)));
+                  const availableUnits = Array.from(
+                    new Set([...unitOptions, work.unit].filter(Boolean)),
+                  );
                   return (
-                    <div key={work.id} className="grid grid-cols-[minmax(220px,1fr)_140px_150px_150px_40px] items-center gap-2 rounded-md border p-2">
-                      <Input value={work.work} maxLength={MAX_OPTION_LENGTH} onChange={(event) => updateWork(index, { work: event.target.value })} />
+                    <div
+                      key={work.id}
+                      className="grid grid-cols-[minmax(220px,1fr)_120px_135px_135px_220px_40px] items-center gap-2 rounded-md border p-2"
+                    >
+                      <Input
+                        value={work.work}
+                        maxLength={MAX_OPTION_LENGTH}
+                        onChange={(event) =>
+                          updateWork(index, { work: event.target.value })
+                        }
+                      />
                       <select
                         value={work.unit}
-                        onChange={(event) => updateWork(index, { unit: event.target.value })}
+                        onChange={(event) =>
+                          updateWork(index, { unit: event.target.value })
+                        }
                         className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                       >
                         <option value="">{p.selectUnit}</option>
-                        {availableUnits.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+                        {availableUnits.map((unit) => (
+                          <option key={unit} value={unit}>
+                            {unit}
+                          </option>
+                        ))}
                       </select>
                       <Input
                         value={work.laborNormHoursPerUnit}
                         inputMode="decimal"
                         placeholder={p.normHint}
-                        onChange={(event) => updateWork(index, { laborNormHoursPerUnit: event.target.value })}
+                        onChange={(event) =>
+                          updateWork(index, {
+                            laborNormHoursPerUnit: event.target.value,
+                          })
+                        }
                       />
                       <Input
                         value={work.hourlyCost}
                         inputMode="decimal"
                         placeholder={p.hourlyCostHint}
-                        onChange={(event) => updateWork(index, { hourlyCost: event.target.value })}
+                        onChange={(event) =>
+                          updateWork(index, { hourlyCost: event.target.value })
+                        }
                       />
-                      <Button type="button" size="icon" variant="ghost" onClick={() => setWorks((current) => current.filter((_, rowIndex) => rowIndex !== index))} aria-label={t.deleteOption}>
+                      <div
+                        className="flex h-10 items-center justify-center gap-2 rounded-md border border-input px-2"
+                        title={p.costModeHint}
+                      >
+                        <span
+                          className={`text-xs transition-colors ${
+                            work.costCalculationMode === "output"
+                              ? "font-semibold text-foreground"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {p.outputMode}
+                        </span>
+                        <Switch
+                          checked={work.costCalculationMode === "hourly"}
+                          onCheckedChange={(checked) =>
+                            updateWork(index, {
+                              costCalculationMode: checked
+                                ? "hourly"
+                                : "output",
+                            })
+                          }
+                          aria-label={`${p.costMode}: ${
+                            work.costCalculationMode === "hourly"
+                              ? p.hourlyMode
+                              : p.outputMode
+                          }`}
+                        />
+                        <span
+                          className={`text-xs transition-colors ${
+                            work.costCalculationMode === "hourly"
+                              ? "font-semibold text-foreground"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {p.hourlyMode}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        onClick={() =>
+                          setWorks((current) =>
+                            current.filter((_, rowIndex) => rowIndex !== index),
+                          )
+                        }
+                        aria-label={t.deleteOption}
+                      >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   );
                 })}
-                {!visibleWorks.length ? <p className="py-4 text-center text-sm text-muted-foreground">{t.noOptionsFound}</p> : null}
+                {!visibleWorks.length ? (
+                  <p className="py-4 text-center text-sm text-muted-foreground">
+                    {t.noOptionsFound}
+                  </p>
+                ) : null}
               </div>
             )}
           </ScrollArea>
 
           <DialogFooter className="border-t pt-3">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>{t.cancel}</Button>
-            <Button type="button" onClick={saveOptions} disabled={loading || saving}>
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              {t.cancel}
+            </Button>
+            <Button
+              type="button"
+              onClick={saveOptions}
+              disabled={loading || saving}
+            >
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               {t.save}
             </Button>
           </DialogFooter>

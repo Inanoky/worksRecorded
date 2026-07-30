@@ -1,4 +1,5 @@
 import {
+  calculateDefaultConstructionWorkCost,
   getDefaultConstructionProductivitySettings,
   normalizeDefaultConstructionWorkSettings,
 } from "./site-diary-productivity-settings";
@@ -15,6 +16,7 @@ describe("default-construction productivity settings", () => {
         unit: "",
         laborNormHoursPerUnit: null,
         hourlyCost: null,
+        costCalculationMode: "output",
       },
     ]);
   });
@@ -26,7 +28,12 @@ describe("default-construction productivity settings", () => {
         defaultConstructionProductivity: {
           version: 1,
           works: [
-            { work: "masonry", unit: "m2", laborNormHoursPerUnit: 0.4, hourlyCost: 18.5 },
+            {
+              work: "masonry",
+              unit: "m2",
+              laborNormHoursPerUnit: 0.4,
+              hourlyCost: 18.5,
+            },
             { work: "Deleted", unit: "pcs", laborNormHoursPerUnit: 1 },
           ],
         },
@@ -39,8 +46,40 @@ describe("default-construction productivity settings", () => {
         unit: "m2",
         laborNormHoursPerUnit: 0.4,
         hourlyCost: 18.5,
+        costCalculationMode: "output",
       },
     ]);
+  });
+
+  it("preserves the visible checkbox choice while migrating version 3", () => {
+    const result = getDefaultConstructionProductivitySettings({
+      Works: {
+        DropDownOptions: { Unchecked: "Unchecked", Checked: "Checked" },
+      },
+      otherSettings: {
+        defaultConstructionProductivity: {
+          version: 3,
+          works: [
+            { work: "Unchecked", costCalculationMode: "hourly" },
+            { work: "Checked", costCalculationMode: "output" },
+          ],
+        },
+      },
+    });
+
+    expect(result.version).toBe(4);
+    expect(result.works).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          work: "Unchecked",
+          costCalculationMode: "output",
+        }),
+        expect.objectContaining({
+          work: "Checked",
+          costCalculationMode: "hourly",
+        }),
+      ]),
+    );
   });
 
   it("orders dropdown works by numeric prefixes", () => {
@@ -73,6 +112,7 @@ describe("default-construction productivity settings", () => {
           unit: "m3",
           laborNormHoursPerUnit: 0.75,
           hourlyCost: 22,
+          costCalculationMode: "output",
         },
       ]),
     ).toEqual([
@@ -81,6 +121,7 @@ describe("default-construction productivity settings", () => {
         unit: "m3",
         laborNormHoursPerUnit: 0.75,
         hourlyCost: 22,
+        costCalculationMode: "output",
       },
     ]);
   });
@@ -109,6 +150,7 @@ describe("default-construction productivity settings", () => {
         unit: "m2",
         laborNormHoursPerUnit: 0.5,
         hourlyCost: 0,
+        costCalculationMode: "output",
       },
     ]);
   });
@@ -124,5 +166,32 @@ describe("default-construction productivity settings", () => {
         },
       ]),
     ).toThrow("Hourly cost");
+  });
+
+  it("switches factual cost between output and hourly formulas", () => {
+    const common = {
+      unit: "m2",
+      amount: 10,
+      hours: 100,
+    };
+    const setting = {
+      work: "Masonry",
+      unit: "m2",
+      laborNormHoursPerUnit: 0.5,
+      hourlyCost: 20,
+    };
+
+    expect(
+      calculateDefaultConstructionWorkCost({
+        ...common,
+        setting: { ...setting, costCalculationMode: "output" },
+      }),
+    ).toMatchObject({ unitRate: 10, actualCost: 100 });
+    expect(
+      calculateDefaultConstructionWorkCost({
+        ...common,
+        setting: { ...setting, costCalculationMode: "hourly" },
+      }),
+    ).toMatchObject({ hourlyRate: 20, actualCost: 2000 });
   });
 });

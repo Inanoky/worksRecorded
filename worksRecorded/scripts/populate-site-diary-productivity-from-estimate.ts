@@ -33,6 +33,7 @@ type ProductivitySetting = {
 	unit: string;
 	laborNormHoursPerUnit: number | null;
 	hourlyCost: number | null;
+	costCalculationMode: "hourly" | "output";
 };
 
 type ProductivityArtifact = {
@@ -206,6 +207,7 @@ function readExistingSettings(config: Record<string, unknown>) {
 	if (!isRecord(productivity) || !Array.isArray(productivity.works)) {
 		return new Map<string, ProductivitySetting>();
 	}
+	const settingsVersion = Number(productivity.version);
 	return new Map(
 		productivity.works.filter(isRecord).map((row) => {
 			const work = normalizeText(row.work);
@@ -216,6 +218,14 @@ function readExistingSettings(config: Record<string, unknown>) {
 					unit: normalizeText(row.unit),
 					laborNormHoursPerUnit: parseNumber(row.laborNormHoursPerUnit),
 					hourlyCost: parseNumber(row.hourlyCost),
+					costCalculationMode:
+						settingsVersion === 3
+							? row.costCalculationMode === "output"
+								? "hourly"
+								: "output"
+							: row.costCalculationMode === "hourly"
+								? "hourly"
+								: "output",
 				},
 			] as const;
 		}),
@@ -261,6 +271,7 @@ function buildNextConfig(
 				unit: estimate.unit,
 				laborNormHoursPerUnit: estimate.laborNormHoursPerUnit,
 				hourlyCost: estimate.hourlyCost,
+				costCalculationMode: "output" as const,
 			};
 		}
 		const existing = existingSettings.get(work.toLocaleLowerCase("lv"));
@@ -269,6 +280,7 @@ function buildNextConfig(
 			unit: existing?.unit ?? "",
 			laborNormHoursPerUnit: existing?.laborNormHoursPerUnit ?? null,
 			hourlyCost: existing?.hourlyCost ?? null,
+			costCalculationMode: existing?.costCalculationMode ?? "output",
 		};
 	});
 
@@ -289,7 +301,7 @@ function buildNextConfig(
 	next.otherSettings = {
 		...otherSettings,
 		[PRODUCTIVITY_SETTINGS_KEY]: {
-			version: 2,
+			version: 4,
 			works: settings,
 		},
 	};

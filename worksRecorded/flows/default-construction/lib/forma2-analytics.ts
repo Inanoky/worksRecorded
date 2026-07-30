@@ -67,6 +67,8 @@ export type Forma2ActualSource = {
 	quantity: number | null;
 	hours: number | null;
 	hourlyRate?: number | null;
+	unitRate?: number | null;
+	costCalculationMode?: "hourly" | "output";
 	actualCost: number | null;
 };
 

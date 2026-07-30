@@ -1,4 +1,7 @@
-import type { DefaultConstructionWorkProductivitySetting } from "./site-diary-productivity-settings";
+import type {
+  DefaultConstructionWorkCostMode,
+  DefaultConstructionWorkProductivitySetting,
+} from "./site-diary-productivity-settings";
 import {
   compareSiteDiaryWorkPrefixes,
   compareSiteDiaryWorks,
@@ -45,9 +48,13 @@ export type DefaultConstructionSummaryBreakdownRow = {
   comparedRecords: number;
   excludedRecords: number;
   hourlyCost: number | null;
+  costCalculationMode: DefaultConstructionWorkCostMode;
   plannedCost: number | null;
   actualCost: number | null;
   costDifference: number | null;
+  comparedPlannedCost: number | null;
+  comparedActualCost: number | null;
+  isCostComparable: boolean;
   plannedUnitCost: number | null;
   actualUnitCost: number | null;
   hasActualHours: boolean;
@@ -85,7 +92,9 @@ export type DefaultConstructionScopeSummary = {
 
 const round = (value: number, digits = 2) => Number(value.toFixed(digits));
 const normalizedKey = (value: unknown) =>
-  String(value ?? "").trim().toLocaleLowerCase("lv");
+  String(value ?? "")
+    .trim()
+    .toLocaleLowerCase("lv");
 
 function finiteNumber(value: unknown) {
   const parsed = Number(value);
@@ -93,22 +102,32 @@ function finiteNumber(value: unknown) {
 }
 
 function isPresentFiniteNumber(value: unknown) {
-  return value !== null && value !== undefined && Number.isFinite(Number(value));
+  return (
+    value !== null && value !== undefined && Number.isFinite(Number(value))
+  );
 }
 
-function addQuantity(map: Map<string, number>, unitValue: unknown, amountValue: unknown) {
+function addQuantity(
+  map: Map<string, number>,
+  unitValue: unknown,
+  amountValue: unknown,
+) {
   if (!isPresentFiniteNumber(amountValue)) return;
   const unit = String(unitValue ?? "").trim() || "—";
   map.set(unit, (map.get(unit) ?? 0) + Number(amountValue));
 }
 
-function quantityRows(map: Map<string, number>): DefaultConstructionQuantityTotal[] {
+function quantityRows(
+  map: Map<string, number>,
+): DefaultConstructionQuantityTotal[] {
   return Array.from(map.entries())
     .map(([unit, amount]) => ({ unit, amount: round(amount) }))
     .sort((a, b) => a.unit.localeCompare(b.unit, "lv"));
 }
 
-function comparisonStatus(difference: number): DefaultConstructionComparisonStatus {
+function comparisonStatus(
+  difference: number,
+): DefaultConstructionComparisonStatus {
   return difference > 0 ? "behind" : "on_or_ahead";
 }
 
@@ -176,7 +195,10 @@ export function buildDefaultConstructionScopeSummary(args: {
     current.workers += workers;
     current.hours += hours;
     if (isPresentFiniteNumber(row.TimeInvolved)) current.hoursRecords += 1;
-    if (isPresentFiniteNumber(row.Amounts) && isPresentFiniteNumber(row.TimeInvolved)) {
+    if (
+      isPresentFiniteNumber(row.Amounts) &&
+      isPresentFiniteNumber(row.TimeInvolved)
+    ) {
       current.comparedAmount += Number(row.Amounts);
       current.comparedHours += Number(row.TimeInvolved);
       current.comparedRecords += 1;
@@ -193,25 +215,36 @@ export function buildDefaultConstructionScopeSummary(args: {
       const setting = settings.get(normalizedKey(row.label));
       const plannedNorm = Number(setting?.laborNormHoursPerUnit);
       const hourlyCost = Number(setting?.hourlyCost);
+      const costCalculationMode: DefaultConstructionWorkCostMode =
+        setting?.costCalculationMode === "hourly" ? "hourly" : "output";
       const hasHourlyCost =
-        setting?.hourlyCost != null && Number.isFinite(hourlyCost) && hourlyCost >= 0;
+        setting?.hourlyCost != null &&
+        Number.isFinite(hourlyCost) &&
+        hourlyCost >= 0;
       const unitMatches =
-        Boolean(setting?.unit) && normalizedKey(setting?.unit) === normalizedKey(row.unit);
+        Boolean(setting?.unit) &&
+        normalizedKey(setting?.unit) === normalizedKey(row.unit);
       const hasConfiguredPlan =
         unitMatches && Number.isFinite(plannedNorm) && plannedNorm > 0;
       const hasPlannedAmount = hasConfiguredPlan && row.amount > 0;
       const hasActualHours = row.hoursRecords > 0;
       const isComparable =
-        hasConfiguredPlan &&
-        row.comparedAmount > 0 &&
-        row.comparedRecords > 0;
+        hasConfiguredPlan && row.comparedAmount > 0 && row.comparedRecords > 0;
       const plannedHours = hasPlannedAmount ? row.amount * plannedNorm : null;
       const plannedCost =
         plannedHours != null && hasHourlyCost
           ? plannedHours * hourlyCost
           : null;
       const actualCost =
-        hasHourlyCost && hasActualHours ? row.hours * hourlyCost : null;
+        costCalculationMode === "output"
+          ? plannedCost
+          : hasHourlyCost && hasActualHours
+            ? row.hours * hourlyCost
+            : null;
+      const outputCostComparable =
+        costCalculationMode === "output" &&
+        plannedCost != null &&
+        actualCost != null;
 
       if (!isComparable) {
         return {
@@ -234,17 +267,25 @@ export function buildDefaultConstructionScopeSummary(args: {
           comparedRecords: row.comparedRecords,
           excludedRecords: row.records - row.comparedRecords,
           hourlyCost: hasHourlyCost ? round(hourlyCost) : null,
+          costCalculationMode,
           plannedCost: plannedCost == null ? null : round(plannedCost),
           actualCost: actualCost == null ? null : round(actualCost),
-          costDifference: null,
+          costDifference: outputCostComparable ? 0 : null,
+          comparedPlannedCost: outputCostComparable ? round(plannedCost) : null,
+          comparedActualCost: outputCostComparable ? round(actualCost) : null,
+          isCostComparable: outputCostComparable,
           plannedUnitCost:
             hasConfiguredPlan && hasHourlyCost
               ? round(plannedNorm * hourlyCost)
               : null,
           actualUnitCost:
-            actualCost != null && row.amount > 0
-              ? round(actualCost / row.amount)
-              : null,
+            costCalculationMode === "output" &&
+            hasConfiguredPlan &&
+            hasHourlyCost
+              ? round(plannedNorm * hourlyCost)
+              : actualCost != null && row.amount > 0
+                ? round(actualCost / row.amount)
+                : null,
           hasActualHours,
           isComparable: false,
         };
@@ -258,7 +299,9 @@ export function buildDefaultConstructionScopeSummary(args: {
         ? comparedPlannedHours * hourlyCost
         : null;
       const comparedActualCost = hasHourlyCost
-        ? row.comparedHours * hourlyCost
+        ? costCalculationMode === "output"
+          ? comparedPlannedCost
+          : row.comparedHours * hourlyCost
         : null;
       return {
         label: row.label,
@@ -280,18 +323,26 @@ export function buildDefaultConstructionScopeSummary(args: {
         comparedRecords: row.comparedRecords,
         excludedRecords: row.records - row.comparedRecords,
         hourlyCost: hasHourlyCost ? round(hourlyCost) : null,
+        costCalculationMode,
         plannedCost: plannedCost == null ? null : round(plannedCost),
         actualCost: actualCost == null ? null : round(actualCost),
         costDifference:
           comparedPlannedCost == null || comparedActualCost == null
             ? null
             : round(comparedActualCost - comparedPlannedCost),
-        plannedUnitCost:
-          hasHourlyCost ? round(plannedNorm * hourlyCost) : null,
+        comparedPlannedCost:
+          comparedPlannedCost == null ? null : round(comparedPlannedCost),
+        comparedActualCost:
+          comparedActualCost == null ? null : round(comparedActualCost),
+        isCostComparable:
+          comparedPlannedCost != null && comparedActualCost != null,
+        plannedUnitCost: hasHourlyCost ? round(plannedNorm * hourlyCost) : null,
         actualUnitCost:
-          actualCost != null && row.amount > 0
-            ? round(actualCost / row.amount)
-            : null,
+          costCalculationMode === "output" && hasHourlyCost
+            ? round(plannedNorm * hourlyCost)
+            : actualCost != null && row.amount > 0
+              ? round(actualCost / row.amount)
+              : null,
         hasActualHours,
         isComparable: true,
       };
@@ -299,10 +350,16 @@ export function buildDefaultConstructionScopeSummary(args: {
     .sort((a, b) => {
       const prefixOrder = compareSiteDiaryWorkPrefixes(a.label, b.label);
       if (prefixOrder !== 0) return prefixOrder;
-      if (args.scope === "project" && a.hasConfiguredPlan !== b.hasConfiguredPlan) {
+      if (
+        args.scope === "project" &&
+        a.hasConfiguredPlan !== b.hasConfiguredPlan
+      ) {
         return a.hasConfiguredPlan ? -1 : 1;
       }
-      return compareSiteDiaryWorks(a.label, b.label) || a.unit.localeCompare(b.unit, "lv");
+      return (
+        compareSiteDiaryWorks(a.label, b.label) ||
+        a.unit.localeCompare(b.unit, "lv")
+      );
     });
 
   const comparableRows = breakdownRows.filter((row) => row.isComparable);
@@ -322,10 +379,12 @@ export function buildDefaultConstructionScopeSummary(args: {
     0,
   );
   const hoursDifference = comparedActualHours - comparedPlannedHours;
-  const plannedCostRows = breakdownRows.filter((row) => row.plannedCost != null);
+  const plannedCostRows = breakdownRows.filter(
+    (row) => row.plannedCost != null,
+  );
   const actualCostRows = breakdownRows.filter((row) => row.actualCost != null);
-  const costComparableRows = comparableRows.filter(
-    (row) => row.hourlyCost != null,
+  const costComparableRows = breakdownRows.filter(
+    (row) => row.isCostComparable,
   );
   const plannedCost = plannedCostRows.reduce(
     (sum, row) => sum + Number(row.plannedCost ?? 0),
@@ -336,16 +395,11 @@ export function buildDefaultConstructionScopeSummary(args: {
     0,
   );
   const comparedPlannedCost = costComparableRows.reduce(
-    (sum, row) =>
-      sum +
-      row.comparedAmount *
-        Number(row.plannedNorm ?? 0) *
-        Number(row.hourlyCost ?? 0),
+    (sum, row) => sum + Number(row.comparedPlannedCost ?? 0),
     0,
   );
   const comparedActualCost = costComparableRows.reduce(
-    (sum, row) =>
-      sum + row.comparedHours * Number(row.hourlyCost ?? 0),
+    (sum, row) => sum + Number(row.comparedActualCost ?? 0),
     0,
   );
   const costDifference = comparedActualCost - comparedPlannedCost;
@@ -368,7 +422,9 @@ export function buildDefaultConstructionScopeSummary(args: {
       plannedHours: round(plannedHours),
       actualHours: round(actualHours),
       hoursDifference: round(hoursDifference),
-      status: comparableRows.length ? comparisonStatus(hoursDifference) : "neutral",
+      status: comparableRows.length
+        ? comparisonStatus(hoursDifference)
+        : "neutral",
       costComparableGroups: costComparableRows.length,
       plannedCostGroups: plannedCostRows.length,
       actualCostGroups: actualCostRows.length,

@@ -76,7 +76,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				includedRecords: "Iekļautie ieraksti",
 				unpricedRecords: "Bez aprēķināmām izmaksām",
 				workRule:
-					"Darbu izmaksas = Būvdarbu žurnālā norādītās stundas × darba stundas likme no “Pārvaldīt opcijas”.",
+					"Darbiem ar režīmu “Izpilde” izmaksas = daudzums × izpildes likme. Režīmā “Stundas likme” izmaksas = reģistrētās stundas × stundas likme.",
 				materialRule:
 					"Materiālu izmaksas = Noliktavā saglabātā rēķina pozīcijas kopējā summa. Daudzums un mērvienība ir informatīvi; mērvienību konvertēšana netiek veikta.",
 				date: "Datums",
@@ -91,7 +91,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				automatic: "Automātiska",
 				rule: "Noteikums",
 				invoiceTotal: "Rēķina pozīcijas summa",
-				missingRate: "Trūkst stundu vai stundas likmes",
+				missingRate: "Trūkst aprēķinam nepieciešamā daudzuma vai likmes",
 				unpriced: "Nav aprēķināms",
 				noRecords: "Šajā summā nav iekļautu ierakstu.",
 				loadError: "Neizdevās ielādēt izmaksu detalizāciju.",
@@ -104,7 +104,7 @@ export function DefaultConstructionForma2CostBreakdown({
 				includedRecords: "Included records",
 				unpricedRecords: "Without calculable cost",
 				workRule:
-					"Work cost = hours recorded in the Site Diary × the hourly rate configured in Manage options.",
+					"For Output mode, work cost = quantity × output rate. For Hourly mode, work cost = recorded hours × hourly rate.",
 				materialRule:
 					"Material cost = the invoice-line total stored in Warehouse. Quantity and unit are shown for traceability; units are not converted.",
 				date: "Date",
@@ -119,7 +119,8 @@ export function DefaultConstructionForma2CostBreakdown({
 				automatic: "Automatic",
 				rule: "Rule",
 				invoiceTotal: "Invoice-line total",
-				missingRate: "Hours or hourly rate unavailable",
+				missingRate:
+					"Quantity or rate required for this calculation is unavailable",
 				unpriced: "Not calculable",
 				noRecords: "No records are included in this amount.",
 				loadError: "Could not load the cost details.",
@@ -242,8 +243,20 @@ export function DefaultConstructionForma2CostBreakdown({
 												</TableCell>
 												<TableCell className="whitespace-normal align-top">
 													{record.type === "work" ? (
-														record.hours != null &&
-														record.hourlyRate != null ? (
+														record.costCalculationMode === "output" ? (
+															record.quantity != null &&
+															record.unitRate != null ? (
+																<>
+																	{formatNumber(record.quantity, locale)}{" "}
+																	{record.unit} ×{" "}
+																	{formatCurrency(record.unitRate, locale)}/
+																	{record.unit}
+																</>
+															) : (
+																copy.missingRate
+															)
+														) : record.hours != null &&
+															record.hourlyRate != null ? (
 															<>
 																{formatNumber(record.hours, locale)} h ×{" "}
 																{formatCurrency(record.hourlyRate, locale)}/h

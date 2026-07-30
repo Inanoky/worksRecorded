@@ -1,11 +1,12 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import {
   DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY,
+  type DefaultConstructionWorkProductivitySetting,
   getDefaultConstructionOptionValues,
   normalizeDefaultConstructionWorkSettings,
-  type DefaultConstructionWorkProductivitySetting,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
@@ -21,7 +22,9 @@ function normalizeSimpleOptions(input: string[], label: string) {
     const value = String(raw ?? "").trim();
     if (!value) throw new Error(`${label} cannot be empty`);
     if (value.length > MAX_OPTION_LENGTH) {
-      throw new Error(`${label} must be ${MAX_OPTION_LENGTH} characters or less`);
+      throw new Error(
+        `${label} must be ${MAX_OPTION_LENGTH} characters or less`,
+      );
     }
     const key = value.toLocaleLowerCase("lv");
     if (seen.has(key)) throw new Error(`${label} already exists: ${value}`);
@@ -68,7 +71,9 @@ export async function saveDefaultConstructionSiteDiaryOptions(args: {
 
   config.Location = {
     ...(config.Location ?? (defaultConfig as Record<string, any>).Location),
-    DropDownOptions: Object.fromEntries(locations.map((value) => [value, value])),
+    DropDownOptions: Object.fromEntries(
+      locations.map((value) => [value, value]),
+    ),
   };
   config.Works = {
     ...(config.Works ?? (defaultConfig as Record<string, any>).Works),
@@ -77,7 +82,7 @@ export async function saveDefaultConstructionSiteDiaryOptions(args: {
   config.otherSettings = {
     ...(config.otherSettings ?? {}),
     [DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY]: {
-      version: 2,
+      version: 4,
       works,
     },
   };
@@ -86,6 +91,9 @@ export async function saveDefaultConstructionSiteDiaryOptions(args: {
     where: { id: args.siteId },
     data: { siteDiaryRecordsMap: config },
   });
+
+  revalidatePath(`/dashboard/sites/${args.siteId}/dashboard`);
+  revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
 
   return getDefaultConstructionOptionValues(config);
 }

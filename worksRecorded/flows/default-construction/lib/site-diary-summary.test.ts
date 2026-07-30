@@ -49,8 +49,18 @@ describe("default-construction site diary summaries", () => {
       comparison: { comparableGroups: 0, totalGroups: 2, status: "neutral" },
     });
     expect(result.breakdown).toEqual([
-      expect.objectContaining({ label: "Masonry", unit: "m2", amount: 20, hours: 14 }),
-      expect.objectContaining({ label: "Material delivery", unit: "tn", amount: 1.25, hours: 1 }),
+      expect.objectContaining({
+        label: "Masonry",
+        unit: "m2",
+        amount: 20,
+        hours: 14,
+      }),
+      expect.objectContaining({
+        label: "Material delivery",
+        unit: "tn",
+        amount: 1.25,
+        hours: 1,
+      }),
     ]);
   });
 
@@ -145,15 +155,33 @@ describe("default-construction site diary summaries", () => {
       rows: [
         ...rows.slice(0, 2),
         { ...rows[0], Location: "Floor 2", Amounts: 4, TimeInvolved: 2 },
-        { ...rows[0], Location: "Floor 3", Units: "pcs", Amounts: 3, TimeInvolved: 1 },
+        {
+          ...rows[0],
+          Location: "Floor 3",
+          Units: "pcs",
+          Amounts: 3,
+          TimeInvolved: 1,
+        },
       ],
     });
 
     expect(result.breakdown).toEqual([
-      expect.objectContaining({ label: "Masonry", unit: "m2", amount: 24, hours: 16 }),
-      expect.objectContaining({ label: "Masonry", unit: "pcs", amount: 3, hours: 1 }),
+      expect.objectContaining({
+        label: "Masonry",
+        unit: "m2",
+        amount: 24,
+        hours: 16,
+      }),
+      expect.objectContaining({
+        label: "Masonry",
+        unit: "pcs",
+        amount: 3,
+        hours: 1,
+      }),
     ]);
-    expect(result.breakdown.every((row) => !row.label.includes("Floor"))).toBe(true);
+    expect(result.breakdown.every((row) => !row.label.includes("Floor"))).toBe(
+      true,
+    );
   });
 
   it("calculates planned and actual productivity only for a matching unit", () => {
@@ -170,6 +198,7 @@ describe("default-construction site diary summaries", () => {
           unit: "m2",
           laborNormHoursPerUnit: 0.5,
           hourlyCost: 20,
+          costCalculationMode: "hourly",
         },
       ],
     });
@@ -250,6 +279,7 @@ describe("default-construction site diary summaries", () => {
           unit: "m2",
           laborNormHoursPerUnit: 1,
           hourlyCost: 20,
+          costCalculationMode: "hourly",
         },
       ],
     });
@@ -314,6 +344,7 @@ describe("default-construction site diary summaries", () => {
           unit: "m",
           laborNormHoursPerUnit: 0.48,
           hourlyCost: 15,
+          costCalculationMode: "hourly",
         },
       ],
     });
@@ -335,6 +366,46 @@ describe("default-construction site diary summaries", () => {
       actualCostGroups: 0,
       plannedCost: 489.6,
       comparableGroups: 0,
+    });
+  });
+
+  it("uses the completed quantity for both planned and factual output cost", () => {
+    const result = buildDefaultConstructionScopeSummary({
+      scope: "work",
+      value: "Masonry",
+      rows: [
+        {
+          Works: "Masonry",
+          Units: "m2",
+          Amounts: 10,
+          TimeInvolved: 100,
+        },
+      ],
+      productivitySettings: [
+        {
+          work: "Masonry",
+          unit: "m2",
+          laborNormHoursPerUnit: 0.5,
+          hourlyCost: 20,
+          costCalculationMode: "output",
+        },
+      ],
+    });
+
+    expect(result.breakdown[0]).toMatchObject({
+      costCalculationMode: "output",
+      plannedUnitCost: 10,
+      actualUnitCost: 10,
+      plannedCost: 100,
+      actualCost: 100,
+      costDifference: 0,
+      isCostComparable: true,
+    });
+    expect(result.comparison).toMatchObject({
+      plannedCost: 100,
+      actualCost: 100,
+      costDifference: 0,
+      costStatus: "on_or_ahead",
     });
   });
 });
