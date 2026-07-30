@@ -14,6 +14,7 @@ import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptions
 import { useDefaultConstructionSiteDiarySummary } from "@/flows/default-construction/frontend/useDefaultConstructionSiteDiarySummary";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
 import {
+  copySiteDiaryRecordsToProject,
   copySiteDiaryRecordToDate,
   deleteSiteDiaryRecord,
   getBisCaseAvailableMaterials,
@@ -27,6 +28,7 @@ import {
   getSiteGalleryAttachments,
   getSiteDiaryRecordsPage,
   getSiteDiaryMediaOnlyDays,
+  getSiteDiaryProjectCopyTargets,
   getSitediaryRecordsBySiteIdForExcel,
   sendSiteDiaryRecordToBis,
   syncDeletedSiteDiaryBisRecords,
@@ -211,6 +213,7 @@ type DayGroup = {
 };
 
 type MediaOnlyDaySummary = Awaited<ReturnType<typeof getSiteDiaryMediaOnlyDays>>[number];
+type SiteDiaryProjectCopyTarget = Awaited<ReturnType<typeof getSiteDiaryProjectCopyTargets>>[number];
 
 type ZtcScopeSummary = NonNullable<Awaited<ReturnType<typeof getZtcScopeSummary>>>;
 type ZtcFilterOptions = Awaited<ReturnType<typeof getZtcFilterOptions>>;
@@ -219,6 +222,16 @@ type ExcelExportKind = "siteDiary" | "ztcPayroll" | "ztcProductivity";
 function withSelectedOption(options: string[], selected: string) {
   if (!selected || selected === "__ALL__" || options.includes(selected)) return options;
   return [selected, ...options].sort(compareSiteDiaryWorks);
+}
+
+function formatProjectCopyTargetLabel(target: SiteDiaryProjectCopyTarget) {
+  const details = [target.subdirectory, target.description]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  return details.length > 0
+    ? `${target.name} (${details.join(" · ")})`
+    : target.name;
 }
 
 function SiteDiaryListSkeleton({ label }: { label: string }) {
@@ -859,9 +872,49 @@ export default function SiteDiaryCalendar({
   const [showBisUi, setShowBisUi] = React.useState(true);
   const [selectedRecordIds, setSelectedRecordIds] = React.useState<Set<string>>(new Set());
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
+  const [projectCopyTargets, setProjectCopyTargets] = React.useState<SiteDiaryProjectCopyTarget[]>([]);
+  const [projectCopyTargetId, setProjectCopyTargetId] = React.useState("");
+  const [projectCopyLoading, setProjectCopyLoading] = React.useState(false);
+  const [projectCopyTargetsLoading, setProjectCopyTargetsLoading] = React.useState(false);
   const [excelExportLoading, setExcelExportLoading] = React.useState<ExcelExportKind | null>(null);
   const bisUiEnabled = bisEnabled && showBisUi;
   const isZtcSite = isZtcFlow;
+  React.useEffect(() => {
+    if (!siteId || isZtcSite) {
+      setProjectCopyTargets([]);
+      setProjectCopyTargetId("");
+      setProjectCopyTargetsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setProjectCopyTargetsLoading(true);
+
+    getSiteDiaryProjectCopyTargets(siteId)
+      .then((targets) => {
+        if (cancelled) return;
+        setProjectCopyTargets(targets);
+        setProjectCopyTargetId((current) =>
+          current && targets.some((target) => target.id === current) ? current : "",
+        );
+      })
+      .catch((error: any) => {
+        if (cancelled) return;
+        setProjectCopyTargets([]);
+        setProjectCopyTargetId("");
+        toast.error(error?.message ?? toastMessages.failedLoadProjectCopyTargets);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setProjectCopyTargetsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isZtcSite, siteId, toastMessages.failedLoadProjectCopyTargets]);
+
   const ztcQualityDisplayStateByRowId = React.useMemo(
     () =>
       isZtcSite
@@ -1573,6 +1626,19 @@ export default function SiteDiaryCalendar({
     });
   };
 
+  const selectRecordForProjectCopy = (row: DiaryRow) => {
+    if (!row.id) {
+      toast.error(toastMessages.missingSelectedRecordId);
+      return;
+    }
+
+    setSelectedRecordIds((prev) => {
+      const next = new Set(prev);
+      next.add(row.id as string);
+      return next;
+    });
+  };
+
   const handleBulkDeleteRecords = async () => {
     if (selectedRecordIds.size === 0) {
       toast.error(toastMessages.noRecordsSelected);
@@ -1620,6 +1686,48 @@ export default function SiteDiaryCalendar({
       toast.error(e?.message ?? toastMessages.failedDeleteSelectedRecords);
     } finally {
       setBulkDeleteLoading(false);
+    }
+  };
+
+  const handleCopySelectedRecordsToProject = async () => {
+    if (!siteId) {
+      toast.error(toastMessages.missingSiteId);
+      return;
+    }
+    if (selectedRecordIds.size === 0) {
+      toast.error(toastMessages.noRecordsSelected);
+      return;
+    }
+    if (!projectCopyTargetId) {
+      toast.error(toastMessages.selectProjectCopyTarget);
+      return;
+    }
+
+    const target = projectCopyTargets.find((project) => project.id === projectCopyTargetId);
+    if (!target) {
+      toast.error(toastMessages.selectProjectCopyTarget);
+      return;
+    }
+
+    try {
+      setProjectCopyLoading(true);
+      const recordIds = Array.from(selectedRecordIds);
+      const result = await copySiteDiaryRecordsToProject({
+        sourceSiteId: siteId,
+        targetSiteId: target.id,
+        recordIds,
+      });
+
+      setSelectedRecordIds((prev) => {
+        const next = new Set(prev);
+        recordIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      toast.success(toastMessages.recordsCopiedToProject(result.count, target.name));
+    } catch (e: any) {
+      toast.error(e?.message ?? toastMessages.failedCopyRecordsToProject);
+    } finally {
+      setProjectCopyLoading(false);
     }
   };
 
@@ -2778,26 +2886,74 @@ export default function SiteDiaryCalendar({
                     )}
                   </div>
                   {selectedRecordIds.size > 0 ? (
-                    <div className="mt-3 flex justify-end border-t pt-3">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="w-full sm:w-auto"
-                        disabled={bulkDeleteLoading}
-                        onClick={handleBulkDeleteRecords}
-                      >
-                        {bulkDeleteLoading ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            Deleting...
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 className="mr-1 h-3.5 w-3.5" />
-                            Delete selected ({selectedRecordIds.size})
-                          </>
-                        )}
-                      </Button>
+                    <div className="mt-3 flex flex-col gap-2 border-t pt-3 lg:flex-row lg:items-center lg:justify-between">
+                      {!isZtcSite && projectCopyTargets.length > 0 ? (
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <Select
+                            value={projectCopyTargetId}
+                            onValueChange={setProjectCopyTargetId}
+                            disabled={projectCopyLoading}
+                          >
+                            <SelectTrigger className="h-9 w-full sm:w-[320px]">
+                              <SelectValue placeholder={t.selectTargetProject} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {projectCopyTargets.map((target) => (
+                                <SelectItem key={target.id} value={target.id}>
+                                  {formatProjectCopyTargetLabel(target)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="w-full sm:w-auto"
+                            disabled={projectCopyLoading || !projectCopyTargetId}
+                            onClick={handleCopySelectedRecordsToProject}
+                          >
+                            {projectCopyLoading ? (
+                              <>
+                                <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                                {t.copyingToProject}
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="mr-1 h-3.5 w-3.5" />
+                                {t.copyToProject} ({selectedRecordIds.size})
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      ) : projectCopyTargetsLoading ? (
+                        <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {t.loadingProjects}
+                        </div>
+                      ) : (
+                        <div />
+                      )}
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="w-full sm:w-auto"
+                          disabled={bulkDeleteLoading}
+                          onClick={handleBulkDeleteRecords}
+                        >
+                          {bulkDeleteLoading ? (
+                            <>
+                              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                              {t.deletingSelected}
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="mr-1 h-3.5 w-3.5" />
+                              {t.deleteSelected} ({selectedRecordIds.size})
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -3586,6 +3742,14 @@ export default function SiteDiaryCalendar({
                                       <DropdownMenuItem onClick={() => openCopyDialog(r)} disabled={!r.id}>
                                         {t.copyToDate}
                                       </DropdownMenuItem>
+                                      {!isZtcSite ? (
+                                        <DropdownMenuItem
+                                          onClick={() => selectRecordForProjectCopy(r)}
+                                          disabled={!r.id}
+                                        >
+                                          {t.copyToProject}
+                                        </DropdownMenuItem>
+                                      ) : null}
                                       <DropdownMenuItem onClick={() => handleDeleteRecord(r)} disabled={!r.id}>
                                         Delete
                                       </DropdownMenuItem>
@@ -3934,8 +4098,16 @@ export default function SiteDiaryCalendar({
                                                   {t.edit}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem onClick={() => openCopyDialog(row)} disabled={!row.id}>
-                                                  {t.copy}
+                                                  {t.copyToDate}
                                                 </DropdownMenuItem>
+                                                {!isZtcSite ? (
+                                                  <DropdownMenuItem
+                                                    onClick={() => selectRecordForProjectCopy(row)}
+                                                    disabled={!row.id}
+                                                  >
+                                                    {t.copyToProject}
+                                                  </DropdownMenuItem>
+                                                ) : null}
                                                 <DropdownMenuItem onClick={() => handleDeleteRecord(row)} disabled={!row.id}>
                                                   Delete
                                                 </DropdownMenuItem>
@@ -4295,8 +4467,16 @@ export default function SiteDiaryCalendar({
                                               onClick={() => openCopyDialog(group.rows[i] ?? row)}
                                               disabled={!row.id}
                                             >
-                                              {t.copy}
+                                              {t.copyToDate}
                                             </DropdownMenuItem>
+                                            {!isZtcSite ? (
+                                              <DropdownMenuItem
+                                                onClick={() => selectRecordForProjectCopy(group.rows[i] ?? row)}
+                                                disabled={!row.id}
+                                              >
+                                                {t.copyToProject}
+                                              </DropdownMenuItem>
+                                            ) : null}
                                             <DropdownMenuItem
                                               onClick={() => handleDeleteRecord(group.rows[i] ?? row)}
                                               disabled={!row.id}

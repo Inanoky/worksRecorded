@@ -28,6 +28,13 @@ type SiteDiaryFlowHint = {
   dateTo?: string | Date | null;
 };
 
+type SiteDiaryCopyTarget = {
+  id: string;
+  name: string;
+  description: string | null;
+  subdirectory: string | null;
+};
+
 async function shouldUseZtcRecordsForSite(siteId?: string | null, hint?: SiteDiaryFlowHint) {
   if (!siteId) return false;
   if (hint?.flowId === "ztc") return true;
@@ -42,6 +49,19 @@ async function shouldUseZtcRecordsForSite(siteId?: string | null, hint?: SiteDia
     organizationId: site?.organizationId ?? null,
     siteId,
   });
+}
+
+function assertNormalSiteDiaryCopy(options?: SiteDiaryFlowHint) {
+  if (options?.flowId === "ztc") {
+    throw new Error("Copying ZTC site diary records to another project is not supported.");
+  }
+}
+
+async function assertNormalSiteDiaryCopyForSite(siteId: string, options?: SiteDiaryFlowHint) {
+  assertNormalSiteDiaryCopy(options);
+  if (await shouldUseZtcRecordsForSite(siteId, options)) {
+    throw new Error("Copying ZTC site diary records to another project is not supported.");
+  }
 }
 
 
@@ -3419,6 +3439,164 @@ export async function copySiteDiaryRecordToDate(
     : await prisma.sitediaryrecords.create({ data: copyData, select: { id: true } });
 
   return { id: copied.id };
+}
+
+export async function getSiteDiaryProjectCopyTargets(
+  sourceSiteId: string,
+  options: SiteDiaryFlowHint = {},
+): Promise<SiteDiaryCopyTarget[]> {
+  if (!sourceSiteId) throw new Error("Missing source site id");
+
+  const user = await requireUser();
+  const sourceSite = await orgCheck(user.id, sourceSiteId);
+  if (!sourceSite || !sourceSite.organizationId) {
+    throw new Error("Source project not found");
+  }
+  await assertNormalSiteDiaryCopyForSite(sourceSiteId, options);
+
+  return prisma.site.findMany({
+    where: {
+      organizationId: sourceSite.organizationId,
+      id: { not: sourceSiteId },
+    },
+    orderBy: [{ name: "asc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      subdirectory: true,
+    },
+  });
+}
+
+type CopySiteDiaryRecordsToProjectArgs = SiteDiaryFlowHint & {
+  sourceSiteId: string;
+  targetSiteId: string;
+  recordIds: string[];
+};
+
+export async function copySiteDiaryRecordsToProject({
+  sourceSiteId,
+  targetSiteId,
+  recordIds,
+  ...options
+}: CopySiteDiaryRecordsToProjectArgs) {
+  if (!sourceSiteId) throw new Error("Missing source site id");
+  if (!targetSiteId) throw new Error("Missing target site id");
+  if (sourceSiteId === targetSiteId) throw new Error("Choose a different target project");
+  assertNormalSiteDiaryCopy(options);
+
+  const uniqueRecordIds = Array.from(new Set(recordIds.filter(Boolean)));
+  if (uniqueRecordIds.length === 0) throw new Error("No records selected");
+
+  const user = await requireUser();
+  const [sourceSite, targetSite] = await Promise.all([
+    orgCheck(user.id, sourceSiteId),
+    orgCheck(user.id, targetSiteId),
+  ]);
+
+  if (!sourceSite || !sourceSite.organizationId) {
+    throw new Error("Source project not found");
+  }
+  if (!targetSite || !targetSite.organizationId) {
+    throw new Error("Target project not found");
+  }
+  if (sourceSite.organizationId !== targetSite.organizationId) {
+    throw new Error("Target project must belong to the same organization");
+  }
+  await Promise.all([
+    assertNormalSiteDiaryCopyForSite(sourceSiteId, options),
+    assertNormalSiteDiaryCopyForSite(targetSiteId, options),
+  ]);
+
+  return prisma.$transaction(async (tx) => {
+    const sourceRecords = await tx.sitediaryrecords.findMany({
+      where: {
+        id: { in: uniqueRecordIds },
+        siteId: sourceSiteId,
+        archivedAt: null,
+      },
+      select: {
+        id: true,
+        userId: true,
+        workerId: true,
+        organizationId: true,
+        Date: true,
+        Date_Custom_1: true,
+        Date_Custom_2: true,
+        Location: true,
+        Location_Custom_1: true,
+        Location_Custom_2: true,
+        Works: true,
+        Works_Custom_1: true,
+        Works_Custom_2: true,
+        Comments: true,
+        Comments_Custom_1: true,
+        Comments_Custom_2: true,
+        originalUserComment: true,
+        originalAudioUrl: true,
+        Units: true,
+        Amounts: true,
+        WorkersInvolved: true,
+        TimeInvolved: true,
+        Photos: true,
+      },
+    });
+
+    if (sourceRecords.length !== uniqueRecordIds.length) {
+      throw new Error("Some selected records were not found in the source project");
+    }
+
+    const copiedRecords = await Promise.all(
+      uniqueRecordIds.map((recordId) => {
+        const source = sourceRecords.find((record) => record.id === recordId);
+        if (!source) {
+          throw new Error("Some selected records were not found in the source project");
+        }
+
+        return tx.sitediaryrecords.create({
+          data: {
+            userId: source.userId,
+            workerId: source.workerId,
+            siteId: targetSiteId,
+            organizationId: targetSite.organizationId,
+            Date: source.Date,
+            Date_Custom_1: source.Date_Custom_1,
+            Date_Custom_2: source.Date_Custom_2,
+            Location: source.Location,
+            Location_Custom_1: source.Location_Custom_1,
+            Location_Custom_2: source.Location_Custom_2,
+            Works: source.Works,
+            Works_Custom_1: source.Works_Custom_1,
+            Works_Custom_2: source.Works_Custom_2,
+            Comments: source.Comments,
+            Comments_Custom_1: source.Comments_Custom_1,
+            Comments_Custom_2: source.Comments_Custom_2,
+            originalUserComment: source.originalUserComment,
+            originalAudioUrl: source.originalAudioUrl,
+            Units: source.Units,
+            Amounts: source.Amounts,
+            WorkersInvolved: source.WorkersInvolved,
+            TimeInvolved: source.TimeInvolved,
+            Photos: source.Photos,
+            BISId: null,
+            bisStatus: null,
+            saveBatchId: null,
+            archivedAt: null,
+            archiveReason: null,
+            archivedByMessageId: null,
+          },
+          select: { id: true },
+        });
+      }),
+    );
+
+    return {
+      count: copiedRecords.length,
+      recordIds: copiedRecords.map((record) => record.id),
+      targetSiteId,
+    };
+  });
 }
 
 export async function syncDeletedSiteDiaryBisRecords(siteId: string) {

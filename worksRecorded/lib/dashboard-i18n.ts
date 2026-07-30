@@ -83,6 +83,12 @@ type SiteDiaryListMessages = {
   sentForApproval: string;
   sendForApproval: string;
   copyToDate: string;
+  selectTargetProject: string;
+  copyToProject: string;
+  copyingToProject: string;
+  loadingProjects: string;
+  deleteSelected: string;
+  deletingSelected: string;
   openInBis: string;
   time: string;
   status: string;
@@ -530,6 +536,10 @@ type ToastMessages = {
   selectRecordAndTargetDate: string;
   recordCopiedLocally: string;
   failedCopyRecord: string;
+  failedLoadProjectCopyTargets: string;
+  selectProjectCopyTarget: string;
+  recordsCopiedToProject: (count: number, projectName: string) => string;
+  failedCopyRecordsToProject: string;
   recordDeleted: string;
   failedDeleteRecord: string;
   bisLinksRemoved: (count: number) => string;
@@ -691,6 +701,12 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     sentForApproval: "Sent for approval",
     sendForApproval: "Send for approval",
     copyToDate: "Copy to date",
+    selectTargetProject: "Select target project",
+    copyToProject: "Copy to project",
+    copyingToProject: "Copying...",
+    loadingProjects: "Loading projects...",
+    deleteSelected: "Delete selected",
+    deletingSelected: "Deleting...",
     openInBis: "Open in BIS",
     time: "Time",
     status: "Status",
@@ -801,6 +817,12 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     sentForApproval: "Apstiprināšana",
     sendForApproval: "Sūtīt apstiprināšanai",
     copyToDate: "Kopēt uz datumu",
+    selectTargetProject: "Atlasiet mērķa projektu",
+    copyToProject: "Kopēt uz projektu",
+    copyingToProject: "Kopē...",
+    loadingProjects: "Ielādē projektus...",
+    deleteSelected: "Dzēst atlasītos",
+    deletingSelected: "Dzēš...",
     openInBis: "Atvērt BIS",
     time: "Laiks",
     status: "Statuss",
@@ -1636,6 +1658,10 @@ const TOAST_MESSAGES: Record<OrganizationLanguage, ToastMessages> = {
     selectRecordAndTargetDate: "Select a record and target date.",
     recordCopiedLocally: "Record copied locally. Submit it to BIS again if needed.",
     failedCopyRecord: "Failed to copy record.",
+    failedLoadProjectCopyTargets: "Failed to load project copy targets.",
+    selectProjectCopyTarget: "Select a target project.",
+    recordsCopiedToProject: (count, projectName) => `Copied ${count} record(s) to ${projectName}.`,
+    failedCopyRecordsToProject: "Failed to copy selected records to the project.",
     recordDeleted: "Record deleted",
     failedDeleteRecord: "Failed to delete record.",
     bisLinksRemoved: (count) => `${count} BIS link(s) were removed because records were deleted in BIS.`,
@@ -1735,6 +1761,10 @@ const TOAST_MESSAGES: Record<OrganizationLanguage, ToastMessages> = {
     selectRecordAndTargetDate: "Atlasiet ierakstu un mērķa datumu.",
     recordCopiedLocally: "Ieraksts nokopēts lokāli. Ja nepieciešams, nosūtiet to uz BIS vēlreiz.",
     failedCopyRecord: "Neizdevās kopēt ierakstu.",
+    failedLoadProjectCopyTargets: "Neizdevās ielādēt projektu sarakstu kopēšanai.",
+    selectProjectCopyTarget: "Atlasiet mērķa projektu.",
+    recordsCopiedToProject: (count, projectName) => `Nokopēti ${count} ieraksti uz projektu ${projectName}.`,
+    failedCopyRecordsToProject: "Neizdevās kopēt atlasītos ierakstus uz projektu.",
     recordDeleted: "Ieraksts dzēsts",
     failedDeleteRecord: "Neizdevās dzēst ierakstu.",
     bisLinksRemoved: (count) => `${count} BIS saites noņemtas, jo ieraksti BIS ir dzēsti.`,
