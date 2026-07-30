@@ -96,6 +96,10 @@ jest.mock("@/server/actions/whatsapp-actions", () => ({
 	getUserFirstNameById: mockGetUserFirstNameById,
 }));
 
+jest.mock("@/server/actions/shared-actions", () => ({
+	getOrganizationLanguageByUserId: jest.fn(async () => "Latvian"),
+}));
+
 jest.mock(
 	"@/flows/default-construction/backend/site-manager-acknowledgements",
 	() => ({
@@ -206,6 +210,32 @@ describe("site-manager material image upload extraction", () => {
 			type: "image_url",
 			image_url: { url: mockUploadedPublicUrl },
 		});
+		expect(mockStructuredInvoke.mock.calls[0][1]).toMatchObject({
+			runName: "MetaMaterialImageClassification - Jānis Bērziņš",
+			metadata: {
+				senderFirstName: "Jānis",
+				senderLastName: "Bērziņš",
+				senderName: "Jānis Bērziņš",
+				senderInitials: "JB",
+				senderLabel: "Jānis Bērziņš",
+			},
+		});
+		expect(mockStructuredInvoke.mock.calls[1][1]).toMatchObject({
+			runName: "MetaMaterialInvoiceExtraction - Jānis Bērziņš",
+			metadata: {
+				senderFirstName: "Jānis",
+				senderLastName: "Bērziņš",
+				senderName: "Jānis Bērziņš",
+				senderInitials: "JB",
+				senderLabel: "Jānis Bērziņš",
+			},
+		});
+		expect(mockStructuredInvoke.mock.calls[0][1].tags).toContain(
+			"sender:J_nis-B_rzi__",
+		);
+		expect(mockStructuredInvoke.mock.calls[1][1].tags).toContain(
+			"sender:J_nis-B_rzi__",
+		);
 
 		const createManyArg = mockCreateMany.mock.calls[0][0];
 		expect(createManyArg.data).toHaveLength(expectedFixture.items.length);

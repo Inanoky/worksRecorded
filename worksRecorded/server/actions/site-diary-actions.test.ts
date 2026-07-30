@@ -895,7 +895,7 @@ describe("getSiteDiaryMediaOnlyDays", () => {
     );
   });
 
-  it("does not return dates that already have diary records", async () => {
+  it("returns photo counts for dates that already have diary records", async () => {
     photosFindManyMock.mockResolvedValue([
       {
         Date: new Date("2026-06-08T10:00:00.000Z"),
@@ -919,7 +919,18 @@ describe("getSiteDiaryMediaOnlyDays", () => {
       flowId: "default",
     });
 
-    expect(result.map((day) => day.key)).toEqual(["2026-06-09"]);
+    expect(result).toEqual([
+      expect.objectContaining({
+        key: "2026-06-09",
+        photoCount: 1,
+        hasDiaryRecords: false,
+      }),
+      expect.objectContaining({
+        key: "2026-06-08",
+        photoCount: 1,
+        hasDiaryRecords: true,
+      }),
+    ]);
   });
 
   it("applies date range and valid-url filters to the photo query", async () => {

@@ -166,6 +166,8 @@ export async function handleSiteManagerRoute(args: {
                 await processMaterialDocumentImageFromPublicUrl({
                   publicUrl,
                   senderPhone: user.phone ?? from,
+                  senderFirstName: user.firstName,
+                  senderLastName: user.lastName,
                 });
 
               if (handledAsMaterialDocument) {
@@ -248,6 +250,8 @@ export async function handleSiteManagerRoute(args: {
             await processMaterialDocumentImageFromPublicUrl({
               publicUrl,
               senderPhone: user.phone ?? from,
+              senderFirstName: user.firstName,
+              senderLastName: user.lastName,
             });
 
           if (handledAsMaterialDocument) {

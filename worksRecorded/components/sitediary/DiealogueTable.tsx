@@ -190,7 +190,7 @@ export const allowedUnits = [
 
 // ------------------------------------Validation------------------------------------------------
 
-const MAX_FREE_TEXT = 100;
+const MAX_FREE_TEXT = 200;
 const MAX_NUM = 1_000_000_000;
 
 const coerceOptionalFloat = (v: unknown) => {
@@ -220,7 +220,7 @@ const showZodErrorToast = (err: z.ZodError, toastMessages: ReturnType<typeof get
 /**
  * VALIDATION RULES (as requested):
  * - location/work can be empty (no selection OR manual input blank is ok)
- * - location/work free text allowed up to 100 chars (only validate length if provided)
+ * - location/work free text allowed up to 200 chars (only validate length if provided)
  * - units: NO VALIDATION (only pass through whatever string is there)
  * - amounts/hours: floats, <= 1B, empty ok
  * - workers: int, <= 1B, empty ok

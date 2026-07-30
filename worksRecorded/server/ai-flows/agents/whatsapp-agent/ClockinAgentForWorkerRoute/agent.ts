@@ -21,8 +21,12 @@ import {
     prepareControlledModelMessages,
 } from "@/server/ai-flows/controlled-memory";
 import {
+    buildWorkerSenderTraceContext,
     getWorkerAgentRunContext,
+    getWorkerSenderTraceMetadata,
+    getWorkerSenderTraceTags,
     runWithWorkerAgentEvalContext,
+    setWorkerSenderTraceContext,
     type WorkerAgentRunDetails,
 } from "./runContext";
 
@@ -65,11 +69,29 @@ export default async function talkToClockInAgent(question, workerId, originalAud
 
     const status = (await isWorkerClockedIn(workerId)).isClockedIn ? "clocked In" : "clocked Out";
     const workerFullName = (await getWorkerFullNameById(workerId))?.trim();
+    const senderTraceContext = buildWorkerSenderTraceContext({
+        fullName: workerFullName,
+    });
+    if (runContext) {
+        setWorkerSenderTraceContext(senderTraceContext);
+    }
+    const senderTraceMetadata = getWorkerSenderTraceMetadata({
+        ...runContext,
+        ...senderTraceContext,
+    });
+    const senderTraceTags = getWorkerSenderTraceTags({
+        ...runContext,
+        ...senderTraceContext,
+    });
+    const runName = senderTraceContext.senderLabel
+        ? `WhatsAppWorkerAgent - ${senderTraceContext.senderLabel}`
+        : undefined;
     const normalizedQuestion = question.trim();
     const sourceComment = workerFullName ? `${workerFullName} : ${normalizedQuestion}` : normalizedQuestion;
     let lastAiResponse: BaseMessage | null = null;
     const aiContext = buildAiRunContext({
         flow: "whatsapp-worker",
+        runName,
         threadId: runContext?.threadId ?? getWorkerThreadId(workerId),
         siteId,
         workerId,
@@ -79,9 +101,10 @@ export default async function talkToClockInAgent(question, workerId, originalAud
             workerStatus: status,
             hasOriginalAudioUrl: Boolean(originalAudioUrl),
             questionPreview: summarizeForTrace(question),
+            ...senderTraceMetadata,
             ...(runContext?.traceMetadata ?? {}),
         },
-        tags: runContext?.traceTags,
+        tags: [...senderTraceTags, ...(runContext?.traceTags ?? [])],
     });
 
     console.log(`Worker is currently ${status}`)
