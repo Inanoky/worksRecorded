@@ -1,4 +1,5 @@
 import { compareSiteDiaryWorks } from "./site-diary-work-order";
+import { getDefaultConstructionForma2SourceByWork } from "./forma2-work-options-manifest";
 
 export const DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY =
   "defaultConstructionProductivity";
@@ -11,6 +12,12 @@ export type DefaultConstructionWorkProductivitySetting = {
   laborNormHoursPerUnit: number | null;
   hourlyCost?: number | null;
   costCalculationMode?: DefaultConstructionWorkCostMode;
+  source?: {
+    type: "forma2";
+    documentId: string;
+    positionId: string;
+    ownedByForma2: boolean;
+  };
 };
 
 export type DefaultConstructionProductivitySettings = {
@@ -122,6 +129,7 @@ export function getDefaultConstructionProductivitySettings(
   const rawSettings =
     config?.otherSettings?.[DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY];
   const rawWorks = Array.isArray(rawSettings?.works) ? rawSettings.works : [];
+  const forma2SourceByWork = getDefaultConstructionForma2SourceByWork(config);
   const savedByWork = new Map<
     string,
     DefaultConstructionWorkProductivitySetting
@@ -153,6 +161,7 @@ export function getDefaultConstructionProductivitySettings(
       laborNormHoursPerUnit: saved?.laborNormHoursPerUnit ?? null,
       hourlyCost: saved?.hourlyCost ?? null,
       costCalculationMode: saved?.costCalculationMode ?? "output",
+      source: forma2SourceByWork.get(normalizedKey(work)),
     };
   });
 

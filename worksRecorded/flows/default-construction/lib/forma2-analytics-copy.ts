@@ -9,6 +9,10 @@ const COPY = {
 		chooseFile: "Choose Forma 2",
 		replaceFile: "Replace Forma 2",
 		analyzing: "Analyzing Forma 2",
+		uploadingAndAnalyzing: "Uploading and analyzing Forma 2",
+		savingPositions: "Saving Forma 2 positions",
+		assigningRecords: "Assigning work and material records",
+		finishingImport: "Finishing import",
 		detectedSheet: "Detected sheet",
 		positions: "positions",
 		import: "Import positions",
@@ -69,7 +73,8 @@ const COPY = {
 		assignmentWarning:
 			"Forma 2 was imported, but automatic assignment did not finish. Records can still be assigned manually.",
 		saveError: "Could not save the change.",
-		clearConfirm: "Remove the imported Forma 2 and all assignments?",
+		clearConfirm:
+			"Remove the imported Forma 2, all assignments, and associated Darbi options? Existing journal records will remain unchanged.",
 		noSuggestions: "No confident suggestions are available on this page.",
 		suggestionsApplied: (count: number) =>
 			`Automatic assignment completed; ${count} additional records assigned.`,
@@ -91,6 +96,10 @@ const COPY = {
 		chooseFile: "Izvēlēties Formu 2",
 		replaceFile: "Aizstāt Formu 2",
 		analyzing: "Analizē Formu 2",
+		uploadingAndAnalyzing: "Augšupielādē un analizē Formu 2",
+		savingPositions: "Saglabā Formas 2 pozīcijas",
+		assigningRecords: "Piesaista darbu un materiālu ierakstus",
+		finishingImport: "Pabeidz importu",
 		detectedSheet: "Atrasta lapa",
 		positions: "pozīcijas",
 		import: "Importēt pozīcijas",
@@ -152,7 +161,8 @@ const COPY = {
 		assignmentWarning:
 			"Forma 2 tika importēta, bet automātisko piesaisti neizdevās pabeigt. Ierakstus joprojām var piesaistīt manuāli.",
 		saveError: "Neizdevās saglabāt izmaiņas.",
-		clearConfirm: "Dzēst importēto Formu 2 un visas piesaistes?",
+		clearConfirm:
+			"Dzēst importēto Formu 2, visas piesaistes un saistītās Darbi opcijas? Esošie būvdarbu žurnāla ieraksti netiks mainīti.",
 		noSuggestions: "Šajā lapā nav drošu ieteikumu.",
 		suggestionsApplied: (count: number) =>
 			`Automātiskā piesaiste pabeigta; papildus piesaistīti ${count} ieraksti.`,

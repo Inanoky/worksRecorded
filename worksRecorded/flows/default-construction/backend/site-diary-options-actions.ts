@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import { DEFAULT_CONSTRUCTION_FORMA2_WORK_SYNC_KEY } from "@/flows/default-construction/lib/forma2-work-options-manifest";
+import { reconcileForma2WorkManifestAfterOptionsSave } from "@/flows/default-construction/lib/forma2-work-options-sync";
 import {
   DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY,
   type DefaultConstructionWorkProductivitySetting,
@@ -64,6 +66,10 @@ export async function saveDefaultConstructionSiteDiaryOptions(args: {
   const config = await readAuthorizedConfig(args.siteId);
   const locations = normalizeSimpleOptions(args.locations, "Location");
   const works = normalizeDefaultConstructionWorkSettings(args.works);
+  const forma2Manifest = reconcileForma2WorkManifestAfterOptionsSave(
+    config,
+    works,
+  );
 
   if (!locations.length || !works.length) {
     throw new Error("At least one location and one work are required");
@@ -79,13 +85,17 @@ export async function saveDefaultConstructionSiteDiaryOptions(args: {
     ...(config.Works ?? (defaultConfig as Record<string, any>).Works),
     DropDownOptions: Object.fromEntries(works.map(({ work }) => [work, work])),
   };
-  config.otherSettings = {
+  const otherSettings = {
     ...(config.otherSettings ?? {}),
     [DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY]: {
       version: 4,
       works,
     },
   };
+  if (forma2Manifest) {
+    otherSettings[DEFAULT_CONSTRUCTION_FORMA2_WORK_SYNC_KEY] = forma2Manifest;
+  }
+  config.otherSettings = otherSettings;
 
   await prisma.site.update({
     where: { id: args.siteId },
@@ -93,6 +103,7 @@ export async function saveDefaultConstructionSiteDiaryOptions(args: {
   });
 
   revalidatePath(`/dashboard/sites/${args.siteId}/dashboard`);
+  revalidatePath(`/dashboard/sites/${args.siteId}/siteDiary`);
   revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
 
   return getDefaultConstructionOptionValues(config);

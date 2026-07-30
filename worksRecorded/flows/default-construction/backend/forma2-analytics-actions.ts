@@ -23,6 +23,10 @@ import {
 	calculateDefaultConstructionWorkCost,
 	getDefaultConstructionProductivitySettings,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import {
+	removeDefaultConstructionForma2WorkOptions,
+	syncDefaultConstructionForma2WorkOptions,
+} from "@/flows/default-construction/lib/forma2-work-options-sync";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { prisma } from "@/lib/utils/db";
@@ -239,10 +243,10 @@ async function loadDefaultConstructionForma2Data(
 	if (!site) throw new Error("Site not found");
 	const config =
 		site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
-			? (site.siteDiaryRecordsMap as Parameters<
+			? (structuredClone(site.siteDiaryRecordsMap) as Parameters<
 					typeof getDefaultConstructionProductivitySettings
 				>[0])
-			: (defaultConfig as Parameters<
+			: (structuredClone(defaultConfig) as Parameters<
 					typeof getDefaultConstructionProductivitySettings
 				>[0]);
 	const productivity = getDefaultConstructionProductivitySettings(config);
@@ -761,28 +765,76 @@ export async function saveDefaultConstructionForma2Import(args: {
 }) {
 	await requireDefaultConstructionSite(args.siteId);
 	const positions = normalizePositions(args.positions);
-	const existing = await readStoredState(args.siteId);
-	const positionIds = new Set(positions.map((position) => position.id));
-	const state: DefaultConstructionForma2State = {
-		version: 1,
-		document: {
-			id: crypto.randomUUID(),
-			fileName: text(args.fileName, 240) || "Forma 2.xlsx",
-			sheetName: text(args.sheetName, 120),
-			importedAt: new Date().toISOString(),
+	const documentId = crypto.randomUUID();
+	const syncResult = await prisma.$transaction(async (tx) => {
+		const [analyticsRow, site] = await Promise.all([
+			tx.analytics.findUnique({
+				where: { siteId: args.siteId },
+				select: { currentWeekProgress: true },
+			}),
+			tx.site.findUnique({
+				where: { id: args.siteId },
+				select: { siteDiaryRecordsMap: true },
+			}),
+		]);
+		if (!site) throw new Error("Site not found");
+		const root = analyticsRoot(analyticsRow?.currentWeekProgress);
+		const existing = normalizeDefaultConstructionForma2State(
+			root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY],
+		);
+		const positionIds = new Set(positions.map((position) => position.id));
+		const state: DefaultConstructionForma2State = {
+			version: 1,
+			document: {
+				id: documentId,
+				fileName: text(args.fileName, 240) || "Forma 2.xlsx",
+				sheetName: text(args.sheetName, 120),
+				importedAt: new Date().toISOString(),
+				positions,
+			},
+			allocations: existing.allocations.filter((allocation) =>
+				positionIds.has(allocation.positionId),
+			),
+			materialRules: existing.materialRules.filter((rule) =>
+				positionIds.has(rule.positionId),
+			),
+		};
+		const config =
+			site.siteDiaryRecordsMap &&
+			typeof site.siteDiaryRecordsMap === "object"
+				? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
+				: structuredClone(defaultConfig as Record<string, any>);
+		const sync = syncDefaultConstructionForma2WorkOptions({
+			config,
+			documentId,
 			positions,
-		},
-		allocations: existing.allocations.filter((allocation) =>
-			positionIds.has(allocation.positionId),
-		),
-		materialRules: existing.materialRules.filter((rule) =>
-			positionIds.has(rule.positionId),
-		),
-	};
-	await writeStoredState(args.siteId, state);
+		});
+		root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY] = state;
+		await tx.analytics.upsert({
+			where: { siteId: args.siteId },
+			create: {
+				siteId: args.siteId,
+				currentWeekProgress: root as Prisma.InputJsonObject,
+			},
+			update: { currentWeekProgress: root as Prisma.InputJsonObject },
+		});
+		await tx.site.update({
+			where: { id: args.siteId },
+			data: { siteDiaryRecordsMap: sync.config as Prisma.InputJsonObject },
+		});
+		return sync;
+	}, { timeout: 15_000 });
 	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
 	revalidatePath(`/dashboard/sites/${args.siteId}/BIS`);
-	return { importedPositions: positions.length };
+	revalidatePath(`/dashboard/sites/${args.siteId}/dashboard`);
+	revalidatePath(`/dashboard/sites/${args.siteId}/siteDiary`);
+	return {
+		importedPositions: positions.length,
+		importedWorks: syncResult.importedWorks,
+		addedWorks: syncResult.addedWorks,
+		removedWorks: syncResult.removedWorks,
+		linkedManualWorks: syncResult.linkedManualWorks,
+	};
 }
 
 export async function saveDefaultConstructionForma2Allocations(args: {
@@ -1370,7 +1422,46 @@ export async function syncDefaultConstructionForma2WorkAssignments(args: {
 
 export async function clearDefaultConstructionForma2Import(siteId: string) {
 	await requireDefaultConstructionSite(siteId);
-	await writeStoredState(siteId, emptyDefaultConstructionForma2State());
+	const result = await prisma.$transaction(async (tx) => {
+		const [analyticsRow, site] = await Promise.all([
+			tx.analytics.findUnique({
+				where: { siteId },
+				select: { currentWeekProgress: true },
+			}),
+			tx.site.findUnique({
+				where: { id: siteId },
+				select: { siteDiaryRecordsMap: true },
+			}),
+		]);
+		if (!site) throw new Error("Site not found");
+		const root = analyticsRoot(analyticsRow?.currentWeekProgress);
+		root[DEFAULT_CONSTRUCTION_FORMA2_ANALYTICS_KEY] =
+			emptyDefaultConstructionForma2State();
+		const config =
+			site.siteDiaryRecordsMap &&
+			typeof site.siteDiaryRecordsMap === "object"
+				? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
+				: structuredClone(defaultConfig as Record<string, any>);
+		const removed = removeDefaultConstructionForma2WorkOptions(config);
+		await tx.analytics.upsert({
+			where: { siteId },
+			create: {
+				siteId,
+				currentWeekProgress: root as Prisma.InputJsonObject,
+			},
+			update: { currentWeekProgress: root as Prisma.InputJsonObject },
+		});
+		await tx.site.update({
+			where: { id: siteId },
+			data: {
+				siteDiaryRecordsMap: removed.config as Prisma.InputJsonObject,
+			},
+		});
+		return removed;
+	}, { timeout: 15_000 });
 	revalidatePath(`/dashboard/sites/${siteId}/analytics`);
 	revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+	revalidatePath(`/dashboard/sites/${siteId}/dashboard`);
+	revalidatePath(`/dashboard/sites/${siteId}/siteDiary`);
+	return { removedWorks: result.removedWorks };
 }

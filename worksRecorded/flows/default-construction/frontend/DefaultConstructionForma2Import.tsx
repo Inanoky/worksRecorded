@@ -8,7 +8,7 @@ import {
 	Upload,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,15 @@ type DocumentMetadata = {
 	positionCount: number;
 } | null;
 
+type ImportProgress = {
+	value: number;
+	ceiling: number;
+	label: string;
+};
+
+const progressDelay = (milliseconds: number) =>
+	new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
 export function DefaultConstructionForma2Import({
 	siteId,
 	organizationLanguage,
@@ -53,13 +62,34 @@ export function DefaultConstructionForma2Import({
 	const [selectedFileName, setSelectedFileName] = useState("");
 	const [parsing, setParsing] = useState(false);
 	const [saving, setSaving] = useState(false);
+	const [progress, setProgress] = useState<ImportProgress | null>(null);
 	const selectedSheet = parsedSheets.find(
 		(sheet) => sheet.sheetName === selectedSheetName,
 	);
 
+	useEffect(() => {
+		if (!progress || progress.value >= progress.ceiling) return;
+		const timer = window.setInterval(() => {
+			setProgress((current) => {
+				if (!current || current.value >= current.ceiling) return current;
+				const remaining = current.ceiling - current.value;
+				return {
+					...current,
+					value: Math.min(
+						current.ceiling,
+						current.value + Math.max(1, Math.ceil(remaining * 0.08)),
+					),
+				};
+			});
+		}, 600);
+		return () => window.clearInterval(timer);
+	}, [progress?.ceiling]);
+
 	const handleFile = async (file: File | undefined) => {
 		if (!file) return;
 		setParsing(true);
+		setProgress({ value: 5, ceiling: 90, label: t.uploadingAndAnalyzing });
+		let completed = false;
 		try {
 			const formData = new FormData();
 			formData.set("file", file);
@@ -83,13 +113,17 @@ export function DefaultConstructionForma2Import({
 			setSelectedFileName(file.name);
 			setParsedSheets(sheets);
 			setSelectedSheetName(preferred.sheetName);
+			completed = true;
+			setProgress({ value: 100, ceiling: 100, label: t.finishingImport });
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : t.parseError);
 			setParsedSheets([]);
 			setSelectedSheetName("");
 			setSelectedFileName("");
 		} finally {
+			if (completed) await progressDelay(350);
 			setParsing(false);
+			setProgress(null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
 		}
 	};
@@ -97,6 +131,8 @@ export function DefaultConstructionForma2Import({
 	const importSelectedSheet = async () => {
 		if (!selectedSheet) return;
 		setSaving(true);
+		setProgress({ value: 5, ceiling: 35, label: t.savingPositions });
+		let completed = false;
 		try {
 			await saveDefaultConstructionForma2Import({
 				siteId,
@@ -104,6 +140,7 @@ export function DefaultConstructionForma2Import({
 				sheetName: selectedSheet.sheetName,
 				positions: selectedSheet.positions,
 			});
+			setProgress({ value: 40, ceiling: 92, label: t.assigningRecords });
 			let assignmentResult: {
 				assignedRecords?: number;
 				error?: string;
@@ -123,6 +160,8 @@ export function DefaultConstructionForma2Import({
 			setParsedSheets([]);
 			setSelectedSheetName("");
 			setSelectedFileName("");
+			completed = true;
+			setProgress({ value: 100, ceiling: 100, label: t.finishingImport });
 			router.refresh();
 			if (assignmentSucceeded) {
 				toast.success(
@@ -136,7 +175,9 @@ export function DefaultConstructionForma2Import({
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : t.saveError);
 		} finally {
+			if (completed) await progressDelay(350);
 			setSaving(false);
+			setProgress(null);
 		}
 	};
 
@@ -199,6 +240,29 @@ export function DefaultConstructionForma2Import({
 				</div>
 			</CardHeader>
 			<CardContent>
+				{progress ? (
+					<div className="mb-4 rounded-lg border bg-muted/30 p-4">
+						<div className="mb-2 flex items-center justify-between gap-4 text-sm">
+							<span className="font-medium">{progress.label}</span>
+							<span className="font-semibold tabular-nums">
+								{Math.round(progress.value)}%
+							</span>
+						</div>
+						<div
+							role="progressbar"
+							aria-valuemin={0}
+							aria-valuemax={100}
+							aria-valuenow={Math.round(progress.value)}
+							aria-label={progress.label}
+							className="h-2 overflow-hidden rounded-full bg-muted"
+						>
+							<div
+								className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
+								style={{ width: `${progress.value}%` }}
+							/>
+						</div>
+					</div>
+				) : null}
 				{selectedSheet ? (
 					<div className="rounded-lg border bg-muted/30 p-4">
 						<div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">

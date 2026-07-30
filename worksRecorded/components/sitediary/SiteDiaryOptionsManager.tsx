@@ -16,6 +16,7 @@ import {
   getDefaultConstructionSiteDiaryOptions,
   saveDefaultConstructionSiteDiaryOptions,
 } from "@/flows/default-construction/backend/site-diary-options-actions";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,6 +46,12 @@ type WorkDraft = {
   laborNormHoursPerUnit: string;
   hourlyCost: string;
   costCalculationMode: "hourly" | "output";
+  source?: {
+    type: "forma2";
+    documentId: string;
+    positionId: string;
+    ownedByForma2: boolean;
+  };
 };
 
 const PRODUCTIVITY_MESSAGES = {
@@ -58,6 +65,8 @@ const PRODUCTIVITY_MESSAGES = {
     costMode: "Payment method",
     hourlyMode: "Hourly",
     outputMode: "Output",
+    forma2Managed:
+      "This work name is managed by the active Forma 2. Replace or remove the Forma 2 document to change it.",
     costModeHint:
       "Output: planned and factual costs both follow completed quantity × output rate. Hourly rate: factual cost follows recorded hours × hourly rate.",
     selectUnit: "No unit",
@@ -77,6 +86,8 @@ const PRODUCTIVITY_MESSAGES = {
     costMode: "Apmaksas veids",
     hourlyMode: "Stundas likme",
     outputMode: "Izpilde",
+    forma2Managed:
+      "Šī darba nosaukumu pārvalda aktīvā Forma 2. Lai to mainītu, aizstājiet vai noņemiet Formas 2 dokumentu.",
     costModeHint:
       "Izpilde: plāna un faktiskās izmaksas = izpildītais daudzums × izpildes likme. Stundas likme: faktiskās izmaksas = reģistrētās stundas × stundas likme.",
     selectUnit: "Nav norādīta",
@@ -150,6 +161,7 @@ export function SiteDiaryOptionsManager({
                 : String(row.laborNormHoursPerUnit),
             hourlyCost: row.hourlyCost == null ? "" : String(row.hourlyCost),
             costCalculationMode: row.costCalculationMode ?? "output",
+            source: row.source,
           })),
         );
       })
@@ -391,6 +403,7 @@ export function SiteDiaryOptionsManager({
                     laborNormHoursPerUnit: "",
                     hourlyCost: "",
                     costCalculationMode: "output",
+                    source: undefined,
                   },
                 ]);
               }}
@@ -506,13 +519,30 @@ export function SiteDiaryOptionsManager({
                       key={work.id}
                       className="grid grid-cols-[minmax(220px,1fr)_120px_135px_135px_220px_40px] items-center gap-2 rounded-md border p-2"
                     >
-                      <Input
-                        value={work.work}
-                        maxLength={MAX_OPTION_LENGTH}
-                        onChange={(event) =>
-                          updateWork(index, { work: event.target.value })
-                        }
-                      />
+                      <div className="flex min-w-0 items-center gap-2">
+                        <Input
+                          value={work.work}
+                          maxLength={MAX_OPTION_LENGTH}
+                          disabled={work.source?.ownedByForma2}
+                          title={
+                            work.source?.ownedByForma2
+                              ? p.forma2Managed
+                              : undefined
+                          }
+                          onChange={(event) =>
+                            updateWork(index, { work: event.target.value })
+                          }
+                        />
+                        {work.source?.ownedByForma2 ? (
+                          <Badge
+                            variant="secondary"
+                            className="shrink-0"
+                            title={p.forma2Managed}
+                          >
+                            Forma 2
+                          </Badge>
+                        ) : null}
+                      </div>
                       <select
                         value={work.unit}
                         onChange={(event) =>
@@ -591,6 +621,12 @@ export function SiteDiaryOptionsManager({
                           setWorks((current) =>
                             current.filter((_, rowIndex) => rowIndex !== index),
                           )
+                        }
+                        disabled={work.source?.ownedByForma2}
+                        title={
+                          work.source?.ownedByForma2
+                            ? p.forma2Managed
+                            : undefined
                         }
                         aria-label={t.deleteOption}
                       >
