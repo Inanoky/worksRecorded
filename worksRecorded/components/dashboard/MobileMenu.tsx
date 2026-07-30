@@ -107,8 +107,9 @@ export function MobileMenu({
         {/* Main navigation links */}
         {navLinks.map((item) => (
           <DropdownMenuItem key={item.name} asChild>
-            <Link 
-              href={item.href} 
+            <Link
+              href={item.href}
+              prefetch
               className={cn(
                 "flex items-center gap-2 w-full",
                 pathname === item.href ? "text-primary" : "text-muted-foreground"
@@ -130,6 +131,7 @@ export function MobileMenu({
               <DropdownMenuItem key={item.name} asChild>
                 <Link
                   href={`/dashboard/sites/${projectId}/${item.path}`}
+                  prefetch
                   className={cn(
                     "flex items-center gap-2 w-full",
                     pathname === `/dashboard/sites/${projectId}/${item.path}` 

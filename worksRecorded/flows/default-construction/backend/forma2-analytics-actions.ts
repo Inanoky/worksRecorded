@@ -167,16 +167,35 @@ function isoDate(value: Date | null | undefined) {
 	return value ? value.toISOString() : null;
 }
 
-async function loadDefaultConstructionForma2Data(siteId: string) {
+async function loadDefaultConstructionForma2Data(
+	siteId: string,
+	options: { sourceScope?: "all" | "allocated" } = {},
+) {
 	await requireDefaultConstructionSite(siteId);
+	const statePromise = readStoredState(siteId);
+	const allocatedState =
+		options.sourceScope === "allocated" ? await statePromise : null;
+	const allocatedWorkIds = allocatedState
+		? allocatedState.allocations
+				.filter((allocation) => allocation.sourceType === "work")
+				.map((allocation) => allocation.sourceId)
+		: [];
+	const allocatedMaterialIds = allocatedState
+		? allocatedState.allocations
+				.filter((allocation) => allocation.sourceType === "material")
+				.map((allocation) => allocation.sourceId)
+		: [];
 	const [state, site, workRows, materialRows] = await Promise.all([
-		readStoredState(siteId),
+		allocatedState ? Promise.resolve(allocatedState) : statePromise,
 		prisma.site.findUnique({
 			where: { id: siteId },
 			select: { name: true, siteDiaryRecordsMap: true },
 		}),
 		prisma.sitediaryrecords.findMany({
-			where: { siteId, archivedAt: null, Works: { not: null } },
+			where:
+				options.sourceScope === "allocated"
+					? { siteId, archivedAt: null, id: { in: allocatedWorkIds } }
+					: { siteId, archivedAt: null, Works: { not: null } },
 			orderBy: [{ Date: "desc" }, { createdAt: "desc" }],
 			select: {
 				id: true,
@@ -189,7 +208,10 @@ async function loadDefaultConstructionForma2Data(siteId: string) {
 			},
 		}),
 		prisma.bISmaterialRecords.findMany({
-			where: { siteId },
+			where:
+				options.sourceScope === "allocated"
+					? { siteId, id: { in: allocatedMaterialIds } }
+					: { siteId },
 			orderBy: [
 				{ materialDate: "desc" },
 				{ invoiceDate: "desc" },
@@ -380,7 +402,9 @@ export async function getDefaultConstructionForma2Overview(siteId: string) {
 }
 
 export async function getDefaultConstructionForma2Results(siteId: string) {
-	const data = await loadDefaultConstructionForma2Data(siteId);
+	const data = await loadDefaultConstructionForma2Data(siteId, {
+		sourceScope: "allocated",
+	});
 	const positions = data.state.document?.positions ?? [];
 	const view = buildForma2AnalyticsView({
 		positions,
@@ -391,7 +415,6 @@ export async function getDefaultConstructionForma2Results(siteId: string) {
 	return {
 		siteName: data.siteName,
 		document: documentMetadata(data.state),
-		summary: view.summary,
 		resultRows: view.resultRows,
 	};
 }
@@ -401,7 +424,9 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 	positionId: string;
 	costType: "work" | "material" | "total";
 }) {
-	const data = await loadDefaultConstructionForma2Data(args.siteId);
+	const data = await loadDefaultConstructionForma2Data(args.siteId, {
+		sourceScope: "allocated",
+	});
 	const positions = data.state.document?.positions ?? [];
 	const position = positions.find((item) => item.id === args.positionId);
 	if (!position) throw new Error("Forma 2 position was not found");

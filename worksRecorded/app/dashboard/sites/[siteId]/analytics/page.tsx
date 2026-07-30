@@ -1,4 +1,3 @@
-import { notFound } from "next/navigation";
 import { Fragment } from "react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,14 +22,9 @@ import {
 	getForma2AnalyticsCopy,
 	getForma2AnalyticsLocale,
 } from "@/flows/default-construction/lib/forma2-analytics-copy";
-import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
-import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { requireUser } from "@/lib/utils/requireUser";
 import { cn } from "@/lib/utils/utils";
-import {
-	getOrganizationLanguageByUserId,
-	orgCheck,
-} from "@/server/actions/shared-actions";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 
 type Forma2Results = Awaited<
 	ReturnType<typeof getDefaultConstructionForma2Results>
@@ -343,19 +337,12 @@ export default async function AnalyticsPage({
 }) {
 	const { siteId } = await params;
 	const user = await requireUser();
-	const site = await orgCheck(user.id, siteId);
-	if (!site) notFound();
-
-	const flowModuleKey = await resolveFlowModuleKeyForRuntime({
-		organizationId: site.organizationId ?? null,
-		siteId,
-	});
-	if (flowModuleKey !== FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) notFound();
-
-	const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+	const [organizationLanguage, data] = await Promise.all([
+		getOrganizationLanguageByUserId(user.id),
+		getDefaultConstructionForma2Results(siteId),
+	]);
 	const t = getForma2AnalyticsCopy(organizationLanguage);
 	const locale = getForma2AnalyticsLocale(organizationLanguage);
-	const data = await getDefaultConstructionForma2Results(siteId);
 
 	return (
 		<div className="space-y-6">

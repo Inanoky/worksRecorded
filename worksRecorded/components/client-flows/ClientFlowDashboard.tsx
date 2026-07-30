@@ -1,3 +1,5 @@
+"use client";
+
 import { getFlowFrontendModule } from "@/components/client-flows/flow-frontend-registry";
 import type { FlowModuleKey } from "@/lib/flows/types";
 

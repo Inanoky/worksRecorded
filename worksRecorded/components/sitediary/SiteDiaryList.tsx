@@ -703,6 +703,7 @@ export default function SiteDiaryCalendar({
   const [listTotalPages, setListTotalPages] = React.useState(1);
   const keywordInputRef = React.useRef<HTMLInputElement | null>(null);
   const keywordDebounceRef = React.useRef<number | null>(null);
+  const initialBisSyncSiteRef = React.useRef<string | null>(null);
 
   //----------------------Table---------------------------------------------------
 
@@ -1155,8 +1156,13 @@ export default function SiteDiaryCalendar({
             .map(([key]) => key.trim());
         }
 
-        //Here we load config from database, and if no config we use default.
-        const cfg = (((await getConfig(siteId)) ?? defaultConfig) as ConfigMap);
+        // Load the display configuration and the first page together. BIS cleanup
+        // is intentionally not on the critical path for the initial screen.
+        const [loadedConfig, data] = await Promise.all([
+          getConfig(siteId),
+          refreshRowsWithBisSync({ skipSync: true }),
+        ]);
+        const cfg = ((loadedConfig ?? defaultConfig) as ConfigMap);
         if (cancelled) return;
 
         const screenWidth = cfg?.otherSettings?.displaySiteListWidth ?? 140;
@@ -1177,8 +1183,6 @@ export default function SiteDiaryCalendar({
 
         setTableHeads(tableFields);
 
-        //Fetching data
-        const data: DiaryRow[] = await refreshRowsWithBisSync();
         setHasLoadedRowsOnce(true);
 
         function pickRenderableRows(
@@ -1204,6 +1208,18 @@ export default function SiteDiaryCalendar({
         console.dir(formattedRows);
 
         if (cancelled) return;
+
+        if (bisUiEnabled && initialBisSyncSiteRef.current !== siteId) {
+          initialBisSyncSiteRef.current = siteId;
+          void syncDeletedSiteDiaryBisRecords(siteId)
+            .then(async () => {
+              if (cancelled) return;
+              await refreshRowsWithBisSync({ skipSync: true });
+            })
+            .catch((syncError) => {
+              console.warn("[site-diary] deferred BIS cleanup failed", syncError);
+            });
+        }
       } catch (e: any) {
         if (!cancelled) {
           setError(e?.message ?? "Failed to load site diary");
@@ -1217,7 +1233,7 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [optionsRevision, refreshRowsWithBisSync, siteId]);
+  }, [bisUiEnabled, optionsRevision, refreshRowsWithBisSync, siteId]);
 
   const hasFilledDays = filledDays.length > 0;
   const hasRecords = rows.length > 0;

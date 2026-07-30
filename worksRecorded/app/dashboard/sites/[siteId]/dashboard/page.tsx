@@ -1,5 +1,6 @@
 import AiWidgetRag from "@/components/ai/AiChatLazy";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { requireUser } from "@/lib/utils/requireUser";
 import { orgCheck } from "@/server/actions/shared-actions";
 import TourRunner from "@/components/joyride/TourRunner";
@@ -37,26 +38,33 @@ export default async function InvoiceRoute({
   } else {
     siteOrganizationId = await getSiteOrganizationIdBySiteId(siteId);
   }
-  const flowModuleKey = await resolveFlowModuleKeyForRuntime({ organizationId: siteOrganizationId, siteId });
-
-  // --- Group 1: Data fetch (can stay as-is) ---
   const [
-   
+    flowModuleKey,
     siteBisStatus,
     userBisToken,
     organizationLanguage,
   ] = await Promise.all([
-   
+    resolveFlowModuleKeyForRuntime({ organizationId: siteOrganizationId, siteId }),
     getSiteBisConfig(siteId),
     getUserBisTokenByUserId(user.id),
     getOrganizationLanguageByUserId(user.id),
-    sendFirstProjectWelcomeTemplateIfNeeded({ siteId, projectName: onboardingProjectName }),
   ]);
 
- 
-
-  // --- Group 3 ---
- 
+  if (onboardingProjectName) {
+    after(async () => {
+      try {
+        await sendFirstProjectWelcomeTemplateIfNeeded({
+          siteId,
+          projectName: onboardingProjectName,
+        });
+      } catch (error) {
+        console.error("[dashboard] deferred onboarding message failed", {
+          siteId,
+          error,
+        });
+      }
+    });
+  }
 
   return (
     <>
