@@ -2182,12 +2182,19 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
 
     const summariesByDay = new Map<
       string,
-      { key: string; date: Date; photoCount: number; latestPhotoDate: Date; searchableText: string }
+      {
+        key: string;
+        date: Date;
+        photoCount: number;
+        latestPhotoDate: Date;
+        searchableText: string;
+        hasDiaryRecords: boolean;
+      }
     >();
 
     photos.forEach((photo) => {
       const dateKey = toLocalDayISOFromDate(photo.Date);
-      if (!dateKey || recordDays.has(dateKey) || !photo.Date) return;
+      if (!dateKey || !photo.Date) return;
 
       const date = photo.Date instanceof Date ? photo.Date : new Date(photo.Date);
       const existing = summariesByDay.get(dateKey);
@@ -2198,6 +2205,7 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
           photoCount: 1,
           latestPhotoDate: date,
           searchableText: [photo.Comment, photo.Location].filter(Boolean).join(" "),
+          hasDiaryRecords: recordDays.has(dateKey),
         });
         return;
       }

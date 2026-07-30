@@ -12,9 +12,24 @@ const readSiteDiaryBisStatusesMock = jest.fn();
 const archiveAndReplaceSiteDiaryBatchMock = jest.fn();
 const getSiteDiaryCorrectionTargetMock = jest.fn();
 const startSiteDiaryCorrectionMock = jest.fn();
-const mockBuildAiRunContext = jest.fn(() => ({
-  runnableConfig: { configurable: { thread_id: "test-thread" }, metadata: {} },
-}));
+const mockBuildAiRunContext = jest.fn((args) => {
+  const runName = args.runName ?? "SiteDiaryStructuredSave";
+  const tags = ["works-recorded", `flow:${args.flow}`, ...(args.tags ?? [])];
+  const metadata = { ...(args.metadata ?? {}) };
+
+  return {
+    runName,
+    threadId: args.threadId,
+    tags,
+    metadata,
+    runnableConfig: {
+      configurable: { thread_id: "test-thread" },
+      runName,
+      tags,
+      metadata,
+    },
+  };
+});
 
 jest.mock("@langchain/openai", () => ({
   ChatOpenAI: jest.fn().mockImplementation(() => ({
@@ -111,7 +126,7 @@ import {
 } from "@/flows/default-construction/backend/site-manager-agent/tools";
 
 const toolInput = {
-  question: "internal save instruction",
+  question: "poured 12.5 m3 concrete",
   date: "08-06-2026",
 };
 
@@ -217,23 +232,33 @@ describe("save_to_database site diary tool", () => {
     expect(messages[0].content).toContain(toolInput.date);
     expect(messages[0].content).not.toContain(trustedContext.originalUserComment);
     expect(messages[1].content).toContain(trustedContext.siteId);
-	    expect(runnableConfig).toEqual(expect.objectContaining({
-	      configurable: { thread_id: "test-thread" },
-	      metadata: expect.objectContaining({ fastPathOutcome: "save" }),
-	    }));
+    expect(runnableConfig).toEqual(expect.objectContaining({
+      configurable: { thread_id: "test-thread" },
+      runName: "SiteDiaryStructuredSave - Anna Bērziņa",
+      tags: expect.arrayContaining(["sender:Anna Bērziņa", "site-diary-test"]),
+      metadata: expect.objectContaining({
+        fastPathOutcome: "save",
+        senderFirstName: "Anna",
+        senderLastName: "Bērziņa",
+        senderName: "Anna Bērziņa",
+        senderInitials: "AB",
+        senderLabel: "Anna Bērziņa",
+      }),
+    }));
     expect(mockBuildAiRunContext).toHaveBeenCalledWith(
-	      expect.objectContaining({
-	        metadata: expect.objectContaining({
-	          senderFirstName: "Anna",
-	          senderLastName: "Bērziņa",
-	          senderName: "Anna Bērziņa",
-	          senderInitials: "AB",
-	          senderLabel: "Anna Bērziņa",
-	        }),
-	        tags: expect.arrayContaining(["sender:Anna Bērziņa"]),
-	      }),
-	    );
-	    expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith({
+      expect.objectContaining({
+        runName: "SiteDiaryStructuredSave - Anna Bērziņa",
+        metadata: expect.objectContaining({
+          senderFirstName: "Anna",
+          senderLastName: "Bērziņa",
+          senderName: "Anna Bērziņa",
+          senderInitials: "AB",
+          senderLabel: "Anna Bērziņa",
+        }),
+        tags: expect.arrayContaining(["sender:Anna Bērziņa"]),
+      }),
+    );
+    expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith({
       rows: [
         { Location: "Building A", Works: "Concrete pour", Amounts: 12.5 },
       ],
@@ -330,6 +355,53 @@ describe("save_to_database site diary tool", () => {
     });
 
     expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0].Amounts).toBeNull();
+  });
+
+  it("adds validation metadata when sanitizing suspicious numeric fields", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      records: [{ Area: "Floor 2", Activity: "Concrete pour", Quantity: 2 }],
+    });
+    saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+    await siteDiaryToDatabaseTool.invoke({
+      question: "Šodien apmestas sienas 2 stāvā, 4h",
+    });
+
+    const [, runnableConfig] = structuredInvokeMock.mock.calls[0];
+    expect(runnableConfig).toEqual(expect.objectContaining({
+      runName: "SiteDiaryStructuredSave - Anna Bērziņa",
+      tags: expect.arrayContaining(["sender:Anna Bērziņa", "site-diary-test"]),
+      metadata: expect.objectContaining({
+        senderLabel: "Anna Bērziņa",
+        siteDiaryValidationWarningCount: 1,
+        siteDiaryValidationFields: "Amounts",
+        siteDiaryValidationCodes: "amount_not_explicit",
+        siteDiaryValidationSanitized: true,
+      }),
+    }));
+    expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rows: [
+          expect.objectContaining({
+            Amounts: null,
+          }),
+        ],
+        evalMetadata: expect.objectContaining({
+          evaluationId: "eval-1",
+          siteDiaryAiValidation: {
+            version: 1,
+            rowWarnings: [
+              {
+                rowIndex: 0,
+                warnings: [
+                  { field: "Amounts", code: "amount_not_explicit", value: 2 },
+                ],
+              },
+            ],
+          },
+        }),
+      }),
+    );
   });
 
   it("fast-path fallback does not persist", async () => {

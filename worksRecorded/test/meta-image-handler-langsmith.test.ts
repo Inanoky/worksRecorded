@@ -152,7 +152,8 @@ describe("meta image handler LangSmith tracing", () => {
 			],
 		});
 
-		await extractAndSaveBISMaterialsFromPublicUrl(publicUrl, "37120000000");
+		const result = await extractAndSaveBISMaterialsFromPublicUrl(publicUrl, "37120000000");
+		const payload = JSON.parse(result);
 
 		expect(ChatOpenAI).toHaveBeenCalledWith({
 			model: "gpt-5.4",
@@ -198,6 +199,13 @@ describe("meta image handler LangSmith tracing", () => {
 			});
 		expect(JSON.stringify(config.metadata)).not.toContain(publicUrl);
 		expect(config.runId).toMatch(uuidV7Pattern);
+		expect(payload.items[0]).toMatchObject({
+			senderFirstName: "Anna",
+			senderLastName: "Bērziņa",
+			senderName: "Anna Bērziņa",
+			senderInitials: "AB",
+			senderLabel: "Anna Bērziņa",
+		});
 		expect(mockCreateMany).toHaveBeenCalledWith({
 			data: [
 				expect.objectContaining({
@@ -274,6 +282,90 @@ describe("meta image handler LangSmith tracing", () => {
 			expect(mockStructuredInvoke.mock.calls[1][1].tags).toContain("sender:Anna-B_rzi_a");
 		expect(mockStructuredInvoke.mock.calls[0][1].runId).toMatch(uuidV7Pattern);
 		expect(mockStructuredInvoke.mock.calls[1][1].runId).toMatch(uuidV7Pattern);
+	});
+
+	it("uses route-provided sender names when DB context has no names", async () => {
+		const publicUrl = "https://utfs.io/f/invoice-private-key.jpg?token=hidden";
+
+		mockUserFindFirst.mockResolvedValueOnce({
+			id: "user-1",
+			firstName: null,
+			lastName: null,
+			organizationId: "org-1",
+			lastSelectedSiteIdforWhatsapp: "site-1",
+			siteManagerSelectIdforWhatsapp: null,
+		});
+		mockStructuredInvoke
+			.mockResolvedValueOnce({
+				isMaterialDocument: true,
+				confidence: 0.9,
+				reason: "readable invoice",
+			})
+			.mockResolvedValueOnce({
+				items: [
+					{
+						name: "Cements",
+						cost: 12.34,
+						invoiceNr: "INV-1",
+						invoiceDate: null,
+						invoiceDateText: "",
+						invoiceDateYearVisible: false,
+						costCode: "MAT",
+						quantity: 2,
+						construction_material_id: "no_match",
+					},
+				],
+			});
+
+		const handled = await processMaterialDocumentImageFromPublicUrl({
+			publicUrl,
+			senderPhone: "37120000000",
+			senderFirstName: "Jānis",
+			senderLastName: "Bērziņš",
+		});
+
+		expect(handled).toBe(true);
+		expect(mockStructuredInvoke.mock.calls[0][1]).toMatchObject({
+			runName: "MetaMaterialImageClassification - Jānis Bērziņš",
+			metadata: {
+				siteId: "site-1",
+				userId: "user-1",
+				orgId: "org-1",
+				senderFirstName: "Jānis",
+				senderLastName: "Bērziņš",
+				senderName: "Jānis Bērziņš",
+				senderInitials: "JB",
+				senderLabel: "Jānis Bērziņš",
+			},
+		});
+		expect(mockStructuredInvoke.mock.calls[1][1]).toMatchObject({
+			runName: "MetaMaterialInvoiceExtraction - Jānis Bērziņš",
+			metadata: {
+				siteId: "site-1",
+				userId: "user-1",
+				orgId: "org-1",
+				senderFirstName: "Jānis",
+				senderLastName: "Bērziņš",
+				senderName: "Jānis Bērziņš",
+				senderInitials: "JB",
+				senderLabel: "Jānis Bērziņš",
+			},
+		});
+		expect(mockStructuredInvoke.mock.calls[0][1].tags).toContain(
+			"sender:J_nis-B_rzi__",
+		);
+		expect(mockStructuredInvoke.mock.calls[1][1].tags).toContain(
+			"sender:J_nis-B_rzi__",
+		);
+		expect(mockCreateMany).toHaveBeenCalledWith({
+			data: [
+				expect.objectContaining({
+					siteId: "site-1",
+					orgId: "org-1",
+					userId: "user-1",
+				}),
+			],
+		});
 	});
 
 	it("preserves an explicitly visible old invoice year", async () => {

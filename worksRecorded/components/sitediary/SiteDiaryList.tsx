@@ -874,6 +874,7 @@ export default function SiteDiaryCalendar({
   const [selectedRecordIds, setSelectedRecordIds] = React.useState<Set<string>>(new Set());
   const [bulkDeleteLoading, setBulkDeleteLoading] = React.useState(false);
   const [projectCopyTargets, setProjectCopyTargets] = React.useState<SiteDiaryProjectCopyTarget[]>([]);
+  const [projectCopyDialogOpen, setProjectCopyDialogOpen] = React.useState(false);
   const [projectCopyTargetId, setProjectCopyTargetId] = React.useState("");
   const [projectCopyLoading, setProjectCopyLoading] = React.useState(false);
   const [projectCopyTargetsLoading, setProjectCopyTargetsLoading] = React.useState(false);
@@ -1427,11 +1428,21 @@ export default function SiteDiaryCalendar({
   // Group filtered rows by day
   const dayGroups: DayGroup[] = React.useMemo(() => {
     const res: Record<string, DayGroup> = {};
+    const photoCountsByDay = new Map(
+      mediaOnlyDays.map((day) => [day.key, day.photoCount]),
+    );
     for (const r of filteredRows) {
       const d = new Date(r.Date);
       if (Number.isNaN(d.getTime())) continue;
       const key = toLocalDateKey(d);
-      if (!res[key]) res[key] = { key, date: d, rows: [] };
+      if (!res[key]) {
+        res[key] = {
+          key,
+          date: d,
+          rows: [],
+          photoCount: photoCountsByDay.get(key),
+        };
+      }
       res[key].rows.push(r);
     }
     Object.values(res).forEach((group) => {
@@ -1461,18 +1472,20 @@ export default function SiteDiaryCalendar({
       });
     });
     return Object.values(res).sort((a, b) => b.date.getTime() - a.date.getTime());
-  }, [filteredRows, isZtcSite]);
+  }, [filteredRows, isZtcSite, mediaOnlyDays]);
 
   const mediaOnlyDayGroups: DayGroup[] = React.useMemo(
     () =>
-      mediaOnlyDays.map((day) => ({
-        key: day.key,
-        date: new Date(day.date),
-        rows: [],
-        mediaOnly: true,
-        photoCount: day.photoCount,
-        mediaSearchableText: day.searchableText.toLowerCase(),
-      })),
+      mediaOnlyDays
+        .filter((day) => !day.hasDiaryRecords)
+        .map((day) => ({
+          key: day.key,
+          date: new Date(day.date),
+          rows: [],
+          mediaOnly: true,
+          photoCount: day.photoCount,
+          mediaSearchableText: day.searchableText.toLowerCase(),
+        })),
     [mediaOnlyDays],
   );
 
@@ -1653,6 +1666,7 @@ export default function SiteDiaryCalendar({
       next.add(row.id as string);
       return next;
     });
+    setProjectCopyDialogOpen(true);
   };
 
   const handleBulkDeleteRecords = async () => {
@@ -1740,6 +1754,7 @@ export default function SiteDiaryCalendar({
         return next;
       });
       toast.success(toastMessages.recordsCopiedToProject(result.count, target.name));
+      setProjectCopyDialogOpen(false);
     } catch (e: any) {
       toast.error(e?.message ?? toastMessages.failedCopyRecordsToProject);
     } finally {
@@ -2904,29 +2919,13 @@ export default function SiteDiaryCalendar({
                   {selectedRecordIds.size > 0 ? (
                     <div className="mt-3 flex flex-col gap-2 border-t pt-3 lg:flex-row lg:items-center lg:justify-between">
                       {!isZtcSite && projectCopyTargets.length > 0 ? (
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                          <Select
-                            value={projectCopyTargetId}
-                            onValueChange={setProjectCopyTargetId}
-                            disabled={projectCopyLoading}
-                          >
-                            <SelectTrigger className="h-9 w-full sm:w-[320px]">
-                              <SelectValue placeholder={t.selectTargetProject} />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {projectCopyTargets.map((target) => (
-                                <SelectItem key={target.id} value={target.id}>
-                                  {formatProjectCopyTargetLabel(target)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                        <div className="flex justify-start">
                           <Button
                             size="sm"
                             variant="secondary"
                             className="w-full sm:w-auto"
-                            disabled={projectCopyLoading || !projectCopyTargetId}
-                            onClick={handleCopySelectedRecordsToProject}
+                            disabled={projectCopyLoading}
+                            onClick={() => setProjectCopyDialogOpen(true)}
                           >
                             {projectCopyLoading ? (
                               <>
@@ -3384,10 +3383,15 @@ export default function SiteDiaryCalendar({
                                 {t.photosOnly}
                               </Badge>
                             ) : null}
-                            {isMediaOnlyGroup && group.photoCount ? (
-                              <span>
+                            {group.photoCount ? (
+                              <button
+                                type="button"
+                                className="cursor-pointer font-medium underline decoration-dotted underline-offset-2"
+                                onClick={() => openPhotos(group.date)}
+                                aria-label={t.viewPhotosForDay}
+                              >
                                 {group.photoCount} {t.photosCount}
-                              </span>
+                              </button>
                             ) : null}
                             {isZtcSite ? (
                               <span>
@@ -5047,6 +5051,75 @@ export default function SiteDiaryCalendar({
                   </>
                 ) : (
                   "Copy record"
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={projectCopyDialogOpen} onOpenChange={setProjectCopyDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>{t.copyToProject}</DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
+                {t.copyToProject} ({selectedRecordIds.size})
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">{t.selectTargetProject}</label>
+              {projectCopyTargetsLoading ? (
+                <div className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {t.loadingProjects}
+                </div>
+              ) : (
+                <Select
+                  value={projectCopyTargetId}
+                  onValueChange={setProjectCopyTargetId}
+                  disabled={projectCopyLoading}
+                >
+                  <SelectTrigger className="h-9 w-full">
+                    <SelectValue placeholder={t.selectTargetProject} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projectCopyTargets.map((target) => (
+                      <SelectItem key={target.id} value={target.id}>
+                        {formatProjectCopyTargetLabel(target)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setProjectCopyDialogOpen(false)}
+                disabled={projectCopyLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCopySelectedRecordsToProject}
+                disabled={
+                  selectedRecordIds.size === 0 ||
+                  !projectCopyTargetId ||
+                  projectCopyLoading ||
+                  projectCopyTargetsLoading
+                }
+              >
+                {projectCopyLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t.copyingToProject}
+                  </>
+                ) : (
+                  <>
+                    <Copy className="mr-2 h-4 w-4" />
+                    {t.copyToProject}
+                  </>
                 )}
               </Button>
             </div>

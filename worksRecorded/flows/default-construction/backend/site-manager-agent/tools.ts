@@ -38,6 +38,11 @@ import {
   buildAiRunContext,
   summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
+import {
+  buildSiteDiaryAiValidationMetadata,
+  buildSiteDiaryAiValidationSummaryMetadata,
+  validateAiSiteDiaryRow,
+} from "@/lib/site-diary/ai-row-validation";
 import { formatSiteDiarySaveToolResult } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolResult";
 import {
   getSiteManagerToolContext,
@@ -95,6 +100,7 @@ type StructuredSaveResult = {
   rows?: Record<string, any>[];
   intentReason?: string;
   intentConfidence?: number;
+  validationMetadata?: Record<string, unknown> | null;
 };
 
 function usageFromMessage(message: any) {
@@ -108,14 +114,15 @@ function usageFromMessage(message: any) {
   };
 }
 
-function normalizeUnknownNumericFields(
-  row: Record<string, any>,
-  source: string,
+function mergeSiteDiaryValidationMetadata(
+  baseMetadata: Record<string, unknown> | undefined,
+  validationMetadata: Record<string, unknown> | null | undefined,
 ) {
-  const normalized = { ...row };
-  const hasExplicitZeroAmount = /(?:^|\s)0(?:[.,]0+)?\s*(?:m2|m3|m²|m³|m|kg|tn|pcs|gab|gabali|pieces?|units?)\b/iu.test(source);
-  if (normalized.Amounts === 0 && !hasExplicitZeroAmount) normalized.Amounts = null;
-  return normalized;
+  if (!validationMetadata) return baseMetadata;
+  return {
+    ...(baseMetadata ?? {}),
+    ...validationMetadata,
+  };
 }
 
 function toConfirmationRecords(records: unknown): SiteDiaryConfirmationRecord[] {
@@ -166,6 +173,9 @@ export async function extractAndSaveSiteDiary(args: {
   const runMetrics = runContext?.metrics;
   const senderTraceMetadata = getSiteManagerSenderTraceMetadata(runContext);
   const senderTraceTags = getSiteManagerSenderTraceTags(runContext);
+  const runName = runContext?.senderLabel
+    ? `SiteDiaryStructuredSave - ${runContext.senderLabel}`
+    : undefined;
   const structuredTrace = fastPathTraceConfig(args.fastPathTrace ?? runContext?.fastPathTrace ?? {
     fastPathMode: runMetrics?.fastPathMode ?? "off",
     fastPathCandidate: false,
@@ -176,6 +186,7 @@ export async function extractAndSaveSiteDiary(args: {
   });
   const aiContext = buildAiRunContext({
     flow: "structured-site-diary-save",
+    runName,
     threadId: `structured-site-diary-save:${siteId}:${userId}`,
     siteId,
     userId,
@@ -336,15 +347,24 @@ export async function extractAndSaveSiteDiary(args: {
     };
   }
 
-  const rows = rawRecords.map((record: Record<string, unknown>) =>
-    normalizeUnknownNumericFields(
-      mapToDbFields(record, fieldMap, dropdownValueMaps),
+  const validationResults = rawRecords.map((record: Record<string, unknown>) =>
+    validateAiSiteDiaryRow(
       args.question,
+      mapToDbFields(record, fieldMap, dropdownValueMaps),
     ));
+  const rows = validationResults.map((result) => result.row);
+  const validationWarningsByRow = validationResults.map((result) => result.warnings);
+  const validationMetadata = buildSiteDiaryAiValidationMetadata(
+    validationWarningsByRow,
+  );
+  const validationSummaryMetadata = buildSiteDiaryAiValidationSummaryMetadata(
+    validationWarningsByRow,
+  );
+  Object.assign(aiContext.runnableConfig.metadata, validationSummaryMetadata);
   if (args.persist === false) {
     updateTraceOutcome("save");
     recordSiteManagerToolCall({ name: "shadow_save_to_database", durationMs: Date.now() - toolStarted, ok: true });
-    return { action: "save_new_report", correctionMode: "not_applicable", language, content: "", ok: true, count: rows.length, rows };
+    return { action: "save_new_report", correctionMode: "not_applicable", language, content: "", ok: true, count: rows.length, rows, validationMetadata };
   }
   const persistenceStarted = Date.now();
   let result;
@@ -354,7 +374,10 @@ export async function extractAndSaveSiteDiary(args: {
       userId,
       siteId,
       originalUserComment,
-      evalMetadata: runContext?.evalRecordMetadata,
+      evalMetadata: mergeSiteDiaryValidationMetadata(
+        runContext?.evalRecordMetadata,
+        validationMetadata,
+      ),
     });
   } catch (error) {
     updateTraceOutcome("error");
@@ -528,7 +551,10 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
       correctionText: args.correction,
       rows: correctionRows,
       replyToMessageId: source.replyToMessageId,
-      evalMetadata: runContext?.evalRecordMetadata,
+      evalMetadata: mergeSiteDiaryValidationMetadata(
+        runContext?.evalRecordMetadata,
+        extraction.validationMetadata,
+      ),
     });
     if (!result.ok) {
       recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });

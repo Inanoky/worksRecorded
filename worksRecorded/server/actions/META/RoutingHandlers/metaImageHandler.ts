@@ -235,6 +235,11 @@ type MetaMaterialContext = {
   senderLabel?: string | null
 }
 
+type MetaMaterialSenderTraceInput = Pick<
+  MetaMaterialContext,
+  "senderFirstName" | "senderLastName" | "senderName" | "senderInitials" | "senderLabel"
+>
+
 type MetaMaterialLangSmithRunName =
   | "MetaMaterialImageClassification"
   | "MetaMaterialInvoiceExtraction"
@@ -249,6 +254,47 @@ function describeImageForTrace(publicUrl: string) {
 
 function cleanLangSmithTag(value: string) {
   return value.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9:._-]/g, "_")
+}
+
+function buildMetaMaterialSenderTraceContext(
+  sender?: MetaMaterialSenderTraceInput | null,
+) {
+  if (!sender) return {}
+
+  const derived = buildSiteManagerSenderTraceContext({
+    firstName: sender.senderFirstName,
+    lastName: sender.senderLastName,
+  })
+  const senderFirstName = sender.senderFirstName ?? derived.senderFirstName
+  const senderLastName = sender.senderLastName ?? derived.senderLastName
+  const senderName = sender.senderName ?? derived.senderName
+  const senderInitials = sender.senderInitials ?? derived.senderInitials
+  const senderLabel = sender.senderLabel ?? senderName ?? senderInitials
+
+  return {
+    senderFirstName,
+    senderLastName,
+    senderName,
+    senderInitials,
+    senderLabel,
+  }
+}
+
+function mergeMetaMaterialSenderTraceContext(
+  context: MetaMaterialContext | null,
+  sender?: MetaMaterialSenderTraceInput | null,
+) {
+  if (!context) return context
+
+  const senderContext = buildMetaMaterialSenderTraceContext(sender)
+  return {
+    ...context,
+    ...Object.fromEntries(
+      Object.entries(senderContext).filter(
+        ([, value]) => value !== undefined && value !== null,
+      ),
+    ),
+  }
 }
 
 function buildMetaMaterialLangSmithExtra(args: {
@@ -586,6 +632,24 @@ function buildMaterialExtractionSchema(ids: string[]) {
 
 type MaterialExtractionPayload = z.infer<ReturnType<typeof buildMaterialExtractionSchema>>
 
+function addMetaMaterialSenderTraceToRows(
+  payload: MaterialExtractionPayload,
+  context?: MetaMaterialContext | null,
+) {
+  if (!context?.senderLabel) return payload
+
+  return {
+    items: payload.items.map(item => ({
+      ...item,
+      senderFirstName: context.senderFirstName ?? null,
+      senderLastName: context.senderLastName ?? null,
+      senderName: context.senderName ?? null,
+      senderInitials: context.senderInitials ?? null,
+      senderLabel: context.senderLabel,
+    })),
+  }
+}
+
 export async function extractBISMaterialsFromPublicUrl(args: {
   publicUrl: string
   context?: MetaMaterialContext | null
@@ -607,7 +671,7 @@ export async function extractBISMaterialsFromPublicUrl(args: {
     strict: true,
   });
 
-  return extractor.invoke(
+  const payload = await extractor.invoke(
     buildImageMessage({
       publicUrl: args.publicUrl,
       prompt: `You are extracting construction material purchases from one WhatsApp image.
@@ -683,6 +747,8 @@ Quality rules:
       context: args.context,
     }),
   );
+
+  return addMetaMaterialSenderTraceToRows(payload, args.context)
 }
 
 export function enrichBISMaterialPayload(
@@ -734,6 +800,11 @@ export async function extractAndEnrichBISMaterialsFromPublicUrl(args: {
 export async function processMaterialDocumentImageFromPublicUrl(args: {
   publicUrl: string;
   senderPhone?: string | null;
+  senderFirstName?: string | null;
+  senderLastName?: string | null;
+  senderName?: string | null;
+  senderInitials?: string | null;
+  senderLabel?: string | null;
 }) {
   if (
     process.env.RUN_AI_EVALS === "true" &&
@@ -743,7 +814,16 @@ export async function processMaterialDocumentImageFromPublicUrl(args: {
     return false;
   }
 
-  const context = await resolveMetaMaterialContext(args.senderPhone);
+  const context = mergeMetaMaterialSenderTraceContext(
+    await resolveMetaMaterialContext(args.senderPhone),
+    {
+      senderFirstName: args.senderFirstName,
+      senderLastName: args.senderLastName,
+      senderName: args.senderName,
+      senderInitials: args.senderInitials,
+      senderLabel: args.senderLabel,
+    },
+  );
   const classification = await classifyMaterialDocumentImage(args.publicUrl, context);
 
   console.log("Meta material image classification", classification);
