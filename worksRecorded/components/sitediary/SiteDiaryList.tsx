@@ -735,6 +735,41 @@ export default function SiteDiaryCalendar({
 
   type ConfigMap = Record<string, any>;
 
+  function shouldDisplayZeroAsDashes(key: string) {
+    return key === "Amounts" || key === "WorkersInvolved" || key === "TimeInvolved";
+  }
+
+  function isNumericZero(value: unknown) {
+    if (value === null || value === undefined || value === "") return false;
+    const numericValue =
+      typeof value === "number"
+        ? value
+        : typeof value === "string"
+          ? Number(value.trim().replace(",", "."))
+          : NaN;
+
+    return Number.isFinite(numericValue) && numericValue === 0;
+  }
+
+  function formatZeroDisplayValue(key: string, value: unknown) {
+    return shouldDisplayZeroAsDashes(key) && isNumericZero(value) ? "--" : null;
+  }
+
+  function formatSiteDiaryDisplayValue(key: string, value: unknown, config: ConfigMap): string {
+    return formatZeroDisplayValue(key, value) ?? formatValueByConfig(key, value, config);
+  }
+
+  function formatSiteDiaryCompactMetric(key: string, value: unknown): string {
+    if (value === null || value === undefined || value === "") return "—";
+    return formatZeroDisplayValue(key, value) ?? String(value);
+  }
+
+  function formatSiteDiaryCompactHours(value: unknown, options?: { withUnit?: boolean }): string {
+    const formatted = formatSiteDiaryCompactMetric("TimeInvolved", value);
+    if (!options?.withUnit || formatted === "—" || formatted === "--") return formatted;
+    return `${formatted} st`;
+  }
+
   function formatValueByConfig(key: string, value: any, config: ConfigMap): string {
     if (value === null || value === undefined || value === "") {
       return "";
@@ -3604,7 +3639,7 @@ export default function SiteDiaryCalendar({
                                 <span>
                                   {t.workers}:{" "}
                                   <span className="font-medium text-foreground">
-                                    {r.WorkersInvolved ?? "—"}
+                                    {formatSiteDiaryCompactMetric("WorkersInvolved", r.WorkersInvolved)}
                                   </span>
                                 </span>
                                 ) : null}
@@ -3614,11 +3649,11 @@ export default function SiteDiaryCalendar({
                                     {isZtcSite ? (
                                       <ZtcHoursWithPausePopover
                                         row={r}
-                                        value={r.TimeInvolved ?? "—"}
+                                        value={formatSiteDiaryCompactHours(r.TimeInvolved)}
                                         dateLocale={dateLocale}
                                       />
                                     ) : (
-                                      r.TimeInvolved ?? "—"
+                                      formatSiteDiaryCompactHours(r.TimeInvolved)
                                     )}
                                   </span>
                                 </span>
@@ -3881,9 +3916,7 @@ export default function SiteDiaryCalendar({
                                       const payrollSaving = row.id ? ztc.payrollSavingRowId === row.id : false;
                                       const startTime = formatZtcTimeValue(row.Date) || "—";
                                       const endTime = formatZtcTimeValue(row.Date_Custom_2) || "—";
-                                      const amount = row.Amounts === null || row.Amounts === undefined || row.Amounts === ""
-                                        ? "—"
-                                        : String(row.Amounts);
+                                      const amount = formatSiteDiaryCompactMetric("Amounts", row.Amounts);
                                       const unit = row.Units || "m2";
                                       const approvalStatus = row.id ? bisApprovalStatusByRowId[row.id] : null;
                                       const isPendingApproval = isApprovalPendingStatus(approvalStatus);
@@ -3986,7 +4019,7 @@ export default function SiteDiaryCalendar({
                                               <div className="text-[11px] font-medium text-muted-foreground">
                                                 <ZtcHoursWithPausePopover
                                                   row={row}
-                                                  value={`${row.TimeInvolved ?? "—"} st`}
+                                                  value={formatSiteDiaryCompactHours(row.TimeInvolved, { withUnit: true })}
                                                   dateLocale={dateLocale}
                                                 />
                                               </div>
@@ -4325,7 +4358,7 @@ export default function SiteDiaryCalendar({
                                               isZtcSite && field === "TimeInvolved" ? (
                                                 <ZtcHoursWithPausePopover
                                                   row={originalRow}
-                                                  value={formatValueByConfig(
+                                                  value={formatSiteDiaryDisplayValue(
                                                     field,
                                                     row[field],
                                                     defaultMap,
@@ -4347,7 +4380,7 @@ export default function SiteDiaryCalendar({
                                                         )
                                                   }
                                                 >
-                                                  {formatValueByConfig(
+                                                  {formatSiteDiaryDisplayValue(
                                                     field,
                                                     row[field],
                                                     defaultMap,
@@ -4355,7 +4388,7 @@ export default function SiteDiaryCalendar({
                                                 </button>
                                               ) : (
                                                 <div className="line-clamp-4">
-                                                  {formatValueByConfig(
+                                                  {formatSiteDiaryDisplayValue(
                                                     field,
                                                     row[field],
                                                     defaultMap,
