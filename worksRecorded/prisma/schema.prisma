@@ -261,8 +261,8 @@ model sitediaryrecords {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   
   createdAt       DateTime  @default(now())
-  
 
+  @@index([siteId, archivedAt, Date, createdAt], map: "sitediaryrecords_site_archived_date_created_idx")
 }
 
 model SiteDiarySaveBatch {
@@ -378,8 +378,8 @@ model photos {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt       DateTime  @default(now())
-  
 
+  @@index([siteId, Date], map: "photos_site_date_idx")
 }
 
 

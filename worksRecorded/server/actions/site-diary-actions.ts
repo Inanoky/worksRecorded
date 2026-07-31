@@ -201,8 +201,8 @@ function getCreatorNameFromOriginalComment(originalUserComment?: string | null) 
 
 //-------Loading config------------------------------
 
-export async function getConfig(siteId: string) {
-  const useZtcConfig = await shouldUseZtcRecordsForSite(siteId);
+export async function getConfig(siteId: string, options: SiteDiaryFlowHint = {}) {
+  const useZtcConfig = await shouldUseZtcRecordsForSite(siteId, options);
   const clientConfig = await prisma.site.findUnique({
     where: {
       id: siteId,

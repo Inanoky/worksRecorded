@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
-import DialogWindow from "@/components/sitediary/DialogWindow";
 import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
 import { useDefaultConstructionSiteDiarySummary } from "@/flows/default-construction/frontend/useDefaultConstructionSiteDiarySummary";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
@@ -115,8 +114,6 @@ import {
   PaginationLink,
 } from "@/components/ui/pagination";
 
-// 👇 NEW: full gallery view
-import FullPhotoGallery from "@/components/sitediary/FullGalleryView";
 import { getConfig } from "@/server/actions/site-diary-actions";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { ZtcCommentPopoverContent } from "@/flows/ztc-production/frontend/ZtcCommentPopoverContent";
@@ -143,15 +140,14 @@ import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-dia
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+
+const DialogWindow = React.lazy(() => import("@/components/sitediary/DialogWindow"));
+const FullPhotoGallery = React.lazy(
+  () => import("@/components/sitediary/FullGalleryView"),
+);
+const SiteDiaryWeatherChart = React.lazy(
+  () => import("@/components/sitediary/SiteDiaryWeatherChart"),
+);
 
 const WhatsAppIcon = ({ size = 22 }) => (
   <svg
@@ -704,6 +700,7 @@ export default function SiteDiaryCalendar({
   const keywordInputRef = React.useRef<HTMLInputElement | null>(null);
   const keywordDebounceRef = React.useRef<number | null>(null);
   const initialBisSyncSiteRef = React.useRef<string | null>(null);
+  const mediaOnlyRequestRef = React.useRef(0);
 
   //----------------------Table---------------------------------------------------
 
@@ -881,8 +878,9 @@ export default function SiteDiaryCalendar({
   const [excelExportLoading, setExcelExportLoading] = React.useState<ExcelExportKind | null>(null);
   const bisUiEnabled = bisEnabled && showBisUi;
   const isZtcSite = isZtcFlow;
+  const siteDiaryFlowId = isZtcSite ? "ztc" : "default";
   React.useEffect(() => {
-    if (!siteId || isZtcSite) {
+    if (!projectCopyDialogOpen || !siteId || isZtcSite) {
       setProjectCopyTargets([]);
       setProjectCopyTargetId("");
       setProjectCopyTargetsLoading(false);
@@ -892,7 +890,7 @@ export default function SiteDiaryCalendar({
     let cancelled = false;
     setProjectCopyTargetsLoading(true);
 
-    getSiteDiaryProjectCopyTargets(siteId)
+    getSiteDiaryProjectCopyTargets(siteId, { flowId: siteDiaryFlowId })
       .then((targets) => {
         if (cancelled) return;
         setProjectCopyTargets(targets);
@@ -915,7 +913,13 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [isZtcSite, siteId, toastMessages.failedLoadProjectCopyTargets]);
+  }, [
+    isZtcSite,
+    projectCopyDialogOpen,
+    siteDiaryFlowId,
+    siteId,
+    toastMessages.failedLoadProjectCopyTargets,
+  ]);
 
   const ztcQualityDisplayStateByRowId = React.useMemo(
     () =>
@@ -1000,14 +1004,14 @@ export default function SiteDiaryCalendar({
     [],
   );
   const reloadFilledDays = React.useCallback(() => {
-    if (!siteId) {
+    if (!siteId || viewMode !== "calendar") {
       setFilledDays([]);
       return;
     }
-    getFilledDays({ siteId, year: currentYear, month: currentMonth, flowId: isZtcSite ? "ztc" : undefined }).then(
+    getFilledDays({ siteId, year: currentYear, month: currentMonth, flowId: siteDiaryFlowId }).then(
       setFilledDays,
     );
-  }, [siteId, currentMonth, currentYear, isZtcSite]);
+  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode]);
 
   const refreshRowsWithBisSync = React.useCallback(async (options?: { skipSync?: boolean }) => {
     if (!siteId) {
@@ -1018,7 +1022,7 @@ export default function SiteDiaryCalendar({
       await syncDeletedSiteDiaryBisRecords(siteId);
     }
     const commonOptions = {
-      flowId: isZtcSite ? "ztc" : undefined,
+      flowId: siteDiaryFlowId,
       dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
       dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
       workFilter,
@@ -1032,19 +1036,13 @@ export default function SiteDiaryCalendar({
       (!isZtcSite || elementFilter === "__ALL__") &&
       (!isZtcSite || workerFilter === "__ALL__") &&
       (!isZtcSite || floorFilter === "__ALL__");
-    const [result, mediaOnlyResult] = await Promise.all([
-      getSiteDiaryRecordsPage(siteId, {
-        ...commonOptions,
-        page: listPage,
-        pageSize: SITE_DIARY_LIST_PAGE_SIZE,
-      }),
-      canShowMediaOnlyDays
-        ? getSiteDiaryMediaOnlyDays(siteId, commonOptions)
-        : Promise.resolve([]),
-    ]);
+    const result = await getSiteDiaryRecordsPage(siteId, {
+      ...commonOptions,
+      page: listPage,
+      pageSize: SITE_DIARY_LIST_PAGE_SIZE,
+    });
     const data: DiaryRow[] = result.rows || [];
     setRows(data || []);
-    setMediaOnlyDays(mediaOnlyResult);
     setListTotalCount(result.totalCount ?? 0);
     setListTotalPages(result.totalPages ?? 1);
     setBisApprovalStatusByRowId(
@@ -1054,6 +1052,21 @@ export default function SiteDiaryCalendar({
           .map((row) => [row.id as string, row.bisStatus ?? ""]),
       ),
     );
+
+    const mediaRequestId = ++mediaOnlyRequestRef.current;
+    if (!canShowMediaOnlyDays) {
+      setMediaOnlyDays([]);
+    } else {
+      void getSiteDiaryMediaOnlyDays(siteId, commonOptions)
+        .then((mediaOnlyResult) => {
+          if (mediaOnlyRequestRef.current === mediaRequestId) {
+            setMediaOnlyDays(mediaOnlyResult);
+          }
+        })
+        .catch((mediaError) => {
+          console.warn("[site-diary] deferred media summary failed", mediaError);
+        });
+    }
     return data;
   }, [
     bisUiEnabled,
@@ -1064,6 +1077,7 @@ export default function SiteDiaryCalendar({
     isZtcSite,
     keywordFilter,
     listPage,
+    siteDiaryFlowId,
     siteId,
     workFilter,
     workerFilter,
@@ -1103,7 +1117,7 @@ export default function SiteDiaryCalendar({
   React.useEffect(() => {
     let cancelled = false;
     async function fetchFilledDays() {
-      if (!siteId) {
+      if (!siteId || viewMode !== "calendar") {
         setFilledDays([]);
         return;
       }
@@ -1111,7 +1125,7 @@ export default function SiteDiaryCalendar({
         siteId,
         year: currentYear,
         month: currentMonth,
-        flowId: isZtcSite ? "ztc" : undefined,
+        flowId: siteDiaryFlowId,
       });
       if (!cancelled) setFilledDays(days);
     }
@@ -1119,7 +1133,7 @@ export default function SiteDiaryCalendar({
     return () => {
       cancelled = true;
     };
-  }, [siteId, currentMonth, currentYear, isZtcSite]);
+  }, [siteId, currentMonth, currentYear, siteDiaryFlowId, viewMode]);
 
   // Load list rows once
   React.useEffect(() => {
@@ -1160,7 +1174,7 @@ export default function SiteDiaryCalendar({
         // Load the display configuration and the first page together. BIS cleanup
         // is intentionally not on the critical path for the initial screen.
         const [loadedConfig, data] = await Promise.all([
-          getConfig(siteId),
+          getConfig(siteId, { flowId: siteDiaryFlowId }),
           refreshRowsWithBisSync({ skipSync: true }),
         ]);
         const cfg = ((loadedConfig ?? defaultConfig) as ConfigMap);
@@ -1168,9 +1182,6 @@ export default function SiteDiaryCalendar({
 
         const screenWidth = cfg?.otherSettings?.displaySiteListWidth ?? 140;
         setScreenWidth(screenWidth);
-
-        console.log("config");
-        console.dir(cfg);
 
         setMap(cfg);
 
@@ -1180,8 +1191,6 @@ export default function SiteDiaryCalendar({
         const tableFields = showCreatedAtColumn
           ? ["createdAt", ...renderableFields]
           : renderableFields;
-        console.log(`renderableFields ${renderableFields}`);
-
         setTableHeads(tableFields);
 
         setHasLoadedRowsOnce(true);
@@ -1204,9 +1213,6 @@ export default function SiteDiaryCalendar({
         const formattedRows = pickRenderableRows(data, renderableFields);
 
         setTableRows(formattedRows);
-
-        console.log(`formatted rows`);
-        console.dir(formattedRows);
 
         if (cancelled) return;
 
@@ -1276,6 +1282,7 @@ export default function SiteDiaryCalendar({
     floorFilter,
     isZtcSite,
     keywordFilter,
+    siteDiaryFlowId,
     siteId,
     workFilter,
     workerFilter,
@@ -1577,6 +1584,7 @@ export default function SiteDiaryCalendar({
     floorFilter,
     isZtcSite,
     keywordFilter,
+    siteDiaryFlowId,
     siteId,
     workFilter,
     workerFilter,
@@ -1684,7 +1692,9 @@ export default function SiteDiaryCalendar({
       setBulkDeleteLoading(true);
       const recordIds = Array.from(selectedRecordIds);
       const results = await Promise.allSettled(
-        recordIds.map((id) => deleteSiteDiaryRecord({ id, siteId, flowId: isZtcSite ? "ztc" : undefined })),
+        recordIds.map((id) =>
+          deleteSiteDiaryRecord({ id, siteId, flowId: siteDiaryFlowId }),
+        ),
       );
       const deletedIds = recordIds.filter((_, index) => results[index].status === "fulfilled");
       const failedCount = results.length - deletedIds.length;
@@ -1746,6 +1756,7 @@ export default function SiteDiaryCalendar({
         sourceSiteId: siteId,
         targetSiteId: target.id,
         recordIds,
+        flowId: siteDiaryFlowId,
       });
 
       setSelectedRecordIds((prev) => {
@@ -1782,7 +1793,7 @@ export default function SiteDiaryCalendar({
   const loadAllFilteredRowsForExport = React.useCallback(async () => {
     if (!siteId) return [];
     const allRows = await getSitediaryRecordsBySiteIdForExcel(siteId, {
-      flowId: isZtcSite ? "ztc" : undefined,
+      flowId: siteDiaryFlowId,
       dateFrom: dateFrom ? toLocalDateKey(dateFrom) : undefined,
       dateTo: dateTo ? toLocalDateKey(dateTo) : undefined,
       workFilter,
@@ -1807,6 +1818,7 @@ export default function SiteDiaryCalendar({
     floorFilter,
     isZtcSite,
     keywordFilter,
+    siteDiaryFlowId,
     siteId,
     workFilter,
     workerFilter,
@@ -2269,7 +2281,7 @@ export default function SiteDiaryCalendar({
         copyTargetRow.id,
         copyTargetDate.toISOString(),
         siteId,
-        { flowId: isZtcSite ? "ztc" : undefined },
+        { flowId: siteDiaryFlowId },
       );
       if (!siteId) return;
       await refreshRowsWithBisSync();
@@ -2289,7 +2301,7 @@ export default function SiteDiaryCalendar({
     if (!confirmed) return;
 
     try {
-      await deleteSiteDiaryRecord({ id: row.id, siteId, flowId: isZtcSite ? "ztc" : undefined });
+      await deleteSiteDiaryRecord({ id: row.id, siteId, flowId: siteDiaryFlowId });
       await refreshRowsWithBisSync({ skipSync: true });
       reloadFilledDays();
       toast.success(toastMessages.recordDeleted);
@@ -2918,7 +2930,7 @@ export default function SiteDiaryCalendar({
                   </div>
                   {selectedRecordIds.size > 0 ? (
                     <div className="mt-3 flex flex-col gap-2 border-t pt-3 lg:flex-row lg:items-center lg:justify-between">
-                      {!isZtcSite && projectCopyTargets.length > 0 ? (
+                      {!isZtcSite ? (
                         <div className="flex justify-start">
                           <Button
                             size="sm"
@@ -2939,11 +2951,6 @@ export default function SiteDiaryCalendar({
                               </>
                             )}
                           </Button>
-                        </div>
-                      ) : projectCopyTargetsLoading ? (
-                        <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          {t.loadingProjects}
                         </div>
                       ) : (
                         <div />
@@ -4562,25 +4569,29 @@ export default function SiteDiaryCalendar({
 
           {/* GALLERY VIEW */}
           <TabsContent value="gallery" className="mt-0">
-            <FullPhotoGallery siteId={siteId ?? ""} />
+            <React.Suspense fallback={<Skeleton className="h-64 w-full" />}>
+              <FullPhotoGallery siteId={siteId ?? ""} />
+            </React.Suspense>
           </TabsContent>
         </Tabs>
 
         {/* Dialog for editing / adding records (shared for both views) */}
-        <DialogWindow
-          key={optionsRevision}
-          open={dialogOpen}
-          setOpen={setDialogOpen}
-          date={dialogDate ?? calendarDate}
-          siteId={siteId}
-          organizationLanguage={organizationLanguage}
-          isZtcFlow={isZtcSite}
-          initialRows={dialogInitialRows}
-          initialConfig={defaultMap}
-          initialRates={isZtcSite ? ztc.defaultRates : null}
-          focusedRecordId={dialogRecordId}
-          initialTab={dialogInitialTab}
-          onSaved={async () => {
+        {dialogOpen ? (
+          <React.Suspense fallback={null}>
+            <DialogWindow
+              key={optionsRevision}
+              open={dialogOpen}
+              setOpen={setDialogOpen}
+              date={dialogDate ?? calendarDate}
+              siteId={siteId}
+              organizationLanguage={organizationLanguage}
+              isZtcFlow={isZtcSite}
+              initialRows={dialogInitialRows}
+              initialConfig={defaultMap}
+              initialRates={isZtcSite ? ztc.defaultRates : null}
+              focusedRecordId={dialogRecordId}
+              initialTab={dialogInitialTab}
+              onSaved={async () => {
             reloadFilledDays();
 
             if (!siteId) return;
@@ -4629,10 +4640,12 @@ export default function SiteDiaryCalendar({
             } finally {
               setLoading(false);
             }
-          }}
-        >
-          <div className="grid gap-3" />
-        </DialogWindow>
+              }}
+            >
+              <div className="grid gap-3" />
+            </DialogWindow>
+          </React.Suspense>
+        ) : null}
 
         {bisUiEnabled ? (
           <Dialog open={bisPickerOpen} onOpenChange={setBisPickerOpen}>
@@ -5284,42 +5297,13 @@ export default function SiteDiaryCalendar({
                 <div className="rounded-md border p-3">
                   <p className="mb-2 text-sm font-medium">{t.weather} • {t.weatherTemperature} / {t.weatherWind}</p>
                   <div className="h-56 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart
-                        data={weatherHours.map((h) => ({
-                          hourLabel: `${String(h.hour).padStart(2, "0")}:00`,
-                          temperatureC: h.temperatureC,
-                          windSpeedMs: h.windSpeedMs,
-                        }))}
-                        margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="hourLabel" tick={{ fontSize: 11 }} interval={2} />
-                        <YAxis yAxisId="temp" tick={{ fontSize: 11 }} width={35} />
-                        <YAxis yAxisId="wind" orientation="right" tick={{ fontSize: 11 }} width={35} />
-                        <RechartsTooltip />
-                        <Line
-                          yAxisId="temp"
-                          type="monotone"
-                          dataKey="temperatureC"
-                          name={t.weatherTemperature}
-                          stroke="#ef4444"
-                          strokeWidth={2}
-                          dot={false}
-                          connectNulls
-                        />
-                        <Line
-                          yAxisId="wind"
-                          type="monotone"
-                          dataKey="windSpeedMs"
-                          name={t.weatherWind}
-                          stroke="#3b82f6"
-                          strokeWidth={2}
-                          dot={false}
-                          connectNulls
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
+                    <React.Suspense fallback={<Skeleton className="h-full w-full" />}>
+                      <SiteDiaryWeatherChart
+                        hours={weatherHours}
+                        temperatureLabel={t.weatherTemperature}
+                        windLabel={t.weatherWind}
+                      />
+                    </React.Suspense>
                   </div>
                 </div>
 
