@@ -17,8 +17,7 @@ import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { getFlowModuleUi } from "@/lib/flows/registry";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
-
-const SUPER_USER_IDS = new Set([process.env.SUPERADMIN]);
+import { isSuperUserId } from "@/lib/utils/super-user";
 
 async function getData(orgId: string | null, isSuperUser: boolean) {
   const [sites] = await Promise.all([
@@ -42,7 +41,7 @@ export default async function DashboardIndexPage() {
   if (!dbUser?.phone) redirect("/dashboard/welcome");
   if (!tour.onboardingLanguageSelected) redirect("/dashboard/welcome/language");
 
-  const isSuperUser = SUPER_USER_IDS.has(user.id);
+  const isSuperUser = isSuperUserId(user.id);
 
   const org = isSuperUser ? null : await getOrganizationIdByUserId(user.id);
   const organizationLanguage = isSuperUser ? "en" : await getOrganizationLanguageByUserId(user.id);

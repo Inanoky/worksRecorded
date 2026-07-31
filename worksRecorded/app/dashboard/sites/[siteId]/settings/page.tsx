@@ -12,7 +12,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
-import { getOrganizationIdByUserId } from "@/server/actions/shared-actions";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 
@@ -60,7 +59,7 @@ export default async function SettingsSiteRoute({
     notFound();
   }
 
-  const orgId = await getOrganizationIdByUserId(user.id);
+  const orgId = siteCheck.organizationId ?? null;
   const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
   const t = getSiteSettingsMessages(organizationLanguage);
 

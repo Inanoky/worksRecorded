@@ -14,6 +14,7 @@ import {stripe} from "@/lib/utils/stripe";
 import { defaultProgram } from "@/lib/utils/DefaultProgram";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import defaultConfigLV from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
+import { isSuperUserId } from "@/lib/utils/super-user";
 
 
 
@@ -32,14 +33,16 @@ export async function getOrganizationIdByUserId(userId: string): Promise<string 
 
 export async function orgCheck(userId: string, paramSiteId: string) {
   const site = await prisma.site.findFirst({
-    where: {
-      id: paramSiteId,
-      organization: {
-        users: {
-          some: { id: userId },
+    where: isSuperUserId(userId)
+      ? { id: paramSiteId }
+      : {
+          id: paramSiteId,
+          organization: {
+            users: {
+              some: { id: userId },
+            },
+          },
         },
-      },
-    },
     select: { id: true, name: true, organizationId: true },
   });
 

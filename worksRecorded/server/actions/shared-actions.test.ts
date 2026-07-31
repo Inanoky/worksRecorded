@@ -18,6 +18,7 @@ jest.mock("@/lib/utils/db", () => ({
 		},
 		site: {
 			create: jest.fn(),
+			findFirst: jest.fn(),
 			findMany: jest.fn(),
 		},
 		subscription: {
@@ -45,9 +46,10 @@ jest.mock("@/lib/utils/stripe", () => ({
 
 import defaultConfigLV from "@/components/sitediary/configs/defaultConfigLV_27042026.json";
 import { defaultProgram } from "@/lib/utils/DefaultProgram";
+import { FLOW_CONFIG_ADMIN_USER_ID } from "@/lib/production-flow/config";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
-import { CreateSiteAction } from "./shared-actions";
+import { CreateSiteAction, orgCheck } from "./shared-actions";
 
 beforeAll(() => {
 	if (!globalThis.structuredClone) {
@@ -127,5 +129,35 @@ describe("CreateSiteAction", () => {
 		);
 		expect(prisma.site.create).not.toHaveBeenCalled();
 		expect(redirectMock).not.toHaveBeenCalled();
+	});
+});
+
+describe("orgCheck", () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+	});
+
+	it("allows the configured superuser to open any project", async () => {
+		const site = { id: "site-2", name: "Other project", organizationId: "org-2" };
+		jest.mocked(prisma.site.findFirst).mockResolvedValue(site);
+
+		await expect(orgCheck(FLOW_CONFIG_ADMIN_USER_ID, "site-2")).resolves.toEqual(site);
+		expect(prisma.site.findFirst).toHaveBeenCalledWith({
+			where: { id: "site-2" },
+			select: { id: true, name: true, organizationId: true },
+		});
+	});
+
+	it("keeps organization membership checks for regular users", async () => {
+		jest.mocked(prisma.site.findFirst).mockResolvedValue(null);
+
+		await expect(orgCheck("regular-user", "site-2")).resolves.toBe(false);
+		expect(prisma.site.findFirst).toHaveBeenCalledWith({
+			where: {
+				id: "site-2",
+				organization: { users: { some: { id: "regular-user" } } },
+			},
+			select: { id: true, name: true, organizationId: true },
+		});
 	});
 });

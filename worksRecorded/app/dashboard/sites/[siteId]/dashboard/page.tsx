@@ -11,6 +11,7 @@ import { getOrganizationLanguageByUserId, getSiteOrganizationIdBySiteId } from "
 import { sendFirstProjectWelcomeTemplateIfNeeded } from "@/server/actions/onboarding-actions";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { shouldShowDashboardAiWidgetForFlowModule } from "@/lib/flows/registry";
+import { isSuperUserId } from "@/lib/utils/super-user";
 
 export const maxDuration = 800;
 
@@ -26,7 +27,7 @@ export default async function InvoiceRoute({
   // --- Group 2: User Check ---
   const user = await requireUser();
 
-  const isSuperAdmin = user.id === process.env.SUPERADMIN;
+  const isSuperAdmin = isSuperUserId(user.id);
 
   let onboardingProjectName = "";
   let siteOrganizationId: string | null = null;
