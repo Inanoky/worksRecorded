@@ -121,14 +121,14 @@ const siteConfig = {
   },
 };
 
-describe("WorkerDiaryToDatabase guard", () => {
+describe("WorkerDiaryToDatabase tool", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getConfigMock.mockResolvedValue(siteConfig);
     saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
   });
 
-  it("sanitizes suspicious numeric fields before saving worker diary rows", async () => {
+  it("preserves mapped numeric fields when saving worker diary rows", async () => {
     structuredInvokeMock.mockResolvedValue({
       records: [
         {
@@ -154,29 +154,15 @@ describe("WorkerDiaryToDatabase guard", () => {
         {
           Location: "2 stāvs",
           Works: "Wall plaster",
-          Amounts: null,
-          WorkersInvolved: null,
+          Amounts: 2,
+          WorkersInvolved: 2,
           TimeInvolved: 4,
         },
       ],
       workerId: "worker-1",
       siteId: "site-1",
       originalUserComment: "Worker Name : Šodien apmestas sienas 2 stāvā, 4h",
-      evalMetadata: {
-        evaluationId: "worker-eval-1",
-        siteDiaryAiValidation: {
-          version: 1,
-          rowWarnings: [
-            {
-              rowIndex: 0,
-              warnings: [
-                { field: "Amounts", code: "amount_not_explicit", value: 2 },
-                { field: "WorkersInvolved", code: "workers_not_explicit", value: 2 },
-              ],
-            },
-          ],
-        },
-      },
+      evalMetadata: { evaluationId: "worker-eval-1" },
     });
 
     expect(mockBuildAiRunContext).toHaveBeenCalledWith(
@@ -203,13 +189,10 @@ describe("WorkerDiaryToDatabase guard", () => {
         metadata: expect.objectContaining({
           senderFirstName: "Jānis",
           senderLabel: "Jānis Bērziņš",
-          siteDiaryValidationWarningCount: 2,
-          siteDiaryValidationFields: "Amounts,WorkersInvolved",
-          siteDiaryValidationCodes: "amount_not_explicit,workers_not_explicit",
-          siteDiaryValidationSanitized: true,
         }),
       }),
     );
+    expect(runnableConfig.metadata).not.toHaveProperty("siteDiaryValidationWarningCount");
   });
 
   it("keeps explicit worker quantities, completed amounts, and hours", async () => {

@@ -24,27 +24,11 @@ import {
   getWorkerSenderTraceMetadata,
   getWorkerSenderTraceTags,
 } from "./runContext";
-import {
-  buildSiteDiaryAiValidationMetadata,
-  buildSiteDiaryAiValidationSummaryMetadata,
-  validateAiSiteDiaryRow,
-} from "@/lib/site-diary/ai-row-validation";
 
 async function buildSystemPromptSaveToDatabase(workerId: string) {
   const organizationLanguage = await getOrganizationLanguageByWorkerId(workerId);
 
   return `Save the worker's message. Your output MUST strictly adhere to the provided Zod schema. Date must be in ISO format. Write all generated comments and summaries in ${organizationLanguage}, which is the organization language for this worker. Keep the worker's original language only in originalUserComment and do not copy it into Comments fields unless the organization language is the same.`;
-}
-
-function mergeSiteDiaryValidationMetadata(
-  baseMetadata: Record<string, unknown> | undefined,
-  validationMetadata: Record<string, unknown> | null | undefined,
-) {
-  if (!validationMetadata) return baseMetadata;
-  return {
-    ...(baseMetadata ?? {}),
-    ...validationMetadata,
-  };
 }
 // === HELPER FUNCTIONS (re-copied from SiteManager's tools.ts for context) ===
 
@@ -235,23 +219,13 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
     );
 
 // 5️⃣ Map to DB rows
-    const validationResults = response.records.map((r, i) => {
+    const rows = response.records.map((r, i) => {
       const mapped = mapToDbFields(r, fieldMap);
-      const validated = validateAiSiteDiaryRow(question, mapped);
 
-      console.log(`🧩 Mapped row ${i + 1}:`, validated.row);
+      console.log(`🧩 Mapped row ${i + 1}:`, mapped);
 
-      return validated;
+      return mapped;
     });
-    const rows = validationResults.map((result) => result.row);
-    const validationWarningsByRow = validationResults.map((result) => result.warnings);
-    const validationMetadata = buildSiteDiaryAiValidationMetadata(
-      validationWarningsByRow,
-    );
-    const validationSummaryMetadata = buildSiteDiaryAiValidationSummaryMetadata(
-      validationWarningsByRow,
-    );
-    Object.assign(aiContext.runnableConfig.metadata, validationSummaryMetadata);
 
 
      const result = await saveSiteDiaryRecord({
@@ -259,10 +233,7 @@ export const workerDiaryToDatabaseTool = new DynamicStructuredTool({
           workerId,
           siteId,
           originalUserComment,
-          evalMetadata: mergeSiteDiaryValidationMetadata(
-            runContext?.evalRecordMetadata,
-            validationMetadata,
-          ),
+          evalMetadata: runContext?.evalRecordMetadata,
         });
 
 
