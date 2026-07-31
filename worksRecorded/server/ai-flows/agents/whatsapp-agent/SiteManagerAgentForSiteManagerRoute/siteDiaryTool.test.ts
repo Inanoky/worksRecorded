@@ -357,7 +357,7 @@ describe("save_to_database site diary tool", () => {
     expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0].Amounts).toBeNull();
   });
 
-  it("adds validation metadata when sanitizing suspicious numeric fields", async () => {
+  it("preserves nonzero mapped amounts without validation metadata", async () => {
     structuredInvokeMock.mockResolvedValue({
       records: [{ Area: "Floor 2", Activity: "Concrete pour", Quantity: 2 }],
     });
@@ -373,35 +373,19 @@ describe("save_to_database site diary tool", () => {
       tags: expect.arrayContaining(["sender:Anna Bērziņa", "site-diary-test"]),
       metadata: expect.objectContaining({
         senderLabel: "Anna Bērziņa",
-        siteDiaryValidationWarningCount: 1,
-        siteDiaryValidationFields: "Amounts",
-        siteDiaryValidationCodes: "amount_not_explicit",
-        siteDiaryValidationSanitized: true,
       }),
     }));
     expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(
       expect.objectContaining({
         rows: [
           expect.objectContaining({
-            Amounts: null,
+            Amounts: 2,
           }),
         ],
-        evalMetadata: expect.objectContaining({
-          evaluationId: "eval-1",
-          siteDiaryAiValidation: {
-            version: 1,
-            rowWarnings: [
-              {
-                rowIndex: 0,
-                warnings: [
-                  { field: "Amounts", code: "amount_not_explicit", value: 2 },
-                ],
-              },
-            ],
-          },
-        }),
+        evalMetadata: { evaluationId: "eval-1" },
       }),
     );
+    expect(runnableConfig.metadata).not.toHaveProperty("siteDiaryValidationWarningCount");
   });
 
   it("fast-path fallback does not persist", async () => {

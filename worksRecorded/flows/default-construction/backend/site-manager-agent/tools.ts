@@ -38,11 +38,6 @@ import {
   buildAiRunContext,
   summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
-import {
-  buildSiteDiaryAiValidationMetadata,
-  buildSiteDiaryAiValidationSummaryMetadata,
-  validateAiSiteDiaryRow,
-} from "@/lib/site-diary/ai-row-validation";
 import { formatSiteDiarySaveToolResult } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/siteDiaryToolResult";
 import {
   getSiteManagerToolContext,
@@ -100,7 +95,6 @@ type StructuredSaveResult = {
   rows?: Record<string, any>[];
   intentReason?: string;
   intentConfidence?: number;
-  validationMetadata?: Record<string, unknown> | null;
 };
 
 function usageFromMessage(message: any) {
@@ -114,15 +108,14 @@ function usageFromMessage(message: any) {
   };
 }
 
-function mergeSiteDiaryValidationMetadata(
-  baseMetadata: Record<string, unknown> | undefined,
-  validationMetadata: Record<string, unknown> | null | undefined,
+function normalizeUnknownNumericFields(
+  row: Record<string, any>,
+  source: string,
 ) {
-  if (!validationMetadata) return baseMetadata;
-  return {
-    ...(baseMetadata ?? {}),
-    ...validationMetadata,
-  };
+  const normalized = { ...row };
+  const hasExplicitZeroAmount = /(?:^|\s)0(?:[.,]0+)?\s*(?:m2|m3|m²|m³|m|kg|tn|pcs|gab|gabali|pieces?|units?)\b/iu.test(source);
+  if (normalized.Amounts === 0 && !hasExplicitZeroAmount) normalized.Amounts = null;
+  return normalized;
 }
 
 function toConfirmationRecords(records: unknown): SiteDiaryConfirmationRecord[] {
@@ -347,24 +340,15 @@ export async function extractAndSaveSiteDiary(args: {
     };
   }
 
-  const validationResults = rawRecords.map((record: Record<string, unknown>) =>
-    validateAiSiteDiaryRow(
-      args.question,
+  const rows = rawRecords.map((record: Record<string, unknown>) =>
+    normalizeUnknownNumericFields(
       mapToDbFields(record, fieldMap, dropdownValueMaps),
+      args.question,
     ));
-  const rows = validationResults.map((result) => result.row);
-  const validationWarningsByRow = validationResults.map((result) => result.warnings);
-  const validationMetadata = buildSiteDiaryAiValidationMetadata(
-    validationWarningsByRow,
-  );
-  const validationSummaryMetadata = buildSiteDiaryAiValidationSummaryMetadata(
-    validationWarningsByRow,
-  );
-  Object.assign(aiContext.runnableConfig.metadata, validationSummaryMetadata);
   if (args.persist === false) {
     updateTraceOutcome("save");
     recordSiteManagerToolCall({ name: "shadow_save_to_database", durationMs: Date.now() - toolStarted, ok: true });
-    return { action: "save_new_report", correctionMode: "not_applicable", language, content: "", ok: true, count: rows.length, rows, validationMetadata };
+    return { action: "save_new_report", correctionMode: "not_applicable", language, content: "", ok: true, count: rows.length, rows };
   }
   const persistenceStarted = Date.now();
   let result;
@@ -374,10 +358,7 @@ export async function extractAndSaveSiteDiary(args: {
       userId,
       siteId,
       originalUserComment,
-      evalMetadata: mergeSiteDiaryValidationMetadata(
-        runContext?.evalRecordMetadata,
-        validationMetadata,
-      ),
+      evalMetadata: runContext?.evalRecordMetadata,
     });
   } catch (error) {
     updateTraceOutcome("error");
@@ -551,10 +532,7 @@ export async function replaceLastSiteDiaryBatchOperation(args: {
       correctionText: args.correction,
       rows: correctionRows,
       replyToMessageId: source.replyToMessageId,
-      evalMetadata: mergeSiteDiaryValidationMetadata(
-        runContext?.evalRecordMetadata,
-        extraction.validationMetadata,
-      ),
+      evalMetadata: runContext?.evalRecordMetadata,
     });
     if (!result.ok) {
       recordSiteManagerToolCall({ name: "replace_last_site_diary_batch", durationMs: Date.now() - started, ok: false });
