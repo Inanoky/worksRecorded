@@ -44,6 +44,14 @@ import {
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
+import {
+  attachZtcAdditionalWorkContext,
+  isZtcAdditionalWorkAttachedToDrawing,
+  readZtcAdditionalWorkContext,
+  resolveZtcAdditionalWorkOrigin,
+  type ZtcAdditionalWorkContext,
+  type ZtcAdditionalWorkOrigin,
+} from "@/flows/ztc-production/lib/ztc-additional-work-context";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -693,9 +701,19 @@ function isZtcHourlyUnit(value: unknown) {
   return ["st", "h", "hr", "hour", "hours", "stunda", "stundas"].includes(normalized);
 }
 
-function hasCompletedWorkPhoto(session: Pick<OpenZtcSession, "Location" | "Works_Custom_1" | "Photos">) {
+function hasCompletedWorkPhoto(
+  session: Pick<
+    OpenZtcSession,
+    "Location" | "Works_Custom_1" | "Photos" | "Comments_Custom_2"
+  >,
+) {
   const photoCount = session.Photos?.length ?? 0;
-  return isAdditionalWorkSession(session) ? photoCount >= 1 : photoCount >= 2;
+  if (!isAdditionalWorkSession(session)) return photoCount >= 2;
+
+  const additionalContext = readZtcAdditionalWorkContext(session.Comments_Custom_2);
+  const includesDrawingPhoto =
+    isZtcAdditionalWorkAttachedToDrawing(additionalContext) || hasZtcDrawingContext(session);
+  return photoCount >= (includesDrawingPhoto ? 2 : 1);
 }
 
 function logZtcSession(
@@ -1995,23 +2013,43 @@ async function getOpenZtcSession(worker: ZtcWorker) {
 
 async function getLatestZtcDrawingContext(worker: ZtcWorker) {
   const context = getZtcFlowContext(worker);
-  return prisma.ztcRecords.findFirst({
+  const candidates = await prisma.ztcRecords.findMany({
     where: {
       workerId: worker.id,
       organizationId: context.organizationId,
       Location: { not: null },
       Location_Custom_1: { not: null },
       Comments_Custom_2: { contains: "ztc_drawing_context" },
-      NOT: [
-        { Location: "Papilddarbi" },
-        { Works_Custom_1: "Papilddarbi" },
-        { Works_Custom_1: "Papilddetāļas" },
-        { Comments_Custom_1: { startsWith: DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX } },
-        { Comments_Custom_1: { startsWith: ZTC_CANCELLED_SESSION_PREFIX } },
-      ],
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ Date_Custom_1: "desc" }, { createdAt: "desc" }],
+    take: 20,
   });
+
+  for (const candidate of candidates) {
+    const additionalContext = readZtcAdditionalWorkContext(
+      candidate.Comments_Custom_2,
+    );
+    if (additionalContext?.origin === "fresh_drawing") return null;
+    if (additionalContext?.origin === "active_drawing") continue;
+    if (
+      candidate.Comments_Custom_1?.startsWith(
+        DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX,
+      ) ||
+      candidate.Comments_Custom_1?.startsWith(ZTC_CANCELLED_SESSION_PREFIX)
+    ) {
+      return null;
+    }
+    if (
+      candidate.Location === "Papilddarbi" ||
+      candidate.Works_Custom_1 === "Papilddarbi" ||
+      candidate.Works_Custom_1 === "Papilddetāļas"
+    ) {
+      continue;
+    }
+    return candidate;
+  }
+
+  return null;
 }
 
 async function closeOpenDrawingContextsForStandaloneAdditionalWork(worker: ZtcWorker, now: Date) {
@@ -2221,7 +2259,14 @@ async function pauseZtcSession(args: {
     details: { pausedAt: now.toISOString() },
   });
 
-  await sendZtcMessage(to, `Pauze sākta: ${formatSessionWork(session) || "darbs"}.`);
+  const additionalWorkGuidance =
+    hasZtcDrawingContext(session) && !isAdditionalWorkSession(session)
+      ? '\nPauzes laikā sākti papilddarbi tiks uzskaitīti atsevišķi, ārpus projekta. Lai atsāktu šo darbu, rakstiet "Turpinu".'
+      : "";
+  await sendZtcMessage(
+    to,
+    `Pauze sākta: ${formatSessionWork(session) || "darbs"}.${additionalWorkGuidance}`,
+  );
 }
 
 async function resumeZtcSession(args: {
@@ -2268,6 +2313,58 @@ async function resumeZtcSession(args: {
   );
 }
 
+async function restoreInterruptedDrawingSession(
+  additionalSession: Pick<OpenZtcSession, "Comments_Custom_2">,
+  restoredAt: Date,
+) {
+  const additionalContext = readZtcAdditionalWorkContext(
+    additionalSession.Comments_Custom_2,
+  );
+  if (
+    additionalContext?.origin !== "active_drawing" ||
+    !additionalContext.parentSessionId
+  ) {
+    return null;
+  }
+
+  const parent = await prisma.ztcRecords.findUnique({
+    where: { id: additionalContext.parentSessionId },
+  });
+  if (!parent || parent.Date_Custom_2 || !parent.Works || !parent.pausedAt) {
+    return null;
+  }
+
+  const pauseIntervals = closeActivePauseInterval(parent, restoredAt);
+  return prisma.ztcRecords.update({
+    where: { id: parent.id },
+    data: {
+      pausedAt: null,
+      pauseIntervals,
+    },
+  });
+}
+
+async function getPausedDrawingParent(
+  additionalSession: Pick<OpenZtcSession, "Comments_Custom_2">,
+) {
+  const additionalContext = readZtcAdditionalWorkContext(
+    additionalSession.Comments_Custom_2,
+  );
+  if (
+    additionalContext?.origin !== "paused_drawing" ||
+    !additionalContext.parentSessionId
+  ) {
+    return null;
+  }
+
+  const parent = await prisma.ztcRecords.findUnique({
+    where: { id: additionalContext.parentSessionId },
+  });
+  return parent && !parent.Date_Custom_2 && parent.Works && parent.pausedAt
+    ? parent
+    : null;
+}
+
 async function cancelWholeZtcSession(args: {
   session: OpenZtcSession;
   worker: ZtcWorker;
@@ -2304,9 +2401,24 @@ async function cancelWholeZtcSession(args: {
     details: cancellationPayload,
   });
 
+  const restoredDrawingSession = await restoreInterruptedDrawingSession(session, now);
+  const pausedDrawingParent = await getPausedDrawingParent(session);
+
+  if (restoredDrawingSession) {
+    logZtcSession("drawing_work_resumed_after_additional_work_cancelled", {
+      session: restoredDrawingSession,
+      worker,
+      details: { additionalSessionId: session.id },
+    });
+  }
+
   await sendZtcMessage(
     to,
-    `Atcelts: ${formatSessionWork(session) || "aktīvā sesija"}.`,
+    restoredDrawingSession
+      ? `Atcelts: ${formatSessionWork(session) || "papilddarbs"}.\n\nAtsākts darbs:\n${formatSessionWork(restoredDrawingSession) || "darbs"}.`
+      : pausedDrawingParent
+        ? `Atcelts: ${formatSessionWork(session) || "papilddarbs"}.\n\nDarbs “${pausedDrawingParent.Works}” joprojām ir pauzē. Lai to atsāktu, rakstiet “Turpinu”.`
+        : `Atcelts: ${formatSessionWork(session) || "aktīvā sesija"}.`,
   );
 }
 
@@ -2462,6 +2574,9 @@ async function completeSession(args: {
   const pauseHours = calculatePauseHours(pauseIntervals);
   const timeInvolved = calculateEffectiveHours(session, completionTime);
   const isAdditionalWork = isAdditionalWorkSession(session);
+  const additionalWorkContext = readZtcAdditionalWorkContext(
+    session.Comments_Custom_2,
+  );
   const isElementRelatedAdditionalWork = isElementRelatedAdditionalWorkSession(session);
   const elementAreaM2 = isElementRelatedAdditionalWork
     ? getSessionElementAreaM2(session)
@@ -2531,10 +2646,43 @@ async function completeSession(args: {
     },
   });
 
-  await sendZtcMessage(
-    to,
-    `Darbs pabeigts un saglabāts: ${formatSessionWork(session) || "darbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.`,
-  );
+  const restoredDrawingSession = isAdditionalWork
+    ? await restoreInterruptedDrawingSession(session, completionTime)
+    : null;
+  const pausedDrawingParent = isAdditionalWork
+    ? await getPausedDrawingParent(session)
+    : null;
+
+  if (restoredDrawingSession) {
+    logZtcSession("drawing_work_resumed_after_additional_work", {
+      session: restoredDrawingSession,
+      details: { additionalSessionId: session.id },
+    });
+  }
+
+  let completionMessage = `Darbs pabeigts un saglabāts: ${formatSessionWork(updated) || "darbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.`;
+  if (isAdditionalWork) {
+    const isPersistedInDrawingScope =
+      updated.Location !== "Papilddarbi" &&
+      Boolean(updated.Location) &&
+      Boolean(updated.Location_Custom_1);
+    const scopeMessage = isPersistedInDrawingScope
+      ? `Projekts: ${updated.Location ?? "-"}\nElements: ${updated.Location_Custom_1 ?? "-"}`
+      : "Uzskaite: atsevišķi, ārpus projekta un elementa.";
+    completionMessage = `Papilddarbs pabeigts un saglabāts: ${updated.Works || "papilddarbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.\n\n${scopeMessage}`;
+
+    if (additionalWorkContext?.origin === "fresh_drawing") {
+      completionMessage += "\n\nRasējuma piesaiste ir noslēgta. Nākamais papilddarbs tiks uzskaitīts atsevišķi, ja pirms tā netiks iesūtīts rasējums.";
+    } else if (restoredDrawingSession) {
+      completionMessage += `\n\nAtsākts darbs:\n${restoredDrawingSession.Works || "darbs"}\nProjekts: ${restoredDrawingSession.Location ?? "-"}\nElements: ${restoredDrawingSession.Location_Custom_1 ?? "-"}`;
+    } else if (pausedDrawingParent) {
+      completionMessage += `\n\nDarbs “${pausedDrawingParent.Works}” joprojām ir pauzē. Lai to atsāktu, rakstiet “Turpinu”.`;
+    }
+  } else if (hasZtcDrawingContext(session)) {
+    completionMessage += "\n\nNākamo rasējuma darbu varat sākt bez atkārtotas rasējuma nosūtīšanas. Papilddarbs pēc šī pabeigtā darba tiks uzskaitīts atsevišķi.";
+  }
+
+  await sendZtcMessage(to, completionMessage);
 
   try {
     const allocationResult = await rebalanceZtcCompletedTaskAmounts({
@@ -3250,7 +3398,7 @@ async function handleDrawingPhoto(args: {
 
   await sendZtcMessage(
     to,
-    `Rasējums pieņemts.\nProjekts: ${canonicalExtraction.projectName}\nElementa numurs: ${canonicalExtraction.elementName}\nPlatība: ${canonicalExtraction.totalAreaM2} m2\nDarbi:\n${formatExtractedWorksForMessage(canonicalExtraction)}\n\nTagad atsūtiet balss ziņu vai tekstu ar darbu, ko sākat darīt.`,
+    `Rasējums pieņemts.\nProjekts: ${canonicalExtraction.projectName}\nElementa numurs: ${canonicalExtraction.elementName}\nPlatība: ${canonicalExtraction.totalAreaM2} m2\nDarbi:\n${formatExtractedWorksForMessage(canonicalExtraction)}\n\nTagad atsūtiet balss ziņu vai tekstu ar darbu, ko sākat darīt. Ja tagad sāksiet papilddarbu, tas tiks piesaistīts šim projektam un elementam.`,
   );
 }
 
@@ -3298,8 +3446,9 @@ async function createAdditionalWorkSession(args: {
   text: string;
   originalAudioUrl?: string | null;
   drawingContext?: OpenZtcSession | null;
+  origin: ZtcAdditionalWorkOrigin;
 }) {
-  const { worker, work, text, originalAudioUrl, drawingContext } = args;
+  const { worker, work, text, originalAudioUrl, drawingContext, origin } = args;
   const { workOptions } = await getZtcDropdownOptions(worker);
   const workOption = work.workOption ?? getFallbackOtherWorkOption(workOptions);
   const now = new Date();
@@ -3308,14 +3457,33 @@ async function createAdditionalWorkSession(args: {
     : await buildPolishedZtcUserComments({ startText: text });
   const rawAdditionalWork = work.additionalWorkDescription || workOption;
   const context = getZtcFlowContext(worker);
+  const additionalWorkContext: ZtcAdditionalWorkContext = {
+    origin,
+    parentSessionId:
+      origin === "active_drawing" || origin === "paused_drawing"
+        ? drawingContext?.id ?? null
+        : null,
+    parentWork:
+      origin === "active_drawing" || origin === "paused_drawing"
+        ? drawingContext?.Works ?? null
+        : null,
+    parentProject: drawingContext?.Location ?? null,
+    parentElement: drawingContext?.Location_Custom_1 ?? null,
+  };
+  const shouldAttachToProject =
+    isZtcAdditionalWorkAttachedToDrawing(additionalWorkContext) &&
+    Boolean(drawingContext?.Location);
+  const shouldAttachToElement =
+    shouldAttachToProject && Boolean(drawingContext?.Location_Custom_1);
   const entityMatch = await matchZtcCanonicalEntities({
     siteId: context.siteId,
-    rawProjectName: drawingContext?.Location,
+    rawProjectName: shouldAttachToProject ? drawingContext?.Location : null,
     rawWorks: [rawAdditionalWork],
     category: "additionalWorks",
   });
   const canonicalProjectName =
-    entityMatch.project?.name ?? drawingContext?.Location ?? null;
+    entityMatch.project?.name ??
+    (shouldAttachToProject ? drawingContext?.Location ?? null : null);
   const entityWorkMatch = entityMatch.works[0];
   const defaultRateMatch =
     entityWorkMatch?.rate ??
@@ -3329,17 +3497,12 @@ async function createAdditionalWorkSession(args: {
     ));
   const mappedWorkOption = defaultRateMatch?.task?.trim() || workOption;
   const relatesToElement = defaultRateMatch?.relatesToElement === true;
-  const shouldAttachToProject = Boolean(canonicalProjectName);
-  const shouldAttachToElement =
-    shouldAttachToProject &&
-    relatesToElement &&
-    Boolean(drawingContext?.Location_Custom_1);
   const elementAreaM2 =
     shouldAttachToElement && drawingContext
       ? getSessionElementAreaM2(drawingContext)
       : null;
   const additionalWorkUnit = shouldAttachToElement
-    ? normalizeZtcRateUnit(defaultRateMatch?.unit, "m2")
+    ? normalizeZtcRateUnit(defaultRateMatch?.unit, relatesToElement ? "m2" : "st")
     : "st";
   if (!shouldAttachToProject) {
     await closeOpenDrawingContextsForStandaloneAdditionalWork(worker, now);
@@ -3354,16 +3517,17 @@ async function createAdditionalWorkSession(args: {
       Location: shouldAttachToProject ? canonicalProjectName : "Papilddarbi",
       Location_Custom_1: shouldAttachToElement
         ? drawingContext?.Location_Custom_1
-        : shouldAttachToProject
-          ? "Papilddarbi"
-          : null,
-      Works_Custom_1: shouldAttachToProject ? "Papilddarbi" : null,
-      Comments_Custom_2: shouldAttachToProject
-        ? canonicalizeDrawingMetadataProject(
-            drawingContext?.Comments_Custom_2,
-            canonicalProjectName,
-          )
         : null,
+      Works_Custom_1: shouldAttachToProject ? "Papilddarbi" : null,
+      Comments_Custom_2: attachZtcAdditionalWorkContext(
+        shouldAttachToProject
+          ? canonicalizeDrawingMetadataProject(
+              drawingContext?.Comments_Custom_2,
+              canonicalProjectName,
+            )
+          : null,
+        additionalWorkContext,
+      ),
       Photos: shouldAttachToProject && drawingContext?.Photos?.[0] ? [drawingContext.Photos[0]] : [],
       Works: mappedWorkOption,
       Location_Custom_2: defaultRateMatch?.rate ?? null,
@@ -3374,13 +3538,24 @@ async function createAdditionalWorkSession(args: {
       originalAudioUrl: originalAudioUrl ?? undefined,
   };
 
-  const created =
-    shouldAttachToElement && drawingContext && !drawingContext.Works
-      ? await prisma.ztcRecords.update({
-          where: { id: drawingContext.id },
-          data,
-        })
-      : await prisma.ztcRecords.create({ data });
+  let created;
+  if (origin === "fresh_drawing" && drawingContext && !drawingContext.Works) {
+    created = await prisma.ztcRecords.update({
+      where: { id: drawingContext.id },
+      data,
+    });
+  } else if (origin === "active_drawing" && drawingContext?.Works) {
+    const [, additionalSession] = await prisma.$transaction([
+      prisma.ztcRecords.update({
+        where: { id: drawingContext.id },
+        data: { pausedAt: now },
+      }),
+      prisma.ztcRecords.create({ data }),
+    ]);
+    created = additionalSession;
+  } else {
+    created = await prisma.ztcRecords.create({ data });
+  }
 
   logZtcSession("additional_work_started", {
     session: created,
@@ -3403,10 +3578,15 @@ async function createAdditionalWorkSession(args: {
       configuredUnit: defaultRateMatch?.unit ?? "st",
       reportedUnit: work.units,
       savedUnit: created.Units,
+      origin,
+      parentSessionId: additionalWorkContext.parentSessionId,
     },
   });
 
-  return created;
+  return {
+    session: created,
+    context: additionalWorkContext,
+  };
 }
 
 async function handleWorkText(args: {
@@ -3503,21 +3683,53 @@ async function handleWorkText(args: {
       return;
     }
 
-    const additionalWorkSession = await createAdditionalWorkSession({
+    const drawingContext =
+      openSession && hasZtcDrawingContext(openSession) ? openSession : null;
+    const additionalWorkOrigin = resolveZtcAdditionalWorkOrigin(
+      drawingContext
+        ? {
+            hasDrawingContext: true,
+            hasStartedWork: Boolean(drawingContext.Works),
+            isPaused: Boolean(drawingContext.pausedAt),
+          }
+        : null,
+    );
+    const additionalWorkResult = await createAdditionalWorkSession({
       worker,
       work,
       text,
       originalAudioUrl,
-      drawingContext:
-        openSession && hasZtcDrawingContext(openSession) ? openSession : null,
+      drawingContext,
+      origin: additionalWorkOrigin,
     });
+    const additionalWorkSession = additionalWorkResult.session;
     const startedWorkName = String(
       additionalWorkSession.Works || work.workOption || work.additionalWorkDescription || "",
     ).trim();
+    const attachedToDrawing =
+      additionalWorkSession.Location !== "Papilddarbi" &&
+      Boolean(additionalWorkSession.Location_Custom_1);
+    const scopeMessage = attachedToDrawing
+      ? `Uzskaite:\nProjekts: ${additionalWorkSession.Location}\nElements: ${additionalWorkSession.Location_Custom_1}`
+      : "Uzskaite: atsevišķi, ārpus projekta un elementa.";
+    let contextMessage = "";
+    if (additionalWorkResult.context.origin === "fresh_drawing" && attachedToDrawing) {
+      contextMessage = "\n\nPapilddarbs ir piesaistīts tikko iesūtītajam rasējumam.";
+    } else if (
+      additionalWorkResult.context.origin === "active_drawing" &&
+      drawingContext?.Works
+    ) {
+      contextMessage = `\n\nDarbs “${drawingContext.Works}” uz laiku apturēts. Pēc papilddarba pabeigšanas tā laika uzskaite tiks automātiski atsākta.`;
+    } else if (
+      additionalWorkResult.context.origin === "paused_drawing" &&
+      drawingContext?.Works
+    ) {
+      contextMessage = `\n\nDarbs “${drawingContext.Works}” paliek pauzē.`;
+    }
     outcome = "additional_work_started";
     await sendZtcMessage(
       to,
-      `Papilddarbs sākts${startedWorkName ? `: ${startedWorkName}` : ""}. Kad darbs ir pabeigts, atsūtiet foto un pasakiet, ka darbs ir pabeigts.`,
+      `Papilddarbs sākts${startedWorkName ? `: ${startedWorkName}` : ""}.\n\n${scopeMessage}${contextMessage}\n\nKad darbs ir pabeigts, atsūtiet foto un pasakiet, ka darbs ir pabeigts.`,
     );
     return;
   }
