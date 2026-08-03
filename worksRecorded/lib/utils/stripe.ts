@@ -1,6 +1,16 @@
 import Stripe from "stripe";
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
-        typescript :true,
-})
+export const stripe = stripeSecretKey
+	? new Stripe(stripeSecretKey, {
+			typescript: true,
+		})
+	: (new Proxy(
+			{},
+			{
+				get() {
+					throw new Error("STRIPE_SECRET_KEY is required to use Stripe.");
+				},
+			},
+		) as Stripe);
