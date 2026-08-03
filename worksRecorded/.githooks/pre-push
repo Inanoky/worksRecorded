@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+if [ "$SKIP_AI_PREPUSH" = "true" ]; then
+  echo "Skipping AI pre-push checks because SKIP_AI_PREPUSH=true."
+  exit 0
+fi
+
+if [ "$RUN_REAL_AI_EVALS_BEFORE_PUSH" = "true" ]; then
+  echo "Running real AI evals before push."
+  npm run prepush:ai:real
+else
+  echo "Running safe AI eval checks before push."
+  echo "Set RUN_REAL_AI_EVALS_BEFORE_PUSH=true to run real model/database evals before pushing."
+  npm run prepush:ai:safe
+fi

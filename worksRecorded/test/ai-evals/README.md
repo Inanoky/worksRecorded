@@ -36,13 +36,49 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 | Real image extraction eval | `npm run test:image-extraction:real` | Image model and LangSmith if tracing is enabled |
 | Run all real deterministic evals | `npm run eval:ai:deterministic` | Models and eval database |
 | Run supported judges plus worker deterministic evals | `npm run eval:ai:judge` | Agent models, judge model, and eval database |
+| Verify eval DB target | `npm run eval:ai:guard -- --flow whatsapp-site-manager` | Eval database only |
+| Gate latest eval reports | `npm run eval:ai:gate` | None |
+| CI real eval gate | `npm run eval:ci` | Models and eval database |
 
 `test:all` is intentionally safe for local development and CI: it runs Jest and all fixture dry-runs, but does not call models or write eval database rows. Real eval commands require the environment variables listed below. The worker suite has deterministic and heuristic checks but no LLM judge, so `eval:ai:judge` runs it without `--judge`.
+
+Real evals run against the normal application tables, but only through a dedicated eval organization/site/user/worker. The environment guard refuses to run unless `AI_EVAL_ALLOW_SINGLE_DB=true`, `AI_EVAL_ALLOWED_ORGANIZATION_ID` is set, and the configured eval site/user/worker all belong to that organization. The organization, site, user, and worker names must be clearly marked with `eval`, `test`, or `ai` unless `AI_EVAL_REQUIRE_MARKED_NAMES=false` is set.
 
 Run the full safe local suite:
 
 ```bash
 npm run test:all
+```
+
+Install the local pre-push hook once per machine:
+
+```bash
+npm run hooks:install
+```
+
+After installation, normal pushes run only safe AI eval checks and block the push if validators or fixtures are broken:
+
+```bash
+git push
+```
+
+This runs:
+
+```bash
+npm run prepush:ai:safe
+```
+
+Run real model/database evals before pushing when changing AI, WhatsApp, webhook, or site-diary behavior:
+
+```bash
+RUN_REAL_AI_EVALS_BEFORE_PUSH=true git push
+```
+
+This runs the safe checks, verifies the single-DB eval target, runs all real deterministic eval suites, and gates the latest reports. Critical failures block the push; warning-only results do not block. Use bypasses only deliberately:
+
+```bash
+git push --no-verify
+SKIP_AI_PREPUSH=true git push
 ```
 
 Validate dashboard fixture/schema loading only:
@@ -133,6 +169,21 @@ Run every real eval suite without judges:
 npm run eval:ai:deterministic
 ```
 
+Verify the eval target before calling models:
+
+```bash
+npm run eval:ai:guard -- --flow dashboard-chat
+npm run eval:ai:guard -- --flow whatsapp-site-manager
+npm run eval:ai:guard -- --flow whatsapp-worker
+```
+
+Gate the latest saved reports after a run:
+
+```bash
+npm run eval:ai:gate
+npm run eval:ai:gate -- --flow whatsapp-site-manager
+```
+
 Run all supported judges and the worker deterministic suite:
 
 ```bash
@@ -160,11 +211,52 @@ Required env vars for real evals:
 
 ```env
 RUN_AI_EVALS=true
+AI_EVAL_ALLOW_SINGLE_DB=true
 OPENAI_API_KEY=...
 DATABASE_URL=...
+DIRECT_URL=...
+AI_EVAL_ALLOWED_ORGANIZATION_ID=...
 AI_EVAL_SITE_ID=...
 AI_EVAL_USER_ID=...
 ```
+
+The worker suite also requires:
+
+```env
+AI_EVAL_WORKER_ID=...
+```
+
+Optional debug mode:
+
+```env
+AI_EVAL_PRESERVE_RECORDS=true
+```
+
+When preserve mode is enabled, WhatsApp eval-created rows are left in the database and the runner prints created record ids. Preserve mode should be used only with the dedicated eval organization/site/user/worker.
+
+GitHub Actions secrets for `.github/workflows/ai-evals.yml`:
+
+```env
+OPENAI_API_KEY
+DATABASE_URL
+DIRECT_URL
+AI_EVAL_ALLOWED_ORGANIZATION_ID
+AI_EVAL_SITE_ID
+AI_EVAL_USER_ID
+AI_EVAL_WORKER_ID
+AI_EVAL_WHATSAPP_PHONE
+LANGSMITH_API_KEY
+```
+
+Recommended repository variables:
+
+```env
+AI_EVAL_AGENT_MODEL
+AI_EVAL_JUDGE_MODEL
+LANGSMITH_PROJECT
+```
+
+The workflow supports manual reruns with `workflow_dispatch` and a `suite` input (`all`, `dashboard`, `whatsapp-site-manager`, `whatsapp-worker`). It uploads `.ai-eval-results/` as an artifact on every run. GitHub Actions is the Node runtime for these evals; it imports the real webhook route and calls it directly with sanitized Meta webhook payloads. Outbound Meta Graph API calls are mocked by the runners, so evals do not send real WhatsApp replies.
 
 The real image extraction eval also requires:
 

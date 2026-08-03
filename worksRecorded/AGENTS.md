@@ -112,6 +112,8 @@ flows/                    Flow modules (see flows/README.md)
 | Real WhatsApp worker evals       | `npm run eval:ai:whatsapp-worker`       | Yes           |
 | All real deterministic evals     | `npm run eval:ai:deterministic`         | Yes           |
 | Judge + worker deterministic     | `npm run eval:ai:judge`                 | Yes           |
+| Verify real eval target          | `npm run eval:ai:guard -- --flow whatsapp-site-manager` | No |
+| Gate latest eval reports         | `npm run eval:ai:gate`                  | No            |
 
 **Safe local default:** `npm run test:all`. It runs Jest + fixture dry-runs and
 never calls models or writes the eval DB. Prefer it for routine verification.

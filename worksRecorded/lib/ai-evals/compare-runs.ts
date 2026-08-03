@@ -45,6 +45,8 @@ export type AggregateTotals = {
 	tasksIncomparable: number;
 	deterministicFailuresA: number;
 	deterministicFailuresB: number;
+	deterministicWarningsA: number;
+	deterministicWarningsB: number;
 	judgeFailuresA: number;
 	judgeFailuresB: number;
 	judgeWarningsA: number;
@@ -157,7 +159,7 @@ function summarizeRun(run: NormalizedEvalRun): RunSummary {
  * The winner is decided by a deterministic tiebreak ladder:
  *   1. tasks won
  *   2. fewer deterministic failures
- *   3. fewer judge failures, then fewer judge warnings
+ *   3. fewer judge failures, then fewer deterministic warnings, then fewer judge warnings
  *   4. fewer critical anomalies, then fewer warning anomalies
  *   5. lower total latency
  *   6. lower total tokens
@@ -275,6 +277,9 @@ export function compareEvalRuns(
 	function failedCount(items: NormalizedEvalItem[]) {
 		return items.filter((item) => item.status === "fail").length;
 	}
+	function warningCount(items: NormalizedEvalItem[]) {
+		return items.filter((item) => item.status === "warn").length;
+	}
 	function judgeFailCount(items: NormalizedEvalItem[]) {
 		return items.filter((item) => item.judgeStatus === "fail").length;
 	}
@@ -306,6 +311,8 @@ export function compareEvalRuns(
 		tasksIncomparable,
 		deterministicFailuresA: failedCount(runA.items),
 		deterministicFailuresB: failedCount(runB.items),
+		deterministicWarningsA: warningCount(runA.items),
+		deterministicWarningsB: warningCount(runB.items),
 		judgeFailuresA: judgeFailCount(runA.items),
 		judgeFailuresB: judgeFailCount(runB.items),
 		judgeWarningsA: judgeWarnCount(runA.items),
@@ -359,6 +366,14 @@ function decideWinner(totals: AggregateTotals): {
 		return {
 			winner,
 			reason: `Fewer judge failures (${totals.judgeFailuresA} vs ${totals.judgeFailuresB}).`,
+		};
+	}
+	if (totals.deterministicWarningsA !== totals.deterministicWarningsB) {
+		const winner =
+			totals.deterministicWarningsA < totals.deterministicWarningsB ? "a" : "b";
+		return {
+			winner,
+			reason: `Fewer deterministic warnings (${totals.deterministicWarningsA} vs ${totals.deterministicWarningsB}).`,
 		};
 	}
 	if (totals.judgeWarningsA !== totals.judgeWarningsB) {

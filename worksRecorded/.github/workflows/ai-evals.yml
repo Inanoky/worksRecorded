@@ -1,0 +1,108 @@
+name: ai-evals
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: AI eval suite to run
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - dashboard
+          - whatsapp-site-manager
+          - whatsapp-worker
+      preserve_records:
+        description: Keep eval-created DB rows for debugging
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: ai-evals
+  cancel-in-progress: false
+
+jobs:
+  ai-evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      RUN_AI_EVALS: "true"
+      AI_EVAL_ALLOW_SINGLE_DB: "true"
+      AI_EVAL_PRESERVE_RECORDS: ${{ github.event.inputs.preserve_records || 'false' }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      AI_EVAL_ALLOWED_ORGANIZATION_ID: ${{ secrets.AI_EVAL_ALLOWED_ORGANIZATION_ID }}
+      AI_EVAL_SITE_ID: ${{ secrets.AI_EVAL_SITE_ID }}
+      AI_EVAL_USER_ID: ${{ secrets.AI_EVAL_USER_ID }}
+      AI_EVAL_WORKER_ID: ${{ secrets.AI_EVAL_WORKER_ID }}
+      AI_EVAL_WHATSAPP_PHONE: ${{ secrets.AI_EVAL_WHATSAPP_PHONE }}
+      AI_EVAL_AGENT_MODEL: ${{ vars.AI_EVAL_AGENT_MODEL }}
+      AI_EVAL_JUDGE_MODEL: ${{ vars.AI_EVAL_JUDGE_MODEL }}
+      LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      LANGSMITH_PROJECT: ${{ vars.LANGSMITH_PROJECT }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run validator tests
+        run: npm run test:ai:validators
+
+      - name: Guard dashboard target
+        if: ${{ github.event.inputs.suite == 'dashboard' || github.event.inputs.suite == 'all' }}
+        run: npm run eval:ai:guard -- --flow dashboard-chat
+
+      - name: Guard site-manager target
+        if: ${{ github.event.inputs.suite == 'whatsapp-site-manager' || github.event.inputs.suite == 'all' }}
+        run: npm run eval:ai:guard -- --flow whatsapp-site-manager
+
+      - name: Guard worker target
+        if: ${{ github.event.inputs.suite == 'whatsapp-worker' || github.event.inputs.suite == 'all' }}
+        run: npm run eval:ai:guard -- --flow whatsapp-worker
+
+      - name: Run dashboard evals
+        if: ${{ github.event.inputs.suite == 'dashboard' || github.event.inputs.suite == 'all' }}
+        run: npm run eval:ai:dashboard
+
+      - name: Run site-manager evals
+        if: ${{ github.event.inputs.suite == 'whatsapp-site-manager' || github.event.inputs.suite == 'all' }}
+        run: npm run eval:ai:whatsapp-site-manager
+
+      - name: Run worker evals
+        if: ${{ github.event.inputs.suite == 'whatsapp-worker' || github.event.inputs.suite == 'all' }}
+        run: npm run eval:ai:whatsapp-worker
+
+      - name: Gate all reports
+        if: ${{ github.event.inputs.suite == 'all' }}
+        run: npm run eval:ai:gate
+
+      - name: Gate dashboard report
+        if: ${{ github.event.inputs.suite == 'dashboard' }}
+        run: npm run eval:ai:gate -- --flow dashboard-chat
+
+      - name: Gate site-manager report
+        if: ${{ github.event.inputs.suite == 'whatsapp-site-manager' }}
+        run: npm run eval:ai:gate -- --flow whatsapp-site-manager
+
+      - name: Gate worker report
+        if: ${{ github.event.inputs.suite == 'whatsapp-worker' }}
+        run: npm run eval:ai:gate -- --flow whatsapp-worker
+
+      - name: Upload eval reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-eval-results
+          path: .ai-eval-results
+          if-no-files-found: warn
