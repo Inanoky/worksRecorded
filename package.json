@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "@radix-ui/react-alert-dialog": "^1.1.15",
-    "react-phone-input-2": "^2.15.1"
-  }
-}
