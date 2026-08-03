@@ -37,6 +37,7 @@ import {
   normalizeZtcLaborNorm,
   readZtcLaborNormFromMetadata,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
+import { applyZtcProjectNameChange } from "@/flows/ztc-production/lib/ztc-project-edit";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
 type ZtcDrawingMetadata = {
@@ -801,7 +802,10 @@ export function ZtcDialogTable({
       prev.map((row) => {
         if (row.id !== rowKey && row._tempId !== rowKey) return row;
 
-        const next = { ...row, [field]: value };
+        const next =
+          field === "Location"
+            ? applyZtcProjectNameChange(row, value)
+            : { ...row, [field]: value };
 
         if (field === ZTC_LABOR_NORM_FIELD) {
           next.Comments_Custom_2 = applyZtcLaborNormDraftToMetadata(
@@ -813,20 +817,7 @@ export function ZtcDialogTable({
         }
 
         if (field === "Location") {
-          const elementOptions = getElementOptions(value);
-          if (
-            next.Location_Custom_1 &&
-            !elementOptions.some((option) => option === next.Location_Custom_1)
-          ) {
-            next.Location_Custom_1 = "";
-            next.Works = "";
-            next.Amounts = "";
-            next[ZTC_LABOR_NORM_FIELD] = "";
-            next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
-            if (normalizeSpecialLabel(next.Works_Custom_1) === "papilddarbi") {
-              next.Works_Custom_1 = "";
-            }
-          }
+          return next;
         }
 
         if (field === "Location_Custom_1") {
