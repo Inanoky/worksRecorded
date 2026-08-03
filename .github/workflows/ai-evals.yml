@@ -44,8 +44,17 @@ jobs:
       AI_EVAL_WHATSAPP_PHONE: ${{ secrets.AI_EVAL_WHATSAPP_PHONE }}
       AI_EVAL_AGENT_MODEL: ${{ vars.AI_EVAL_AGENT_MODEL }}
       AI_EVAL_JUDGE_MODEL: ${{ vars.AI_EVAL_JUDGE_MODEL }}
+      LANGSMITH_TRACING: ${{ secrets.LANGSMITH_API_KEY != '' && 'true' || 'false' }}
+      LANGCHAIN_TRACING_V2: ${{ secrets.LANGSMITH_API_KEY != '' && 'true' || 'false' }}
       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-      LANGSMITH_PROJECT: ${{ vars.LANGSMITH_PROJECT }}
+      LANGCHAIN_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
+      LANGSMITH_PROJECT: ${{ vars.LANGSMITH_PROJECT || 'AI/Evals' }}
+      LANGCHAIN_PROJECT: ${{ vars.LANGSMITH_PROJECT || 'AI/Evals' }}
+      LANGSMITH_ENDPOINT: ${{ vars.LANGSMITH_ENDPOINT || 'https://api.smith.langchain.com' }}
+      LANGCHAIN_ENDPOINT: ${{ vars.LANGSMITH_ENDPOINT || 'https://api.smith.langchain.com' }}
+      LANGSMITH_RUN_NAME: ai-evals-${{ github.run_id }}
+      AI_EVAL_GITHUB_RUN_ID: ${{ github.run_id }}
+      AI_EVAL_GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -102,6 +111,10 @@ jobs:
       - name: Gate worker report
         if: ${{ github.event.inputs.suite == 'whatsapp-worker' }}
         run: npm run eval:ai:gate -- --flow whatsapp-worker
+
+      - name: Summarize eval reports
+        if: always()
+        run: npm run eval:ai:summary -- --flow ${{ github.event.inputs.suite }} >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload eval reports
         if: always()

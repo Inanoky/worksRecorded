@@ -18,6 +18,7 @@
 		"eval:ai:judge": "npm run eval:ai:dashboard -- --judge && npm run eval:ai:whatsapp-site-manager -- --judge && npm run eval:ai:whatsapp-worker",
 		"eval:ai:guard": "tsx test/ai-evals/assert-eval-environment.ts",
 		"eval:ai:gate": "tsx lib/ai-evals/eval-gate.ts",
+		"eval:ai:summary": "tsx lib/ai-evals/eval-summary.ts",
 		"eval:ci": "npm run eval:ai:deterministic && npm run eval:ai:gate",
 		"hooks:install": "git config core.hooksPath .githooks",
 		"prepush:ai:safe": "npm run test:ai:validators && npm run test:ai:dry-run",
