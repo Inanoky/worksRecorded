@@ -93,3 +93,9 @@ export function isZtcAdditionalWorkAttachedToDrawing(
     context?.origin === "fresh_drawing" || context?.origin === "active_drawing"
   );
 }
+
+export function shouldReuseZtcDrawingContextFromAdditionalWork(
+  context: ZtcAdditionalWorkContext | null | undefined,
+) {
+  return context?.origin === "fresh_drawing";
+}

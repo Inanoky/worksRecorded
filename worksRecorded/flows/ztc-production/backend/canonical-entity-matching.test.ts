@@ -138,7 +138,108 @@ describe("matchZtcCanonicalEntities", () => {
 		expect(mockResponsesParse).not.toHaveBeenCalled();
 	});
 
-	it("rejects an LLM project selection with a conflicting project code", async () => {
+	it("uses the configured canonical project without the model when only the suffix differs", async () => {
+		const result = await matchZtcCanonicalEntities({
+			siteId: "site-2-suffix",
+			rawProjectName: "dz. ēka. auto nojume (rī)",
+		});
+
+		expect(result.project).toEqual({
+			name: canonicalProject,
+			confidence: 1,
+			source: "exact",
+		});
+		expect(result.modelCalled).toBe(false);
+		expect(mockResponsesParse).not.toHaveBeenCalled();
+	});
+
+	it("selects the nearest compatible cross-section before calling the model", async () => {
+		mockSiteFindUnique.mockResolvedValue({
+			siteDiaryRecordsMap: {
+				otherSettings: {
+					ztcDefaultTaskRates: {
+						projects: [
+							rateProject("Visi projekti"),
+							rateProject(canonicalProject, {
+								works: [
+									{ task: "latojums 45x45", rate: "0.9", unit: "m2" },
+									{ task: "latojums 28x45", rate: "0.8", unit: "m2" },
+								],
+							}),
+						],
+					},
+				},
+			},
+		});
+
+		const result = await matchZtcCanonicalEntities({
+			siteId: "site-cross-section",
+			rawProjectName: canonicalProject,
+			rawWorks: ["R3/T3 - latojums 25x45"],
+			category: "works",
+		});
+
+		expect(result.works[0]).toEqual(
+			expect.objectContaining({
+				task: "latojums 28x45",
+				canonicalWork: "R3/T3 - latojums 28x45",
+				source: "exact",
+			}),
+		);
+		expect(result.modelCalled).toBe(false);
+		expect(mockResponsesParse).not.toHaveBeenCalled();
+	});
+
+	it("does not let the model choose a farther cross-section", async () => {
+		mockSiteFindUnique.mockResolvedValue({
+			siteDiaryRecordsMap: {
+				otherSettings: {
+					ztcDefaultTaskRates: {
+						projects: [
+							rateProject("Visi projekti"),
+							rateProject(canonicalProject, {
+								works: [
+									{ task: "latojums 28x45", rate: "0.8", unit: "m2" },
+									{ task: "latojums 45x45", rate: "0.9", unit: "m2" },
+								],
+							}),
+						],
+					},
+				},
+			},
+		});
+		mockResponsesParse.mockResolvedValue({
+			output_parsed: {
+				projectCandidateId: "project_0",
+				projectConfidence: 1,
+				workMatches: [
+					{
+						rawIndex: 0,
+						workCandidateId: "work_1",
+						confidence: 0.99,
+					},
+				],
+			},
+		});
+
+		const result = await matchZtcCanonicalEntities({
+			siteId: "site-cross-section-ocr",
+			rawProjectName: canonicalProject,
+			rawWorks: ["R3/T3 - lat0jums 25x45"],
+			category: "works",
+		});
+
+		expect(result.works[0]).toEqual(
+			expect.objectContaining({
+				task: null,
+				canonicalWork: "R3/T3 - lat0jums 25x45",
+				source: "raw",
+			}),
+		);
+		expect(result.modelCalled).toBe(true);
+	});
+
+	it("rejects an LLM project selection with conflicting project numbers", async () => {
 		mockResponsesParse.mockResolvedValue({
 			output_parsed: {
 				projectCandidateId: "project_2",
@@ -149,14 +250,33 @@ describe("matchZtcCanonicalEntities", () => {
 
 		const result = await matchZtcCanonicalEntities({
 			siteId: "site-3",
-			rawProjectName: "dzelzceļa auto nojume (rd)",
+			rawProjectName: "zemgales prospekts 12 (rī)",
 		});
 
 		expect(result.project).toEqual({
-			name: "dzelzceļa auto nojume (rd)",
+			name: "zemgales prospekts 12 (rī)",
 			confidence: 0,
 			source: "raw",
 		});
+	});
+
+	it("keeps an unrelated exact historical project without calling the model", async () => {
+		mockZtcRecordsFindMany.mockResolvedValue([
+			{ Location: "noliktavas pārbūve (np)" },
+		]);
+
+		const result = await matchZtcCanonicalEntities({
+			siteId: "site-3-existing",
+			rawProjectName: "noliktavas pārbūve (rī)",
+		});
+
+		expect(result.project).toEqual({
+			name: "noliktavas pārbūve (np)",
+			confidence: 1,
+			source: "exact",
+		});
+		expect(result.modelCalled).toBe(false);
+		expect(mockResponsesParse).not.toHaveBeenCalled();
 	});
 
 	it("matches additional works from the selected project's additional-work rates", async () => {

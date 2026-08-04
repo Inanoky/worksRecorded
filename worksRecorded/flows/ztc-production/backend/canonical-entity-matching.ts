@@ -2,7 +2,11 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
-import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
+import {
+	getZtcProjectIdentityKey,
+	normalizeZtcProjectName,
+	resolveZtcCanonicalProjectName,
+} from "@/flows/ztc-production/lib/ztc-project-name";
 import {
 	isZtcComplexityCoefficientTask,
 	ZTC_ALL_PROJECTS_RATE_NAME,
@@ -13,7 +17,11 @@ import type {
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import {
 	canonicalizeZtcMatchedWorkName,
+	findZtcDefaultRateForTask,
+	getZtcRateCrossSectionMatch,
+	hasZtcRateCrossSection,
 	normalizeZtcRateTaskName,
+	ztcRateMatchTokens,
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import { normalizeZtcRateUnit } from "@/flows/ztc-production/lib/ztc-rate-units";
 import { prisma } from "@/lib/utils/db";
@@ -97,10 +105,28 @@ type CachedCanonicalMatch = {
 const canonicalMatchCache = new Map<string, CachedCanonicalMatch>();
 
 function projectIdentity(value: unknown) {
+	return getZtcProjectIdentityKey(value);
+}
+
+function projectTokens(value: unknown) {
 	return normalizeZtcProjectName(value)
+		.replace(/\s*\([^)]*\)\s*$/, "")
 		.normalize("NFD")
 		.replace(/[\u0300-\u036f]/g, "")
-		.replace(/[^a-z0-9]+/g, "");
+		.match(/[a-z0-9]+/g) ?? [];
+}
+
+function hasPlausibleProjectNameOverlap(left: unknown, right: unknown) {
+	const leftTokens = projectTokens(left);
+	const rightTokens = projectTokens(right);
+	const shorterLength = Math.min(leftTokens.length, rightTokens.length);
+	if (shorterLength < 2) return false;
+
+	const rightTokenSet = new Set(rightTokens);
+	const sharedTokens = new Set(
+		leftTokens.filter((token) => rightTokenSet.has(token)),
+	);
+	return sharedTokens.size >= 2 && sharedTokens.size / shorterLength >= 0.5;
 }
 
 function taskIdentity(value: unknown) {
@@ -109,11 +135,6 @@ function taskIdentity(value: unknown) {
 		.normalize("NFD")
 		.replace(/[\u0300-\u036f]/g, "")
 		.replace(/[^a-z0-9]+/g, "");
-}
-
-function trailingProjectCode(value: unknown) {
-	const match = normalizeZtcProjectName(value).match(/\(([^)]+)\)$/);
-	return match ? projectIdentity(match[1]) : "";
 }
 
 function drawingWorkCode(value: unknown) {
@@ -313,13 +334,16 @@ function exactProjectMatch(
 		null;
 	if (!exact || exact.source === "configured") return exact;
 
-	const rawCode = trailingProjectCode(rawProjectName);
 	const hasAuthoritativeAlternative = candidates.some(
 		(candidate) =>
 			candidate.id !== exact.id &&
 			candidate.source === "configured" &&
 			(candidate.manual || candidate.hasConfiguredRates) &&
-			(!rawCode || trailingProjectCode(candidate.name) === rawCode),
+			(resolveZtcCanonicalProjectName({
+				extractedProjectName: rawProjectName,
+				configuredProjectNames: [candidate.name],
+			}).source === "configured" ||
+				hasPlausibleProjectNameOverlap(rawProjectName, candidate.name)),
 	);
 
 	return hasAuthoritativeAlternative ? null : exact;
@@ -329,9 +353,13 @@ function isProjectSelectionValid(
 	rawProjectName: string,
 	candidate: ProjectCandidate,
 ) {
-	const rawCode = trailingProjectCode(rawProjectName);
-	const candidateCode = trailingProjectCode(candidate.name);
-	return !rawCode || !candidateCode || rawCode === candidateCode;
+	const rawNumbers = projectIdentity(rawProjectName).match(/\d+/g) ?? [];
+	const candidateNumbers = projectIdentity(candidate.name).match(/\d+/g) ?? [];
+	return (
+		!rawNumbers.length ||
+		!candidateNumbers.length ||
+		rawNumbers.join(":") === candidateNumbers.join(":")
+	);
 }
 
 function exactWorkMatch(
@@ -339,27 +367,51 @@ function exactWorkMatch(
 	candidates: WorkCandidate[],
 	projectCandidateId: string | null,
 ) {
-	return (
-		candidates.find((candidate) => {
-			if (
-				candidate.projectCandidateId &&
-				candidate.projectCandidateId !== projectCandidateId
-			) {
-				return false;
-			}
-			return (
-				taskIdentity(
-					canonicalizeZtcMatchedWorkName(rawWork, candidate.task),
-				) === taskIdentity(rawWork)
-			);
-		}) ?? null
+	const eligibleCandidates = candidates.filter(
+		(candidate) =>
+			!candidate.projectCandidateId ||
+			candidate.projectCandidateId === projectCandidateId,
 	);
+	const exact = eligibleCandidates.find(
+		(candidate) =>
+			taskIdentity(canonicalizeZtcMatchedWorkName(rawWork, candidate.task)) ===
+			taskIdentity(rawWork),
+	);
+	if (
+		exact ||
+		eligibleCandidates[0]?.category !== "works" ||
+		!hasZtcRateCrossSection(rawWork)
+	) {
+		return exact ?? null;
+	}
+
+	const deterministicMatch = findZtcDefaultRateForTask(
+		rawWork,
+		eligibleCandidates.map((candidate) => candidate.rate),
+		{ category: eligibleCandidates[0]?.category ?? "works" },
+	);
+	return (
+		eligibleCandidates.find(
+			(candidate) => candidate.rate === deterministicMatch?.entry,
+		) ?? null
+	);
+}
+
+function isSameWorkFamily(left: string, right: string) {
+	const leftTokens = new Set(ztcRateMatchTokens(left));
+	const rightTokens = new Set(ztcRateMatchTokens(right));
+	const shorterSize = Math.min(leftTokens.size, rightTokens.size);
+	if (!shorterSize) return false;
+
+	const overlap = [...leftTokens].filter((token) => rightTokens.has(token)).length;
+	return overlap / shorterSize >= 0.75;
 }
 
 function isWorkSelectionValid(
 	rawWork: string,
 	candidate: WorkCandidate,
 	projectCandidateId: string | null,
+	candidates: WorkCandidate[],
 ) {
 	if (
 		candidate.projectCandidateId &&
@@ -369,7 +421,49 @@ function isWorkSelectionValid(
 	}
 	const rawCode = drawingWorkCode(rawWork);
 	const candidateCode = drawingWorkCode(candidate.task);
-	return !rawCode || !candidateCode || rawCode === candidateCode;
+	if (rawCode && candidateCode && rawCode !== candidateCode) return false;
+	if (candidate.category !== "works") return true;
+
+	const selectedCrossSection = getZtcRateCrossSectionMatch(
+		rawWork,
+		candidate.task,
+	);
+	if (selectedCrossSection.kind === "incompatible") return false;
+	if (!hasZtcRateCrossSection(rawWork)) return true;
+
+	const rankedFamilyCandidates = candidates
+		.filter(
+			(item) =>
+				item.category === candidate.category &&
+				(!item.projectCandidateId ||
+					item.projectCandidateId === projectCandidateId) &&
+				isSameWorkFamily(item.task, candidate.task),
+		)
+		.map((item) => ({
+			item,
+			match: getZtcRateCrossSectionMatch(rawWork, item.task),
+		}))
+		.filter(
+			(result) =>
+				result.match.kind === "exact" ||
+				result.match.kind === "compatible",
+		)
+		.sort((left, right) => {
+			const leftRank = left.match.kind === "exact" ? 2 : 1;
+			const rightRank = right.match.kind === "exact" ? 2 : 1;
+			return (
+				rightRank - leftRank ||
+				(left.match.distance ?? Number.POSITIVE_INFINITY) -
+					(right.match.distance ?? Number.POSITIVE_INFINITY)
+			);
+		});
+	const bestMatch = rankedFamilyCandidates[0]?.match;
+	if (!bestMatch) return false;
+
+	return (
+		selectedCrossSection.kind === bestMatch.kind &&
+		selectedCrossSection.distance === bestMatch.distance
+	);
 }
 
 function rawWorkResult(
@@ -587,7 +681,12 @@ export async function matchZtcCanonicalEntities(args: {
 		if (
 			!candidate ||
 			(modelWork?.confidence ?? 0) < ZTC_WORK_MATCH_CONFIDENCE ||
-			!isWorkSelectionValid(work.rawWork, candidate, projectCandidateId)
+			!isWorkSelectionValid(
+				work.rawWork,
+				candidate,
+				projectCandidateId,
+				catalog.works,
+			)
 		) {
 			return rawWorkResult(work.rawWork, work.rawIndex);
 		}

@@ -64,6 +64,66 @@ describe("findZtcDefaultRateForTask", () => {
     });
   });
 
+  it("prefers an exact latojums cross-section", () => {
+    const result = findZtcDefaultRateForTask(
+      "R3/T3 - latojums 25x45",
+      [
+        { task: "latojums 45x45", rate: "0.9", unit: "m2" },
+        { task: "latojums 28x45", rate: "0.8", unit: "m2" },
+        { task: "latojums 25x45", rate: "0.7", unit: "m2" },
+      ],
+      { category: "works" },
+    );
+
+    expect(result?.entry.task).toBe("latojums 25x45");
+  });
+
+  it("uses the nearest compatible latojums cross-section when no exact rate exists", () => {
+    const result = findZtcDefaultRateForTask(
+      "R3/T3 - latojums 25x45",
+      [
+        { task: "latojums 45x45", rate: "0.9", unit: "m2" },
+        { task: "latojums 28x45", rate: "0.8", unit: "m2" },
+      ],
+      { category: "works" },
+    );
+
+    expect(result?.entry.task).toBe("latojums 28x45");
+  });
+
+  it("allows 45x45 as a fallback when it is the only compatible latojums rate", () => {
+    const result = findZtcDefaultRateForTask(
+      "R3/T3 - latojums 25 × 45 mm",
+      [{ task: "latojums 45x45", rate: "0.9", unit: "m2" }],
+      { category: "works" },
+    );
+
+    expect(result?.entry.task).toBe("latojums 45x45");
+  });
+
+  it("does not use a latojums rate without a compatible cross-section", () => {
+    const result = findZtcDefaultRateForTask(
+      "R3/T3 - latojums 25x45",
+      [
+        { task: "latojums", rate: "0.6", unit: "m2" },
+        { task: "latojums 28x70", rate: "0.8", unit: "m2" },
+      ],
+      { category: "works" },
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it("keeps cross-section strictness out of additional-detail matching", () => {
+    const result = findZtcDefaultRateForTask(
+      "papildus dēlis 25x45",
+      [{ task: "dēlis", rate: "1.2", unit: "gab" }],
+      { category: "additionalDetails" },
+    );
+
+    expect(result?.entry.task).toBe("dēlis");
+  });
+
   it("still matches a dimensioned drawing work to a generic configured material", () => {
     const result = findZtcDefaultRateForTask(
       "L0 - Paroc Ultra minerālvates siltumizolācija / 245mm",
