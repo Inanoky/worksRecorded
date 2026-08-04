@@ -91,4 +91,31 @@ describe("canonicalizeZtcExtractedProjectName", () => {
       }),
     ).resolves.toBe("dz. ēka. auto nojume (rd)");
   });
+
+  it("uses the configured canonical spelling when the extracted suffix differs", async () => {
+    mockSiteFindUnique.mockResolvedValue({
+      siteDiaryRecordsMap: {
+        otherSettings: {
+          ztcDefaultTaskRates: {
+            projects: [
+              {
+                projectName: "dz. ēka. auto nojume (rd)",
+                manual: false,
+              },
+            ],
+          },
+        },
+      },
+    });
+    mockZtcRecordsFindMany.mockResolvedValue([
+      { Location: "dz. ēka. auto nojume (rī)" },
+    ]);
+
+    await expect(
+      canonicalizeZtcExtractedProjectName({
+        siteId: "site-1",
+        extractedProjectName: "dz. ēka. auto nojume (rī)",
+      }),
+    ).resolves.toBe("dz. ēka. auto nojume (rd)");
+  });
 });

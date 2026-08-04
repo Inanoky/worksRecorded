@@ -138,7 +138,22 @@ describe("matchZtcCanonicalEntities", () => {
 		expect(mockResponsesParse).not.toHaveBeenCalled();
 	});
 
-	it("rejects an LLM project selection with a conflicting project code", async () => {
+	it("uses the configured canonical project without the model when only the suffix differs", async () => {
+		const result = await matchZtcCanonicalEntities({
+			siteId: "site-2-suffix",
+			rawProjectName: "dz. ēka. auto nojume (rī)",
+		});
+
+		expect(result.project).toEqual({
+			name: canonicalProject,
+			confidence: 1,
+			source: "exact",
+		});
+		expect(result.modelCalled).toBe(false);
+		expect(mockResponsesParse).not.toHaveBeenCalled();
+	});
+
+	it("rejects an LLM project selection with conflicting project numbers", async () => {
 		mockResponsesParse.mockResolvedValue({
 			output_parsed: {
 				projectCandidateId: "project_2",
@@ -149,14 +164,33 @@ describe("matchZtcCanonicalEntities", () => {
 
 		const result = await matchZtcCanonicalEntities({
 			siteId: "site-3",
-			rawProjectName: "dzelzceļa auto nojume (rd)",
+			rawProjectName: "zemgales prospekts 12 (rī)",
 		});
 
 		expect(result.project).toEqual({
-			name: "dzelzceļa auto nojume (rd)",
+			name: "zemgales prospekts 12 (rī)",
 			confidence: 0,
 			source: "raw",
 		});
+	});
+
+	it("keeps an unrelated exact historical project without calling the model", async () => {
+		mockZtcRecordsFindMany.mockResolvedValue([
+			{ Location: "noliktavas pārbūve (np)" },
+		]);
+
+		const result = await matchZtcCanonicalEntities({
+			siteId: "site-3-existing",
+			rawProjectName: "noliktavas pārbūve (rī)",
+		});
+
+		expect(result.project).toEqual({
+			name: "noliktavas pārbūve (np)",
+			confidence: 1,
+			source: "exact",
+		});
+		expect(result.modelCalled).toBe(false);
+		expect(mockResponsesParse).not.toHaveBeenCalled();
 	});
 
 	it("matches additional works from the selected project's additional-work rates", async () => {

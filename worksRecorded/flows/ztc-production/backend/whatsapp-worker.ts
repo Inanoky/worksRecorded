@@ -29,7 +29,10 @@ import {
   getZtcTaskIdentityKey,
   rebalanceZtcCompletedTaskAmounts,
 } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
-import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
+import {
+  getZtcProjectIdentityKey,
+  normalizeZtcProjectName,
+} from "@/flows/ztc-production/lib/ztc-project-name";
 import { matchZtcCanonicalEntities } from "@/flows/ztc-production/backend/canonical-entity-matching";
 import { canonicalizeZtcExtractedProjectName } from "@/flows/ztc-production/backend/project-name-canonicalization";
 import {
@@ -1448,8 +1451,8 @@ async function canonicalizeDrawingExtractionFromPreviousContext(
 
   for (const context of previousContexts.filter(
     (context) =>
-      normalizeZtcProjectName(context.Location) ===
-      normalizeZtcProjectName(canonicalProjectName),
+      getZtcProjectIdentityKey(context.Location) ===
+      getZtcProjectIdentityKey(canonicalProjectName),
   )) {
     const canonicalized = canonicalizeDrawingExtractionFromMetadata(
       projectCanonicalized,

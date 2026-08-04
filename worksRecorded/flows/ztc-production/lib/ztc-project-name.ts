@@ -13,8 +13,10 @@ export type ZtcCanonicalProjectResolution = {
   source: "manual" | "configured" | "existing" | "new";
 };
 
-function getZtcProjectIdentityKey(value: unknown) {
+export function getZtcProjectIdentityKey(value: unknown) {
   return normalizeZtcProjectName(value)
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .trim()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "");
@@ -22,11 +24,6 @@ function getZtcProjectIdentityKey(value: unknown) {
 
 function getNumberTokens(value: string) {
   return value.match(/\d+/g) ?? [];
-}
-
-function getTrailingProjectCode(value: string) {
-  const match = normalizeZtcProjectName(value).match(/\(([^)]+)\)$/);
-  return match ? getZtcProjectIdentityKey(match[1]) : "";
 }
 
 function levenshteinDistance(left: string, right: string) {
@@ -82,22 +79,12 @@ function findCanonicalProjectMatch(
   if (extractedKey.length < 10) return null;
 
   const extractedNumbers = getNumberTokens(extractedKey).join(":");
-  const extractedProjectCode = getTrailingProjectCode(extractedName);
   const ranked = uniqueCandidates
     .map((candidate) => {
       const candidateKey = getZtcProjectIdentityKey(candidate);
       if (getNumberTokens(candidateKey).join(":") !== extractedNumbers) {
         return null;
       }
-      const candidateProjectCode = getTrailingProjectCode(candidate);
-      if (
-        extractedProjectCode &&
-        candidateProjectCode &&
-        extractedProjectCode !== candidateProjectCode
-      ) {
-        return null;
-      }
-
       const distance = levenshteinDistance(extractedKey, candidateKey);
       const score =
         1 - distance / Math.max(extractedKey.length, candidateKey.length);

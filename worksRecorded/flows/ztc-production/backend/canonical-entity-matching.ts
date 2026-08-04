@@ -2,7 +2,11 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
-import { normalizeZtcProjectName } from "@/flows/ztc-production/lib/ztc-project-name";
+import {
+	getZtcProjectIdentityKey,
+	normalizeZtcProjectName,
+	resolveZtcCanonicalProjectName,
+} from "@/flows/ztc-production/lib/ztc-project-name";
 import {
 	isZtcComplexityCoefficientTask,
 	ZTC_ALL_PROJECTS_RATE_NAME,
@@ -97,10 +101,28 @@ type CachedCanonicalMatch = {
 const canonicalMatchCache = new Map<string, CachedCanonicalMatch>();
 
 function projectIdentity(value: unknown) {
+	return getZtcProjectIdentityKey(value);
+}
+
+function projectTokens(value: unknown) {
 	return normalizeZtcProjectName(value)
+		.replace(/\s*\([^)]*\)\s*$/, "")
 		.normalize("NFD")
 		.replace(/[\u0300-\u036f]/g, "")
-		.replace(/[^a-z0-9]+/g, "");
+		.match(/[a-z0-9]+/g) ?? [];
+}
+
+function hasPlausibleProjectNameOverlap(left: unknown, right: unknown) {
+	const leftTokens = projectTokens(left);
+	const rightTokens = projectTokens(right);
+	const shorterLength = Math.min(leftTokens.length, rightTokens.length);
+	if (shorterLength < 2) return false;
+
+	const rightTokenSet = new Set(rightTokens);
+	const sharedTokens = new Set(
+		leftTokens.filter((token) => rightTokenSet.has(token)),
+	);
+	return sharedTokens.size >= 2 && sharedTokens.size / shorterLength >= 0.5;
 }
 
 function taskIdentity(value: unknown) {
@@ -109,11 +131,6 @@ function taskIdentity(value: unknown) {
 		.normalize("NFD")
 		.replace(/[\u0300-\u036f]/g, "")
 		.replace(/[^a-z0-9]+/g, "");
-}
-
-function trailingProjectCode(value: unknown) {
-	const match = normalizeZtcProjectName(value).match(/\(([^)]+)\)$/);
-	return match ? projectIdentity(match[1]) : "";
 }
 
 function drawingWorkCode(value: unknown) {
@@ -313,13 +330,16 @@ function exactProjectMatch(
 		null;
 	if (!exact || exact.source === "configured") return exact;
 
-	const rawCode = trailingProjectCode(rawProjectName);
 	const hasAuthoritativeAlternative = candidates.some(
 		(candidate) =>
 			candidate.id !== exact.id &&
 			candidate.source === "configured" &&
 			(candidate.manual || candidate.hasConfiguredRates) &&
-			(!rawCode || trailingProjectCode(candidate.name) === rawCode),
+			(resolveZtcCanonicalProjectName({
+				extractedProjectName: rawProjectName,
+				configuredProjectNames: [candidate.name],
+			}).source === "configured" ||
+				hasPlausibleProjectNameOverlap(rawProjectName, candidate.name)),
 	);
 
 	return hasAuthoritativeAlternative ? null : exact;
@@ -329,9 +349,13 @@ function isProjectSelectionValid(
 	rawProjectName: string,
 	candidate: ProjectCandidate,
 ) {
-	const rawCode = trailingProjectCode(rawProjectName);
-	const candidateCode = trailingProjectCode(candidate.name);
-	return !rawCode || !candidateCode || rawCode === candidateCode;
+	const rawNumbers = projectIdentity(rawProjectName).match(/\d+/g) ?? [];
+	const candidateNumbers = projectIdentity(candidate.name).match(/\d+/g) ?? [];
+	return (
+		!rawNumbers.length ||
+		!candidateNumbers.length ||
+		rawNumbers.join(":") === candidateNumbers.join(":")
+	);
 }
 
 function exactWorkMatch(

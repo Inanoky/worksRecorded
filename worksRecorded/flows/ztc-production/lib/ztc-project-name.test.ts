@@ -97,15 +97,15 @@ describe("resolveZtcCanonicalProjectName", () => {
     });
   });
 
-  it("does not merge project names with different project codes", () => {
+  it("ignores the trailing project suffix when selecting a canonical name", () => {
     expect(
       resolveZtcCanonicalProjectName({
-        extractedProjectName: "Noliktavas jaunbūve (nb)",
-        existingProjectNames: ["noliktavas jaunbūve (na)"],
+        extractedProjectName: "dz. ēka. auto nojume (rī)",
+        configuredProjectNames: ["dz. ēka. auto nojume (rd)"],
       }),
     ).toEqual({
-      projectName: "noliktavas jaunbūve (nb)",
-      source: "new",
+      projectName: "dz. ēka. auto nojume (rd)",
+      source: "configured",
     });
   });
 
