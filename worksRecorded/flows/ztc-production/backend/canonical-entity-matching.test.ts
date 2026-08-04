@@ -153,6 +153,92 @@ describe("matchZtcCanonicalEntities", () => {
 		expect(mockResponsesParse).not.toHaveBeenCalled();
 	});
 
+	it("selects the nearest compatible cross-section before calling the model", async () => {
+		mockSiteFindUnique.mockResolvedValue({
+			siteDiaryRecordsMap: {
+				otherSettings: {
+					ztcDefaultTaskRates: {
+						projects: [
+							rateProject("Visi projekti"),
+							rateProject(canonicalProject, {
+								works: [
+									{ task: "latojums 45x45", rate: "0.9", unit: "m2" },
+									{ task: "latojums 28x45", rate: "0.8", unit: "m2" },
+								],
+							}),
+						],
+					},
+				},
+			},
+		});
+
+		const result = await matchZtcCanonicalEntities({
+			siteId: "site-cross-section",
+			rawProjectName: canonicalProject,
+			rawWorks: ["R3/T3 - latojums 25x45"],
+			category: "works",
+		});
+
+		expect(result.works[0]).toEqual(
+			expect.objectContaining({
+				task: "latojums 28x45",
+				canonicalWork: "R3/T3 - latojums 28x45",
+				source: "exact",
+			}),
+		);
+		expect(result.modelCalled).toBe(false);
+		expect(mockResponsesParse).not.toHaveBeenCalled();
+	});
+
+	it("does not let the model choose a farther cross-section", async () => {
+		mockSiteFindUnique.mockResolvedValue({
+			siteDiaryRecordsMap: {
+				otherSettings: {
+					ztcDefaultTaskRates: {
+						projects: [
+							rateProject("Visi projekti"),
+							rateProject(canonicalProject, {
+								works: [
+									{ task: "latojums 28x45", rate: "0.8", unit: "m2" },
+									{ task: "latojums 45x45", rate: "0.9", unit: "m2" },
+								],
+							}),
+						],
+					},
+				},
+			},
+		});
+		mockResponsesParse.mockResolvedValue({
+			output_parsed: {
+				projectCandidateId: "project_0",
+				projectConfidence: 1,
+				workMatches: [
+					{
+						rawIndex: 0,
+						workCandidateId: "work_1",
+						confidence: 0.99,
+					},
+				],
+			},
+		});
+
+		const result = await matchZtcCanonicalEntities({
+			siteId: "site-cross-section-ocr",
+			rawProjectName: canonicalProject,
+			rawWorks: ["R3/T3 - lat0jums 25x45"],
+			category: "works",
+		});
+
+		expect(result.works[0]).toEqual(
+			expect.objectContaining({
+				task: null,
+				canonicalWork: "R3/T3 - lat0jums 25x45",
+				source: "raw",
+			}),
+		);
+		expect(result.modelCalled).toBe(true);
+	});
+
 	it("rejects an LLM project selection with conflicting project numbers", async () => {
 		mockResponsesParse.mockResolvedValue({
 			output_parsed: {

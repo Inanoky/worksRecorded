@@ -157,6 +157,76 @@ function ztcRateDimensionTokens(value: string) {
   return dimensions;
 }
 
+export type ZtcRateCrossSectionMatch = {
+  kind: "not_applicable" | "exact" | "compatible" | "incompatible";
+  distance: number | null;
+};
+
+function normalizeCrossSectionDimension(value: string, unit: string) {
+  const number = Number(value.replace(",", "."));
+  if (!Number.isFinite(number) || number <= 0) return null;
+
+  const normalizedUnit = unit.toLowerCase();
+  const millimeters =
+    normalizedUnit === "m"
+      ? number * 1000
+      : normalizedUnit === "cm"
+        ? number * 10
+        : number;
+  return Number(millimeters.toFixed(3));
+}
+
+function getZtcRateCrossSection(value: string) {
+  const match = normalizeZtcRateTaskName(value).match(
+    /\b(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?\s*[x×х*]\s*(\d+(?:[.,]\d+)?)\s*(mm|cm|m)?\b/i,
+  );
+  if (!match) return null;
+
+  const firstUnit = match[2] || match[4] || "mm";
+  const secondUnit = match[4] || match[2] || "mm";
+  const dimensions = [
+    normalizeCrossSectionDimension(match[1], firstUnit),
+    normalizeCrossSectionDimension(match[3], secondUnit),
+  ];
+  if (dimensions.some((dimension) => dimension == null)) return null;
+
+  return (dimensions as number[]).sort((left, right) => left - right);
+}
+
+export function hasZtcRateCrossSection(value: unknown) {
+  return Boolean(getZtcRateCrossSection(String(value ?? "")));
+}
+
+export function getZtcRateCrossSectionMatch(
+  taskName: string,
+  rateTask: string,
+): ZtcRateCrossSectionMatch {
+  const taskDimensions = getZtcRateCrossSection(taskName);
+  const rateDimensions = getZtcRateCrossSection(rateTask);
+
+  if (!taskDimensions && !rateDimensions) {
+    return { kind: "not_applicable", distance: null };
+  }
+  if (!taskDimensions || !rateDimensions) {
+    return { kind: "incompatible", distance: null };
+  }
+
+  const distance = taskDimensions.reduce(
+    (sum, dimension, index) => sum + Math.abs(dimension - rateDimensions[index]),
+    0,
+  );
+  if (distance === 0) return { kind: "exact", distance: 0 };
+
+  const hasSharedDimension = taskDimensions.some((taskDimension) =>
+    rateDimensions.some(
+      (rateDimension) => Math.abs(taskDimension - rateDimension) < 0.001,
+    ),
+  );
+  return hasSharedDimension
+    ? { kind: "compatible", distance }
+    : { kind: "incompatible", distance };
+}
+
 export function ztcRateMatchTokens(value: string) {
   const normalized = normalizeZtcRateTaskName(value);
   const normalizedSearchText = normalized
@@ -200,7 +270,12 @@ export function findZtcDefaultRateForTask(
   const taskDimensions = ztcRateDimensionTokens(taskName);
   const taskNumbers = ztcRateNumberTokens(taskName);
 
-  let best: { entry: ZtcDefaultTaskRate; score: number } | null = null;
+  let best: {
+    entry: ZtcDefaultTaskRate;
+    score: number;
+    crossSectionRank: number;
+    crossSectionDistance: number;
+  } | null = null;
 
   for (const entry of rates) {
     if (isZtcComplexityCoefficientTask(entry.task)) continue;
@@ -208,6 +283,12 @@ export function findZtcDefaultRateForTask(
     if (!rateTokens.size) continue;
     const rateDimensions = ztcRateDimensionTokens(entry.task);
     const rateNumbers = ztcRateNumberTokens(entry.task);
+    const crossSectionMatch =
+      options.category === "additionalDetails" ||
+      options.category === "additionalWorks"
+        ? { kind: "not_applicable" as const, distance: null }
+        : getZtcRateCrossSectionMatch(taskName, entry.task);
+    if (crossSectionMatch.kind === "incompatible") continue;
     const matchingDimensions = [...rateDimensions].filter((token) => taskDimensions.has(token)).length;
     const hasDimensionMismatch =
       rateDimensions.size > 0 &&
@@ -252,10 +333,25 @@ export function findZtcDefaultRateForTask(
           ? baseScore * 0.65
           : baseScore;
     const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
-    if (score >= threshold && (!best || score > best.score)) {
-      best = { entry, score };
+    const crossSectionRank =
+      crossSectionMatch.kind === "exact"
+        ? 2
+        : crossSectionMatch.kind === "compatible"
+          ? 1
+          : 0;
+    const crossSectionDistance = crossSectionMatch.distance ?? 0;
+    const isBetterMatch =
+      !best ||
+      crossSectionRank > best.crossSectionRank ||
+      (crossSectionRank === best.crossSectionRank &&
+        crossSectionDistance < best.crossSectionDistance) ||
+      (crossSectionRank === best.crossSectionRank &&
+        crossSectionDistance === best.crossSectionDistance &&
+        score > best.score);
+    if (score >= threshold && isBetterMatch) {
+      best = { entry, score, crossSectionRank, crossSectionDistance };
     }
   }
 
-  return best;
+  return best ? { entry: best.entry, score: best.score } : null;
 }

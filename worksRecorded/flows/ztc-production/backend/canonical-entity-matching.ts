@@ -17,7 +17,11 @@ import type {
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import {
 	canonicalizeZtcMatchedWorkName,
+	findZtcDefaultRateForTask,
+	getZtcRateCrossSectionMatch,
+	hasZtcRateCrossSection,
 	normalizeZtcRateTaskName,
+	ztcRateMatchTokens,
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import { normalizeZtcRateUnit } from "@/flows/ztc-production/lib/ztc-rate-units";
 import { prisma } from "@/lib/utils/db";
@@ -363,27 +367,51 @@ function exactWorkMatch(
 	candidates: WorkCandidate[],
 	projectCandidateId: string | null,
 ) {
-	return (
-		candidates.find((candidate) => {
-			if (
-				candidate.projectCandidateId &&
-				candidate.projectCandidateId !== projectCandidateId
-			) {
-				return false;
-			}
-			return (
-				taskIdentity(
-					canonicalizeZtcMatchedWorkName(rawWork, candidate.task),
-				) === taskIdentity(rawWork)
-			);
-		}) ?? null
+	const eligibleCandidates = candidates.filter(
+		(candidate) =>
+			!candidate.projectCandidateId ||
+			candidate.projectCandidateId === projectCandidateId,
 	);
+	const exact = eligibleCandidates.find(
+		(candidate) =>
+			taskIdentity(canonicalizeZtcMatchedWorkName(rawWork, candidate.task)) ===
+			taskIdentity(rawWork),
+	);
+	if (
+		exact ||
+		eligibleCandidates[0]?.category !== "works" ||
+		!hasZtcRateCrossSection(rawWork)
+	) {
+		return exact ?? null;
+	}
+
+	const deterministicMatch = findZtcDefaultRateForTask(
+		rawWork,
+		eligibleCandidates.map((candidate) => candidate.rate),
+		{ category: eligibleCandidates[0]?.category ?? "works" },
+	);
+	return (
+		eligibleCandidates.find(
+			(candidate) => candidate.rate === deterministicMatch?.entry,
+		) ?? null
+	);
+}
+
+function isSameWorkFamily(left: string, right: string) {
+	const leftTokens = new Set(ztcRateMatchTokens(left));
+	const rightTokens = new Set(ztcRateMatchTokens(right));
+	const shorterSize = Math.min(leftTokens.size, rightTokens.size);
+	if (!shorterSize) return false;
+
+	const overlap = [...leftTokens].filter((token) => rightTokens.has(token)).length;
+	return overlap / shorterSize >= 0.75;
 }
 
 function isWorkSelectionValid(
 	rawWork: string,
 	candidate: WorkCandidate,
 	projectCandidateId: string | null,
+	candidates: WorkCandidate[],
 ) {
 	if (
 		candidate.projectCandidateId &&
@@ -393,7 +421,49 @@ function isWorkSelectionValid(
 	}
 	const rawCode = drawingWorkCode(rawWork);
 	const candidateCode = drawingWorkCode(candidate.task);
-	return !rawCode || !candidateCode || rawCode === candidateCode;
+	if (rawCode && candidateCode && rawCode !== candidateCode) return false;
+	if (candidate.category !== "works") return true;
+
+	const selectedCrossSection = getZtcRateCrossSectionMatch(
+		rawWork,
+		candidate.task,
+	);
+	if (selectedCrossSection.kind === "incompatible") return false;
+	if (!hasZtcRateCrossSection(rawWork)) return true;
+
+	const rankedFamilyCandidates = candidates
+		.filter(
+			(item) =>
+				item.category === candidate.category &&
+				(!item.projectCandidateId ||
+					item.projectCandidateId === projectCandidateId) &&
+				isSameWorkFamily(item.task, candidate.task),
+		)
+		.map((item) => ({
+			item,
+			match: getZtcRateCrossSectionMatch(rawWork, item.task),
+		}))
+		.filter(
+			(result) =>
+				result.match.kind === "exact" ||
+				result.match.kind === "compatible",
+		)
+		.sort((left, right) => {
+			const leftRank = left.match.kind === "exact" ? 2 : 1;
+			const rightRank = right.match.kind === "exact" ? 2 : 1;
+			return (
+				rightRank - leftRank ||
+				(left.match.distance ?? Number.POSITIVE_INFINITY) -
+					(right.match.distance ?? Number.POSITIVE_INFINITY)
+			);
+		});
+	const bestMatch = rankedFamilyCandidates[0]?.match;
+	if (!bestMatch) return false;
+
+	return (
+		selectedCrossSection.kind === bestMatch.kind &&
+		selectedCrossSection.distance === bestMatch.distance
+	);
 }
 
 function rawWorkResult(
@@ -611,7 +681,12 @@ export async function matchZtcCanonicalEntities(args: {
 		if (
 			!candidate ||
 			(modelWork?.confidence ?? 0) < ZTC_WORK_MATCH_CONFIDENCE ||
-			!isWorkSelectionValid(work.rawWork, candidate, projectCandidateId)
+			!isWorkSelectionValid(
+				work.rawWork,
+				candidate,
+				projectCandidateId,
+				catalog.works,
+			)
 		) {
 			return rawWorkResult(work.rawWork, work.rawIndex);
 		}
