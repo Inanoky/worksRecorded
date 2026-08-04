@@ -52,6 +52,7 @@ import {
   type ZtcAdditionalWorkContext,
   type ZtcAdditionalWorkOrigin,
 } from "@/flows/ztc-production/lib/ztc-additional-work-context";
+import { selectLatestReusableZtcDrawingContext } from "@/flows/ztc-production/lib/ztc-drawing-context-selection";
 
 export const ZTC_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -64,8 +65,6 @@ const DIAGONAL_SECOND_MEASURE_PENDING_PREFIX = "__ZTC_DIAGONAL_SECOND_MEASURE_PE
 const DIAGONALS_PENDING_PREFIX = "__ZTC_DIAGONALS_PENDING__";
 const DIAGONALS_CONFIRM_PREFIX = "__ZTC_DIAGONALS_CONFIRM__";
 const PHOTO_BATCH_CONFIRM_PREFIX = "__ZTC_PHOTO_BATCH_CONFIRM__";
-const DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX =
-  "__ZTC_DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK__";
 const PHOTO_BATCH_CONFIRM_WINDOW_MS = 45_000;
 const TL_WORK_PHOTO_BATCH_GRACE_MS = 30_000;
 const ZTC_MEDIA_TIMEOUT_MS = 30_000;
@@ -2025,57 +2024,7 @@ async function getLatestZtcDrawingContext(worker: ZtcWorker) {
     take: 20,
   });
 
-  for (const candidate of candidates) {
-    const additionalContext = readZtcAdditionalWorkContext(
-      candidate.Comments_Custom_2,
-    );
-    if (additionalContext?.origin === "fresh_drawing") return null;
-    if (additionalContext?.origin === "active_drawing") continue;
-    if (
-      candidate.Comments_Custom_1?.startsWith(
-        DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX,
-      ) ||
-      candidate.Comments_Custom_1?.startsWith(ZTC_CANCELLED_SESSION_PREFIX)
-    ) {
-      return null;
-    }
-    if (
-      candidate.Location === "Papilddarbi" ||
-      candidate.Works_Custom_1 === "Papilddarbi" ||
-      candidate.Works_Custom_1 === "Papilddetāļas"
-    ) {
-      continue;
-    }
-    return candidate;
-  }
-
-  return null;
-}
-
-async function closeOpenDrawingContextsForStandaloneAdditionalWork(worker: ZtcWorker, now: Date) {
-  const context = getZtcFlowContext(worker);
-  const result = await prisma.ztcRecords.updateMany({
-    where: {
-      workerId: worker.id,
-      organizationId: context.organizationId,
-      Date_Custom_2: null,
-      Works: null,
-      Comments_Custom_2: { contains: "ztc_drawing_context" },
-    },
-    data: {
-      Date_Custom_2: now,
-      Comments_Custom_1: `${DRAWING_CONTEXT_SUPERSEDED_BY_ADDITIONAL_WORK_PREFIX} ${now.toISOString()}`,
-    },
-  });
-
-  if (result.count > 0) {
-    logZtcSession("drawing_contexts_closed_for_standalone_additional_work", {
-      worker,
-      details: {
-        closedCount: result.count,
-      },
-    });
-  }
+  return selectLatestReusableZtcDrawingContext(candidates);
 }
 
 async function ensureSessionHasDrawingContext(args: {
@@ -2672,7 +2621,7 @@ async function completeSession(args: {
     completionMessage = `Papilddarbs pabeigts un saglabāts: ${updated.Works || "papilddarbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.\n\n${scopeMessage}`;
 
     if (additionalWorkContext?.origin === "fresh_drawing") {
-      completionMessage += "\n\nRasējuma piesaiste ir noslēgta. Nākamais papilddarbs tiks uzskaitīts atsevišķi, ja pirms tā netiks iesūtīts rasējums.";
+      completionMessage += "\n\nRasējuma konteksts ir saglabāts. Nākamo rasējuma darbu varat sākt bez atkārtotas rasējuma nosūtīšanas. Nākamais papilddarbs tiks uzskaitīts atsevišķi, ja pirms tā netiks iesūtīts jauns rasējums vai tas nepārtrauks aktīvu rasējuma darbu.";
     } else if (restoredDrawingSession) {
       completionMessage += `\n\nAtsākts darbs:\n${restoredDrawingSession.Works || "darbs"}\nProjekts: ${restoredDrawingSession.Location ?? "-"}\nElements: ${restoredDrawingSession.Location_Custom_1 ?? "-"}`;
     } else if (pausedDrawingParent) {
@@ -3504,10 +3453,6 @@ async function createAdditionalWorkSession(args: {
   const additionalWorkUnit = shouldAttachToElement
     ? normalizeZtcRateUnit(defaultRateMatch?.unit, relatesToElement ? "m2" : "st")
     : "st";
-  if (!shouldAttachToProject) {
-    await closeOpenDrawingContextsForStandaloneAdditionalWork(worker, now);
-  }
-
   const data = {
       workerId: worker.id,
       siteId: context.siteId,
