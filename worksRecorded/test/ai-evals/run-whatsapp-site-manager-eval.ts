@@ -14,6 +14,10 @@ import { siteManagerAgentForSiteManagerRouteModelModel } from "@/server/ai-flows
 import { getSiteManagerThreadId } from "@/server/ai-flows/ai-run-context";
 import { runWithLangSmithTraceFlush } from "./ai-eval-runner-lifecycle";
 import {
+	formatEvalSelectionSummary,
+	selectEvalCases,
+} from "./eval-case-selection";
+import {
 	assertEvalEnvironment,
 	shouldPreserveEvalRecords,
 } from "./eval-environment-guard";
@@ -775,18 +779,22 @@ async function judgeRecord(args: {
 
 async function main() {
 	const dryRun = hasArg("--dry-run");
+	const listOnly = hasArg("--list");
 	const enableJudge =
 		hasArg("--judge") || process.env.AI_EVAL_ENABLE_JUDGE === "true";
+	const selection = selectEvalCases({
+		cases: whatsappSiteManagerEvalCases,
+		getInteractionIds: (evalCase) =>
+			evalCase.mode === "webhook" && evalCase.followUp
+				? [evalCase.id, `${evalCase.id}-follow-up`]
+				: [evalCase.id],
+	});
 
-	if (dryRun) {
-		const interactions = whatsappSiteManagerEvalCases.reduce(
-			(count, evalCase) =>
-				count + 1 + (evalCase.mode === "webhook" && evalCase.followUp ? 1 : 0),
-			0,
-		);
-		console.log(
-			`Loaded ${whatsappSiteManagerEvalCases.length} WhatsApp site-manager eval cases / ${interactions} interactions.`,
-		);
+	if (dryRun || listOnly) {
+		console.log("WhatsApp site-manager eval selection:");
+		for (const line of formatEvalSelectionSummary(selection)) {
+			console.log(line);
+		}
 		return;
 	}
 
@@ -834,7 +842,7 @@ async function main() {
 	const results: CaseRunResult[] = [];
 
 	try {
-		for (const evalCase of whatsappSiteManagerEvalCases) {
+		for (const evalCase of selection.selectedCases) {
 			if (evalCase.mode === "checkpoint-inspection") {
 				const inspectionEvalCase: CheckpointInspectionWhatsAppSiteManagerEvalCase =
 					evalCase;
@@ -1086,7 +1094,7 @@ async function main() {
 					const followUpCase: WebhookWhatsAppSiteManagerEvalCase = {
 						...webhookEvalCase,
 						id: followUpId,
-						intent: `${webhookEvalCase.intent} Follow-up must use the same conversation context and provide state-aware BIS connection guidance without saving another record.`,
+						intent: `${webhookEvalCase.intent} Follow-up must use the same conversation context and satisfy the follow-up expectation without inventing missing details.`,
 						expected: webhookEvalCase.followUp.expected,
 						followUp: undefined,
 					};

@@ -15,6 +15,7 @@
 		"eval:ai:whatsapp-site-manager": "tsx test/ai-evals/run-whatsapp-site-manager-eval.ts",
 		"eval:ai:whatsapp-worker": "tsx test/ai-evals/run-whatsapp-worker-eval.ts",
 		"eval:ai:deterministic": "npm run eval:ai:dashboard && npm run eval:ai:whatsapp-site-manager && npm run eval:ai:whatsapp-worker",
+		"eval:ai:critical": "npm run eval:ai:dashboard -- --critical && npm run eval:ai:whatsapp-site-manager -- --critical && npm run eval:ai:whatsapp-worker -- --critical",
 		"eval:ai:judge": "npm run eval:ai:dashboard -- --judge && npm run eval:ai:whatsapp-site-manager -- --judge && npm run eval:ai:whatsapp-worker",
 		"eval:ai:guard": "tsx test/ai-evals/assert-eval-environment.ts",
 		"eval:ai:gate": "tsx lib/ai-evals/eval-gate.ts",
@@ -31,6 +32,7 @@
 		"eval:ai:image-extraction:real": "cross-env RUN_AI_EVALS=true RUN_META_IMAGE_AI_EVAL=true jest --runInBand test/meta-image-real-extraction.eval.test.ts",
 		"test:ai:validators": "jest --runInBand test/ai-evals",
 		"test:ai:dry-run": "npm run eval:ai:dashboard -- --dry-run && npm run eval:ai:whatsapp-site-manager -- --dry-run && npm run eval:ai:whatsapp-worker -- --dry-run",
+		"test:ai:critical-dry-run": "npm run eval:ai:dashboard -- --dry-run --critical && npm run eval:ai:whatsapp-site-manager -- --dry-run --critical && npm run eval:ai:whatsapp-worker -- --dry-run --critical",
 		"test:all": "npm run test:unit && npm run test:ai:dry-run"
 	},
 	"dependencies": {

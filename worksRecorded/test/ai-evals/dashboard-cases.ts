@@ -18,6 +18,9 @@ export const DashboardEvalCaseSchema = z.object({
 	id: z.string().regex(/^[a-z0-9-]+$/),
 	intent: z.string().min(1),
 	notes: z.string().optional(),
+	tags: z.array(z.string().min(1)).default([]),
+	tier: z.enum(["smoke", "regression", "extended"]).default("regression"),
+	priority: z.enum(["critical", "standard", "extended"]).default("standard"),
 	turns: z.array(EvalTurnSchema).min(1),
 });
 
@@ -32,6 +35,9 @@ export const dashboardEvalCases: DashboardEvalCase[] =
 			id: "context-retention-zone-a",
 			intent:
 				"Verify the eval thread keeps short-lived conversational context between turns.",
+			tags: ["context", "memory"],
+			tier: "smoke",
+			priority: "critical",
 			turns: [
 				{
 					prompt:
@@ -55,6 +61,9 @@ export const dashboardEvalCases: DashboardEvalCase[] =
 			id: "read-only-site-diary",
 			intent:
 				"Verify read-only site diary questions do not produce fake save confirmations.",
+			tags: ["read-only", "site-diary", "no-save"],
+			tier: "smoke",
+			priority: "critical",
 			turns: [
 				{
 					prompt:
@@ -80,6 +89,9 @@ export const dashboardEvalCases: DashboardEvalCase[] =
 			id: "ambiguous-request-clarification",
 			intent:
 				"Verify ambiguous user requests get a clarification or limitation instead of a fabricated result.",
+			tags: ["clarification", "no-save", "ambiguity"],
+			tier: "smoke",
+			priority: "critical",
 			turns: [
 				{
 					prompt:
@@ -101,6 +113,8 @@ export const dashboardEvalCases: DashboardEvalCase[] =
 			id: "latvian-concise-error",
 			intent:
 				"Verify Latvian answers keep a concise construction-site tone and avoid unsafe confirmations.",
+			tags: ["latvian", "clarification", "no-save"],
+			tier: "regression",
 			turns: [
 				{
 					prompt:
@@ -117,6 +131,8 @@ export const dashboardEvalCases: DashboardEvalCase[] =
 			id: "english-compatibility-read-only",
 			intent:
 				"Verify English still works when the user explicitly asks in English.",
+			tags: ["english", "read-only"],
+			tier: "extended",
 			turns: [
 				{
 					prompt:
@@ -142,6 +158,8 @@ export const dashboardEvalCases: DashboardEvalCase[] =
 			id: "dashboard-history-compaction-query",
 			intent:
 				"Verify the agent can still answer and reference broad site summary across turns even with history compaction.",
+			tags: ["context", "memory", "site-diary"],
+			tier: "regression",
 			turns: [
 				{
 					prompt:
@@ -172,6 +190,8 @@ export const dashboardEvalCases: DashboardEvalCase[] =
 			id: "controlled-memory-long-history",
 			intent:
 				"Verify repeated read-only tool use keeps follow-up context while controlled memory can compact old tool outputs.",
+			tags: ["context", "memory", "controlled-memory"],
+			tier: "extended",
 			turns: [
 				{
 					prompt:

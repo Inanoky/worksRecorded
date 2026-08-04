@@ -6,6 +6,10 @@ import { runWithWorkerAgentEvalContext } from "@/server/ai-flows/agents/whatsapp
 import { clickInAgentForWorkersModel } from "@/server/ai-flows/ai-models-settings";
 import { runWithLangSmithTraceFlush } from "./ai-eval-runner-lifecycle";
 import {
+	formatEvalSelectionSummary,
+	selectEvalCases,
+} from "./eval-case-selection";
+import {
 	assertEvalEnvironment,
 	shouldPreserveEvalRecords,
 } from "./eval-environment-guard";
@@ -516,11 +520,14 @@ function normalizeSenderPhone(phone: string) {
 
 async function main() {
 	const dryRun = hasArg("--dry-run");
+	const listOnly = hasArg("--list");
+	const selection = selectEvalCases({ cases: whatsappWorkerEvalCases });
 
-	if (dryRun) {
-		console.log(
-			`Loaded ${whatsappWorkerEvalCases.length} WhatsApp worker eval cases.`,
-		);
+	if (dryRun || listOnly) {
+		console.log("WhatsApp worker eval selection:");
+		for (const line of formatEvalSelectionSummary(selection)) {
+			console.log(line);
+		}
 		return;
 	}
 
@@ -554,7 +561,7 @@ async function main() {
 	const results: CaseRunResult[] = [];
 
 	try {
-		for (const evalCase of whatsappWorkerEvalCases) {
+		for (const evalCase of selection.selectedCases) {
 			const bsuid = `LV.eval.worker.${runId}.${evalCase.id}`;
 			const threadId = `eval:whatsapp-worker:${siteId}:${workerId}:${evalCase.id}:${runId}`;
 			let createdDiaryRecordIds: string[] = [];

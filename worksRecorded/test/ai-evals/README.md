@@ -4,8 +4,8 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 
 ## Current State
 
-- Jest currently has 150 passing tests across 31 suites and covers deterministic application and eval infrastructure behavior. Use the command output as the source of truth as this count grows.
-- AI eval fixtures currently contain 25 cases / 30 evaluated interactions: 7 dashboard cases (10 turns), 14 WhatsApp site-manager cases (16 interactions), and 4 WhatsApp worker cases.
+- Jest covers deterministic application and eval infrastructure behavior. Use the command output as the source of truth as this count grows.
+- AI eval fixtures currently contain 31 cases / 37 evaluated interactions: 7 dashboard cases (10 turns), 18 WhatsApp site-manager cases (21 interactions), and 6 WhatsApp worker cases.
 - Dashboard chat flow: `dashboard-chat` / `OrchestratingAgentV2`.
 - WhatsApp site-manager flow: `whatsapp-site-manager` via the real Meta webhook route.
 - WhatsApp worker flow: `whatsapp-worker` / `ClockinAgentForWorkerRoute` via the real Meta webhook route.
@@ -33,8 +33,10 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 | Image extraction Jest tests | `npm run test:image-extraction` | None |
 | Eval validator/runner unit tests | `npm run test:ai:validators` | None |
 | Validate all eval fixtures | `npm run test:ai:dry-run` | None |
+| Validate critical eval fixtures | `npm run test:ai:critical-dry-run` | None |
 | Real image extraction eval | `npm run test:image-extraction:real` | Image model and LangSmith if tracing is enabled |
 | Run all real deterministic evals | `npm run eval:ai:deterministic` | Models and eval database |
+| Run real critical evals only | `npm run eval:ai:critical` | Models and eval database |
 | Run supported judges plus worker deterministic evals | `npm run eval:ai:judge` | Agent models, judge model, and eval database |
 | Verify eval DB target | `npm run eval:ai:guard -- --flow whatsapp-site-manager` | Eval database only |
 | Gate latest eval reports | `npm run eval:ai:gate` | None |
@@ -98,6 +100,33 @@ Validate WhatsApp worker fixture/schema loading only:
 ```bash
 npm run eval:ai:whatsapp-worker -- --dry-run
 ```
+
+Validate the critical fixture slice only:
+
+```bash
+npm run test:ai:critical-dry-run
+```
+
+List or run a focused subset before spending time on a full real eval suite:
+
+```bash
+npm run eval:ai:whatsapp-site-manager -- --list --tag bis
+npm run eval:ai:whatsapp-site-manager -- --dry-run --case latvian-explicit-zero-workers
+npm run eval:ai:whatsapp-site-manager -- --dry-run --critical
+npm run eval:ai:whatsapp-site-manager -- --case latvian-explicit-zero-workers
+npm run eval:ai:whatsapp-site-manager -- --priority critical
+npm run eval:ai:whatsapp-worker -- --tier smoke
+```
+
+Supported filters for dashboard, WhatsApp site-manager, and WhatsApp worker eval runners:
+
+- `--case <id>` selects one or more case IDs. Comma-separated values and repeated flags are supported. Site-manager follow-up IDs like `<case-id>-follow-up` select their parent case.
+- `--tag <tag>` selects cases carrying a tag such as `bis`, `worker-count`, `correction`, `clock-in`, or `no-save`.
+- `--tier <smoke|regression|extended>` selects by eval tier.
+- `--priority <critical|standard|extended>` selects by business-criticality. Critical cases are the must-not-break behaviors expected to work 100% of the time.
+- `--critical` is shorthand for `--priority critical`.
+- `--list` prints the selected cases, interactions, tags, tiers, and priorities without calling models or touching the database.
+- `--dry-run` validates fixture loading, duplicate case IDs, duplicate interaction IDs, and filter matches without calling models or touching the database.
 
 Run validator unit tests:
 
@@ -167,6 +196,12 @@ Run every real eval suite without judges:
 
 ```bash
 npm run eval:ai:deterministic
+```
+
+Run only critical cases across all eval suites:
+
+```bash
+npm run eval:ai:critical
 ```
 
 Verify the eval target before calling models:

@@ -5,6 +5,10 @@ import OpenAI from "openai";
 import { orchestratingAgentV2ModelModel } from "@/server/ai-flows/ai-models-settings";
 import { runWithLangSmithTraceFlush } from "./ai-eval-runner-lifecycle";
 import { dashboardEvalCases } from "./dashboard-cases";
+import {
+	formatEvalSelectionSummary,
+	selectEvalCases,
+} from "./eval-case-selection";
 import { assertEvalEnvironment } from "./eval-environment-guard";
 import { type TurnValidationResult, validateEvalTurn } from "./validators";
 
@@ -209,14 +213,20 @@ async function judgeAnswer(args: {
 
 async function main() {
 	const dryRun = hasArg("--dry-run");
+	const listOnly = hasArg("--list");
 	const enableJudge =
 		hasArg("--judge") || process.env.AI_EVAL_ENABLE_JUDGE === "true";
+	const selection = selectEvalCases({
+		cases: dashboardEvalCases,
+		getInteractionIds: (evalCase) =>
+			evalCase.turns.map((_, index) => `${evalCase.id}:turn-${index + 1}`),
+	});
 
-	if (dryRun) {
-		console.log(`Loaded ${dashboardEvalCases.length} dashboard eval cases.`);
-		console.log(
-			`Validated ${dashboardEvalCases.reduce((count, item) => count + item.turns.length, 0)} turns.`,
-		);
+	if (dryRun || listOnly) {
+		console.log("Dashboard eval selection:");
+		for (const line of formatEvalSelectionSummary(selection)) {
+			console.log(line);
+		}
 		return;
 	}
 
@@ -247,7 +257,7 @@ async function main() {
 	const startedAt = new Date().toISOString();
 	const results: TurnRunResult[] = [];
 
-	for (const evalCase of dashboardEvalCases) {
+	for (const evalCase of selection.selectedCases) {
 		const threadId = `eval:dashboard-chat:${siteId}:${evalCase.id}:${runId}`;
 
 		for (const [turnIndex, turn] of evalCase.turns.entries()) {

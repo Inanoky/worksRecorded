@@ -19,6 +19,9 @@ describe("WhatsApp site-manager eval validators", () => {
 	const wordNumberWorkersCase = webhookCases.find(
 		(item) => item.id === "latvian-word-number-workers",
 	);
+	const zeroWorkersCase = webhookCases.find(
+		(item) => item.id === "latvian-explicit-zero-workers",
+	);
 	const ambiguousBisCase = webhookCases.find(
 		(item) => item.id === "ambigious-bis-mention-in-task-decritpion",
 	);
@@ -360,6 +363,38 @@ describe("WhatsApp site-manager eval validators", () => {
 		expect(
 			result.results.find((item) => item.name === "workers-involved")?.message,
 		).toBe("WorkersInvolved must be 3; got 1.");
+	});
+
+	it("passes when an explicit zero worker count stores 0", () => {
+		if (!zeroWorkersCase) throw new Error("Missing zero workers eval case");
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: zeroWorkersCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: {
+				id: "record-1",
+				siteId: "site-1",
+				userId: "user-1",
+				workerId: null,
+				Date: null,
+				Location: "1 stāvs",
+				Works: "Kvalitātes pārbaude",
+				Comments:
+					"Šodien 1. stāvā veikta kvalitātes pārbaude, 0 strādnieki iesaistīti, 1h.",
+				originalUserComment:
+					"Test Manager : Šodien 1. stāvā veikta kvalitātes pārbaude, 0 strādnieki iesaistīti, 1h.",
+				originalAudioUrl: null,
+				WorkersInvolved: 0,
+				TimeInvolved: 1,
+				createdAt: new Date("2026-06-23T00:00:00.000Z"),
+			},
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "workers-involved")?.status,
+		).toBe("pass");
 	});
 
 	it("fails if an audio record stores an expiring Meta lookaside URL", () => {
