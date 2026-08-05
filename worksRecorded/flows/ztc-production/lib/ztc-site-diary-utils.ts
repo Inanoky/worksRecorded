@@ -1,8 +1,9 @@
+import { applyZtcExcelNumberFormats } from "@/flows/ztc-production/lib/ztc-excel-export";
 import {
   parseZtcLaborNormNumber,
   readZtcLaborNormFromMetadata,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
-import { applyZtcExcelNumberFormats } from "@/flows/ztc-production/lib/ztc-excel-export";
+import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
 export const ZTC_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
@@ -290,7 +291,7 @@ function getZtcQualityScopeKey(row: ZtcDiaryRow) {
   const elementKey = getZtcQualityElementKey(row);
   if (!elementKey) return "";
 
-  const checkedWork = normalizeZtcText(getZtcQualityCheckedWork(row));
+  const checkedWork = getZtcTaskIdentityKey(getZtcQualityCheckedWork(row));
   return checkedWork ? `${elementKey}::${checkedWork}` : elementKey;
 }
 

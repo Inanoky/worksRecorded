@@ -486,6 +486,101 @@ describe("ZTC quality display state", () => {
       hasResolvedDefect: false,
     });
   });
+
+  it("resolves the same drawing row even when its OCR description changes", () => {
+    const qualityMetadata = (checkedWork: string) =>
+      JSON.stringify({ type: "ztc_quality_check", checkedWork });
+    const states = buildZtcQualityDisplayStateByRowId([
+      {
+        ...qualityRow,
+        id: "same-code-defect",
+        createdAt: "2026-06-17T08:00:00.000Z",
+        Comments: "Koeficients: 0.9",
+        Comments_Custom_2: qualityMetadata("L2/B2 - latojums 25x45"),
+      },
+      {
+        ...qualityRow,
+        id: "same-code-accepted",
+        createdAt: "2026-06-17T09:00:00.000Z",
+        Comments: "Koeficients: 1",
+        Comments_Custom_2: qualityMetadata("L2/B2 - latojums 28x45"),
+      },
+    ]);
+
+    expect(states.get("same-code-defect")).toEqual({
+      toneClass: "",
+      hasResolvedDefect: true,
+    });
+  });
+
+  it("does not resolve a work defect with an element-level acceptance", () => {
+    const states = buildZtcQualityDisplayStateByRowId([
+      {
+        ...qualityRow,
+        id: "work-defect",
+        createdAt: "2026-06-17T08:00:00.000Z",
+        Comments: "Koeficients: 0",
+        Comments_Custom_2: JSON.stringify({
+          type: "ztc_quality_check",
+          qualityScope: "work",
+          checkedWork: "R3/T3 - latojums 25x45",
+        }),
+      },
+      {
+        ...qualityRow,
+        id: "element-accepted",
+        createdAt: "2026-06-17T09:00:00.000Z",
+        Comments: "Koeficients: 1",
+        Comments_Custom_2: JSON.stringify({
+          type: "ztc_quality_check",
+          qualityScope: "element",
+          checkedWork: null,
+        }),
+      },
+    ]);
+
+    expect(states.get("work-defect")?.toneClass).toContain("bg-red");
+    expect(states.get("work-defect")?.hasResolvedDefect).toBe(false);
+  });
+
+  it("keeps a later rejection unresolved even if an earlier check was accepted", () => {
+    const states = buildZtcQualityDisplayStateByRowId([
+      {
+        ...qualityRow,
+        id: "accepted-first",
+        createdAt: "2026-06-17T08:00:00.000Z",
+        Comments: "Koeficients: 1",
+      },
+      {
+        ...qualityRow,
+        id: "rejected-later",
+        createdAt: "2026-06-17T09:00:00.000Z",
+        Comments: "Koeficients: 0",
+      },
+    ]);
+
+    expect(states.get("rejected-later")?.toneClass).toContain("bg-red");
+    expect(states.get("rejected-later")?.hasResolvedDefect).toBe(false);
+  });
+
+  it("keeps quality-control records out of payroll totals", () => {
+    expect(
+      getZtcPayrollValues({
+        ...qualityRow,
+        TimeInvolved: 8,
+        Amounts: 100,
+        Location_Custom_2: 50,
+        Works_Custom_2: 1,
+        WorkersInvolved: 2,
+      }),
+    ).toMatchObject({
+      hours: 0,
+      amountM2: 0,
+      rate: 0,
+      sum: 0,
+      payrollQuantity: 0,
+    });
+  });
 });
 
 describe("buildZtcProductivityRows", () => {

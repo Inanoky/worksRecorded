@@ -35,11 +35,13 @@ function rateProject(
 	options: {
 		works?: Array<Record<string, unknown>>;
 		additionalWorks?: Array<Record<string, unknown>>;
+		excludedTasks?: Record<string, string[]>;
 	} = {},
 ) {
 	return {
 		projectName,
 		manual: false,
+		excludedTasks: options.excludedTasks,
 		works: options.works ?? [],
 		additionalDetails: [],
 		additionalWorks: options.additionalWorks ?? [],
@@ -307,6 +309,51 @@ describe("matchZtcCanonicalEntities", () => {
 				task: "peļu sieta montāža",
 				canonicalWork: "peļu sieta montāža",
 				source: "llm",
+			}),
+		);
+	});
+
+	it("rejects a globally inherited rate excluded by the selected project", async () => {
+		mockSiteFindUnique.mockResolvedValue({
+			siteDiaryRecordsMap: {
+				otherSettings: {
+					ztcDefaultTaskRates: {
+						projects: [
+							rateProject("Visi projekti", {
+								additionalWorks: [
+									{ task: "CNC projekts", rate: "15", unit: "st" },
+								],
+							}),
+							rateProject(canonicalProject, {
+								excludedTasks: { additionalWorks: ["CNC projekts"] },
+							}),
+						],
+					},
+				},
+			},
+		});
+		mockResponsesParse.mockResolvedValue({
+			output_parsed: {
+				projectCandidateId: "project_0",
+				projectConfidence: 1,
+				workMatches: [
+					{ rawIndex: 0, workCandidateId: "work_0", confidence: 0.99 },
+				],
+			},
+		});
+
+		const result = await matchZtcCanonicalEntities({
+			siteId: "site-excluded-global-rate",
+			rawProjectName: canonicalProject,
+			rawWorks: ["CNC projekts"],
+			category: "additionalWorks",
+		});
+
+		expect(result.works[0]).toEqual(
+			expect.objectContaining({
+				task: null,
+				canonicalWork: "CNC projekts",
+				source: "raw",
 			}),
 		);
 	});

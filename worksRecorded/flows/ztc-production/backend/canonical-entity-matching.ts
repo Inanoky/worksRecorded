@@ -3,6 +3,10 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
 import {
+	ZTC_OPENAI_MODEL,
+	ZTC_OPENAI_REASONING_EFFORT,
+} from "@/flows/ztc-production/backend/openai-config";
+import {
 	getZtcProjectIdentityKey,
 	normalizeZtcProjectName,
 	resolveZtcCanonicalProjectName,
@@ -11,6 +15,11 @@ import {
 	isZtcComplexityCoefficientTask,
 	ZTC_ALL_PROJECTS_RATE_NAME,
 } from "@/flows/ztc-production/lib/ztc-rate-constants";
+import {
+	getZtcExcludedRateTaskKeys,
+	normalizeZtcProjectRateExclusions,
+	normalizeZtcRateTaskKey,
+} from "@/flows/ztc-production/lib/ztc-rate-exclusions";
 import type {
 	ZtcDefaultTaskRate,
 	ZtcRateCategory,
@@ -25,10 +34,6 @@ import {
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import { normalizeZtcRateUnit } from "@/flows/ztc-production/lib/ztc-rate-units";
 import { prisma } from "@/lib/utils/db";
-import {
-	ZTC_OPENAI_MODEL,
-	ZTC_OPENAI_REASONING_EFFORT,
-} from "@/flows/ztc-production/backend/openai-config";
 
 export const ZTC_CANONICAL_MATCH_MODEL = ZTC_OPENAI_MODEL;
 export const ZTC_CANONICAL_MATCH_REASONING_EFFORT =
@@ -53,6 +58,7 @@ type WorkCandidate = {
 	category: ZtcRateCategory;
 	projectCandidateId: string | null;
 	projectName: string | null;
+	excludedProjectCandidateIds: string[];
 	rate: ZtcDefaultTaskRate;
 };
 
@@ -209,6 +215,7 @@ function parseConfiguredProjects(config: unknown) {
 			return {
 				projectName,
 				manual: raw?.manual === true,
+				excludedTasks: normalizeZtcProjectRateExclusions(raw?.excludedTasks),
 				works,
 				additionalDetails,
 				additionalWorks,
@@ -310,18 +317,45 @@ async function loadCanonicalCatalog(siteId: string, category: ZtcRateCategory) {
 			const key = `${projectCandidateId ?? "global"}:${category}:${taskIdentity(rate.task)}`;
 			if (!taskIdentity(rate.task) || seenWorks.has(key)) continue;
 			seenWorks.add(key);
+			const excludedProjectCandidateIds = isGlobal
+				? configuredProjects
+						.filter(
+							(project) =>
+								normalizeZtcProjectName(project.projectName) !==
+									normalizeZtcProjectName(ZTC_ALL_PROJECTS_RATE_NAME) &&
+								getZtcExcludedRateTaskKeys(
+									project.excludedTasks,
+									category,
+								).has(normalizeZtcRateTaskKey(rate.task)),
+						)
+						.map((project) => projectIds.get(projectIdentity(project.projectName)))
+						.filter((id): id is string => Boolean(id))
+				: [];
 			works.push({
 				id: `work_${works.length}`,
 				task: rate.task,
 				category,
 				projectCandidateId,
 				projectName: isGlobal ? null : configured.projectName,
+				excludedProjectCandidateIds,
 				rate,
 			});
 		}
 	}
 
 	return { projects, works } satisfies CanonicalCatalog;
+}
+
+function isWorkCandidateEligible(
+	candidate: WorkCandidate,
+	projectCandidateId: string | null,
+) {
+	return (
+		(!candidate.projectCandidateId ||
+			candidate.projectCandidateId === projectCandidateId) &&
+		(!projectCandidateId ||
+			!candidate.excludedProjectCandidateIds.includes(projectCandidateId))
+	);
 }
 
 function exactProjectMatch(
@@ -368,9 +402,7 @@ function exactWorkMatch(
 	projectCandidateId: string | null,
 ) {
 	const eligibleCandidates = candidates.filter(
-		(candidate) =>
-			!candidate.projectCandidateId ||
-			candidate.projectCandidateId === projectCandidateId,
+		(candidate) => isWorkCandidateEligible(candidate, projectCandidateId),
 	);
 	const exact = eligibleCandidates.find(
 		(candidate) =>
@@ -413,10 +445,7 @@ function isWorkSelectionValid(
 	projectCandidateId: string | null,
 	candidates: WorkCandidate[],
 ) {
-	if (
-		candidate.projectCandidateId &&
-		candidate.projectCandidateId !== projectCandidateId
-	) {
+	if (!isWorkCandidateEligible(candidate, projectCandidateId)) {
 		return false;
 	}
 	const rawCode = drawingWorkCode(rawWork);
@@ -435,8 +464,7 @@ function isWorkSelectionValid(
 		.filter(
 			(item) =>
 				item.category === candidate.category &&
-				(!item.projectCandidateId ||
-					item.projectCandidateId === projectCandidateId) &&
+				isWorkCandidateEligible(item, projectCandidateId) &&
 				isSameWorkFamily(item.task, candidate.task),
 		)
 		.map((item) => ({
@@ -503,6 +531,7 @@ function modelCacheKey(args: {
 			candidate.id,
 			candidate.task,
 			candidate.projectCandidateId,
+			candidate.excludedProjectCandidateIds,
 		]),
 	});
 }

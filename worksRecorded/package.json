@@ -28,6 +28,7 @@
 		"postinstall": "prisma generate",
 		"test": "jest",
 		"test:unit": "jest --runInBand",
+		"test:ztc": "jest --runInBand flows/ztc-production",
 		"eval:ai:image-extraction": "cross-env RUN_AI_EVALS=false RUN_META_IMAGE_AI_EVAL=false jest --runInBand test/meta-image-handler-langsmith.test.ts test/meta-image-upload-material-extraction.test.ts",
 		"eval:ai:image-extraction:real": "cross-env RUN_AI_EVALS=true RUN_META_IMAGE_AI_EVAL=true jest --runInBand test/meta-image-real-extraction.eval.test.ts",
 		"test:ai:validators": "jest --runInBand test/ai-evals",
