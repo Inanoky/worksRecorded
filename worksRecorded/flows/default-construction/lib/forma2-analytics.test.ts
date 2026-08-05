@@ -213,23 +213,57 @@ describe("Forma 2 analytics", () => {
 		});
 	});
 
-	it("calculates money totals without double-counting nested positions", () => {
+	it("sums every contract row without double-counting factual rollups", () => {
 		const positions = extractForma2PositionsFromRows(rows, "1-1").positions;
+		const materialChild = {
+			...positions[1],
+			kind: "material" as const,
+			plannedMaterialCost: 20315.34,
+			plannedMechanismCost: 0,
+		};
+		const material: Forma2ActualSource = {
+			id: "material-child-1",
+			type: "material",
+			label: materialChild.name,
+			secondaryLabel: "",
+			date: null,
+			unit: materialChild.unit,
+			quantity: 1,
+			hours: null,
+			actualCost: 50,
+		};
 		const view = buildForma2AnalyticsView({
-			positions,
-			sources: [],
-			allocations: [],
+			positions: [positions[0], materialChild],
+			sources: [material],
+			allocations: [
+				{
+					sourceType: "material",
+					sourceId: material.id,
+					positionId: materialChild.id,
+					method: "manual",
+					confidence: null,
+					assignedAt: "2026-07-29T00:00:00.000Z",
+				},
+			],
 		});
-		const parent = view.resultRows.find((row) => !row.parentId)!;
+		const parent = view.resultRows[0];
 
+		expect(view.summary.plannedCost).toBe(
+			parent.plannedTotalCost + materialChild.plannedTotalCost,
+		);
 		expect(calculateForma2MoneyTotals(view.resultRows)).toEqual({
 			plannedWorkCost: parent.plannedWorkCost,
-			plannedMaterialCost: parent.plannedMaterialCost,
-			plannedTotalCost: parent.plannedTotalCost,
+			plannedMaterialCost:
+				parent.plannedMaterialCost + materialChild.plannedMaterialCost,
+			plannedTotalCost:
+				parent.plannedTotalCost + materialChild.plannedTotalCost,
 			actualWorkCost: parent.actualWorkCost,
 			actualMaterialCost: parent.actualMaterialCost,
 			actualTotalCost: parent.actualTotalCost,
-			variance: parent.variance,
+			variance:
+				parent.plannedTotalCost +
+				materialChild.plannedTotalCost -
+				parent.actualTotalCost,
 		});
 	});
 });

@@ -134,30 +134,33 @@ const round = (value: number) => Number(value.toFixed(2));
 export function calculateForma2MoneyTotals(
 	rows: Forma2ResultRow[],
 ): Forma2MoneyTotals {
-	const totals = rows
+	const plannedTotals = rows.reduce(
+		(current, row) => ({
+			work: current.work + row.plannedWorkCost,
+			material: current.material + row.plannedMaterialCost,
+			total: current.total + row.plannedTotalCost,
+		}),
+		{ work: 0, material: 0, total: 0 },
+	);
+	const actualTotals = rows
 		.filter((row) => !row.parentId)
-		.reduce<Forma2MoneyTotals>(
+		.reduce(
 			(current, row) => ({
-				plannedWorkCost: current.plannedWorkCost + row.plannedWorkCost,
-				plannedMaterialCost:
-					current.plannedMaterialCost + row.plannedMaterialCost,
-				plannedTotalCost: current.plannedTotalCost + row.plannedTotalCost,
-				actualWorkCost: current.actualWorkCost + row.actualWorkCost,
-				actualMaterialCost:
-					current.actualMaterialCost + row.actualMaterialCost,
-				actualTotalCost: current.actualTotalCost + row.actualTotalCost,
-				variance: current.variance + row.variance,
+				work: current.work + row.actualWorkCost,
+				material: current.material + row.actualMaterialCost,
+				total: current.total + row.actualTotalCost,
 			}),
-			{
-				plannedWorkCost: 0,
-				plannedMaterialCost: 0,
-				plannedTotalCost: 0,
-				actualWorkCost: 0,
-				actualMaterialCost: 0,
-				actualTotalCost: 0,
-				variance: 0,
-			},
+			{ work: 0, material: 0, total: 0 },
 		);
+	const totals: Forma2MoneyTotals = {
+		plannedWorkCost: plannedTotals.work,
+		plannedMaterialCost: plannedTotals.material,
+		plannedTotalCost: plannedTotals.total,
+		actualWorkCost: actualTotals.work,
+		actualMaterialCost: actualTotals.material,
+		actualTotalCost: actualTotals.total,
+		variance: plannedTotals.total - actualTotals.total,
+	};
 
 	return Object.fromEntries(
 		Object.entries(totals).map(([key, value]) => [key, round(value)]),
@@ -653,9 +656,10 @@ export function buildForma2AnalyticsView(args: {
 		(sum, row) => sum + Number(row.actualCost ?? 0),
 		0,
 	);
-	const plannedCost = args.positions
-		.filter((position) => !position.parentId)
-		.reduce((sum, position) => sum + position.plannedTotalCost, 0);
+	const plannedCost = args.positions.reduce(
+		(sum, position) => sum + position.plannedTotalCost,
+		0,
+	);
 
 	return {
 		summary: {

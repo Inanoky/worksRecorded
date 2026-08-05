@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { getDefaultConstructionForma2Results } from "@/flows/default-construction/backend/forma2-analytics-actions";
 import { DefaultConstructionForma2CostBreakdown } from "@/flows/default-construction/frontend/DefaultConstructionForma2CostBreakdown";
+import { DefaultConstructionForma2Export } from "@/flows/default-construction/frontend/DefaultConstructionForma2Export";
 import { DefaultConstructionForma2Import } from "@/flows/default-construction/frontend/DefaultConstructionForma2Import";
 import {
 	calculateForma2MoneyTotals,
@@ -454,9 +455,17 @@ export default async function AnalyticsPage({
 			/>
 
 			<Card>
-				<CardHeader>
-					<CardTitle>{t.results}</CardTitle>
-					<CardDescription>{t.resultsDescription}</CardDescription>
+				<CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+					<div>
+						<CardTitle>{t.results}</CardTitle>
+						<CardDescription>{t.resultsDescription}</CardDescription>
+					</div>
+					<DefaultConstructionForma2Export
+						siteName={data.siteName}
+						document={data.document}
+						rows={data.resultRows as Forma2ResultRow[]}
+						organizationLanguage={organizationLanguage}
+					/>
 				</CardHeader>
 				<CardContent className="px-0">
 					<Forma2ResultsView
