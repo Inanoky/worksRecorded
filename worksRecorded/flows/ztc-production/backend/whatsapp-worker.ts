@@ -52,6 +52,7 @@ import {
   isZtcAdditionalWorkAttachedToDrawing,
   readZtcAdditionalWorkContext,
   resolveZtcAdditionalWorkOrigin,
+  shouldAttachZtcAdditionalWorkToElement,
   type ZtcAdditionalWorkContext,
   type ZtcAdditionalWorkOrigin,
 } from "@/flows/ztc-production/lib/ztc-additional-work-context";
@@ -2020,14 +2021,19 @@ async function getLatestZtcDrawingContext(worker: ZtcWorker) {
       workerId: worker.id,
       organizationId: context.organizationId,
       Location: { not: null },
-      Location_Custom_1: { not: null },
       Comments_Custom_2: { contains: "ztc_drawing_context" },
     },
     orderBy: [{ Date_Custom_1: "desc" }, { createdAt: "desc" }],
     take: 20,
   });
 
-  return selectLatestReusableZtcDrawingContext(candidates);
+  const selected = selectLatestReusableZtcDrawingContext(candidates);
+  if (!selected || selected.Location_Custom_1) return selected;
+
+  const elementName = parseZtcDrawingMetadata(selected.Comments_Custom_2)?.elements
+    .map((element) => String(element.elementName ?? "").trim())
+    .find(Boolean);
+  return elementName ? { ...selected, Location_Custom_1: elementName } : selected;
 }
 
 async function ensureSessionHasDrawingContext(args: {
@@ -2614,13 +2620,15 @@ async function completeSession(args: {
 
   let completionMessage = `Darbs pabeigts un saglabāts: ${formatSessionWork(updated) || "darbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.`;
   if (isAdditionalWork) {
-    const isPersistedInDrawingScope =
-      updated.Location !== "Papilddarbi" &&
-      Boolean(updated.Location) &&
-      Boolean(updated.Location_Custom_1);
-    const scopeMessage = isPersistedInDrawingScope
+    const isPersistedInProject =
+      updated.Location !== "Papilddarbi" && Boolean(updated.Location);
+    const isPersistedInElement =
+      isPersistedInProject && Boolean(updated.Location_Custom_1);
+    const scopeMessage = isPersistedInElement
       ? `Projekts: ${updated.Location ?? "-"}\nElements: ${updated.Location_Custom_1 ?? "-"}`
-      : "Uzskaite: atsevišķi, ārpus projekta un elementa.";
+      : isPersistedInProject
+        ? `Projekts: ${updated.Location ?? "-"}\nElements: nav piesaistīts.`
+        : "Uzskaite: atsevišķi, ārpus projekta un elementa.";
     completionMessage = `Papilddarbs pabeigts un saglabāts: ${updated.Works || "papilddarbs"}. Reģistrētais laiks: ${timeInvolved ?? 0} stundas.\n\n${scopeMessage}`;
 
     if (additionalWorkContext?.origin === "fresh_drawing") {
@@ -3350,7 +3358,7 @@ async function handleDrawingPhoto(args: {
 
   await sendZtcMessage(
     to,
-    `Rasējums pieņemts.\nProjekts: ${canonicalExtraction.projectName}\nElementa numurs: ${canonicalExtraction.elementName}\nPlatība: ${canonicalExtraction.totalAreaM2} m2\nDarbi:\n${formatExtractedWorksForMessage(canonicalExtraction)}\n\nTagad atsūtiet balss ziņu vai tekstu ar darbu, ko sākat darīt. Ja tagad sāksiet papilddarbu, tas tiks piesaistīts šim projektam un elementam.`,
+    `Rasējums pieņemts.\nProjekts: ${canonicalExtraction.projectName}\nElementa numurs: ${canonicalExtraction.elementName}\nPlatība: ${canonicalExtraction.totalAreaM2} m2\nDarbi:\n${formatExtractedWorksForMessage(canonicalExtraction)}\n\nTagad atsūtiet balss ziņu vai tekstu ar darbu, ko sākat darīt. Ja tagad sāksiet papilddarbu, tas tiks piesaistīts šim projektam. Elementam tas tiks piesaistīts tikai tad, ja papilddarba likmei Darbu likmēs ir atzīmēta elementa piesaiste.`,
   );
 }
 
@@ -3425,8 +3433,6 @@ async function createAdditionalWorkSession(args: {
   const shouldAttachToProject =
     isZtcAdditionalWorkAttachedToDrawing(additionalWorkContext) &&
     Boolean(drawingContext?.Location);
-  const shouldAttachToElement =
-    shouldAttachToProject && Boolean(drawingContext?.Location_Custom_1);
   const entityMatch = await matchZtcCanonicalEntities({
     siteId: context.siteId,
     rawProjectName: shouldAttachToProject ? drawingContext?.Location : null,
@@ -3449,6 +3455,13 @@ async function createAdditionalWorkSession(args: {
     ));
   const mappedWorkOption = defaultRateMatch?.task?.trim() || workOption;
   const relatesToElement = defaultRateMatch?.relatesToElement === true;
+  const shouldAttachToElement =
+    shouldAttachToProject &&
+    shouldAttachZtcAdditionalWorkToElement({
+      context: additionalWorkContext,
+      relatesToElement,
+      elementName: drawingContext?.Location_Custom_1,
+    });
   const elementAreaM2 =
     shouldAttachToElement && drawingContext
       ? getSessionElementAreaM2(drawingContext)
@@ -3519,9 +3532,7 @@ async function createAdditionalWorkSession(args: {
       projectName: shouldAttachToProject ? canonicalProjectName : null,
       elementName: shouldAttachToElement
         ? drawingContext?.Location_Custom_1
-        : shouldAttachToProject
-          ? "Papilddarbi"
-          : null,
+        : null,
       elementAreaM2,
       configuredUnit: defaultRateMatch?.unit ?? "st",
       reportedUnit: work.units,
@@ -3654,15 +3665,27 @@ async function handleWorkText(args: {
     const startedWorkName = String(
       additionalWorkSession.Works || work.workOption || work.additionalWorkDescription || "",
     ).trim();
-    const attachedToDrawing =
+    const attachedToProject =
       additionalWorkSession.Location !== "Papilddarbi" &&
+      Boolean(additionalWorkSession.Location);
+    const attachedToElement =
+      attachedToProject &&
       Boolean(additionalWorkSession.Location_Custom_1);
-    const scopeMessage = attachedToDrawing
+    const scopeMessage = attachedToElement
       ? `Uzskaite:\nProjekts: ${additionalWorkSession.Location}\nElements: ${additionalWorkSession.Location_Custom_1}`
-      : "Uzskaite: atsevišķi, ārpus projekta un elementa.";
+      : attachedToProject
+        ? `Uzskaite:\nProjekts: ${additionalWorkSession.Location}\nElements: nav piesaistīts.`
+        : "Uzskaite: atsevišķi, ārpus projekta un elementa.";
     let contextMessage = "";
-    if (additionalWorkResult.context.origin === "fresh_drawing" && attachedToDrawing) {
-      contextMessage = "\n\nPapilddarbs ir piesaistīts tikko iesūtītajam rasējumam.";
+    if (additionalWorkResult.context.origin === "fresh_drawing" && attachedToElement) {
+      contextMessage =
+        "\n\nPapilddarbs ir piesaistīts tikko iesūtītā rasējuma projektam un elementam.";
+    } else if (
+      additionalWorkResult.context.origin === "fresh_drawing" &&
+      attachedToProject
+    ) {
+      contextMessage =
+        "\n\nPapilddarbs ir piesaistīts tikko iesūtītā rasējuma projektam, bet ne elementam.";
     } else if (
       additionalWorkResult.context.origin === "active_drawing" &&
       drawingContext?.Works

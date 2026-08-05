@@ -94,6 +94,18 @@ export function isZtcAdditionalWorkAttachedToDrawing(
   );
 }
 
+export function shouldAttachZtcAdditionalWorkToElement(args: {
+  context: ZtcAdditionalWorkContext | null | undefined;
+  relatesToElement: boolean;
+  elementName: unknown;
+}) {
+  return (
+    isZtcAdditionalWorkAttachedToDrawing(args.context) &&
+    args.relatesToElement &&
+    Boolean(String(args.elementName ?? "").trim())
+  );
+}
+
 export function shouldReuseZtcDrawingContextFromAdditionalWork(
   context: ZtcAdditionalWorkContext | null | undefined,
 ) {

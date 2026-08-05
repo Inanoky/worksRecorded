@@ -3,6 +3,7 @@ import {
   isZtcAdditionalWorkAttachedToDrawing,
   readZtcAdditionalWorkContext,
   resolveZtcAdditionalWorkOrigin,
+  shouldAttachZtcAdditionalWorkToElement,
   type ZtcAdditionalWorkContext,
 } from "@/flows/ztc-production/lib/ztc-additional-work-context";
 
@@ -27,6 +28,50 @@ describe("resolveZtcAdditionalWorkOrigin", () => {
     ],
   ] as const)("resolves %p to %s", (state, expected) => {
     expect(resolveZtcAdditionalWorkOrigin(state)).toBe(expected);
+  });
+});
+
+describe("shouldAttachZtcAdditionalWorkToElement", () => {
+  const context: ZtcAdditionalWorkContext = {
+    origin: "fresh_drawing",
+    parentSessionId: null,
+    parentWork: null,
+    parentProject: "Project RD",
+    parentElement: "2S-08",
+  };
+
+  it("requires the Darba likmes element checkbox", () => {
+    expect(
+      shouldAttachZtcAdditionalWorkToElement({
+        context,
+        relatesToElement: false,
+        elementName: "2S-08",
+      }),
+    ).toBe(false);
+    expect(
+      shouldAttachZtcAdditionalWorkToElement({
+        context,
+        relatesToElement: true,
+        elementName: "2S-08",
+      }),
+    ).toBe(true);
+  });
+
+  it("does not attach standalone or elementless work", () => {
+    expect(
+      shouldAttachZtcAdditionalWorkToElement({
+        context: { ...context, origin: "standalone" },
+        relatesToElement: true,
+        elementName: "2S-08",
+      }),
+    ).toBe(false);
+    expect(
+      shouldAttachZtcAdditionalWorkToElement({
+        context,
+        relatesToElement: true,
+        elementName: null,
+      }),
+    ).toBe(false);
   });
 });
 
