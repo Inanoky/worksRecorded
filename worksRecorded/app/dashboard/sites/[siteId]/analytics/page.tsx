@@ -1,5 +1,4 @@
 import { Fragment } from "react";
-import { Badge } from "@/components/ui/badge";
 import {
 	Card,
 	CardContent,
@@ -98,49 +97,6 @@ function Forma2TotalsRow({
 	);
 }
 
-function Forma2MobileTotals({
-	totals,
-	t,
-	locale,
-}: {
-	totals: Forma2MoneyTotals;
-	t: Forma2AnalyticsCopy;
-	locale: string;
-}) {
-	const metrics = [
-		{ label: t.plannedWork, value: totals.plannedWorkCost },
-		{ label: t.plannedMaterials, value: totals.plannedMaterialCost },
-		{ label: t.plannedTotal, value: totals.plannedTotalCost },
-		{ label: t.actualWork, value: totals.actualWorkCost },
-		{ label: t.actualMaterials, value: totals.actualMaterialCost },
-		{ label: t.actualTotal, value: totals.actualTotalCost },
-		{ label: t.remaining, value: totals.variance, isRemaining: true },
-	];
-
-	return (
-		<div className="bg-muted/80 px-4 py-4">
-			<div className="mb-3 text-sm font-bold">{t.total}</div>
-			<div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-				{metrics.map((metric) => (
-					<div key={metric.label} className="min-w-0">
-						<div className="text-[10px] uppercase leading-tight text-muted-foreground">
-							{metric.label}
-						</div>
-						<div
-							className={cn(
-								"mt-1 text-sm font-bold tabular-nums",
-								metric.isRemaining && metric.value < 0 && "text-red-600",
-							)}
-						>
-							{formatCurrency(metric.value, locale)}
-						</div>
-					</div>
-				))}
-			</div>
-		</div>
-	);
-}
-
 function Forma2ResultsView({
 	siteId,
 	rows,
@@ -164,283 +120,178 @@ function Forma2ResultsView({
 	const totals = calculateForma2MoneyTotals(rows);
 
 	return (
-		<>
-			<div className="hidden border-y lg:block">
-				<Table className="table-fixed text-[10px] xl:text-[11px]">
-					<colgroup>
-						<col className="w-[25%]" />
-						<col className="w-[5%]" />
-						<col className="w-[7%]" />
-						<col className="w-[9%]" />
-						<col className="w-[9%]" />
-						<col className="w-[9%]" />
-						<col className="w-[9%]" />
-						<col className="w-[9%]" />
-						<col className="w-[9%]" />
-						<col className="w-[9%]" />
-					</colgroup>
-					<TableHeader>
-						<TableRow>
-							<TableHead
-								rowSpan={2}
-								className="h-auto whitespace-normal py-2 pl-4 leading-tight"
-							>
-								{t.codeAndName}
-							</TableHead>
-							<TableHead
-								rowSpan={2}
-								className="h-auto whitespace-normal px-1 py-2 leading-tight"
-							>
-								{t.unit}
-							</TableHead>
-							<TableHead
-								rowSpan={2}
-								className="h-auto whitespace-normal px-1 py-2 text-right leading-tight"
-							>
-								{t.contractQuantity}
-							</TableHead>
-							<TableHead
-								colSpan={3}
-								className="h-auto border-l py-2 text-center leading-tight"
-							>
-								{t.planned}
-							</TableHead>
-							<TableHead
-								colSpan={3}
-								className="h-auto border-l py-2 text-center leading-tight"
-							>
-								{t.factual}
-							</TableHead>
-							<TableHead
-								rowSpan={2}
-								className="h-auto whitespace-normal border-l px-1 py-2 pr-4 text-right leading-tight"
-							>
-								{t.remaining}
-							</TableHead>
-						</TableRow>
-						<TableRow>
-							<TableHead className="h-auto whitespace-normal border-l px-1 py-2 text-right leading-tight">
-								{t.work}
-							</TableHead>
-							<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
-								{t.material}
-							</TableHead>
-							<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
-								{t.plannedTotal}
-							</TableHead>
-							<TableHead className="h-auto whitespace-normal border-l px-1 py-2 text-right leading-tight">
-								{t.work}
-							</TableHead>
-							<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
-								{t.material}
-							</TableHead>
-							<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
-								{t.actualTotal}
-							</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						<Forma2TotalsRow totals={totals} t={t} locale={locale} />
-						{rows.map((row, index) => {
-							const previous = rows[index - 1];
-							const showCategory =
-								!previous || previous.categoryCode !== row.categoryCode;
-							return (
-								<Fragment key={row.id}>
-									{showCategory && (row.categoryCode || row.categoryName) ? (
-										<TableRow className="bg-muted/60">
-											<TableCell
-												colSpan={10}
-												className="whitespace-normal pl-4 font-semibold"
-											>
-												{[row.categoryCode, row.categoryName]
-													.filter(Boolean)
-													.join(" ")}
-											</TableCell>
-										</TableRow>
-									) : null}
-									<TableRow>
+		<div className="border-y">
+			<Table className="min-w-[1180px] table-fixed text-[10px] xl:text-[11px]">
+				<colgroup>
+					<col className="w-[25%]" />
+					<col className="w-[5%]" />
+					<col className="w-[7%]" />
+					<col className="w-[9%]" />
+					<col className="w-[9%]" />
+					<col className="w-[9%]" />
+					<col className="w-[9%]" />
+					<col className="w-[9%]" />
+					<col className="w-[9%]" />
+					<col className="w-[9%]" />
+				</colgroup>
+				<TableHeader>
+					<TableRow>
+						<TableHead
+							rowSpan={2}
+							className="h-auto whitespace-normal py-2 pl-4 leading-tight"
+						>
+							{t.codeAndName}
+						</TableHead>
+						<TableHead
+							rowSpan={2}
+							className="h-auto whitespace-normal px-1 py-2 leading-tight"
+						>
+							{t.unit}
+						</TableHead>
+						<TableHead
+							rowSpan={2}
+							className="h-auto whitespace-normal px-1 py-2 text-right leading-tight"
+						>
+							{t.contractQuantity}
+						</TableHead>
+						<TableHead
+							colSpan={3}
+							className="h-auto border-l py-2 text-center leading-tight"
+						>
+							{t.planned}
+						</TableHead>
+						<TableHead
+							colSpan={3}
+							className="h-auto border-l py-2 text-center leading-tight"
+						>
+							{t.factual}
+						</TableHead>
+						<TableHead
+							rowSpan={2}
+							className="h-auto whitespace-normal border-l px-1 py-2 pr-4 text-right leading-tight"
+						>
+							{t.remaining}
+						</TableHead>
+					</TableRow>
+					<TableRow>
+						<TableHead className="h-auto whitespace-normal border-l px-1 py-2 text-right leading-tight">
+							{t.work}
+						</TableHead>
+						<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
+							{t.material}
+						</TableHead>
+						<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
+							{t.plannedTotal}
+						</TableHead>
+						<TableHead className="h-auto whitespace-normal border-l px-1 py-2 text-right leading-tight">
+							{t.work}
+						</TableHead>
+						<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
+							{t.material}
+						</TableHead>
+						<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
+							{t.actualTotal}
+						</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					<Forma2TotalsRow totals={totals} t={t} locale={locale} />
+					{rows.map((row, index) => {
+						const previous = rows[index - 1];
+						const showCategory =
+							!previous || previous.categoryCode !== row.categoryCode;
+						return (
+							<Fragment key={row.id}>
+								{showCategory && (row.categoryCode || row.categoryName) ? (
+									<TableRow className="bg-muted/60">
 										<TableCell
-											className={cn(
-												"whitespace-normal break-words py-2 pl-4 leading-snug",
-												row.parentId ? "text-muted-foreground" : "font-medium",
-											)}
+											colSpan={10}
+											className="whitespace-normal pl-4 font-semibold"
 										>
-											<div className="flex items-start justify-between gap-2">
-												<div className={row.parentId ? "pl-3" : ""}>
-													{row.parentId ? "↳ " : ""}
-													{row.code ? `${row.code} ` : ""}
-													{row.name}
-												</div>
-												<DefaultConstructionForma2ContractEditor
-													siteId={siteId}
-													row={row}
-													organizationLanguage={organizationLanguage}
-												/>
-											</div>
-										</TableCell>
-										<TableCell className="whitespace-normal px-1">
-											{row.unit || "—"}
-										</TableCell>
-										<TableCell className="px-1 text-right tabular-nums">
-											{formatNumber(row.plannedQuantity, locale)}
-										</TableCell>
-										<TableCell className="border-l px-1 text-right tabular-nums">
-											{formatCurrency(row.plannedWorkCost, locale)}
-										</TableCell>
-										<TableCell className="px-1 text-right tabular-nums">
-											{formatCurrency(row.plannedMaterialCost, locale)}
-										</TableCell>
-										<TableCell className="px-1 text-right font-medium tabular-nums">
-											{formatCurrency(row.plannedTotalCost, locale)}
-										</TableCell>
-										<TableCell className="border-l px-1 text-right tabular-nums">
-											<DefaultConstructionForma2CostBreakdown
-												siteId={siteId}
-												positionId={row.id}
-												costType="work"
-												amount={row.actualWorkCost}
-												organizationLanguage={organizationLanguage}
-											/>
-										</TableCell>
-										<TableCell className="px-1 text-right tabular-nums">
-											<DefaultConstructionForma2CostBreakdown
-												siteId={siteId}
-												positionId={row.id}
-												costType="material"
-												amount={row.actualMaterialCost}
-												organizationLanguage={organizationLanguage}
-											/>
-										</TableCell>
-										<TableCell className="px-1 text-right font-medium tabular-nums">
-											<DefaultConstructionForma2CostBreakdown
-												siteId={siteId}
-												positionId={row.id}
-												costType="total"
-												amount={row.actualTotalCost}
-												organizationLanguage={organizationLanguage}
-											/>
-										</TableCell>
-										<TableCell
-											className={cn(
-												"border-l px-1 pr-4 text-right font-medium tabular-nums",
-												row.variance < 0 && "text-red-600",
-											)}
-										>
-											{formatCurrency(row.variance, locale)}
+											{[row.categoryCode, row.categoryName]
+												.filter(Boolean)
+												.join(" ")}
 										</TableCell>
 									</TableRow>
-								</Fragment>
-							);
-						})}
-						<Forma2TotalsRow totals={totals} t={t} locale={locale} />
-					</TableBody>
-				</Table>
-			</div>
-
-			<div className="divide-y border-y lg:hidden">
-				<Forma2MobileTotals totals={totals} t={t} locale={locale} />
-				{rows.map((row, index) => {
-					const previous = rows[index - 1];
-					const showCategory =
-						!previous || previous.categoryCode !== row.categoryCode;
-					return (
-						<Fragment key={row.id}>
-							{showCategory && (row.categoryCode || row.categoryName) ? (
-								<div className="bg-muted/60 px-4 py-2 text-xs font-semibold">
-									{[row.categoryCode, row.categoryName]
-										.filter(Boolean)
-										.join(" ")}
-								</div>
-							) : null}
-							<div className="space-y-3 px-4 py-4">
-								<div className="flex items-start justify-between gap-2">
-									<div
+								) : null}
+								<TableRow>
+									<TableCell
 										className={cn(
-											"text-sm leading-snug",
-											row.parentId
-												? "pl-3 text-muted-foreground"
-												: "font-medium",
+											"whitespace-normal break-words py-2 pl-4 leading-snug",
+											row.parentId ? "text-muted-foreground" : "font-medium",
 										)}
 									>
-										{row.parentId ? "↳ " : ""}
-										{row.code ? `${row.code} ` : ""}
-										{row.name}
-									</div>
-									<DefaultConstructionForma2ContractEditor
-										siteId={siteId}
-										row={row}
-										organizationLanguage={organizationLanguage}
-									/>
-								</div>
-								<div className="flex flex-wrap gap-2">
-									<Badge variant="outline">
-										{t.unit}: {row.unit || "—"}
-									</Badge>
-									<Badge variant="outline">
-										{t.contractQuantity}:{" "}
-										{formatNumber(row.plannedQuantity, locale)}
-									</Badge>
-								</div>
-								<div className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
-									{[
-										{ label: t.plannedWork, value: row.plannedWorkCost },
-										{
-											label: t.plannedMaterials,
-											value: row.plannedMaterialCost,
-										},
-										{ label: t.plannedTotal, value: row.plannedTotalCost },
-										{
-											label: t.actualWork,
-											value: row.actualWorkCost,
-											costType: "work" as const,
-										},
-										{
-											label: t.actualMaterials,
-											value: row.actualMaterialCost,
-											costType: "material" as const,
-										},
-										{
-											label: t.actualTotal,
-											value: row.actualTotalCost,
-											costType: "total" as const,
-										},
-										{ label: t.remaining, value: row.variance },
-									].map((metric) => (
-										<div key={metric.label} className="min-w-0">
-											<div className="text-[10px] uppercase leading-tight text-muted-foreground">
-												{metric.label}
+										<div className="flex items-start justify-between gap-2">
+											<div className={row.parentId ? "pl-3" : ""}>
+												{row.parentId ? "↳ " : ""}
+												{row.code ? `${row.code} ` : ""}
+												{row.name}
 											</div>
-											<div
-												className={cn(
-													"mt-1 text-sm font-medium tabular-nums",
-													metric.label === t.remaining &&
-														row.variance < 0 &&
-														"text-red-600",
-												)}
-											>
-												{metric.costType ? (
-													<DefaultConstructionForma2CostBreakdown
-														siteId={siteId}
-														positionId={row.id}
-														costType={metric.costType}
-														amount={metric.value}
-														organizationLanguage={organizationLanguage}
-													/>
-												) : (
-													formatCurrency(metric.value, locale)
-												)}
-											</div>
+											<DefaultConstructionForma2ContractEditor
+												siteId={siteId}
+												row={row}
+												organizationLanguage={organizationLanguage}
+											/>
 										</div>
-									))}
-								</div>
-							</div>
-						</Fragment>
-					);
-				})}
-				<Forma2MobileTotals totals={totals} t={t} locale={locale} />
-			</div>
-		</>
+									</TableCell>
+									<TableCell className="whitespace-normal px-1">
+										{row.unit || "—"}
+									</TableCell>
+									<TableCell className="px-1 text-right tabular-nums">
+										{formatNumber(row.plannedQuantity, locale)}
+									</TableCell>
+									<TableCell className="border-l px-1 text-right tabular-nums">
+										{formatCurrency(row.plannedWorkCost, locale)}
+									</TableCell>
+									<TableCell className="px-1 text-right tabular-nums">
+										{formatCurrency(row.plannedMaterialCost, locale)}
+									</TableCell>
+									<TableCell className="px-1 text-right font-medium tabular-nums">
+										{formatCurrency(row.plannedTotalCost, locale)}
+									</TableCell>
+									<TableCell className="border-l px-1 text-right tabular-nums">
+										<DefaultConstructionForma2CostBreakdown
+											siteId={siteId}
+											positionId={row.id}
+											costType="work"
+											amount={row.actualWorkCost}
+											organizationLanguage={organizationLanguage}
+										/>
+									</TableCell>
+									<TableCell className="px-1 text-right tabular-nums">
+										<DefaultConstructionForma2CostBreakdown
+											siteId={siteId}
+											positionId={row.id}
+											costType="material"
+											amount={row.actualMaterialCost}
+											organizationLanguage={organizationLanguage}
+										/>
+									</TableCell>
+									<TableCell className="px-1 text-right font-medium tabular-nums">
+										<DefaultConstructionForma2CostBreakdown
+											siteId={siteId}
+											positionId={row.id}
+											costType="total"
+											amount={row.actualTotalCost}
+											organizationLanguage={organizationLanguage}
+										/>
+									</TableCell>
+									<TableCell
+										className={cn(
+											"border-l px-1 pr-4 text-right font-medium tabular-nums",
+											row.variance < 0 && "text-red-600",
+										)}
+									>
+										{formatCurrency(row.variance, locale)}
+									</TableCell>
+								</TableRow>
+							</Fragment>
+						);
+					})}
+					<Forma2TotalsRow totals={totals} t={t} locale={locale} />
+				</TableBody>
+			</Table>
+		</div>
 	);
 }
 
