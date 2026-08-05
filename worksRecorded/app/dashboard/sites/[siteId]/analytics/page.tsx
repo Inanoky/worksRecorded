@@ -7,7 +7,6 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import {
-	Table,
 	TableBody,
 	TableCell,
 	TableHead,
@@ -19,6 +18,7 @@ import { DefaultConstructionForma2ContractEditor } from "@/flows/default-constru
 import { DefaultConstructionForma2CostBreakdown } from "@/flows/default-construction/frontend/DefaultConstructionForma2CostBreakdown";
 import { DefaultConstructionForma2Export } from "@/flows/default-construction/frontend/DefaultConstructionForma2Export";
 import { DefaultConstructionForma2Import } from "@/flows/default-construction/frontend/DefaultConstructionForma2Import";
+import { DefaultConstructionForma2TableScroll } from "@/flows/default-construction/frontend/DefaultConstructionForma2TableScroll";
 import {
 	calculateForma2MoneyTotals,
 	type Forma2MoneyTotals,
@@ -120,8 +120,11 @@ function Forma2ResultsView({
 	const totals = calculateForma2MoneyTotals(rows);
 
 	return (
-		<div className="border-y">
-			<Table className="min-w-[1180px] table-fixed text-[10px] xl:text-[11px]">
+		<DefaultConstructionForma2TableScroll
+			label={t.horizontalScroll}
+			className="border-y"
+		>
+			<table className="w-full min-w-[1180px] table-fixed caption-bottom text-[10px] xl:text-[11px]">
 				<colgroup>
 					<col className="w-[25%]" />
 					<col className="w-[5%]" />
@@ -290,8 +293,8 @@ function Forma2ResultsView({
 					})}
 					<Forma2TotalsRow totals={totals} t={t} locale={locale} />
 				</TableBody>
-			</Table>
-		</div>
+			</table>
+		</DefaultConstructionForma2TableScroll>
 	);
 }
 
