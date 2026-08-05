@@ -91,9 +91,11 @@ export type Forma2ResultRow = Forma2Position & {
 export type Forma2MoneyTotals = {
 	plannedWorkCost: number;
 	plannedMaterialCost: number;
+	plannedMechanismCost: number;
 	plannedTotalCost: number;
 	actualWorkCost: number;
 	actualMaterialCost: number;
+	actualMechanismCost: number;
 	actualTotalCost: number;
 	variance: number;
 };
@@ -138,9 +140,10 @@ export function calculateForma2MoneyTotals(
 		(current, row) => ({
 			work: current.work + row.plannedWorkCost,
 			material: current.material + row.plannedMaterialCost,
+			mechanism: current.mechanism + row.plannedMechanismCost,
 			total: current.total + row.plannedTotalCost,
 		}),
-		{ work: 0, material: 0, total: 0 },
+		{ work: 0, material: 0, mechanism: 0, total: 0 },
 	);
 	const actualTotals = rows
 		.filter((row) => !row.parentId)
@@ -148,16 +151,19 @@ export function calculateForma2MoneyTotals(
 			(current, row) => ({
 				work: current.work + row.actualWorkCost,
 				material: current.material + row.actualMaterialCost,
+				mechanism: current.mechanism + row.actualMechanismCost,
 				total: current.total + row.actualTotalCost,
 			}),
-			{ work: 0, material: 0, total: 0 },
+			{ work: 0, material: 0, mechanism: 0, total: 0 },
 		);
 	const totals: Forma2MoneyTotals = {
 		plannedWorkCost: plannedTotals.work,
 		plannedMaterialCost: plannedTotals.material,
+		plannedMechanismCost: plannedTotals.mechanism,
 		plannedTotalCost: plannedTotals.total,
 		actualWorkCost: actualTotals.work,
 		actualMaterialCost: actualTotals.material,
+		actualMechanismCost: actualTotals.mechanism,
 		actualTotalCost: actualTotals.total,
 		variance: plannedTotals.total - actualTotals.total,
 	};

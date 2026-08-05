@@ -74,6 +74,9 @@ function Forma2TotalsRow({
 				{formatCurrency(totals.plannedMaterialCost, locale)}
 			</TableCell>
 			<TableCell className="px-1 text-right font-bold tabular-nums">
+				{formatCurrency(totals.plannedMechanismCost, locale)}
+			</TableCell>
+			<TableCell className="px-1 text-right font-bold tabular-nums">
 				{formatCurrency(totals.plannedTotalCost, locale)}
 			</TableCell>
 			<TableCell className="border-l px-1 text-right font-bold tabular-nums">
@@ -81,6 +84,9 @@ function Forma2TotalsRow({
 			</TableCell>
 			<TableCell className="px-1 text-right font-bold tabular-nums">
 				{formatCurrency(totals.actualMaterialCost, locale)}
+			</TableCell>
+			<TableCell className="px-1 text-right font-bold tabular-nums">
+				{formatCurrency(totals.actualMechanismCost, locale)}
 			</TableCell>
 			<TableCell className="px-1 text-right font-bold tabular-nums">
 				{formatCurrency(totals.actualTotalCost, locale)}
@@ -124,18 +130,20 @@ function Forma2ResultsView({
 			label={t.horizontalScroll}
 			className="border-y"
 		>
-			<table className="w-full min-w-[1180px] table-fixed caption-bottom text-[10px] xl:text-[11px]">
+			<table className="w-full min-w-[1380px] table-fixed caption-bottom text-[10px] xl:text-[11px]">
 				<colgroup>
-					<col className="w-[25%]" />
+					<col className="w-[23%]" />
 					<col className="w-[5%]" />
+					<col className="w-[6%]" />
 					<col className="w-[7%]" />
-					<col className="w-[9%]" />
-					<col className="w-[9%]" />
-					<col className="w-[9%]" />
-					<col className="w-[9%]" />
-					<col className="w-[9%]" />
-					<col className="w-[9%]" />
-					<col className="w-[9%]" />
+					<col className="w-[7%]" />
+					<col className="w-[7%]" />
+					<col className="w-[7%]" />
+					<col className="w-[7%]" />
+					<col className="w-[7%]" />
+					<col className="w-[7%]" />
+					<col className="w-[7%]" />
+					<col className="w-[7%]" />
 				</colgroup>
 				<TableHeader>
 					<TableRow>
@@ -158,13 +166,13 @@ function Forma2ResultsView({
 							{t.contractQuantity}
 						</TableHead>
 						<TableHead
-							colSpan={3}
+							colSpan={4}
 							className="h-auto border-l py-2 text-center leading-tight"
 						>
 							{t.planned}
 						</TableHead>
 						<TableHead
-							colSpan={3}
+							colSpan={4}
 							className="h-auto border-l py-2 text-center leading-tight"
 						>
 							{t.factual}
@@ -184,6 +192,9 @@ function Forma2ResultsView({
 							{t.material}
 						</TableHead>
 						<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
+							{t.mechanism}
+						</TableHead>
+						<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
 							{t.plannedTotal}
 						</TableHead>
 						<TableHead className="h-auto whitespace-normal border-l px-1 py-2 text-right leading-tight">
@@ -191,6 +202,9 @@ function Forma2ResultsView({
 						</TableHead>
 						<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
 							{t.material}
+						</TableHead>
+						<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
+							{t.mechanism}
 						</TableHead>
 						<TableHead className="h-auto whitespace-normal px-1 py-2 text-right leading-tight">
 							{t.actualTotal}
@@ -208,7 +222,7 @@ function Forma2ResultsView({
 								{showCategory && (row.categoryCode || row.categoryName) ? (
 									<TableRow className="bg-muted/60">
 										<TableCell
-											colSpan={10}
+											colSpan={12}
 											className="whitespace-normal pl-4 font-semibold"
 										>
 											{[row.categoryCode, row.categoryName]
@@ -249,6 +263,9 @@ function Forma2ResultsView({
 									<TableCell className="px-1 text-right tabular-nums">
 										{formatCurrency(row.plannedMaterialCost, locale)}
 									</TableCell>
+									<TableCell className="px-1 text-right tabular-nums">
+										{formatCurrency(row.plannedMechanismCost, locale)}
+									</TableCell>
 									<TableCell className="px-1 text-right font-medium tabular-nums">
 										{formatCurrency(row.plannedTotalCost, locale)}
 									</TableCell>
@@ -269,6 +286,9 @@ function Forma2ResultsView({
 											amount={row.actualMaterialCost}
 											organizationLanguage={organizationLanguage}
 										/>
+									</TableCell>
+									<TableCell className="px-1 text-right tabular-nums">
+										{formatCurrency(row.actualMechanismCost, locale)}
 									</TableCell>
 									<TableCell className="px-1 text-right font-medium tabular-nums">
 										<DefaultConstructionForma2CostBreakdown

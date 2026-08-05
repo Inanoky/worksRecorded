@@ -62,9 +62,11 @@ export function DefaultConstructionForma2Export({
 				t.contractQuantity,
 				t.plannedWork,
 				t.plannedMaterials,
+				t.plannedMechanisms,
 				t.plannedTotal,
 				t.actualWork,
 				t.actualMaterials,
+				t.actualMechanisms,
 				t.actualTotal,
 				t.remaining,
 				t.recordsAssigned,
@@ -77,9 +79,11 @@ export function DefaultConstructionForma2Export({
 				row.plannedQuantity,
 				row.plannedWorkCost,
 				row.plannedMaterialCost,
+				row.plannedMechanismCost,
 				row.plannedTotalCost,
 				row.actualWorkCost,
 				row.actualMaterialCost,
+				row.actualMechanismCost,
 				row.actualTotalCost,
 				row.variance,
 				row.assignedRecords,
@@ -92,9 +96,11 @@ export function DefaultConstructionForma2Export({
 				null,
 				totals.plannedWorkCost,
 				totals.plannedMaterialCost,
+				totals.plannedMechanismCost,
 				totals.plannedTotalCost,
 				totals.actualWorkCost,
 				totals.actualMaterialCost,
+				totals.actualMechanismCost,
 				totals.actualTotalCost,
 				totals.variance,
 				assignedRecords,
@@ -118,7 +124,7 @@ export function DefaultConstructionForma2Export({
 				{ s: { r: 1, c: 0 }, e: { r: 1, c: headers.length - 1 } },
 			];
 			worksheet["!autofilter"] = {
-				ref: `A${headerRowIndex + 1}:M${totalRowIndex}`,
+				ref: `A${headerRowIndex + 1}:O${totalRowIndex}`,
 			};
 			worksheet["!cols"] = [
 				{ wch: 28 },
@@ -134,6 +140,8 @@ export function DefaultConstructionForma2Export({
 				{ wch: 18 },
 				{ wch: 18 },
 				{ wch: 18 },
+				{ wch: 18 },
+				{ wch: 18 },
 			];
 			for (
 				let rowIndex = firstDataRowIndex;
@@ -143,7 +151,7 @@ export function DefaultConstructionForma2Export({
 				const quantityCell =
 					worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: 4 })];
 				if (quantityCell) quantityCell.z = "0.00";
-				for (let columnIndex = 5; columnIndex <= 11; columnIndex += 1) {
+				for (let columnIndex = 5; columnIndex <= 13; columnIndex += 1) {
 					const cell =
 						worksheet[XLSX.utils.encode_cell({ r: rowIndex, c: columnIndex })];
 					if (cell) cell.z = "€ #,##0.00";

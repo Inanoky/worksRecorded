@@ -255,10 +255,12 @@ describe("Forma 2 analytics", () => {
 			plannedWorkCost: parent.plannedWorkCost,
 			plannedMaterialCost:
 				parent.plannedMaterialCost + materialChild.plannedMaterialCost,
+			plannedMechanismCost: parent.plannedMechanismCost,
 			plannedTotalCost:
 				parent.plannedTotalCost + materialChild.plannedTotalCost,
 			actualWorkCost: parent.actualWorkCost,
 			actualMaterialCost: parent.actualMaterialCost,
+			actualMechanismCost: 0,
 			actualTotalCost: parent.actualTotalCost,
 			variance:
 				parent.plannedTotalCost +
