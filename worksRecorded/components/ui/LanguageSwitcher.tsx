@@ -2,7 +2,6 @@
 
 import { useLocale } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
-import Image from "next/image";
 
 export default function LanguageSwitcher() {
   const locale = useLocale();
@@ -14,38 +13,27 @@ export default function LanguageSwitcher() {
     router.push(newPath);
   }
 
-  const base =
-    "opacity-50 hover:opacity-80 transition-opacity rounded-sm";
-  const active = "opacity-100";
+  const base = "rounded px-2 py-1 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground";
+  const active = "rounded bg-background px-2 py-1 text-xs font-semibold text-foreground shadow-sm";
 
   return (
-    <div className="inline-flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => switchTo("en")}
-        className={locale === "en" ? active : base}
-        aria-label="English"
-      >
-        <Image
-          src="/flags/gb.svg"
-          alt="English"
-          width={24}
-          height={16}
-        />
-      </button>
-
+    <div className="inline-flex items-center rounded-md border bg-muted/60 p-0.5" aria-label="Language">
       <button
         type="button"
         onClick={() => switchTo("lv")}
         className={locale === "lv" ? active : base}
         aria-label="Latviešu"
       >
-        <Image
-          src="/flags/lv.svg"
-          alt="Latvian"
-          width={24}
-          height={16}
-        />
+        LV
+      </button>
+
+      <button
+        type="button"
+        onClick={() => switchTo("en")}
+        className={locale === "en" ? active : base}
+        aria-label="English"
+      >
+        EN
       </button>
 
       <button
@@ -54,12 +42,7 @@ export default function LanguageSwitcher() {
         className={locale === "ru" ? active : base}
         aria-label="Русский"
       >
-        <Image
-          src="/flags/ru.svg"
-          alt="Русский"
-          width={24}
-          height={16}
-        />
+        RU
       </button>
     </div>
   );
