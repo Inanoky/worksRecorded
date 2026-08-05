@@ -1420,6 +1420,56 @@ export async function syncDefaultConstructionForma2WorkAssignments(args: {
 	return { syncedRecords: replacements.size };
 }
 
+export async function updateDefaultConstructionForma2ContractPosition(args: {
+	siteId: string;
+	positionId: string;
+	plannedQuantity: number | null;
+	plannedWorkCost: number;
+	plannedMaterialCost: number;
+	plannedMechanismCost: number;
+	plannedTotalCost: number;
+}) {
+	await requireDefaultConstructionSite(args.siteId);
+	const positionId = text(args.positionId, 180);
+	const plannedQuantity = nullableNumber(args.plannedQuantity);
+	if (
+		(args.plannedQuantity != null && plannedQuantity == null) ||
+		(plannedQuantity != null && plannedQuantity < 0)
+	) {
+		throw new Error("Contract quantity must be a non-negative number");
+	}
+	const contractValues = [
+		args.plannedWorkCost,
+		args.plannedMaterialCost,
+		args.plannedMechanismCost,
+		args.plannedTotalCost,
+	].map(nullableNumber);
+	if (contractValues.some((value) => value == null)) {
+		throw new Error("Contract costs must be valid numbers");
+	}
+	const state = await readStoredState(args.siteId);
+	if (!state.document) throw new Error("Import Forma 2 before editing it");
+	const positionIndex = state.document.positions.findIndex(
+		(position) => position.id === positionId,
+	);
+	if (positionIndex < 0) throw new Error("Forma 2 position was not found");
+	const positions = [...state.document.positions];
+	positions[positionIndex] = {
+		...positions[positionIndex],
+		plannedQuantity,
+		plannedWorkCost: contractValues[0] as number,
+		plannedMaterialCost: contractValues[1] as number,
+		plannedMechanismCost: contractValues[2] as number,
+		plannedTotalCost: contractValues[3] as number,
+	};
+	await writeStoredState(args.siteId, {
+		...state,
+		document: { ...state.document, positions },
+	});
+	revalidatePath(`/dashboard/sites/${args.siteId}/analytics`);
+	return { position: positions[positionIndex] };
+}
+
 export async function clearDefaultConstructionForma2Import(siteId: string) {
 	await requireDefaultConstructionSite(siteId);
 	const result = await prisma.$transaction(async (tx) => {

@@ -16,6 +16,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { getDefaultConstructionForma2Results } from "@/flows/default-construction/backend/forma2-analytics-actions";
+import { DefaultConstructionForma2ContractEditor } from "@/flows/default-construction/frontend/DefaultConstructionForma2ContractEditor";
 import { DefaultConstructionForma2CostBreakdown } from "@/flows/default-construction/frontend/DefaultConstructionForma2CostBreakdown";
 import { DefaultConstructionForma2Export } from "@/flows/default-construction/frontend/DefaultConstructionForma2Export";
 import { DefaultConstructionForma2Import } from "@/flows/default-construction/frontend/DefaultConstructionForma2Import";
@@ -265,10 +266,17 @@ function Forma2ResultsView({
 												row.parentId ? "text-muted-foreground" : "font-medium",
 											)}
 										>
-											<div className={row.parentId ? "pl-3" : ""}>
-												{row.parentId ? "↳ " : ""}
-												{row.code ? `${row.code} ` : ""}
-												{row.name}
+											<div className="flex items-start justify-between gap-2">
+												<div className={row.parentId ? "pl-3" : ""}>
+													{row.parentId ? "↳ " : ""}
+													{row.code ? `${row.code} ` : ""}
+													{row.name}
+												</div>
+												<DefaultConstructionForma2ContractEditor
+													siteId={siteId}
+													row={row}
+													organizationLanguage={organizationLanguage}
+												/>
 											</div>
 										</TableCell>
 										<TableCell className="whitespace-normal px-1">
@@ -346,15 +354,24 @@ function Forma2ResultsView({
 								</div>
 							) : null}
 							<div className="space-y-3 px-4 py-4">
-								<div
-									className={cn(
-										"text-sm leading-snug",
-										row.parentId ? "pl-3 text-muted-foreground" : "font-medium",
-									)}
-								>
-									{row.parentId ? "↳ " : ""}
-									{row.code ? `${row.code} ` : ""}
-									{row.name}
+								<div className="flex items-start justify-between gap-2">
+									<div
+										className={cn(
+											"text-sm leading-snug",
+											row.parentId
+												? "pl-3 text-muted-foreground"
+												: "font-medium",
+										)}
+									>
+										{row.parentId ? "↳ " : ""}
+										{row.code ? `${row.code} ` : ""}
+										{row.name}
+									</div>
+									<DefaultConstructionForma2ContractEditor
+										siteId={siteId}
+										row={row}
+										organizationLanguage={organizationLanguage}
+									/>
 								</div>
 								<div className="flex flex-wrap gap-2">
 									<Badge variant="outline">
