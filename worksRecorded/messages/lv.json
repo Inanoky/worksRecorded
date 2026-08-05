@@ -2,6 +2,7 @@
   "LandingPageDesktop": {
     "topPill": "Izstrādāts būvniecības apakšuzņēmējiem",
     "heroTitle": "Digitālais būvdarbu žurnāls ar BIS integrāciju",
+    "heroRotatingTitles": ["Būvdarbu uzskaite", "Ražošanas uzskaite", "Izmaksu kontrole"],
     "smallDescription": "Sūti balss ziņas — MI sakārto.",
     "startFreeTrial": "Pamēģināt bezmaksas",
     "signIn": "Uzdot jautājumu",

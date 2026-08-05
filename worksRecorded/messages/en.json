@@ -2,6 +2,7 @@
   "LandingPageDesktop": {
     "topPill": "Built for trade contractors & site managers",
     "heroTitle": "Digital construction site diary with BIS integration",
+    "heroRotatingTitles": ["Site records", "Production records", "Cost control"],
     "smallDescription": "Site managers record updates by voice and photos, automatically sorted and stored online.            Any language format",
     "startFreeTrial": "Try now",
     "signIn": "Talk to a live person",

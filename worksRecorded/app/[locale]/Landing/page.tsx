@@ -10,6 +10,7 @@ import BisLogo from "@/public/logos/bislogo.png";
 
 import { WhatDoWeDo, HowDoWeDoThat, Why } from "@/components/landing/Landing/Text";
 import { Logos } from "@/components/landing/Logos";
+import { RotatingHeadline } from "@/components/landing/RotatingHeadline";
 
 export default function LandingPage() {
   const t = useTranslations("LandingPageDesktop");
@@ -19,6 +20,7 @@ export default function LandingPage() {
     "https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
 
   const noCardNote = t("noCardNote");
+  const heroRotatingTitles = t.raw("heroRotatingTitles") as string[];
 
   const videoSrc =
     locale === "lv"
@@ -37,9 +39,7 @@ export default function LandingPage() {
             {t("topPill")}
           </span>
 
-          <h1 className="mt-5 text-4xl sm:text-5xl md:text-7xl font-semibold leading-[0.95] tracking-[-0.05em] text-slate-950 dark:text-white">
-            {t("heroTitle")}
-          </h1>
+          <RotatingHeadline items={heroRotatingTitles} />
 
           <p className="mt-5 text-sm sm:text-lg leading-7 text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
             {t("smallDescription")}
