@@ -4,16 +4,19 @@ import Image from "next/image";
 
 import { NavigationMenuMobile } from "./NavigationMenuMobile";
 import BisLogo from "@/public/logos/bislogo.png";
+import LanguageSwitcher from "../ui/LanguageSwitcher";
+import { useLocale, useTranslations } from "next-intl";
 
 export default function HeaderMobile() {
+  const locale = useLocale();
+  const header = useTranslations("Header");
+
   return (
-    <>
-      {/* This is parent container for the navigation */}
-      <div className="relative z-50 grid grid-cols-2 justify-between p-5">
+      <div className="relative z-50 flex items-center justify-between gap-2 p-4 sm:p-5">
         {/* Element 1 */}
         <div>
-          <Link href="/" className="flex flex-row items-center gap-3">
-            <h4 className="text-3xl">
+          <Link href={`/${locale}/Landing`} className="flex flex-row items-center gap-3">
+            <h4 className="text-2xl sm:text-3xl">
               Works<span className="text-primary">Recorded</span>
             </h4>
 
@@ -27,7 +30,7 @@ export default function HeaderMobile() {
 
               <div className="leading-tight">
                 <div className="text-[9px] font-medium uppercase tracking-wide text-slate-500">
-                  Integrēts ar
+                  {header("bisIntegrated")}
                 </div>
                 <div className="text-[11px] font-semibold text-slate-900">
                   BIS
@@ -38,10 +41,10 @@ export default function HeaderMobile() {
         </div>
 
         {/* Element 2 */}
-        <div className="flex col-span-2 col-start-2 justify-end items-center">
+        <div className="flex shrink-0 items-center justify-end gap-1">
+          <LanguageSwitcher />
           <NavigationMenuMobile />
         </div>
       </div>
-    </>
   );
 }

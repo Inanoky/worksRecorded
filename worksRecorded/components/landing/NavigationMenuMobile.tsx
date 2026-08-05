@@ -32,7 +32,7 @@ export function NavigationMenuMobile() {
 
   const withLocale = (href: string) => {
     if (/^https?:\/\//.test(href)) return href;
-    if (/^\/(en|lv)(\/|$)/.test(href)) return href;
+    if (/^\/(en|lv|ru)(\/|$)/.test(href)) return href;
     return `/${locale}${href.startsWith("/") ? href : `/${href}`}`;
   };
 

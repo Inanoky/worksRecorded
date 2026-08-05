@@ -8,6 +8,8 @@
     "signIn": "Talk to a live person",
     "noCardNote": "No credit card",
     "heroImageAlt": "worksRecorded hero preview",
+    "videoTitle": "WorksRecorded demo",
+    "videoCaption": "1-minute walkthrough - how WhatsApp updates become a structured site diary.",
 
     "section2Pill": "For building contractors, MEP, energy and utilities",
     "section2Title": "Send voice notes through WhatsApp — AI organizes them",
@@ -340,6 +342,26 @@
     "signIn": "Sign in",
     "signUp": "Sign up",
     "tryForFree": "Try for free"
+  },
+
+  "Header": {
+    "bisIntegrated": "Integrated with"
+  },
+
+  "Footer": {
+    "data": "Data",
+    "siteDiary": "Site diary",
+    "timesheets": "Timesheets",
+    "analytics": "Analytics",
+    "features": "Features",
+    "custom": "Custom digital solutions",
+    "pricing": "Pricing",
+    "about": "About",
+    "privacy": "Privacy policy",
+    "contact": "Contact",
+    "contactHelp": "Contact us about a demo or any questions.",
+    "phone": "tel. +371 24885690",
+    "rights": "All rights reserved. WorksRecorded is a product of Buvconsult SIA, Latvia"
   }
 
 }

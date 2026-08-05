@@ -49,7 +49,7 @@ export default function LandingPage() {
             <Link href={calendlyDemoUrl} target="_blank" rel="noopener noreferrer">
               <Button
                 size="lg"
-                className="h-12 w-56 rounded-2xl border border-yellow-400 bg-yellow-400 px-8 text-base font-semibold text-slate-950 shadow-xl shadow-yellow-500/20 hover:bg-yellow-300"
+                className="h-12 min-w-56 rounded-2xl border border-yellow-400 bg-yellow-400 px-6 text-base font-semibold text-slate-950 shadow-xl shadow-yellow-500/20 hover:bg-yellow-300"
               >
                 {t("bookDemo")}
               </Button>
@@ -85,7 +85,7 @@ export default function LandingPage() {
               <iframe
                 className="absolute inset-0 h-full w-full"
                 src={videoSrc}
-                title="WorksRecorded demo"
+                title={t("videoTitle")}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
                 loading="lazy"
@@ -95,8 +95,7 @@ export default function LandingPage() {
           </div>
 
           <p className="mt-4 text-xs text-slate-500 dark:text-slate-400 text-center">
-            1-minute walkthrough — how WhatsApp updates become a structured site
-            diary.
+            {t("videoCaption")}
           </p>
         </div>
       </section>

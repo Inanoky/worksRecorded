@@ -7,27 +7,25 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 export default function FooterDesktop() {
   const locale = useLocale();
-  const isLatvian = locale === "lv";
+  const t = useTranslations("Footer");
   const labels = {
-    data: isLatvian ? "Dati" : "Data",
-    siteDiary: isLatvian ? "Būvdarbu žurnāls" : "Site diary",
-    timesheets: isLatvian ? "Darba laika uzskaite" : "Timesheets",
-    analytics: isLatvian ? "Analītika" : "Analytics",
-    features: isLatvian ? "Iespējas" : "Features",
-    custom: isLatvian ? "Pielāgoti digitālie risinājumi" : "Custom Digital Solutions",
-    pricing: isLatvian ? "Cenas" : "Pricing",
-    about: isLatvian ? "Par mums" : "About",
-    privacy: isLatvian ? "Privātuma politika" : "Privacy Policy",
-    contact: isLatvian ? "Kontakti" : "Contact",
-    contactHelp: isLatvian ? "Sazinieties par demo vai jautājumiem." : "Contact us anytime!",
-    phone: isLatvian ? "tālr. +371 24885690" : "tel. +371 24885690",
-    rights: isLatvian
-      ? "Visas tiesības aizsargātas. WorksRecorded ir Buvconsult SIA produkts, Latvija"
-      : "All rights reserved. WorksRecorded is a product of Buvconsult SIA, Latvia",
+    data: t("data"),
+    siteDiary: t("siteDiary"),
+    timesheets: t("timesheets"),
+    analytics: t("analytics"),
+    features: t("features"),
+    custom: t("custom"),
+    pricing: t("pricing"),
+    about: t("about"),
+    privacy: t("privacy"),
+    contact: t("contact"),
+    contactHelp: t("contactHelp"),
+    phone: t("phone"),
+    rights: t("rights"),
   };
 
   return (

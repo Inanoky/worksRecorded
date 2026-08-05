@@ -25,7 +25,7 @@ const dashboardMiddleware = withAuth(
 );
 
 const intlMiddleware = createIntlMiddleware({
-  locales: ["lv", "en"],
+  locales: ["lv", "en", "ru"],
   defaultLocale: "lv",
 });
 
@@ -60,5 +60,5 @@ export default function middleware(req: NextRequest) {
 
 
 export const config = {
-  matcher: ["/", "/(en|lv)/:path*", "/dashboard/:path*"],
+  matcher: ["/", "/(en|lv|ru)/:path*", "/dashboard/:path*"],
 };

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.worksrecorded.com";
 const DEFAULT_IMAGE = "/hero.png";
 
-type SupportedLocale = "en" | "lv";
+type SupportedLocale = "en" | "lv" | "ru";
 
 type SeoContent = {
   title: string;
@@ -14,6 +14,7 @@ type SeoContent = {
 const localeConfig: Record<SupportedLocale, { ogLocale: string; language: string }> = {
   en: { ogLocale: "en_US", language: "en-US" },
   lv: { ogLocale: "lv_LV", language: "lv-LV" },
+  ru: { ogLocale: "ru_RU", language: "ru-RU" },
 };
 
 const latvianLandingSeo: Record<string, SeoContent> = {
@@ -155,8 +156,140 @@ const latvianLandingSeo: Record<string, SeoContent> = {
   },
 };
 
+const russianLandingSeo: Record<string, SeoContent> = {
+  "/Landing": {
+    title: "Учёт строительных работ и интеграция с BIS",
+    description:
+      "WorksRecorded помогает строительным компаниям вести журнал работ, учитывать рабочее время и создавать записи BIS из сообщений WhatsApp с помощью ИИ.",
+    keywords: [
+      "журнал строительных работ",
+      "программное обеспечение для строительства",
+      "интеграция BIS",
+      "учёт рабочего времени в строительстве",
+      "ИИ в строительстве",
+      "WorksRecorded",
+    ],
+  },
+  "/Landing/SiteDiary": {
+    title: "Журнал строительных работ из сообщений WhatsApp",
+    description:
+      "Автоматически создавайте точные ежедневные записи о строительных работах из голосовых сообщений и фотографий WhatsApp.",
+    keywords: [
+      "журнал строительных работ",
+      "отчёты со стройплощадки",
+      "WhatsApp в строительстве",
+      "строительная документация",
+    ],
+  },
+  "/Landing/Timesheets": {
+    title: "Учёт рабочего времени в строительстве через WhatsApp",
+    description:
+      "Автоматизируйте учёт рабочего времени бригад через WhatsApp с контролем местоположения на строительной площадке.",
+    keywords: [
+      "учёт рабочего времени в строительстве",
+      "рабочие часы бригады",
+      "геозона стройплощадки",
+      "учёт работников",
+    ],
+  },
+  "/Landing/Analytics": {
+    title: "Аналитика строительных проектов и KPI",
+    description:
+      "Контролируйте затраты, ход работ и производительность с помощью аналитики строительных данных на базе ИИ.",
+    keywords: [
+      "строительная аналитика",
+      "KPI проекта",
+      "анализ рабочего времени",
+      "контроль затрат в строительстве",
+    ],
+  },
+  "/Landing/Manufacturing": {
+    title: "Производственный журнал и учёт операций",
+    description:
+      "Учитывайте производственные операции, плановые и фактические нормы труда, фотографии, оплату и производительность в WorksRecorded.",
+    keywords: [
+      "производственный журнал",
+      "учёт производства",
+      "производительность",
+      "учёт работ через WhatsApp",
+    ],
+  },
+  "/Landing/Custom": {
+    title: "Индивидуальные цифровые решения для строительства",
+    description:
+      "Создаём практичные решения на базе ИИ для автоматизации строительных отчётов, документов, процессов и аналитики.",
+    keywords: [
+      "автоматизация строительства",
+      "ИИ для строительных компаний",
+      "индивидуальное программное обеспечение",
+      "цифровизация строительства",
+    ],
+  },
+  "/Landing/CaseStudies": {
+    title: "Примеры цифровизации строительных процессов",
+    description:
+      "Узнайте, как строительные команды используют WorksRecorded для учёта работ, фотографий, рабочего времени и отчётности.",
+    keywords: [
+      "цифровизация строительства",
+      "примеры строительных проектов",
+      "отчёты со стройплощадки",
+      "WorksRecorded",
+    ],
+  },
+  "/Landing/Pricing": {
+    title: "Цены WorksRecorded для строительных команд",
+    description:
+      "Прозрачная цена на журнал строительных работ, учёт рабочего времени, производственный учёт и аналитику.",
+    keywords: [
+      "цена строительного программного обеспечения",
+      "цена журнала строительных работ",
+      "цена учёта рабочего времени",
+      "WorksRecorded цена",
+    ],
+  },
+  "/Landing/About": {
+    title: "О WorksRecorded - автоматизация строительной документации",
+    description:
+      "WorksRecorded превращает ежедневные сообщения строительных команд в структурированные данные, отчёты и полезную аналитику.",
+    keywords: [
+      "WorksRecorded",
+      "строительная документация",
+      "программное обеспечение для строительства",
+      "ИИ для строительства",
+    ],
+  },
+  "/Landing/News": {
+    title: "Новости ИИ и цифровизации строительства",
+    description:
+      "Новости об инструментах ИИ, автоматизации и цифровых технологиях в строительстве.",
+    keywords: [
+      "новости строительства",
+      "ИИ в строительстве",
+      "цифровизация строительства",
+      "строительные технологии",
+    ],
+  },
+  "/Landing/ContactForm": {
+    title: "Связаться с WorksRecorded",
+    description:
+      "Обсудите с WorksRecorded журнал строительных работ, учёт рабочего времени, производство или индивидуальную автоматизацию.",
+    keywords: [
+      "связаться с WorksRecorded",
+      "демонстрация строительного ПО",
+      "консультация по автоматизации строительства",
+    ],
+  },
+  "/Landing/Privacy": {
+    title: "Политика конфиденциальности",
+    description:
+      "Политика WorksRecorded в отношении данных, сообщений, файлов и использования сервиса.",
+    keywords: ["WorksRecorded конфиденциальность", "защита данных", "политика конфиденциальности"],
+  },
+};
+
 function normalizeLocale(locale: string): SupportedLocale {
-  return locale === "lv" ? "lv" : "en";
+  if (locale === "lv" || locale === "ru") return locale;
+  return "en";
 }
 
 function stripTrailingSlash(path: string): string {
@@ -181,7 +314,11 @@ export function buildLandingMetadata({
   const normalizedPath = stripTrailingSlash(path);
   const url = `${SITE_URL}/${normalizedLocale}${normalizedPath}`;
   const localizedContent =
-    normalizedLocale === "lv" ? latvianLandingSeo[normalizedPath] : undefined;
+    normalizedLocale === "lv"
+      ? latvianLandingSeo[normalizedPath]
+      : normalizedLocale === "ru"
+        ? russianLandingSeo[normalizedPath]
+        : undefined;
   const seoTitle = localizedContent?.title ?? title;
   const seoDescription = localizedContent?.description ?? description;
   const seoKeywords = localizedContent?.keywords ?? keywords;
@@ -211,6 +348,7 @@ export function buildLandingMetadata({
       languages: {
         "en-US": `${SITE_URL}/en${normalizedPath}`,
         "lv-LV": `${SITE_URL}/lv${normalizedPath}`,
+        "ru-RU": `${SITE_URL}/ru${normalizedPath}`,
         "x-default": `${SITE_URL}/lv${normalizedPath}`,
       },
     },
@@ -220,7 +358,9 @@ export function buildLandingMetadata({
       url,
       siteName: "WorksRecorded",
       locale: localeConfig[normalizedLocale].ogLocale,
-      alternateLocale: normalizedLocale === "lv" ? ["en_US"] : ["lv_LV"],
+      alternateLocale: Object.values(localeConfig)
+        .map(({ ogLocale }) => ogLocale)
+        .filter((ogLocale) => ogLocale !== localeConfig[normalizedLocale].ogLocale),
       type: "website",
       images: [
         {
@@ -230,7 +370,9 @@ export function buildLandingMetadata({
           alt:
             normalizedLocale === "lv"
               ? "WorksRecorded būvdarbu žurnāls un BIS integrācija"
-              : "WorksRecorded construction site diary and reporting platform",
+              : normalizedLocale === "ru"
+                ? "WorksRecorded: учёт строительных работ и отчётность"
+                : "WorksRecorded construction site diary and reporting platform",
         },
       ],
     },
@@ -251,7 +393,9 @@ export function buildLandingMetadata({
 export function buildLandingJsonLd(locale: string) {
   const normalizedLocale = normalizeLocale(locale);
   const isLatvian = normalizedLocale === "lv";
+  const isRussian = normalizedLocale === "ru";
   const homeUrl = `${SITE_URL}/${normalizedLocale}/Landing`;
+  const countryName = isLatvian ? "Latvija" : isRussian ? "Латвия" : "Latvia";
 
   return {
     "@context": "https://schema.org",
@@ -263,13 +407,13 @@ export function buildLandingJsonLd(locale: string) {
         legalName: "Buvconsult SIA",
         url: SITE_URL,
         logo: `${SITE_URL}/default.png`,
-        areaServed: [{ "@type": "Country", name: isLatvian ? "Latvija" : "Latvia" }],
+        areaServed: [{ "@type": "Country", name: countryName }],
         contactPoint: [
           {
             "@type": "ContactPoint",
             contactType: "sales",
             email: "vjaceslavs@worksrecorded.com",
-            availableLanguage: ["Latvian", "English"],
+            availableLanguage: ["Latvian", "English", "Russian"],
           },
         ],
       },
@@ -291,14 +435,16 @@ export function buildLandingJsonLd(locale: string) {
         inLanguage: localeConfig[normalizedLocale].language,
         description: isLatvian
           ? "Būvdarbu žurnāls, darba laika uzskaite un BIS automatizācija Latvijas būvniecības komandām."
-          : "Site diary, timesheets, and reporting automation for construction teams.",
+          : isRussian
+            ? "Журнал строительных работ, учёт рабочего времени и автоматизация отчётности для строительных команд."
+            : "Site diary, timesheets, and reporting automation for construction teams.",
         offers: {
           "@type": "Offer",
           priceCurrency: "EUR",
           availability: "https://schema.org/InStock",
         },
         provider: { "@id": `${SITE_URL}/#organization` },
-        areaServed: { "@type": "Country", name: isLatvian ? "Latvija" : "Latvia" },
+        areaServed: { "@type": "Country", name: countryName },
       },
     ],
   };

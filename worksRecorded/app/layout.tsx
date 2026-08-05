@@ -31,6 +31,7 @@ export const metadata: Metadata = {
     languages: {
       "lv-LV": "/lv/Landing",
       "en-US": "/en/Landing",
+      "ru-RU": "/ru/Landing",
       "x-default": "/lv/Landing",
     },
   },
@@ -41,7 +42,7 @@ export const metadata: Metadata = {
     url: "/lv/Landing",
     siteName: "WorksRecorded",
     locale: "lv_LV",
-    alternateLocale: ["en_US"],
+    alternateLocale: ["en_US", "ru_RU"],
     type: "website",
     images: [
       {

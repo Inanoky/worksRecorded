@@ -35,7 +35,7 @@ export function NavigationMenuDesktop() {
 
   const withLocale = (href: string) => {
     if (/^https?:\/\//.test(href)) return href;
-    if (/^\/(en|lv)(\/|$)/.test(href)) return href;
+    if (/^\/(en|lv|ru)(\/|$)/.test(href)) return href;
     return `/${locale}${href.startsWith("/") ? href : `/${href}`}`;
   };
 
@@ -67,7 +67,7 @@ export function NavigationMenuDesktop() {
         {MAIN_LINKS.map(({ href, labelKey }) => (
           <NavigationMenuItem key={href}>
             <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-              <Link href={withLocale(href)} className="text-2xl">
+              <Link href={withLocale(href)}>
                 {t(labelKey)}
               </Link>
             </NavigationMenuLink>

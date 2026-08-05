@@ -27,15 +27,7 @@ export default function LadningLayout({
   const isMobile = useIsMobile()
 
   return (
-    <html lang="en">
-      <body
-        className="antialiased"
-
-
-      >
-
-
-            
+    <div className="overflow-x-hidden antialiased">
       {isMobile ?
        <HeaderMobile/> : <HeaderDesktop/> }
   
@@ -46,8 +38,6 @@ export default function LadningLayout({
        <FooterMobile/> :<FooterDesktop/>  }
            
            <Toaster richColors closeButton/>
-      
-      </body>
-    </html>
+    </div>
   );
 }

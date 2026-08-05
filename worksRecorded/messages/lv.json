@@ -8,6 +8,8 @@
     "signIn": "Uzdot jautājumu",
     "noCardNote": "",
     "heroImageAlt": "worksRecorded galvenais priekšskatījums",
+    "videoTitle": "WorksRecorded demonstrācija",
+    "videoCaption": "Vienas minūtes apskats - kā WhatsApp ziņas kļūst par strukturētu būvdarbu žurnālu.",
 
     "section2Pill": "Būvlaukuma pieraksti, kas patiešām tiek veikti",
     "section2Title": "Sūti balss ziņas caur WhatsApp — MI sakārto",
@@ -338,5 +340,25 @@
     "signIn": "Pierakstīties",
     "signUp": "Reģistrēties",
     "tryForFree": "Izmēģināt bez maksas"
+  },
+
+  "Header": {
+    "bisIntegrated": "Integrēts ar"
+  },
+
+  "Footer": {
+    "data": "Dati",
+    "siteDiary": "Būvdarbu žurnāls",
+    "timesheets": "Darba laika uzskaite",
+    "analytics": "Analītika",
+    "features": "Iespējas",
+    "custom": "Pielāgoti digitālie risinājumi",
+    "pricing": "Cenas",
+    "about": "Par mums",
+    "privacy": "Privātuma politika",
+    "contact": "Kontakti",
+    "contactHelp": "Sazinieties par demo vai jautājumiem.",
+    "phone": "tālr. +371 24885690",
+    "rights": "Visas tiesības aizsargātas. WorksRecorded ir Buvconsult SIA produkts, Latvija"
   }
 }

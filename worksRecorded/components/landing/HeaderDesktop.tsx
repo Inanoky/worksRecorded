@@ -9,11 +9,13 @@ import { LoginLink, RegisterLink } from "@kinde-oss/kinde-auth-nextjs/components
 import { Button } from "@/components/ui/button";
 import { NavigationMenuDesktop } from "@/components/landing/NavigationMenuDesktop";
 import LanguageSwitcher from "../ui/LanguageSwitcher";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import BisLogo from "@/public/logos/bislogo.png";
 
 export default function HeaderDesktop() {
   const t = useTranslations("AuthButtons");
+  const header = useTranslations("Header");
+  const locale = useLocale();
 
   return (
     <>
@@ -21,7 +23,7 @@ export default function HeaderDesktop() {
       <div className="relative z-50 grid grid-cols-4 p-5">
         {/* Element 1 */}
         <div>
-          <Link href="/" className="flex flex-row items-center gap-4">
+          <Link href={`/${locale}/Landing`} className="flex flex-row items-center gap-4">
             <h4 className="text-3xl">
               Works<span className="text-green-600">Recorded</span>
             </h4>
@@ -36,7 +38,7 @@ export default function HeaderDesktop() {
 
               <div className="leading-tight">
                 <div className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                  Integrēts ar
+                  {header("bisIntegrated")}
                 </div>
                 <div className="text-xs font-semibold text-slate-900">BIS</div>
               </div>

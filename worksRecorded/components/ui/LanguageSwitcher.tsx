@@ -9,8 +9,8 @@ export default function LanguageSwitcher() {
   const router = useRouter();
   const pathname = usePathname();
 
-  function switchTo(nextLocale: "en" | "lv") {
-    const newPath = pathname.replace(/^\/(en|lv)(?=\/|$)/, `/${nextLocale}`);
+  function switchTo(nextLocale: "en" | "lv" | "ru") {
+    const newPath = pathname.replace(/^\/(en|lv|ru)(?=\/|$)/, `/${nextLocale}`);
     router.push(newPath);
   }
 
@@ -21,6 +21,7 @@ export default function LanguageSwitcher() {
   return (
     <div className="inline-flex items-center gap-2">
       <button
+        type="button"
         onClick={() => switchTo("en")}
         className={locale === "en" ? active : base}
         aria-label="English"
@@ -34,6 +35,7 @@ export default function LanguageSwitcher() {
       </button>
 
       <button
+        type="button"
         onClick={() => switchTo("lv")}
         className={locale === "lv" ? active : base}
         aria-label="Latviešu"
@@ -41,6 +43,20 @@ export default function LanguageSwitcher() {
         <Image
           src="/flags/lv.svg"
           alt="Latvian"
+          width={24}
+          height={16}
+        />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => switchTo("ru")}
+        className={locale === "ru" ? active : base}
+        aria-label="Русский"
+      >
+        <Image
+          src="/flags/ru.svg"
+          alt="Русский"
           width={24}
           height={16}
         />
