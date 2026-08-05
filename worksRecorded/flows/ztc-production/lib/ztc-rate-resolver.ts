@@ -5,9 +5,14 @@ import {
   type ZtcDefaultTaskRate,
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
+import {
+  getZtcExcludedRateTaskKeys,
+  type ZtcProjectRateExclusions,
+} from "@/flows/ztc-production/lib/ztc-rate-exclusions";
 
 export type ZtcRateProject = {
   projectName: string;
+  excludedTasks?: ZtcProjectRateExclusions;
   works?: ZtcDefaultTaskRate[];
 };
 
@@ -36,7 +41,13 @@ export function getZtcProjectWorkRates(
     (project) =>
       normalizeResolverText(project.projectName) === normalizeResolverText(projectName),
   );
-  const merged = [...(allProjectRates?.works ?? [])];
+  const excludedTaskKeys = getZtcExcludedRateTaskKeys(
+    projectRates?.excludedTasks,
+    "works",
+  );
+  const merged = (allProjectRates?.works ?? []).filter(
+    (entry) => !excludedTaskKeys.has(normalizeResolverText(entry.task)),
+  );
 
   for (const override of projectRates?.works ?? []) {
     const index = merged.findIndex(

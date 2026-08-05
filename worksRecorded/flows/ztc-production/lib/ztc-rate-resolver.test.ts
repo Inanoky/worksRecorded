@@ -1,4 +1,50 @@
-import { resolveZtcRateTaskForRow } from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import {
+  getZtcProjectWorkRates,
+  resolveZtcRateTaskForRow,
+} from "@/flows/ztc-production/lib/ztc-rate-resolver";
+
+describe("getZtcProjectWorkRates", () => {
+  it("removes an inherited task excluded by a specific project", () => {
+    const rates = getZtcProjectWorkRates(
+      [
+        {
+          projectName: "Visi projekti",
+          works: [
+            { task: "CNC projekts", rate: "15", unit: "st" },
+            { task: "paneļu labošana", rate: "15", unit: "st" },
+          ],
+        },
+        {
+          projectName: "test projekts",
+          excludedTasks: { works: ["CNC projekts"] },
+          works: [],
+        },
+      ],
+      "test projekts",
+    );
+
+    expect(rates.map((entry) => entry.task)).toEqual(["paneļu labošana"]);
+  });
+
+  it("does not allow coefficient rows to be excluded", () => {
+    const rates = getZtcProjectWorkRates(
+      [
+        {
+          projectName: "Visi projekti",
+          works: [{ task: "1 koeficients", rate: "1", unit: "m2" }],
+        },
+        {
+          projectName: "test projekts",
+          excludedTasks: { works: ["1 koeficients"] },
+          works: [],
+        },
+      ],
+      "test projekts",
+    );
+
+    expect(rates.map((entry) => entry.task)).toEqual(["1 koeficients"]);
+  });
+});
 
 describe("resolveZtcRateTaskForRow", () => {
   it("normalizes commas in both stored and canonical work names", () => {

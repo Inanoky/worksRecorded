@@ -26,6 +26,12 @@ import {
   findZtcDefaultRateForTask,
 } from "@/flows/ztc-production/lib/ztc-rate-matching";
 import {
+  getZtcExcludedRateTaskKeys,
+  normalizeZtcProjectRateExclusions,
+  normalizeZtcRateTaskKey,
+  type ZtcProjectRateExclusions,
+} from "@/flows/ztc-production/lib/ztc-rate-exclusions";
+import {
   getZtcTaskIdentityKey,
   rebalanceZtcCompletedTaskAmounts,
 } from "@/flows/ztc-production/lib/ztc-task-amount-allocation";
@@ -191,6 +197,7 @@ type ZtcDefaultTaskRate = {
 };
 type ZtcProjectTaskRates = {
   projectName: string;
+  excludedTasks?: ZtcProjectRateExclusions;
   works: ZtcDefaultTaskRate[];
   additionalDetails: ZtcDefaultTaskRate[];
   additionalWorks: ZtcDefaultTaskRate[];
@@ -426,6 +433,7 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     const raw = project as Record<string, unknown>;
     return {
       projectName: normalizeProjectRateName(raw.projectName),
+      excludedTasks: normalizeZtcProjectRateExclusions(raw.excludedTasks),
       works: normalizeTaskRateEntries(raw.works, "m2"),
       additionalDetails: normalizeTaskRateEntries(raw.additionalDetails, "gab"),
       additionalWorks: normalizeTaskRateEntries(raw.additionalWorks, "st"),
@@ -548,7 +556,13 @@ function getProjectCategoryRates(
     (project) => project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
   );
 
-  const merged = [...(allProjectRates?.[category] ?? [])];
+  const excludedTaskKeys = getZtcExcludedRateTaskKeys(
+    projectRates?.excludedTasks,
+    category,
+  );
+  const merged = (allProjectRates?.[category] ?? []).filter(
+    (entry) => !excludedTaskKeys.has(normalizeZtcRateTaskKey(entry.task)),
+  );
   for (const override of projectRates?.[category] ?? []) {
     const index = merged.findIndex(
       (entry) => normalizeZtcWorkName(entry.task).toLowerCase() === normalizeZtcWorkName(override.task).toLowerCase(),

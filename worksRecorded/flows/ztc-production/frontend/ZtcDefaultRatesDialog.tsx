@@ -32,6 +32,11 @@ import {
   isZtcComplexityCoefficientTask,
 } from "@/flows/ztc-production/lib/ztc-rate-constants";
 import {
+  getZtcExcludedRateTaskKeys,
+  normalizeZtcProjectRateExclusions,
+  normalizeZtcRateTaskKey,
+} from "@/flows/ztc-production/lib/ztc-rate-exclusions";
+import {
   ZTC_RATE_UNITS,
   type ZtcRateUnit,
 } from "@/flows/ztc-production/lib/ztc-rate-units";
@@ -48,6 +53,7 @@ type ZtcDefaultRatesDialogProps = {
 type ZtcVisibleTaskRate = ZtcDefaultTaskRate & {
   __projectSpecific?: boolean;
 };
+type ZtcRateInputField = "task" | "rate" | "laborNorm";
 
 const ZTC_ALL_PROJECTS_RATE_NAME = "Visi projekti";
 const ZTC_RATE_CATEGORY_LABELS: Record<ZtcRateCategory, string> = {
@@ -71,6 +77,7 @@ function emptyZtcProjectRates(projectName: string, manual = false): ZtcProjectTa
   return {
     projectName,
     manual,
+    excludedTasks: normalizeZtcProjectRateExclusions(null),
     works: [],
     additionalDetails: [],
     additionalWorks: [],
@@ -125,10 +132,56 @@ function normalizeZtcProjectRatesForUi(
     const existing = rates.find(
       (project) => project.projectName.trim().toLowerCase() === name.toLowerCase(),
     );
-    return existing
-      ? { ...emptyZtcProjectRates(name), ...existing, projectName: name }
-      : emptyZtcProjectRates(name);
+    if (!existing) return emptyZtcProjectRates(name);
+    return {
+      ...emptyZtcProjectRates(name),
+      ...existing,
+      projectName: name,
+      excludedTasks: normalizeZtcProjectRateExclusions(existing.excludedTasks),
+    };
   });
+}
+
+function setZtcProjectRateExclusion(
+  project: ZtcProjectTaskRates,
+  category: ZtcRateCategory,
+  task: string,
+  excluded: boolean,
+) {
+  if (!task || isZtcComplexityCoefficientTask(task)) return;
+  const exclusions = normalizeZtcProjectRateExclusions(project.excludedTasks);
+  const taskKey = normalizeZtcRateTaskKey(task);
+  const categoryTasks = exclusions[category] ?? [];
+  project.excludedTasks = {
+    ...exclusions,
+    [category]: excluded
+      ? categoryTasks.some(
+          (entry) => normalizeZtcRateTaskKey(entry) === taskKey,
+        )
+        ? categoryTasks
+        : [...categoryTasks, task]
+      : categoryTasks.filter(
+          (entry) => normalizeZtcRateTaskKey(entry) !== taskKey,
+        ),
+  };
+}
+
+function ztcRateRowsEqual(
+  left: ZtcDefaultTaskRate,
+  right: ZtcDefaultTaskRate,
+  category: ZtcRateCategory,
+) {
+  const numberText = (value: unknown) =>
+    String(value ?? "").trim().replace(",", ".");
+  return (
+    normalizeZtcRateTaskKey(left.task) === normalizeZtcRateTaskKey(right.task) &&
+    numberText(left.rate) === numberText(right.rate) &&
+    left.unit === right.unit &&
+    (category !== "works" ||
+      numberText(left.laborNorm) === numberText(right.laborNorm)) &&
+    (category !== "additionalWorks" ||
+      (left.relatesToElement === true) === (right.relatesToElement === true))
+  );
 }
 
 export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
@@ -178,10 +231,17 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     draft.find((project) => project.projectName === selectedProject) ??
     emptyZtcProjectRates(selectedProject);
   const isAllProjects = selectedProject === ZTC_ALL_PROJECTS_RATE_NAME;
+  const excludedTaskKeys = getZtcExcludedRateTaskKeys(
+    selectedProjectRates.excludedTasks,
+    selectedCategory,
+  );
+  const inheritedRows = allProjects[selectedCategory].filter(
+    (entry) => !excludedTaskKeys.has(normalizeZtcRateTaskKey(entry.task)),
+  );
   const visibleRows: ZtcVisibleTaskRate[] = isAllProjects
     ? selectedProjectRates[selectedCategory]
     : [
-        ...allProjects[selectedCategory].map((master) => {
+        ...inheritedRows.map((master) => {
           const override = selectedProjectRates[selectedCategory].find(
             (entry) => entry.task.toLowerCase() === master.task.toLowerCase(),
           );
@@ -198,7 +258,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
         ...selectedProjectRates[selectedCategory]
           .filter(
             (entry) =>
-              !allProjects[selectedCategory].some(
+              !inheritedRows.some(
                 (master) => master.task.toLowerCase() === entry.task.toLowerCase(),
               ),
           )
@@ -269,6 +329,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
       works: project.works.map((entry) => ({ ...entry })),
       additionalDetails: project.additionalDetails.map((entry) => ({ ...entry })),
       additionalWorks: project.additionalWorks.map((entry) => ({ ...entry })),
+      excludedTasks: normalizeZtcProjectRateExclusions(project.excludedTasks),
     }));
 
     const groupedInputs = new Map<
@@ -278,7 +339,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
         category: ZtcRateCategory;
         index: number;
         originalTask: string;
-        fields: Partial<Record<keyof ZtcDefaultTaskRate, string>>;
+        fields: Partial<Record<ZtcRateInputField, string>>;
       }
     >();
 
@@ -287,7 +348,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
       .forEach((input) => {
         const projectName = input.dataset.ztcProject ?? "";
         const category = input.dataset.ztcCategory as ZtcRateCategory | undefined;
-        const field = input.dataset.ztcRateField as keyof ZtcDefaultTaskRate | undefined;
+        const field = input.dataset.ztcRateField as ZtcRateInputField | undefined;
         const index = Number(input.dataset.ztcIndex);
         if (!projectName || !category || !field || !Number.isFinite(index)) return;
 
@@ -347,6 +408,21 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
           : {}),
       };
 
+      if (master && ztcRateRowsEqual(nextRow, master, category)) {
+        if (existingIndex >= 0) rows.splice(existingIndex, 1);
+        setZtcProjectRateExclusion(project, category, originalTask, false);
+        return;
+      }
+
+      if (
+        master &&
+        normalizeZtcRateTaskKey(nextRow.task) !==
+          normalizeZtcRateTaskKey(originalTask)
+      ) {
+        setZtcProjectRateExclusion(project, category, originalTask, true);
+      }
+      setZtcProjectRateExclusion(project, category, nextRow.task, false);
+
       if (existingIndex >= 0) {
         rows[existingIndex] = nextRow;
       } else {
@@ -361,24 +437,55 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
 
   const removeDraftRow = React.useCallback(
     (index: number) => {
+      const rowToRemove = visibleRows[index];
+      if (isZtcComplexityCoefficientTask(rowToRemove?.task ?? "")) return;
+      const typedTask =
+        ratesFormRef.current?.querySelector<HTMLInputElement>(
+          `input[data-ztc-rate-field="task"][data-ztc-index="${index}"]`,
+        )?.value.trim() || rowToRemove?.task || "";
       const committedDraft = commitVisibleRateInputs();
       const committedProject = committedDraft.find(
         (project) => project.projectName === selectedProject,
       );
       const committedRows = committedProject?.[selectedCategory] ?? visibleRows;
-      const rowToRemove = visibleRows[index];
-      if (isZtcComplexityCoefficientTask(rowToRemove?.task ?? "")) return;
-      const rows = isAllProjects
-        ? committedRows.length <= 1
-          ? [emptyZtcTaskRate(selectedCategory)]
-          : committedRows.filter((_, entryIndex) => entryIndex !== index)
-        : committedRows.filter(
-            (entry) =>
-              entry.task.toLowerCase() !== String(rowToRemove?.task ?? "").toLowerCase(),
+      if (isAllProjects) {
+        const rows =
+          committedRows.length <= 1
+            ? [emptyZtcTaskRate(selectedCategory)]
+            : committedRows.filter((_, entryIndex) => entryIndex !== index);
+        setProjectCategoryRows(selectedProject, selectedCategory, rows);
+        return;
+      }
+
+      const removalKeys = new Set(
+        [rowToRemove?.task, typedTask].map(normalizeZtcRateTaskKey).filter(Boolean),
+      );
+      const masterTask = allProjects[selectedCategory].find((entry) =>
+        removalKeys.has(normalizeZtcRateTaskKey(entry.task)),
+      )?.task;
+      const next = committedDraft.map((project) => {
+        if (project.projectName !== selectedProject) return project;
+        const updated = {
+          ...project,
+          [selectedCategory]: project[selectedCategory].filter(
+            (entry) => !removalKeys.has(normalizeZtcRateTaskKey(entry.task)),
+          ),
+        };
+        if (masterTask) {
+          setZtcProjectRateExclusion(
+            updated,
+            selectedCategory,
+            masterTask,
+            true,
           );
-      setProjectCategoryRows(selectedProject, selectedCategory, rows);
+        }
+        return updated;
+      });
+      draftRef.current = next;
+      setDraft(next);
     },
     [
+      allProjects,
       isAllProjects,
       selectedCategory,
       selectedProject,
@@ -478,6 +585,12 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
               relatesToElement: visibleRows[index]?.relatesToElement === true,
             });
           }
+          setZtcProjectRateExclusion(
+            project,
+            "additionalWorks",
+            task,
+            false,
+          );
         }
 
         return { ...project, additionalWorks: rows };
@@ -517,6 +630,12 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
               relatesToElement,
             });
           }
+          setZtcProjectRateExclusion(
+            project,
+            "additionalWorks",
+            task,
+            false,
+          );
         }
 
         return { ...project, additionalWorks: rows };
@@ -535,6 +654,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
     const normalizedRates = committedDraft.map((project) => ({
       projectName: project.projectName.trim() || ZTC_ALL_PROJECTS_RATE_NAME,
       manual: project.manual === true,
+      excludedTasks: normalizeZtcProjectRateExclusions(project.excludedTasks),
       works: project.works
         .map((entry) => ({
           task: entry.task.trim(),
@@ -783,8 +903,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                       maxLength={180}
                       disabled={
                         saving ||
-                        isZtcComplexityCoefficientTask(entry.task) ||
-                        (!isAllProjects && entry.__projectSpecific !== true)
+                        isZtcComplexityCoefficientTask(entry.task)
                       }
                       placeholder={
                         selectedCategory === "additionalDetails"
@@ -883,10 +1002,7 @@ export const ZtcDefaultRatesDialog = React.memo(function ZtcDefaultRatesDialog({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        disabled={
-                          saving ||
-                          (!isAllProjects && entry.__projectSpecific !== true)
-                        }
+                        disabled={saving}
                         onClick={() => removeDraftRow(index)}
                         aria-label="Dzēst likmi"
                       >
