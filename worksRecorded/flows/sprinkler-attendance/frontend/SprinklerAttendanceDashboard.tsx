@@ -11,6 +11,7 @@ import {
 	CircleDot,
 	Clock3,
 	MapPin,
+	MapPinned,
 	Search,
 	Users,
 } from "lucide-react";
@@ -42,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WhatsAppIcon } from "@/components/ui/whatsappIcon";
+import { SprinklerWorkerMap } from "@/flows/sprinkler-attendance/frontend/SprinklerWorkerMap";
 import { cn } from "@/lib/utils/utils";
 
 type WorkerStatus = "on-site" | "completed" | "attention";
@@ -68,7 +70,7 @@ const workers: WorkerRecord[] = [
 		name: "Aleks Petrov",
 		initials: "AP",
 		role: "Darbu vadītājs",
-		project: "Riverside Towers",
+		project: "Krasta ielas biroju centrs",
 		location: "A bloks · 4. stāvs",
 		clockIn: "07:38",
 		clockOut: "Strādā pašlaik",
@@ -83,7 +85,7 @@ const workers: WorkerRecord[] = [
 		name: "Marek Nowak",
 		initials: "MN",
 		role: "Sprinkleru montētājs",
-		project: "Riverside Towers",
+		project: "Krasta ielas biroju centrs",
 		location: "B bloks · 2. stāvs",
 		clockIn: "07:51",
 		clockOut: "16:12",
@@ -98,7 +100,7 @@ const workers: WorkerRecord[] = [
 		name: "Jānis Ozols",
 		initials: "JO",
 		role: "Cauruļvadu montētājs",
-		project: "City Hospital",
+		project: "Brīvības ielas medicīnas centrs",
 		location: "Austrumu spārns · Tehniskā telpa",
 		clockIn: "08:04",
 		clockOut: "Nav reģistrēts",
@@ -113,7 +115,7 @@ const workers: WorkerRecord[] = [
 		name: "Daniel Kowalski",
 		initials: "DK",
 		role: "Sprinkleru montētājs",
-		project: "Maple Court",
+		project: "Skanstes ielas dzīvojamais nams",
 		location: "C ēka · 1. stāvs",
 		clockIn: "08:21",
 		clockOut: "15:46",
@@ -128,7 +130,7 @@ const workers: WorkerRecord[] = [
 		name: "Tomasz Zieliński",
 		initials: "TZ",
 		role: "Māceklis",
-		project: "City Hospital",
+		project: "Brīvības ielas medicīnas centrs",
 		location: "Austrumu spārns · 3. stāvs",
 		clockIn: "08:47",
 		clockOut: "15:32",
@@ -142,22 +144,22 @@ const workers: WorkerRecord[] = [
 
 const projects = [
 	{
-		name: "Riverside Towers",
-		location: "24 River Road",
+		name: "Krasta ielas biroju centrs",
+		location: "Krasta iela 76, Rīga",
 		workers: 2,
 		hours: "16 st. 13 min.",
 		share: 43,
 	},
 	{
-		name: "City Hospital",
-		location: "Austrumu spārna pārbūve",
+		name: "Brīvības ielas medicīnas centrs",
+		location: "Brīvības iela 201, Rīga",
 		workers: 2,
 		hours: "14 st. 11 min.",
 		share: 37,
 	},
 	{
-		name: "Maple Court",
-		location: "C ēka",
+		name: "Skanstes ielas dzīvojamais nams",
+		location: "Skanstes iela 25, Rīga",
 		workers: 1,
 		hours: "6 st. 55 min.",
 		share: 20,
@@ -169,7 +171,7 @@ const activity = [
 		id: "activity-1",
 		worker: "Marek Nowak",
 		action: "reģistrēja darba beigas",
-		project: "Riverside Towers",
+		project: "Krasta ielas biroju centrs",
 		time: "16:12",
 		tone: "complete",
 	},
@@ -177,7 +179,7 @@ const activity = [
 		id: "activity-2",
 		worker: "Daniel Kowalski",
 		action: "reģistrēja darba beigas",
-		project: "Maple Court",
+		project: "Skanstes ielas dzīvojamais nams",
 		time: "15:46",
 		tone: "complete",
 	},
@@ -185,7 +187,7 @@ const activity = [
 		id: "activity-3",
 		worker: "Tomasz Zieliński",
 		action: "reģistrēja darba beigas",
-		project: "City Hospital",
+		project: "Brīvības ielas medicīnas centrs",
 		time: "15:32",
 		tone: "complete",
 	},
@@ -193,7 +195,7 @@ const activity = [
 		id: "activity-4",
 		worker: "Aleks Petrov",
 		action: "reģistrēja darba sākumu",
-		project: "Riverside Towers",
+		project: "Krasta ielas biroju centrs",
 		time: "07:38",
 		tone: "active",
 	},
@@ -434,6 +436,10 @@ export function SprinklerAttendanceDashboard() {
 					<TabsList>
 						<TabsTrigger value="workers">Darbinieki</TabsTrigger>
 						<TabsTrigger value="projects">Projekti</TabsTrigger>
+						<TabsTrigger value="map">
+							<MapPinned />
+							Karte
+						</TabsTrigger>
 					</TabsList>
 					<div className="flex flex-col gap-2 sm:flex-row">
 						<div className="relative sm:w-64">
@@ -734,6 +740,10 @@ export function SprinklerAttendanceDashboard() {
 							</Card>
 						))}
 					</div>
+				</TabsContent>
+
+				<TabsContent value="map" className="mt-0">
+					<SprinklerWorkerMap workers={filteredWorkers} />
 				</TabsContent>
 			</Tabs>
 		</div>
