@@ -40,6 +40,11 @@ export type AssignFlowState = {
   message: string;
 } | null;
 
+export type SwitchUserOrganizationState = {
+  ok: boolean;
+  message: string;
+} | null;
+
 export async function assignFlowToOrganizationAction(
   _previousState: AssignFlowState,
   formData: FormData,
@@ -95,6 +100,72 @@ export async function assignFlowToOrganizationAction(
     return {
       ok: false,
       message: error instanceof Error ? error.message : "Failed to save flow assignment.",
+    };
+  }
+}
+
+export async function switchUserOrganizationAction(
+  _previousState: SwitchUserOrganizationState,
+  formData: FormData,
+): Promise<SwitchUserOrganizationState> {
+  await requireFlowConfigAdmin();
+
+  try {
+    const userId = String(formData.get("userId") ?? "").trim();
+    const organizationId = String(formData.get("organizationId") ?? "").trim();
+    if (!userId) throw new Error("Missing user.");
+    if (!organizationId) throw new Error("Missing new organization.");
+
+    const [selectedUser, organization] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          organizationId: true,
+          organization: { select: { name: true } },
+        },
+      }),
+      prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, name: true },
+      }),
+    ]);
+
+    if (!selectedUser) throw new Error("User not found.");
+    if (!organization) throw new Error("Organization not found.");
+    if (selectedUser.organizationId === organization.id) {
+      return {
+        ok: false,
+        message: `${selectedUser.email} already belongs to ${organization.name}.`,
+      };
+    }
+
+    await prisma.user.update({
+      where: { id: selectedUser.id },
+      data: {
+        organizationId: organization.id,
+        lastSelectedSiteIdforWhatsapp: null,
+        siteManagerSelectIdforWhatsapp: null,
+      },
+    });
+
+    revalidatePath("/dashboard/admin/flow-configs");
+    const previousOrganization = selectedUser.organization?.name ?? "no organization";
+    const displayName =
+      [selectedUser.firstName, selectedUser.lastName].filter(Boolean).join(" ") ||
+      selectedUser.email;
+
+    return {
+      ok: true,
+      message: `Moved ${displayName} from ${previousOrganization} to ${organization.name}.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Failed to switch user organization.",
     };
   }
 }
