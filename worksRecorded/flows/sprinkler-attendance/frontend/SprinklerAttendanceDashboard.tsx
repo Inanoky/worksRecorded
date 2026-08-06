@@ -15,6 +15,7 @@ import {
 	Search,
 	Users,
 } from "lucide-react";
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -349,24 +350,46 @@ export function SprinklerAttendanceDashboard() {
 
 	return (
 		<div className="mx-auto flex w-full max-w-[1500px] flex-col gap-5 pb-8">
-			<header className="flex flex-col gap-4 border-b pb-5 lg:flex-row lg:items-end lg:justify-between">
-				<div>
-					<div className="mb-2 flex flex-wrap items-center gap-2">
-						<Badge variant="outline" className="gap-1.5 py-1">
-							<WhatsAppIcon size={14} />
-							WhatsApp darba laika uzskaite
-						</Badge>
-						<Badge variant="secondary">Demonstrācijas dati</Badge>
+			<header className="flex flex-col gap-5 rounded-xl border border-[#F26722]/25 border-t-4 border-t-[#F26722] bg-gradient-to-br from-white via-white to-[#F26722]/5 p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between dark:from-[#212529] dark:via-[#212529] dark:to-[#F26722]/10">
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+					<a
+						href="https://sprinkler.lv/lv/"
+						target="_blank"
+						rel="noreferrer"
+						aria-label="Atvērt Sprinkler Service tīmekļvietni"
+						className="flex w-fit shrink-0 items-center rounded-xl border border-[#F26722]/20 bg-white px-4 py-3 shadow-xs transition-shadow hover:shadow-sm"
+					>
+						<Image
+							src="/logos/sprinkler-service.svg"
+							alt="Sprinkler Service"
+							width={154}
+							height={54}
+							priority
+						/>
+					</a>
+					<div>
+						<div className="mb-2 flex flex-wrap items-center gap-2">
+							<Badge
+								variant="outline"
+								className="gap-1.5 border-[#F26722]/30 bg-white/80 py-1 dark:bg-[#212529]/80"
+							>
+								<WhatsAppIcon size={14} />
+								WhatsApp darba laika uzskaite
+							</Badge>
+							<Badge className="border-[#F26722]/20 bg-[#F26722]/10 text-[#C64F18] dark:text-[#FF9A68]">
+								Demonstrācijas dati
+							</Badge>
+						</div>
+						<h1 className="text-2xl font-semibold tracking-tight text-[#212529] sm:text-3xl dark:text-white">
+							Dienas darba laika uzskaite
+						</h1>
+						<p className="mt-1 text-sm text-muted-foreground">
+							Skatiet, kur katrs darbinieks reģistrējās un cik ilgi strādāja.
+						</p>
 					</div>
-					<h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-						Dienas darba laika uzskaite
-					</h1>
-					<p className="mt-1 text-sm text-muted-foreground">
-						Skatiet, kur katrs darbinieks reģistrējās un cik ilgi strādāja.
-					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
-					<div className="flex items-center rounded-md border bg-background shadow-xs">
+					<div className="flex items-center rounded-md border border-[#F26722]/20 bg-background shadow-xs">
 						<Button
 							variant="ghost"
 							size="icon"
@@ -391,12 +414,15 @@ export function SprinklerAttendanceDashboard() {
 						</Button>
 					</div>
 					<Button
-						variant="outline"
+						className="border-[#F26722] bg-[#F26722] text-white hover:border-[#D9571C] hover:bg-[#D9571C] hover:text-white"
 						onClick={() => setSelectedDate("2026-08-06")}
 					>
 						Šodien
 					</Button>
-					<Button variant="outline">
+					<Button
+						variant="outline"
+						className="border-[#F26722]/40 text-[#C64F18] hover:bg-[#F26722]/10 hover:text-[#C64F18] dark:text-[#FF9A68]"
+					>
 						<ArrowDownToLine />
 						Eksportēt
 					</Button>
@@ -433,10 +459,23 @@ export function SprinklerAttendanceDashboard() {
 
 			<Tabs defaultValue="workers" className="gap-4">
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-					<TabsList>
-						<TabsTrigger value="workers">Darbinieki</TabsTrigger>
-						<TabsTrigger value="projects">Projekti</TabsTrigger>
-						<TabsTrigger value="map">
+					<TabsList className="bg-[#212529]/6 dark:bg-white/8">
+						<TabsTrigger
+							value="workers"
+							className="data-[state=active]:bg-[#F26722] data-[state=active]:text-white"
+						>
+							Darbinieki
+						</TabsTrigger>
+						<TabsTrigger
+							value="projects"
+							className="data-[state=active]:bg-[#F26722] data-[state=active]:text-white"
+						>
+							Projekti
+						</TabsTrigger>
+						<TabsTrigger
+							value="map"
+							className="data-[state=active]:bg-[#F26722] data-[state=active]:text-white"
+						>
 							<MapPinned />
 							Karte
 						</TabsTrigger>
@@ -492,7 +531,7 @@ export function SprinklerAttendanceDashboard() {
 									<CardContent className="px-4">
 										<div className="flex items-start justify-between gap-3">
 											<div className="flex min-w-0 items-center gap-3">
-												<div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background">
+												<div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#212529] text-xs font-semibold text-white">
 													{worker.initials}
 												</div>
 												<div className="min-w-0">
@@ -561,7 +600,7 @@ export function SprinklerAttendanceDashboard() {
 						<Card className="hidden gap-0 overflow-hidden py-0 shadow-none md:flex">
 							<Table>
 								<TableHeader>
-									<TableRow className="bg-muted/40 hover:bg-muted/40">
+									<TableRow className="bg-[#F26722]/6 hover:bg-[#F26722]/6 dark:bg-[#F26722]/10 dark:hover:bg-[#F26722]/10">
 										<TableHead className="h-12 px-4">Darbinieks</TableHead>
 										<TableHead>Projekts un vieta</TableHead>
 										<TableHead>Sākums / beigas</TableHead>
@@ -576,7 +615,7 @@ export function SprinklerAttendanceDashboard() {
 										<TableRow key={worker.id}>
 											<TableCell className="px-4 py-4">
 												<div className="flex items-center gap-3">
-													<div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background">
+													<div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#212529] text-xs font-semibold text-white">
 														{worker.initials}
 													</div>
 													<div>
@@ -637,7 +676,7 @@ export function SprinklerAttendanceDashboard() {
 							</Table>
 						</Card>
 
-						<Card className="gap-4 py-5 shadow-none">
+						<Card className="gap-4 border-t-2 border-t-emerald-500 py-5 shadow-none">
 							<CardHeader className="px-5">
 								<div className="flex items-center justify-between gap-3">
 									<div>
@@ -699,11 +738,14 @@ export function SprinklerAttendanceDashboard() {
 				<TabsContent value="projects" className="mt-0">
 					<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 						{projects.map((project) => (
-							<Card key={project.name} className="gap-4 py-5 shadow-none">
+							<Card
+								key={project.name}
+								className="gap-4 border-t-2 border-t-[#F26722] py-5 shadow-none"
+							>
 								<CardHeader className="px-5">
 									<div className="flex items-start justify-between gap-3">
-										<span className="flex size-10 items-center justify-center rounded-lg bg-muted">
-											<BriefcaseBusiness className="size-5 text-muted-foreground" />
+										<span className="flex size-10 items-center justify-center rounded-lg bg-[#F26722]/10">
+											<BriefcaseBusiness className="size-5 text-[#D9571C] dark:text-[#FF9A68]" />
 										</span>
 										<Badge variant="secondary">
 											{project.workers}{" "}
@@ -732,7 +774,7 @@ export function SprinklerAttendanceDashboard() {
 									</div>
 									<div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
 										<div
-											className="h-full rounded-full bg-emerald-500"
+											className="h-full rounded-full bg-[#F26722]"
 											style={{ width: `${project.share}%` }}
 										/>
 									</div>

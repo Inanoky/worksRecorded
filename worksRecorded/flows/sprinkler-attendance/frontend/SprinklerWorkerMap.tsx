@@ -74,7 +74,7 @@ export function SprinklerWorkerMap({ workers }: { workers: MapWorker[] }) {
 
 	return (
 		<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
-			<Card className="gap-0 overflow-hidden py-0 shadow-none">
+			<Card className="gap-0 overflow-hidden border-t-2 border-t-[#F26722] py-0 shadow-none">
 				<CardHeader className="border-b py-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
@@ -111,7 +111,7 @@ export function SprinklerWorkerMap({ workers }: { workers: MapWorker[] }) {
 									"absolute z-10 flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-4 text-xs font-bold shadow-lg transition-transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-white/80",
 									markerClasses(worker.status),
 									selectedWorker?.id === worker.id &&
-										"scale-110 ring-4 ring-white/90",
+										"scale-110 ring-4 ring-[#F26722]/80",
 								)}
 								style={position}
 								onClick={() => selectWorker(worker)}
@@ -138,7 +138,7 @@ export function SprinklerWorkerMap({ workers }: { workers: MapWorker[] }) {
 				</div>
 			</Card>
 
-			<Card className="gap-0 overflow-hidden py-0 shadow-none">
+			<Card className="gap-0 overflow-hidden border-t-2 border-t-[#F26722] py-0 shadow-none">
 				<CardHeader className="border-b py-5">
 					<CardTitle className="text-base">
 						Darbinieku atrašanās vietas
@@ -156,7 +156,7 @@ export function SprinklerWorkerMap({ workers }: { workers: MapWorker[] }) {
 								aria-pressed={selectedWorker?.id === worker.id}
 								className={cn(
 									"h-auto w-full justify-start rounded-none px-4 py-3 text-left",
-									selectedWorker?.id === worker.id && "bg-muted",
+									selectedWorker?.id === worker.id && "bg-[#F26722]/10",
 								)}
 								onClick={() => selectWorker(worker)}
 							>
@@ -186,7 +186,7 @@ export function SprinklerWorkerMap({ workers }: { workers: MapWorker[] }) {
 					{selectedWorker ? (
 						<div className="border-t bg-muted/30 p-4">
 							<div className="flex items-center gap-2 text-sm font-medium">
-								<Navigation className="size-4 text-emerald-600" />
+								<Navigation className="size-4 text-[#D9571C] dark:text-[#FF9A68]" />
 								{selectedWorker.project}
 							</div>
 							<p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
