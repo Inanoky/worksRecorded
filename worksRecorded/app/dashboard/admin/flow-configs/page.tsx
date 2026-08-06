@@ -17,6 +17,7 @@ import { canAccessFlowConfigAdmin } from "@/lib/production-flow/config";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import { FlowAssignmentForm } from "./FlowAssignmentForm";
+import { UserOrganizationForm } from "./UserOrganizationForm";
 
 export default async function FlowConfigsPage() {
   const user = await requireUser();
@@ -30,7 +31,7 @@ export default async function FlowConfigsPage() {
     notFound();
   }
 
-  const [organizations, assignments] = await Promise.all([
+  const [organizations, assignments, users] = await Promise.all([
     prisma.organization.findMany({
       orderBy: { name: "asc" },
       select: {
@@ -45,6 +46,19 @@ export default async function FlowConfigsPage() {
       },
     }),
     getFlowAssignments(),
+    prisma.user.findMany({
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }, { email: "asc" }],
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        organizationId: true,
+        organization: {
+          select: { name: true },
+        },
+      },
+    }),
   ]);
   const flowModules = getFlowModules();
   const organizationsById = new Map(organizations.map((organization) => [organization.id, organization]));
@@ -122,15 +136,27 @@ export default async function FlowConfigsPage() {
           </Card>
         </div>
 
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle>Assign flow</CardTitle>
-            <CardDescription>Choose organization and flow module</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FlowAssignmentForm organizations={organizations} modules={flowModules} />
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Assign flow</CardTitle>
+              <CardDescription>Choose organization and flow module</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FlowAssignmentForm organizations={organizations} modules={flowModules} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Switch user organization</CardTitle>
+              <CardDescription>Choose a user and their new organization</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <UserOrganizationForm organizations={organizations} users={users} />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
