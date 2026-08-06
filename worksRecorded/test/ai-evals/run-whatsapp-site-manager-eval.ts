@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Prisma } from "@prisma/client";
 import OpenAI from "openai";
@@ -34,6 +34,8 @@ import {
 	selectRecordsForWhatsappEval,
 } from "./whatsapp-site-manager-runner-utils";
 import {
+	type SavedBisMaterialRecord,
+	type SavedPhotoRecord,
 	type SavedSiteDiaryRecord,
 	validateWhatsappSiteManagerRecord,
 	type WhatsAppTurnValidationResult,
@@ -49,24 +51,16 @@ type JudgeResult = {
 
 type EvalResultStatus = "pass" | "warn" | "fail" | "skipped";
 
-type SavedPhotoRecord = {
-	id: string;
-	siteId: string | null;
-	userId: string | null;
-	workerId: string | null;
-	URL: string | null;
-	fileUrl: string | null;
-	Comment: string | null;
-	createdAt: Date;
-};
-
 type CaseRunResult = {
 	caseId: string;
 	webhookMessageId: string | null;
 	inputPreview: string | null;
 	createdRecordIds: string[];
 	createdPhotoIds: string[];
+	createdMaterialRecordIds: string[];
 	selectedRecord: SavedSiteDiaryRecord | null;
+	warehousePhotos: SavedPhotoRecord[];
+	materialRecords: SavedBisMaterialRecord[];
 	answer: string | null;
 	requestedModel: string | null;
 	actualModel: string | null;
@@ -158,6 +152,21 @@ const EVAL_IMAGE_MEDIA_URL =
 	"https://eval.test/meta-media/site-manager-image-caption.jpg";
 const EVAL_UPLOADED_IMAGE_URL =
 	"https://eval.test/uploads/site-manager-image-caption.jpg";
+const EVAL_PROGRESS_IMAGE_MEDIA_ID = "eval-image-media-progress-report-normal";
+const EVAL_PROGRESS_IMAGE_MEDIA_URL =
+	"https://eval.test/meta-media/progress-report-normal-image.jpg";
+const EVAL_PROGRESS_IMAGE_FIXTURE_PATH = path.join(
+	process.cwd(),
+	"test/fixtures/meta-webhook/progress-report-normal-image.jpg",
+);
+const EVAL_MATERIAL_LATVIAN_DATE_MEDIA_ID =
+	"eval-image-media-material-invoice-latvian-date";
+const EVAL_MATERIAL_LATVIAN_DATE_MEDIA_URL =
+	"https://eval.test/meta-media/material-invoice-latvian-date.jpg";
+const EVAL_MATERIAL_LATVIAN_DATE_FIXTURE_PATH = path.join(
+	process.cwd(),
+	"test/fixtures/meta-webhook/material-invoice-latvian-date.jpg",
+);
 const EVAL_IMAGE_BYTES = new Uint8Array([
 	0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff,
 	0xd9,
@@ -283,6 +292,62 @@ function cloneWebhook(value: Record<string, unknown>) {
 	return JSON.parse(JSON.stringify(value));
 }
 
+function hasMaterialRecordExpectation(
+	evalCase: WebhookWhatsAppSiteManagerEvalCase,
+) {
+	return Boolean(evalCase.expected.materialRecords);
+}
+
+function hasPhotoPurposeExpectation(
+	evalCase: WebhookWhatsAppSiteManagerEvalCase,
+) {
+	return Boolean(evalCase.expected.expectedPhotoPurpose);
+}
+
+async function readMaterialLatvianDateFixtureBytes() {
+	return readFile(EVAL_MATERIAL_LATVIAN_DATE_FIXTURE_PATH);
+}
+
+async function readProgressImageFixtureBytes() {
+	return readFile(EVAL_PROGRESS_IMAGE_FIXTURE_PATH);
+}
+
+async function getUploadedImageUrlForCase(
+	evalCase: WebhookWhatsAppSiteManagerEvalCase,
+) {
+	if (hasMaterialRecordExpectation(evalCase)) {
+		const bytes = await readMaterialLatvianDateFixtureBytes();
+		return `data:image/jpeg;base64,${bytes.toString("base64")}`;
+	}
+
+	if (evalCase.expected.expectedPhotoPurpose === "site_diary") {
+		const bytes = await readProgressImageFixtureBytes();
+		return `data:image/jpeg;base64,${bytes.toString("base64")}`;
+	}
+
+	return EVAL_UPLOADED_IMAGE_URL;
+}
+
+function shouldRunImageClassifierForCase(
+	evalCase: WebhookWhatsAppSiteManagerEvalCase,
+) {
+	return (
+		hasMaterialRecordExpectation(evalCase) ||
+		hasPhotoPurposeExpectation(evalCase)
+	);
+}
+
+function configureImageClassifierForCase(
+	evalCase: WebhookWhatsAppSiteManagerEvalCase,
+) {
+	if (shouldRunImageClassifierForCase(evalCase)) {
+		delete process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER;
+		return;
+	}
+
+	process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER = "true";
+}
+
 function skippedControlledMemoryResult(
 	message = "No controlled-memory inspection for this case.",
 ): ControlledMemoryEvalResult {
@@ -379,6 +444,32 @@ function installGraphApiFetchMock() {
 	global.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = typeof input === "string" ? input : input.toString();
 		if (url.startsWith(GRAPH_API_PREFIX)) {
+			if (url.includes(EVAL_PROGRESS_IMAGE_MEDIA_ID)) {
+				return new Response(
+					JSON.stringify({
+						url: EVAL_PROGRESS_IMAGE_MEDIA_URL,
+						mime_type: "image/jpeg",
+					}),
+					{
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+			}
+
+			if (url.includes(EVAL_MATERIAL_LATVIAN_DATE_MEDIA_ID)) {
+				return new Response(
+					JSON.stringify({
+						url: EVAL_MATERIAL_LATVIAN_DATE_MEDIA_URL,
+						mime_type: "image/jpeg",
+					}),
+					{
+						status: 200,
+						headers: { "Content-Type": "application/json" },
+					},
+				);
+			}
+
 			if (url.includes("eval-image-media-")) {
 				return new Response(
 					JSON.stringify({
@@ -400,6 +491,20 @@ function installGraphApiFetchMock() {
 
 		if (url === EVAL_IMAGE_MEDIA_URL) {
 			return new Response(EVAL_IMAGE_BYTES, {
+				status: 200,
+				headers: { "Content-Type": "image/jpeg" },
+			});
+		}
+
+		if (url === EVAL_PROGRESS_IMAGE_MEDIA_URL) {
+			return new Response(await readProgressImageFixtureBytes(), {
+				status: 200,
+				headers: { "Content-Type": "image/jpeg" },
+			});
+		}
+
+		if (url === EVAL_MATERIAL_LATVIAN_DATE_MEDIA_URL) {
+			return new Response(await readMaterialLatvianDateFixtureBytes(), {
 				status: 200,
 				headers: { "Content-Type": "image/jpeg" },
 			});
@@ -562,6 +667,65 @@ async function findCreatedPhotos(args: {
 			URL: true,
 			fileUrl: true,
 			Comment: true,
+			mediaPurpose: true,
+			createdAt: true,
+		},
+	});
+}
+
+async function findPhotosBySourceUrl(args: {
+	siteId: string;
+	userId: string;
+	startedAt: Date;
+	sourcePhoto: string;
+}): Promise<SavedPhotoRecord[]> {
+	return prisma.photos.findMany({
+		where: {
+			siteId: args.siteId,
+			userId: args.userId,
+			workerId: null,
+			createdAt: { gte: args.startedAt },
+			OR: [{ URL: args.sourcePhoto }, { fileUrl: args.sourcePhoto }],
+		},
+		orderBy: { createdAt: "desc" },
+		select: {
+			id: true,
+			siteId: true,
+			userId: true,
+			workerId: true,
+			URL: true,
+			fileUrl: true,
+			Comment: true,
+			mediaPurpose: true,
+			createdAt: true,
+		},
+	});
+}
+
+async function findCreatedMaterialRecords(args: {
+	siteId: string;
+	userId: string;
+	startedAt: Date;
+	sourcePhoto: string;
+}): Promise<SavedBisMaterialRecord[]> {
+	return prisma.bISmaterialRecords.findMany({
+		where: {
+			siteId: args.siteId,
+			userId: args.userId,
+			createdAt: { gte: args.startedAt },
+			sourcePhoto: args.sourcePhoto,
+		},
+		orderBy: { createdAt: "desc" },
+		select: {
+			id: true,
+			siteId: true,
+			userId: true,
+			name: true,
+			invoiceNr: true,
+			invoiceDate: true,
+			cost: true,
+			quantity: true,
+			sourcePhoto: true,
 			createdAt: true,
 		},
 	});
@@ -608,6 +772,8 @@ async function cleanupPreviousEvalCaseRows(args: {
 	inputText: string;
 	caseId: string;
 	includeTextFallback?: boolean;
+	materialSourcePhoto?: string | null;
+	materialInvoiceNr?: string | null;
 }) {
 	await prisma.sitediaryrecords.deleteMany({
 		where: {
@@ -641,12 +807,29 @@ async function cleanupPreviousEvalCaseRows(args: {
 			},
 		});
 	}
+
+	if (args.materialSourcePhoto) {
+		await prisma.bISmaterialRecords.deleteMany({
+			where: {
+				siteId: args.siteId,
+				userId: args.userId,
+				sourcePhoto: args.materialSourcePhoto,
+				...(args.materialInvoiceNr
+					? { invoiceNr: args.materialInvoiceNr }
+					: {}),
+			},
+		});
+	}
 }
 
 async function cleanupEvalRows(args: {
+	siteId: string;
+	userId: string;
 	businessPhoneNumberId: string;
 	recordIds: string[];
 	photoIds: string[];
+	materialRecordIds: string[];
+	materialSourcePhoto?: string | null;
 	runId: string;
 	caseId: string;
 }) {
@@ -671,6 +854,20 @@ async function cleanupEvalRows(args: {
 			id: { in: args.photoIds },
 		},
 	});
+	await prisma.bISmaterialRecords.deleteMany({
+		where: {
+			id: { in: args.materialRecordIds },
+		},
+	});
+	if (args.materialSourcePhoto) {
+		await prisma.bISmaterialRecords.deleteMany({
+			where: {
+				siteId: args.siteId,
+				userId: args.userId,
+				sourcePhoto: args.materialSourcePhoto,
+			},
+		});
+	}
 	if (prismaAny.whatsAppIdentity) {
 		await prismaAny.whatsAppIdentity.deleteMany({
 			where: {
@@ -880,7 +1077,10 @@ async function main() {
 					inputPreview: null,
 					createdRecordIds: [],
 					createdPhotoIds: [],
+					createdMaterialRecordIds: [],
 					selectedRecord: null,
+					warehousePhotos: [],
+					materialRecords: [],
 					answer: null,
 					requestedModel: null,
 					actualModel: null,
@@ -911,6 +1111,13 @@ async function main() {
 			const threadId = `eval:whatsapp-site-manager:${siteId}:${webhookEvalCase.id}:${runId}`;
 			let createdRecordIds: string[] = [];
 			let createdPhotoIds: string[] = [];
+			let createdMaterialRecordIds: string[] = [];
+			let warehousePhotos: SavedPhotoRecord[] = [];
+			let materialRecords: SavedBisMaterialRecord[] = [];
+			const currentUploadedImageUrl =
+				await getUploadedImageUrlForCase(webhookEvalCase);
+			process.env.AI_EVAL_UPLOADED_IMAGE_URL = currentUploadedImageUrl;
+			configureImageClassifierForCase(webhookEvalCase);
 			const prepared = prepareWebhookPayload({
 				evalCase: webhookEvalCase,
 				runId,
@@ -950,6 +1157,11 @@ async function main() {
 						userId,
 						inputText: prepared.inputText,
 						caseId: evalCase.id,
+						materialSourcePhoto: webhookEvalCase.expected.materialRecords
+							? currentUploadedImageUrl
+							: null,
+						materialInvoiceNr:
+							webhookEvalCase.expected.materialRecords?.invoiceNr ?? null,
 					});
 					if (webhookEvalCase.followUp) {
 						await cleanupPreviousEvalCaseRows({
@@ -1010,7 +1222,26 @@ async function main() {
 					startedAt: caseStartedAt,
 					inputText: prepared.inputText,
 				});
-				createdPhotoIds = createdPhotos.map((photo) => photo.id);
+				warehousePhotos = webhookEvalCase.expected.materialRecords
+					? await findPhotosBySourceUrl({
+							siteId,
+							userId,
+							startedAt: caseStartedAt,
+							sourcePhoto: currentUploadedImageUrl,
+						})
+					: [];
+				createdPhotoIds = Array.from(
+					new Set(
+						[...createdPhotos, ...warehousePhotos].map((photo) => photo.id),
+					),
+				);
+				materialRecords = await findCreatedMaterialRecords({
+					siteId,
+					userId,
+					startedAt: caseStartedAt,
+					sourcePhoto: currentUploadedImageUrl,
+				});
+				createdMaterialRecordIds = materialRecords.map((record) => record.id);
 				const persistedRecords = getPersistedEvalRecordsFromTrace(
 					tracedRun.entries,
 				);
@@ -1030,6 +1261,9 @@ async function main() {
 					userId,
 					record: selectedRecord,
 					records: recordsForValidation,
+					materialRecords,
+					createdPhotos,
+					warehousePhotos,
 					createdPhotoCount: createdPhotos.length,
 					answer: agentRun.details?.content ?? "",
 				});
@@ -1056,7 +1290,10 @@ async function main() {
 					inputPreview: preview(prepared.inputText),
 					createdRecordIds,
 					createdPhotoIds,
+					createdMaterialRecordIds,
 					selectedRecord,
+					warehousePhotos,
+					materialRecords,
 					answer: agentRun.details?.content ?? "",
 					requestedModel: agentRun.details?.requestedModel ?? agentModel,
 					actualModel: agentRun.details?.actualModel ?? null,
@@ -1199,6 +1436,7 @@ async function main() {
 						userId,
 						record: followUpSelectedRecord,
 						records: followUpRecordsForValidation,
+						materialRecords: [],
 						answer: followUpAgentRun.details?.content ?? "",
 					});
 					const followUpJudge =
@@ -1224,7 +1462,10 @@ async function main() {
 						inputPreview: preview(followUpPrepared.inputText),
 						createdRecordIds: followUpRecordIds,
 						createdPhotoIds: [],
+						createdMaterialRecordIds: [],
 						selectedRecord: followUpSelectedRecord,
+						warehousePhotos: [],
+						materialRecords: [],
 						answer: followUpAgentRun.details?.content ?? "",
 						requestedModel:
 							followUpAgentRun.details?.requestedModel ?? agentModel,
@@ -1261,7 +1502,7 @@ async function main() {
 			} finally {
 				if (preserveRecords) {
 					console.log(
-						`[PRESERVED] ${evalCase.id} records=${createdRecordIds.join(",") || "none"} photos=${createdPhotoIds.join(",") || "none"}`,
+						`[PRESERVED] ${evalCase.id} records=${createdRecordIds.join(",") || "none"} photos=${createdPhotoIds.join(",") || "none"} materials=${createdMaterialRecordIds.join(",") || "none"}`,
 					);
 					await Promise.all([
 						cleanupEvalIdentity(businessPhoneNumberId),
@@ -1270,9 +1511,15 @@ async function main() {
 				} else {
 					await Promise.all([
 						cleanupEvalRows({
+							siteId,
+							userId,
 							businessPhoneNumberId,
 							recordIds: createdRecordIds,
 							photoIds: createdPhotoIds,
+							materialRecordIds: createdMaterialRecordIds,
+							materialSourcePhoto: webhookEvalCase.expected.materialRecords
+								? currentUploadedImageUrl
+								: null,
 							runId,
 							caseId: evalCase.id,
 						}),

@@ -10,7 +10,10 @@ jest.mock("uploadthing/server", () => ({
 	})),
 }));
 
-import { extractBISMaterialsFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
+import {
+	classifyMaterialDocumentImage,
+	extractBISMaterialsFromPublicUrl,
+} from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 import expectedFixture from "./fixtures/meta-webhook/material-invoice.expected.json";
 
 type ExpectedMaterialItem = {
@@ -66,22 +69,63 @@ type ExtractionComparisonReport = {
 	extraItems: Array<{ index: number; actual: ExtractedMaterialItem }>;
 };
 
+type RealImageEvalCase = {
+	name: string;
+	publicUrl: () => string;
+	expectedMaterialDocument: boolean;
+	expectedItems?: ExpectedMaterialItem[];
+	expectedInvoiceNr?: string;
+	expectedInvoiceDateISO?: string;
+	minExtractedRows?: number;
+};
+
 const fixturePath = path.join(
 	process.cwd(),
 	"test/fixtures/meta-webhook/material-invoice.jpg",
 );
+const latvianDateInvoiceFixturePath = path.join(
+	process.cwd(),
+	"test/fixtures/meta-webhook/material-invoice-latvian-date.jpg",
+);
+const progressReportFixturePath = path.join(
+	process.cwd(),
+	"test/fixtures/meta-webhook/progress-report-normal-image.jpg",
+);
 
-function fixtureImageDataUrl() {
-	const bytes = readFileSync(fixturePath);
+function fixtureImageDataUrl(args: { path: string; description: string }) {
+	const bytes = readFileSync(args.path);
 	const placeholder = Buffer.from("fixture material invoice image bytes");
 
 	if (bytes.equals(placeholder)) {
 		throw new Error(
-			"Replace test/fixtures/meta-webhook/material-invoice.jpg with the real invoice image before running RUN_AI_EVALS=true.",
+			`Replace ${args.description} with a real image before running RUN_AI_EVALS=true.`,
 		);
 	}
 
 	return `data:image/jpeg;base64,${bytes.toString("base64")}`;
+}
+
+function materialInvoiceImageDataUrl() {
+	return fixtureImageDataUrl({
+		path: fixturePath,
+		description: "test/fixtures/meta-webhook/material-invoice.jpg",
+	});
+}
+
+function latvianDateInvoiceImageDataUrl() {
+	return fixtureImageDataUrl({
+		path: latvianDateInvoiceFixturePath,
+		description:
+			"test/fixtures/meta-webhook/material-invoice-latvian-date.jpg",
+	});
+}
+
+function progressReportImageDataUrl() {
+	return fixtureImageDataUrl({
+		path: progressReportFixturePath,
+		description:
+			"test/fixtures/meta-webhook/progress-report-normal-image.jpg",
+	});
 }
 
 function normalize(value: string) {
@@ -277,6 +321,74 @@ function formatExtractionComparisonReport(
 	return lines.join("\n");
 }
 
+async function runClassifyThenMaybeExtractImageEval(testCase: RealImageEvalCase) {
+	const publicUrl = testCase.publicUrl();
+	const context = {
+		userId: "eval-user",
+		orgId: "eval-org",
+		siteId: "eval-site",
+	};
+
+	console.log(`CLASSIFICATION_CALL_START ${testCase.name}`);
+	const classification = await classifyMaterialDocumentImage(publicUrl, context);
+	console.log(`CLASSIFICATION_CALL_RESULT ${testCase.name}`, classification);
+
+	expect(classification.isMaterialDocument).toBe(
+		testCase.expectedMaterialDocument,
+	);
+
+	if (!testCase.expectedMaterialDocument) {
+		expect(classification.confidence).toBeLessThan(0.65);
+		console.log(`EXTRACTION_CALL_SKIPPED ${testCase.name}`);
+		return;
+	}
+
+	expect(classification.confidence).toBeGreaterThanOrEqual(0.65);
+
+	console.log(`EXTRACTION_CALL_START ${testCase.name}`);
+	const payload = await extractBISMaterialsFromPublicUrl({
+		publicUrl,
+		context,
+	});
+	console.log(
+		`EXTRACTION_CALL_RESULT ${testCase.name}`,
+		JSON.stringify({ itemCount: payload.items.length }),
+	);
+
+	const actualItems = payload.items as ExtractedMaterialItem[];
+
+	if (testCase.expectedItems) {
+		const report = compareExtractionItems(testCase.expectedItems, actualItems);
+
+		console.log(formatExtractionComparisonReport(report));
+
+		if (report.status === "fail") {
+			throw new Error(formatExtractionComparisonReport(report));
+		}
+
+		expect(report.status).toBe("pass");
+	}
+
+	if (testCase.minExtractedRows != null) {
+		expect(actualItems.length).toBeGreaterThanOrEqual(testCase.minExtractedRows);
+	}
+
+	if (testCase.expectedInvoiceNr) {
+		expect(
+			actualItems.some((item) => item.invoiceNr === testCase.expectedInvoiceNr),
+		).toBe(true);
+	}
+
+	if (testCase.expectedInvoiceDateISO) {
+		expect(
+			actualItems.some(
+				(item) =>
+					normalizeDate(item.invoiceDate) === testCase.expectedInvoiceDateISO,
+			),
+		).toBe(true);
+	}
+}
+
 const maybeRealAiTest =
 	process.env.RUN_AI_EVALS === "true" &&
 	process.env.RUN_META_IMAGE_AI_EVAL === "true"
@@ -290,26 +402,30 @@ maybeRealAiTest("real material invoice image extraction eval", () => {
 		await awaitAllCallbacks();
 	});
 
-	it("extracts expected material rows from the repo invoice image fixture", async () => {
-		const payload = await extractBISMaterialsFromPublicUrl({
-			publicUrl: fixtureImageDataUrl(),
-			context: {
-				userId: "eval-user",
-				orgId: "eval-org",
-				siteId: "eval-site",
-			},
-		});
-
-		const expectedItems = expectedFixture.items as ExpectedMaterialItem[];
-		const actualItems = payload.items as ExtractedMaterialItem[];
-		const report = compareExtractionItems(expectedItems, actualItems);
-
-		console.log(formatExtractionComparisonReport(report));
-
-		if (report.status === "fail") {
-			throw new Error(formatExtractionComparisonReport(report));
-		}
-
-		expect(report.status).toBe("pass");
-	});
+	it.each([
+		{
+			name: "material-invoice.jpg",
+			publicUrl: materialInvoiceImageDataUrl,
+			expectedMaterialDocument: true,
+			expectedItems: expectedFixture.items as ExpectedMaterialItem[],
+		},
+		{
+			name: "material-invoice-latvian-date.jpg",
+			publicUrl: latvianDateInvoiceImageDataUrl,
+			expectedMaterialDocument: true,
+			expectedInvoiceNr: "E02246903",
+			expectedInvoiceDateISO: "2026-06-02",
+			minExtractedRows: 1,
+		},
+		{
+			name: "progress-report-normal-image.jpg",
+			publicUrl: progressReportImageDataUrl,
+			expectedMaterialDocument: false,
+		},
+	] satisfies RealImageEvalCase[])(
+		"classifies $name and follows production extraction gating",
+		async (testCase) => {
+			await runClassifyThenMaybeExtractImageEval(testCase);
+		},
+	);
 });

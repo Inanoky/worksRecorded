@@ -4,6 +4,26 @@ const ExpectedSavedRecordSchema = z.object({
 	shouldCreateRecord: z.boolean().default(true),
 	expectedRecordCount: z.number().int().nonnegative().optional(),
 	expectedPhotoCount: z.number().int().nonnegative().optional(),
+	expectedPhotoPurpose: z
+		.enum(["site_diary", "warehouse_invoice"])
+		.optional(),
+	expectedWarehousePhotoCount: z.number().int().nonnegative().optional(),
+	materialRecords: z
+		.object({
+			expectedRecordCount: z.number().int().nonnegative().optional(),
+			minRecordCount: z.number().int().nonnegative().default(1),
+			invoiceNr: z.string().min(1).optional(),
+			expectedInvoiceDateISO: z
+				.string()
+				.regex(/^\d{4}-\d{2}-\d{2}$/)
+				.optional(),
+			forbiddenInvoiceDateISO: z
+				.string()
+				.regex(/^\d{4}-\d{2}-\d{2}$/)
+				.optional(),
+			requiredNameSignals: z.array(z.string().min(1)).default([]),
+		})
+		.optional(),
 	requiredTextSignals: z.array(z.string().min(1)).default([]),
 	requiredAnswerSignals: z.array(z.string().min(1)).default([]),
 	forbiddenAnswerSignals: z.array(z.string().min(1)).default([]),
@@ -202,20 +222,50 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			intent:
 				"Verify a Meta image webhook with a Latvian site diary caption saves the photo and creates a diary record from the caption.",
 			notes:
-				"The eval runner mocks Meta media bytes and UploadThing; image content is not extracted for diary text.",
+				"The eval runner uses a real progress image fixture; image content is not extracted for diary text.",
 			tags: ["save", "image", "photo", "latvian"],
 			tier: "regression",
 			webhook: imageWebhookFixture({
 				senderKey: "eval-site-manager-image-caption",
 				caption: "Šodien pabeidzām starpsienu montāžu 2. stāvā, 2 cilvēki, 3h.",
 				timestamp: "1782197580",
+				mediaId: "eval-image-media-progress-report-normal",
 			}),
 			expected: {
 				expectedPhotoCount: 1,
+				expectedPhotoPurpose: "site_diary",
 				requiredTextSignals: ["starpsien", "montāž", "2", "stāv"],
 				workersInvolved: 2,
 				timeInvolved: 3,
 				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "material-invoice-latvian-date-image",
+			intent:
+				"Verify a regular site-manager image webhook is classified as a material invoice and saves Latvian DD.MM.YYYY invoice dates deterministically.",
+			notes:
+				"Regression for invoice date 02.06.2026 being misread as February 6 instead of June 2.",
+			tags: ["image", "material", "invoice", "date", "regression"],
+			tier: "regression",
+			webhook: imageWebhookFixture({
+				senderKey: "eval-site-manager-material-invoice-lv-date",
+				caption: "Rēķins E02246903",
+				timestamp: "1782197582",
+				mediaId: "eval-image-media-material-invoice-latvian-date",
+			}),
+			expected: {
+				shouldCreateRecord: false,
+				expectedPhotoCount: 0,
+				expectedWarehousePhotoCount: 1,
+				expectedPhotoPurpose: "warehouse_invoice",
+				materialRecords: {
+					minRecordCount: 1,
+					invoiceNr: "E02246903",
+					expectedInvoiceDateISO: "2026-06-02",
+					forbiddenInvoiceDateISO: "2026-02-06",
+				},
+				minHeuristicScore: 1,
 			},
 		},
 		{

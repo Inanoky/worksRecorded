@@ -4,580 +4,660 @@ import { ChatOpenAI } from "@langchain/openai";
 import { uuid7 } from "langsmith";
 import { UTApi } from "uploadthing/server";
 import { z } from "zod";
+import { buildSiteManagerSenderTraceContext } from "@/flows/default-construction/backend/site-manager-agent/runContext";
+import { PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE } from "@/lib/photos/media-purpose";
 import { prisma } from "@/lib/utils/db";
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
 import {
-  metaMaterialImageClassifierModel,
-  metaMaterialImageClassifierTemperature,
+	metaMaterialImageClassifierModel,
+	metaMaterialImageClassifierTemperature,
 } from "@/server/ai-flows/ai-models-settings";
-import { buildSiteManagerSenderTraceContext } from "@/flows/default-construction/backend/site-manager-agent/runContext";
-
 
 //-------------------------------------Utilities--------------------------------
 
-const TOKEN = process.env.META_ACCESS_TOKEN
+const TOKEN = process.env.META_ACCESS_TOKEN;
+const MIN_INVOICE_YEAR = 2025;
 
 const utapi = new UTApi();
 
 //This we use for just when we have no access to IP.
 export const mockupCategories = [
-  {
-    id: '2195',
-    material_kind: 'Flīzes',
-    measurement: '12',
-    measurement_unit: 'gab.'
-  },
-  {
-    id: '2204',
-    material_kind: 'Mūras bloki',
-    measurement: '12',
-    measurement_unit: 'gab.'
-  },
-  {
-    id: '2230',
-    material_kind: 'stiegrojums',
-    measurement: '42',
-    measurement_unit: 't'
-  },
-  {
-    id: '2231',
-    material_kind: 'Transportbetons',
-    measurement: '25',
-    measurement_unit: 'm3'
-  },
-  {
-    id: '2232',
-    material_kind: 'Concrete grout',
-    measurement: '62',
-    measurement_unit: 'kg'
-  }
-]
-
-
+	{
+		id: "2195",
+		material_kind: "Flīzes",
+		measurement: "12",
+		measurement_unit: "gab.",
+	},
+	{
+		id: "2204",
+		material_kind: "Mūras bloki",
+		measurement: "12",
+		measurement_unit: "gab.",
+	},
+	{
+		id: "2230",
+		material_kind: "stiegrojums",
+		measurement: "42",
+		measurement_unit: "t",
+	},
+	{
+		id: "2231",
+		material_kind: "Transportbetons",
+		measurement: "25",
+		measurement_unit: "m3",
+	},
+	{
+		id: "2232",
+		material_kind: "Concrete grout",
+		measurement: "62",
+		measurement_unit: "kg",
+	},
+];
 
 //And this we use to download and store photo from Meta message
 
-
 // STEP 1 - download media from META
 export async function downloadMetaMedia(mediaId: string) {
-    const GRAPH_VERSION = "v20.0";
+	const GRAPH_VERSION = "v20.0";
 
-    const metaResp = await fetch(
-        `https://graph.facebook.com/${GRAPH_VERSION}/${mediaId}`,
-        {
-            headers: {
-                Authorization: `Bearer ${TOKEN}`,
-            },
-        }
-    );
+	const metaResp = await fetch(
+		`https://graph.facebook.com/${GRAPH_VERSION}/${mediaId}`,
+		{
+			headers: {
+				Authorization: `Bearer ${TOKEN}`,
+			},
+		},
+	);
 
-    const metaJson = await metaResp.json();
+	const metaJson = await metaResp.json();
 
-    const fileResp = await fetch(metaJson.url, {
-        headers: {
-            Authorization: `Bearer ${TOKEN}`,
-        },
-    });
+	const fileResp = await fetch(metaJson.url, {
+		headers: {
+			Authorization: `Bearer ${TOKEN}`,
+		},
+	});
 
-    const arrayBuffer = await fileResp.arrayBuffer();
+	const arrayBuffer = await fileResp.arrayBuffer();
 
-    const extension = metaJson.mime_type.split("/")[1];
+	const extension = metaJson.mime_type.split("/")[1];
 
-    const fileName = `whatsapp_${Date.now()}.${extension}`;
+	const fileName = `whatsapp_${Date.now()}.${extension}`;
 
-    const file = new File([arrayBuffer], fileName, { type: metaJson.mime_type });
+	const file = new File([arrayBuffer], fileName, { type: metaJson.mime_type });
 
-    const uploaded = await utapi.uploadFiles([file]);
+	const uploaded = await utapi.uploadFiles([file]);
 
-    const first = Array.isArray(uploaded) ? uploaded[0] : uploaded; //This I don't know what it is
+	const first = Array.isArray(uploaded) ? uploaded[0] : uploaded; //This I don't know what it is
 
-    const publicUrl = getUploadThingFileUrl(first.data); //Get Upload URL
+	const publicUrl = getUploadThingFileUrl(first.data); //Get Upload URL
 
-    if (!publicUrl) {
-      throw new Error("UploadThing upload completed without a file URL");
-    }
+	if (!publicUrl) {
+		throw new Error("UploadThing upload completed without a file URL");
+	}
 
+	console.log(publicUrl);
 
-    console.log(publicUrl)
-
-    return { publicUrl, file }
-
+	return { publicUrl, file };
 }
 
 //This we use to get a list of measurements from BIS.
 export async function getBISMeasurments_12I7_061() {
-    const baseUrl = "https://test.bis.gov.lv";
+	const baseUrl = "https://test.bis.gov.lv";
 
-    let page = 1;
-    let all: any[] = [];
+	let page = 1;
+	const all: any[] = [];
 
-    const row = await prisma.bisToken.findFirst({
-        orderBy: { updatedAt: "desc" },
-        select: { accessToken: true },
-    });
+	const row = await prisma.bisToken.findFirst({
+		orderBy: { updatedAt: "desc" },
+		select: { accessToken: true },
+	});
 
-    const accessToken = row?.accessToken;
+	const accessToken = row?.accessToken;
 
-    while (true) {
-        const res = await fetch(
-            `${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures&page[number]=${page}`,
-            {
-                headers: {
-                    Accept: "application/vnd.api+json",
-                    Authorization: `Bearer ${accessToken}`,
-                },
-            }
-        );
+	while (true) {
+		const res = await fetch(
+			`${baseUrl}/bisp/api/portal/classifiers?filter[typ_eq]=character_measures&page[number]=${page}`,
+			{
+				headers: {
+					Accept: "application/vnd.api+json",
+					Authorization: `Bearer ${accessToken}`,
+				},
+			},
+		);
 
-        const json = await res.json();
+		const json = await res.json();
 
-        if (!json.data?.length) break;
+		if (!json.data?.length) break;
 
-        all.push(...json.data);
-        page++;
-    }
+		all.push(...json.data);
+		page++;
+	}
 
-    console.dir(all)
+	console.dir(all);
 
-    return all;
+	return all;
 }
-
 
 export async function getBisCategories_12I7_075() {
+	const BISCase = "384792";
+	//   const BISCase = "46351"
+	const baseUrl = "https://test.bis.gov.lv";
 
-    const BISCase = "384792"
-    //   const BISCase = "46351"
-    const baseUrl = "https://test.bis.gov.lv"
+	const row = await prisma.bisToken.findFirst({
+		orderBy: { updatedAt: "desc" },
+		select: { id: true, accessToken: true },
+	});
 
+	const accessToken = row?.accessToken;
 
-    const row = await prisma.bisToken.findFirst({
-        orderBy: { updatedAt: "desc" },
-        select: { id: true, accessToken: true },
-    });
+	const res = await fetch(
+		`${baseUrl}/bisp/api/portal/bis_cases/${BISCase}/logbook/construction_materials?page[number]=1&page[size]=200`,
+		{
+			headers: {
+				Accept: "application/vnd.api+json",
+				Authorization: `Bearer ${accessToken}`,
+			},
+		},
+	);
 
-    const accessToken = row?.accessToken
+	const _data = await res.json(); //This I think does something to response body
 
-    const res = await fetch(
-        `${baseUrl}/bisp/api/portal/bis_cases/${BISCase}/logbook/construction_materials?page[number]=1&page[size]=200`,
-        {
-            headers: {
-                Accept: "application/vnd.api+json",
-                Authorization: `Bearer ${accessToken}`,
-            },
-        }
-    );
+	//Now we manipulate data a bit to get array of what we need (id, name, measuremnt)
 
-    const _data = await res.json(); //This I think does something to response body
+	let data = _data.data.map((x) => ({
+		id: x.id,
+		material_kind: x.attributes.material_kind,
+		measurement: x.attributes.measurement,
+	}));
 
-    //Now we manipulate data a bit to get array of what we need (id, name, measuremnt)
+	//Here I think we also need to convert measurement to something readable.
 
-    let data = _data.data.map((x) => ({
+	// We create a Map
+	const map = new Map();
 
-        id: x.id,
-        material_kind: x.attributes.material_kind,
-        measurement: x.attributes.measurement,
-    }))
+	// Get measurements
 
+	const measurements = await getBISMeasurments_12I7_061();
 
-    //Here I think we also need to convert measurement to something readable.
+	//Creata map
 
+	for (const item of measurements) {
+		const code = item.attributes.code;
+		const unit = item.attributes.name;
 
-    // We create a Map
-    const map = new Map()
+		map.set(code, unit);
+	}
 
-    // Get measurements
+	// Here we enrich data
 
-    const measurements = await getBISMeasurments_12I7_061()
+	data = data.map((category) => ({
+		...category, //we leave as it is what we don't care
+		measurement_unit: map.get(category.measurement), //so we enrich this category
+	}));
 
-    //Creata map
+	console.log(`-------------------------------------------------------------`);
+	console.dir(data, { depth: null });
 
-    for (const item of measurements) {
-
-        const code = item.attributes.code;
-        const unit = item.attributes.name;
-
-        map.set(code, unit)
-
-
-    }
-
-    // Here we enrich data
-
-    data = data.map((category) => ({
-
-
-        ...category, //we leave as it is what we don't care
-        measurement_unit: map.get(category.measurement) //so we enrich this category
-
-
-
-    }))
-
-    console.log(`-------------------------------------------------------------`)
-    console.dir(data, { depth: null });
-
-
-    return (data); //I mean it probably I need to convert to array of string of cases or something I dunno
-
-
+	return data; //I mean it probably I need to convert to array of string of cases or something I dunno
 }
-
-
 
 type MetaMaterialContext = {
-  userId: string
-  orgId: string | null
-  siteId: string | null
-  senderFirstName?: string | null
-  senderLastName?: string | null
-  senderName?: string | null
-  senderInitials?: string | null
-  senderLabel?: string | null
-}
+	userId: string;
+	orgId: string | null;
+	siteId: string | null;
+	senderFirstName?: string | null;
+	senderLastName?: string | null;
+	senderName?: string | null;
+	senderInitials?: string | null;
+	senderLabel?: string | null;
+};
 
 type MetaMaterialSenderTraceInput = Pick<
-  MetaMaterialContext,
-  "senderFirstName" | "senderLastName" | "senderName" | "senderInitials" | "senderLabel"
->
+	MetaMaterialContext,
+	| "senderFirstName"
+	| "senderLastName"
+	| "senderName"
+	| "senderInitials"
+	| "senderLabel"
+>;
 
 type MetaMaterialLangSmithRunName =
-  | "MetaMaterialImageClassification"
-  | "MetaMaterialInvoiceExtraction"
+	| "MetaMaterialImageClassification"
+	| "MetaMaterialInvoiceExtraction";
 
 function describeImageForTrace(publicUrl: string) {
-  try {
-    return new URL(publicUrl).hostname
-  } catch {
-    return null
-  }
+	try {
+		return new URL(publicUrl).hostname;
+	} catch {
+		return null;
+	}
 }
 
 function cleanLangSmithTag(value: string) {
-  return value.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9:._-]/g, "_")
+	return value.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9:._-]/g, "_");
 }
 
 function buildMetaMaterialSenderTraceContext(
-  sender?: MetaMaterialSenderTraceInput | null,
+	sender?: MetaMaterialSenderTraceInput | null,
 ) {
-  if (!sender) return {}
+	if (!sender) return {};
 
-  const derived = buildSiteManagerSenderTraceContext({
-    firstName: sender.senderFirstName,
-    lastName: sender.senderLastName,
-  })
-  const senderFirstName = sender.senderFirstName ?? derived.senderFirstName
-  const senderLastName = sender.senderLastName ?? derived.senderLastName
-  const senderName = sender.senderName ?? derived.senderName
-  const senderInitials = sender.senderInitials ?? derived.senderInitials
-  const senderLabel = sender.senderLabel ?? senderName ?? senderInitials
+	const derived = buildSiteManagerSenderTraceContext({
+		firstName: sender.senderFirstName,
+		lastName: sender.senderLastName,
+	});
+	const senderFirstName = sender.senderFirstName ?? derived.senderFirstName;
+	const senderLastName = sender.senderLastName ?? derived.senderLastName;
+	const senderName = sender.senderName ?? derived.senderName;
+	const senderInitials = sender.senderInitials ?? derived.senderInitials;
+	const senderLabel = sender.senderLabel ?? senderName ?? senderInitials;
 
-  return {
-    senderFirstName,
-    senderLastName,
-    senderName,
-    senderInitials,
-    senderLabel,
-  }
+	return {
+		senderFirstName,
+		senderLastName,
+		senderName,
+		senderInitials,
+		senderLabel,
+	};
 }
 
 function mergeMetaMaterialSenderTraceContext(
-  context: MetaMaterialContext | null,
-  sender?: MetaMaterialSenderTraceInput | null,
+	context: MetaMaterialContext | null,
+	sender?: MetaMaterialSenderTraceInput | null,
 ) {
-  if (!context) return context
+	if (!context) return context;
 
-  const senderContext = buildMetaMaterialSenderTraceContext(sender)
-  return {
-    ...context,
-    ...Object.fromEntries(
-      Object.entries(senderContext).filter(
-        ([, value]) => value !== undefined && value !== null,
-      ),
-    ),
-  }
+	const senderContext = buildMetaMaterialSenderTraceContext(sender);
+	return {
+		...context,
+		...Object.fromEntries(
+			Object.entries(senderContext).filter(
+				([, value]) => value !== undefined && value !== null,
+			),
+		),
+	};
 }
 
 function buildMetaMaterialLangSmithExtra(args: {
-  name: MetaMaterialLangSmithRunName
-  model: string
-  publicUrl: string
-  context?: MetaMaterialContext | null
+	name: MetaMaterialLangSmithRunName;
+	model: string;
+	publicUrl: string;
+	context?: MetaMaterialContext | null;
 }) {
-  const runName = args.context?.senderLabel
-    ? `${args.name} - ${args.context.senderLabel}`
-    : args.name
+	const runName = args.context?.senderLabel
+		? `${args.name} - ${args.context.senderLabel}`
+		: args.name;
 
-  return {
-    name: runName,
-    tags: [
-      "whatsapp-site-manager",
-      "meta-image",
-      "material-document",
-      args.name === "MetaMaterialInvoiceExtraction"
-        ? "invoice-extraction"
-        : "image-classification",
-      args.context?.senderLabel
-        ? `sender:${cleanLangSmithTag(args.context.senderLabel)}`
-        : null,
-    ].filter((tag): tag is string => Boolean(tag)),
-    metadata: {
-      source: "meta-image-handler",
-      model: args.model,
-      imageHost: describeImageForTrace(args.publicUrl),
-      siteId: args.context?.siteId ?? null,
-      userId: args.context?.userId ?? null,
-      orgId: args.context?.orgId ?? null,
-      senderFirstName: args.context?.senderFirstName ?? null,
-      senderLastName: args.context?.senderLastName ?? null,
-      senderName: args.context?.senderName ?? null,
-      senderInitials: args.context?.senderInitials ?? null,
-      senderLabel: args.context?.senderLabel ?? null,
-    },
-  }
+	return {
+		name: runName,
+		tags: [
+			"whatsapp-site-manager",
+			"meta-image",
+			"material-document",
+			args.name === "MetaMaterialInvoiceExtraction"
+				? "invoice-extraction"
+				: "image-classification",
+			args.context?.senderLabel
+				? `sender:${cleanLangSmithTag(args.context.senderLabel)}`
+				: null,
+		].filter((tag): tag is string => Boolean(tag)),
+		metadata: {
+			source: "meta-image-handler",
+			model: args.model,
+			imageHost: describeImageForTrace(args.publicUrl),
+			siteId: args.context?.siteId ?? null,
+			userId: args.context?.userId ?? null,
+			orgId: args.context?.orgId ?? null,
+			senderFirstName: args.context?.senderFirstName ?? null,
+			senderLastName: args.context?.senderLastName ?? null,
+			senderName: args.context?.senderName ?? null,
+			senderInitials: args.context?.senderInitials ?? null,
+			senderLabel: args.context?.senderLabel ?? null,
+		},
+	};
 }
 
 function buildLangChainRunConfig(args: {
-  name: MetaMaterialLangSmithRunName
-  model: string
-  publicUrl: string
-  context?: MetaMaterialContext | null
+	name: MetaMaterialLangSmithRunName;
+	model: string;
+	publicUrl: string;
+	context?: MetaMaterialContext | null;
 }) {
-  const extra = buildMetaMaterialLangSmithExtra(args)
-  return {
-    runId: uuid7(),
-    runName: extra.name,
-    tags: extra.tags,
-    metadata: extra.metadata,
-  }
+	const extra = buildMetaMaterialLangSmithExtra(args);
+	return {
+		runId: uuid7(),
+		runName: extra.name,
+		tags: extra.tags,
+		metadata: extra.metadata,
+	};
 }
 
-function buildImageMessage(args: {
-  publicUrl: string
-  prompt: string
-}) {
-  return [
-    {
-      role: "user" as const,
-      content: [
-        {
-          type: "text",
-          text: args.prompt,
-        },
-        {
-          type: "image_url",
-          image_url: {
-            url: args.publicUrl,
-          },
-        },
-      ],
-    },
-  ]
+function buildImageMessage(args: { publicUrl: string; prompt: string }) {
+	return [
+		{
+			role: "user" as const,
+			content: [
+				{
+					type: "text",
+					text: args.prompt,
+				},
+				{
+					type: "image_url",
+					image_url: {
+						url: args.publicUrl,
+					},
+				},
+			],
+		},
+	];
 }
 
 function getRigaLocalDateParts(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Riga",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date)
+	const parts = new Intl.DateTimeFormat("en-CA", {
+		timeZone: "Europe/Riga",
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	}).formatToParts(date);
 
-  const value = (type: "year" | "month" | "day") =>
-    Number(parts.find(part => part.type === type)?.value)
+	const value = (type: "year" | "month" | "day") =>
+		Number(parts.find((part) => part.type === type)?.value);
 
-  return {
-    year: value("year"),
-    month: value("month"),
-    day: value("day"),
-  }
+	return {
+		year: value("year"),
+		month: value("month"),
+		day: value("day"),
+	};
 }
 
-function toUtcMidnightDate(parts: { year: number; month: number; day: number }) {
-  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day))
+function toUtcMidnightDate(parts: {
+	year: number;
+	month: number;
+	day: number;
+}) {
+	return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
 }
 
 function getRigaLocalIsoDate(date = new Date()) {
-  const parts = getRigaLocalDateParts(date)
-  return [
-    String(parts.year).padStart(4, "0"),
-    String(parts.month).padStart(2, "0"),
-    String(parts.day).padStart(2, "0"),
-  ].join("-")
+	const parts = getRigaLocalDateParts(date);
+	return [
+		String(parts.year).padStart(4, "0"),
+		String(parts.month).padStart(2, "0"),
+		String(parts.day).padStart(2, "0"),
+	].join("-");
 }
 
 function parseIsoDateOnly(value: unknown) {
-  if (typeof value !== "string") return null
-  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/)
-  if (!match) return null
+	if (typeof value !== "string") return null;
+	const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+	if (!match) return null;
 
-  const parts = {
-    year: Number(match[1]),
-    month: Number(match[2]),
-    day: Number(match[3]),
-  }
-  const date = toUtcMidnightDate(parts)
+	const parts = {
+		year: Number(match[1]),
+		month: Number(match[2]),
+		day: Number(match[3]),
+	};
+	const date = toUtcMidnightDate(parts);
 
-  if (
-    date.getUTCFullYear() !== parts.year ||
-    date.getUTCMonth() !== parts.month - 1 ||
-    date.getUTCDate() !== parts.day
-  ) {
-    return null
-  }
+	if (
+		date.getUTCFullYear() !== parts.year ||
+		date.getUTCMonth() !== parts.month - 1 ||
+		date.getUTCDate() !== parts.day
+	) {
+		return null;
+	}
 
-  return date
+	return date;
+}
+
+function isAllowedInvoiceYear(year: number, currentYear: number) {
+	return year >= MIN_INVOICE_YEAR && year <= currentYear;
+}
+
+function normalizeVisibleYear(value: string) {
+	const year = Number(value);
+	if (value.length === 2) return 2000 + year;
+	return year;
+}
+
+function buildValidatedInvoiceDate(
+	parts: { year: number; month: number; day: number },
+	currentYear: number,
+) {
+	if (!isAllowedInvoiceYear(parts.year, currentYear)) return null;
+
+	const date = toUtcMidnightDate(parts);
+
+	if (
+		date.getUTCFullYear() !== parts.year ||
+		date.getUTCMonth() !== parts.month - 1 ||
+		date.getUTCDate() !== parts.day
+	) {
+		return null;
+	}
+
+	return date;
+}
+
+function parseVisibleLatvianInvoiceDate(value: unknown, currentYear: number) {
+	if (typeof value !== "string") return null;
+
+	const isoDate = value.match(
+		/(?:^|\D)(\d{4})-(\d{2})-(\d{2})(?:T[^\s]*)?(?:\D|$)/,
+	);
+	if (isoDate) {
+		return {
+			date: buildValidatedInvoiceDate(
+				{
+					year: Number(isoDate[1]),
+					month: Number(isoDate[2]),
+					day: Number(isoDate[3]),
+				},
+				currentYear,
+			),
+			yearVisible: true,
+		};
+	}
+
+	const fullDate = value.match(
+		/(?:^|\D)(\d{1,2})[./-](\d{1,2})[./-](\d{2}|\d{4})(?:\D|$)/,
+	);
+	if (fullDate) {
+		return {
+			date: buildValidatedInvoiceDate(
+				{
+					day: Number(fullDate[1]),
+					month: Number(fullDate[2]),
+					year: normalizeVisibleYear(fullDate[3]),
+				},
+				currentYear,
+			),
+			yearVisible: true,
+		};
+	}
+
+	const dayMonth = value.match(/(?:^|\D)(\d{1,2})[./-](\d{1,2})(?:\D|$)/);
+	if (dayMonth) {
+		return {
+			date: buildValidatedInvoiceDate(
+				{
+					day: Number(dayMonth[1]),
+					month: Number(dayMonth[2]),
+					year: currentYear,
+				},
+				currentYear,
+			),
+			yearVisible: false,
+		};
+	}
+
+	return null;
 }
 
 function extractVisibleDayMonth(value: unknown) {
-  if (typeof value !== "string") return null
+	if (typeof value !== "string") return null;
 
-  const numeric = value.match(/(?:^|\D)(\d{1,2})[./-](\d{1,2})(?:\D|$)/)
-  if (numeric) {
-    return {
-      day: Number(numeric[1]),
-      month: Number(numeric[2]),
-    }
-  }
+	const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
+	if (iso) {
+		return {
+			day: Number(iso[3]),
+			month: Number(iso[2]),
+		};
+	}
 
-  const iso = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/)
-  if (iso) {
-    return {
-      day: Number(iso[3]),
-      month: Number(iso[2]),
-    }
-  }
+	const numeric = value.match(/(?:^|\D)(\d{1,2})[./-](\d{1,2})(?:\D|$)/);
+	if (numeric) {
+		return {
+			day: Number(numeric[1]),
+			month: Number(numeric[2]),
+		};
+	}
 
-  return null
+	return null;
 }
 
 function isWithinRecentInvoiceWindow(date: Date, now = new Date()) {
-  const today = toUtcMidnightDate(getRigaLocalDateParts(now))
-  const lowerBound = new Date(today)
-  lowerBound.setUTCDate(lowerBound.getUTCDate() - 45)
-  const upperBound = new Date(today)
-  upperBound.setUTCDate(upperBound.getUTCDate() + 1)
+	const today = toUtcMidnightDate(getRigaLocalDateParts(now));
+	const lowerBound = new Date(today);
+	lowerBound.setUTCDate(lowerBound.getUTCDate() - 45);
+	const upperBound = new Date(today);
+	upperBound.setUTCDate(upperBound.getUTCDate() + 1);
 
-  return date >= lowerBound && date <= upperBound
+	return date >= lowerBound && date <= upperBound;
 }
 
 export function normalizeExtractedInvoiceDate(args: {
-  invoiceDate: unknown
-  invoiceDateText?: unknown
-  invoiceDateYearVisible?: unknown
-  now?: Date
+	invoiceDate: unknown;
+	invoiceDateText?: unknown;
+	invoiceDateYearVisible?: unknown;
+	now?: Date;
 }) {
-  const now = args.now ?? new Date()
-  const parsedInvoiceDate = parseIsoDateOnly(args.invoiceDate)
-  const currentYear = getRigaLocalDateParts(now).year
-  const yearVisible = args.invoiceDateYearVisible === true
+	const now = args.now ?? new Date();
+	const parsedInvoiceDate = parseIsoDateOnly(args.invoiceDate);
+	const currentYear = getRigaLocalDateParts(now).year;
+	const yearVisible = args.invoiceDateYearVisible === true;
+	const visibleDate = parseVisibleLatvianInvoiceDate(
+		args.invoiceDateText,
+		currentYear,
+	);
 
-  if (yearVisible) {
-    if (!parsedInvoiceDate) return null
-    return parsedInvoiceDate.getUTCFullYear() > currentYear
-      ? null
-      : parsedInvoiceDate
-  }
+	if (visibleDate?.yearVisible) return visibleDate.date;
 
-  const visibleDayMonth =
-    extractVisibleDayMonth(args.invoiceDateText) ??
-    extractVisibleDayMonth(args.invoiceDate)
+	if (yearVisible) {
+		if (!parsedInvoiceDate) return null;
+		return !isAllowedInvoiceYear(
+			parsedInvoiceDate.getUTCFullYear(),
+			currentYear,
+		)
+			? null
+			: parsedInvoiceDate;
+	}
 
-  if (visibleDayMonth) {
-    const currentYearDate = toUtcMidnightDate({
-      year: currentYear,
-      month: visibleDayMonth.month,
-      day: visibleDayMonth.day,
-    })
+	if (visibleDate) {
+		return visibleDate.date &&
+			isWithinRecentInvoiceWindow(visibleDate.date, now)
+			? visibleDate.date
+			: null;
+	}
 
-    if (
-      currentYearDate.getUTCMonth() === visibleDayMonth.month - 1 &&
-      currentYearDate.getUTCDate() === visibleDayMonth.day &&
-      isWithinRecentInvoiceWindow(currentYearDate, now)
-    ) {
-      return currentYearDate
-    }
-  }
+	const visibleDayMonth = extractVisibleDayMonth(args.invoiceDate);
 
-  if (
-    parsedInvoiceDate &&
-    parsedInvoiceDate.getUTCFullYear() <= currentYear &&
-    isWithinRecentInvoiceWindow(parsedInvoiceDate, now)
-  ) {
-    return parsedInvoiceDate
-  }
+	if (visibleDayMonth) {
+		const currentYearDate = toUtcMidnightDate({
+			year: currentYear,
+			month: visibleDayMonth.month,
+			day: visibleDayMonth.day,
+		});
 
-  return null
+		if (
+			currentYearDate.getUTCMonth() === visibleDayMonth.month - 1 &&
+			currentYearDate.getUTCDate() === visibleDayMonth.day &&
+			isWithinRecentInvoiceWindow(currentYearDate, now)
+		) {
+			return currentYearDate;
+		}
+	}
+
+	if (
+		parsedInvoiceDate &&
+		isAllowedInvoiceYear(parsedInvoiceDate.getUTCFullYear(), currentYear) &&
+		isWithinRecentInvoiceWindow(parsedInvoiceDate, now)
+	) {
+		return parsedInvoiceDate;
+	}
+
+	return null;
 }
 
-async function resolveMetaMaterialContext(senderPhone?: string | null): Promise<MetaMaterialContext | null> {
-  if (!senderPhone) return null
+async function resolveMetaMaterialContext(
+	senderPhone?: string | null,
+): Promise<MetaMaterialContext | null> {
+	if (!senderPhone) return null;
 
-  const candidates = Array.from(
-    new Set([
-      senderPhone,
-      `+${senderPhone}`,
-      `whatsapp:+${senderPhone}`,
-    ]),
-  )
+	const candidates = Array.from(
+		new Set([senderPhone, `+${senderPhone}`, `whatsapp:+${senderPhone}`]),
+	);
 
-  const user = await prisma.user.findFirst({
-    where: {
-      phone: { in: candidates },
-    },
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      organizationId: true,
-      lastSelectedSiteIdforWhatsapp: true,
-      siteManagerSelectIdforWhatsapp: true,
-    },
-  })
+	const user = await prisma.user.findFirst({
+		where: {
+			phone: { in: candidates },
+		},
+		select: {
+			id: true,
+			firstName: true,
+			lastName: true,
+			organizationId: true,
+			lastSelectedSiteIdforWhatsapp: true,
+			siteManagerSelectIdforWhatsapp: true,
+		},
+	});
 
-  if (!user) return null
+	if (!user) return null;
 
-  const senderTraceContext = buildSiteManagerSenderTraceContext({
-    firstName: user.firstName,
-    lastName: user.lastName,
-  })
+	const senderTraceContext = buildSiteManagerSenderTraceContext({
+		firstName: user.firstName,
+		lastName: user.lastName,
+	});
 
-  return {
-    userId: user.id,
-    orgId: user.organizationId ?? null,
-    siteId:
-      user.lastSelectedSiteIdforWhatsapp ??
-      user.siteManagerSelectIdforWhatsapp ??
-      null,
-    ...senderTraceContext,
-  }
+	return {
+		userId: user.id,
+		orgId: user.organizationId ?? null,
+		siteId:
+			user.lastSelectedSiteIdforWhatsapp ??
+			user.siteManagerSelectIdforWhatsapp ??
+			null,
+		...senderTraceContext,
+	};
 }
-
 
 const materialImageClassificationSchema = z.object({
-  isMaterialDocument: z.boolean(),
-  confidence: z.number().min(0).max(1),
-  reason: z.string(),
+	isMaterialDocument: z.boolean(),
+	confidence: z.number().min(0).max(1),
+	reason: z.string(),
 });
 
 export async function classifyMaterialDocumentImage(
-  publicUrl: string,
-  context?: MetaMaterialContext | null,
+	publicUrl: string,
+	context?: MetaMaterialContext | null,
 ) {
-  const llm = new ChatOpenAI({
-    model: metaMaterialImageClassifierModel,
-    temperature: metaMaterialImageClassifierTemperature,
-    useResponsesApi: true,
-  });
-  const classifier = llm.withStructuredOutput(materialImageClassificationSchema, {
-    name: "material_image_classification",
-    method: "jsonSchema",
-    strict: true,
-  });
+	const llm = new ChatOpenAI({
+		model: metaMaterialImageClassifierModel,
+		temperature: metaMaterialImageClassifierTemperature,
+		useResponsesApi: true,
+	});
+	const classifier = llm.withStructuredOutput(
+		materialImageClassificationSchema,
+		{
+			name: "material_image_classification",
+			method: "jsonSchema",
+			strict: true,
+		},
+	);
 
-  return classifier.invoke(
-    buildImageMessage({
-      publicUrl,
-      prompt: `You are routing WhatsApp images for a construction site diary.
+	return classifier.invoke(
+		buildImageMessage({
+			publicUrl,
+			prompt: `You are routing WhatsApp images for a construction site diary.
 
 Task:
 Decide whether this image should go to construction-material invoice extraction.
@@ -604,77 +684,118 @@ Confidence guidance:
 - 0.00-0.39: not a material document or not readable
 
 Be conservative. If material line items are not visible, return false.`,
-    }),
-    buildLangChainRunConfig({
-      name: "MetaMaterialImageClassification",
-      model: metaMaterialImageClassifierModel,
-      publicUrl,
-      context,
-    }),
-  );
+		}),
+		buildLangChainRunConfig({
+			name: "MetaMaterialImageClassification",
+			model: metaMaterialImageClassifierModel,
+			publicUrl,
+			context,
+		}),
+	);
 }
 
 function buildMaterialExtractionSchema(ids: string[]) {
-  return z.object({
-    items: z.array(z.object({
-      name: z.string().describe("Invoice line name exactly as written in the document. Do not translate."),
-      cost: z.number().describe("Line total cost for this invoice row. Use 0 only when no price or line total is visible."),
-      invoiceNr : z.string().describe("Invoice, receipt, delivery note, or document number. Use an empty string if not visible."),
-      invoiceDate : z.string().nullable().describe("Document date as an ISO string, for example 2025-12-04T00:00:00Z. Use null if not visible."),
-      invoiceDateText: z.string().describe("Exact visible document date text copied from the image. Use an empty string if no document date text is visible."),
-      invoiceDateYearVisible: z.boolean().describe("True only when the document date visibly includes a year."),
-      costCode: z.string().describe("Visible cost/project code. If no code is visible, generate a stable row code in order: CC-1001, CC-1002, CC-1003, ..."),
-      quantity: z.number().describe("Quantity for this invoice row. Prefer the row quantity visible in the document; do not multiply by package size unless the document explicitly provides only package count and package size as the usable quantity."),
-      construction_material_id: z.enum(ids as [string, ...string[]]).describe("Best matching category id from the allowed category list, or no_match.")
-    }))
-  })
+	return z.object({
+		items: z.array(
+			z.object({
+				name: z
+					.string()
+					.describe(
+						"Invoice line name exactly as written in the document. Do not translate.",
+					),
+				cost: z
+					.number()
+					.describe(
+						"Line total cost for this invoice row. Use 0 only when no price or line total is visible.",
+					),
+				invoiceNr: z
+					.string()
+					.describe(
+						"Invoice, receipt, delivery note, or document number. Use an empty string if not visible.",
+					),
+				invoiceDate: z
+					.string()
+					.nullable()
+					.describe(
+						"Document date as an ISO string, for example 2025-12-04T00:00:00Z. Use null if not visible. Convert Latvian numeric dates as DD.MM.YYYY, never MM.DD.YYYY.",
+					),
+				invoiceDateText: z
+					.string()
+					.describe(
+						"Exact visible document date text copied from the image. Use an empty string if no document date text is visible.",
+					),
+				invoiceDateYearVisible: z
+					.boolean()
+					.describe(
+						"True only when the document date visibly includes a year.",
+					),
+				costCode: z
+					.string()
+					.describe(
+						"Visible cost/project code. If no code is visible, generate a stable row code in order: CC-1001, CC-1002, CC-1003, ...",
+					),
+				quantity: z
+					.number()
+					.describe(
+						"Quantity for this invoice row. Prefer the row quantity visible in the document; do not multiply by package size unless the document explicitly provides only package count and package size as the usable quantity.",
+					),
+				construction_material_id: z
+					.enum(ids as [string, ...string[]])
+					.describe(
+						"Best matching category id from the allowed category list, or no_match.",
+					),
+			}),
+		),
+	});
 }
 
-type MaterialExtractionPayload = z.infer<ReturnType<typeof buildMaterialExtractionSchema>>
+type MaterialExtractionPayload = z.infer<
+	ReturnType<typeof buildMaterialExtractionSchema>
+>;
 
 function addMetaMaterialSenderTraceToRows(
-  payload: MaterialExtractionPayload,
-  context?: MetaMaterialContext | null,
+	payload: MaterialExtractionPayload,
+	context?: MetaMaterialContext | null,
 ) {
-  if (!context?.senderLabel) return payload
+	if (!context?.senderLabel) return payload;
 
-  return {
-    items: payload.items.map(item => ({
-      ...item,
-      senderFirstName: context.senderFirstName ?? null,
-      senderLastName: context.senderLastName ?? null,
-      senderName: context.senderName ?? null,
-      senderInitials: context.senderInitials ?? null,
-      senderLabel: context.senderLabel,
-    })),
-  }
+	return {
+		items: payload.items.map((item) => ({
+			...item,
+			senderFirstName: context.senderFirstName ?? null,
+			senderLastName: context.senderLastName ?? null,
+			senderName: context.senderName ?? null,
+			senderInitials: context.senderInitials ?? null,
+			senderLabel: context.senderLabel,
+		})),
+	};
 }
 
 export async function extractBISMaterialsFromPublicUrl(args: {
-  publicUrl: string
-  context?: MetaMaterialContext | null
-  categories?: typeof mockupCategories
+	publicUrl: string;
+	context?: MetaMaterialContext | null;
+	categories?: typeof mockupCategories;
 }) {
-  const categories = args.categories ?? mockupCategories
-  const ids = [...categories.map(m => m.id), "no_match"];
-  const responseSchema = buildMaterialExtractionSchema(ids)
-  const extractionModel = "gpt-5.4";
-  const todayIso = getRigaLocalIsoDate()
-  const llm = new ChatOpenAI({
-    model: extractionModel,
-    temperature: 0,
-    useResponsesApi: true,
-  });
-  const extractor = llm.withStructuredOutput(responseSchema, {
-    name: "material_invoice_extraction",
-    method: "jsonSchema",
-    strict: true,
-  });
+	const categories = args.categories ?? mockupCategories;
+	const ids = [...categories.map((m) => m.id), "no_match"];
+	const responseSchema = buildMaterialExtractionSchema(ids);
+	const extractionModel = "gpt-5.4";
+	const todayIso = getRigaLocalIsoDate();
+	const llm = new ChatOpenAI({
+		model: extractionModel,
+		temperature: 0,
+		useResponsesApi: true,
+	});
+	const extractor = llm.withStructuredOutput(responseSchema, {
+		name: "material_invoice_extraction",
+		method: "jsonSchema",
+		strict: true,
+	});
 
-  const payload = await extractor.invoke(
-    buildImageMessage({
-      publicUrl: args.publicUrl,
-      prompt: `You are extracting construction material purchases from one WhatsApp image.
+	const payload = await extractor.invoke(
+		buildImageMessage({
+			publicUrl: args.publicUrl,
+			prompt: `You are extracting construction material purchases from one WhatsApp image.
 
 Today is ${todayIso} in Europe/Riga.
 
@@ -692,9 +813,11 @@ Ignore only:
 - unreadable rows
 
 Allowed material categories:
-${categories.map(c =>
-                            `- ${c.id}: ${c.material_kind}; target_unit=${c.measurement_unit}`
-                        ).join("\n")}
+${categories
+	.map(
+		(c) => `- ${c.id}: ${c.material_kind}; target_unit=${c.measurement_unit}`,
+	)
+	.join("\n")}
 
 Output fields:
 - name: copy the product/material name from the document in the original language. Do not translate or normalize brand names.
@@ -712,6 +835,8 @@ Invoice date rules:
 2. If the date shows day and month but no clear year, assume the current year from today's date.
 3. Only return an old year when that year is clearly visible in the document date.
 4. Do not invent a year from document numbers, totals, product codes, phone numbers, or page text.
+5. Latvian numeric dates are day-month-year. "04.12.2025" means 4 December 2025, not April 12.
+6. Do not return invoice years before ${MIN_INVOICE_YEAR} or after the current year unless the date is not visible, in which case return null.
 
 Quantity rules:
 1. Prefer the row quantity printed in the invoice table.
@@ -739,171 +864,201 @@ Quality rules:
 - If a row is unreadable, skip it.
 - Do not merge distinct material rows unless the document itself groups them as one line.
 - Return an empty items array if no material line item is readable.`,
-    }),
-    buildLangChainRunConfig({
-      name: "MetaMaterialInvoiceExtraction",
-      model: extractionModel,
-      publicUrl: args.publicUrl,
-      context: args.context,
-    }),
-  );
+		}),
+		buildLangChainRunConfig({
+			name: "MetaMaterialInvoiceExtraction",
+			model: extractionModel,
+			publicUrl: args.publicUrl,
+			context: args.context,
+		}),
+	);
 
-  return addMetaMaterialSenderTraceToRows(payload, args.context)
+	return addMetaMaterialSenderTraceToRows(payload, args.context);
 }
 
 export function enrichBISMaterialPayload(
-  payload: MaterialExtractionPayload,
-  categories: typeof mockupCategories = mockupCategories,
+	payload: MaterialExtractionPayload,
+	categories: typeof mockupCategories = mockupCategories,
 ) {
-  const categoryMap = new Map(
-    categories.map(c => [c.id, c])
-  )
+	const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
-  return {
-    items: payload.items.map(item => {
-      if (item.construction_material_id === "no_match") {
-        return {
-          ...item,
-          measurementId: null,
-          measurementUnit: null,
-          categoryName: null
-        }
-      }
+	return {
+		items: payload.items.map((item) => {
+			if (item.construction_material_id === "no_match") {
+				return {
+					...item,
+					measurementId: null,
+					measurementUnit: null,
+					categoryName: null,
+				};
+			}
 
-      const category = categoryMap.get(item.construction_material_id)
+			const category = categoryMap.get(item.construction_material_id);
 
-      return {
-        ...item,
-        measurementId: category?.measurement ?? null,
-        measurementUnit: category?.measurement_unit ?? null,
-        categoryName: category?.material_kind ?? null
-      }
-    })
-  }
+			return {
+				...item,
+				measurementId: category?.measurement ?? null,
+				measurementUnit: category?.measurement_unit ?? null,
+				categoryName: category?.material_kind ?? null,
+			};
+		}),
+	};
 }
 
 export async function extractAndEnrichBISMaterialsFromPublicUrl(args: {
-  publicUrl: string
-  context?: MetaMaterialContext | null
-  categories?: typeof mockupCategories
+	publicUrl: string;
+	context?: MetaMaterialContext | null;
+	categories?: typeof mockupCategories;
 }) {
-  const categories = args.categories ?? mockupCategories
-  const payload = await extractBISMaterialsFromPublicUrl({
-    publicUrl: args.publicUrl,
-    context: args.context,
-    categories,
-  })
+	const categories = args.categories ?? mockupCategories;
+	const payload = await extractBISMaterialsFromPublicUrl({
+		publicUrl: args.publicUrl,
+		context: args.context,
+		categories,
+	});
 
-  return enrichBISMaterialPayload(payload, categories)
+	return enrichBISMaterialPayload(payload, categories);
 }
 
 export async function processMaterialDocumentImageFromPublicUrl(args: {
-  publicUrl: string;
-  senderPhone?: string | null;
-  senderFirstName?: string | null;
-  senderLastName?: string | null;
-  senderName?: string | null;
-  senderInitials?: string | null;
-  senderLabel?: string | null;
+	publicUrl: string;
+	senderPhone?: string | null;
+	senderFirstName?: string | null;
+	senderLastName?: string | null;
+	senderName?: string | null;
+	senderInitials?: string | null;
+	senderLabel?: string | null;
 }) {
-  if (
-    process.env.RUN_AI_EVALS === "true" &&
-    process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER === "true"
-  ) {
-    console.log("Meta material image classification skipped for AI eval image route");
-    return false;
-  }
+	if (
+		process.env.RUN_AI_EVALS === "true" &&
+		process.env.AI_EVAL_SKIP_META_IMAGE_CLASSIFIER === "true"
+	) {
+		console.log(
+			"Meta material image classification skipped for AI eval image route",
+		);
+		return false;
+	}
 
-  const context = mergeMetaMaterialSenderTraceContext(
-    await resolveMetaMaterialContext(args.senderPhone),
-    {
-      senderFirstName: args.senderFirstName,
-      senderLastName: args.senderLastName,
-      senderName: args.senderName,
-      senderInitials: args.senderInitials,
-      senderLabel: args.senderLabel,
-    },
-  );
-  const classification = await classifyMaterialDocumentImage(args.publicUrl, context);
+	const context = mergeMetaMaterialSenderTraceContext(
+		await resolveMetaMaterialContext(args.senderPhone),
+		{
+			senderFirstName: args.senderFirstName,
+			senderLastName: args.senderLastName,
+			senderName: args.senderName,
+			senderInitials: args.senderInitials,
+			senderLabel: args.senderLabel,
+		},
+	);
+	const classification = await classifyMaterialDocumentImage(
+		args.publicUrl,
+		context,
+	);
 
-  console.log("Meta material image classification", classification);
+	console.log("Meta material image classification", classification);
 
-  if (!classification.isMaterialDocument || classification.confidence < 0.65) {
-    return false;
-  }
+	if (!classification.isMaterialDocument || classification.confidence < 0.65) {
+		return false;
+	}
 
-  await extractAndSaveBISMaterialsFromPublicUrl(args.publicUrl, args.senderPhone, context);
-  return true;
+	await extractAndSaveBISMaterialsFromPublicUrl(
+		args.publicUrl,
+		args.senderPhone,
+		context,
+	);
+	return true;
 }
 
 export async function sendToGpt(mediaId: string, senderPhone?: string) {
+	const { publicUrl, file } = await downloadMetaMedia(mediaId);
+	void file;
 
-    const { publicUrl, file } = await downloadMetaMedia(mediaId)
-    void file
-
-    return extractAndSaveBISMaterialsFromPublicUrl(publicUrl, senderPhone);
+	return extractAndSaveBISMaterialsFromPublicUrl(publicUrl, senderPhone);
 }
 
 export async function extractAndSaveBISMaterialsFromPublicUrl(
-  publicUrl: string,
-  senderPhone?: string | null,
-  resolvedContext?: MetaMaterialContext | null,
+	publicUrl: string,
+	senderPhone?: string | null,
+	resolvedContext?: MetaMaterialContext | null,
 ) {
-    const context = resolvedContext ?? await resolveMetaMaterialContext(senderPhone)
-    const payload = await extractAndEnrichBISMaterialsFromPublicUrl({
-      publicUrl,
-      context,
-    })
+	const context =
+		resolvedContext ?? (await resolveMetaMaterialContext(senderPhone));
+	const payload = await extractAndEnrichBISMaterialsFromPublicUrl({
+		publicUrl,
+		context,
+	});
 
-    console.log(`THis is GPT output : ${JSON.stringify(payload)}`)
-    console.log(`And this are categories : ${mockupCategories}`)
+	console.log(`THis is GPT output : ${JSON.stringify(payload)}`);
+	console.log(`And this are categories : ${mockupCategories}`);
 
-    await saveBISMaterialPayloadToDatabase(payload, publicUrl, context)
+	await saveBISMaterialPayloadToDatabase(payload, publicUrl, context);
 
-    return JSON.stringify(payload);
+	return JSON.stringify(payload);
 }
 
 //Ok now need to save the response
 export async function saveBISMaterialPayloadToDatabase(
-  payload: { items: Array<any> },
-  publicURL: string,
-  context: MetaMaterialContext | null,
+	payload: { items: Array<any> },
+	publicURL: string,
+	context: MetaMaterialContext | null,
 ) {
-    if (!context?.siteId) {
-      console.warn("Skipping BIS material payload save because no selected site was found for sender")
-      return
-    }
+	if (!context?.siteId) {
+		console.warn(
+			"Skipping BIS material payload save because no selected site was found for sender",
+		);
+		return;
+	}
 
-    await prisma.bISmaterialRecords.createMany({
-  data: payload.items.map(item => ({
-    name: item.name,
-    quantity: item.quantity,
-    invoiceDate :  normalizeExtractedInvoiceDate({
-      invoiceDate: item.invoiceDate,
-      invoiceDateText: item.invoiceDateText,
-      invoiceDateYearVisible: item.invoiceDateYearVisible,
-    }),
-    invoiceNr : item.invoiceNr,
-    cost : item.cost,
-    costCode : item.costCode,
-    categoryId: item.construction_material_id,
-    measurementUnitId: item.measurementId,
-    measurementUnit: item.measurementUnit,
-    categoryName: item.categoryName,
+	await prisma.$transaction(async (tx) => {
+		await tx.bISmaterialRecords.createMany({
+			data: payload.items.map((item) => ({
+				name: item.name,
+				quantity: item.quantity,
+				invoiceDate: normalizeExtractedInvoiceDate({
+					invoiceDate: item.invoiceDate,
+					invoiceDateText: item.invoiceDateText,
+					invoiceDateYearVisible: item.invoiceDateYearVisible,
+				}),
+				invoiceNr: item.invoiceNr,
+				cost: item.cost,
+				costCode: item.costCode,
+				categoryId: item.construction_material_id,
+				measurementUnitId: item.measurementId,
+				measurementUnit: item.measurementUnit,
+				categoryName: item.categoryName,
 
-    sourcePhoto: publicURL,
-    siteId: context.siteId,
-    orgId: context.orgId,
-    userId: context.userId,
-  }))
-})
-
-
+				sourcePhoto: publicURL,
+				siteId: context.siteId,
+				orgId: context.orgId,
+				userId: context.userId,
+			})),
+		});
+		const updatedPhotos = await tx.photos.updateMany({
+			where: {
+				siteId: context.siteId,
+				OR: [{ URL: publicURL }, { fileUrl: publicURL }],
+			},
+			data: {
+				mediaPurpose: PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE,
+			},
+		});
+		if (updatedPhotos.count === 0) {
+			await tx.photos.create({
+				data: {
+					Date: new Date(),
+					URL: publicURL,
+					fileUrl: publicURL,
+					Comment: null,
+					Location: null,
+					userId: context.userId,
+					workerId: null,
+					siteId: context.siteId,
+					organizationId: context.orgId,
+					mediaPurpose: PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE,
+				},
+			});
+		}
+	});
 }
-
-
-
-
 
 // const URL = await downloadMetaMedia(MEDIA_ID)
 

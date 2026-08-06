@@ -9,7 +9,10 @@ const mockWithStructuredOutput = jest.fn(() => ({
 const mockSendMessage = jest.fn();
 const mockSavePhoto = jest.fn();
 const mockCreateMany = jest.fn();
+const mockPhotosUpdateMany = jest.fn();
+const mockPhotosCreate = jest.fn();
 const mockUserFindFirst = jest.fn();
+const mockTransaction = jest.fn();
 const mockSiteDiarySettingsFindUnique = jest.fn();
 const mockHandleProjectSelector = jest.fn();
 const mockHandleAudio = jest.fn();
@@ -39,6 +42,7 @@ jest.mock("@langchain/openai", () => ({
 
 jest.mock("@/lib/utils/db", () => ({
 	prisma: {
+		$transaction: mockTransaction,
 		user: {
 			findFirst: mockUserFindFirst,
 		},
@@ -47,6 +51,10 @@ jest.mock("@/lib/utils/db", () => ({
 		},
 		bISmaterialRecords: {
 			createMany: mockCreateMany,
+		},
+		photos: {
+			updateMany: mockPhotosUpdateMany,
+			create: mockPhotosCreate,
 		},
 		sitediarysettings: {
 			findUnique: mockSiteDiarySettingsFindUnique,
@@ -148,6 +156,18 @@ describe("site-manager material image upload extraction", () => {
 			},
 		});
 		mockSavePhoto.mockResolvedValue({ id: "photo-1" });
+		mockPhotosUpdateMany.mockResolvedValue({ count: 0 });
+		mockTransaction.mockImplementation((callback) =>
+			callback({
+				bISmaterialRecords: {
+					createMany: mockCreateMany,
+				},
+				photos: {
+					updateMany: mockPhotosUpdateMany,
+					create: mockPhotosCreate,
+				},
+			}),
+		);
 		mockHandleText.mockResolvedValue(true);
 		mockGetRandomSiteManagerProcessingAcknowledgement.mockReturnValue(
 			"Apstrādāju",
@@ -258,6 +278,25 @@ describe("site-manager material image upload extraction", () => {
 				]),
 			);
 		}
+		expect(mockPhotosUpdateMany).toHaveBeenCalledWith({
+			where: {
+				siteId: "site-1",
+				OR: [{ URL: mockUploadedPublicUrl }, { fileUrl: mockUploadedPublicUrl }],
+			},
+			data: {
+				mediaPurpose: "warehouse_invoice",
+			},
+		});
+		expect(mockPhotosCreate).toHaveBeenCalledWith({
+			data: expect.objectContaining({
+				URL: mockUploadedPublicUrl,
+				fileUrl: mockUploadedPublicUrl,
+				mediaPurpose: "warehouse_invoice",
+				siteId: "site-1",
+				organizationId: "org-1",
+				userId: "user-1",
+			}),
+		});
 		expect(mockSavePhoto).not.toHaveBeenCalled();
 		expect(mockHandleAudio).not.toHaveBeenCalled();
 		expect(mockHandleText).not.toHaveBeenCalled();
@@ -300,6 +339,8 @@ describe("site-manager material image upload extraction", () => {
 		expect(mockUploadFiles).toHaveBeenCalledTimes(1);
 		expect(mockStructuredInvoke).toHaveBeenCalledTimes(1);
 		expect(mockCreateMany).not.toHaveBeenCalled();
+		expect(mockPhotosUpdateMany).not.toHaveBeenCalled();
+		expect(mockPhotosCreate).not.toHaveBeenCalled();
 		expect(mockSavePhoto).toHaveBeenCalledWith(
 			expect.objectContaining({
 				userId: "user-1",

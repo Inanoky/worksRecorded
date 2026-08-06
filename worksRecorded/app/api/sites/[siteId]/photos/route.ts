@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 
 import { createPerfTrace } from "@/lib/observability/perf";
+import { siteDiaryPhotoPurposeWhere } from "@/lib/photos/media-purpose";
 import { prisma } from "@/lib/utils/db";
 import { orgCheck } from "@/server/actions/shared-actions";
 
@@ -53,7 +54,7 @@ export async function GET(
     const skip = (page - 1) * PHOTOS_PER_PAGE;
     const where = {
       siteId,
-      AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }],
+      AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }, siteDiaryPhotoPurposeWhere()],
     };
 
     const [photos, countedPhotos] = await Promise.all([
