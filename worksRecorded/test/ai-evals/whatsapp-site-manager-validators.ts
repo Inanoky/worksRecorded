@@ -23,6 +23,31 @@ export type SavedSiteDiaryRecord = {
 	createdAt: Date;
 };
 
+export type SavedBisMaterialRecord = {
+	id: string;
+	siteId: string | null;
+	userId: string | null;
+	name: string | null;
+	invoiceNr: string | null;
+	invoiceDate: Date | null;
+	cost: number | null;
+	quantity: number | null;
+	sourcePhoto: string | null;
+	createdAt: Date;
+};
+
+export type SavedPhotoRecord = {
+	id: string;
+	siteId: string | null;
+	userId: string | null;
+	workerId: string | null;
+	URL: string | null;
+	fileUrl: string | null;
+	Comment: string | null;
+	mediaPurpose: string | null;
+	createdAt: Date;
+};
+
 export type WhatsAppValidatorResult = {
 	name: string;
 	status: WhatsAppValidatorStatus;
@@ -63,6 +88,21 @@ function recordSearchText(record: SavedSiteDiaryRecord | null) {
 			record.WorkersInvolved,
 			record.TimeInvolved,
 			record.Amounts,
+		]
+			.filter((value) => value !== null && value !== undefined)
+			.join(" "),
+	);
+}
+
+function materialRecordSearchText(record: SavedBisMaterialRecord | null) {
+	if (!record) return "";
+	return normalize(
+		[
+			record.name,
+			record.invoiceNr,
+			record.cost,
+			record.quantity,
+			toDateISO(record.invoiceDate),
 		]
 			.filter((value) => value !== null && value !== undefined)
 			.join(" "),
@@ -160,6 +200,9 @@ export function validateWhatsappSiteManagerRecord(args: {
 	evalCase: WebhookWhatsAppSiteManagerEvalCase;
 	record: SavedSiteDiaryRecord | null;
 	records?: SavedSiteDiaryRecord[];
+	materialRecords?: SavedBisMaterialRecord[];
+	createdPhotos?: SavedPhotoRecord[];
+	warehousePhotos?: SavedPhotoRecord[];
 	createdPhotoCount?: number;
 	answer?: string;
 	siteId: string;
@@ -169,6 +212,9 @@ export function validateWhatsappSiteManagerRecord(args: {
 		evalCase,
 		record,
 		records,
+		materialRecords = [],
+		createdPhotos = [],
+		warehousePhotos = [],
 		createdPhotoCount,
 		answer,
 		siteId,
@@ -180,6 +226,10 @@ export function validateWhatsappSiteManagerRecord(args: {
 		.map(recordSearchText)
 		.join(" ");
 	const answerText = normalize(answer);
+	const materialExpectation = evalCase.expected.materialRecords;
+	const materialSearchText = materialRecords
+		.map(materialRecordSearchText)
+		.join(" ");
 	const sentences = answerSentences(String(answer ?? ""));
 	const firstSentence = normalize(sentences[0] ?? "");
 	const shouldCreateRecord = evalCase.expected.shouldCreateRecord;
@@ -217,6 +267,128 @@ export function validateWhatsappSiteManagerRecord(args: {
 				validatorSeverity("photo-count", warningValidators),
 			),
 		);
+	}
+	if (evalCase.expected.expectedPhotoPurpose) {
+		const expectedPurpose = evalCase.expected.expectedPhotoPurpose;
+		const photosToValidate =
+			expectedPurpose === "warehouse_invoice" ? warehousePhotos : createdPhotos;
+		results.push(
+			createResult(
+				`photo-purpose:${expectedPurpose}`,
+				photosToValidate.length > 0 &&
+					photosToValidate.every(
+						(photo) => photo.mediaPurpose === expectedPurpose,
+					),
+				`Expected ${photosToValidate.length || "matching"} photo(s) to have mediaPurpose ${expectedPurpose}; got ${photosToValidate.map((photo) => photo.mediaPurpose ?? "null").join(", ") || "none"}.`,
+				validatorSeverity(
+					`photo-purpose:${expectedPurpose}`,
+					warningValidators,
+				),
+			),
+		);
+	}
+	if (evalCase.expected.expectedWarehousePhotoCount !== undefined) {
+		const expectedCount = evalCase.expected.expectedWarehousePhotoCount;
+		results.push(
+			createResult(
+				"warehouse-photo-count",
+				warehousePhotos.length === expectedCount,
+				`Expected ${expectedCount} warehouse photo(s); got ${warehousePhotos.length}.`,
+				validatorSeverity("warehouse-photo-count", warningValidators),
+			),
+		);
+	}
+
+	if (materialExpectation) {
+		if (materialExpectation.expectedRecordCount !== undefined) {
+			const expectedCount = materialExpectation.expectedRecordCount;
+			results.push(
+				createResult(
+					"material-record-count",
+					materialRecords.length === expectedCount,
+					`Expected ${expectedCount} material record(s); got ${materialRecords.length}.`,
+					validatorSeverity("material-record-count", warningValidators),
+				),
+			);
+		} else {
+			const minimumCount = materialExpectation.minRecordCount;
+			results.push(
+				createResult(
+					"material-record-count",
+					materialRecords.length >= minimumCount,
+					`Expected at least ${minimumCount} material record(s); got ${materialRecords.length}.`,
+					validatorSeverity("material-record-count", warningValidators),
+				),
+			);
+		}
+
+		const matchingInvoiceRecords = materialExpectation.invoiceNr
+			? materialRecords.filter(
+					(record) => record.invoiceNr === materialExpectation.invoiceNr,
+				)
+			: materialRecords;
+
+		if (materialExpectation.invoiceNr) {
+			results.push(
+				createResult(
+					`material-invoice-nr:${materialExpectation.invoiceNr}`,
+					matchingInvoiceRecords.length > 0,
+					`Expected a material record with invoice number ${materialExpectation.invoiceNr}.`,
+					validatorSeverity(
+						`material-invoice-nr:${materialExpectation.invoiceNr}`,
+						warningValidators,
+					),
+				),
+			);
+		}
+
+		if (materialExpectation.expectedInvoiceDateISO) {
+			const expectedDate = materialExpectation.expectedInvoiceDateISO;
+			results.push(
+				createResult(
+					`material-invoice-date:${expectedDate}`,
+					matchingInvoiceRecords.some(
+						(record) => toDateISO(record.invoiceDate) === expectedDate,
+					),
+					`Expected material invoice date ${expectedDate}; got ${matchingInvoiceRecords.map((record) => toDateISO(record.invoiceDate) ?? "null").join(", ") || "none"}.`,
+					validatorSeverity(
+						`material-invoice-date:${expectedDate}`,
+						warningValidators,
+					),
+				),
+			);
+		}
+
+		if (materialExpectation.forbiddenInvoiceDateISO) {
+			const forbiddenDate = materialExpectation.forbiddenInvoiceDateISO;
+			results.push(
+				createResult(
+					`material-forbidden-invoice-date:${forbiddenDate}`,
+					!matchingInvoiceRecords.some(
+						(record) => toDateISO(record.invoiceDate) === forbiddenDate,
+					),
+					`Material invoice date must not be ${forbiddenDate}.`,
+					validatorSeverity(
+						`material-forbidden-invoice-date:${forbiddenDate}`,
+						warningValidators,
+					),
+				),
+			);
+		}
+
+		for (const signal of materialExpectation.requiredNameSignals) {
+			results.push(
+				createResult(
+					`material-name-signal:${signal}`,
+					materialSearchText.includes(normalize(signal)),
+					`Material records must preserve name signal "${signal}".`,
+					validatorSeverity(
+						`material-name-signal:${signal}`,
+						warningValidators,
+					),
+				),
+			);
+		}
 	}
 
 	if (evalCase.expected.expectedDateISO) {

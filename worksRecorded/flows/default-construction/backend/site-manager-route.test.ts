@@ -280,6 +280,101 @@ describe("default-construction site-manager image captions", () => {
     );
   });
 
+  it("does not send a photo save summary for a material-only image batch", async () => {
+    mockHandleImage
+      .mockResolvedValueOnce({ outcome: "handled_after_upload" })
+      .mockResolvedValueOnce({ outcome: "handled_after_upload" });
+    mockGetOrganizationLanguageByUserId.mockResolvedValue("lv");
+
+    const formData = new FormData();
+    formData.set("Body", "Rēķini");
+    formData.set("NumMedia", "2");
+    formData.set("MetaBatchSize", "2");
+    for (let index = 0; index < 2; index += 1) {
+      formData.set(`MediaUrl${index}`, `https://meta.example.com/invoice-${index}`);
+      formData.set(`MediaContentType${index}`, "image/jpeg");
+      formData.set(`MediaMessageId${index}`, `invoice-message-${index}`);
+      formData.set(`MediaBody${index}`, "");
+    }
+
+    await handleSiteManagerRoute({
+      from: "whatsapp:+37100000000",
+      formData,
+      user: {
+        id: "user-1",
+        phone: "37100000000",
+        firstName: "Anna",
+        lastName: "Bērziņa",
+        lastSelectedSiteIdforWhatsapp: "site-1",
+      },
+    });
+
+    expect(mockHandleImage).toHaveBeenCalledTimes(2);
+    expect(mockGetPhotoSaveSummary).not.toHaveBeenCalled();
+    expect(mockHandleText).not.toHaveBeenCalled();
+    expect(mockSendMessage).not.toHaveBeenCalledWith(
+      "whatsapp:+37100000000",
+      expect.stringContaining("Saved:"),
+    );
+  });
+
+  it("excludes handled material documents from a mixed image batch photo summary", async () => {
+    mockHandleImage
+      .mockResolvedValueOnce({
+        outcome: "photo_saved",
+        savedPhoto: { id: "photo-1" },
+      })
+      .mockResolvedValueOnce({ outcome: "handled_after_upload" })
+      .mockResolvedValueOnce({
+        outcome: "photo_saved",
+        savedPhoto: { id: "photo-2" },
+      });
+    mockGetOrganizationLanguageByUserId.mockResolvedValue("lv");
+
+    const formData = new FormData();
+    formData.set("Body", "Otrā stāva sienas");
+    formData.set("NumMedia", "3");
+    formData.set("MetaBatchSize", "3");
+    for (let index = 0; index < 3; index += 1) {
+      formData.set(`MediaUrl${index}`, `https://meta.example.com/mixed-${index}`);
+      formData.set(`MediaContentType${index}`, "image/jpeg");
+      formData.set(`MediaMessageId${index}`, `mixed-message-${index}`);
+      formData.set(`MediaBody${index}`, "");
+    }
+    formData.set("MediaBody0", "Otrā stāva sienas");
+    formData.set("MediaBody2", "Trešā stāva griesti");
+
+    await handleSiteManagerRoute({
+      from: "whatsapp:+37100000000",
+      formData,
+      user: {
+        id: "user-1",
+        phone: "37100000000",
+        firstName: "Anna",
+        lastName: "Bērziņa",
+        lastSelectedSiteIdforWhatsapp: "site-1",
+      },
+    });
+
+    expect(mockSendMessage).toHaveBeenCalledWith(
+      "whatsapp:+37100000000",
+      "Saved:2/2:lv",
+    );
+    expect(mockSendMessage).not.toHaveBeenCalledWith(
+      "whatsapp:+37100000000",
+      "Saved:2/3:lv",
+    );
+    expect(mockHandleText).toHaveBeenCalledTimes(2);
+    expect(mockHandleText).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ body: "Otrā stāva sienas" }),
+    );
+    expect(mockHandleText).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ body: "Trešā stāva griesti" }),
+    );
+  });
+
   it("does not send a material document caption to the site diary agent", async () => {
     mockHandleImage.mockResolvedValue({ outcome: "handled_after_upload" });
     const formData = new FormData();

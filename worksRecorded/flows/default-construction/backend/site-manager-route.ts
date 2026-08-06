@@ -201,15 +201,17 @@ export async function handleSiteManagerRoute(args: {
         }
       }
 
-      const organizationLanguage = await resolveOrganizationLanguage(user.id);
-      await sendMessage(
-        from,
-        getSiteManagerPhotoSaveSummary(
-          savedCount,
-          imageIndexes.length,
-          organizationLanguage,
-        ),
-      );
+      if (savedCount > 0) {
+        const organizationLanguage = await resolveOrganizationLanguage(user.id);
+        await sendMessage(
+          from,
+          getSiteManagerPhotoSaveSummary(
+            savedCount,
+            savedCount,
+            organizationLanguage,
+          ),
+        );
+      }
 
       for (const caption of savedCaptions) {
         console.log("Site manager batched image caption processing started", {

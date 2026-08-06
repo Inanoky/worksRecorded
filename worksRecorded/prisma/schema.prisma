@@ -373,6 +373,7 @@ model photos {
   Worker           workers?  @relation(fields: [workerId], references: [id])
   workerId         String?
   fileUrl  String?
+  mediaPurpose String? @default("site_diary")
   Site     Site?     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   siteId   String?
   organizationId String?
@@ -380,6 +381,7 @@ model photos {
   createdAt       DateTime  @default(now())
 
   @@index([siteId, Date], map: "photos_site_date_idx")
+  @@index([siteId, mediaPurpose, Date], map: "photos_site_purpose_date_idx")
 }
 
 

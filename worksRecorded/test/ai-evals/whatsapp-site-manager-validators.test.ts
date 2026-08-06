@@ -28,6 +28,23 @@ describe("WhatsApp site-manager eval validators", () => {
 	const imageCaptionCase = webhookCases.find(
 		(item) => item.id === "latvian-image-caption-site-diary",
 	);
+	const materialInvoiceCase = webhookCases.find(
+		(item) => item.id === "material-invoice-latvian-date-image",
+	);
+
+	function savedPhoto(mediaPurpose: string | null) {
+		return {
+			id: "photo-1",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			URL: "https://eval.test/uploads/photo.jpg",
+			fileUrl: "https://eval.test/uploads/photo.jpg",
+			Comment: "Test Manager : Šodien pabeidzām starpsienu montāžu",
+			mediaPurpose,
+			createdAt: new Date("2026-06-23T00:00:00.000Z"),
+		};
+	}
 
 	function workerlessRecord(workersInvolved: number | null) {
 		return {
@@ -133,12 +150,13 @@ describe("WhatsApp site-manager eval validators", () => {
 	});
 
 	it("checks expected photo count for image caption cases", () => {
-		expect(imageCaptionCase).toBeDefined();
+		if (!imageCaptionCase) throw new Error("Missing image caption eval case");
 		const result = validateWhatsappSiteManagerRecord({
-			evalCase: imageCaptionCase!,
+			evalCase: imageCaptionCase,
 			siteId: "site-1",
 			userId: "user-1",
 			createdPhotoCount: 1,
+			createdPhotos: [savedPhoto("site_diary")],
 			record: {
 				id: "record-1",
 				siteId: "site-1",
@@ -163,6 +181,193 @@ describe("WhatsApp site-manager eval validators", () => {
 		).toMatchObject({
 			status: "pass",
 		});
+	});
+
+	it("fails progress image cases when saved photos have the invoice purpose", () => {
+		if (!imageCaptionCase) throw new Error("Missing image caption eval case");
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: imageCaptionCase,
+			siteId: "site-1",
+			userId: "user-1",
+			createdPhotoCount: 1,
+			createdPhotos: [savedPhoto("warehouse_invoice")],
+			record: {
+				id: "record-1",
+				siteId: "site-1",
+				userId: "user-1",
+				workerId: null,
+				Date: null,
+				Location: "2. stāvs",
+				Works: "Starpsienu montāža",
+				Comments: "Pabeigta starpsienu montāža 2. stāvā, 2 cilvēki, 3 h.",
+				originalUserComment:
+					"Test Manager : Šodien pabeidzām starpsienu montāžu 2. stāvā, 2 cilvēki, 3h.",
+				originalAudioUrl: null,
+				WorkersInvolved: 2,
+				TimeInvolved: 3,
+				createdAt: new Date("2026-06-23T00:00:00.000Z"),
+			},
+		});
+
+		expect(result.status).toBe("fail");
+		expect(
+			result.results.find((item) => item.name === "photo-purpose:site_diary"),
+		).toMatchObject({ status: "fail" });
+	});
+
+	it("passes material invoice records with Latvian day-month invoice dates", () => {
+		if (!materialInvoiceCase) {
+			throw new Error("Missing material invoice Latvian date eval case");
+		}
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: materialInvoiceCase,
+			siteId: "site-1",
+			userId: "user-1",
+			createdPhotoCount: 0,
+			record: null,
+			records: [],
+			warehousePhotos: [savedPhoto("warehouse_invoice")],
+			materialRecords: [
+				{
+					id: "material-1",
+					siteId: "site-1",
+					userId: "user-1",
+					name: "Materiāls",
+					invoiceNr: "E02246903",
+					invoiceDate: new Date("2026-06-02T00:00:00.000Z"),
+					cost: 12.34,
+					quantity: 2,
+					sourcePhoto: "data:image/jpeg;base64,fixture",
+					createdAt: new Date("2026-06-23T00:00:00.000Z"),
+				},
+			],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find(
+				(item) => item.name === "material-invoice-date:2026-06-02",
+			),
+		).toMatchObject({ status: "pass" });
+		expect(
+			result.results.find(
+				(item) => item.name === "photo-purpose:warehouse_invoice",
+			),
+		).toMatchObject({ status: "pass" });
+		expect(
+			result.results.find((item) => item.name === "warehouse-photo-count"),
+		).toMatchObject({ status: "pass" });
+	});
+
+	it("fails material invoice cases when the source photo is not warehouse-marked", () => {
+		if (!materialInvoiceCase) {
+			throw new Error("Missing material invoice Latvian date eval case");
+		}
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: materialInvoiceCase,
+			siteId: "site-1",
+			userId: "user-1",
+			createdPhotoCount: 0,
+			record: null,
+			records: [],
+			warehousePhotos: [savedPhoto("site_diary")],
+			materialRecords: [
+				{
+					id: "material-1",
+					siteId: "site-1",
+					userId: "user-1",
+					name: "Materiāls",
+					invoiceNr: "E02246903",
+					invoiceDate: new Date("2026-06-02T00:00:00.000Z"),
+					cost: 12.34,
+					quantity: 2,
+					sourcePhoto: "data:image/jpeg;base64,fixture",
+					createdAt: new Date("2026-06-23T00:00:00.000Z"),
+				},
+			],
+		});
+
+		expect(result.status).toBe("fail");
+		expect(
+			result.results.find(
+				(item) => item.name === "photo-purpose:warehouse_invoice",
+			),
+		).toMatchObject({ status: "fail" });
+	});
+
+	it("fails material invoice cases when the source photo is missing", () => {
+		if (!materialInvoiceCase) {
+			throw new Error("Missing material invoice Latvian date eval case");
+		}
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: materialInvoiceCase,
+			siteId: "site-1",
+			userId: "user-1",
+			createdPhotoCount: 0,
+			record: null,
+			records: [],
+			warehousePhotos: [],
+			materialRecords: [
+				{
+					id: "material-1",
+					siteId: "site-1",
+					userId: "user-1",
+					name: "Materiāls",
+					invoiceNr: "E02246903",
+					invoiceDate: new Date("2026-06-02T00:00:00.000Z"),
+					cost: 12.34,
+					quantity: 2,
+					sourcePhoto: "data:image/jpeg;base64,fixture",
+					createdAt: new Date("2026-06-23T00:00:00.000Z"),
+				},
+			],
+		});
+
+		expect(result.status).toBe("fail");
+		expect(
+			result.results.find((item) => item.name === "warehouse-photo-count"),
+		).toMatchObject({ status: "fail" });
+	});
+
+	it("fails material invoice records with swapped month-day invoice dates", () => {
+		if (!materialInvoiceCase) {
+			throw new Error("Missing material invoice Latvian date eval case");
+		}
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: materialInvoiceCase,
+			siteId: "site-1",
+			userId: "user-1",
+			createdPhotoCount: 0,
+			record: null,
+			records: [],
+			warehousePhotos: [savedPhoto("warehouse_invoice")],
+			materialRecords: [
+				{
+					id: "material-1",
+					siteId: "site-1",
+					userId: "user-1",
+					name: "Materiāls",
+					invoiceNr: "E02246903",
+					invoiceDate: new Date("2026-02-06T00:00:00.000Z"),
+					cost: 12.34,
+					quantity: 2,
+					sourcePhoto: "data:image/jpeg;base64,fixture",
+					createdAt: new Date("2026-06-23T00:00:00.000Z"),
+				},
+			],
+		});
+
+		expect(result.status).toBe("fail");
+		expect(
+			result.results.find(
+				(item) => item.name === "material-invoice-date:2026-06-02",
+			),
+		).toMatchObject({ status: "fail" });
+		expect(
+			result.results.find(
+				(item) => item.name === "material-forbidden-invoice-date:2026-02-06",
+			),
+		).toMatchObject({ status: "fail" });
 	});
 
 	it("fails when the saved record loses core quantities", () => {

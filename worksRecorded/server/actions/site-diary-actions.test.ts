@@ -9,6 +9,7 @@ const siteFindUniqueMock = jest.fn();
 const productionFlowConfigOverrideFindManyMock = jest.fn();
 const flowAssignmentFindUniqueMock = jest.fn();
 const photosFindManyMock = jest.fn();
+const bisMaterialFindManyMock = jest.fn();
 const siteDiaryFindManyMock = jest.fn();
 const batchCreateMock = jest.fn();
 const batchFindFirstMock = jest.fn();
@@ -18,7 +19,12 @@ const correctionAuditFindUniqueMock = jest.fn();
 const correctionAuditCreateMock = jest.fn();
 const correctionSessionFindUniqueMock = jest.fn();
 const correctionSessionDeleteManyMock = jest.fn();
+const revalidatePathMock = jest.fn();
 let createdRowIndex = 0;
+
+jest.mock("next/cache", () => ({
+  revalidatePath: revalidatePathMock,
+}));
 
 jest.mock("@/lib/utils/db", () => ({
   prisma: {
@@ -35,6 +41,9 @@ jest.mock("@/lib/utils/db", () => ({
     },
     photos: {
       findMany: photosFindManyMock,
+    },
+    bISmaterialRecords: {
+      findMany: bisMaterialFindManyMock,
     },
     sitediaryrecords: {
       create: createMock,
@@ -194,6 +203,7 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
     );
     updateManyMock.mockResolvedValue({ count: 1 });
     photosFindManyMock.mockResolvedValue([]);
+    bisMaterialFindManyMock.mockResolvedValue([]);
     siteDiaryFindManyMock.mockResolvedValue([]);
   });
 
@@ -672,6 +682,56 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
       }),
     );
   });
+
+  it("returns site diary photos from the media dialog and keeps audio records", async () => {
+    const progressPhoto = {
+      id: "photo-progress",
+      Date: new Date("2026-06-08T10:00:00.000Z"),
+      URL: "https://ut.test.ufs.sh/f/progress.jpg",
+      fileUrl: "https://ut.test.ufs.sh/f/progress.jpg",
+      Comment: "Wall progress",
+      Location: "Site A",
+      siteId: "site-1",
+      userId: "user-1",
+    };
+    const audioRows = [
+      {
+        id: "record-1",
+        Date: new Date("2026-06-08T11:00:00.000Z"),
+        Location: "Site A",
+        Works: "Concrete pour",
+        originalUserComment: "Test Manager : poured concrete",
+        originalAudioUrl: "https://ut.test.ufs.sh/f/voice.ogg",
+        siteId: "site-1",
+        userId: "user-1",
+        workerId: null,
+      },
+    ];
+    photosFindManyMock.mockResolvedValue([progressPhoto]);
+    siteDiaryFindManyMock.mockResolvedValue(audioRows);
+
+    const result = await getPhotosByDate({
+      siteId: "site-1",
+      startISO: "2026-06-08T00:00:00.000Z",
+      endISO: "2026-06-09T00:00:00.000Z",
+    });
+
+    expect(result).toEqual({
+      photos: [progressPhoto],
+      audioRecords: audioRows,
+    });
+    expect(photosFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        siteId: "site-1",
+        AND: [
+          {
+            OR: [{ mediaPurpose: null }, { mediaPurpose: "site_diary" }],
+          },
+        ],
+      }),
+    }));
+    expect(bisMaterialFindManyMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("site diary project copy actions", () => {
@@ -842,6 +902,7 @@ describe("getSiteDiaryMediaOnlyDays", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     photosFindManyMock.mockResolvedValue([]);
+    bisMaterialFindManyMock.mockResolvedValue([]);
     siteDiaryFindManyMock.mockResolvedValue([]);
   });
 
@@ -933,6 +994,69 @@ describe("getSiteDiaryMediaOnlyDays", () => {
     ]);
   });
 
+  it("counts only persisted site diary photos for photo-only day summaries", async () => {
+    photosFindManyMock.mockResolvedValue([
+      {
+        Date: new Date("2026-06-08T10:00:00.000Z"),
+        URL: "https://ut.test.ufs.sh/f/progress.jpg",
+        fileUrl: "https://ut.test.ufs.sh/f/progress.jpg",
+        Comment: "Wall progress",
+        Location: "Site A",
+      },
+    ]);
+    siteDiaryFindManyMock.mockResolvedValue([]);
+
+    const result = await getSiteDiaryMediaOnlyDays("site-1", {
+      flowId: "default",
+    });
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        key: "2026-06-08",
+        photoCount: 1,
+        searchableText: "Wall progress Site A",
+      }),
+    ]);
+    expect(result).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "2026-06-07",
+        }),
+      ]),
+    );
+    expect(photosFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        siteId: "site-1",
+        AND: [
+          {
+            OR: [{ mediaPurpose: null }, { mediaPurpose: "site_diary" }],
+          },
+        ],
+      }),
+    }));
+    expect(bisMaterialFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("omits invoice-only days because warehouse invoice photos are not queried", async () => {
+    photosFindManyMock.mockResolvedValue([]);
+    siteDiaryFindManyMock.mockResolvedValue([]);
+
+    const result = await getSiteDiaryMediaOnlyDays("site-1", {
+      flowId: "default",
+    });
+
+    expect(result).toEqual([]);
+    expect(photosFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        AND: [
+          {
+            OR: [{ mediaPurpose: null }, { mediaPurpose: "site_diary" }],
+          },
+        ],
+      }),
+    }));
+  });
+
   it("applies date range and valid-url filters to the photo query", async () => {
     photosFindManyMock.mockResolvedValue([]);
     siteDiaryFindManyMock.mockResolvedValue([]);
@@ -947,6 +1071,11 @@ describe("getSiteDiaryMediaOnlyDays", () => {
     expect(photoWhere.OR).toEqual([
       { AND: [{ URL: { not: null } }, { URL: { not: "" } }] },
       { AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }] },
+    ]);
+    expect(photoWhere.AND).toEqual([
+      {
+        OR: [{ mediaPurpose: null }, { mediaPurpose: "site_diary" }],
+      },
     ]);
     expect(photoWhere.Date.gte).toBeInstanceOf(Date);
     expect(photoWhere.Date.lte).toBeInstanceOf(Date);

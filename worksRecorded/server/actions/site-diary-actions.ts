@@ -6,6 +6,10 @@ import { requireUser } from "@/lib/utils/requireUser";
 import { bisFetch } from "@/server/actions/BIS/TestBisEnv/relay";
 import { inspect } from "node:util";
 import { createPerfTrace } from "@/lib/observability/perf";
+import {
+  PHOTO_MEDIA_PURPOSE_SITE_DIARY,
+  siteDiaryPhotoPurposeWhere,
+} from "@/lib/photos/media-purpose";
 
 import { SavePhotoArgs, GetPhotosByDateArgs, Args } from "@/server/actions/types";
 import { getOrganizationIdByUserId } from "./shared-actions";
@@ -1742,7 +1746,7 @@ export async function getSiteDiaryRecord({ siteId, date }) {
     firstName: string | null | undefined,
     lastName: string | null | undefined,
   ): string => {
-    const parts = [];
+    const parts: string[] = [];
     if (firstName) parts.push(firstName);
     if (lastName) parts.push(lastName);
     return parts.join(" ");
@@ -2123,6 +2127,7 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
   const photoWhere: any = {
     siteId,
     Date: Object.keys(dateFilter).length > 0 ? dateFilter : { not: null },
+    AND: [siteDiaryPhotoPurposeWhere()],
     OR: [
       { AND: [{ URL: { not: null } }, { URL: { not: "" } }] },
       { AND: [{ fileUrl: { not: null } }, { fileUrl: { not: "" } }] },
@@ -2730,6 +2735,7 @@ export async function getSiteGalleryAttachments(siteId: string) {
   const photos = await prisma.photos.findMany({
     where: {
       siteId,
+      AND: [siteDiaryPhotoPurposeWhere()],
       OR: [{ fileUrl: { not: null } }, { URL: { not: null } }],
     },
     orderBy: { Date: "desc" },
@@ -3908,6 +3914,7 @@ export async function savePhoto({
   siteId,
   url,
   fileUrl,
+  mediaPurpose,
   comment,
   location,
   date,
@@ -3920,6 +3927,7 @@ export async function savePhoto({
     siteId,
     url,
     fileUrl,
+    mediaPurpose,
     comment,
     location,
     date,
@@ -3935,7 +3943,7 @@ export async function savePhoto({
   });
 
   // Fetch organization
-  let org = null;
+  let org: string | null = null;
   if (entityId) {
     try {
       org = isWorker
@@ -3955,6 +3963,7 @@ export async function savePhoto({
     Date: date ?? new Date(),
     URL: url ?? null,
     fileUrl: fileUrl ?? url ?? null,
+    mediaPurpose: mediaPurpose ?? PHOTO_MEDIA_PURPOSE_SITE_DIARY,
     Comment: comment ?? null,
     Location: location ?? null,
     userId: userId ?? null,
@@ -3986,64 +3995,66 @@ export async function getPhotosByDate({
   const end = new Date(endISO);
 
   try {
-  const [photos, audioRecords] = await trace.measure("dateQueries", () => Promise.all([
-      prisma.photos.findMany({
-        where: {
-          siteId: siteId ?? undefined,
-          Date: {
-            gte: start,
-            lt: end,
+    const [photos, audioRecords] = await trace.measure("dateQueries", () =>
+      Promise.all([
+        prisma.photos.findMany({
+          where: {
+            siteId: siteId ?? undefined,
+            Date: {
+              gte: start,
+              lt: end,
+            },
+            AND: [siteDiaryPhotoPurposeWhere()],
           },
-        },
-        orderBy: { Date: "desc" },
-        select: {
-          id: true,
-          Date: true,
-          URL: true,
-          fileUrl: true,
-          Comment: true,
-          Location: true,
-          siteId: true,
-          userId: true,
-        },
-      }),
-      prisma.sitediaryrecords.findMany({
-        where: {
-          siteId: siteId ?? undefined,
-          archivedAt: null,
-          Date: {
-            gte: start,
-            lt: end,
+          orderBy: { Date: "desc" },
+          select: {
+            id: true,
+            Date: true,
+            URL: true,
+            fileUrl: true,
+            Comment: true,
+            Location: true,
+            siteId: true,
+            userId: true,
           },
-          AND: [{ originalAudioUrl: { not: null } }, { originalAudioUrl: { not: "" } }],
-        },
-        orderBy: { Date: "desc" },
-        select: {
-          id: true,
-          Date: true,
-          Location: true,
-          Works: true,
-          originalUserComment: true,
-          originalAudioUrl: true,
-          siteId: true,
-          userId: true,
-          workerId: true,
-        },
-      }),
-    ]),
-  );
+        }),
+        prisma.sitediaryrecords.findMany({
+          where: {
+            siteId: siteId ?? undefined,
+            archivedAt: null,
+            Date: {
+              gte: start,
+              lt: end,
+            },
+            AND: [{ originalAudioUrl: { not: null } }, { originalAudioUrl: { not: "" } }],
+          },
+          orderBy: { Date: "desc" },
+          select: {
+            id: true,
+            Date: true,
+            Location: true,
+            Works: true,
+            originalUserComment: true,
+            originalAudioUrl: true,
+            siteId: true,
+            userId: true,
+            workerId: true,
+          },
+        }),
+      ]),
+    );
 
-  trace.end({
-    status: 200,
-    extra: {
-      startISO,
-      endISO,
-      photoCount: photos.length,
-      audioRecordCount: audioRecords.length,
-    },
-  });
+    trace.end({
+      status: 200,
+      extra: {
+        startISO,
+        endISO,
+        photoCount: photos.length,
+        audioRecordCount: audioRecords.length,
+      },
+    });
 
-  return { photos, audioRecords };
+    return { photos, audioRecords };
   } catch (error) {
     trace.fail(error, {
       status: 500,

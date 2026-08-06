@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils/utils";
 import { SiteDiaryOptionsManager } from "@/components/sitediary/SiteDiaryOptionsManager";
 import { useDefaultConstructionSiteDiarySummary } from "@/flows/default-construction/frontend/useDefaultConstructionSiteDiarySummary";
 import { OriginalSourceContent } from "@/components/sitediary/OriginalSourceContent";
+import { hasSiteDiaryDisplayableMedia } from "@/components/sitediary/siteDiaryMediaDisplay";
 import {
   copySiteDiaryRecordsToProject,
   copySiteDiaryRecordToDate,
@@ -3404,6 +3405,7 @@ export default function SiteDiaryCalendar({
                           : undefined;
 
                       const isPdfLoading = pdfLoadingKey === group.key;
+                      const hasDisplayableMedia = hasSiteDiaryDisplayableMedia(group);
 
                       return (
                         <Card
@@ -3444,21 +3446,23 @@ export default function SiteDiaryCalendar({
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="rounded-full"
-                                onClick={() => openPhotos(group.date)}
-                              >
-                                <Images className="h-5 w-5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>{t.viewPhotosForDay}</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          {hasDisplayableMedia ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="rounded-full"
+                                  onClick={() => openPhotos(group.date)}
+                                >
+                                  <Images className="h-5 w-5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>{t.viewPhotosForDay}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : null}
 
                           {!isZtcSite ? (
                             <>
