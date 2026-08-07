@@ -168,25 +168,38 @@ export function getZtcElementTotalAreaM2(rows: ZtcDiaryRow[], elementName: strin
   return null;
 }
 
-export function getZtcProjectTotalAreaM2(rows: ZtcDiaryRow[], projectName: string | null | undefined) {
+export function getZtcProjectElementAreas(
+  rows: ZtcDiaryRow[],
+  projectName: string | null | undefined,
+) {
   const normalizedProject = normalizeZtcText(projectName);
-  if (!normalizedProject) return null;
+  if (!normalizedProject) return [];
 
-  const areasByElement = new Map<string, number>();
+  const areasByElement = new Map<string, { element: string; area: number }>();
   for (const row of rows) {
     if (normalizeZtcText(row.Location) !== normalizedProject) continue;
 
     const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
     for (const element of metadata?.elements ?? []) {
       const elementKey = normalizeZtcText(element.elementName);
-      if (!elementKey || areasByElement.has(elementKey)) continue;
+      const elementName = String(element.elementName ?? "").trim();
+      if (!elementKey || !elementName || areasByElement.has(elementKey)) continue;
 
       const area = parsePositiveZtcNumber(element.totalAreaM2);
-      if (area != null) areasByElement.set(elementKey, area);
+      if (area != null) areasByElement.set(elementKey, { element: elementName, area });
     }
   }
 
-  const total = Array.from(areasByElement.values()).reduce((sum, area) => sum + area, 0);
+  return Array.from(areasByElement.entries()).map(([elementKey, value]) => ({
+    elementKey,
+    ...value,
+  }));
+}
+
+export function getZtcProjectTotalAreaM2(rows: ZtcDiaryRow[], projectName: string | null | undefined) {
+  const elementAreas = getZtcProjectElementAreas(rows, projectName);
+
+  const total = elementAreas.reduce((sum, element) => sum + element.area, 0);
   return total > 0 ? Number(total.toFixed(2)) : null;
 }
 
