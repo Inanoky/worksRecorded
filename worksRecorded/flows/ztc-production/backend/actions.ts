@@ -859,6 +859,45 @@ export async function getZtcDefaultTaskRates(siteId: string) {
   return getDefaultTaskRatesFromConfig(config);
 }
 
+export async function getZtcRatesDialogData(siteId: string) {
+  const context = await requireZtcAccess(siteId);
+  const [config, projectRows] = await Promise.all([
+    loadZtcSiteDiaryConfig(siteId),
+    prisma.ztcRecords.findMany({
+      where: {
+        siteId: context.siteId,
+        organizationId: context.organizationId,
+        Date_Custom_2: { not: null },
+        Location: { not: null },
+        NOT: [
+          { Date: null },
+          { Works: null },
+          { Works: "" },
+          { Location: "" },
+          { Location: "Papilddarbi" },
+        ],
+        AND: [buildZtcNotCancelledWhere()],
+      },
+      distinct: ["Location"],
+      select: { Location: true },
+      orderBy: { Location: "asc" },
+    }),
+  ]);
+
+  const projectOptions = Array.from(
+    new Set(
+      projectRows
+        .map((row) => String(row.Location ?? "").trim())
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "lv"));
+
+  return {
+    rates: getDefaultTaskRatesFromConfig(config),
+    projectOptions,
+  };
+}
+
 export async function updateZtcDefaultTaskRates(args: {
   siteId: string;
   rates: ZtcProjectTaskRates[];

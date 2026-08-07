@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils/utils";
 import {
-  getZtcDefaultTaskRates,
+  getZtcRatesDialogData,
   updateZtcPayrollFields,
   type ZtcProjectTaskRates,
 } from "@/flows/ztc-production/backend/actions";
@@ -48,18 +48,21 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
   const [imageDialog, setImageDialog] = React.useState<ZtcImageDialogState>(null);
   const [rateDialogOpen, setRateDialogOpen] = React.useState(false);
   const [defaultRates, setDefaultRates] = React.useState<ZtcProjectTaskRates[]>([]);
+  const [rateProjectOptions, setRateProjectOptions] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     if (!enabled || !siteId) {
       setDefaultRates([]);
+      setRateProjectOptions([]);
       return;
     }
 
     let cancelled = false;
-    getZtcDefaultTaskRates(siteId)
-      .then((rates) => {
+    getZtcRatesDialogData(siteId)
+      .then((data) => {
         if (cancelled) return;
-        setDefaultRates(rates);
+        setDefaultRates(data.rates);
+        setRateProjectOptions(data.projectOptions);
       })
       .catch((error: any) => {
         if (!cancelled) {
@@ -71,18 +74,6 @@ export function useZtcSiteDiaryFlow<Row extends ZtcDiaryRow>({
       cancelled = true;
     };
   }, [enabled, siteId]);
-
-  const rateProjectOptions = React.useMemo(
-    () =>
-      Array.from(
-        new Set(
-          rows
-            .map((row) => String(row.Location ?? "").trim())
-            .filter((project) => project && project !== "Papilddarbi"),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "lv")),
-    [rows],
-  );
 
   const updatePayrollDraft = React.useCallback(
     (recordId: string, field: ZtcPayrollField, value: string) => {

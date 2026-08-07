@@ -41,8 +41,10 @@ const clientLogos = [
 
 export default function ModernLandingPage({
 	isPreview = false,
+	homePath,
 }: {
 	isPreview?: boolean;
+	homePath?: "Landing" | "Landing_v2" | "LandingPreview";
 }) {
 	const locale = useLocale();
 	const landing = useTranslations("LandingPageDesktop");
@@ -58,6 +60,8 @@ export default function ModernLandingPage({
 	const featureItems = text.raw("whatDoWeDo.items") as TextItem[];
 	const processItems = text.raw("howDoWeDoThat.items") as TextItem[];
 	const whyBullets = text.raw("why.bullets") as string[];
+	const resolvedHomePath =
+		homePath ?? (isPreview ? "LandingPreview" : "Landing");
 
 	return (
 		<main
@@ -76,7 +80,7 @@ export default function ModernLandingPage({
 			<header className="sticky top-0 z-40 border-b border-[#e6ece7] bg-white/90 backdrop-blur-xl">
 				<div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-4 sm:px-5 lg:px-8">
 					<Link
-						href={`/${locale}/${isPreview ? "LandingPreview" : "Landing"}`}
+						href={`/${locale}/${resolvedHomePath}`}
 						className="flex items-center gap-3"
 					>
 						<span

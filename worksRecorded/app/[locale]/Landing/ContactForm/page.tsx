@@ -1,17 +1,17 @@
 // components/landing/ContactSection.tsx
 "use client";
 
-import { useState, useRef } from "react";
-import { motion, useInView } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
+import { motion, useInView, type Variants } from "framer-motion";
+import { Globe, Mail, Phone, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { sendGAEvent, sendGTMEvent } from "@next/third-parties/google";
-import { Mail, Phone, Globe, Send } from "lucide-react";
-import { useTranslations, useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { useId, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { trackGenerateLeadOnce } from "@/lib/analytics/marketing-events";
 
 // --- Helper component to wrap items in animation ---
 const AnimatedWrapper = motion.div;
@@ -28,7 +28,7 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { y: 20, opacity: 0 },
   visible: {
     y: 0,
@@ -45,14 +45,25 @@ export default function ContactForm() {
   const locale = useLocale();
 
   const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState<null | { ok: boolean; msg: string }>(null);
+  const [status, setStatus] = useState<null | { ok: boolean; msg: string }>(
+    null,
+  );
   const router = useRouter();
+  const submissionInFlight = useRef(false);
+  const emailId = useId();
+  const firstNameId = useId();
+  const lastNameId = useId();
+  const messageId = useId();
+  const subjectId = useId();
 
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.3 });
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submissionInFlight.current) return;
+
+    submissionInFlight.current = true;
     setPending(true);
     setStatus(null);
 
@@ -66,36 +77,40 @@ export default function ContactForm() {
       hp: String(fd.get("hp") || ""),
     };
 
-    const res = await fetch("/api/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    setPending(false);
-
-    if (res.ok) {
-      sendGAEvent("event", "conversion", {
-        value: { send_to: "AW-17670426077/3OXOCMXV7rUbEN2b9elB" },
+    try {
+      const res = await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      sendGTMEvent({
-        event: "conversion",
-        value: { send_to: "AW-17670426077/3OXOCMXV7rUbEN2b9elB" },
-      });
-
-      router.push(`/${locale}/Landing/ThankYou`);
-      return;
-    } else {
       const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        if (data.accepted === true && typeof data.id === "string") {
+          trackGenerateLeadOnce(data.id);
+        }
+
+        router.push(`/${locale}/Landing/ThankYou`);
+        return;
+      }
+
       setStatus({
         ok: false,
         msg: data?.error ? String(data.error) : t("status.errorDefault"),
       });
+    } catch {
+      setStatus({ ok: false, msg: t("status.errorDefault") });
+    } finally {
+      submissionInFlight.current = false;
+      setPending(false);
     }
   }
 
   return (
-    <section ref={ref} className="mx-auto max-w-6xl rounded-2xl border bg-background p-8 sm:p-10">
+    <section
+      ref={ref}
+      className="mx-auto max-w-6xl rounded-2xl border bg-background p-8 sm:p-10"
+    >
       <AnimatedWrapper
         className="grid grid-cols-1 gap-10 md:grid-cols-2"
         variants={containerVariants}
@@ -118,7 +133,8 @@ export default function ContactForm() {
             <ul className="list-none space-y-3">
               <li className="flex items-center space-x-3">
                 <Phone className="h-5 w-5 text-primary flex-shrink-0" />
-                <span className="font-medium">{t("phoneLabel")}</span> +371 24885690
+                <span className="font-medium">{t("phoneLabel")}</span> +371
+                24885690
               </li>
 
               <li className="flex items-center space-x-3">
@@ -149,31 +165,48 @@ export default function ContactForm() {
         </div>
 
         {/* Right */}
-        <AnimatedWrapper variants={itemVariants} className="rounded-2xl border bg-card text-card-foreground shadow-2xl">
+        <AnimatedWrapper
+          variants={itemVariants}
+          className="rounded-2xl border bg-card text-card-foreground shadow-2xl"
+        >
           <Card className="rounded-2xl border-none shadow-none">
             <CardHeader className="p-6">
-              <CardTitle className="text-3xl font-bold">{t("formTitle")}</CardTitle>
+              <CardTitle className="text-3xl font-bold">
+                {t("formTitle")}
+              </CardTitle>
             </CardHeader>
 
             <CardContent className="p-6 pt-0">
               <form className="space-y-5" onSubmit={onSubmit}>
-                <input type="text" name="hp" className="hidden" tabIndex={-1} autoComplete="off" />
+                <input
+                  type="text"
+                  name="hp"
+                  className="hidden"
+                  tabIndex={-1}
+                  autoComplete="off"
+                />
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <AnimatedWrapper variants={itemVariants} className="space-y-2">
-                    <Label htmlFor="firstName">{t("firstNameLabel")}</Label>
+                  <AnimatedWrapper
+                    variants={itemVariants}
+                    className="space-y-2"
+                  >
+                    <Label htmlFor={firstNameId}>{t("firstNameLabel")}</Label>
                     <Input
-                      id="firstName"
+                      id={firstNameId}
                       name="firstName"
                       placeholder={t("firstNamePlaceholder")}
                       required
                     />
                   </AnimatedWrapper>
 
-                  <AnimatedWrapper variants={itemVariants} className="space-y-2">
-                    <Label htmlFor="lastName">{t("lastNameLabel")}</Label>
+                  <AnimatedWrapper
+                    variants={itemVariants}
+                    className="space-y-2"
+                  >
+                    <Label htmlFor={lastNameId}>{t("lastNameLabel")}</Label>
                     <Input
-                      id="lastName"
+                      id={lastNameId}
                       name="lastName"
                       placeholder={t("lastNamePlaceholder")}
                       required
@@ -182,9 +215,9 @@ export default function ContactForm() {
                 </div>
 
                 <AnimatedWrapper variants={itemVariants} className="space-y-2">
-                  <Label htmlFor="email">{t("emailFieldLabel")}</Label>
+                  <Label htmlFor={emailId}>{t("emailFieldLabel")}</Label>
                   <Input
-                    id="email"
+                    id={emailId}
                     name="email"
                     type="email"
                     placeholder={t("emailPlaceholder")}
@@ -193,9 +226,9 @@ export default function ContactForm() {
                 </AnimatedWrapper>
 
                 <AnimatedWrapper variants={itemVariants} className="space-y-2">
-                  <Label htmlFor="subject">{t("subjectLabel")}</Label>
+                  <Label htmlFor={subjectId}>{t("subjectLabel")}</Label>
                   <Input
-                    id="subject"
+                    id={subjectId}
                     name="subject"
                     placeholder={t("subjectPlaceholder")}
                     required
@@ -203,9 +236,9 @@ export default function ContactForm() {
                 </AnimatedWrapper>
 
                 <AnimatedWrapper variants={itemVariants} className="space-y-2">
-                  <Label htmlFor="message">{t("messageLabel")}</Label>
+                  <Label htmlFor={messageId}>{t("messageLabel")}</Label>
                   <Textarea
-                    id="message"
+                    id={messageId}
                     name="message"
                     placeholder={t("messagePlaceholder")}
                     className="min-h-32"
@@ -225,7 +258,11 @@ export default function ContactForm() {
                   </p>
                 )}
 
-                <Button type="submit" className="w-full h-11 text-base group" disabled={pending}>
+                <Button
+                  type="submit"
+                  className="w-full h-11 text-base group"
+                  disabled={pending}
+                >
                   {pending ? (
                     t("sending")
                   ) : (

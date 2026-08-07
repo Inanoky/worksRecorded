@@ -1,9 +1,13 @@
 {
   "LandingPageDesktop": {
     "topPill": "Izstrādāts būvniecības apakšuzņēmējiem",
-    "heroTitle": "Digitālais būvdarbu žurnāls ar BIS integrāciju",
+    "heroTitle": "WhatsApp kā darbu uzskaites rīks",
     "heroRotatingTitles": ["Būvdarbu uzskaite", "Ražošanas uzskaite", "Izmaksu kontrole"],
-    "smallDescription": "Sūti balss ziņas — MI sakārto.",
+    "smallDescription": "Strukturēti darba ieraksti, izmaksu kontrole un pārskatāmas atskaites — viss caur WhatsApp.",
+    "heroDescription": "WorksRecorded palīdz būvniecības un ražošanas komandām viegli fiksēt paveikto, sekot līdzi darba izmaksām un saglabāt visu svarīgo vienuviet.",
+    "heroRating": "4.8 / 5 klientu vērtējums",
+    "heroSetup": "Ātri ieviešams",
+    "contactUs": "Sazināties",
     "startFreeTrial": "Pamēģināt bezmaksas",
     "signIn": "Uzdot jautājumu",
     "noCardNote": "",

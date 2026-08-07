@@ -42,8 +42,8 @@ export const COMBINED_LINKS = [
     {
     id: "Projects",
     href: "/Landing/CaseStudies",
-    titleKey: "data.projects.title",
-    descriptionKey: "data.projects.description",
+    titleKey: "main.caseStudies",
+    descriptionKey: "combined.generic",
   },
   {
     id: "Whatsapp",
