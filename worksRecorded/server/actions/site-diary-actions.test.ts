@@ -9,6 +9,10 @@ const siteFindUniqueMock = jest.fn();
 const productionFlowConfigOverrideFindManyMock = jest.fn();
 const flowAssignmentFindUniqueMock = jest.fn();
 const photosFindManyMock = jest.fn();
+const photosFindUniqueMock = jest.fn();
+const photosUpdateMock = jest.fn();
+const photosUpdateManyMock = jest.fn();
+const photosDeleteMock = jest.fn();
 const bisMaterialFindManyMock = jest.fn();
 const siteDiaryFindManyMock = jest.fn();
 const batchCreateMock = jest.fn();
@@ -41,6 +45,10 @@ jest.mock("@/lib/utils/db", () => ({
     },
     photos: {
       findMany: photosFindManyMock,
+      findUnique: photosFindUniqueMock,
+      update: photosUpdateMock,
+      updateMany: photosUpdateManyMock,
+      delete: photosDeleteMock,
     },
     bISmaterialRecords: {
       findMany: bisMaterialFindManyMock,
@@ -100,6 +108,8 @@ import {
   getPhotosByDate,
   getSiteDiaryMediaOnlyDays,
   getSiteDiaryProjectCopyTargets,
+  movePhotoToDate,
+  movePhotosToDate,
   saveSiteDiaryRecord,
 } from "./site-diary-actions";
 import { requireUser } from "@/lib/utils/requireUser";
@@ -731,6 +741,187 @@ describe("saveSiteDiaryRecord originalAudioUrl", () => {
       }),
     }));
     expect(bisMaterialFindManyMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("movePhotoToDate", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (requireUser as jest.Mock).mockResolvedValue({ id: "user-1" });
+    (orgCheck as jest.Mock).mockImplementation((_userId: string, siteId: string) => {
+      if (siteId === "site-1") return Promise.resolve({ id: "site-1", organizationId: "org-1" });
+      return Promise.resolve(false);
+    });
+  });
+
+  it("moves a site diary photo to the selected local day", async () => {
+    photosFindUniqueMock.mockResolvedValue({
+      id: "photo-1",
+      siteId: "site-1",
+      mediaPurpose: "site_diary",
+    });
+    photosUpdateMock.mockImplementation(({ data }) =>
+      Promise.resolve({
+        id: "photo-1",
+        siteId: "site-1",
+        Date: data.Date,
+      }),
+    );
+
+    const result = await movePhotoToDate({
+      photoId: "photo-1",
+      targetDate: "2026-08-06",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      photo: {
+        id: "photo-1",
+        siteId: "site-1",
+        Date: expect.any(Date),
+      },
+    });
+    expect(orgCheck).toHaveBeenCalledWith("user-1", "site-1");
+    expect(photosUpdateMock).toHaveBeenCalledWith({
+      where: { id: "photo-1" },
+      data: { Date: expect.any(Date) },
+      select: {
+        id: true,
+        Date: true,
+        siteId: true,
+      },
+    });
+    const movedDate = photosUpdateMock.mock.calls[0][0].data.Date as Date;
+    expect(movedDate.getFullYear()).toBe(2026);
+    expect(movedDate.getMonth()).toBe(7);
+    expect(movedDate.getDate()).toBe(6);
+  });
+
+  it("allows legacy null-purpose photos to be moved", async () => {
+    photosFindUniqueMock.mockResolvedValue({
+      id: "photo-legacy",
+      siteId: "site-1",
+      mediaPurpose: null,
+    });
+    photosUpdateMock.mockResolvedValue({
+      id: "photo-legacy",
+      siteId: "site-1",
+      Date: new Date("2026-08-06T09:00:00.000Z"),
+    });
+
+    await expect(
+      movePhotoToDate({
+        photoId: "photo-legacy",
+        targetDate: "2026-08-06",
+      }),
+    ).resolves.toEqual(expect.objectContaining({ ok: true }));
+  });
+
+  it("rejects warehouse invoice photos", async () => {
+    photosFindUniqueMock.mockResolvedValue({
+      id: "photo-invoice",
+      siteId: "site-1",
+      mediaPurpose: "warehouse_invoice",
+    });
+
+    await expect(
+      movePhotoToDate({
+        photoId: "photo-invoice",
+        targetDate: "2026-08-06",
+      }),
+    ).rejects.toThrow("Warehouse invoice photos cannot be moved");
+    expect(photosUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects photos outside the user's accessible sites", async () => {
+    photosFindUniqueMock.mockResolvedValue({
+      id: "photo-other-site",
+      siteId: "site-other",
+      mediaPurpose: "site_diary",
+    });
+
+    await expect(
+      movePhotoToDate({
+        photoId: "photo-other-site",
+        targetDate: "2026-08-06",
+      }),
+    ).rejects.toThrow("Photo not found");
+    expect(photosUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("movePhotosToDate", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (requireUser as jest.Mock).mockResolvedValue({ id: "user-1" });
+    (orgCheck as jest.Mock).mockImplementation((_userId: string, siteId: string) => {
+      if (siteId === "site-1") return Promise.resolve({ id: "site-1", organizationId: "org-1" });
+      return Promise.resolve(false);
+    });
+  });
+
+  it("moves selected site diary photos to the selected local day", async () => {
+    photosFindManyMock.mockResolvedValue([
+      {
+        id: "photo-1",
+        siteId: "site-1",
+        mediaPurpose: "site_diary",
+      },
+      {
+        id: "photo-2",
+        siteId: "site-1",
+        mediaPurpose: null,
+      },
+    ]);
+    photosUpdateManyMock.mockResolvedValue({ count: 2 });
+
+    const result = await movePhotosToDate({
+      photoIds: ["photo-1", "photo-2"],
+      targetDate: "2026-08-06",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      movedCount: 2,
+      photoIds: ["photo-1", "photo-2"],
+      Date: expect.any(Date),
+    });
+    expect(orgCheck).toHaveBeenCalledWith("user-1", "site-1");
+    expect(photosUpdateManyMock).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["photo-1", "photo-2"] },
+      },
+      data: {
+        Date: expect.any(Date),
+      },
+    });
+    const movedDate = photosUpdateManyMock.mock.calls[0][0].data.Date as Date;
+    expect(movedDate.getFullYear()).toBe(2026);
+    expect(movedDate.getMonth()).toBe(7);
+    expect(movedDate.getDate()).toBe(6);
+  });
+
+  it("rejects a selected warehouse invoice photo", async () => {
+    photosFindManyMock.mockResolvedValue([
+      {
+        id: "photo-1",
+        siteId: "site-1",
+        mediaPurpose: "site_diary",
+      },
+      {
+        id: "photo-invoice",
+        siteId: "site-1",
+        mediaPurpose: "warehouse_invoice",
+      },
+    ]);
+
+    await expect(
+      movePhotosToDate({
+        photoIds: ["photo-1", "photo-invoice"],
+        targetDate: "2026-08-06",
+      }),
+    ).rejects.toThrow("Warehouse invoice photos cannot be moved");
+    expect(photosUpdateManyMock).not.toHaveBeenCalled();
   });
 });
 

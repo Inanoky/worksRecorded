@@ -8,6 +8,7 @@ import { inspect } from "node:util";
 import { createPerfTrace } from "@/lib/observability/perf";
 import {
   PHOTO_MEDIA_PURPOSE_SITE_DIARY,
+  PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE,
   siteDiaryPhotoPurposeWhere,
 } from "@/lib/photos/media-purpose";
 
@@ -4070,6 +4071,134 @@ export async function deletePhotoById(id: string) {
     where: { id },
   });
   return { ok: true };
+}
+
+function parsePhotoMoveTargetDate(value: string) {
+  const trimmed = value.trim();
+  const localDateMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (localDateMatch) {
+    const [, year, month, day] = localDateMatch;
+    return new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0, 0);
+  }
+
+  return new Date(trimmed);
+}
+
+export async function movePhotoToDate({
+  photoId,
+  targetDate,
+}: {
+  photoId: string;
+  targetDate: string;
+}) {
+  const normalizedPhotoId = photoId.trim();
+  if (!normalizedPhotoId) throw new Error("Missing photoId");
+
+  const parsedDate = parsePhotoMoveTargetDate(targetDate);
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error("Invalid target date");
+  }
+
+  const user = await requireUser();
+  const photo = await prisma.photos.findUnique({
+    where: { id: normalizedPhotoId },
+    select: {
+      id: true,
+      siteId: true,
+      mediaPurpose: true,
+    },
+  });
+
+  if (!photo?.siteId) {
+    throw new Error("Photo not found");
+  }
+
+  const site = await orgCheck(user.id, photo.siteId);
+  if (!site) {
+    throw new Error("Photo not found");
+  }
+
+  if (photo.mediaPurpose === PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE) {
+    throw new Error("Warehouse invoice photos cannot be moved in the site diary.");
+  }
+
+  const updated = await prisma.photos.update({
+    where: { id: normalizedPhotoId },
+    data: { Date: parsedDate },
+    select: {
+      id: true,
+      Date: true,
+      siteId: true,
+    },
+  });
+
+  return { ok: true, photo: updated };
+}
+
+export async function movePhotosToDate({
+  photoIds,
+  targetDate,
+}: {
+  photoIds: string[];
+  targetDate: string;
+}) {
+  const normalizedPhotoIds = Array.from(
+    new Set(photoIds.map((id) => id.trim()).filter(Boolean)),
+  );
+  if (normalizedPhotoIds.length === 0) throw new Error("Missing photoIds");
+
+  const parsedDate = parsePhotoMoveTargetDate(targetDate);
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error("Invalid target date");
+  }
+
+  const user = await requireUser();
+  const photos = await prisma.photos.findMany({
+    where: {
+      id: { in: normalizedPhotoIds },
+    },
+    select: {
+      id: true,
+      siteId: true,
+      mediaPurpose: true,
+    },
+  });
+
+  if (photos.length !== normalizedPhotoIds.length || photos.some((photo) => !photo.siteId)) {
+    throw new Error("Some photos were not found");
+  }
+
+  const siteIds = Array.from(
+    new Set(
+      photos
+        .map((photo) => photo.siteId)
+        .filter((siteId): siteId is string => Boolean(siteId)),
+    ),
+  );
+  for (const siteId of siteIds) {
+    const site = await orgCheck(user.id, siteId);
+    if (!site) throw new Error("Some photos were not found");
+  }
+
+  if (photos.some((photo) => photo.mediaPurpose === PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE)) {
+    throw new Error("Warehouse invoice photos cannot be moved in the site diary.");
+  }
+
+  const updated = await prisma.photos.updateMany({
+    where: {
+      id: { in: normalizedPhotoIds },
+    },
+    data: {
+      Date: parsedDate,
+    },
+  });
+
+  return {
+    ok: true,
+    movedCount: updated.count,
+    photoIds: normalizedPhotoIds,
+    Date: parsedDate,
+  };
 }
 
 const PHOTOS_PER_PAGE = 30;

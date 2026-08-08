@@ -2,11 +2,16 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { getPhotosByDate, deletePhotoById } from "@/server/actions/site-diary-actions";
+import Image from "next/image";
+import {
+  getPhotosByDate,
+  deletePhotoById,
+  movePhotosToDate,
+} from "@/server/actions/site-diary-actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils/utils";
-import { X, ChevronLeft, ChevronRight, Mic2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Mic2, CalendarDays, Check } from "lucide-react";
 import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
 
 type ImageGalleryProps = {
@@ -15,6 +20,7 @@ type ImageGalleryProps = {
   className?: string;
   scrollAreaClassName?: string;
   organizationLanguage?: string | null;
+  onMediaChanged?: () => void | Promise<void>;
 };
 
 type PhotoRow = {
@@ -71,12 +77,23 @@ function parseAudioUrls(value: string | null | undefined) {
     .filter(Boolean);
 }
 
+function formatDateInputValue(value: string | Date | null | undefined) {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function ImageGallery({
   date,
   siteId,
   className,
   scrollAreaClassName,
   organizationLanguage,
+  onMediaChanged,
 }: ImageGalleryProps) {
   const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
   const [mounted, setMounted] = React.useState(false);
@@ -87,6 +104,10 @@ export function ImageGallery({
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [deleting, setDeleting] = React.useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = React.useState(false);
+  const [movingSelected, setMovingSelected] = React.useState(false);
+  const [bulkMoveTargetDate, setBulkMoveTargetDate] = React.useState("");
+  const [selectedPhotoIds, setSelectedPhotoIds] = React.useState<Set<string>>(() => new Set());
 
   // Lightbox
   const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
@@ -116,6 +137,7 @@ export function ImageGallery({
       })),
     [photos],
   );
+  const selectedPhotoCount = selectedPhotoIds.size;
 
   function openLightboxAt(index: number) {
     if (!imageList.length) return;
@@ -159,6 +181,10 @@ export function ImageGallery({
   }, [isLightboxOpen]);
 
   React.useEffect(() => {
+    setSelectedPhotoIds(new Set());
+    setBulkMoveTargetDate("");
+    setSelectionMode(false);
+
     let alive = true;
     async function run() {
       if (!date) {
@@ -194,14 +220,74 @@ export function ImageGallery({
   }, [date, siteId]);
 
   async function handleDelete(id: string) {
+    if (!window.confirm(t.confirmDeletePhoto)) return;
+
     setDeleting(id);
     setPhotos((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
     try {
       await deletePhotoById(id);
+      await onMediaChanged?.();
     } catch {
       setError(t.failedDeletePhoto);
     } finally {
       setDeleting(null);
+    }
+  }
+
+  function togglePhotoSelection(photoId: string) {
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else {
+        next.add(photoId);
+      }
+      return next;
+    });
+  }
+
+  function handleModeChange(nextSelectionMode: boolean) {
+    setSelectionMode(nextSelectionMode);
+    setError(null);
+    if (!nextSelectionMode) {
+      setSelectedPhotoIds(new Set());
+    }
+  }
+
+  async function handleMoveSelectedPhotos() {
+    const photoIds = Array.from(selectedPhotoIds);
+    if (photoIds.length === 0) {
+      setError(t.selectPhotosToMove);
+      return;
+    }
+
+    if (!bulkMoveTargetDate) {
+      setError(t.selectPhotoMoveDate);
+      return;
+    }
+
+    setMovingSelected(true);
+    setError(null);
+    try {
+      await movePhotosToDate({
+        photoIds,
+        targetDate: bulkMoveTargetDate,
+      });
+      if (formatDateInputValue(date) !== bulkMoveTargetDate) {
+        const movedPhotoIds = new Set(photoIds);
+        setPhotos((prev) => (prev ? prev.filter((item) => !movedPhotoIds.has(item.id)) : prev));
+      }
+      setSelectedPhotoIds(new Set());
+      await onMediaChanged?.();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t.failedMovePhoto);
+    } finally {
+      setMovingSelected(false);
     }
   }
 
@@ -454,40 +540,124 @@ export function ImageGallery({
             {t.noMediaForDate}
           </div>
         ) : (
-          <div data-tour="dialog-gallery" className="h-full min-h-0">
-            <ScrollArea className={scrollAreaClassName ?? "h-[600px]"}>
+	          <div data-tour="dialog-gallery" className="flex h-full min-h-0 flex-col gap-3">
+              {(photos?.length ?? 0) > 0 ? (
+                <div className="flex flex-col gap-2 rounded-md border border-muted bg-muted/20 p-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-1">
+                    <div className="text-sm font-medium text-foreground">
+                      {selectionMode ? t.selectMode : t.regularViewerMode}
+                    </div>
+                    {selectionMode ? (
+                      <div className="text-xs text-muted-foreground">
+                        {selectedPhotoCount > 0 ? t.selectedPhotos(selectedPhotoCount) : t.selectPhotosToMove}
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange(!selectionMode)}
+                      className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      {selectionMode ? t.regularViewerMode : t.selectMode}
+                    </button>
+                    {selectionMode ? (
+                      <>
+                        <input
+                          type="date"
+                          value={bulkMoveTargetDate}
+                          onChange={(e) => setBulkMoveTargetDate(e.target.value)}
+                          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                          aria-label={t.movePhotoToDate}
+                          title={t.movePhotoToDate}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleMoveSelectedPhotos}
+                          disabled={selectedPhotoCount === 0 || movingSelected}
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <CalendarDays className="h-4 w-4" />
+                          <span>{t.moveSelectedPhotos}</span>
+                        </button>
+                      </>
+                    ) : null}
+                    {selectionMode && selectedPhotoCount > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPhotoIds(new Set())}
+                        className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        {t.clearPhotoSelection}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+	            <ScrollArea className={scrollAreaClassName ?? "h-[600px]"}>
               <div className="space-y-4 pr-3">
                 {(photos?.length ?? 0) > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
-                    {photos!.map((p, idx) => {
-                      const src = p.URL ?? p.fileUrl ?? "";
-                      const isDeleting = deleting === p.id;
+	                    {(photos ?? []).map((p, idx) => {
+	                      const src = p.URL ?? p.fileUrl ?? "";
+	                      const isDeleting = deleting === p.id;
+                        const isSelected = selectionMode && selectedPhotoIds.has(p.id);
 
-                      return (
-                        <div
-                          key={p.id}
-                          className="group relative aspect-square overflow-hidden rounded-md border border-muted cursor-pointer"
-                          title={p.Comment ?? undefined}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => src && openLightboxAt(idx)}
-                          onKeyDown={(e) => {
-                            if ((e.key === "Enter" || e.key === " ") && src)
-                              openLightboxAt(idx);
-                          }}
-                        >
-                          <img
-                            src={src}
-                            alt={p.Comment ?? t.photo}
-                            className={cn(
-                              "h-full w-full object-cover transition-transform duration-200 group-hover:scale-105",
-                              isDeleting && "opacity-50",
+	                      return (
+	                        <div
+	                          key={p.id}
+	                          className={cn(
+                              "group relative aspect-square overflow-hidden rounded-md border cursor-pointer",
+                              isSelected ? "border-primary ring-2 ring-primary" : "border-muted",
                             )}
-                            loading="lazy"
-                            referrerPolicy="no-referrer"
-                          />
+	                          title={p.Comment ?? undefined}
+	                          role="button"
+                            aria-label={p.Comment ?? t.photo}
+                            aria-pressed={isSelected}
+	                          tabIndex={0}
+	                          onClick={() => {
+                              if (selectionMode) {
+                                togglePhotoSelection(p.id);
+                              } else if (src) {
+                                openLightboxAt(idx);
+                              }
+                            }}
+	                          onKeyDown={(e) => {
+	                            if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                if (selectionMode) {
+                                  togglePhotoSelection(p.id);
+                                } else if (src) {
+                                  openLightboxAt(idx);
+                                }
+                              }
+	                          }}
+	                        >
+                          {src ? (
+                            <Image
+                              src={src}
+                              alt={p.Comment ?? t.photo}
+                              fill
+                              sizes="(min-width: 1024px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
+                              className={cn(
+                                "object-cover transition-transform duration-200 group-hover:scale-105",
+                                isDeleting && "opacity-50",
+                              )}
+	                            />
+	                          ) : null}
 
-                          <button
+                          {selectionMode ? (
+                            <div
+                              className={cn(
+                                "absolute left-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full border text-white",
+                                isSelected ? "border-primary bg-primary" : "border-white/70 bg-black/45",
+                              )}
+                            >
+                              {isSelected ? <Check className="h-4 w-4" /> : null}
+                            </div>
+                          ) : null}
+
+	                          <button
                             type="button"
                             onClick={(e) => {
                               e.preventDefault();
@@ -505,8 +675,7 @@ export function ImageGallery({
                           >
                             <X className="h-4 w-4" />
                           </button>
-
-                          {p.Comment ? (
+	                          {p.Comment ? (
                             <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/50 p-1 text-[11px] text-white line-clamp-2">
                               {p.Comment}
                             </div>
@@ -524,7 +693,7 @@ export function ImageGallery({
                       <span>{t.voiceMessages}</span>
                     </div>
                     <div className="grid gap-2">
-                      {audioRecords!.map((record) => {
+	                      {(audioRecords ?? []).map((record) => {
                         const time = formatAudioTime(record.Date);
                         const title = [time, record.Location, record.Works]
                           .filter(Boolean)
