@@ -1,6 +1,10 @@
 import { FLOW_MODULE_KEYS, type FlowModuleKey } from "@/lib/flows/types";
 
 export const FLOW_CONFIG_ADMIN_USER_ID = "kp_d9afeea81ab6410c83507bd957997476";
+export const FLOW_CONFIG_ADMIN_USER_IDS = [
+  FLOW_CONFIG_ADMIN_USER_ID,
+  "kp_2f5c0987b83a4162ac8819f6339534f8",
+] as const;
 export const ZTC_PRODUCTION_ORGANIZATION_ID = "21511437-f6ab-402b-aa2d-613110eb61da";
 export const ZTC_PRODUCTION_SITE_ID = "4c26c435-dd19-49d7-ad60-981eb1eeaeff";
 
@@ -217,5 +221,5 @@ export function isLocalhostHost(host?: string | null) {
 }
 
 export function canAccessFlowConfigAdmin(userId?: string | null, host?: string | null) {
-  return userId === FLOW_CONFIG_ADMIN_USER_ID || isLocalhostHost(host);
+  return FLOW_CONFIG_ADMIN_USER_IDS.some((adminUserId) => adminUserId === userId) || isLocalhostHost(host);
 }

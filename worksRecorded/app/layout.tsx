@@ -1,16 +1,16 @@
-
 // /C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\layout.tsx
 
 import type { Metadata } from "next";
 
 import "./globals.css";
-import {ThemeProvider} from "@/components/dashboard/ThemeProvider";
-import {Toaster} from "@/components/ui/sonner"
-import {GoogleTagManager} from '@next/third-parties/google'
-
+import { MarketingTagManager } from "@/components/analytics/MarketingTagManager";
+import { ThemeProvider } from "@/components/dashboard/ThemeProvider";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.worksrecorded.com"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.worksrecorded.com",
+  ),
   applicationName: "WorksRecorded",
   title: {
     default: "Būvdarbu žurnāls WhatsApp un BIS integrācija | WorksRecorded",
@@ -80,7 +80,11 @@ export const metadata: Metadata = {
       { url: "/favicon/favicon-48x48.png", sizes: "48x48", type: "image/png" },
     ],
     apple: [
-      { url: "/favicon/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      {
+        url: "/favicon/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
     ],
   },
 };
@@ -90,38 +94,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
-  // const idGa = process.env.NEXT_PUBLIC_GA_ID as string
-
-  
-
   return (
     <html lang="en" suppressHydrationWarning>
-            
-              <GoogleTagManager gtmId="GTM-TSLDCSGF" />
-
-
-      
-
-      <body
-        className="antialiased"
-      >
-       <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-
-            
-
-            
-        {children}
- 
-   
-           
-           <Toaster richColors closeButton/>
-           </ThemeProvider>
+      <body className="antialiased">
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+          <Toaster richColors closeButton />
+        </ThemeProvider>
+        <MarketingTagManager gtmId="GTM-TSLDCSGF" />
       </body>
     </html>
   );

@@ -1,50 +1,45 @@
-import * as React from "react";
-import Link from "next/link";
-import Image from "next/image";
+"use client";
 
+import { Inter, Inter_Tight } from "next/font/google";
+import Link from "next/link";
+import { useLocale } from "next-intl";
+import LanguageSwitcher from "@/components/ui/LanguageSwitcher";
 import { NavigationMenuMobile } from "./NavigationMenuMobile";
-import BisLogo from "@/public/logos/bislogo.png";
-import LanguageSwitcher from "../ui/LanguageSwitcher";
-import { useLocale, useTranslations } from "next-intl";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-landing-nav" });
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  variable: "--font-landing-nav-display",
+});
 
 export default function HeaderMobile() {
   const locale = useLocale();
-  const header = useTranslations("Header");
 
   return (
-      <div className="relative z-50 flex items-center justify-between gap-2 p-4 sm:p-5">
-        {/* Element 1 */}
-        <div>
-          <Link href={`/${locale}/Landing`} className="flex flex-row items-center gap-3">
-            <h4 className="text-2xl sm:text-3xl">
-              Works<span className="text-primary">Recorded</span>
-            </h4>
+    <header
+      className={`${inter.variable} ${interTight.variable} sticky top-0 z-50 border-b border-[#e6ece7] bg-white/90 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90`}
+      style={{ fontFamily: "var(--font-landing-nav), sans-serif" }}
+    >
+      <div className="flex items-center justify-between gap-2 px-4 py-3.5 sm:px-5">
+        <Link href={`/${locale}/Landing`} className="shrink-0">
+          <span
+            className="text-2xl font-semibold tracking-[-0.04em] text-[#101610] dark:text-white"
+            style={{
+              fontFamily: "var(--font-landing-nav-display), sans-serif",
+            }}
+          >
+            Works
+            <span className="text-[#0a4426] dark:text-emerald-400">
+              Recorded
+            </span>
+          </span>
+        </Link>
 
-            <div className="hidden sm:flex items-center gap-2">
-              <Image
-                src={BisLogo}
-                alt="BIS logo"
-                className="h-5 w-auto object-contain"
-                priority
-              />
-
-              <div className="leading-tight">
-                <div className="text-[9px] font-medium uppercase tracking-wide text-slate-500">
-                  {header("bisIntegrated")}
-                </div>
-                <div className="text-[11px] font-semibold text-slate-900">
-                  BIS
-                </div>
-              </div>
-            </div>
-          </Link>
-        </div>
-
-        {/* Element 2 */}
-        <div className="flex shrink-0 items-center justify-end gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <LanguageSwitcher />
           <NavigationMenuMobile />
         </div>
       </div>
+    </header>
   );
 }

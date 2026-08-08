@@ -1,5 +1,6 @@
 import { defaultConstructionFlowModule } from "@/flows/default-construction/module";
 import { defaultProductionFlowModule } from "@/flows/default-production/module";
+import { sprinklerAttendanceFlowModule } from "@/flows/sprinkler-attendance/module";
 import { tgemInvoiceApprovalFlowModule } from "@/flows/tgem-invoice-approval/module";
 import { ztcProductionFlowModule } from "@/flows/ztc-production/module";
 import type {
@@ -13,6 +14,7 @@ export const FLOW_MODULES: readonly FlowModuleDefinition[] = [
   defaultProductionFlowModule,
   ztcProductionFlowModule,
   tgemInvoiceApprovalFlowModule,
+  sprinklerAttendanceFlowModule,
 ];
 
 export function getFlowModules() {

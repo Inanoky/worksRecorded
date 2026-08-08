@@ -1,9 +1,13 @@
 {
   "LandingPageDesktop": {
     "topPill": "Built for trade contractors & site managers",
-    "heroTitle": "Digital construction site diary with BIS integration",
+    "heroTitle": "WhatsApp as your work tracking tool",
     "heroRotatingTitles": ["Site records", "Production records", "Cost control"],
-    "smallDescription": "Site managers record updates by voice and photos, automatically sorted and stored online.            Any language format",
+    "smallDescription": "Structured work records, cost control and clear reports — all through WhatsApp.",
+    "heroDescription": "WorksRecorded helps construction and manufacturing teams capture completed work, track labour costs and keep every important detail in one place.",
+    "heroRating": "4.8 / 5 customer rating",
+    "heroSetup": "Quick to implement",
+    "contactUs": "Contact us",
     "startFreeTrial": "Try now",
     "signIn": "Talk to a live person",
     "noCardNote": "No credit card",

@@ -135,6 +135,7 @@ import {
   exportZtcProductivityToExcel,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
 import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
+import { exportZtcElementsToExcel } from "@/flows/ztc-production/lib/ztc-element-export";
 import { resolveZtcRateTaskForRow } from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
@@ -214,7 +215,7 @@ type SiteDiaryProjectCopyTarget = Awaited<ReturnType<typeof getSiteDiaryProjectC
 
 type ZtcScopeSummary = NonNullable<Awaited<ReturnType<typeof getZtcScopeSummary>>>;
 type ZtcFilterOptions = Awaited<ReturnType<typeof getZtcFilterOptions>>;
-type ExcelExportKind = "siteDiary" | "ztcPayroll" | "ztcProductivity";
+type ExcelExportKind = "siteDiary" | "ztcElements" | "ztcPayroll" | "ztcProductivity";
 
 function withSelectedOption(options: string[], selected: string) {
   if (!selected || selected === "__ALL__" || options.includes(selected)) return options;
@@ -1908,6 +1909,12 @@ export default function SiteDiaryCalendar({
     });
   };
 
+  const exportZtcElements = async () => {
+    await runExcelExport("ztcElements", async () => {
+      await exportZtcElementsToExcel({ rows: await loadAllFilteredRowsForExport() });
+    });
+  };
+
   const openDayDialog = (date: Date) => {
     const dateKey = toLocalDateKey(date);
     const cachedRows = rows.filter((row) => {
@@ -2568,7 +2575,7 @@ export default function SiteDiaryCalendar({
                 <TabsTrigger value="gallery">{t.tabGallery}</TabsTrigger>
               </TabsList>
 
-              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+              <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                 {!isZtcSite ? (
                   <button
                     type="button"
@@ -2605,6 +2612,16 @@ export default function SiteDiaryCalendar({
                   <>
                     <Button variant="outline" onClick={ztc.openRateDialog}>
                       Darbu likmes
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={exportZtcElements}
+                      disabled={Boolean(excelExportLoading)}
+                    >
+                      {excelExportLoading === "ztcElements" ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Pa elementiem
                     </Button>
                     <Button
                       variant="outline"

@@ -75,6 +75,13 @@ const TgemFlowPlaceholder = dynamic(
 		),
 	{ loading: flowLoading },
 );
+const SprinklerAttendanceDashboard = dynamic<FlowDashboardProps>(
+	() =>
+		import("@/flows/sprinkler-attendance/frontend").then(
+			(module) => module.SprinklerAttendanceDashboard,
+		),
+	{ loading: flowLoading },
+);
 
 function TgemDashboard() {
 	return <TgemFlowPlaceholder />;
@@ -100,6 +107,10 @@ export const FLOW_FRONTEND_MODULES: Record<string, FlowFrontendModule> = {
 	[FLOW_MODULE_KEYS.TGEM_INVOICE_APPROVAL]: {
 		Dashboard: TgemDashboard,
 		SiteDiary: TgemSiteDiary,
+	},
+	[FLOW_MODULE_KEYS.SPRINKLER_ATTENDANCE]: {
+		Dashboard: SprinklerAttendanceDashboard,
+		SiteDiary: DefaultConstructionSiteDiaryFlow,
 	},
 };
 

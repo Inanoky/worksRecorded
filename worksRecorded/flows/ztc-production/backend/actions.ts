@@ -859,6 +859,45 @@ export async function getZtcDefaultTaskRates(siteId: string) {
   return getDefaultTaskRatesFromConfig(config);
 }
 
+export async function getZtcRatesDialogData(siteId: string) {
+  const context = await requireZtcAccess(siteId);
+  const [config, projectRows] = await Promise.all([
+    loadZtcSiteDiaryConfig(siteId),
+    prisma.ztcRecords.findMany({
+      where: {
+        siteId: context.siteId,
+        organizationId: context.organizationId,
+        Date_Custom_2: { not: null },
+        Location: { not: null },
+        NOT: [
+          { Date: null },
+          { Works: null },
+          { Works: "" },
+          { Location: "" },
+          { Location: "Papilddarbi" },
+        ],
+        AND: [buildZtcNotCancelledWhere()],
+      },
+      distinct: ["Location"],
+      select: { Location: true },
+      orderBy: { Location: "asc" },
+    }),
+  ]);
+
+  const projectOptions = Array.from(
+    new Set(
+      projectRows
+        .map((row) => String(row.Location ?? "").trim())
+        .filter(Boolean),
+    ),
+  ).sort((a, b) => a.localeCompare(b, "lv"));
+
+  return {
+    rates: getDefaultTaskRatesFromConfig(config),
+    projectOptions,
+  };
+}
+
 export async function updateZtcDefaultTaskRates(args: {
   siteId: string;
   rates: ZtcProjectTaskRates[];
@@ -1396,15 +1435,62 @@ export async function updateZtcSiteDiaryRecord(args: {
 }
 
 export async function deleteZtcSiteDiaryRecord(args: { siteId: string; id: string }) {
-  const context = await requireZtcAccess(args.siteId);
+  const { user, siteId, organizationId } = await requireZtcAccess(args.siteId);
 
-  await prisma.ztcRecords.deleteMany({
+  const record = await prisma.ztcRecords.findFirst({
     where: {
       id: args.id,
-      siteId: context.siteId,
-      organizationId: context.organizationId,
+      siteId,
+      organizationId,
+    },
+    select: {
+      id: true,
+      userId: true,
+      workerId: true,
+      Date: true,
+      Date_Custom_1: true,
+      Date_Custom_2: true,
+      Location: true,
+      Location_Custom_1: true,
+      Location_Custom_2: true,
+      Works: true,
+      Works_Custom_1: true,
+      Works_Custom_2: true,
+      Comments: true,
+      Comments_Custom_1: true,
+      Comments_Custom_2: true,
+      Units: true,
+      Amounts: true,
+      WorkersInvolved: true,
+      TimeInvolved: true,
+      createdAt: true,
     },
   });
+
+  const result = await prisma.ztcRecords.deleteMany({
+    where: {
+      id: args.id,
+      siteId,
+      organizationId,
+    },
+  });
+
+  console.info(
+    `[ZTC_DELETE_AUDIT] ${JSON.stringify({
+      event: "ztc_record_delete",
+      status: result.count === 1 ? "deleted" : "not_found",
+      recordedAt: new Date().toISOString(),
+      actor: {
+        id: user.id,
+        email: user.email,
+        name: `${user.given_name ?? ""} ${user.family_name ?? ""}`.trim(),
+      },
+      siteId,
+      organizationId,
+      record: record ?? { id: args.id },
+      deletedCount: result.count,
+    })}`,
+  );
 
   return { success: true };
 }

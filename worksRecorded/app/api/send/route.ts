@@ -1,7 +1,7 @@
 // app/api/contact/route.ts
 import { NextResponse } from "next/server";
-import { z, ZodError } from "zod";
 import { Resend } from "resend";
+import { ZodError, z } from "zod";
 import { EmailTemplate } from "@/app/[locale]/Landing/ContactForm/email-template";
 
 const ContactSchema = z.object({
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     // Basic env sanity check (don’t log actual key)
     console.log(
       `[${t()}] [/api/contact] RESEND_API_KEY present:`,
-      Boolean(process.env.WORKSRECORDED_RESEND_API_KEY)
+      Boolean(process.env.WORKSRECORDED_RESEND_API_KEY),
     );
 
     // Read JSON
@@ -45,8 +45,10 @@ export async function POST(req: Request) {
 
     // Honeypot check
     if (parsed.hp && parsed.hp.length > 0) {
-      console.log(`[${t()}] [/api/contact] Honeypot triggered — bot likely. Silently accepting.`);
-      return NextResponse.json({ ok: true });
+      console.log(
+        `[${t()}] [/api/contact] Honeypot triggered — bot likely. Silently accepting.`,
+      );
+      return NextResponse.json({ accepted: false, ok: true });
     }
 
     // Prepare email
@@ -72,13 +74,13 @@ export async function POST(req: Request) {
     }
 
     console.log(`[${t()}] [/api/contact] Email sent OK. Resend id:`, data?.id);
-    return NextResponse.json({ ok: true, id: data?.id });
+    return NextResponse.json({ accepted: true, id: data?.id, ok: true });
   } catch (err) {
     if (err instanceof ZodError) {
       console.warn(`[${t()}] [/api/contact] Validation failed:`, err.flatten());
       return NextResponse.json(
         { error: "Validation failed", issues: err.flatten() },
-        { status: 400 }
+        { status: 400 },
       );
     }
     console.error(`[${t()}] [/api/contact] Unhandled error:`, err);

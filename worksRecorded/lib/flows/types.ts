@@ -3,6 +3,7 @@ export const FLOW_MODULE_KEYS = {
   DEFAULT_PRODUCTION: "default-production",
   ZTC_PRODUCTION: "ztc-production",
   TGEM_INVOICE_APPROVAL: "tgem-invoice-approval",
+  SPRINKLER_ATTENDANCE: "sprinkler-attendance",
 } as const;
 
 export type BuiltInFlowModuleKey = (typeof FLOW_MODULE_KEYS)[keyof typeof FLOW_MODULE_KEYS];

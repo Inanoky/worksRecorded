@@ -1,43 +1,26 @@
 //C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\layout.tsx
-"use client"
+"use client";
 
 import "@/app/globals.css";
 
-import {Toaster} from "@/components/ui/sonner"
-
-import { useIsMobile } from "@/lib/utils/hooks/use-mobile"
-import HeaderMobile from "@/components/landing/HeaderMobile";
-import HeaderDesktop from "@/components/landing/HeaderDesktop";
-import FooterMobile from "@/components/landing/FooterMobile";
 import FooterDesktop from "@/components/landing/FooterDesktop";
+import FooterMobile from "@/components/landing/FooterMobile";
+import HeaderDesktop from "@/components/landing/HeaderDesktop";
+import HeaderMobile from "@/components/landing/HeaderMobile";
+import { useIsMobile } from "@/lib/utils/hooks/use-mobile";
 
-
-
-
-
-
-
-export default function LadningLayout({
-  children,
+export default function LandingLayout({
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
+	const isMobile = useIsMobile();
 
-  
-  const isMobile = useIsMobile()
-
-  return (
-    <div className="overflow-x-hidden antialiased">
-      {isMobile ?
-       <HeaderMobile/> : <HeaderDesktop/> }
-  
- 
-     
-        {children}
-       {isMobile ?
-       <FooterMobile/> :<FooterDesktop/>  }
-           
-           <Toaster richColors closeButton/>
-    </div>
-  );
+	return (
+		<div className="overflow-x-hidden antialiased">
+			{isMobile ? <HeaderMobile /> : <HeaderDesktop />}
+			{children}
+			{isMobile ? <FooterMobile /> : <FooterDesktop />}
+		</div>
+	);
 }
