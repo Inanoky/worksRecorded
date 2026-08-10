@@ -75,6 +75,7 @@ export default function LegacyLandingPage() {
 								href={calendlyDemoUrl}
 								target="_blank"
 								rel="noopener noreferrer"
+								data-landing-pressable
 								className="inline-flex h-13 w-full items-center justify-center rounded-full bg-[#1769ff] px-8 text-base font-semibold text-white shadow-xl shadow-blue-500/20 transition hover:bg-[#0f5de8] sm:w-auto"
 							>
 								{t("bookDemo")}
@@ -83,6 +84,7 @@ export default function LegacyLandingPage() {
 
 							<Link
 								href={`/${locale}/Landing/ContactForm`}
+								data-landing-pressable
 								className="inline-flex h-13 w-full items-center justify-center rounded-full border border-slate-200 bg-white px-8 text-base font-semibold text-slate-950 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:w-auto"
 							>
 								{t("contactUs")}

@@ -17,7 +17,7 @@ export default function LandingLayout({
 	const isMobile = useIsMobile();
 
 	return (
-		<div className="overflow-x-hidden antialiased">
+		<div className="landing-tactile overflow-x-hidden antialiased">
 			{isMobile ? <HeaderMobile /> : <HeaderDesktop />}
 			{children}
 			{isMobile ? <FooterMobile /> : <FooterDesktop />}
