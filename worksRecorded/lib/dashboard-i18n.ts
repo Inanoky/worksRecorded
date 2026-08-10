@@ -459,6 +459,18 @@ type SiteDiaryDialogMessages = {
   photosOnlyEmptyRows: string;
   photo: string;
   deletePhoto: string;
+  confirmDeletePhoto: string;
+  regularViewerMode: string;
+  selectMode: string;
+  movePhotoToDate: string;
+  movePhoto: string;
+  moveSelectedPhotos: string;
+  photoMoved: string;
+  failedMovePhoto: string;
+  selectPhotoMoveDate: string;
+  selectPhotosToMove: string;
+  clearPhotoSelection: string;
+  selectedPhotos: (count: number) => string;
   previous: string;
   next: string;
   manageOptions: string;
@@ -1491,6 +1503,18 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     photosOnlyEmptyRows: "This date has photos but no saved diary rows yet.",
     photo: "Photo",
     deletePhoto: "Delete photo",
+    confirmDeletePhoto: "Delete this photo? This cannot be undone.",
+    regularViewerMode: "Regular viewer mode",
+    selectMode: "Select mode",
+    movePhotoToDate: "Move photo to date",
+    movePhoto: "Move",
+    moveSelectedPhotos: "Move selected",
+    photoMoved: "Photo moved",
+    failedMovePhoto: "Failed to move photo",
+    selectPhotoMoveDate: "Select a target date",
+    selectPhotosToMove: "Select photos to move",
+    clearPhotoSelection: "Clear selection",
+    selectedPhotos: (count) => `${count} selected`,
     previous: "Previous",
     next: "Next",
     manageOptions: "Manage options…",
@@ -1565,6 +1589,18 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     photosOnlyEmptyRows: "Šim datumam ir foto, bet vēl nav saglabātu žurnāla rindu.",
     photo: "Foto",
     deletePhoto: "Dzēst foto",
+    confirmDeletePhoto: "Dzēst šo foto? Šo darbību nevar atsaukt.",
+    regularViewerMode: "Parastais skatīšanas režīms",
+    selectMode: "Atlases režīms",
+    movePhotoToDate: "Pārvietot foto uz datumu",
+    movePhoto: "Pārvietot",
+    moveSelectedPhotos: "Pārvietot atlasītos",
+    photoMoved: "Foto pārvietots",
+    failedMovePhoto: "Neizdevās pārvietot foto",
+    selectPhotoMoveDate: "Izvēlieties mērķa datumu",
+    selectPhotosToMove: "Atlasiet foto pārvietošanai",
+    clearPhotoSelection: "Notīrīt atlasi",
+    selectedPhotos: (count) => `Atlasīti: ${count}`,
     previous: "Iepriekšējā",
     next: "Nākamā",
     manageOptions: "Pārvaldīt opcijas…",

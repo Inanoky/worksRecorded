@@ -44,6 +44,18 @@ Lightweight regression tests for real AI flows. These suites are opt-in because 
 
 `test:all` is intentionally safe for local development and CI: it runs Jest and all fixture dry-runs, but does not call models or write eval database rows. Real eval commands require the environment variables listed below. The worker suite has deterministic and heuristic checks but no LLM judge, so `eval:ai:judge` runs it without `--judge`.
 
+Simplified local aliases wrap the same runners and load `.env` automatically:
+
+```bash
+npm run ai:list -- critical
+npm run ai:dry -- critical
+npm run ai:run -- critical
+npm run ai:list -- tag bis
+npm run ai:run -- flow whatsapp-site-manager tag correction
+```
+
+Supported selectors are `critical`, `tag <name>`, `tier <smoke|regression|extended>`, `case <id>`, and `flow <dashboard|whatsapp-site-manager|whatsapp-worker|all>`. For real runs, `ai:run` verifies the selected eval target first, runs matching flows, then gates the newest selected reports.
+
 Real evals run against the normal application tables, but only through a dedicated eval organization/site/user/worker. The environment guard refuses to run unless `AI_EVAL_ALLOW_SINGLE_DB=true`, `AI_EVAL_ALLOWED_ORGANIZATION_ID` is set, and the configured eval site/user/worker all belong to that organization. The organization, site, user, and worker names must be clearly marked with `eval`, `test`, or `ai` unless `AI_EVAL_REQUIRE_MARKED_NAMES=false` is set.
 
 Run the full safe local suite:

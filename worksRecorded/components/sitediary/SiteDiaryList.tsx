@@ -2119,11 +2119,14 @@ export default function SiteDiaryCalendar({
         getBisAvailableResponsiblePersons(siteId),
       ]);
 
-      setBisMaterialOptions(materials);
+      const materialOptions = materials.filter(
+        (material): material is NonNullable<(typeof materials)[number]> => material !== null,
+      );
+      setBisMaterialOptions(materialOptions);
       setGalleryAttachmentOptions(attachments);
       setGalleryAttachmentPage(1);
       setSelectedAttachmentUrls([]);
-      materialQuantitiesRef.current = Object.fromEntries(materials.map((material) => [material.id, ""]));
+      materialQuantitiesRef.current = Object.fromEntries(materialOptions.map((material) => [material.id, ""]));
       setBisMeasurementOptions(measurements);
       setBisResponsiblePersonOptions(responsiblePeople);
       const defaultResponsible = responsiblePeople[0];
@@ -5305,6 +5308,9 @@ export default function SiteDiaryCalendar({
               siteId={siteId}
               className="h-[70vh]"
               organizationLanguage={organizationLanguage}
+              onMediaChanged={async () => {
+                await refreshRowsWithBisSync({ skipSync: true });
+              }}
             />
           </DialogContent>
         </Dialog>
