@@ -4,10 +4,10 @@ import { ArrowRight, Zap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import HeroDevices from "@/public/frontend/pages/Home/HeroDevices.png";
 import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
 import { BudgetOutcomeSection } from "../BudgetOutcomeSection";
 import { Logos } from "../Logos";
+import { HeroProductMockup } from "./HeroProductMockup";
 import { HowDoWeDoThat, WhatDoWeDo, Why } from "./Text";
 
 export default function LegacyLandingPage() {
@@ -94,13 +94,7 @@ export default function LegacyLandingPage() {
 
 					<div className="relative mx-auto min-h-[340px] w-full max-w-3xl sm:min-h-[470px] lg:min-h-[610px] lg:max-w-none">
 						<div className="pointer-events-none absolute inset-x-[12%] bottom-[10%] h-[24%] rounded-full bg-emerald-900/10 blur-3xl dark:bg-emerald-400/10" />
-						<Image
-							src={HeroDevices}
-							alt={t("heroImageAlt")}
-							priority
-							sizes="(min-width: 1024px) 58vw, 100vw"
-							className="absolute top-1/2 left-1/2 h-auto w-[116%] max-w-none -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_28px_32px_rgba(15,23,42,0.18)] sm:w-[110%] lg:w-[120%] xl:w-[114%]"
-						/>
+						<HeroProductMockup />
 					</div>
 				</div>
 			</section>
