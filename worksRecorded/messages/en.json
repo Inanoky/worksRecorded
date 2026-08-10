@@ -27,6 +27,29 @@
     "bisLogoLabel": "BIS integration",
     "clientsHeading": "Our clients",
     "clientsSubheading": "Construction companies that already trust worksRecorded",
+    "budgetSection": {
+      "eyebrow": "WorksRecorded",
+      "titlePrefix": "Why projects are",
+      "titleHighlight": "over budget?",
+      "intro": "Turn everyday site records into better project outcomes.",
+      "flows": [
+        {
+          "problem": "Underpriced",
+          "solution": "Accurate site data from site managers",
+          "outcome": "15% more accurate estimates"
+        },
+        {
+          "problem": "Inefficient",
+          "solution": "Automatic daily progress and productivity reports",
+          "outcome": "10% faster execution"
+        },
+        {
+          "problem": "Claims",
+          "solution": "Legally compliant records",
+          "outcome": "50% fewer unsupported claims"
+        }
+      ]
+    },
     "clientDepromDescription": [
       "Deprom is a UK-based precast concrete specialist that helps contractors achieve cost certainty, faster programmes, and more sustainable builds. They deliver full-scope precast solutions — brick facades, architectural concrete cladding, and complete residential and commercial frames — backed by in-house engineering, facade, and framing services.",
       "By moving structural and facade work off-site into a controlled factory environment, Deprom reduces programme risk, tightens quality control, and shortens on-site time. Their portfolio spans residential blocks, commercial buildings, and bespoke facade commissions across the UK."

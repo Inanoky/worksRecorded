@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import HeroDevices from "@/public/frontend/pages/Home/HeroDevices.png";
 import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
+import { BudgetOutcomeSection } from "../BudgetOutcomeSection";
 import { Logos } from "../Logos";
 import { HowDoWeDoThat, WhatDoWeDo, Why } from "./Text";
 
@@ -129,6 +130,8 @@ export default function LegacyLandingPage() {
 			</section>
 
 			<Logos />
+
+			<BudgetOutcomeSection />
 
 			<section className="bg-white dark:bg-slate-950">
 				<div className="mx-auto w-full max-w-6xl px-4 py-14 lg:px-6 lg:py-24">

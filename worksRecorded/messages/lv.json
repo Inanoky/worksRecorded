@@ -27,6 +27,29 @@
     "bisLogoLabel": "BIS integrācija",
     "clientsHeading": "Mūsu klienti",
     "clientsSubheading": "Būvniecības uzņēmumi, kas jau uzticas worksRecorded",
+    "budgetSection": {
+      "eyebrow": "WorksRecorded",
+      "titlePrefix": "Kāpēc projekti",
+      "titleHighlight": "pārsniedz budžetu?",
+      "intro": "Pārvērtiet ikdienas būvlaukuma ierakstus labākos projektu rezultātos.",
+      "flows": [
+        {
+          "problem": "Nepietiekami iecenots",
+          "solution": "Precīzi objekta dati no darbu vadītājiem",
+          "outcome": "Par 15% precīzākas tāmes"
+        },
+        {
+          "problem": "Neefektīvs darbs",
+          "solution": "Automātiskas ikdienas progresa un produktivitātes atskaites",
+          "outcome": "Par 10% ātrāka izpilde"
+        },
+        {
+          "problem": "Pretenzijas",
+          "solution": "Juridiski korekti un pārskatāmi ieraksti",
+          "outcome": "Par 50% mazāk nepamatotu pretenziju"
+        }
+      ]
+    },
     "clientDepromDescription": [
       "Deprom ir Lielbritānijā bāzēts saliekto betona konstrukciju speciālists, kas palīdz būvuzņēmējiem sasniegt izmaksu stabilitāti, ātrākus grafikus un lielāku ilgtspēju. Uzņēmums piedāvā pilna cikla saliekto risinājumus — ķieģeļu fasādes, arhitektonisko betona apšuvumu, kā arī dzīvojamo un komerciālo ēku karkasus — ar pašu inženiertehnisko, fasāžu un karkasu servisu.",
       "Pārceļot konstrukciju un fasāžu darbus no būvlaukuma uz kontrolētu rūpnīcas vidi, Deprom samazina grafiku risku, uzlabo kvalitātes kontroli un saīsina darbu uz objekta. Uzņēmuma portfelī ietilpst dzīvojamās ēkas, komerciālās ēkas un individuāli fasāžu pasūtījumi visā Lielbritānijā."
