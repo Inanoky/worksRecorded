@@ -1,5 +1,6 @@
 "use client";
 
+import { IconBrandWhatsapp } from "@tabler/icons-react";
 import { ArrowRight, Zap } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,6 +14,8 @@ import { HowDoWeDoThat, WhatDoWeDo, Why } from "./Text";
 export default function LegacyLandingPage() {
 	const t = useTranslations("LandingPageDesktop");
 	const locale = useLocale();
+	const heroTitle = t("heroTitle");
+	const heroTitleAfterWhatsApp = heroTitle.replace(/^WhatsApp\s*/, "");
 	const calendlyDemoUrl =
 		"https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
 	const videoSrc =
@@ -28,17 +31,16 @@ export default function LegacyLandingPage() {
 
 				<div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:min-h-[650px] lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:px-10 lg:py-12 xl:gap-20 xl:px-14">
 					<div className="relative z-10 mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
-						<div className="inline-flex items-center gap-3 rounded-full border border-white/90 bg-white/80 py-2 pr-5 pl-2 shadow-sm ring-1 ring-slate-900/5 backdrop-blur">
-							<span className="inline-flex size-10 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-emerald-700">
-								WR
-							</span>
-							<span className="text-lg font-bold tracking-tight text-slate-950 sm:text-xl">
-								WorksRecorded
-							</span>
-						</div>
-
-						<h1 className="mt-7 text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem] dark:text-white">
-							{t("heroTitle")}
+						<h1 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem] dark:text-white">
+							<span className="inline-flex items-center gap-[0.16em] whitespace-nowrap">
+								WhatsApp
+								<IconBrandWhatsapp
+									className="size-[0.86em] shrink-0 translate-y-[0.01em] text-[#2FC26B]"
+									stroke={1.9}
+									aria-hidden="true"
+								/>
+							</span>{" "}
+							<span>{heroTitleAfterWhatsApp}</span>
 						</h1>
 
 						<p className="mx-auto mt-6 max-w-xl text-balance text-lg font-medium leading-8 text-slate-700 sm:text-xl lg:mx-0 dark:text-slate-200">
