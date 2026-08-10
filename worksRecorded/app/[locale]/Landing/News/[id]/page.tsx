@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getNewsArticleById } from "@/lib/news/store";
 import { WORKSRECORDED_LANDING_LINK_TOKEN } from "@/lib/news/worksRecordedPromotion";
 
@@ -36,82 +38,56 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-function renderInlineLinks(text: string, locale: string) {
-  const parts = text.split(/(\[[^\]]+\]\([^)]+\))/g).filter(Boolean);
-
-  return parts.map((part, index) => {
-    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-
-    if (!linkMatch) {
-      return part;
-    }
-
-    const [, label, href] = linkMatch;
-    const resolvedHref = href === WORKSRECORDED_LANDING_LINK_TOKEN ? `/${locale}/Landing` : href;
-    const isExternal = /^https?:\/\//i.test(resolvedHref);
-
-    return (
-      <Link
-        key={`${label}-${index}`}
-        href={resolvedHref}
-        target={isExternal ? "_blank" : undefined}
-        rel={isExternal ? "noreferrer" : undefined}
-        className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
-      >
-        {label}
-      </Link>
-    );
-  });
-}
-
 function renderFormattedArticle(content: string, locale: string) {
-  const blocks = content
-    .split(/\n{2,}/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean);
+  const resolvedContent = content.replaceAll(
+    WORKSRECORDED_LANDING_LINK_TOKEN,
+    `/${locale}/Landing`
+  );
 
-  return blocks.map((block, index) => {
-    if (block.startsWith("## ")) {
-      return (
-        <h2 key={index} className="mt-8 text-2xl font-semibold leading-tight">
-          {block.replace(/^##\s+/, "")}
-        </h2>
-      );
-    }
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      skipHtml
+      components={{
+        h2: ({ children }) => (
+          <h2 className="mt-8 text-2xl font-semibold leading-tight">{children}</h2>
+        ),
+        h3: ({ children }) => (
+          <h3 className="mt-6 text-xl font-semibold leading-tight">{children}</h3>
+        ),
+        p: ({ children }) => <p className="text-base leading-7 text-foreground/90">{children}</p>,
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-4 border-primary/70 bg-muted/40 px-4 py-3 text-lg italic text-muted-foreground [&>p]:text-inherit">
+            {children}
+          </blockquote>
+        ),
+        ul: ({ children }) => (
+          <ul className="list-disc space-y-2 pl-6 text-base leading-7 marker:text-primary">{children}</ul>
+        ),
+        ol: ({ children }) => (
+          <ol className="list-decimal space-y-2 pl-6 text-base leading-7 marker:text-primary">{children}</ol>
+        ),
+        strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+        a: ({ href, children }) => {
+          const resolvedHref = href || `/${locale}/Landing`;
+          const isExternal = /^https?:\/\//i.test(resolvedHref);
 
-    if (block.startsWith("> ")) {
-      return (
-        <blockquote
-          key={index}
-          className="border-l-4 border-primary/70 bg-muted/40 px-4 py-3 text-lg italic text-muted-foreground"
-        >
-          {renderInlineLinks(block.replace(/^>\s+/, ""), locale)}
-        </blockquote>
-      );
-    }
-
-    if (block.startsWith("- ")) {
-      const items = block
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.startsWith("- "))
-        .map((line) => line.replace(/^-\s+/, ""));
-
-      return (
-        <ul key={index} className="list-disc space-y-2 pl-6 text-base leading-7 marker:text-primary">
-          {items.map((item) => (
-            <li key={item}>{renderInlineLinks(item, locale)}</li>
-          ))}
-        </ul>
-      );
-    }
-
-    return (
-      <p key={index} className="text-base leading-7 text-foreground/90">
-        {renderInlineLinks(block, locale)}
-      </p>
-    );
-  });
+          return (
+            <Link
+              href={resolvedHref}
+              target={isExternal ? "_blank" : undefined}
+              rel={isExternal ? "noreferrer" : undefined}
+              className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+            >
+              {children}
+            </Link>
+          );
+        },
+      }}
+    >
+      {resolvedContent}
+    </ReactMarkdown>
+  );
 }
 
 export default async function NewsPostPage({ params }: PageProps) {

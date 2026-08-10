@@ -35,7 +35,7 @@ export default function LegacyLandingPage() {
 							<span className="inline-flex items-center gap-[0.16em] whitespace-nowrap">
 								WhatsApp
 								<IconBrandWhatsapp
-									className="size-[0.86em] shrink-0 translate-y-[0.01em] text-[#2FC26B]"
+									className="size-[0.86em] shrink-0 translate-y-[0.05em] text-[#2FC26B]"
 									stroke={1.9}
 									aria-hidden="true"
 								/>
