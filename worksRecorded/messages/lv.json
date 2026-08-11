@@ -160,6 +160,52 @@
   },
 
    "SiteDiary": {
+    "hero": {
+      "titlePrefix": "Radīts",
+      "titleHighlight": "būvuzņēmējiem",
+      "description": "Fiksējiet būvlaukumā notiekošo, kontrolējiet projekta izmaksas un saglabājiet uzticamus pierādījumus — bez jaunas programmatūras un papildu administrēšanas.",
+      "cta": "Sazināties"
+    },
+    "features": [
+      { "title": "Nav vajadzīga jauna programmatūra", "description": "Jūsu komanda jau izmanto WhatsApp saziņai. WorksRecorded pārvērš ierastās sarunas strukturētos projekta ierakstos." },
+      { "title": "Balss ziņas no būvlaukuma", "description": "Balss ziņa ir ātrākais veids, kā fiksēt objektā notiekošo — paveiktos darbus, kavējumus, šķēršļus un papildu darbus." },
+      { "title": "Nav ieviešanas izmaksu", "description": "Nav sarežģītas ieviešanas vai apmācību programmas. Būvlaukuma komanda var sākt atskaitīties jau no pirmās minūtes." },
+      { "title": "Nav datu ievades izmaksu", "description": "MI pārraksta balss ziņas tekstā un sakārto katru atjauninājumu pēc projektiem, lokācijām, darbiem un tāmes struktūras." },
+      { "title": "Pārskatāmība projektu vadībai", "description": "Progress, kavējumi, šķēršļi un papildu darbi ir vienuviet, lai birojs vienmēr saprastu, kas notiek objektā." },
+      { "title": "Importējiet savu tāmi", "description": "Augšupielādējiet būvdarbu tāmi no Excel un salīdziniet plānotās izmaksas ar faktiskajām darbaspēka, materiālu un projekta izmaksām." },
+      { "title": "Rēķini un materiālu pavadzīmes", "description": "Nofotografējiet rēķinus un pavadzīmes WhatsApp. WorksRecorded automātiski piesaista katru izmaksu pareizajai tāmes kategorijai." },
+      { "title": "Inteliģents pēc būtības", "description": "Savienojiet projekta vēsturi ar MI analīzei, prognozēšanai un nepārtrauktai darbu izpildes un tāmēšanas uzlabošanai." }
+    ],
+    "comparison": {
+      "eyebrow": "Pirms un pēc",
+      "titlePrefix": "Kas mainās ar",
+      "titleHighlight": "WorksRecorded?",
+      "description": "Aizstājiet sadrumstalotu būvlaukuma saziņu ar pilnīgiem, strukturētiem projekta pierādījumiem.",
+      "withoutTitle": "Bez WorksRecorded",
+      "withTitle": "Ar WorksRecorded",
+      "withoutItems": [
+        "Papildu darbi tiek izpildīti, bet netiek izrakstīti rēķinos",
+        "Produktivitāti ir grūti izmērīt",
+        "Nav uzticamu datu nākamajām tāmēm",
+        "Ja kaut kas noiet greizi, nav pierādījumu",
+        "Darbiniekam aizejot, pazūd arī projekta informācija",
+        "Budžeta pārsniegums kļūst redzams pārāk vēlu",
+        "Informācija no objekta nenonāk līdz birojam",
+        "Projektu vadība neredz, kurš un ko paveica objektā",
+        "Saņemot pretenzijas, nav skaidrības par iespējamo finansiālo ietekmi"
+      ],
+      "withItems": [
+        "Visi papildu darbi ir dokumentēti un iekļauti rēķinos",
+        "Ikdienas produktivitātes atskaites",
+        "Pilnīgs būvdarbu žurnāls par kavējumiem, šķēršļiem, izmaiņām un kvalitāti",
+        "Skaidri uzskaitīts laiks katram darbam",
+        "Faktisko cenu dati nākamajām tāmēm",
+        "Pilnīga pārskatāmība projektu vadībai",
+        "Tāmes salīdzinātas ar faktiskajām izmaksām",
+        "BIS dokumentācija aizpildīta automātiski",
+        "Darbu vadītāji vairāk laika pavada objektā, nevis birojā"
+      ]
+    },
     "title": "Būvdarbu žurnāls",
 
     "block1": {

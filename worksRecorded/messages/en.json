@@ -161,6 +161,52 @@
   },
 
   "SiteDiary": {
+    "hero": {
+      "titlePrefix": "Built for",
+      "titleHighlight": "contractors",
+      "description": "Capture what happens on site, control project costs and keep reliable evidence — without adding more software or administration for your team.",
+      "cta": "Talk to us"
+    },
+    "features": [
+      { "title": "No new software", "description": "Your team already uses WhatsApp to communicate. WorksRecorded turns those familiar conversations into structured project records." },
+      { "title": "Voice messages from site", "description": "Voice is the fastest way to capture what is actually happening on site — completed work, delays, obstacles and additional works." },
+      { "title": "No onboarding cost", "description": "There is no complicated rollout or training programme. Site teams can start reporting from the first minute." },
+      { "title": "No data-entry cost", "description": "AI transcribes voice messages and organizes every update according to your projects, locations, tasks and estimate structure." },
+      { "title": "Visibility for project management", "description": "Keep progress, delays, hindrances and additional works in one place, so the office always understands what is happening on site." },
+      { "title": "Import your estimate", "description": "Upload your construction estimate from Excel and compare planned costs with actual labour, materials and project progress." },
+      { "title": "Invoices and material bills", "description": "Photograph invoices and delivery notes in WhatsApp. WorksRecorded automatically sorts each cost against the correct estimate category." },
+      { "title": "Intelligent by design", "description": "Connect your project history to AI for analysis, forecasting and continuous improvements to delivery and estimating." }
+    ],
+    "comparison": {
+      "eyebrow": "Before and after",
+      "titlePrefix": "What changes with",
+      "titleHighlight": "WorksRecorded?",
+      "description": "Replace fragmented site communication with complete, structured project evidence.",
+      "withoutTitle": "Without WorksRecorded",
+      "withTitle": "With WorksRecorded",
+      "withoutItems": [
+        "Additional works are completed but never invoiced",
+        "Productivity is difficult to measure",
+        "No reliable data for future estimates",
+        "When something goes wrong, there is no evidence",
+        "When people leave, project knowledge leaves with them",
+        "Budget overruns become visible too late",
+        "Information from site never reaches the office",
+        "Project management cannot see who did what on site",
+        "When claims arrive, there is no confidence about the financial exposure"
+      ],
+      "withItems": [
+        "All additional works are documented and invoiced",
+        "Daily productivity reports",
+        "A complete site diary covering delays, hindrances, variations and quality",
+        "Clear time spent on every task",
+        "Actual price data for future estimates",
+        "Full visibility for project management",
+        "Estimates compared with actual costs",
+        "BIS documentation completed automatically",
+        "Site managers spend more time on site, not in the office"
+      ]
+    },
     "title": "Construction site records",
 
     "block1": {
