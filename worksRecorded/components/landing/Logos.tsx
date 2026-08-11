@@ -41,11 +41,11 @@ export function Logos() {
 
 	return (
 		<section className="relative bg-transparent">
-			<div className="w-full max-w-6xl mx-auto px-4 lg:px-6 py-12 lg:py-16 text-center">
-				<h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+			<div className="mx-auto w-full max-w-[1440px] px-5 py-12 text-left sm:px-8 lg:px-10 lg:py-16 xl:px-14">
+				<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem] dark:text-white">
 					{t("clientsHeading")}
 				</h2>
-				<p className="mt-3 text-base sm:text-lg text-slate-700 dark:text-slate-300">
+				<p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg dark:text-slate-300">
 					{t("clientsSubheading")}
 				</p>
 

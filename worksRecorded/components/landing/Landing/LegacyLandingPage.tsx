@@ -160,9 +160,9 @@ export default function LegacyLandingPage() {
 			<BudgetOutcomeSection />
 
 			<section className="relative overflow-hidden">
-				<div className="relative mx-auto w-full max-w-[1224px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-12">
+				<div className="relative mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-14">
 					<div className="max-w-3xl">
-						<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] dark:text-white">
+						<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem] dark:text-white">
 							{t("workflowDiagram.titlePrefix")} {" "}
 							<span className="text-[#087a49] dark:text-emerald-400">
 								{t("workflowDiagram.titleHighlight")}

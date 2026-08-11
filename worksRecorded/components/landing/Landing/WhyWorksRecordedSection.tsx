@@ -40,15 +40,15 @@ export function WhyWorksRecordedSection() {
 			className="relative overflow-hidden"
 		>
 			<div className="relative mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-14">
-				<div className="text-center">
-					<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] dark:text-white">
+				<div className="text-left">
+					<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem] dark:text-white">
 						{t("titlePrefix")} {" "}
 						<span className="text-[#087a49] dark:text-emerald-400">
 							{t("titleHighlight")}
 						</span>
 					</h2>
 					<span
-						className="mx-auto mt-6 block h-1 w-12 rounded-full bg-[#087a49]"
+						className="mt-6 block h-1 w-12 rounded-full bg-[#087a49]"
 						aria-hidden="true"
 					/>
 				</div>

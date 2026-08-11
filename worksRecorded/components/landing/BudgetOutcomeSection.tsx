@@ -27,7 +27,7 @@ export function BudgetOutcomeSection() {
 			className="relative overflow-hidden bg-transparent"
 			aria-labelledby={headingId}
 		>
-			<div className="relative mx-auto w-[calc(100%-40px)] py-16 lg:w-[75vw] lg:py-24">
+			<div className="relative mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-14">
 				<div className="max-w-6xl">
 					<p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#087a49] dark:text-emerald-300">
 						<span className="h-0.5 w-8 rounded-full bg-[#087a49]" aria-hidden="true" />
