@@ -9,6 +9,7 @@ import {
 	CircleDollarSign,
 	Lightbulb,
 	Mic2,
+	Play,
 	ReceiptText,
 	Telescope,
 	TrendingUp,
@@ -19,7 +20,9 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { useState } from "react";
 import HowItWorksDiagram from "@/public/frontend/pages/Home/HowItWorksDiagram.png";
+import VideoPosterDashboard from "@/public/frontend/pages/Home/HeroLaptopDashboardDiagram.png";
 import { BudgetOutcomeSection } from "../BudgetOutcomeSection";
 import { Logos } from "../Logos";
 import { HeroProductMockup } from "./HeroProductMockup";
@@ -47,6 +50,7 @@ export default function LegacyLandingPage() {
 	const heroTitle = t("heroTitle");
 	const workflowInputs = t.raw("workflowDiagram.inputs") as string[];
 	const workflowOutputs = t.raw("workflowDiagram.outputs") as string[];
+	const [videoStarted, setVideoStarted] = useState(false);
 	const heroTitleAfterWhatsApp = heroTitle.replace(/^WhatsApp\s*/, "");
 	const calendlyDemoUrl =
 		"https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
@@ -133,21 +137,47 @@ export default function LegacyLandingPage() {
 
 			<Logos />
 
-			<section className="relative overflow-hidden">
+			<section className="relative overflow-hidden pb-8 lg:pb-12">
 				<div className="relative mx-auto w-full max-w-7xl px-4 pb-10 lg:px-6 lg:pb-14">
 					<div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-white/90 shadow-2xl shadow-slate-900/10 ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-900">
 						<div className="pointer-events-none absolute -inset-6 -z-10 rounded-[2.5rem] bg-gradient-to-tr from-emerald-200/50 via-white to-transparent blur-3xl dark:from-emerald-950/40 dark:via-slate-950" />
 
-						<div className="relative aspect-video w-full">
-							<iframe
-								className="absolute inset-0 h-full w-full"
-								src={videoSrc}
-								title={t("videoTitle")}
-								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-								allowFullScreen
-								loading="lazy"
-								referrerPolicy="strict-origin-when-cross-origin"
-							/>
+						<div className="relative aspect-video w-full bg-slate-950">
+							{videoStarted ? (
+								<iframe
+									className="absolute inset-0 h-full w-full"
+									src={`${videoSrc}&autoplay=1`}
+									title={t("videoTitle")}
+									allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+									allowFullScreen
+									referrerPolicy="strict-origin-when-cross-origin"
+								/>
+							) : (
+								<button
+									type="button"
+									onClick={() => setVideoStarted(true)}
+									className="group absolute inset-0 grid w-full place-items-center overflow-hidden text-white"
+									aria-label={t("videoTitle")}
+								>
+									<Image
+										src={VideoPosterDashboard}
+										alt=""
+										fill
+										placeholder="blur"
+										className="object-cover object-top opacity-45 transition duration-500 group-hover:scale-[1.02] group-hover:opacity-55"
+										sizes="(min-width: 1280px) 1280px, 100vw"
+									/>
+									<span className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(8,122,73,0.2),transparent_38%),linear-gradient(to_bottom,rgba(2,6,23,0.18),rgba(2,6,23,0.76))]" />
+									<span className="relative flex flex-col items-center px-6 text-center">
+										<span className="grid size-20 place-items-center rounded-full bg-[#087a49] shadow-2xl shadow-black/35 ring-8 ring-white/10 transition group-hover:scale-105 group-hover:bg-[#066a3f] sm:size-24">
+											<Play className="ml-1 size-9 fill-current sm:size-11" aria-hidden="true" />
+										</span>
+										<span className="mt-6 text-2xl font-bold tracking-[-0.03em] sm:text-4xl">
+											{t("videoTitle")}
+										</span>
+									</span>
+								</button>
+							)}
 						</div>
 					</div>
 
@@ -160,7 +190,7 @@ export default function LegacyLandingPage() {
 			<BudgetOutcomeSection />
 
 			<section className="relative overflow-hidden">
-				<div className="relative mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-14">
+				<div className="relative mx-auto w-full max-w-[1440px] px-5 py-14 sm:px-8 lg:px-10 lg:py-10 xl:px-14">
 					<div className="max-w-3xl">
 						<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem] dark:text-white">
 							{t("workflowDiagram.titlePrefix")} {" "}
@@ -173,8 +203,8 @@ export default function LegacyLandingPage() {
 						</p>
 					</div>
 
-					<div className="mt-10 hidden overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10 lg:block dark:border-slate-800 dark:bg-slate-900">
-						<div className="relative aspect-[2.62] overflow-hidden bg-white">
+					<div className="mt-8 hidden overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10 lg:block dark:border-slate-800 dark:bg-slate-900">
+						<div className="relative aspect-[3.15] overflow-hidden bg-white">
 							<Image
 								src={HowItWorksDiagram}
 								alt={t("workflowDiagram.imageAlt")}
@@ -209,7 +239,7 @@ export default function LegacyLandingPage() {
 						</div>
 					</div>
 
-					<div className="mt-10 overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white shadow-xl shadow-slate-900/10 lg:hidden dark:border-slate-800 dark:bg-slate-900">
+					<div className="mt-8 overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white shadow-xl shadow-slate-900/10 lg:hidden dark:border-slate-800 dark:bg-slate-900">
 						<div className="bg-white">
 							<div className="relative aspect-[1.32] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10">
 								<Image
@@ -287,7 +317,7 @@ function WorkflowRail({
 			<ul
 				className={
 					compact
-						? "mt-4 grid grid-cols-2 gap-x-8"
+						? "mt-4 grid grid-cols-5 gap-3"
 						: `mt-3 divide-y ${isOutput ? "divide-blue-200/80" : "divide-emerald-200/80"}`
 				}
 			>
@@ -299,7 +329,7 @@ function WorkflowRail({
 							key={item}
 							className={`flex items-center gap-3 ${
 								compact
-									? `border-b py-3 ${isOutput ? "border-blue-200/80" : "border-emerald-200/80"}`
+									? "flex-col items-start gap-2 py-2"
 									: "py-3"
 							}`}
 						>
@@ -314,7 +344,7 @@ function WorkflowRail({
 							>
 								<Icon className={compact ? "size-3.5" : "size-4"} aria-hidden="true" />
 							</span>
-							<span className={`${compact ? "text-[1.1rem]" : "text-xl"} font-medium leading-6 text-slate-800`}>
+							<span className={`${compact ? "text-sm leading-5" : "text-xl leading-6"} font-medium text-slate-800`}>
 								{item}
 							</span>
 						</li>

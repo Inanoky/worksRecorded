@@ -39,7 +39,7 @@ export function WhyWorksRecordedSection() {
 			id="why-worksrecorded"
 			className="relative overflow-hidden"
 		>
-			<div className="relative mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-14">
+			<div className="relative mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-10 lg:py-10 xl:px-14">
 				<div className="text-left">
 					<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem] dark:text-white">
 						{t("titlePrefix")} {" "}
@@ -53,7 +53,7 @@ export function WhyWorksRecordedSection() {
 					/>
 				</div>
 
-				<div className="mt-10 overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/90 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+				<div className="mt-7 overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/90 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
 					<div className="grid md:grid-cols-2 xl:grid-cols-4">
 						{reasons.map((reason, index) => {
 							const Icon = reasonIcons[index] ?? FileCheck2;
@@ -61,7 +61,7 @@ export function WhyWorksRecordedSection() {
 							return (
 								<article
 									key={reason}
-									className="relative flex min-h-64 flex-col items-center justify-center px-7 py-9 text-center md:[&:nth-child(even)]:border-l md:[&:nth-child(n+3)]:border-t xl:[&:nth-child(n+3)]:border-t-0 xl:[&:not(:first-child)]:border-l dark:border-slate-800"
+									className="relative flex min-h-64 flex-col items-center justify-center px-7 py-9 text-center md:[&:nth-child(even)]:border-l md:[&:nth-child(n+3)]:border-t xl:min-h-48 xl:py-6 xl:[&:nth-child(n+3)]:border-t-0 xl:[&:not(:first-child)]:border-l dark:border-slate-800"
 								>
 									<span className="grid size-20 place-items-center text-[#087a49]">
 										{index === 0 ? (
@@ -72,7 +72,7 @@ export function WhyWorksRecordedSection() {
 											<Icon className="size-16" strokeWidth={1.55} aria-hidden="true" />
 										)}
 									</span>
-									<p className="mt-5 max-w-[18rem] text-lg font-medium leading-8 text-slate-900 dark:text-slate-100">
+									<p className="mt-4 max-w-[18rem] text-base font-medium leading-7 text-slate-900 dark:text-slate-100">
 										{reason}
 									</p>
 								</article>
@@ -81,7 +81,7 @@ export function WhyWorksRecordedSection() {
 					</div>
 				</div>
 
-				<p className="mx-auto mt-16 max-w-[1260px] text-balance text-center text-3xl font-bold leading-[1.18] tracking-[-0.035em] text-slate-950 sm:text-4xl lg:text-[2.65rem] dark:text-white">
+				<p className="mx-auto mt-10 max-w-[1260px] text-balance text-center text-3xl font-bold leading-[1.18] tracking-[-0.035em] text-slate-950 sm:text-4xl lg:text-[2.25rem] dark:text-white">
 					<span className="text-[#087a49] dark:text-emerald-400">
 						{t("statementPrefix")}
 					</span>{" "}
@@ -91,7 +91,7 @@ export function WhyWorksRecordedSection() {
 					</span>
 				</p>
 
-				<div className="mt-9 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur sm:p-8 xl:p-10 dark:border-slate-800 dark:bg-slate-900/90">
+				<div className="mt-6 rounded-[1.75rem] border border-slate-200/80 bg-white/90 p-5 shadow-[0_20px_60px_rgba(15,23,42,0.06)] backdrop-blur sm:p-8 xl:p-6 dark:border-slate-800 dark:bg-slate-900/90">
 					<div className="hidden items-start gap-2 xl:flex">
 						{steps.map((step, index) => {
 							const Icon = stepIcons[index] ?? FileCheck2;
@@ -100,13 +100,13 @@ export function WhyWorksRecordedSection() {
 								<div key={step} className="contents">
 									<article className="min-w-0 flex-1 text-center">
 										<StepIcon index={index} Icon={Icon} />
-										<p className="mt-5 text-[0.98rem] font-medium leading-6 text-slate-800 dark:text-slate-200">
+										<p className="mt-4 text-sm font-medium leading-5 text-slate-800 dark:text-slate-200">
 											{step}
 										</p>
 									</article>
 									{index < steps.length - 1 && (
 										<ArrowRight
-											className="mt-14 size-6 shrink-0 text-slate-500"
+											className="mt-11 size-6 shrink-0 text-slate-500"
 											strokeWidth={1.65}
 											aria-hidden="true"
 										/>
@@ -156,7 +156,7 @@ function StepIcon({
 	return (
 		<div
 			className={`relative mx-auto grid place-items-center rounded-full border border-slate-200 bg-white text-slate-950 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white ${
-				compact ? "size-20 sm:size-24" : "size-28"
+				compact ? "size-20 sm:size-24" : "size-24"
 			}`}
 		>
 			<span className="absolute -top-3 grid size-8 place-items-center rounded-full bg-[#087a49] text-sm font-bold text-white shadow-md shadow-emerald-900/15">
@@ -164,14 +164,14 @@ function StepIcon({
 			</span>
 			{index === 0 ? (
 				<span className="flex items-end gap-1 text-slate-950 dark:text-white">
-					<Mic2 className={compact ? "size-8" : "size-10"} strokeWidth={1.65} />
-					<ImageIcon className={compact ? "size-7" : "size-9"} strokeWidth={1.65} />
+					<Mic2 className={compact ? "size-8" : "size-9"} strokeWidth={1.65} />
+					<ImageIcon className={compact ? "size-7" : "size-8"} strokeWidth={1.65} />
 				</span>
 			) : index === 2 ? (
-				<BisDocumentIcon className={compact ? "size-11 sm:size-12" : "size-14"} />
+				<BisDocumentIcon className={compact ? "size-11 sm:size-12" : "size-12"} />
 			) : (
 				<Icon
-					className={compact ? "size-10 sm:size-12" : "size-14"}
+					className={compact ? "size-10 sm:size-12" : "size-12"}
 					strokeWidth={1.55}
 					aria-hidden="true"
 				/>

@@ -41,16 +41,9 @@ export function Logos() {
 
 	return (
 		<section className="relative bg-transparent">
-			<div className="mx-auto w-full max-w-[1440px] px-5 py-12 text-left sm:px-8 lg:px-10 lg:py-16 xl:px-14">
-				<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] xl:text-[4.25rem] dark:text-white">
-					{t("clientsHeading")}
-				</h2>
-				<p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg dark:text-slate-300">
-					{t("clientsSubheading")}
-				</p>
-
+			<div className="mx-auto w-full max-w-[1440px] px-5 pb-20 pt-10 sm:px-8 lg:px-10 lg:pb-28 lg:pt-12 xl:px-14">
 				{/* Logo strip */}
-				<div className="mt-8 grid grid-cols-1 sm:grid-cols-3 items-center gap-6">
+				<div className="grid grid-cols-1 items-center gap-6 sm:grid-cols-3">
 					{CLIENTS.map((client) => (
 						<Link
 							key={client.name}
@@ -67,6 +60,10 @@ export function Logos() {
 						</Link>
 					))}
 				</div>
+
+				<p className="mt-5 text-center text-xs font-medium leading-5 text-slate-500/80 dark:text-slate-400/80">
+					{t("clientsSubheading")}
+				</p>
 
 				<div className="hidden mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
 					{CLIENTS.map((client) => {
