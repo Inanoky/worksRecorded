@@ -48,19 +48,41 @@
       "flows": [
         {
           "problem": "Nepietiekami iecenots",
-          "solution": "Precīzi objekta dati no darbu vadītājiem",
+          "solution": "Faktiskie objekta dati",
           "outcome": "Par 15% precīzākas tāmes"
         },
         {
           "problem": "Neefektīvs darbs",
-          "solution": "Automātiskas ikdienas progresa un produktivitātes atskaites",
+          "solution": "Ikdienas progresa atskaites",
           "outcome": "Par 10% ātrāka izpilde"
         },
         {
           "problem": "Pretenzijas",
-          "solution": "Juridiski korekti un pārskatāmi ieraksti",
+          "solution": "Prasībām atbilstoši ieraksti",
           "outcome": "Par 50% mazāk nepamatotu pretenziju"
         }
+      ]
+    },
+    "whyWorksRecordedSection": {
+      "titlePrefix": "Kāpēc",
+      "titleHighlight": "WorksRecorded?",
+      "reasons": [
+        "Vienīgais digitālais būvdarbu žurnāls ar BIS integrāciju, lai minimizētu dubulto darbu.",
+        "Praktiska sistēma objekta gaitas uzraudzībai, datu glabāšanai un analīzei.",
+        "Arī bez integrācijām — balss ziņas un foto var sūtīt tieši caur WhatsApp.",
+        "Risinājums ir pielāgots tieši būvniecības nozarei."
+      ],
+      "statementPrefix": "Risinājums",
+      "statementBody": "— moderns, inteliģents būvdarbu žurnāls ar BIS integrāciju un iebūvētu MI, pielāgots",
+      "statementHighlight": "Latvijas vajadzībām",
+      "steps": [
+        "Darba vadītājs ar balss ziņu izstāsta, kas notiek objektā, un pievieno foto.",
+        "MI sakārto un saglabā informāciju datubāzē.",
+        "Automātiski aizpilda ikdienas darbu ierakstus BIS.",
+        "Automātiski aizpilda saņemtos materiālus un būvizstrādājumus no pavadzīmju foto.",
+        "Darba stundu atskaite ar GPS koordinātu pārbaudēm.",
+        "Objekta darbu gaita tiek glabāta datubāzē un sasaistīta ar jaunākajiem LLM modeļiem.",
+        "Laika ekonomija līdz 1 stundai dienā administratīvajiem darbiem."
       ]
     },
     "clientDepromDescription": [

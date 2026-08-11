@@ -23,7 +23,7 @@ import HowItWorksDiagram from "@/public/frontend/pages/Home/HowItWorksDiagram.pn
 import { BudgetOutcomeSection } from "../BudgetOutcomeSection";
 import { Logos } from "../Logos";
 import { HeroProductMockup } from "./HeroProductMockup";
-import { HowDoWeDoThat, Why } from "./Text";
+import { WhyWorksRecordedSection } from "./WhyWorksRecordedSection";
 
 const workflowInputIcons = [
 	Mic2,
@@ -56,10 +56,8 @@ export default function LegacyLandingPage() {
 			: "https://www.youtube-nocookie.com/embed/-CfwJd-hI4I?rel=0&modestbranding=1&playsinline=1";
 
 	return (
-		<>
-			<section className="relative overflow-hidden bg-[#f7f8f5] dark:bg-slate-950">
-				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(22,163,74,0.14),transparent_32%),radial-gradient(circle_at_82%_72%,rgba(22,163,74,0.07),transparent_34%),radial-gradient(circle_at_50%_100%,rgba(22,163,74,0.12),transparent_38%)]" />
-				<div className="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-emerald-50/70 to-transparent dark:from-emerald-950/20" />
+		<main className="relative overflow-hidden bg-[radial-gradient(circle_at_10%_8%,rgba(8,122,73,0.12),transparent_18%),radial-gradient(circle_at_92%_32%,rgba(23,105,255,0.055),transparent_18%),radial-gradient(circle_at_8%_62%,rgba(8,122,73,0.08),transparent_17%),radial-gradient(circle_at_92%_86%,rgba(8,122,73,0.06),transparent_16%),linear-gradient(180deg,#f7f8f5_0%,#ffffff_48%,#f7f8f5_100%)] text-slate-950 dark:bg-slate-950 dark:text-white">
+			<section className="relative overflow-hidden">
 
 				<div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:min-h-[650px] lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:px-10 lg:py-12 xl:gap-20 xl:px-14">
 					<div className="relative z-10 mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
@@ -67,7 +65,7 @@ export default function LegacyLandingPage() {
 							<span className="inline-flex items-center gap-[0.16em] whitespace-nowrap">
 								WhatsApp
 								<IconBrandWhatsapp
-									className="size-[0.86em] shrink-0 translate-y-[0.05em] text-[#2FC26B]"
+									className="size-[0.86em] shrink-0 translate-y-[0.05em] text-[#087a49]"
 									stroke={1.9}
 									aria-hidden="true"
 								/>
@@ -97,7 +95,7 @@ export default function LegacyLandingPage() {
 
 							<div className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-slate-200 bg-white/85 px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200">
 								<Zap
-									className="size-5 fill-emerald-500 text-emerald-500"
+									className="size-5 fill-[#087a49] text-[#087a49]"
 									aria-hidden="true"
 								/>
 								{t("heroSetup")}
@@ -133,9 +131,9 @@ export default function LegacyLandingPage() {
 				</div>
 			</section>
 
-			<section className="relative overflow-hidden bg-[#f7f8f5] dark:bg-slate-950">
-				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(22,163,74,0.08),transparent_35%)]" />
+			<Logos />
 
+			<section className="relative overflow-hidden">
 				<div className="relative mx-auto w-full max-w-7xl px-4 pb-10 lg:px-6 lg:pb-14">
 					<div className="relative overflow-hidden rounded-[2rem] border border-white/80 bg-white/90 shadow-2xl shadow-slate-900/10 ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-900">
 						<div className="pointer-events-none absolute -inset-6 -z-10 rounded-[2.5rem] bg-gradient-to-tr from-emerald-200/50 via-white to-transparent blur-3xl dark:from-emerald-950/40 dark:via-slate-950" />
@@ -159,17 +157,14 @@ export default function LegacyLandingPage() {
 				</div>
 			</section>
 
-			<Logos />
-
 			<BudgetOutcomeSection />
 
-			<section className="relative overflow-hidden bg-[#f7f8f5] dark:bg-slate-950">
-				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_28%,rgba(22,163,74,0.11),transparent_31%),radial-gradient(circle_at_88%_66%,rgba(23,105,255,0.08),transparent_32%)]" />
+			<section className="relative overflow-hidden">
 				<div className="relative mx-auto w-full max-w-[1224px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-12">
 					<div className="max-w-3xl">
 						<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] dark:text-white">
 							{t("workflowDiagram.titlePrefix")} {" "}
-							<span className="text-[#0a4426] dark:text-emerald-400">
+							<span className="text-[#087a49] dark:text-emerald-400">
 								{t("workflowDiagram.titleHighlight")}
 							</span>
 						</h2>
@@ -260,18 +255,8 @@ export default function LegacyLandingPage() {
 				</div>
 			</section>
 
-			<section className="bg-[#f7f8f5] dark:bg-slate-950">
-				<div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 lg:grid-cols-2 lg:px-6 lg:py-20">
-					<div className="rounded-[2rem] border border-white/80 bg-white/80 p-8 shadow-sm ring-1 ring-black/5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/60">
-						<Why />
-					</div>
-
-					<div className="rounded-[2rem] border border-white/80 bg-white/80 p-8 shadow-sm ring-1 ring-black/5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/60">
-						<HowDoWeDoThat />
-					</div>
-				</div>
-			</section>
-		</>
+			<WhyWorksRecordedSection />
+		</main>
 	);
 }
 
@@ -295,7 +280,7 @@ function WorkflowRail({
 			<h3
 				className={`font-semibold tracking-[-0.02em] ${
 					compact ? "text-lg" : "text-xl"
-				} ${isOutput ? "text-blue-900" : "text-emerald-900"}`}
+				} ${isOutput ? "text-blue-900" : "text-[#087a49]"}`}
 			>
 				{heading}
 			</h3>
@@ -324,7 +309,7 @@ function WorkflowRail({
 								} ${
 									isOutput
 										? "bg-blue-100 text-blue-700"
-										: "bg-emerald-100 text-emerald-700"
+										: "bg-[#e5f5ed] text-[#087a49]"
 								}`}
 							>
 								<Icon className={compact ? "size-3.5" : "size-4"} aria-hidden="true" />

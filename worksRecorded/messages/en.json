@@ -48,19 +48,41 @@
       "flows": [
         {
           "problem": "Underpriced",
-          "solution": "Accurate site data from site managers",
+          "solution": "Actual site data",
           "outcome": "15% more accurate estimates"
         },
         {
           "problem": "Inefficient",
-          "solution": "Automatic daily progress and productivity reports",
+          "solution": "Daily progress reports",
           "outcome": "10% faster execution"
         },
         {
           "problem": "Claims",
-          "solution": "Legally compliant records",
+          "solution": "Compliant records",
           "outcome": "50% fewer unsupported claims"
         }
+      ]
+    },
+    "whyWorksRecordedSection": {
+      "titlePrefix": "Why",
+      "titleHighlight": "WorksRecorded?",
+      "reasons": [
+        "The only digital construction diary with BIS integration, minimizing duplicate work.",
+        "A practical system for monitoring site progress, storing data and analytics.",
+        "Works without integrations too — voice messages and photos can be sent directly through WhatsApp.",
+        "Built specifically for the construction industry."
+      ],
+      "statementPrefix": "The solution",
+      "statementBody": "— a modern, intelligent construction diary with BIS integration and built-in AI, adapted to",
+      "statementHighlight": "Latvian requirements",
+      "steps": [
+        "The site manager explains what is happening on site by voice message and adds a photo.",
+        "AI organizes and stores the information in the database.",
+        "Daily work entries in BIS are filled in automatically.",
+        "Received materials and construction products are recorded automatically from delivery-note photos.",
+        "Working-hour reports include GPS coordinate checks.",
+        "Site progress is stored in the database and connected with the latest LLM models.",
+        "Save up to one hour every day on administrative work."
       ]
     },
     "clientDepromDescription": [

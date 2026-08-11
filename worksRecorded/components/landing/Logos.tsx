@@ -40,7 +40,7 @@ export function Logos() {
 	const t = useTranslations("LandingPageDesktop");
 
 	return (
-		<section className="bg-[#f7f8f5] dark:bg-slate-950">
+		<section className="relative bg-transparent">
 			<div className="w-full max-w-6xl mx-auto px-4 lg:px-6 py-12 lg:py-16 text-center">
 				<h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
 					{t("clientsHeading")}
@@ -57,7 +57,7 @@ export function Logos() {
 							href={client.href}
 							target="_blank"
 							rel="noopener noreferrer"
-							className="group flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-6 shadow-sm ring-1 ring-black/5 transition hover:shadow-md hover:ring-emerald-200 dark:border-slate-800 dark:bg-slate-900 dark:ring-white/5 dark:hover:ring-emerald-900"
+							className="group flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-6 shadow-sm ring-1 ring-black/5 transition hover:shadow-md hover:ring-[#b8dfcc] dark:border-slate-800 dark:bg-slate-900 dark:ring-white/5 dark:hover:ring-emerald-900"
 						>
 							<Image
 								src={client.logo}
