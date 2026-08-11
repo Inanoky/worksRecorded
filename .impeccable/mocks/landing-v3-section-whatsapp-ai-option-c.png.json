@@ -1,0 +1,9 @@
+{
+  "prompt": "Extend approved Landing V3 Option C into a 1536x1024 lower-page section titled 'Sūti balss ziņas caur WhatsApp — MI sakārto'. No site header. Use the narrow left copy rail, oversized real product evidence on the right, overlapping real WhatsApp phone, and three precise green leader-line annotations tracing voice input into structured fields. Preserve Option C's white, mineral green, deep forest, charcoal palette, small radii, fine construction-plan linework, strong grotesk type, and restrained device shadows. Only the heading may be legible; no invented proof or decorative SaaS chrome.",
+  "approved": true,
+  "direction": ".impeccable/mocks/landing-v3-dashboard-control.png",
+  "references": [
+    "worksRecorded/public/frontend/pages/Home/HeroWhatsAppPhoneSource.png",
+    "worksRecorded/public/frontend/pages/Home/ScreenshotSiteDiary.png"
+  ]
+}

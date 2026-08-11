@@ -1,0 +1,8 @@
+{
+  "prompt": "Extend approved Landing V3 Option C into a 1536x1024 lower-page section titled 'Kāpēc projekti pārsniedz budžetu?'. No site header. Use the narrow left copy rail and an oversized real WorksRecorded dashboard cropped by the right edge. Draw three precise numbered green leader-line paths from actual cost and progress regions to cause-signal-outcome annotations beneath the device, followed by a dark-forest closing strip. Preserve Option C's white, mineral green, deep forest, charcoal palette, small radii, fine construction-plan linework, strong grotesk type, and restrained device shadow. Only the heading may be legible; no invented metrics or decorative SaaS chrome.",
+  "approved": true,
+  "direction": ".impeccable/mocks/landing-v3-dashboard-control.png",
+  "references": [
+    "worksRecorded/public/frontend/pages/Home/HeroLaptopDashboardDiagram.png"
+  ]
+}

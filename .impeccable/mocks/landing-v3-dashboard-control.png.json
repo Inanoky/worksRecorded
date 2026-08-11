@@ -1,0 +1,8 @@
+{
+  "prompt": "High-fidelity 1536x1024 desktop landing-page comp for WorksRecorded, option C. Use the supplied WhatsApp phone and WorksRecorded dashboard/laptop as recognizable product evidence. Compact navigation, a narrow copy rail on the left with headline and CTA, and one oversized laptop/dashboard occupying the remaining two-thirds and breaking the right edge, with the phone overlapping its left edge. Three precise leader lines connect real dashboard regions to numbered proof annotations below. Begin the next fold with a split statement and real-logo row. Preserve the established white, pale mineral green, deep forest green, charcoal, and WhatsApp-green identity. Flat matte UI, strong grotesk type, construction-plan registration marks, no glass, no decorative gradients, no bento grid, no fake ratings or invented claims. Only WorksRecorded and the headline 'WhatsApp ziņas pārvēršas pārskatāmā būvdarbu uzskaitē.' may be legible; all other copy must be indistinct.",
+  "approved": true,
+  "references": [
+    "worksRecorded/public/frontend/pages/Home/HeroWhatsAppPhoneSource.png",
+    "worksRecorded/public/frontend/pages/Home/HeroLaptopDashboardDiagram.png"
+  ]
+}

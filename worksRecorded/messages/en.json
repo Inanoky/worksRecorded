@@ -20,6 +20,15 @@
     "section2Description": "No more excuses, there is always time for a voice message",
     "section2ImageAlt": "Site diary and project records in worksRecorded",
     "section2Caption": "WhatsApp notes become structured daily records – with workers, locations, works, and photos in one place.",
+    "workflowDiagram": {
+      "title": "From field information to better decisions",
+      "description": "The site team records what is happening in WhatsApp. WorksRecorded turns those updates into clear information for project management.",
+      "inputHeading": "From the field",
+      "inputs": ["Voice messages", "Quality photos", "Invoices and materials", "Deviations and delays", "Progress"],
+      "outputHeading": "For management",
+      "outputs": ["Detailed analytics", "Cost control", "Better decision-making", "Forecasting", "Better estimating"],
+      "imageAlt": "WorksRecorded workflow from WhatsApp site updates to project analytics"
+    },
     "bookDemo": "Book a demo",
     "logoStripLabel": "Works with",
     "whatsappLogoAlt": "WhatsApp logo",

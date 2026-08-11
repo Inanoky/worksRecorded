@@ -1,20 +1,52 @@
 "use client";
 
 import { IconBrandWhatsapp } from "@tabler/icons-react";
-import { ArrowRight, Zap } from "lucide-react";
+import {
+	ArrowRight,
+	BarChart3,
+	Calculator,
+	Camera,
+	CircleDollarSign,
+	Lightbulb,
+	Mic2,
+	ReceiptText,
+	Telescope,
+	TrendingUp,
+	TriangleAlert,
+	Zap,
+	type LucideIcon,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import ScreenshotSiteDiary from "@/public/frontend/pages/Home/ScreenshotSiteDiary.png";
+import HowItWorksDiagram from "@/public/frontend/pages/Home/HowItWorksDiagram.png";
 import { BudgetOutcomeSection } from "../BudgetOutcomeSection";
 import { Logos } from "../Logos";
 import { HeroProductMockup } from "./HeroProductMockup";
-import { HowDoWeDoThat, WhatDoWeDo, Why } from "./Text";
+import { HowDoWeDoThat, Why } from "./Text";
+
+const workflowInputIcons = [
+	Mic2,
+	Camera,
+	ReceiptText,
+	TriangleAlert,
+	TrendingUp,
+];
+
+const workflowOutputIcons = [
+	BarChart3,
+	CircleDollarSign,
+	Lightbulb,
+	Telescope,
+	Calculator,
+];
 
 export default function LegacyLandingPage() {
 	const t = useTranslations("LandingPageDesktop");
 	const locale = useLocale();
 	const heroTitle = t("heroTitle");
+	const workflowInputs = t.raw("workflowDiagram.inputs") as string[];
+	const workflowOutputs = t.raw("workflowDiagram.outputs") as string[];
 	const heroTitleAfterWhatsApp = heroTitle.replace(/^WhatsApp\s*/, "");
 	const calendlyDemoUrl =
 		"https://calendly.com/vjaceslavs-worksrecorded/30min?month=2026-05";
@@ -131,42 +163,95 @@ export default function LegacyLandingPage() {
 
 			<BudgetOutcomeSection />
 
-			<section className="bg-white dark:bg-slate-950">
-				<div className="mx-auto w-full max-w-6xl px-4 py-14 lg:px-6 lg:py-24">
-					<div className="grid items-center gap-10 lg:grid-cols-[1.1fr,1fr] lg:gap-14">
-						<div className="space-y-6">
-							<span className="inline-flex items-center rounded-full bg-emerald-100 px-4 py-1.5 text-xs font-medium tracking-tight text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-								{t("section2Pill")}
-							</span>
+			<section className="relative overflow-hidden bg-[#f7f8f5] dark:bg-slate-950">
+				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_28%,rgba(22,163,74,0.11),transparent_31%),radial-gradient(circle_at_88%_66%,rgba(23,105,255,0.08),transparent_32%)]" />
+				<div className="relative mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-14">
+					<div className="max-w-3xl">
+						<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] dark:text-white">
+							{t("workflowDiagram.title")}
+						</h2>
+						<p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg dark:text-slate-300">
+							{t("workflowDiagram.description")}
+						</p>
+					</div>
 
-							<div className="space-y-4">
-								<h2 className="text-3xl leading-tight font-semibold tracking-tight text-slate-950 sm:text-4xl dark:text-white">
-									{t("section2Title")}
-								</h2>
-
-								<p className="max-w-xl text-sm leading-7 text-slate-600 sm:text-base dark:text-slate-300">
-									{t("section2Description")}
-								</p>
-							</div>
-
-							<WhatDoWeDo />
+					<div className="mt-10 hidden overflow-hidden rounded-[2rem] border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10 lg:block dark:border-slate-800 dark:bg-slate-900">
+						<div className="relative aspect-[2.62] overflow-hidden bg-white">
+							<Image
+								src={HowItWorksDiagram}
+								alt={t("workflowDiagram.imageAlt")}
+								className="h-auto w-full"
+								sizes="(min-width: 1440px) 1328px, 92vw"
+							/>
 						</div>
 
-						<div className="relative">
-							<div className="pointer-events-none absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-tr from-emerald-200/50 via-white to-transparent blur-3xl dark:from-emerald-950/40 dark:via-slate-950" />
-
-							<div className="overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-2xl shadow-slate-900/10 ring-1 ring-black/5 dark:border-slate-800 dark:bg-slate-900">
-								<Image
-									src={ScreenshotSiteDiary}
-									alt={t("section2ImageAlt")}
-									priority
-									className="h-auto w-full object-cover"
+						<div className="grid grid-cols-2 border-t border-slate-200/80">
+							<div className="bg-white px-10 py-8">
+								<WorkflowRail
+									heading={t("workflowDiagram.inputHeading")}
+									items={workflowInputs}
+									icons={workflowInputIcons}
+									tone="input"
+									compact
 								/>
 							</div>
 
-							<p className="mt-4 text-center text-xs text-slate-500 dark:text-slate-400">
-								{t("section2Caption")}
-							</p>
+							<div className="relative border-l border-blue-200/70 bg-[#eef6ff] px-10 py-8">
+								<span className="absolute left-0 top-9 grid size-11 -translate-x-1/2 place-items-center rounded-full bg-[#1769ff] text-white shadow-lg shadow-blue-500/20">
+									<ArrowRight className="size-5" aria-hidden="true" />
+								</span>
+								<WorkflowRail
+									heading={t("workflowDiagram.outputHeading")}
+									items={workflowOutputs}
+									icons={workflowOutputIcons}
+									tone="output"
+									compact
+								/>
+							</div>
+						</div>
+					</div>
+
+					<div className="mt-10 overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white shadow-xl shadow-slate-900/10 lg:hidden dark:border-slate-800 dark:bg-slate-900">
+						<div className="bg-white">
+							<div className="relative aspect-[1.32] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-900/10">
+								<Image
+									src={HowItWorksDiagram}
+									alt={t("workflowDiagram.imageAlt")}
+									className="absolute left-0 top-0 h-auto w-[200%] max-w-none"
+									sizes="(max-width: 1023px) 200vw, 1px"
+								/>
+							</div>
+							<div className="px-5 py-6 sm:px-7">
+								<WorkflowRail
+									heading={t("workflowDiagram.inputHeading")}
+									items={workflowInputs}
+									icons={workflowInputIcons}
+									tone="input"
+								/>
+							</div>
+						</div>
+
+						<div className="relative border-t border-blue-200/70 bg-[#eef6ff]">
+							<span className="absolute left-1/2 top-0 z-10 grid size-11 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[#1769ff] text-white shadow-lg shadow-blue-500/20">
+								<ArrowRight className="size-5 rotate-90" aria-hidden="true" />
+							</span>
+							<div className="relative aspect-[1.32] overflow-hidden bg-[#eef6ff]">
+								<Image
+									src={HowItWorksDiagram}
+									alt=""
+									aria-hidden="true"
+									className="absolute right-0 top-0 h-auto w-[200%] max-w-none"
+									sizes="(max-width: 1023px) 200vw, 1px"
+								/>
+							</div>
+							<div className="px-5 py-6 sm:px-7">
+								<WorkflowRail
+									heading={t("workflowDiagram.outputHeading")}
+									items={workflowOutputs}
+									icons={workflowOutputIcons}
+									tone="output"
+								/>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -184,5 +269,70 @@ export default function LegacyLandingPage() {
 				</div>
 			</section>
 		</>
+	);
+}
+
+function WorkflowRail({
+	heading,
+	items,
+	icons,
+	tone,
+	compact = false,
+}: {
+	heading: string;
+	items: string[];
+	icons: LucideIcon[];
+	tone: "input" | "output";
+	compact?: boolean;
+}) {
+	const isOutput = tone === "output";
+
+	return (
+		<div>
+			<h3
+				className={`font-semibold tracking-[-0.02em] ${
+					compact ? "text-lg" : "text-xl"
+				} ${isOutput ? "text-blue-900" : "text-emerald-900"}`}
+			>
+				{heading}
+			</h3>
+			<ul
+				className={
+					compact
+						? "mt-4 grid grid-cols-2 gap-x-8"
+						: `mt-3 divide-y ${isOutput ? "divide-blue-200/80" : "divide-emerald-200/80"}`
+				}
+			>
+				{items.map((item, index) => {
+					const Icon = icons[index];
+
+					return (
+						<li
+							key={item}
+							className={`flex items-center gap-3 ${
+								compact
+									? `border-b py-3 ${isOutput ? "border-blue-200/80" : "border-emerald-200/80"}`
+									: "py-3"
+							}`}
+						>
+							<span
+								className={`grid shrink-0 place-items-center rounded-full ${
+									compact ? "size-7" : "size-9"
+								} ${
+									isOutput
+										? "bg-blue-100 text-blue-700"
+										: "bg-emerald-100 text-emerald-700"
+								}`}
+							>
+								<Icon className={compact ? "size-3.5" : "size-4"} aria-hidden="true" />
+							</span>
+							<span className={`${compact ? "text-sm" : "text-base"} font-medium leading-5 text-slate-800`}>
+								{item}
+							</span>
+						</li>
+					);
+				})}
+			</ul>
+		</div>
 	);
 }

@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-11T10:44:23.3850807+03:00",
+  "title": "Design System: WorksRecorded Landing V3",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "neutral",
+        "displayName": "Charcoal Ink",
+        "canonical": "#0b1324",
+        "tonalRamp": ["oklch(15% 0.03 260)", "oklch(25% 0.03 260)", "oklch(36% 0.03 260)", "oklch(48% 0.03 260)", "oklch(60% 0.03 260)", "oklch(72% 0.03 260)", "oklch(84% 0.03 260)", "oklch(95% 0.03 260)"]
+      },
+      "forest": {
+        "role": "primary",
+        "displayName": "Review Forest",
+        "canonical": "#06492f",
+        "tonalRamp": ["oklch(15% 0.08 155)", "oklch(25% 0.08 155)", "oklch(36% 0.08 155)", "oklch(48% 0.08 155)", "oklch(60% 0.08 155)", "oklch(72% 0.08 155)", "oklch(84% 0.08 155)", "oklch(95% 0.08 155)"]
+      },
+      "forest-deep": {
+        "role": "primary",
+        "displayName": "Deep Forest",
+        "canonical": "#033b27",
+        "tonalRamp": ["oklch(15% 0.07 155)", "oklch(25% 0.07 155)", "oklch(36% 0.07 155)", "oklch(48% 0.07 155)", "oklch(60% 0.07 155)", "oklch(72% 0.07 155)", "oklch(84% 0.07 155)", "oklch(95% 0.07 155)"]
+      },
+      "whatsapp-green": {
+        "role": "secondary",
+        "displayName": "WhatsApp Signal",
+        "canonical": "#2fc26b",
+        "tonalRamp": ["oklch(15% 0.14 150)", "oklch(25% 0.14 150)", "oklch(36% 0.14 150)", "oklch(48% 0.14 150)", "oklch(60% 0.14 150)", "oklch(72% 0.14 150)", "oklch(84% 0.14 150)", "oklch(95% 0.14 150)"]
+      },
+      "route-green": {
+        "role": "primary",
+        "displayName": "Route Green",
+        "canonical": "#08783f",
+        "tonalRamp": ["oklch(15% 0.11 150)", "oklch(25% 0.11 150)", "oklch(36% 0.11 150)", "oklch(48% 0.11 150)", "oklch(60% 0.11 150)", "oklch(72% 0.11 150)", "oklch(84% 0.11 150)", "oklch(95% 0.11 150)"]
+      },
+      "mineral": {
+        "role": "neutral",
+        "displayName": "Mineral Drawing Field",
+        "canonical": "#f4f8f4",
+        "tonalRamp": ["oklch(15% 0.01 145)", "oklch(25% 0.01 145)", "oklch(36% 0.01 145)", "oklch(48% 0.01 145)", "oklch(60% 0.01 145)", "oklch(72% 0.01 145)", "oklch(84% 0.01 145)", "oklch(95% 0.01 145)"]
+      },
+      "white": {
+        "role": "neutral",
+        "displayName": "Clean White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["oklch(15% 0 0)", "oklch(25% 0 0)", "oklch(36% 0 0)", "oklch(48% 0 0)", "oklch(60% 0 0)", "oklch(72% 0 0)", "oklch(84% 0 0)", "oklch(95% 0 0)"]
+      },
+      "body-green": {
+        "role": "neutral",
+        "displayName": "Body Green",
+        "canonical": "#263b31",
+        "tonalRamp": ["oklch(15% 0.025 155)", "oklch(25% 0.025 155)", "oklch(36% 0.025 155)", "oklch(48% 0.025 155)", "oklch(60% 0.025 155)", "oklch(72% 0.025 155)", "oklch(84% 0.025 155)", "oklch(95% 0.025 155)"]
+      },
+      "muted-green": {
+        "role": "neutral",
+        "displayName": "Muted Green",
+        "canonical": "#56675e",
+        "tonalRamp": ["oklch(15% 0.015 155)", "oklch(25% 0.015 155)", "oklch(36% 0.015 155)", "oklch(48% 0.015 155)", "oklch(60% 0.015 155)", "oklch(72% 0.015 155)", "oklch(84% 0.015 155)", "oklch(95% 0.015 155)"]
+      },
+      "technical-line": {
+        "role": "neutral",
+        "displayName": "Technical Line",
+        "canonical": "#bed4c6",
+        "tonalRamp": ["oklch(15% 0.03 155)", "oklch(25% 0.03 155)", "oklch(36% 0.03 155)", "oklch(48% 0.03 155)", "oklch(60% 0.03 155)", "oklch(72% 0.03 155)", "oklch(84% 0.03 155)", "oklch(95% 0.03 155)"]
+      },
+      "pale-divider": {
+        "role": "neutral",
+        "displayName": "Pale Divider",
+        "canonical": "#dbe7df",
+        "tonalRamp": ["oklch(15% 0.015 155)", "oklch(25% 0.015 155)", "oklch(36% 0.015 155)", "oklch(48% 0.015 155)", "oklch(60% 0.015 155)", "oklch(72% 0.015 155)", "oklch(84% 0.015 155)", "oklch(95% 0.015 155)"]
+      },
+      "device-black": {
+        "role": "neutral",
+        "displayName": "Device Black",
+        "canonical": "#060b13",
+        "tonalRamp": ["oklch(15% 0.015 260)", "oklch(25% 0.015 260)", "oklch(36% 0.015 260)", "oklch(48% 0.015 260)", "oklch(60% 0.015 260)", "oklch(72% 0.015 260)", "oklch(84% 0.015 260)", "oklch(95% 0.015 260)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero offers and closing statements in the narrow claim rail." },
+      "headline": { "displayName": "Headline", "purpose": "Section-level proof and decision claims." },
+      "lead": { "displayName": "Lead", "purpose": "The decisive explanation immediately following a heading." },
+      "body": { "displayName": "Body", "purpose": "Supporting context and evidence detail." },
+      "action": { "displayName": "Action", "purpose": "Primary, secondary, and closing controls." },
+      "technical-label": { "displayName": "Technical Label", "purpose": "Indexes, facts, and compact construction notation." }
+    },
+    "shadows": [
+      { "name": "action-rest", "value": "0 10px 24px rgb(3 59 39 / 16%)", "purpose": "Quiet lift beneath the forest primary action." },
+      { "name": "action-hover", "value": "0 14px 28px rgb(3 59 39 / 22%)", "purpose": "Hover lift paired with a two-pixel upward movement." },
+      { "name": "laptop-body", "value": "drop-shadow(0 30px 30px rgb(11 19 36 / 18%))", "purpose": "Broad physical separation for desktop hardware." },
+      { "name": "phone-body", "value": "drop-shadow(0 26px 22px rgb(11 19 36 / 25%))", "purpose": "Tighter physical separation for overlapping phone hardware." },
+      { "name": "video-stage", "value": "0 28px 40px rgb(11 19 36 / 18%)", "purpose": "Structural depth for the black demonstration frame." }
+    ],
+    "motion": [
+      { "name": "ease-expressive", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Buttons, play controls, and technical route drawing." },
+      { "name": "duration-action", "value": "160ms", "purpose": "Primary control movement and color response." },
+      { "name": "duration-nav", "value": "180ms", "purpose": "Navigation underline and client-logo reveal." },
+      { "name": "duration-route", "value": "1400ms", "purpose": "One-time technical leader trace into product evidence." }
+    ],
+    "breakpoints": [
+      { "name": "nav-collapse", "value": "1120px" },
+      { "name": "single-column", "value": "820px" },
+      { "name": "stacked-flow", "value": "560px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The canonical demo action beside a decisive offer.",
+      "html": "<button class=\"ds-btn-primary\">BOOK A DEMO <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-primary{display:inline-flex;height:48px;align-items:center;justify-content:center;gap:10px;border:1px solid #06492f;border-radius:7px;padding:0 22px;background:#06492f;color:#fff;box-shadow:0 10px 24px rgb(3 59 39 / 16%);font-family:Archivo,sans-serif;font-size:.9rem;font-weight:720;cursor:pointer;transition:transform 160ms cubic-bezier(.16,1,.3,1),background-color 160ms ease-out,box-shadow 160ms ease-out}.ds-btn-primary svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}.ds-btn-primary:hover{transform:translateY(-2px);background:#033b27;box-shadow:0 14px 28px rgb(3 59 39 / 22%)}.ds-btn-primary:focus-visible{outline:2px solid #2fc26b;outline-offset:4px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A lower-emphasis contact action paired with the primary control.",
+      "html": "<button class=\"ds-btn-secondary\">CONTACT US <svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-secondary{display:inline-flex;height:48px;align-items:center;justify-content:center;gap:10px;border:1px solid #a8c5b3;border-radius:7px;padding:0 22px;background:rgb(255 255 255 / 74%);color:#06492f;font-family:Archivo,sans-serif;font-size:.9rem;font-weight:720;cursor:pointer;transition:transform 160ms cubic-bezier(.16,1,.3,1),background-color 160ms ease-out}.ds-btn-secondary svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2}.ds-btn-secondary:hover{transform:translateY(-2px)}.ds-btn-secondary:focus-visible{outline:2px solid #2fc26b;outline-offset:4px}"
+    },
+    {
+      "name": "Navigation Link",
+      "kind": "nav",
+      "description": "A quiet header anchor with a precise drawn underline.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><a href=\"#workflow\">Workflow</a><a href=\"#budget\">Cost control</a><a href=\"#proof\">Clients</a></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:36px;font-family:Archivo,sans-serif}.ds-nav a{position:relative;color:#4f5d55;font-size:.82rem;font-weight:650;text-decoration:none}.ds-nav a::after{position:absolute;right:0;bottom:-8px;left:0;height:1px;background:#06492f;content:\"\";transform:scaleX(0);transform-origin:left;transition:transform 180ms ease-out}.ds-nav a:hover::after{transform:scaleX(1)}.ds-nav a:focus-visible{outline:2px solid #2fc26b;outline-offset:4px}"
+    },
+    {
+      "name": "Technical Annotation",
+      "kind": "custom",
+      "refersTo": "technical-index",
+      "description": "A ruled, indexed explanation step used below product evidence.",
+      "html": "<div class=\"ds-annotation\"><span class=\"ds-annotation-index\">2</span><strong>STRUCTURED RECORD</strong><small>Messages and photos become organized project evidence.</small></div>",
+      "css": ".ds-annotation{position:relative;max-width:260px;border-top:1px solid #7da58b;padding:16px 0 0 42px;font-family:Archivo,sans-serif}.ds-annotation-index{position:absolute;top:11px;left:0;display:grid;width:26px;height:26px;place-items:center;border:1px solid #08783f;border-radius:50%;color:#075f35;font-family:\"Barlow Condensed\",sans-serif;font-size:.9rem;font-weight:700}.ds-annotation strong{display:block;color:#173126;font-size:.83rem;font-weight:720;line-height:1.35}.ds-annotation small{display:block;margin-top:6px;color:#65766d;font-size:.72rem;line-height:1.45}"
+    },
+    {
+      "name": "Laptop Evidence Frame",
+      "kind": "custom",
+      "description": "The black physical shell that gives a real dashboard screenshot material authority.",
+      "html": "<div class=\"ds-laptop\"><div class=\"ds-laptop-screen\"><div class=\"ds-laptop-ui\"><span>DASHBOARD EVIDENCE</span><i></i><i></i><i></i></div></div><div class=\"ds-laptop-base\"><span></span></div></div>",
+      "css": ".ds-laptop{position:relative;width:420px;max-width:100%;filter:drop-shadow(0 30px 30px rgb(11 19 36 / 18%));font-family:Archivo,sans-serif}.ds-laptop-screen{position:relative;overflow:hidden;aspect-ratio:3/2;border:9px solid #060b13;border-radius:12px 12px 4px 4px;background:#f4f8f4}.ds-laptop-ui{display:grid;height:100%;grid-template-columns:repeat(3,1fr);gap:10px;align-content:end;padding:18px;background:linear-gradient(90deg,#fff 0 24%,#f4f8f4 24%)}.ds-laptop-ui span{position:absolute;top:18px;left:30%;color:#0b1324;font-size:12px;font-weight:720}.ds-laptop-ui i{height:44%;border-top:2px solid #08783f;background:#dbe7df}.ds-laptop-base{position:relative;left:50%;height:15px;width:108%;transform:translateX(-50%);border-radius:0 0 48% 48%;background:linear-gradient(to bottom,#202a36,#060b13 58%,#020305);box-shadow:0 13px 18px rgb(11 19 36 / 20%)}.ds-laptop-base span{position:absolute;top:0;left:50%;height:28%;width:18%;transform:translateX(-50%);border-radius:0 0 8px 8px;background:#3a4653}"
+    },
+    {
+      "name": "Principle Cell",
+      "kind": "card",
+      "description": "A flat ruled evidence principle on the deep-forest sectional anchor.",
+      "html": "<article class=\"ds-principle\"><span>03</span><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg><p>Turn informal updates into structured, auditable project knowledge.</p></article>",
+      "css": ".ds-principle{position:relative;display:grid;min-height:180px;grid-template-columns:auto 1fr;align-content:center;gap:16px;border-right:1px solid rgb(255 255 255 / 14%);border-bottom:1px solid rgb(255 255 255 / 14%);padding:38px 24px;background:#033b27;font-family:Archivo,sans-serif}.ds-principle>span{position:absolute;top:22px;right:24px;color:#71c891;font-family:\"Barlow Condensed\",sans-serif;font-size:.8rem;letter-spacing:.08em}.ds-principle svg{width:20px;height:20px;margin-top:3px;fill:none;stroke:#2fc26b;stroke-width:2}.ds-principle p{max-width:46ch;margin:0;color:#edf7f0;font-size:.94rem;line-height:1.65}"
+    },
+    {
+      "name": "Video Play Control",
+      "kind": "button",
+      "description": "The singular large circular control used to enter the real product demonstration.",
+      "html": "<button class=\"ds-play\" aria-label=\"Play product demo\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m8 5 11 7-11 7z\"/></svg></button>",
+      "css": ".ds-play{display:grid;width:70px;height:70px;place-items:center;border:1px solid rgb(255 255 255 / 70%);border-radius:50%;background:rgb(3 59 39 / 88%);color:#fff;box-shadow:0 12px 30px rgb(0 0 0 / 28%);cursor:pointer;transition:transform 160ms cubic-bezier(.16,1,.3,1),background-color 160ms ease-out}.ds-play svg{width:25px;height:25px;margin-left:3px;fill:currentColor}.ds-play:hover{transform:scale(1.06);background:#08783f}.ds-play:focus-visible{outline:2px solid #2fc26b;outline-offset:4px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Field Evidence Chain",
+    "overview": "The system makes the transformation from an informal field update to management evidence visible rather than merely claiming it. White and mineral-green drawing fields, forest construction lines, charcoal grotesk type, and real black devices create the feeling of a live construction review: practical, measured, and credible.\n\nComposition behaves like an annotated working sheet. A narrow claim rail sits beside oversized product evidence; leaders, endpoints, numbered steps, and ruled panels expose the path from WhatsApp input to structured record to cost control. It deliberately refuses the centered, floating-card SaaS hero and keeps the primary action beside the offer it resolves.",
+    "keyCharacteristics": [
+      "Dashboard-led rather than slogan-led",
+      "Matte drawing fields with precise forest linework",
+      "Real product imagery held in convincing black hardware",
+      "Compact grotesk hierarchy with condensed technical notation",
+      "One visible chain from field input to management decision"
+    ],
+    "rules": [
+      { "name": "The Controlled Green Rule", "body": "Deep forest carries hierarchy; bright WhatsApp green is a signal for channel identity, positive marks, focus, and state, never a broad decorative field.", "section": "colors" },
+      { "name": "The Evidence Contrast Rule", "body": "Product screenshots belong inside true black hardware against white or mineral fields so evidence reads before ornament.", "section": "colors" },
+      { "name": "The Compression Rule", "body": "Use tight tracking and heavy Archivo for decisive claims; use Barlow Condensed only for compact technical notation, never for paragraphs or the main offer.", "section": "typography" },
+      { "name": "The Evidence Beside Claim Rule", "body": "On wide screens, keep a narrow claim rail beside oversized product evidence; do not center the offer above a generic card cluster.", "section": "layout" },
+      { "name": "The Responsive Reduction Rule", "body": "Preserve the story order on small screens, but remove leader-line decoration before shrinking text or product evidence into illegibility.", "section": "layout" },
+      { "name": "The Physical Objects Only Rule", "body": "Keep content surfaces matte; reserve meaningful elevation for devices, playback, and actions that must feel operable.", "section": "elevation" },
+      { "name": "The Square Working Surface Rule", "body": "Use straight edges for information architecture and modest radius only where an element must feel graspable, physical, or interactive.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do show the causal sequence from WhatsApp input through structured record to management outcome in one legible chain.",
+      "Do use real WorksRecorded screens inside materially convincing black device frames.",
+      "Do keep primary actions beside the claim or offer they resolve.",
+      "Do use one-pixel forest rules, numbered endpoints, and restrained measurement details to explain product relationships.",
+      "Do reduce animation and remove nonessential leader graphics when motion preferences or viewport size require it."
+    ],
+    "donts": [
+      "Don't replace the asymmetric dashboard-led hero with centered copy and floating generic SaaS cards.",
+      "Don't use WhatsApp Signal as a broad background or decorative gradient; its rarity identifies channel input, positive state, and keyboard focus.",
+      "Don't add shadows to ordinary content cells, client proof, or annotation rows.",
+      "Don't round every container; square ruled fields are the default information architecture.",
+      "Don't substitute invented metrics, illustrations, or abstract UI for real product evidence."
+    ]
+  }
+}
