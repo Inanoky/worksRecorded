@@ -44,6 +44,9 @@
     "clientsSubheading": "Строительные компании, которые уже доверяют WorksRecorded",
     "budgetSection": {
       "eyebrow": "WorksRecorded",
+      "problemLabel": "Проблема",
+      "solutionLabel": "WorksRecorded",
+      "impactLabel": "Результат",
       "titlePrefix": "Почему проекты",
       "titleHighlight": "превышают бюджет?",
       "intro": "Превращайте ежедневные записи со стройплощадки в лучшие результаты проекта.",

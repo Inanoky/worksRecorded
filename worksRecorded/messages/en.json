@@ -39,6 +39,9 @@
     "clientsSubheading": "Construction companies that already trust worksRecorded",
     "budgetSection": {
       "eyebrow": "WorksRecorded",
+      "problemLabel": "Problem",
+      "solutionLabel": "WorksRecorded",
+      "impactLabel": "Impact",
       "titlePrefix": "Why projects are",
       "titleHighlight": "over budget?",
       "intro": "Turn everyday site records into better project outcomes.",

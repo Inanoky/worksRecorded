@@ -39,6 +39,9 @@
     "clientsSubheading": "Būvniecības uzņēmumi, kas jau uzticas worksRecorded",
     "budgetSection": {
       "eyebrow": "WorksRecorded",
+      "problemLabel": "Problēma",
+      "solutionLabel": "WorksRecorded",
+      "impactLabel": "Ietekme",
       "titlePrefix": "Kāpēc projekti",
       "titleHighlight": "pārsniedz budžetu?",
       "intro": "Pārvērtiet ikdienas būvlaukuma ierakstus labākos projektu rezultātos.",
