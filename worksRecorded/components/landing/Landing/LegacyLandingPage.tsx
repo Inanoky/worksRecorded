@@ -165,10 +165,13 @@ export default function LegacyLandingPage() {
 
 			<section className="relative overflow-hidden bg-[#f7f8f5] dark:bg-slate-950">
 				<div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_12%_28%,rgba(22,163,74,0.11),transparent_31%),radial-gradient(circle_at_88%_66%,rgba(23,105,255,0.08),transparent_32%)]" />
-				<div className="relative mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-14">
+				<div className="relative mx-auto w-full max-w-[1224px] px-5 py-16 sm:px-8 lg:px-10 lg:py-24 xl:px-12">
 					<div className="max-w-3xl">
 						<h2 className="text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-[3.75rem] dark:text-white">
-							{t("workflowDiagram.title")}
+							{t("workflowDiagram.titlePrefix")} {" "}
+							<span className="text-[#0a4426] dark:text-emerald-400">
+								{t("workflowDiagram.titleHighlight")}
+							</span>
 						</h2>
 						<p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg dark:text-slate-300">
 							{t("workflowDiagram.description")}
@@ -326,7 +329,7 @@ function WorkflowRail({
 							>
 								<Icon className={compact ? "size-3.5" : "size-4"} aria-hidden="true" />
 							</span>
-							<span className={`${compact ? "text-sm" : "text-base"} font-medium leading-5 text-slate-800`}>
+							<span className={`${compact ? "text-[1.1rem]" : "text-xl"} font-medium leading-6 text-slate-800`}>
 								{item}
 							</span>
 						</li>

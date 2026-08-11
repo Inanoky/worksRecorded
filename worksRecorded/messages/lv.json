@@ -21,7 +21,8 @@
     "section2ImageAlt": "Būvdienasgrāmata un projekta pieraksti worksRecorded",
     "section2Caption": "WhatsApp piezīmes kļūst par strukturētiem ikdienas ierakstiem — ar darbiniekiem, vietām, darbiem un fotoattēliem vienuviet.",
     "workflowDiagram": {
-      "title": "No būvlaukuma informācijas līdz labākiem lēmumiem",
+      "titlePrefix": "No būvlaukuma informācijas līdz",
+      "titleHighlight": "labākiem lēmumiem",
       "description": "Komanda fiksē notiekošo ierastajā WhatsApp vidē. WorksRecorded pārvērš šos datus pārskatāmā vadības informācijā.",
       "inputHeading": "No būvlaukuma",
       "inputs": ["Balss ziņas", "Kvalitatīvas fotogrāfijas", "Rēķini un materiāli", "Novirzes un kavējumi", "Progress"],
