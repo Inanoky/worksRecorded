@@ -1355,6 +1355,7 @@ export default function MaterialsTableClient({
         t.cost,
         t.invoice,
         t.invoiceDate,
+        t.uploadedDate,
         "BIS ID",
         t.photo,
       ]
@@ -1371,6 +1372,7 @@ export default function MaterialsTableClient({
           material.cost ?? "",
           material.invoiceNr || "—",
           formatDate(material.invoiceDate),
+          formatDate(material.createdAt),
           material.BISId || "—",
           material.sourcePhoto || "—",
         ]),
@@ -1387,6 +1389,7 @@ export default function MaterialsTableClient({
         { wch: 12 },
         { wch: 12 },
         { wch: 18 },
+        { wch: 16 },
         { wch: 16 },
         { wch: 18 },
         { wch: 40 },
@@ -1675,7 +1678,7 @@ export default function MaterialsTableClient({
 
       <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
         <div className="w-full overflow-x-auto">
-          <Table className={`${forma2Enabled ? "min-w-[1600px]" : showSpendInsights ? "min-w-[1360px]" : "min-w-[1240px]"} text-sm`}>
+          <Table className={`${forma2Enabled ? "min-w-[1720px]" : showSpendInsights ? "min-w-[1480px]" : "min-w-[1360px]"} text-sm`}>
             <TableHeader>
               <TableRow className="bg-muted/40 [&_th]:px-3 [&_th]:py-3">
                 <TableHead className="w-12">
@@ -1701,6 +1704,7 @@ export default function MaterialsTableClient({
                 <TableHead className="w-[7%]">{t.cost}</TableHead>
                 <TableHead className="w-[7%]">{t.invoice}</TableHead>
                 <TableHead className="w-[9%]">{t.invoiceDate}</TableHead>
+                <TableHead className="w-[9%]">{t.uploadedDate}</TableHead>
                 <TableHead className="w-[11%] text-right">{t.action}</TableHead>
               </TableRow>
             </TableHeader>
@@ -1709,7 +1713,7 @@ export default function MaterialsTableClient({
               {filteredMaterials.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={11 + Number(showSpendInsights) + Number(showBisControls) + Number(forma2Enabled)}
+                    colSpan={12 + Number(showSpendInsights) + Number(showBisControls) + Number(forma2Enabled)}
                     className="py-12 text-center"
                   >
                     <div className="space-y-1">
@@ -1943,6 +1947,7 @@ export default function MaterialsTableClient({
                       </TableCell>
                       <TableCell className="truncate">{r.invoiceNr || "—"}</TableCell>
                       <TableCell>{formatDate(r.invoiceDate)}</TableCell>
+                      <TableCell>{formatDate(r.createdAt)}</TableCell>
                       <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
                             {showBisControls && !isSent ? (

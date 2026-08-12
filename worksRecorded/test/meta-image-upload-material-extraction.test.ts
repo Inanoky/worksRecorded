@@ -125,7 +125,7 @@ import { handleSiteManagerRoute } from "@/flows/default-construction/backend/sit
 import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import expectedFixture from "./fixtures/meta-webhook/material-invoice.expected.json";
 
-const expectedItemsWithDateEvidence = expectedFixture.items.map(item => ({
+const expectedItemsWithDateEvidence = expectedFixture.items.map((item) => ({
 	...item,
 	invoiceDateText: "04.12.2025",
 	invoiceDateYearVisible: true,
@@ -281,7 +281,10 @@ describe("site-manager material image upload extraction", () => {
 		expect(mockPhotosUpdateMany).toHaveBeenCalledWith({
 			where: {
 				siteId: "site-1",
-				OR: [{ URL: mockUploadedPublicUrl }, { fileUrl: mockUploadedPublicUrl }],
+				OR: [
+					{ URL: mockUploadedPublicUrl },
+					{ fileUrl: mockUploadedPublicUrl },
+				],
 			},
 			data: {
 				mediaPurpose: "warehouse_invoice",
@@ -304,6 +307,128 @@ describe("site-manager material image upload extraction", () => {
 			"whatsapp:+37120000000",
 			"✅ Materiālu dokuments saņemts. Materiāli tika izvilkti un saglabāti.",
 		);
+	});
+
+	it("extracts an uncertain document-like invoice instead of saving it as a regular photo", async () => {
+		mockStructuredInvoke.mockReset();
+		mockStructuredInvoke
+			.mockResolvedValueOnce({
+				isMaterialDocument: false,
+				confidence: 0.54,
+				reason: "document-like invoice but material rows are uncertain",
+			})
+			.mockResolvedValueOnce({
+				items: expectedItemsWithDateEvidence,
+			});
+
+		const formData = new FormData();
+		formData.set("Body", "Rēķins materiāliem");
+		formData.set("NumMedia", "1");
+		formData.set("MediaUrl0", "https://meta.test/uncertain-invoice.jpg");
+		formData.set("MediaContentType0", "image/jpeg");
+
+		await handleSiteManagerRoute({
+			from: "whatsapp:+37120000000",
+			formData,
+			user: {
+				id: "user-1",
+				phone: "37120000000",
+				firstName: "Dimitris",
+				lastName: "Papadopoulos",
+				lastSelectedSiteIdforWhatsapp: "site-1",
+			},
+		});
+
+		expect(mockStructuredInvoke).toHaveBeenCalledTimes(2);
+		expect(mockCreateMany).toHaveBeenCalled();
+		expect(mockPhotosUpdateMany).toHaveBeenCalledWith({
+			where: {
+				siteId: "site-1",
+				OR: [
+					{ URL: mockUploadedPublicUrl },
+					{ fileUrl: mockUploadedPublicUrl },
+				],
+			},
+			data: {
+				mediaPurpose: "warehouse_invoice",
+			},
+		});
+		expect(mockSavePhoto).not.toHaveBeenCalled();
+		expect(mockHandleText).not.toHaveBeenCalled();
+		expect(mockSendMessage).toHaveBeenCalledWith(
+			"whatsapp:+37120000000",
+			"✅ Materiālu dokuments saņemts. Materiāli tika izvilkti un saglabāti.",
+		);
+	});
+
+	it("extracts service invoice rows and marks the image as a warehouse invoice", async () => {
+		mockStructuredInvoke.mockReset();
+		mockStructuredInvoke
+			.mockResolvedValueOnce({
+				isMaterialDocument: true,
+				confidence: 0.75,
+				reason: "readable invoice with construction service rows and prices",
+			})
+			.mockResolvedValueOnce({
+				items: [
+					{
+						name: "Celtniecības pakalpojumi",
+						cost: 4200,
+						invoiceNr: "MDP 34",
+						invoiceDate: "2026-08-06T00:00:00Z",
+						invoiceDateText: "06.08.2026",
+						invoiceDateYearVisible: true,
+						costCode: "B68",
+						quantity: 1,
+						construction_material_id: "no_match",
+					},
+				],
+			});
+
+		const formData = new FormData();
+		formData.set("Body", "Pakalpojumu rēķins");
+		formData.set("NumMedia", "1");
+		formData.set("MediaUrl0", "https://meta.test/service-invoice.jpg");
+		formData.set("MediaContentType0", "image/jpeg");
+
+		await handleSiteManagerRoute({
+			from: "whatsapp:+37120000000",
+			formData,
+			user: {
+				id: "user-1",
+				phone: "37120000000",
+				firstName: "Dimitris",
+				lastName: "Papadopoulos",
+				lastSelectedSiteIdforWhatsapp: "site-1",
+			},
+		});
+
+		expect(mockStructuredInvoke).toHaveBeenCalledTimes(2);
+		expect(mockCreateMany).toHaveBeenCalledWith({
+			data: [
+				expect.objectContaining({
+					name: "Celtniecības pakalpojumi",
+					cost: 4200,
+					invoiceNr: "MDP 34",
+					categoryId: "no_match",
+					sourcePhoto: mockUploadedPublicUrl,
+				}),
+			],
+		});
+		expect(mockPhotosUpdateMany).toHaveBeenCalledWith({
+			where: {
+				siteId: "site-1",
+				OR: [
+					{ URL: mockUploadedPublicUrl },
+					{ fileUrl: mockUploadedPublicUrl },
+				],
+			},
+			data: {
+				mediaPurpose: "warehouse_invoice",
+			},
+		});
+		expect(mockSavePhoto).not.toHaveBeenCalled();
+		expect(mockHandleText).not.toHaveBeenCalled();
 	});
 
 	it("saves a non-material progress image and processes only the supplied caption", async () => {
@@ -347,8 +472,7 @@ describe("site-manager material image upload extraction", () => {
 				siteId: "site-1",
 				url: mockUploadedPublicUrl,
 				fileUrl: mockUploadedPublicUrl,
-				comment:
-					"Jānis Bērziņš : Šodien pabeidzām starpsienu montāžu 2. stāvā",
+				comment: "Jānis Bērziņš : Šodien pabeidzām starpsienu montāžu 2. stāvā",
 			}),
 		);
 		expect(mockHandleText).toHaveBeenCalledWith(

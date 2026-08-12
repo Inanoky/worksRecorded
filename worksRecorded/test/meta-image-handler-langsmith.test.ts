@@ -176,8 +176,8 @@ describe("meta image handler LangSmith tracing", () => {
 			publicUrl,
 			"37120000000",
 		);
-		const payload = JSON.parse(result);
 
+		expect(result).toBe(true);
 		expect(ChatOpenAI).toHaveBeenCalledWith({
 			model: "gpt-5.4",
 			temperature: 0,
@@ -222,13 +222,6 @@ describe("meta image handler LangSmith tracing", () => {
 		});
 		expect(JSON.stringify(config.metadata)).not.toContain(publicUrl);
 		expect(config.runId).toMatch(uuidV7Pattern);
-		expect(payload.items[0]).toMatchObject({
-			senderFirstName: "Anna",
-			senderLastName: "Bērziņa",
-			senderName: "Anna Bērziņa",
-			senderInitials: "AB",
-			senderLabel: "Anna Bērziņa",
-		});
 		expect(mockCreateMany).toHaveBeenCalledWith({
 			data: [
 				expect.objectContaining({
@@ -236,6 +229,105 @@ describe("meta image handler LangSmith tracing", () => {
 					siteId: "site-1",
 					orgId: "org-1",
 					userId: "user-1",
+					sourcePhoto: publicUrl,
+				}),
+			],
+		});
+	});
+
+	it("attempts extraction for uncertain document-like classifier results", async () => {
+		const publicUrl = "https://utfs.io/f/uncertain-invoice.jpg";
+
+		mockUserFindFirst.mockResolvedValueOnce({
+			id: "user-1",
+			firstName: "Dimitris",
+			lastName: "Papadopoulos",
+			organizationId: "org-1",
+			lastSelectedSiteIdforWhatsapp: "site-1",
+			siteManagerSelectIdforWhatsapp: null,
+		});
+		mockStructuredInvoke
+			.mockResolvedValueOnce({
+				isMaterialDocument: false,
+				confidence: 0.52,
+				reason: "document-like invoice but material rows are uncertain",
+			})
+			.mockResolvedValueOnce({
+				items: [
+					{
+						name: "Cements",
+						cost: 12.34,
+						invoiceNr: "INV-1",
+						invoiceDate: null,
+						invoiceDateText: "",
+						invoiceDateYearVisible: false,
+						costCode: "MAT",
+						quantity: 2,
+						construction_material_id: "no_match",
+					},
+				],
+			});
+
+		const handled = await processMaterialDocumentImageFromPublicUrl({
+			publicUrl,
+			senderPhone: "37120000000",
+		});
+
+		expect(handled).toBe(true);
+		expect(mockStructuredInvoke).toHaveBeenCalledTimes(2);
+		expect(mockCreateMany).toHaveBeenCalledWith({
+			data: [
+				expect.objectContaining({ name: "Cements", sourcePhoto: publicUrl }),
+			],
+		});
+	});
+
+	it("extracts service invoice rows even when no material rows are visible", async () => {
+		const publicUrl = "https://utfs.io/f/service-invoice.jpg";
+
+		mockUserFindFirst.mockResolvedValueOnce({
+			id: "user-1",
+			firstName: "Dimitris",
+			lastName: "Papadopoulos",
+			organizationId: "org-1",
+			lastSelectedSiteIdforWhatsapp: "site-1",
+			siteManagerSelectIdforWhatsapp: null,
+		});
+		mockStructuredInvoke
+			.mockResolvedValueOnce({
+				isMaterialDocument: true,
+				confidence: 0.75,
+				reason: "readable invoice with labor service rows and prices",
+			})
+			.mockResolvedValueOnce({
+				items: [
+					{
+						name: "Celtniecības pakalpojumi",
+						cost: 4200,
+						invoiceNr: "MDP 34",
+						invoiceDate: "2026-08-06T00:00:00Z",
+						invoiceDateText: "06.08.2026",
+						invoiceDateYearVisible: true,
+						costCode: "B68",
+						quantity: 1,
+						construction_material_id: "no_match",
+					},
+				],
+			});
+
+		const handled = await processMaterialDocumentImageFromPublicUrl({
+			publicUrl,
+			senderPhone: "37120000000",
+		});
+
+		expect(handled).toBe(true);
+		expect(mockStructuredInvoke).toHaveBeenCalledTimes(2);
+		expect(mockCreateMany).toHaveBeenCalledWith({
+			data: [
+				expect.objectContaining({
+					name: "Celtniecības pakalpojumi",
+					cost: 4200,
+					categoryId: "no_match",
 					sourcePhoto: publicUrl,
 				}),
 			],
