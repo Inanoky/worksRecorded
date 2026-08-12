@@ -1,56 +1,92 @@
-// app/(marketing)/pricing/page.tsx
-
-import { useTranslations } from "next-intl";
-
+import { Check, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
+import { useLocale, useTranslations } from "next-intl";
+import {
+	MarketingPageShell,
+	PageEyebrow,
+	PrimaryCta,
+} from "@/components/landing/MarketingPagePrimitives";
 import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
 
-type PageProps = {
-  params: Promise<{ locale: string }>;
-};
+type PageProps = { params: Promise<{ locale: string }> };
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { locale } = await params;
-
-  return buildLandingMetadata({
-    locale,
-    path: "/Landing/Pricing",
-    title: "WorksRecorded Pricing | Construction AI Software",
-    description:
-      "View WorksRecorded pricing for AI-powered site records, timesheets, and construction analytics.",
-    keywords: [
-      "construction software",
-      "AI tools",
-      "AI in construction",
-      "construction technology",
-      "WorksRecorded",
-    ],
-  });
+export async function generateMetadata({
+	params,
+}: PageProps): Promise<Metadata> {
+	const { locale } = await params;
+	return buildLandingMetadata({
+		locale,
+		path: "/Landing/Pricing",
+		title: "WorksRecorded Pricing | Construction AI Software",
+		description:
+			"View WorksRecorded pricing for AI-powered site records, timesheets, and construction analytics.",
+		keywords: [
+			"construction software pricing",
+			"AI construction software",
+			"WorksRecorded",
+		],
+	});
 }
 
 export default function Page() {
-  const t = useTranslations("Pricing");
+	const t = useTranslations("Pricing");
+	const landing = useTranslations("LandingPageDesktop");
+	const locale = useLocale();
 
-  return (
-    <section className="relative flex items-center justify-center bg-slate-50/60 dark:bg-slate-950">
-      <div className="w-full mx-auto max-w-5xl px-4 sm:px-6 py-12 lg:py-24">
-        {/* Heading */}
-        <div className="text-center max-w-3xl mx-auto">
-          <h1 className="mt-4 sm:mt-6 text-4xl sm:text-6xl md:text-7xl font-extrabold leading-tight tracking-tighter">
-            {t("title.prefix")}{" "}
-            <span className="text-primary">{t("title.highlight")}</span>
-          </h1>
+	return (
+		<MarketingPageShell>
+			<section className="mx-auto grid min-h-[720px] w-full max-w-[1328px] items-center gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:px-10 lg:py-20">
+				<div className="max-w-xl">
+					<PageEyebrow>WorksRecorded</PageEyebrow>
+					<h1 className="mt-5 text-balance text-5xl font-bold leading-[1.03] tracking-[-0.04em] sm:text-6xl lg:text-[4.35rem]">
+						{t("title.prefix")}{" "}
+						<span className="text-[#087a49]">{t("title.highlight")}</span>
+					</h1>
+					<p className="mt-6 text-lg leading-8 text-slate-600 sm:text-xl dark:text-slate-300">
+						{t("description")}
+					</p>
+				</div>
 
-          <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-            {t("description")}
-          </p>
-        </div>
-
-        {/* Main content */}
-        <div className="mt-12 md:mt-16 grid grid-cols-1 gap-8 lg:gap-12">
-          {/* Pricing cards go here */}
-        </div>
-      </div>
-    </section>
-  );
+				<div className="relative rounded-[2rem] bg-[#073e27] p-2 shadow-[0_32px_90px_rgba(6,78,48,0.25)]">
+					<div className="rounded-[1.6rem] bg-white p-7 sm:p-10 dark:bg-slate-950">
+						<div className="flex items-start justify-between gap-6">
+							<div>
+								<p className="text-sm font-bold uppercase tracking-[0.18em] text-[#087a49]">
+									WorksRecorded
+								</p>
+								<p className="mt-3 text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
+									{t("title.prefix")}
+								</p>
+							</div>
+							<span className="grid size-12 shrink-0 place-items-center rounded-full bg-emerald-100 text-[#087a49]">
+								<Sparkles className="size-6" aria-hidden="true" />
+							</span>
+						</div>
+						<p className="mt-5 text-xl font-semibold text-[#087a49]">
+							{t("title.highlight")}
+						</p>
+						<div className="my-8 h-px bg-slate-200 dark:bg-slate-800" />
+						<ul className="grid gap-4">
+							{["WhatsApp", "AI", "BIS"].map((item) => (
+								<li
+									key={item}
+									className="flex items-center gap-3 text-lg font-medium text-slate-700 dark:text-slate-200"
+								>
+									<span className="grid size-7 place-items-center rounded-full bg-emerald-100 text-[#087a49]">
+										<Check className="size-4" aria-hidden="true" />
+									</span>
+									{item}
+								</li>
+							))}
+						</ul>
+						<div className="mt-9">
+							<PrimaryCta href={`/${locale}/Landing/ContactForm`}>
+								{landing("contactUs")}
+							</PrimaryCta>
+						</div>
+					</div>
+				</div>
+			</section>
+		</MarketingPageShell>
+	);
 }
