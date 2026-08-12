@@ -1,282 +1,244 @@
-// components/landing/ContactSection.tsx
 "use client";
 
-import { motion, useInView, type Variants } from "framer-motion";
 import { Globe, Mail, Phone, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
+import {
+	MarketingPageShell,
+	PageEyebrow,
+} from "@/components/landing/MarketingPagePrimitives";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { trackGenerateLeadOnce } from "@/lib/analytics/marketing-events";
 
-// --- Helper component to wrap items in animation ---
-const AnimatedWrapper = motion.div;
-
-// --- Animation Variants ---
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.3,
-    },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: "spring",
-      stiffness: 100,
-    },
-  },
-};
-
 export default function ContactForm() {
-  const t = useTranslations("Contact");
-  const locale = useLocale();
+	const t = useTranslations("Contact");
+	const locale = useLocale();
+	const router = useRouter();
+	const submissionInFlight = useRef(false);
+	const [pending, setPending] = useState(false);
+	const [status, setStatus] = useState<null | { ok: boolean; msg: string }>(
+		null,
+	);
+	const emailId = useId();
+	const firstNameId = useId();
+	const lastNameId = useId();
+	const messageId = useId();
+	const subjectId = useId();
 
-  const [pending, setPending] = useState(false);
-  const [status, setStatus] = useState<null | { ok: boolean; msg: string }>(
-    null,
-  );
-  const router = useRouter();
-  const submissionInFlight = useRef(false);
-  const emailId = useId();
-  const firstNameId = useId();
-  const lastNameId = useId();
-  const messageId = useId();
-  const subjectId = useId();
+	async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+		event.preventDefault();
+		if (submissionInFlight.current) return;
 
-  const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, amount: 0.3 });
+		submissionInFlight.current = true;
+		setPending(true);
+		setStatus(null);
+		const formData = new FormData(event.currentTarget);
+		const payload = {
+			firstName: String(formData.get("firstName") || ""),
+			lastName: String(formData.get("lastName") || ""),
+			email: String(formData.get("email") || ""),
+			subject: String(formData.get("subject") || ""),
+			message: String(formData.get("message") || ""),
+			hp: String(formData.get("hp") || ""),
+		};
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    if (submissionInFlight.current) return;
+		try {
+			const response = await fetch("/api/send", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(payload),
+			});
+			const data = await response.json().catch(() => ({}));
 
-    submissionInFlight.current = true;
-    setPending(true);
-    setStatus(null);
+			if (response.ok) {
+				if (data.accepted === true && typeof data.id === "string")
+					trackGenerateLeadOnce(data.id);
+				router.push(`/${locale}/Landing/ThankYou`);
+				return;
+			}
 
-    const fd = new FormData(e.currentTarget);
-    const payload = {
-      firstName: String(fd.get("firstName") || ""),
-      lastName: String(fd.get("lastName") || ""),
-      email: String(fd.get("email") || ""),
-      subject: String(fd.get("subject") || ""),
-      message: String(fd.get("message") || ""),
-      hp: String(fd.get("hp") || ""),
-    };
+			setStatus({
+				ok: false,
+				msg: data?.error ? String(data.error) : t("status.errorDefault"),
+			});
+		} catch {
+			setStatus({ ok: false, msg: t("status.errorDefault") });
+		} finally {
+			submissionInFlight.current = false;
+			setPending(false);
+		}
+	}
 
-    try {
-      const res = await fetch("/api/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
+	const contactDetails = [
+		{
+			icon: Phone,
+			label: t("phoneLabel"),
+			value: "+371 24885690",
+			href: "tel:+37124885690",
+		},
+		{
+			icon: Mail,
+			label: t("emailLabel"),
+			value: "vjaceslavs@worksrecorded.com",
+			href: "mailto:vjaceslavs@worksrecorded.com",
+		},
+		{
+			icon: Globe,
+			label: t("webLabel"),
+			value: "worksrecorded.com",
+			href: "https://www.worksrecorded.com",
+		},
+	];
 
-      if (res.ok) {
-        if (data.accepted === true && typeof data.id === "string") {
-          trackGenerateLeadOnce(data.id);
-        }
+	return (
+		<MarketingPageShell>
+			<section className="mx-auto grid min-h-[760px] w-full max-w-[1328px] items-center gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[0.82fr_1.18fr] lg:px-10 lg:py-20">
+				<div className="max-w-xl">
+					<PageEyebrow>WorksRecorded</PageEyebrow>
+					<h1 className="mt-5 text-balance text-5xl font-bold leading-[1.03] tracking-[-0.04em] sm:text-6xl lg:text-[4.35rem]">
+						{t("heroTitle").replace(" 🚀", "")}
+					</h1>
+					<p className="mt-6 text-lg leading-8 text-slate-600 sm:text-xl dark:text-slate-300">
+						{t("heroDescription").replaceAll("**", "")}
+					</p>
+					<h2 className="mt-10 text-sm font-bold uppercase tracking-[0.18em] text-slate-500">
+						{t("quickDetailsTitle")}
+					</h2>
+					<ul className="mt-5 grid gap-3">
+						{contactDetails.map(({ icon: Icon, label, value, href }) => (
+							<li key={label}>
+								<a
+									href={href}
+									className="group flex items-center gap-4 rounded-2xl border border-slate-200/80 bg-white/70 p-4 transition hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-white dark:border-slate-800 dark:bg-slate-900/70"
+								>
+									<span className="grid size-11 shrink-0 place-items-center rounded-full bg-emerald-100 text-[#087a49]">
+										<Icon className="size-5" aria-hidden="true" />
+									</span>
+									<span className="min-w-0">
+										<span className="block text-sm text-slate-500">
+											{label}
+										</span>
+										<span className="block truncate font-semibold text-slate-900 group-hover:text-[#087a49] dark:text-white">
+											{value}
+										</span>
+									</span>
+								</a>
+							</li>
+						))}
+					</ul>
+				</div>
 
-        router.push(`/${locale}/Landing/ThankYou`);
-        return;
-      }
+				<div className="rounded-[2rem] border border-white/70 bg-white/90 p-6 shadow-[0_32px_90px_rgba(15,23,42,0.16)] backdrop-blur-sm sm:p-9 dark:border-slate-800 dark:bg-slate-900/90">
+					<h2 className="text-3xl font-bold tracking-[-0.035em] sm:text-4xl">
+						{t("formTitle")}
+					</h2>
+					<form className="mt-7 grid gap-5" onSubmit={onSubmit}>
+						<input
+							type="text"
+							name="hp"
+							className="hidden"
+							tabIndex={-1}
+							autoComplete="off"
+						/>
+						<div className="grid gap-5 sm:grid-cols-2">
+							<Field label={t("firstNameLabel")} id={firstNameId}>
+								<Input
+									id={firstNameId}
+									name="firstName"
+									placeholder={t("firstNamePlaceholder")}
+									required
+								/>
+							</Field>
+							<Field label={t("lastNameLabel")} id={lastNameId}>
+								<Input
+									id={lastNameId}
+									name="lastName"
+									placeholder={t("lastNamePlaceholder")}
+									required
+								/>
+							</Field>
+						</div>
+						<Field label={t("emailFieldLabel")} id={emailId}>
+							<Input
+								id={emailId}
+								name="email"
+								type="email"
+								placeholder={t("emailPlaceholder")}
+								required
+							/>
+						</Field>
+						<Field label={t("subjectLabel")} id={subjectId}>
+							<Input
+								id={subjectId}
+								name="subject"
+								placeholder={t("subjectPlaceholder")}
+								required
+							/>
+						</Field>
+						<Field label={t("messageLabel")} id={messageId}>
+							<Textarea
+								id={messageId}
+								name="message"
+								placeholder={t("messagePlaceholder")}
+								className="min-h-36 resize-y"
+								required
+							/>
+						</Field>
+						{status && (
+							<p
+								role="alert"
+								className={
+									status.ok
+										? "text-sm font-semibold text-green-600"
+										: "text-sm font-semibold text-red-600"
+								}
+							>
+								{status.msg}
+							</p>
+						)}
+						<Button
+							type="submit"
+							className="h-13 w-full rounded-full bg-[#1769ff] text-base font-semibold text-white hover:bg-[#0f5de8]"
+							disabled={pending}
+						>
+							{pending ? (
+								t("sending")
+							) : (
+								<>
+									{t("sendMessage")}
+									<Send className="ml-2 size-4" aria-hidden="true" />
+								</>
+							)}
+						</Button>
+					</form>
+				</div>
+			</section>
+		</MarketingPageShell>
+	);
+}
 
-      setStatus({
-        ok: false,
-        msg: data?.error ? String(data.error) : t("status.errorDefault"),
-      });
-    } catch {
-      setStatus({ ok: false, msg: t("status.errorDefault") });
-    } finally {
-      submissionInFlight.current = false;
-      setPending(false);
-    }
-  }
-
-  return (
-    <section
-      ref={ref}
-      className="mx-auto max-w-6xl rounded-2xl border bg-background p-8 sm:p-10"
-    >
-      <AnimatedWrapper
-        className="grid grid-cols-1 gap-10 md:grid-cols-2"
-        variants={containerVariants}
-        initial="hidden"
-        animate={isInView ? "visible" : "hidden"}
-      >
-        {/* Left */}
-        <div className="space-y-8">
-          <AnimatedWrapper variants={itemVariants} className="space-y-4">
-            <h1 className="text-5xl font-extrabold tracking-tight text-primary">
-              {t("heroTitle")}
-            </h1>
-            <p className="text-muted-foreground max-w-[46ch] text-lg">
-              {t("heroDescription")}
-            </p>
-          </AnimatedWrapper>
-
-          <AnimatedWrapper variants={itemVariants} className="space-y-4">
-            <h2 className="text-2xl font-bold">{t("quickDetailsTitle")}</h2>
-            <ul className="list-none space-y-3">
-              <li className="flex items-center space-x-3">
-                <Phone className="h-5 w-5 text-primary flex-shrink-0" />
-                <span className="font-medium">{t("phoneLabel")}</span> +371
-                24885690
-              </li>
-
-              <li className="flex items-center space-x-3">
-                <Mail className="h-5 w-5 text-primary flex-shrink-0" />
-                <span className="font-medium">{t("emailLabel")}</span>{" "}
-                <a
-                  href="mailto:vjaceslavs@worksrecorded.com"
-                  className="underline hover:text-primary transition-colors"
-                >
-                  vjaceslavs@worksrecorded.com
-                </a>
-              </li>
-
-              <li className="flex items-center space-x-3">
-                <Globe className="h-5 w-5 text-primary flex-shrink-0" />
-                <span className="font-medium">{t("webLabel")}</span>{" "}
-                <a
-                  href="https://www.worksrecorded.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="underline hover:text-primary transition-colors"
-                >
-                  worksrecorded.com
-                </a>
-              </li>
-            </ul>
-          </AnimatedWrapper>
-        </div>
-
-        {/* Right */}
-        <AnimatedWrapper
-          variants={itemVariants}
-          className="rounded-2xl border bg-card text-card-foreground shadow-2xl"
-        >
-          <Card className="rounded-2xl border-none shadow-none">
-            <CardHeader className="p-6">
-              <CardTitle className="text-3xl font-bold">
-                {t("formTitle")}
-              </CardTitle>
-            </CardHeader>
-
-            <CardContent className="p-6 pt-0">
-              <form className="space-y-5" onSubmit={onSubmit}>
-                <input
-                  type="text"
-                  name="hp"
-                  className="hidden"
-                  tabIndex={-1}
-                  autoComplete="off"
-                />
-
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <AnimatedWrapper
-                    variants={itemVariants}
-                    className="space-y-2"
-                  >
-                    <Label htmlFor={firstNameId}>{t("firstNameLabel")}</Label>
-                    <Input
-                      id={firstNameId}
-                      name="firstName"
-                      placeholder={t("firstNamePlaceholder")}
-                      required
-                    />
-                  </AnimatedWrapper>
-
-                  <AnimatedWrapper
-                    variants={itemVariants}
-                    className="space-y-2"
-                  >
-                    <Label htmlFor={lastNameId}>{t("lastNameLabel")}</Label>
-                    <Input
-                      id={lastNameId}
-                      name="lastName"
-                      placeholder={t("lastNamePlaceholder")}
-                      required
-                    />
-                  </AnimatedWrapper>
-                </div>
-
-                <AnimatedWrapper variants={itemVariants} className="space-y-2">
-                  <Label htmlFor={emailId}>{t("emailFieldLabel")}</Label>
-                  <Input
-                    id={emailId}
-                    name="email"
-                    type="email"
-                    placeholder={t("emailPlaceholder")}
-                    required
-                  />
-                </AnimatedWrapper>
-
-                <AnimatedWrapper variants={itemVariants} className="space-y-2">
-                  <Label htmlFor={subjectId}>{t("subjectLabel")}</Label>
-                  <Input
-                    id={subjectId}
-                    name="subject"
-                    placeholder={t("subjectPlaceholder")}
-                    required
-                  />
-                </AnimatedWrapper>
-
-                <AnimatedWrapper variants={itemVariants} className="space-y-2">
-                  <Label htmlFor={messageId}>{t("messageLabel")}</Label>
-                  <Textarea
-                    id={messageId}
-                    name="message"
-                    placeholder={t("messagePlaceholder")}
-                    className="min-h-32"
-                    required
-                  />
-                </AnimatedWrapper>
-
-                {status && (
-                  <p
-                    className={
-                      status.ok
-                        ? "text-green-600 text-sm font-semibold"
-                        : "text-destructive text-sm font-semibold"
-                    }
-                  >
-                    {status.msg}
-                  </p>
-                )}
-
-                <Button
-                  type="submit"
-                  className="w-full h-11 text-base group"
-                  disabled={pending}
-                >
-                  {pending ? (
-                    t("sending")
-                  ) : (
-                    <>
-                      {t("sendMessage")}
-                      <Send className="h-4 w-4 ml-2 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                    </>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </AnimatedWrapper>
-      </AnimatedWrapper>
-    </section>
-  );
+function Field({
+	id,
+	label,
+	children,
+}: {
+	id: string;
+	label: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<div className="grid gap-2">
+			<Label
+				htmlFor={id}
+				className="font-semibold text-slate-700 dark:text-slate-200"
+			>
+				{label}
+			</Label>
+			{children}
+		</div>
+	);
 }

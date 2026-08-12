@@ -1,26 +1,31 @@
 //C:\Users\user\MainProjects\Buvconsult-deploy\buvconsult\app\layout.tsx
-"use client";
-
 import "@/app/globals.css";
 
 import FooterDesktop from "@/components/landing/FooterDesktop";
 import FooterMobile from "@/components/landing/FooterMobile";
 import HeaderDesktop from "@/components/landing/HeaderDesktop";
 import HeaderMobile from "@/components/landing/HeaderMobile";
-import { useIsMobile } from "@/lib/utils/hooks/use-mobile";
 
 export default function LandingLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
-	const isMobile = useIsMobile();
-
 	return (
 		<div className="landing-tactile overflow-x-hidden antialiased">
-			{isMobile ? <HeaderMobile /> : <HeaderDesktop />}
+			<div className="md:hidden">
+				<HeaderMobile />
+			</div>
+			<div className="hidden md:block">
+				<HeaderDesktop />
+			</div>
 			{children}
-			{isMobile ? <FooterMobile /> : <FooterDesktop />}
+			<div className="md:hidden">
+				<FooterMobile />
+			</div>
+			<div className="hidden md:block">
+				<FooterDesktop />
+			</div>
 		</div>
 	);
 }
