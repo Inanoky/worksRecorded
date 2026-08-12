@@ -16,7 +16,6 @@ import {
 	X,
 	type LucideIcon,
 } from "lucide-react";
-import { HeroProductMockup } from "@/components/landing/Landing/HeroProductMockup";
 import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
 
 type PageProps = {
@@ -78,7 +77,7 @@ export default function Page() {
 
 	return (
 		<main className="overflow-hidden bg-[radial-gradient(circle_at_12%_8%,rgba(8,122,73,0.12),transparent_18%),radial-gradient(circle_at_88%_42%,rgba(23,105,255,0.055),transparent_22%),linear-gradient(180deg,#f7f8f5_0%,#ffffff_46%,#f7f8f5_100%)] text-slate-950 dark:bg-slate-950 dark:text-white">
-			<section className="relative mx-auto grid min-h-[720px] w-full max-w-[1440px] items-center gap-10 px-5 py-16 sm:px-8 lg:grid-cols-[0.88fr_1.12fr] lg:px-10 lg:py-20 xl:px-14">
+			<section className="relative mx-auto grid min-h-[720px] w-full max-w-[1440px] items-center gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[0.78fr_1.22fr] lg:px-10 lg:py-20 xl:px-14">
 				<div className="relative z-10 max-w-2xl">
 					<p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#087a49]">
 						<span className="h-0.5 w-8 rounded-full bg-[#087a49]" />
@@ -104,7 +103,23 @@ export default function Page() {
 				</div>
 
 				<div className="relative min-h-[390px] sm:min-h-[520px] lg:min-h-[610px]">
-					<HeroProductMockup />
+					<div className="absolute inset-0 overflow-hidden rounded-[2rem] shadow-[0_32px_80px_rgba(15,23,42,0.18)]">
+						<Image
+							src="/frontend/pages/SiteDiary/hero-construction-site-scott-blake.jpg"
+							alt={t("hero.photoAlt")}
+							fill
+							priority
+							quality={100}
+							className="object-cover object-[58%_center]"
+							sizes="(min-width: 1280px) 760px, (min-width: 1024px) 58vw, 92vw"
+						/>
+					</div>
+
+					<div className="absolute -bottom-5 left-5 max-w-[19rem] rounded-2xl bg-[#033b27] px-5 py-4 text-white shadow-[0_18px_45px_rgba(3,59,39,0.28)] sm:left-8 lg:-left-7 lg:bottom-8">
+						<p className="text-sm font-semibold leading-6">
+							{t("hero.photoCaption")}
+						</p>
+					</div>
 				</div>
 			</section>
 

@@ -165,7 +165,9 @@
       "titlePrefix": "Built for",
       "titleHighlight": "contractors",
       "description": "Capture what happens on site, control project costs and keep reliable evidence — without adding more software or administration for your team.",
-      "cta": "Talk to us"
+      "cta": "Talk to us",
+      "photoCaption": "WhatsApp updates become structured project data.",
+      "photoAlt": "Construction team reviewing an active building site"
     },
     "features": [
       { "title": "No new software", "description": "Your team already uses WhatsApp to communicate. WorksRecorded turns those familiar conversations into structured project records." },

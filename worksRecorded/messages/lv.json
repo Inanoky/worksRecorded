@@ -164,7 +164,9 @@
       "titlePrefix": "Radīts",
       "titleHighlight": "būvuzņēmējiem",
       "description": "Fiksējiet būvlaukumā notiekošo, kontrolējiet projekta izmaksas un saglabājiet uzticamus pierādījumus — bez jaunas programmatūras un papildu administrēšanas.",
-      "cta": "Sazināties"
+      "cta": "Sazināties",
+      "photoCaption": "WhatsApp ziņas pārtop pārskatāmos projekta datos.",
+      "photoAlt": "Būvniecības komanda aktīvā būvlaukumā"
     },
     "features": [
       { "title": "Nav vajadzīga jauna programmatūra", "description": "Jūsu komanda jau izmanto WhatsApp saziņai. WorksRecorded pārvērš ierastās sarunas strukturētos projekta ierakstos." },
