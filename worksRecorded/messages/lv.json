@@ -1,474 +1,576 @@
 {
-  "LandingPageDesktop": {
-    "topPill": "Izstrādāts būvniecības apakšuzņēmējiem",
-    "heroTitle": "WhatsApp kā darbu uzskaites rīks",
-    "heroRotatingTitles": ["Būvdarbu uzskaite", "Ražošanas uzskaite", "Izmaksu kontrole"],
-    "smallDescription": "Strukturēti darba ieraksti, izmaksu kontrole un pārskatāmas atskaites — viss caur WhatsApp.",
-    "heroDescription": "WorksRecorded palīdz būvniecības un ražošanas komandām viegli fiksēt paveikto, sekot līdzi darba izmaksām un saglabāt visu svarīgo vienuviet.",
-    "heroRating": "4.8 / 5 klientu vērtējums",
-    "heroSetup": "Ātri ieviešams",
-    "contactUs": "Sazināties",
-    "startFreeTrial": "Pamēģināt bezmaksas",
-    "signIn": "Uzdot jautājumu",
-    "noCardNote": "",
-    "heroImageAlt": "worksRecorded galvenais priekšskatījums",
-    "videoTitle": "WorksRecorded demonstrācija",
-    "videoCaption": "Vienas minūtes apskats - kā WhatsApp ziņas kļūst par strukturētu būvdarbu žurnālu.",
+	"LandingPageDesktop": {
+		"topPill": "Izstrādāts būvniecības apakšuzņēmējiem",
+		"heroTitle": "WhatsApp kā darbu uzskaites rīks",
+		"heroRotatingTitles": [
+			"Būvdarbu uzskaite",
+			"Ražošanas uzskaite",
+			"Izmaksu kontrole"
+		],
+		"smallDescription": "Strukturēti darba ieraksti, izmaksu kontrole un pārskatāmas atskaites — viss caur WhatsApp.",
+		"heroDescription": "WorksRecorded palīdz būvniecības un ražošanas komandām viegli fiksēt paveikto, sekot līdzi darba izmaksām un saglabāt visu svarīgo vienuviet.",
+		"heroRating": "4.8 / 5 klientu vērtējums",
+		"heroSetup": "Ātri ieviešams",
+		"contactUs": "Sazināties",
+		"startFreeTrial": "Pamēģināt bezmaksas",
+		"signIn": "Uzdot jautājumu",
+		"noCardNote": "",
+		"heroImageAlt": "worksRecorded galvenais priekšskatījums",
+		"videoTitle": "WorksRecorded demonstrācija",
+		"videoCaption": "Vienas minūtes apskats - kā WhatsApp ziņas kļūst par strukturētu būvdarbu žurnālu.",
 
-    "section2Pill": "Būvlaukuma pieraksti, kas patiešām tiek veikti",
-    "section2Title": "Sūti balss ziņas caur WhatsApp — MI sakārto",
-    "section2Description": "Atvieglojiet vadītājiem un meistariem reģistrēt to, kas patiesībā notika būvlaukumā — bez papildu lietotnēm, formām vai vēla vakara dokumentēšanas.",
-    "section2ImageAlt": "Būvdienasgrāmata un projekta pieraksti worksRecorded",
-    "section2Caption": "WhatsApp piezīmes kļūst par strukturētiem ikdienas ierakstiem — ar darbiniekiem, vietām, darbiem un fotoattēliem vienuviet.",
-    "workflowDiagram": {
-      "titlePrefix": "Kā tas",
-      "titleHighlight": "darbojas",
-      "description": "Komanda fiksē notiekošo ierastajā WhatsApp vidē. WorksRecorded pārvērš šos datus pārskatāmā vadības informācijā.",
-      "inputHeading": "No būvlaukuma",
-      "inputs": ["Balss ziņas", "Kvalitatīvas fotogrāfijas", "Rēķini un materiāli", "Novirzes un kavējumi", "Progress"],
-      "outputHeading": "Vadības rezultāts",
-      "outputs": ["Detalizēta analītika", "Izmaksu kontrole", "Labāku lēmumu pieņemšana", "Prognozēšana", "Precīzāka tāmēšana"],
-      "imageAlt": "WorksRecorded darba plūsma no WhatsApp būvlaukuma ziņām līdz projektu analītikai"
-    },
-    "bookDemo": "Rezervēt demo",
-    "logoStripLabel": "Darbojas ar",
-    "whatsappLogoAlt": "WhatsApp logo",
-    "bisLogoAlt": "BIS logo",
-    "bisLogoLabel": "BIS integrācija",
-    "clientsHeading": "Mūsu klienti",
-    "clientsSubheading": "Būvniecības uzņēmumi, kas jau uzticas worksRecorded",
-    "budgetSection": {
-      "eyebrow": "WorksRecorded",
-      "problemLabel": "Problēma",
-      "solutionLabel": "WorksRecorded",
-      "impactLabel": "Ietekme",
-      "titlePrefix": "Kāpēc projekti",
-      "titleHighlight": "pārsniedz budžetu?",
-      "intro": "Pārvērtiet ikdienas būvlaukuma ierakstus labākos projektu rezultātos.",
-      "flows": [
-        {
-          "problem": "Nepietiekami iecenots",
-          "solution": "Faktiskie objekta dati",
-          "outcome": "Par 15% precīzākas tāmes"
-        },
-        {
-          "problem": "Neefektīvs darbs",
-          "solution": "Ikdienas progresa atskaites",
-          "outcome": "Par 10% ātrāka izpilde"
-        },
-        {
-          "problem": "Pretenzijas",
-          "solution": "Prasībām atbilstoši ieraksti",
-          "outcome": "Par 50% mazāk nepamatotu pretenziju"
-        }
-      ]
-    },
-    "whyWorksRecordedSection": {
-      "titlePrefix": "Kāpēc",
-      "titleHighlight": "WorksRecorded?",
-      "reasons": [
-        "Vienīgais digitālais būvdarbu žurnāls ar BIS integrāciju, lai minimizētu dubulto darbu.",
-        "Praktiska sistēma objekta gaitas uzraudzībai, datu glabāšanai un analīzei.",
-        "Arī bez integrācijām — balss ziņas un foto var sūtīt tieši caur WhatsApp.",
-        "Risinājums ir pielāgots tieši būvniecības nozarei."
-      ],
-      "statementPrefix": "Risinājums",
-      "statementBody": "— moderns, inteliģents būvdarbu žurnāls ar BIS integrāciju un iebūvētu MI, pielāgots",
-      "statementHighlight": "Latvijas vajadzībām",
-      "steps": [
-        "Darba vadītājs ar balss ziņu izstāsta, kas notiek objektā, un pievieno foto.",
-        "MI sakārto un saglabā informāciju datubāzē.",
-        "Automātiski aizpilda ikdienas darbu ierakstus BIS.",
-        "Automātiski aizpilda saņemtos materiālus un būvizstrādājumus no pavadzīmju foto.",
-        "Darba stundu atskaite ar GPS koordinātu pārbaudēm.",
-        "Objekta darbu gaita tiek glabāta datubāzē un sasaistīta ar jaunākajiem LLM modeļiem.",
-        "Laika ekonomija līdz 1 stundai dienā administratīvajiem darbiem."
-      ]
-    },
-    "clientDepromDescription": [
-      "Deprom ir Lielbritānijā bāzēts saliekto betona konstrukciju speciālists, kas palīdz būvuzņēmējiem sasniegt izmaksu stabilitāti, ātrākus grafikus un lielāku ilgtspēju. Uzņēmums piedāvā pilna cikla saliekto risinājumus — ķieģeļu fasādes, arhitektonisko betona apšuvumu, kā arī dzīvojamo un komerciālo ēku karkasus — ar pašu inženiertehnisko, fasāžu un karkasu servisu.",
-      "Pārceļot konstrukciju un fasāžu darbus no būvlaukuma uz kontrolētu rūpnīcas vidi, Deprom samazina grafiku risku, uzlabo kvalitātes kontroli un saīsina darbu uz objekta. Uzņēmuma portfelī ietilpst dzīvojamās ēkas, komerciālās ēkas un individuāli fasāžu pasūtījumi visā Lielbritānijā."
-    ],
-    "clientLecDescription": [
-      "LEC — SIA Latvijas Energoceltnieks — ir Baltijas līderis ar vairāk nekā 30 gadu pieredzi enerģētikas un telekomunikāciju būvniecībā, ar 280 profesionālu darbinieku komandu. Uzņēmums projektē un būvē augstsprieguma līnijas, apakšstacijas, kabeļu maršrutus un elektroenerģijas ražošanas objektus, kā arī lielā mērogā izbūvē optiskā šķiedra tīklus.",
-      "Ar Latviju un Vāciju kā galvenajiem tirgiem, LEC darbojas pilna cikla pieejā — Ideja, Izaicinājums, Risinājums — aptverot projektēšanu, būvniecību, modernizāciju un kritiskās infrastruktūras apkopi. Uzņēmums ir uzticams partneris energoapgādes un telekomunikāciju operatoriem visā Ziemeļeiropā."
-    ],
-    "clientZtcDescription": [
-      "ZTC ir Latvijā bāzēts saliekto koka karkasa un CLT (krustlīmētā koka) māju ražotājs ar vairāk nekā 30 gadu pieredzi Eiropas koka būvniecībā. Rūpnīcā ar CNC precizitāti tiek ražoti sienas un grīdas paneļi ar iemontētiem logiem, apvienojot CLT un koka karkasa tehnoloģijas dzīvojamo, komerciālo un rūpniecisko ēku vajadzībām. ZTC eksportē gatavās mājas uz Norvēģiju, Zviedriju, Nīderlandi un Islandi.",
-      "ZTC darbs ir ieguvis Latvijas Būvniecības gada balvu koka ēkās, un katrs panelis nes CE marķējumu saskaņā ar ETA-21/0014. Pēc sarunām ar diviem citiem piegādātājiem par ražošanas līnijas automatizāciju, ZTC izvēlējās worksRecorded — trešais mēģinājums, kas beidzot izdevās — sniedzot struktūru un pārredzamību viņu ražošanas un būvju ierakstiem."
-    ]
-  },
+		"section2Pill": "Būvlaukuma pieraksti, kas patiešām tiek veikti",
+		"section2Title": "Sūti balss ziņas caur WhatsApp — MI sakārto",
+		"section2Description": "Atvieglojiet vadītājiem un meistariem reģistrēt to, kas patiesībā notika būvlaukumā — bez papildu lietotnēm, formām vai vēla vakara dokumentēšanas.",
+		"section2ImageAlt": "Būvdienasgrāmata un projekta pieraksti worksRecorded",
+		"section2Caption": "WhatsApp piezīmes kļūst par strukturētiem ikdienas ierakstiem — ar darbiniekiem, vietām, darbiem un fotoattēliem vienuviet.",
+		"workflowDiagram": {
+			"titlePrefix": "Kā tas",
+			"titleHighlight": "darbojas",
+			"description": "Komanda fiksē notiekošo ierastajā WhatsApp vidē. WorksRecorded pārvērš šos datus pārskatāmā vadības informācijā.",
+			"inputHeading": "No būvlaukuma",
+			"inputs": [
+				"Balss ziņas",
+				"Kvalitatīvas fotogrāfijas",
+				"Rēķini un materiāli",
+				"Novirzes un kavējumi",
+				"Progress"
+			],
+			"outputHeading": "Vadības rezultāts",
+			"outputs": [
+				"Detalizēta analītika",
+				"Izmaksu kontrole",
+				"Labāku lēmumu pieņemšana",
+				"Prognozēšana",
+				"Precīzāka tāmēšana"
+			],
+			"imageAlt": "WorksRecorded darba plūsma no WhatsApp būvlaukuma ziņām līdz projektu analītikai"
+		},
+		"bookDemo": "Rezervēt demo",
+		"logoStripLabel": "Darbojas ar",
+		"whatsappLogoAlt": "WhatsApp logo",
+		"bisLogoAlt": "BIS logo",
+		"bisLogoLabel": "BIS integrācija",
+		"clientsHeading": "Mūsu klienti",
+		"clientsSubheading": "Būvniecības uzņēmumi, kas jau uzticas worksRecorded",
+		"budgetSection": {
+			"eyebrow": "WorksRecorded",
+			"problemLabel": "Problēma",
+			"solutionLabel": "WorksRecorded",
+			"impactLabel": "Ietekme",
+			"titlePrefix": "Kāpēc projekti",
+			"titleHighlight": "pārsniedz budžetu?",
+			"intro": "Pārvērtiet ikdienas būvlaukuma ierakstus labākos projektu rezultātos.",
+			"flows": [
+				{
+					"problem": "Nepietiekami iecenots",
+					"solution": "Faktiskie objekta dati",
+					"outcome": "Par 15% precīzākas tāmes"
+				},
+				{
+					"problem": "Neefektīvs darbs",
+					"solution": "Ikdienas progresa atskaites",
+					"outcome": "Par 10% ātrāka izpilde"
+				},
+				{
+					"problem": "Pretenzijas",
+					"solution": "Prasībām atbilstoši ieraksti",
+					"outcome": "Par 50% mazāk nepamatotu pretenziju"
+				}
+			]
+		},
+		"whyWorksRecordedSection": {
+			"titlePrefix": "Kāpēc",
+			"titleHighlight": "WorksRecorded?",
+			"reasons": [
+				"Vienīgais digitālais būvdarbu žurnāls ar BIS integrāciju, lai minimizētu dubulto darbu.",
+				"Praktiska sistēma objekta gaitas uzraudzībai, datu glabāšanai un analīzei.",
+				"Arī bez integrācijām — balss ziņas un foto var sūtīt tieši caur WhatsApp.",
+				"Risinājums ir pielāgots tieši būvniecības nozarei."
+			],
+			"statementPrefix": "Risinājums",
+			"statementBody": "— moderns, inteliģents būvdarbu žurnāls ar BIS integrāciju un iebūvētu MI, pielāgots",
+			"statementHighlight": "Latvijas vajadzībām",
+			"steps": [
+				"Darba vadītājs ar balss ziņu izstāsta, kas notiek objektā, un pievieno foto.",
+				"MI sakārto un saglabā informāciju datubāzē.",
+				"Automātiski aizpilda ikdienas darbu ierakstus BIS.",
+				"Automātiski aizpilda saņemtos materiālus un būvizstrādājumus no pavadzīmju foto.",
+				"Darba stundu atskaite ar GPS koordinātu pārbaudēm.",
+				"Objekta darbu gaita tiek glabāta datubāzē un sasaistīta ar jaunākajiem LLM modeļiem.",
+				"Laika ekonomija līdz 1 stundai dienā administratīvajiem darbiem."
+			]
+		},
+		"clientDepromDescription": [
+			"Deprom ir Lielbritānijā bāzēts saliekto betona konstrukciju speciālists, kas palīdz būvuzņēmējiem sasniegt izmaksu stabilitāti, ātrākus grafikus un lielāku ilgtspēju. Uzņēmums piedāvā pilna cikla saliekto risinājumus — ķieģeļu fasādes, arhitektonisko betona apšuvumu, kā arī dzīvojamo un komerciālo ēku karkasus — ar pašu inženiertehnisko, fasāžu un karkasu servisu.",
+			"Pārceļot konstrukciju un fasāžu darbus no būvlaukuma uz kontrolētu rūpnīcas vidi, Deprom samazina grafiku risku, uzlabo kvalitātes kontroli un saīsina darbu uz objekta. Uzņēmuma portfelī ietilpst dzīvojamās ēkas, komerciālās ēkas un individuāli fasāžu pasūtījumi visā Lielbritānijā."
+		],
+		"clientLecDescription": [
+			"LEC — SIA Latvijas Energoceltnieks — ir Baltijas līderis ar vairāk nekā 30 gadu pieredzi enerģētikas un telekomunikāciju būvniecībā, ar 280 profesionālu darbinieku komandu. Uzņēmums projektē un būvē augstsprieguma līnijas, apakšstacijas, kabeļu maršrutus un elektroenerģijas ražošanas objektus, kā arī lielā mērogā izbūvē optiskā šķiedra tīklus.",
+			"Ar Latviju un Vāciju kā galvenajiem tirgiem, LEC darbojas pilna cikla pieejā — Ideja, Izaicinājums, Risinājums — aptverot projektēšanu, būvniecību, modernizāciju un kritiskās infrastruktūras apkopi. Uzņēmums ir uzticams partneris energoapgādes un telekomunikāciju operatoriem visā Ziemeļeiropā."
+		],
+		"clientZtcDescription": [
+			"ZTC ir Latvijā bāzēts saliekto koka karkasa un CLT (krustlīmētā koka) māju ražotājs ar vairāk nekā 30 gadu pieredzi Eiropas koka būvniecībā. Rūpnīcā ar CNC precizitāti tiek ražoti sienas un grīdas paneļi ar iemontētiem logiem, apvienojot CLT un koka karkasa tehnoloģijas dzīvojamo, komerciālo un rūpniecisko ēku vajadzībām. ZTC eksportē gatavās mājas uz Norvēģiju, Zviedriju, Nīderlandi un Islandi.",
+			"ZTC darbs ir ieguvis Latvijas Būvniecības gada balvu koka ēkās, un katrs panelis nes CE marķējumu saskaņā ar ETA-21/0014. Pēc sarunām ar diviem citiem piegādātājiem par ražošanas līnijas automatizāciju, ZTC izvēlējās worksRecorded — trešais mēģinājums, kas beidzot izdevās — sniedzot struktūru un pārredzamību viņu ražošanas un būvju ierakstiem."
+		]
+	},
 
-  "LandingText": {
-    "whatDoWeDo": {
-      "heading": "Mēs risinām būvdarbu un darba laika uzskaites problēmas mazajiem un vidējiem būvniecības apakšuzņēmējiem:",
-      "items": [
-        { "title": "Grūti saņemt kvalitatīvas atskaites no būvobjekta komandas?" },
-        { "title": "Darba stundu pārtēriņš, bet neviens nevar paskaidrot, kur stundas pazūd?" },
-        { "title": "Vēlaties kārtību, lai uzkrātu zināšanas, nevis katru projektu sāktu no jauna?" },
-        { "title": "Haoss darbinieku laika uzskaitē un nav pārliecības par datu patiesumu?" },
-        { "title": "Grūti veikt objekta analīzi un pieņemt savlaicīgus lēmumus?" },
-        { "title": "Darba vadītājs pavada pārāk daudz laika birojā, nevis objektā?" },
-        { "title": "BIS aizpildīšanai nepieciešami papildu resursi?" }
-      ]
-    },
+	"LandingText": {
+		"whatDoWeDo": {
+			"heading": "Mēs risinām būvdarbu un darba laika uzskaites problēmas mazajiem un vidējiem būvniecības apakšuzņēmējiem:",
+			"items": [
+				{
+					"title": "Grūti saņemt kvalitatīvas atskaites no būvobjekta komandas?"
+				},
+				{
+					"title": "Darba stundu pārtēriņš, bet neviens nevar paskaidrot, kur stundas pazūd?"
+				},
+				{
+					"title": "Vēlaties kārtību, lai uzkrātu zināšanas, nevis katru projektu sāktu no jauna?"
+				},
+				{
+					"title": "Haoss darbinieku laika uzskaitē un nav pārliecības par datu patiesumu?"
+				},
+				{
+					"title": "Grūti veikt objekta analīzi un pieņemt savlaicīgus lēmumus?"
+				},
+				{
+					"title": "Darba vadītājs pavada pārāk daudz laika birojā, nevis objektā?"
+				},
+				{ "title": "BIS aizpildīšanai nepieciešami papildu resursi?" }
+			]
+		},
 
-    "howDoWeDoThat": {
-      "heading": "Risinājums — moderns, inteliģents būvdarbu žurnāls ar BIS integrāciju un iebūvētu MI, pielāgots Latvijas vajadzībām",
-      "items": [
-        {
-          "title": "Darba vadītājs ar balss ziņu izstāsta, kas notiek objektā, un pievieno foto",
-          "desc": "Nav jāaizpilda sarežģītas formas — pietiek ar ierasto WhatsApp saziņu."
-        },
-        {
-          "title": "MI sakārto un saglabā informāciju datubāzē",
-          "desc": "Ziņas tiek strukturētas pēc dienas, darbiem, cilvēkiem un lokācijas."
-        },
-        {
-          "title": "Automātiski aizpilda ikdienas darbu ierakstus BIS",
-          "desc": "Mazāk manuāla darba un kļūdu."
-        },
-        {
-          "title": "Automātiski aizpilda saņemtos materiālus un būvizstrādājumus no pavadzīmju foto",
-          "desc": "Dokumentēšana notiek bez dubultas ievades."
-        },
-        {
-          "title": "Darba stundu atskaite ar GPS koordinātu pārbaudēm",
-          "desc": "Vairāk uzticības datiem un precīzāka uzskaite."
-        },
-        {
-          "title": "Objekta darbu gaita tiek glabāta datubāzē un sasaistīta ar jaunākajiem LLM modeļiem",
-          "desc": "Varat uzdot jautājumus par savu projektu un ātri iegūt atbildes."
-        },
-        {
-          "title": "Laika ekonomija līdz 1 stundai dienā administratīvajiem darbiem",
-          "desc": "Komanda vairāk laika pavada objektā, nevis pie dokumentiem."
-        }
-      ]
-    },
+		"howDoWeDoThat": {
+			"heading": "Risinājums — moderns, inteliģents būvdarbu žurnāls ar BIS integrāciju un iebūvētu MI, pielāgots Latvijas vajadzībām",
+			"items": [
+				{
+					"title": "Darba vadītājs ar balss ziņu izstāsta, kas notiek objektā, un pievieno foto",
+					"desc": "Nav jāaizpilda sarežģītas formas — pietiek ar ierasto WhatsApp saziņu."
+				},
+				{
+					"title": "MI sakārto un saglabā informāciju datubāzē",
+					"desc": "Ziņas tiek strukturētas pēc dienas, darbiem, cilvēkiem un lokācijas."
+				},
+				{
+					"title": "Automātiski aizpilda ikdienas darbu ierakstus BIS",
+					"desc": "Mazāk manuāla darba un kļūdu."
+				},
+				{
+					"title": "Automātiski aizpilda saņemtos materiālus un būvizstrādājumus no pavadzīmju foto",
+					"desc": "Dokumentēšana notiek bez dubultas ievades."
+				},
+				{
+					"title": "Darba stundu atskaite ar GPS koordinātu pārbaudēm",
+					"desc": "Vairāk uzticības datiem un precīzāka uzskaite."
+				},
+				{
+					"title": "Objekta darbu gaita tiek glabāta datubāzē un sasaistīta ar jaunākajiem LLM modeļiem",
+					"desc": "Varat uzdot jautājumus par savu projektu un ātri iegūt atbildes."
+				},
+				{
+					"title": "Laika ekonomija līdz 1 stundai dienā administratīvajiem darbiem",
+					"desc": "Komanda vairāk laika pavada objektā, nevis pie dokumentiem."
+				}
+			]
+		},
 
-    "why": {
-      "heading": "Kāpēc WorksRecorded?",
-      "description": "Praktisks risinājums būvniecībai Latvijā, kas samazina administratīvo slogu un dubulto darbu.",
-      "bullets": [
-        "Vienīgais digitālais būvdarbu žurnāls ar BIS integrāciju, lai minimizētu dubulto darbu.",
-        "Praktiska sistēma objekta gaitas uzraudzībai, datu glabāšanai un analīzei.",
-        "Arī bez integrācijām — balss ziņas un foto var sūtīt tieši caur WhatsApp.",
-        "Risinājums ir pielāgots tieši būvniecības nozarei."
-      ]
-    }
-  },
+		"why": {
+			"heading": "Kāpēc WorksRecorded?",
+			"description": "Praktisks risinājums būvniecībai Latvijā, kas samazina administratīvo slogu un dubulto darbu.",
+			"bullets": [
+				"Vienīgais digitālais būvdarbu žurnāls ar BIS integrāciju, lai minimizētu dubulto darbu.",
+				"Praktiska sistēma objekta gaitas uzraudzībai, datu glabāšanai un analīzei.",
+				"Arī bez integrācijām — balss ziņas un foto var sūtīt tieši caur WhatsApp.",
+				"Risinājums ir pielāgots tieši būvniecības nozarei."
+			]
+		}
+	},
 
-   "SiteDiary": {
-    "hero": {
-      "titlePrefix": "Radīts",
-      "titleHighlight": "būvuzņēmējiem",
-      "description": "Fiksējiet būvlaukumā notiekošo, kontrolējiet projekta izmaksas un saglabājiet uzticamus pierādījumus — bez jaunas programmatūras un papildu administrēšanas.",
-      "cta": "Sazināties",
-      "photoCaption": "WhatsApp ziņas pārtop pārskatāmos projekta datos.",
-      "photoAlt": "Būvniecības komanda aktīvā būvlaukumā"
-    },
-    "features": [
-      { "title": "Nav vajadzīga jauna programmatūra", "description": "Jūsu komanda jau izmanto WhatsApp saziņai. WorksRecorded pārvērš ierastās sarunas strukturētos projekta ierakstos." },
-      { "title": "Balss ziņas no būvlaukuma", "description": "Balss ziņa ir ātrākais veids, kā fiksēt objektā notiekošo — paveiktos darbus, kavējumus, šķēršļus un papildu darbus." },
-      { "title": "Nav ieviešanas izmaksu", "description": "Nav sarežģītas ieviešanas vai apmācību programmas. Būvlaukuma komanda var sākt atskaitīties jau no pirmās minūtes." },
-      { "title": "Nav datu ievades izmaksu", "description": "MI pārraksta balss ziņas tekstā un sakārto katru atjauninājumu pēc projektiem, lokācijām, darbiem un tāmes struktūras." },
-      { "title": "Pārskatāmība projektu vadībai", "description": "Progress, kavējumi, šķēršļi un papildu darbi ir vienuviet, lai birojs vienmēr saprastu, kas notiek objektā." },
-      { "title": "Importējiet savu tāmi", "description": "Augšupielādējiet būvdarbu tāmi no Excel un salīdziniet plānotās izmaksas ar faktiskajām darbaspēka, materiālu un projekta izmaksām." },
-      { "title": "Rēķini un materiālu pavadzīmes", "description": "Nofotografējiet rēķinus un pavadzīmes WhatsApp. WorksRecorded automātiski piesaista katru izmaksu pareizajai tāmes kategorijai." },
-      { "title": "Inteliģents pēc būtības", "description": "Savienojiet projekta vēsturi ar MI analīzei, prognozēšanai un nepārtrauktai darbu izpildes un tāmēšanas uzlabošanai." }
-    ],
-    "comparison": {
-      "eyebrow": "Pirms un pēc",
-      "titlePrefix": "Kas mainās ar",
-      "titleHighlight": "WorksRecorded?",
-      "description": "Aizstājiet sadrumstalotu būvlaukuma saziņu ar pilnīgiem, strukturētiem projekta pierādījumiem.",
-      "withoutTitle": "Bez WorksRecorded",
-      "withTitle": "Ar WorksRecorded",
-      "withoutItems": [
-        "Papildu darbi tiek izpildīti, bet netiek izrakstīti rēķinos",
-        "Produktivitāti ir grūti izmērīt",
-        "Nav uzticamu datu nākamajām tāmēm",
-        "Ja kaut kas noiet greizi, nav pierādījumu",
-        "Darbiniekam aizejot, pazūd arī projekta informācija",
-        "Budžeta pārsniegums kļūst redzams pārāk vēlu",
-        "Informācija no objekta nenonāk līdz birojam",
-        "Projektu vadība neredz, kurš un ko paveica objektā",
-        "Saņemot pretenzijas, nav skaidrības par iespējamo finansiālo ietekmi"
-      ],
-      "withItems": [
-        "Visi papildu darbi ir dokumentēti un iekļauti rēķinos",
-        "Ikdienas produktivitātes atskaites",
-        "Pilnīgs būvdarbu žurnāls par kavējumiem, šķēršļiem, izmaiņām un kvalitāti",
-        "Skaidri uzskaitīts laiks katram darbam",
-        "Faktisko cenu dati nākamajām tāmēm",
-        "Pilnīga pārskatāmība projektu vadībai",
-        "Tāmes salīdzinātas ar faktiskajām izmaksām",
-        "BIS dokumentācija aizpildīta automātiski",
-        "Darbu vadītāji vairāk laika pavada objektā, nevis birojā"
-      ]
-    },
-    "title": "Būvdarbu žurnāls",
+	"SiteDiary": {
+		"hero": {
+			"titlePrefix": "Radīts",
+			"titleHighlight": "būvuzņēmējiem",
+			"description": "Fiksējiet būvlaukumā notiekošo, kontrolējiet projekta izmaksas un saglabājiet uzticamus pierādījumus — bez jaunas programmatūras un papildu administrēšanas.",
+			"cta": "Sazināties",
+			"photoCaption": "WhatsApp ziņas pārtop pārskatāmos projekta datos.",
+			"photoAlt": "Būvniecības komanda aktīvā būvlaukumā"
+		},
+		"features": [
+			{
+				"title": "Nav vajadzīga jauna programmatūra",
+				"description": "Jūsu komanda jau izmanto WhatsApp saziņai. WorksRecorded pārvērš ierastās sarunas strukturētos projekta ierakstos."
+			},
+			{
+				"title": "Balss ziņas no būvlaukuma",
+				"description": "Balss ziņa ir ātrākais veids, kā fiksēt objektā notiekošo — paveiktos darbus, kavējumus, šķēršļus un papildu darbus."
+			},
+			{
+				"title": "Nav ieviešanas izmaksu",
+				"description": "Nav sarežģītas ieviešanas vai apmācību programmas. Būvlaukuma komanda var sākt atskaitīties jau no pirmās minūtes."
+			},
+			{
+				"title": "Nav datu ievades izmaksu",
+				"description": "MI pārraksta balss ziņas tekstā un sakārto katru atjauninājumu pēc projektiem, lokācijām, darbiem un tāmes struktūras."
+			},
+			{
+				"title": "Pārskatāmība projektu vadībai",
+				"description": "Progress, kavējumi, šķēršļi un papildu darbi ir vienuviet, lai birojs vienmēr saprastu, kas notiek objektā."
+			},
+			{
+				"title": "Importējiet savu tāmi",
+				"description": "Augšupielādējiet būvdarbu tāmi no Excel un salīdziniet plānotās izmaksas ar faktiskajām darbaspēka, materiālu un projekta izmaksām."
+			},
+			{
+				"title": "Rēķini un materiālu pavadzīmes",
+				"description": "Nofotografējiet rēķinus un pavadzīmes WhatsApp. WorksRecorded automātiski piesaista katru izmaksu pareizajai tāmes kategorijai."
+			},
+			{
+				"title": "Inteliģents pēc būtības",
+				"description": "Savienojiet projekta vēsturi ar MI analīzei, prognozēšanai un nepārtrauktai darbu izpildes un tāmēšanas uzlabošanai."
+			}
+		],
+		"comparison": {
+			"eyebrow": "Pirms un pēc",
+			"titlePrefix": "Kas mainās ar",
+			"titleHighlight": "WorksRecorded?",
+			"description": "Aizstājiet sadrumstalotu būvlaukuma saziņu ar pilnīgiem, strukturētiem projekta pierādījumiem.",
+			"withoutTitle": "Bez WorksRecorded",
+			"withTitle": "Ar WorksRecorded",
+			"withoutItems": [
+				"Papildu darbi tiek izpildīti, bet netiek izrakstīti rēķinos",
+				"Produktivitāti ir grūti izmērīt",
+				"Nav uzticamu datu nākamajām tāmēm",
+				"Ja kaut kas noiet greizi, nav pierādījumu",
+				"Darbiniekam aizejot, pazūd arī projekta informācija",
+				"Budžeta pārsniegums kļūst redzams pārāk vēlu",
+				"Informācija no objekta nenonāk līdz birojam",
+				"Projektu vadība neredz, kurš un ko paveica objektā",
+				"Saņemot pretenzijas, nav skaidrības par iespējamo finansiālo ietekmi"
+			],
+			"withItems": [
+				"Visi papildu darbi ir dokumentēti un iekļauti rēķinos",
+				"Ikdienas produktivitātes atskaites",
+				"Pilnīgs būvdarbu žurnāls par kavējumiem, šķēršļiem, izmaiņām un kvalitāti",
+				"Skaidri uzskaitīts laiks katram darbam",
+				"Faktisko cenu dati nākamajām tāmēm",
+				"Pilnīga pārskatāmība projektu vadībai",
+				"Tāmes salīdzinātas ar faktiskajām izmaksām",
+				"BIS dokumentācija aizpildīta automātiski",
+				"Darbu vadītāji vairāk laika pavada objektā, nevis birojā"
+			]
+		},
+		"title": "Būvdarbu žurnāls",
 
-    "block1": {
-      "title": "Kā tas darbojas",
-      "text": "Vienkārši nosūtiet balss ziņu uz WorksRecorded WhatsApp, aprakstot, kas šodien notika. Mūsu AI pārvērtīs jūsu teikto strukturētā būvdienasgrāmatas ierakstā."
-    },
+		"block1": {
+			"title": "Kā tas darbojas",
+			"text": "Vienkārši nosūtiet balss ziņu uz WorksRecorded WhatsApp, aprakstot, kas šodien notika. Mūsu AI pārvērtīs jūsu teikto strukturētā būvdienasgrāmatas ierakstā."
+		},
 
-    "block2": {
-      "title": "Kāds ir ieguvums",
-      "p1": "Viss, kas notiek būvlaukumā projekta laikā, tiek saglabāts un ir viegli pieejams.",
-      "p2": {
-        "prefix": "Prasība? Jums ir",
-        "highlight": "pierādījumi aizstāvībai."
-      },
-      "p3": {
-        "prefix": "Zaudējumi? Jums ir",
-        "highlight": "pierādījumi atgūšanai."
-      },
-      "p4": "Tāme? Jūs precīzi zināt, cik daudz laika ir patērēts.",
-      "p5": "Jūsu projekts ir pierakstīts."
-    },
+		"block2": {
+			"title": "Kāds ir ieguvums",
+			"p1": "Viss, kas notiek būvlaukumā projekta laikā, tiek saglabāts un ir viegli pieejams.",
+			"p2": {
+				"prefix": "Prasība? Jums ir",
+				"highlight": "pierādījumi aizstāvībai."
+			},
+			"p3": {
+				"prefix": "Zaudējumi? Jums ir",
+				"highlight": "pierādījumi atgūšanai."
+			},
+			"p4": "Tāme? Jūs precīzi zināt, cik daudz laika ir patērēts.",
+			"p5": "Jūsu projekts ir pierakstīts."
+		},
 
-    "images": {
-      "siteDiaryAlt": "Būvdienasgrāmata",
-      "whatsappAlt": "WhatsApp",
-      "galleryAlt": "Būvdienasgrāmatas galerija"
-    }
-  },
+		"images": {
+			"siteDiaryAlt": "Būvdienasgrāmata",
+			"whatsappAlt": "WhatsApp",
+			"galleryAlt": "Būvdienasgrāmatas galerija"
+		}
+	},
 
-  "Timesheets": {
-    "title": "Darba laika uzskaite",
+	"Timesheets": {
+		"title": "Darba laika uzskaite",
 
-    "block1": {
-      "title": "Kā tas darbojas",
-      "text": "Darbinieki izmanto WhatsApp saraksti ar WorksRecorded, lai reģistrētu darba sākumu un beigas. Pirms darba beigām AI viņiem palūdz aprakstīt, kas dienas laikā tika paveikts. Informācija tiek strukturēta un automātiski saglabāta datubāzē. Pieejama arī geofence funkcionalitāte — objekta vadītājs atzīmē objekta teritoriju kartē, un iereģistrēšanās ir iespējama tikai atrodoties šajā zonā."
-    },
+		"block1": {
+			"title": "Kā tas darbojas",
+			"text": "Darbinieki izmanto WhatsApp saraksti ar WorksRecorded, lai reģistrētu darba sākumu un beigas. Pirms darba beigām AI viņiem palūdz aprakstīt, kas dienas laikā tika paveikts. Informācija tiek strukturēta un automātiski saglabāta datubāzē. Pieejama arī geofence funkcionalitāte — objekta vadītājs atzīmē objekta teritoriju kartē, un iereģistrēšanās ir iespējama tikai atrodoties šajā zonā."
+		},
 
-    "block2": {
-      "title": "Kāds ir ieguvums",
-      "li1": "Katru darba stundu var uzskaitīt.",
-      "li2": "Nākamajā projektā darba izmaksas var precīzi iecenot.",
-      "li3": "Iespējams identificēt izšķērdēšanu, uzstādīt mērķus un mērīt darba KPI.",
-      "li4": "Geofence kontrole nodrošina, ka clock-in ir iespējams tikai objektā."
-    },
+		"block2": {
+			"title": "Kāds ir ieguvums",
+			"li1": "Katru darba stundu var uzskaitīt.",
+			"li2": "Nākamajā projektā darba izmaksas var precīzi iecenot.",
+			"li3": "Iespējams identificēt izšķērdēšanu, uzstādīt mērķus un mērīt darba KPI.",
+			"li4": "Geofence kontrole nodrošina, ka clock-in ir iespējams tikai objektā."
+		},
 
-    "images": {
-      "dashboardAlt": "Darba laika uzskaites panelis",
-      "whatsappAlt": "WhatsApp",
-      "analyticsAlt": "Darba laika analītika",
-      "geofenceClockInAlt": "Clock-in apstiprinājums WhatsApp ar lokācijas pārbaudi",
-      "geofenceAreaAlt": "Objekta teritorijas geofence iestatīšana kartē"
-    }
-  },
+		"images": {
+			"dashboardAlt": "Darba laika uzskaites panelis",
+			"whatsappAlt": "WhatsApp",
+			"analyticsAlt": "Darba laika analītika",
+			"geofenceClockInAlt": "Clock-in apstiprinājums WhatsApp ar lokācijas pārbaudi",
+			"geofenceAreaAlt": "Objekta teritorijas geofence iestatīšana kartē"
+		}
+	},
 
-  "Analytics": {
-    "title": "Analītika",
+	"Analytics": {
+		"title": "Analītika",
 
-    "block1": {
-      "title": "Kā tas darbojas",
-      "text": "Mēs apvienojam datu zinātni, mākslīgo intelektu un būvniecības nozares pieredzi, lai automātiski iegūtu analītiku no jūsu datiem. Nodrošinām nepieciešamos ieskatus — apjomu tāmes, progresa statistiku, šķēršļus, kavējumus, vidējo veiktspēju, izmaksas pa kategorijām un periodiem, izšķērdēšanas un uzlabošanas iespējas, un vairāk."
-    },
+		"block1": {
+			"title": "Kā tas darbojas",
+			"text": "Mēs apvienojam datu zinātni, mākslīgo intelektu un būvniecības nozares pieredzi, lai automātiski iegūtu analītiku no jūsu datiem. Nodrošinām nepieciešamos ieskatus — apjomu tāmes, progresa statistiku, šķēršļus, kavējumus, vidējo veiktspēju, izmaksas pa kategorijām un periodiem, izšķērdēšanas un uzlabošanas iespējas, un vairāk."
+		},
 
-    "block2": {
-      "title": "Kāds ir ieguvums",
-      "li1": "Gatava, uzlabota analītika tūlītējiem rezultātiem.",
-      "li2": "Pielāgota analītika specifiskām vajadzībām.",
-      "li3": "Pilnībā dinamiska — atjaunojas projekta gaitā.",
-      "li4": "Finanšu, naudas plūsmas un darbu progresa prognozēšana."
-    },
+		"block2": {
+			"title": "Kāds ir ieguvums",
+			"li1": "Gatava, uzlabota analītika tūlītējiem rezultātiem.",
+			"li2": "Pielāgota analītika specifiskām vajadzībām.",
+			"li3": "Pilnībā dinamiska — atjaunojas projekta gaitā.",
+			"li4": "Finanšu, naudas plūsmas un darbu progresa prognozēšana."
+		},
 
-    "images": {
-      "overviewAlt": "Analītikas pārskats",
-      "detailsAlt": "Analītikas detaļas"
-    }
-  },
+		"images": {
+			"overviewAlt": "Analītikas pārskats",
+			"detailsAlt": "Analītikas detaļas"
+		}
+	},
 
-  "Manufacturing": {
-    "eyebrow": "WorksRecorded ražotnēm",
-    "title": "Ražošanas žurnāls",
-    "intro": "WorksRecorded palīdz ražotnēm redzēt, cik ilgi aizņem katra operācija, salīdzināt faktisko izstrādi ar plānu un automātiski aprēķināt izmaksas.",
-    "videoTitle": "WorksRecorded ražošanas žurnāla demonstrācija",
-    "dashboard": {
-      "title": "Ražošanas dati vienā vietā",
-      "text": "Ražošanas žurnālā jūs redzat katras operācijas sākumu, beigas, darbinieku, patērēto laiku, izpildīto apjomu, izmaksas un attēlus.",
-      "items": [
-        "Faktiski patērētais laiks katrai ražošanas operācijai.",
-        "Plānotās un faktiskās laika normas salīdzinājums.",
-        "Elementa un projekta kopsavilkums ar stundām, m², izmaksām un novirzi no plāna.",
-        "Automātiski algu, produktivitātes un Excel eksporta aprēķini."
-      ]
-    },
-    "whatsapp": {
-      "title": "Darbiniekiem pietiek ar WhatsApp",
-      "text": "Darbinieks nofotografē rasējumu, pasaka ar balsi vai tekstu, kāds darbs sākts, un pēc pabeigšanas nosūta ziņu ar darba bildēm.",
-      "items": [
-        "Programma automātiski atpazīst projektu un elementa numuru.",
-        "Darbu var pārtraukt ar pauzi vai citu darbu, un sistēma to automātiski ņem vērā.",
-        "Pabeigtie darbi tiek saglabāti tiešsaistē kopā ar fotogrāfijām.",
-        "Visa darba reģistrācija aizņem mazāk nekā minūti."
-      ]
-    },
-    "benefits": {
-      "title": "Ko tas dod vadībai",
-      "items": [
-        "Reālā laikā pamanīt laika pārtēriņu un samazināt izmaksas.",
-        "Precīzāk tāmēt nākamos projektus, balstoties uz reāliem datiem.",
-        "Motivēt darbiniekus ar skaidru produktivitātes pārskatu.",
-        "Uzlabot kvalitāti, jo katrai operācijai ir bildes un vēsture."
-      ]
-    }
-  },
+	"Manufacturing": {
+		"hero": {
+			"titlePrefix": "Radīts",
+			"titleHighlight": "ražotnēm",
+			"description": "WorksRecorded pārvērš darbinieku WhatsApp ziņas strukturētos ražošanas datos — bez sarežģītas programmatūras ieviešanas cehā.",
+			"cta": "Rezervēt demonstrāciju",
+			"photoAlt": "Saliekamā dzelzsbetona elementu ražotne ar ražošanas līnijām un tilta celtni",
+			"caption": "Faktiskais laiks, izmaksas, kvalitāte un novirzes vienā ražošanas žurnālā."
+		},
+		"features": [
+			{
+				"title": "Darbiniekiem vajadzīgs tikai WhatsApp",
+				"description": "Nav jāapgūst jauna programmatūra vai sarežģītas formas — jūsu komanda jau izmanto WhatsApp ikdienas saziņai."
+			},
+			{
+				"title": "Rasējums kļūst par strukturētiem datiem",
+				"description": "WorksRecorded no rasējuma automātiski iegūst projekta nosaukumu, elementu tipus un veicamos darbus."
+			},
+			{
+				"title": "Visi darbi vienotā uzskaitē",
+				"description": "Plānotie, papildu un neparedzētie darbi tiek reģistrēti vienā plūsmā un piesaistīti pareizajam projektam."
+			},
+			{
+				"title": "Balss ziņa kļūst par ražošanas ierakstu",
+				"description": "Darbinieks pasaka, ko dara; WorksRecorded atšifrē ziņu un sakārto informāciju pēc projekta, elementa un darba veida."
+			},
+			{
+				"title": "Kvalitātes kontroles plūsma QA komandai",
+				"description": "Kvalitātes pārbaudes, fotoattēli un apstiprinājumi tiek saglabāti kopā ar konkrēto elementu un ražošanas operāciju."
+			},
+			{
+				"title": "Katras operācijas izmaksas — automātiski",
+				"description": "Faktiskais darba laiks un izpildītais apjoms ļauj automātiski aprēķināt izmaksas katram darbam, elementam un projektam."
+			},
+			{
+				"title": "Ieviešanu veicam kopā ar jūsu komandu",
+				"description": "Mūsu komanda apmeklē jūsu ražotni, izrunā procesu ar darbiniekiem un pielāgo WorksRecorded jūsu darba plūsmai."
+			}
+		],
+		"comparison": {
+			"eyebrow": "Ražošanas pārskatāmība",
+			"titlePrefix": "No minējumiem uz",
+			"titleHighlight": "faktiskām izmaksām",
+			"description": "Salīdziniet ražošanu bez strukturētas uzskaites ar ikdienas datiem, ko apkopo WorksRecorded.",
+			"withoutTitle": "Bez WorksRecorded",
+			"withTitle": "Ar WorksRecorded",
+			"withoutItems": [
+				"Nav projekta izmaksu sadalījuma.",
+				"Produktivitāti ir grūti izmērīt.",
+				"Nav datu precīzai tāmēšanai.",
+				"Nav skaidra etalona darbinieku snieguma novērtēšanai.",
+				"Budžeta pārtēriņš kļūst redzams pārāk vēlu.",
+				"Vienas un tās pašas kļūdas atkārtojas."
+			],
+			"withItems": [
+				"Uzskaitīta katra nostrādātā stunda.",
+				"Skaidrs izmaksu sadalījums uz m², kg, tonnu, projektu, elementu un darba veidu.",
+				"Reģistrēti visi ražošanas kavējumi un traucējumi.",
+				"Skaidri redzams katram uzdevumam patērētais laiks.",
+				"Faktisko cenu dati nākamo projektu tāmēšanai.",
+				"Pilnīga pārskatāmība projektu vadības komandai.",
+				"Tāmes tiek salīdzinātas ar faktiskajām izmaksām."
+			]
+		},
+		"visual": {
+			"worker": "Ražotne",
+			"whatsapp": "WhatsApp",
+			"productionRecord": "Ražošanas dati",
+			"project": "Projekts",
+			"element": "Elements",
+			"workType": "Darba veids",
+			"planned": "Plānotie darbi",
+			"additional": "Papildu darbi",
+			"unexpected": "Neparedzētie darbi",
+			"voiceMessage": "Darbinieka balss ziņa",
+			"structuredData": "Strukturēts ieraksts",
+			"qaCheck": "Kvalitātes pārbaude",
+			"approved": "Apstiprināts",
+			"labour": "Faktiskais darba laiks",
+			"actualCost": "Faktiskās izmaksas",
+			"factoryVisit": "Ražotnes apmeklējums",
+			"workflowSetup": "Darba plūsmas pielāgošana",
+			"teamTraining": "Komandas ieviešana"
+		}
+	},
 
-   "CustomSolutions": {
-    "title": "Pielāgoti digitālie risinājumi",
+	"CustomSolutions": {
+		"title": "Pielāgoti digitālie risinājumi",
 
-    "block1": {
-      "title": "Kā tas darbojas",
-      "p1": {
-        "prefix": "Mēs runājam ",
-        "highlight": "būvniecības valodā",
-        "suffix": ". Iedziļināmies jūsu procesos, saprotam, kur tiek radīta vērtība, un nosakām, kādus datus jāfiksē un kādu ieguvumu tas dos."
-      },
-      "p2": "Kad pielāgota sistēma ir izstrādāta un ieviesta, tā turpina nest rezultātu — sakārtoti pieraksti, mazāk manuāla darba un analītika, kas palīdz pieņemt lēmumus.",
-      "p3": "Nosūtiet mums e-pastā procesu, ko vēlaties digitalizēt un automatizēt, un mēs piedāvāsim efektīvu, pragmatisku risinājumu."
-    },
+		"block1": {
+			"title": "Kā tas darbojas",
+			"p1": {
+				"prefix": "Mēs runājam ",
+				"highlight": "būvniecības valodā",
+				"suffix": ". Iedziļināmies jūsu procesos, saprotam, kur tiek radīta vērtība, un nosakām, kādus datus jāfiksē un kādu ieguvumu tas dos."
+			},
+			"p2": "Kad pielāgota sistēma ir izstrādāta un ieviesta, tā turpina nest rezultātu — sakārtoti pieraksti, mazāk manuāla darba un analītika, kas palīdz pieņemt lēmumus.",
+			"p3": "Nosūtiet mums e-pastā procesu, ko vēlaties digitalizēt un automatizēt, un mēs piedāvāsim efektīvu, pragmatisku risinājumu."
+		},
 
-    "block2": {
-      "title": "Kāds ir ieguvums",
-      "p1": "Būvniecība ir viena no pēdējām maz digitalizētajām nozarēm. Esiet soli priekšā un izmantojiet AI vilni, lai uzlabotu peļņas maržas, piedāvājumus un ikdienas procesus.",
-      "p2": "No būvniecības profesionāļiem būvniecības profesionāļiem. Praktiski rīki, minimāla berze, reāli rezultāti."
-    },
+		"block2": {
+			"title": "Kāds ir ieguvums",
+			"p1": "Būvniecība ir viena no pēdējām maz digitalizētajām nozarēm. Esiet soli priekšā un izmantojiet AI vilni, lai uzlabotu peļņas maržas, piedāvājumus un ikdienas procesus.",
+			"p2": "No būvniecības profesionāļiem būvniecības profesionāļiem. Praktiski rīki, minimāla berze, reāli rezultāti."
+		},
 
-    "images": {
-      "siteAlt": "Digitālie risinājumi būvlaukumā",
-      "developmentAlt": "Pielāgota izstrāde"
-    }
-  },
+		"images": {
+			"siteAlt": "Digitālie risinājumi būvlaukumā",
+			"developmentAlt": "Pielāgota izstrāde"
+		}
+	},
 
-   "Pricing": {
-    "title": {
-      "prefix": "20 EUR mēnesī par lietotāju.",
-      "highlight": "Pirmās 2 nedēļas bez maksas!"
-    },
-"description": "Caurspīdīga mēneša maksa, pielāgota projekta apjomam un sarežģītībai. Piedāvājam arī cenu modeli par lietotāju vai par projektu — atkarībā no jūsu uzņēmuma darbības. Komandām ar vairāk nekā 5 lietotājiem pieejamas atlaides, kā arī piedāvājam individuālu cenu lieliem projektiem. Par pielāgotu izstrādi sazinieties: vjaceslavs@worksrecorded.com."
-  },
+	"Pricing": {
+		"title": {
+			"prefix": "20 EUR mēnesī par lietotāju.",
+			"highlight": "Pirmās 2 nedēļas bez maksas!"
+		},
+		"description": "Caurspīdīga mēneša maksa, pielāgota projekta apjomam un sarežģītībai. Piedāvājam arī cenu modeli par lietotāju vai par projektu — atkarībā no jūsu uzņēmuma darbības. Komandām ar vairāk nekā 5 lietotājiem pieejamas atlaides, kā arī piedāvājam individuālu cenu lieliem projektiem. Par pielāgotu izstrādi sazinieties: vjaceslavs@worksrecorded.com."
+	},
 
-    "About": {
-    "title": "Par mums",
-    "p1": "Vai jūs zināt, kas notiek jūsu būvlaukumā? Būvdarbu uzskaite nav vienkārša.",
-    "p2": "Būvlaukuma vadība bieži ir pārslogota un nevēlas uzņemties papildu administratīvo slogu pierakstu veikšanai.",
-    "p3": "Pat ja pieraksti pastāv, tie bieži ir izkaisīti, nesakārtoti un prasa lielu darbu, lai tos sakārtotu un padarītu noderīgus.",
-    "p4": "Kad pierakstu trūkst, ir grūti uzlabot procesus, sekot līdzi rādītājiem, pamatot prasības/papildu darbus, uzskaitīt zaudēto laiku vai kopumā saprast, kāpēc situācija ir tāda, kāda tā ir.",
-    "p5": "Esošie digitālie rīki ir sarežģīti, prasa laiku un piepūli ieviešanai, un bieži saskaras ar pretestību no pārslogotām būvlaukuma komandām.",
-    "p6": {
-      "prefix": "Lai palīdzētu, es izveidoju nelielu rīku ar nosaukumu",
-      "bold": "WorksRecorded.com"
-    },
-    "p7": "Būvlaukuma vadītājs izmanto WhatsApp, lai veiktu balss/teksta pierakstus par būvlaukuma aktivitātēm. Sistēma pēc tam automātiski sakārto un saglabā ierakstus, kurus var apskatīt pārlūkā.",
-    "p8": "Tas ļauj būvlaukuma vadībai vairāk laika pavadīt objektā, uzraugot darbus, un mazāk laika birojā, veicot administratīvus darbus.",
-    "p9": "Vienlaikus tas arī ļauj projekta vadībai labāk saprast projektu, lai varētu analizēt, rīkoties un pārliecinoši pamatot savu pozīciju ģenerāluzņēmējam/klientam.",
-    "p10": "Es pats esmu izmantojis šo rīku un uzskatu, ka tas ir vienkāršs, bet jaudīgs sarežģītos būvniecības projektos.",
-    "p11": "Būšu priecīgs, ja tas palīdzēs arī jums — beta versijā tas ir bez maksas vienam projektam ikvienam, un es labprāt pārrunāšu un palīdzēšu, ja jums ir kādi jautājumi. WorksRecorded is a product of Buvconsult SIA, Latvia",
-    "images": {
-      "selfieAlt": "Vjaceslavs Gromatovičs"
-    }
-  },
+	"About": {
+		"title": "Par mums",
+		"p1": "Vai jūs zināt, kas notiek jūsu būvlaukumā? Būvdarbu uzskaite nav vienkārša.",
+		"p2": "Būvlaukuma vadība bieži ir pārslogota un nevēlas uzņemties papildu administratīvo slogu pierakstu veikšanai.",
+		"p3": "Pat ja pieraksti pastāv, tie bieži ir izkaisīti, nesakārtoti un prasa lielu darbu, lai tos sakārtotu un padarītu noderīgus.",
+		"p4": "Kad pierakstu trūkst, ir grūti uzlabot procesus, sekot līdzi rādītājiem, pamatot prasības/papildu darbus, uzskaitīt zaudēto laiku vai kopumā saprast, kāpēc situācija ir tāda, kāda tā ir.",
+		"p5": "Esošie digitālie rīki ir sarežģīti, prasa laiku un piepūli ieviešanai, un bieži saskaras ar pretestību no pārslogotām būvlaukuma komandām.",
+		"p6": {
+			"prefix": "Lai palīdzētu, es izveidoju nelielu rīku ar nosaukumu",
+			"bold": "WorksRecorded.com"
+		},
+		"p7": "Būvlaukuma vadītājs izmanto WhatsApp, lai veiktu balss/teksta pierakstus par būvlaukuma aktivitātēm. Sistēma pēc tam automātiski sakārto un saglabā ierakstus, kurus var apskatīt pārlūkā.",
+		"p8": "Tas ļauj būvlaukuma vadībai vairāk laika pavadīt objektā, uzraugot darbus, un mazāk laika birojā, veicot administratīvus darbus.",
+		"p9": "Vienlaikus tas arī ļauj projekta vadībai labāk saprast projektu, lai varētu analizēt, rīkoties un pārliecinoši pamatot savu pozīciju ģenerāluzņēmējam/klientam.",
+		"p10": "Es pats esmu izmantojis šo rīku un uzskatu, ka tas ir vienkāršs, bet jaudīgs sarežģītos būvniecības projektos.",
+		"p11": "Būšu priecīgs, ja tas palīdzēs arī jums — beta versijā tas ir bez maksas vienam projektam ikvienam, un es labprāt pārrunāšu un palīdzēšu, ja jums ir kādi jautājumi. WorksRecorded is a product of Buvconsult SIA, Latvia",
+		"images": {
+			"selfieAlt": "Vjaceslavs Gromatovičs"
+		}
+	},
 
-  "Contact": {
-    "heroTitle": "Sazināmies! 🚀",
-    "heroDescription": "Piezvaniet, atsūtiet e-pastu, rakstiet WhatsApp vai aizpildiet formu. Mēs garantējam, ka sazināsimies ar jums **tajā pašā dienā**!",
+	"Contact": {
+		"heroTitle": "Sazināmies! 🚀",
+		"heroDescription": "Piezvaniet, atsūtiet e-pastu, rakstiet WhatsApp vai aizpildiet formu. Mēs garantējam, ka sazināsimies ar jums **tajā pašā dienā**!",
 
-    "quickDetailsTitle": "Ātra informācija",
-    "phoneLabel": "Tālrunis:",
-    "emailLabel": "E-pasts:",
-    "webLabel": "Mājaslapa:",
+		"quickDetailsTitle": "Ātra informācija",
+		"phoneLabel": "Tālrunis:",
+		"emailLabel": "E-pasts:",
+		"webLabel": "Mājaslapa:",
 
-    "formTitle": "Nosūtiet mums ziņu",
+		"formTitle": "Nosūtiet mums ziņu",
 
-    "firstNameLabel": "Vārds",
-    "lastNameLabel": "Uzvārds",
-    "emailFieldLabel": "E-pasts",
-    "subjectLabel": "Temats",
-    "messageLabel": "Ziņa",
+		"firstNameLabel": "Vārds",
+		"lastNameLabel": "Uzvārds",
+		"emailFieldLabel": "E-pasts",
+		"subjectLabel": "Temats",
+		"messageLabel": "Ziņa",
 
-    "firstNamePlaceholder": "Vārds",
-    "lastNamePlaceholder": "Uzvārds",
-    "emailPlaceholder": "Jūsu e-pasts",
-    "subjectPlaceholder": "Projekta jautājums, konsultācija u.c.",
-    "messagePlaceholder": "Pastāstiet par savu projektu vai jautājumu...",
+		"firstNamePlaceholder": "Vārds",
+		"lastNamePlaceholder": "Uzvārds",
+		"emailPlaceholder": "Jūsu e-pasts",
+		"subjectPlaceholder": "Projekta jautājums, konsultācija u.c.",
+		"messagePlaceholder": "Pastāstiet par savu projektu vai jautājumu...",
 
-    "sending": "Sūta…",
-    "sendMessage": "Sūtīt ziņu",
+		"sending": "Sūta…",
+		"sendMessage": "Sūtīt ziņu",
 
-    "status": {
-      "errorDefault": "Kaut kas nogāja greizi. Lūdzu, mēģiniet vēlreiz."
-    }
-  },
+		"status": {
+			"errorDefault": "Kaut kas nogāja greizi. Lūdzu, mēģiniet vēlreiz."
+		}
+	},
 
-    "Navigation": {
-    "features": "Funkcijas",
+	"Navigation": {
+		"features": "Funkcijas",
 
-    "data": {
-      "whatsapp": {
-        "title": "Būvdarbu žurnāls",
-        "description": "Izmantojiet pielāgotu WhatsApp kanālu pierakstiem ar balsi vai tekstu"
-      },
-      "manufacturing": {
-        "title": "Ražošanas žurnāls",
-        "description": "Ražošanas operāciju uzskaite, produktivitāte un izmaksas no WhatsApp ziņām"
-      },
-      "timesheets": {
-        "title": "Darba laika uzskaite",
-        "description": "Darbinieki reģistrē darba sākumu un beigas WhatsApp sarakstē"
-      },
-      "analytics": {
-        "title": "Analītika",
-        "description": "Tiešsaistes pielāgota analītika"
-      },
-      "bisIntegration": {
-        "title": "BIS integrācija",
-        "description": "BIS automatizācija no WhatsApp ziņām un balss"
-      }
-    },
+		"data": {
+			"whatsapp": {
+				"title": "Būvdarbu žurnāls",
+				"description": "Izmantojiet pielāgotu WhatsApp kanālu pierakstiem ar balsi vai tekstu"
+			},
+			"manufacturing": {
+				"title": "Ražošanas žurnāls",
+				"description": "Ražošanas operāciju uzskaite, produktivitāte un izmaksas no WhatsApp ziņām"
+			},
+			"timesheets": {
+				"title": "Darba laika uzskaite",
+				"description": "Darbinieki reģistrē darba sākumu un beigas WhatsApp sarakstē"
+			},
+			"analytics": {
+				"title": "Analītika",
+				"description": "Tiešsaistes pielāgota analītika"
+			},
+			"bisIntegration": {
+				"title": "BIS integrācija",
+				"description": "BIS automatizācija no WhatsApp ziņām un balss"
+			}
+		},
 
-    "main": {
-      "custom": "Pielāgoti risinājumi",
-      "pricing": "Cenas",
-      "caseStudies" : "Projekti",
-      "about": "Par mums",
-      "news": "Ziņas",
-      "contacts": "Kontakti"
-    },
+		"main": {
+			"custom": "Pielāgoti risinājumi",
+			"pricing": "Cenas",
+			"caseStudies": "Projekti",
+			"about": "Par mums",
+			"news": "Ziņas",
+			"contacts": "Kontakti"
+		},
 
-    "combined": {
-      "generic": "Tiešsaistes pielāgota analītika"
-    }
-  },
+		"combined": {
+			"generic": "Tiešsaistes pielāgota analītika"
+		}
+	},
 
-  "AuthButtons": {
-    "signIn": "Pierakstīties",
-    "signUp": "Reģistrēties",
-    "tryForFree": "Izmēģināt bez maksas"
-  },
+	"AuthButtons": {
+		"signIn": "Pierakstīties",
+		"signUp": "Reģistrēties",
+		"tryForFree": "Izmēģināt bez maksas"
+	},
 
-  "Header": {
-    "bisIntegrated": "Integrēts ar"
-  },
+	"Header": {
+		"bisIntegrated": "Integrēts ar"
+	},
 
-  "Footer": {
-    "data": "Dati",
-    "siteDiary": "Būvdarbu žurnāls",
-    "timesheets": "Darba laika uzskaite",
-    "analytics": "Analītika",
-    "features": "Iespējas",
-    "custom": "Pielāgoti digitālie risinājumi",
-    "pricing": "Cenas",
-    "about": "Par mums",
-    "privacy": "Privātuma politika",
-    "contact": "Kontakti",
-    "contactHelp": "Sazinieties par demo vai jautājumiem.",
-    "phone": "tālr. +371 24885690",
-    "rights": "Visas tiesības aizsargātas. WorksRecorded ir Buvconsult SIA produkts, Latvija"
-  }
+	"Footer": {
+		"data": "Dati",
+		"siteDiary": "Būvdarbu žurnāls",
+		"timesheets": "Darba laika uzskaite",
+		"analytics": "Analītika",
+		"features": "Iespējas",
+		"custom": "Pielāgoti digitālie risinājumi",
+		"pricing": "Cenas",
+		"about": "Par mums",
+		"privacy": "Privātuma politika",
+		"contact": "Kontakti",
+		"contactHelp": "Sazinieties par demo vai jautājumiem.",
+		"phone": "tālr. +371 24885690",
+		"rights": "Visas tiesības aizsargātas. WorksRecorded ir Buvconsult SIA produkts, Latvija"
+	}
 }

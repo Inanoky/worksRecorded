@@ -1,477 +1,567 @@
 {
-  "LandingPageDesktop": {
-    "topPill": "Built for trade contractors & site managers",
-    "heroTitle": "WhatsApp as your work tracking tool",
-    "heroRotatingTitles": ["Site records", "Production records", "Cost control"],
-    "smallDescription": "Structured work records, cost control and clear reports — all through WhatsApp.",
-    "heroDescription": "WorksRecorded helps construction and manufacturing teams capture completed work, track labour costs and keep every important detail in one place.",
-    "heroRating": "4.8 / 5 customer rating",
-    "heroSetup": "Quick to implement",
-    "contactUs": "Contact us",
-    "startFreeTrial": "Try now",
-    "signIn": "Talk to a live person",
-    "noCardNote": "No credit card",
-    "heroImageAlt": "worksRecorded hero preview",
-    "videoTitle": "WorksRecorded demo",
-    "videoCaption": "1-minute walkthrough - how WhatsApp updates become a structured site diary.",
+	"LandingPageDesktop": {
+		"topPill": "Built for trade contractors & site managers",
+		"heroTitle": "WhatsApp as your work tracking tool",
+		"heroRotatingTitles": [
+			"Site records",
+			"Production records",
+			"Cost control"
+		],
+		"smallDescription": "Structured work records, cost control and clear reports — all through WhatsApp.",
+		"heroDescription": "WorksRecorded helps construction and manufacturing teams capture completed work, track labour costs and keep every important detail in one place.",
+		"heroRating": "4.8 / 5 customer rating",
+		"heroSetup": "Quick to implement",
+		"contactUs": "Contact us",
+		"startFreeTrial": "Try now",
+		"signIn": "Talk to a live person",
+		"noCardNote": "No credit card",
+		"heroImageAlt": "worksRecorded hero preview",
+		"videoTitle": "WorksRecorded demo",
+		"videoCaption": "1-minute walkthrough - how WhatsApp updates become a structured site diary.",
 
-    "section2Pill": "For building contractors, MEP, energy and utilities",
-    "section2Title": "Send voice notes through WhatsApp — AI organizes them",
-    "section2Description": "No more excuses, there is always time for a voice message",
-    "section2ImageAlt": "Site diary and project records in worksRecorded",
-    "section2Caption": "WhatsApp notes become structured daily records – with workers, locations, works, and photos in one place.",
-    "workflowDiagram": {
-      "titlePrefix": "How it",
-      "titleHighlight": "works",
-      "description": "The site team records what is happening in WhatsApp. WorksRecorded turns those updates into clear information for project management.",
-      "inputHeading": "From the field",
-      "inputs": ["Voice messages", "Quality photos", "Invoices and materials", "Deviations and delays", "Progress"],
-      "outputHeading": "For management",
-      "outputs": ["Detailed analytics", "Cost control", "Better decision-making", "Forecasting", "Better estimating"],
-      "imageAlt": "WorksRecorded workflow from WhatsApp site updates to project analytics"
-    },
-    "bookDemo": "Book a demo",
-    "logoStripLabel": "Works with",
-    "whatsappLogoAlt": "WhatsApp logo",
-    "bisLogoAlt": "BIS logo",
-    "bisLogoLabel": "BIS integration",
-    "clientsHeading": "Our clients",
-    "clientsSubheading": "Construction companies that already trust worksRecorded",
-    "budgetSection": {
-      "eyebrow": "WorksRecorded",
-      "problemLabel": "Problem",
-      "solutionLabel": "WorksRecorded",
-      "impactLabel": "Impact",
-      "titlePrefix": "Why projects are",
-      "titleHighlight": "over budget?",
-      "intro": "Turn everyday site records into better project outcomes.",
-      "flows": [
-        {
-          "problem": "Underpriced",
-          "solution": "Actual site data",
-          "outcome": "15% more accurate estimates"
-        },
-        {
-          "problem": "Inefficient",
-          "solution": "Daily progress reports",
-          "outcome": "10% faster execution"
-        },
-        {
-          "problem": "Claims",
-          "solution": "Compliant records",
-          "outcome": "50% fewer unsupported claims"
-        }
-      ]
-    },
-    "whyWorksRecordedSection": {
-      "titlePrefix": "Why",
-      "titleHighlight": "WorksRecorded?",
-      "reasons": [
-        "The only digital construction diary with BIS integration, minimizing duplicate work.",
-        "A practical system for monitoring site progress, storing data and analytics.",
-        "Works without integrations too — voice messages and photos can be sent directly through WhatsApp.",
-        "Built specifically for the construction industry."
-      ],
-      "statementPrefix": "The solution",
-      "statementBody": "— a modern, intelligent construction diary with BIS integration and built-in AI, adapted to",
-      "statementHighlight": "Latvian requirements",
-      "steps": [
-        "The site manager explains what is happening on site by voice message and adds a photo.",
-        "AI organizes and stores the information in the database.",
-        "Daily work entries in BIS are filled in automatically.",
-        "Received materials and construction products are recorded automatically from delivery-note photos.",
-        "Working-hour reports include GPS coordinate checks.",
-        "Site progress is stored in the database and connected with the latest LLM models.",
-        "Save up to one hour every day on administrative work."
-      ]
-    },
-    "clientDepromDescription": [
-      "Deprom is a UK-based precast concrete specialist that helps contractors achieve cost certainty, faster programmes, and more sustainable builds. They deliver full-scope precast solutions — brick facades, architectural concrete cladding, and complete residential and commercial frames — backed by in-house engineering, facade, and framing services.",
-      "By moving structural and facade work off-site into a controlled factory environment, Deprom reduces programme risk, tightens quality control, and shortens on-site time. Their portfolio spans residential blocks, commercial buildings, and bespoke facade commissions across the UK."
-    ],
-    "clientLecDescription": [
-      "LEC — SIA Latvijas Energoceltnieks — is a Baltic leader with more than 30 years of experience in energy and telecommunications construction, supported by a team of 280 professionals. The company designs and builds high-voltage power lines, substations, cable routes, and power generation assets, and rolls out fibre-optic networks at scale.",
-      "With Latvia and Germany as its core markets, LEC follows a full-cycle approach — Idea, Challenge, Solution — covering design, construction, modernisation, and maintenance of critical infrastructure. The company is a trusted partner for utilities and telecom operators across Northern Europe."
-    ],
-    "clientZtcDescription": [
-      "ZTC is a Latvian manufacturer of prefabricated timber-frame and CLT (cross-laminated timber) houses with over 30 years of experience in European timber construction. Their factory uses CNC precision to produce wall and floor panels with integrated windows, combining CLT and timber-frame technology for residential, commercial, and industrial buildings. ZTC exports turnkey homes to Norway, Sweden, the Netherlands, and Iceland.",
-      "ZTC's work has earned the Latvian Construction Annual Award for wooden buildings, and every panel carries CE marking under ETA-21/0014. After talks with two other vendors about automating their manufacturing line, ZTC chose worksRecorded — the third attempt that finally delivered — bringing structure and visibility to their production and site records."
-    ]
-  },
+		"section2Pill": "For building contractors, MEP, energy and utilities",
+		"section2Title": "Send voice notes through WhatsApp — AI organizes them",
+		"section2Description": "No more excuses, there is always time for a voice message",
+		"section2ImageAlt": "Site diary and project records in worksRecorded",
+		"section2Caption": "WhatsApp notes become structured daily records – with workers, locations, works, and photos in one place.",
+		"workflowDiagram": {
+			"titlePrefix": "How it",
+			"titleHighlight": "works",
+			"description": "The site team records what is happening in WhatsApp. WorksRecorded turns those updates into clear information for project management.",
+			"inputHeading": "From the field",
+			"inputs": [
+				"Voice messages",
+				"Quality photos",
+				"Invoices and materials",
+				"Deviations and delays",
+				"Progress"
+			],
+			"outputHeading": "For management",
+			"outputs": [
+				"Detailed analytics",
+				"Cost control",
+				"Better decision-making",
+				"Forecasting",
+				"Better estimating"
+			],
+			"imageAlt": "WorksRecorded workflow from WhatsApp site updates to project analytics"
+		},
+		"bookDemo": "Book a demo",
+		"logoStripLabel": "Works with",
+		"whatsappLogoAlt": "WhatsApp logo",
+		"bisLogoAlt": "BIS logo",
+		"bisLogoLabel": "BIS integration",
+		"clientsHeading": "Our clients",
+		"clientsSubheading": "Construction companies that already trust worksRecorded",
+		"budgetSection": {
+			"eyebrow": "WorksRecorded",
+			"problemLabel": "Problem",
+			"solutionLabel": "WorksRecorded",
+			"impactLabel": "Impact",
+			"titlePrefix": "Why projects are",
+			"titleHighlight": "over budget?",
+			"intro": "Turn everyday site records into better project outcomes.",
+			"flows": [
+				{
+					"problem": "Underpriced",
+					"solution": "Actual site data",
+					"outcome": "15% more accurate estimates"
+				},
+				{
+					"problem": "Inefficient",
+					"solution": "Daily progress reports",
+					"outcome": "10% faster execution"
+				},
+				{
+					"problem": "Claims",
+					"solution": "Compliant records",
+					"outcome": "50% fewer unsupported claims"
+				}
+			]
+		},
+		"whyWorksRecordedSection": {
+			"titlePrefix": "Why",
+			"titleHighlight": "WorksRecorded?",
+			"reasons": [
+				"The only digital construction diary with BIS integration, minimizing duplicate work.",
+				"A practical system for monitoring site progress, storing data and analytics.",
+				"Works without integrations too — voice messages and photos can be sent directly through WhatsApp.",
+				"Built specifically for the construction industry."
+			],
+			"statementPrefix": "The solution",
+			"statementBody": "— a modern, intelligent construction diary with BIS integration and built-in AI, adapted to",
+			"statementHighlight": "Latvian requirements",
+			"steps": [
+				"The site manager explains what is happening on site by voice message and adds a photo.",
+				"AI organizes and stores the information in the database.",
+				"Daily work entries in BIS are filled in automatically.",
+				"Received materials and construction products are recorded automatically from delivery-note photos.",
+				"Working-hour reports include GPS coordinate checks.",
+				"Site progress is stored in the database and connected with the latest LLM models.",
+				"Save up to one hour every day on administrative work."
+			]
+		},
+		"clientDepromDescription": [
+			"Deprom is a UK-based precast concrete specialist that helps contractors achieve cost certainty, faster programmes, and more sustainable builds. They deliver full-scope precast solutions — brick facades, architectural concrete cladding, and complete residential and commercial frames — backed by in-house engineering, facade, and framing services.",
+			"By moving structural and facade work off-site into a controlled factory environment, Deprom reduces programme risk, tightens quality control, and shortens on-site time. Their portfolio spans residential blocks, commercial buildings, and bespoke facade commissions across the UK."
+		],
+		"clientLecDescription": [
+			"LEC — SIA Latvijas Energoceltnieks — is a Baltic leader with more than 30 years of experience in energy and telecommunications construction, supported by a team of 280 professionals. The company designs and builds high-voltage power lines, substations, cable routes, and power generation assets, and rolls out fibre-optic networks at scale.",
+			"With Latvia and Germany as its core markets, LEC follows a full-cycle approach — Idea, Challenge, Solution — covering design, construction, modernisation, and maintenance of critical infrastructure. The company is a trusted partner for utilities and telecom operators across Northern Europe."
+		],
+		"clientZtcDescription": [
+			"ZTC is a Latvian manufacturer of prefabricated timber-frame and CLT (cross-laminated timber) houses with over 30 years of experience in European timber construction. Their factory uses CNC precision to produce wall and floor panels with integrated windows, combining CLT and timber-frame technology for residential, commercial, and industrial buildings. ZTC exports turnkey homes to Norway, Sweden, the Netherlands, and Iceland.",
+			"ZTC's work has earned the Latvian Construction Annual Award for wooden buildings, and every panel carries CE marking under ETA-21/0014. After talks with two other vendors about automating their manufacturing line, ZTC chose worksRecorded — the third attempt that finally delivered — bringing structure and visibility to their production and site records."
+		]
+	},
 
-  "LandingText": {
-    "whatDoWeDo": {
-      "heading": "Features",
-      "items": [
-        { "title": "Fully customizible to fit your operations" },
-        { "title": "Fields from your existing forms" },
-        { "title": "Upload photos with comments" },
-        { "title": "Sorted by cost codes and locations" },
-        { "title": "24/7 live technical support" },
-   
-        { "title": "Intelligent sorting set up according to your trade specifics" },
-        { "title": "Built to reduce admin time for site teams and managers" }
-      ]
-    },
+	"LandingText": {
+		"whatDoWeDo": {
+			"heading": "Features",
+			"items": [
+				{ "title": "Fully customizible to fit your operations" },
+				{ "title": "Fields from your existing forms" },
+				{ "title": "Upload photos with comments" },
+				{ "title": "Sorted by cost codes and locations" },
+				{ "title": "24/7 live technical support" },
 
-    "howDoWeDoThat": {
-      "heading": "Who is it for?",
-      "items": [
-        {
-          "title": "MEP contractors",
-          "desc": "Stores records under a specific project with timesheet logs attached"
-        },
-        {
-          "title": "Utilities and energy",
-          "desc": "Operatives don't need a laptop to report and can report as work progresses"
-        },
-        {
-          "title": "Building contractors",
-          "desc": "See issues early instead of discovering them weeks later."
-        },
-        {
-          "title": "Real history of work",
-          "desc": "Every note, photo, and update stored by day, location, and activity."
-        },
-        {
-          "title": "Simple change tracking",
-          "desc": "Variations, issues, and notes kept organised in one place."
-        },
-        {
-          "title": "Everything in one project log",
-          "desc": "No more digging through WhatsApp, folders, or emails to find what happened."
-        },
-        {
-          "title": "Save up to one hour per day",
-          "desc": "Less paperwork and more time on site."
-        }
-      ]
-    },
+				{
+					"title": "Intelligent sorting set up according to your trade specifics"
+				},
+				{ "title": "Built to reduce admin time for site teams and managers" }
+			]
+		},
 
-    "why": {
-      "heading": "Why WorksRecorded?",
-      "description": "WhatsApp is the most widely used messenger for construction",
-      "bullets": [
-        "No integration, you are already using WhatsApp",
-        "Cost: 20 EUR per user/month, saves up to 20 admin hours a month",
-        "Integration with Procore and other popular software",
-        "Personal touch - we will tweak according to your needs, talk to us!"
-      ]
-    }
-  },
+		"howDoWeDoThat": {
+			"heading": "Who is it for?",
+			"items": [
+				{
+					"title": "MEP contractors",
+					"desc": "Stores records under a specific project with timesheet logs attached"
+				},
+				{
+					"title": "Utilities and energy",
+					"desc": "Operatives don't need a laptop to report and can report as work progresses"
+				},
+				{
+					"title": "Building contractors",
+					"desc": "See issues early instead of discovering them weeks later."
+				},
+				{
+					"title": "Real history of work",
+					"desc": "Every note, photo, and update stored by day, location, and activity."
+				},
+				{
+					"title": "Simple change tracking",
+					"desc": "Variations, issues, and notes kept organised in one place."
+				},
+				{
+					"title": "Everything in one project log",
+					"desc": "No more digging through WhatsApp, folders, or emails to find what happened."
+				},
+				{
+					"title": "Save up to one hour per day",
+					"desc": "Less paperwork and more time on site."
+				}
+			]
+		},
 
-  "SiteDiary": {
-    "hero": {
-      "titlePrefix": "Built for",
-      "titleHighlight": "contractors",
-      "description": "Capture what happens on site, control project costs and keep reliable evidence — without adding more software or administration for your team.",
-      "cta": "Talk to us",
-      "photoCaption": "WhatsApp updates become structured project data.",
-      "photoAlt": "Construction team reviewing an active building site"
-    },
-    "features": [
-      { "title": "No new software", "description": "Your team already uses WhatsApp to communicate. WorksRecorded turns those familiar conversations into structured project records." },
-      { "title": "Voice messages from site", "description": "Voice is the fastest way to capture what is actually happening on site — completed work, delays, obstacles and additional works." },
-      { "title": "No onboarding cost", "description": "There is no complicated rollout or training programme. Site teams can start reporting from the first minute." },
-      { "title": "No data-entry cost", "description": "AI transcribes voice messages and organizes every update according to your projects, locations, tasks and estimate structure." },
-      { "title": "Visibility for project management", "description": "Keep progress, delays, hindrances and additional works in one place, so the office always understands what is happening on site." },
-      { "title": "Import your estimate", "description": "Upload your construction estimate from Excel and compare planned costs with actual labour, materials and project progress." },
-      { "title": "Invoices and material bills", "description": "Photograph invoices and delivery notes in WhatsApp. WorksRecorded automatically sorts each cost against the correct estimate category." },
-      { "title": "Intelligent by design", "description": "Connect your project history to AI for analysis, forecasting and continuous improvements to delivery and estimating." }
-    ],
-    "comparison": {
-      "eyebrow": "Before and after",
-      "titlePrefix": "What changes with",
-      "titleHighlight": "WorksRecorded?",
-      "description": "Replace fragmented site communication with complete, structured project evidence.",
-      "withoutTitle": "Without WorksRecorded",
-      "withTitle": "With WorksRecorded",
-      "withoutItems": [
-        "Additional works are completed but never invoiced",
-        "Productivity is difficult to measure",
-        "No reliable data for future estimates",
-        "When something goes wrong, there is no evidence",
-        "When people leave, project knowledge leaves with them",
-        "Budget overruns become visible too late",
-        "Information from site never reaches the office",
-        "Project management cannot see who did what on site",
-        "When claims arrive, there is no confidence about the financial exposure"
-      ],
-      "withItems": [
-        "All additional works are documented and invoiced",
-        "Daily productivity reports",
-        "A complete site diary covering delays, hindrances, variations and quality",
-        "Clear time spent on every task",
-        "Actual price data for future estimates",
-        "Full visibility for project management",
-        "Estimates compared with actual costs",
-        "BIS documentation completed automatically",
-        "Site managers spend more time on site, not in the office"
-      ]
-    },
-    "title": "Construction site records",
+		"why": {
+			"heading": "Why WorksRecorded?",
+			"description": "WhatsApp is the most widely used messenger for construction",
+			"bullets": [
+				"No integration, you are already using WhatsApp",
+				"Cost: 20 EUR per user/month, saves up to 20 admin hours a month",
+				"Integration with Procore and other popular software",
+				"Personal touch - we will tweak according to your needs, talk to us!"
+			]
+		}
+	},
 
-    "block1": {
-      "title": "How do we do that",
-      "text": "Just send a voice message to WorksRecorded WhatsApp describing what happened today. Our AI will transform your words into a structured site diary record."
-    },
+	"SiteDiary": {
+		"hero": {
+			"titlePrefix": "Built for",
+			"titleHighlight": "contractors",
+			"description": "Capture what happens on site, control project costs and keep reliable evidence — without adding more software or administration for your team.",
+			"cta": "Talk to us",
+			"photoCaption": "WhatsApp updates become structured project data.",
+			"photoAlt": "Construction team reviewing an active building site"
+		},
+		"features": [
+			{
+				"title": "No new software",
+				"description": "Your team already uses WhatsApp to communicate. WorksRecorded turns those familiar conversations into structured project records."
+			},
+			{
+				"title": "Voice messages from site",
+				"description": "Voice is the fastest way to capture what is actually happening on site — completed work, delays, obstacles and additional works."
+			},
+			{
+				"title": "No onboarding cost",
+				"description": "There is no complicated rollout or training programme. Site teams can start reporting from the first minute."
+			},
+			{
+				"title": "No data-entry cost",
+				"description": "AI transcribes voice messages and organizes every update according to your projects, locations, tasks and estimate structure."
+			},
+			{
+				"title": "Visibility for project management",
+				"description": "Keep progress, delays, hindrances and additional works in one place, so the office always understands what is happening on site."
+			},
+			{
+				"title": "Import your estimate",
+				"description": "Upload your construction estimate from Excel and compare planned costs with actual labour, materials and project progress."
+			},
+			{
+				"title": "Invoices and material bills",
+				"description": "Photograph invoices and delivery notes in WhatsApp. WorksRecorded automatically sorts each cost against the correct estimate category."
+			},
+			{
+				"title": "Intelligent by design",
+				"description": "Connect your project history to AI for analysis, forecasting and continuous improvements to delivery and estimating."
+			}
+		],
+		"comparison": {
+			"eyebrow": "Before and after",
+			"titlePrefix": "What changes with",
+			"titleHighlight": "WorksRecorded?",
+			"description": "Replace fragmented site communication with complete, structured project evidence.",
+			"withoutTitle": "Without WorksRecorded",
+			"withTitle": "With WorksRecorded",
+			"withoutItems": [
+				"Additional works are completed but never invoiced",
+				"Productivity is difficult to measure",
+				"No reliable data for future estimates",
+				"When something goes wrong, there is no evidence",
+				"When people leave, project knowledge leaves with them",
+				"Budget overruns become visible too late",
+				"Information from site never reaches the office",
+				"Project management cannot see who did what on site",
+				"When claims arrive, there is no confidence about the financial exposure"
+			],
+			"withItems": [
+				"All additional works are documented and invoiced",
+				"Daily productivity reports",
+				"A complete site diary covering delays, hindrances, variations and quality",
+				"Clear time spent on every task",
+				"Actual price data for future estimates",
+				"Full visibility for project management",
+				"Estimates compared with actual costs",
+				"BIS documentation completed automatically",
+				"Site managers spend more time on site, not in the office"
+			]
+		},
+		"title": "Construction site records",
 
-    "block2": {
-      "title": "What is your benefit",
-      "p1": "Everything that happens on site during the project is stored and easily accessible.",
-      "p2": {
-        "prefix": "Claim? You have",
-        "highlight": "proof to defend."
-      },
-      "p3": {
-        "prefix": "Loss? You have",
-        "highlight": "proof to recover."
-      },
-      "p4": "Estimation? You know exactly how much time you’ve spent.",
-      "p5": "Your project recorded."
-    },
+		"block1": {
+			"title": "How do we do that",
+			"text": "Just send a voice message to WorksRecorded WhatsApp describing what happened today. Our AI will transform your words into a structured site diary record."
+		},
 
-    "images": {
-      "siteDiaryAlt": "Site diary",
-      "whatsappAlt": "WhatsApp",
-      "galleryAlt": "Site diary gallery"
-    }
-  },
+		"block2": {
+			"title": "What is your benefit",
+			"p1": "Everything that happens on site during the project is stored and easily accessible.",
+			"p2": {
+				"prefix": "Claim? You have",
+				"highlight": "proof to defend."
+			},
+			"p3": {
+				"prefix": "Loss? You have",
+				"highlight": "proof to recover."
+			},
+			"p4": "Estimation? You know exactly how much time you’ve spent.",
+			"p5": "Your project recorded."
+		},
 
-  "Timesheets": {
-    "title": "Timesheets",
+		"images": {
+			"siteDiaryAlt": "Site diary",
+			"whatsappAlt": "WhatsApp",
+			"galleryAlt": "Site diary gallery"
+		}
+	},
 
-    "block1": {
-      "title": "How do we do that",
-      "text": "Workers use WhatsApp to chat with WorksRecorded to clock in and out of work. Before clocking out, the AI asks them to describe what was achieved during the day. The information is structured and stored in the database automatically. Geofence functionality is also included — the site manager marks the site area on a map, and workers can only clock in when they are physically inside that area."
-    },
+	"Timesheets": {
+		"title": "Timesheets",
 
-    "block2": {
-      "title": "What is your benefit",
-      "li1": "Get every work hour accounted for.",
-      "li2": "Bid labor precisely on the next project.",
-      "li3": "Identify waste, set targets, and measure KPIs for labor.",
-      "li4": "Geofence control ensures workers can clock in only on-site."
-    },
+		"block1": {
+			"title": "How do we do that",
+			"text": "Workers use WhatsApp to chat with WorksRecorded to clock in and out of work. Before clocking out, the AI asks them to describe what was achieved during the day. The information is structured and stored in the database automatically. Geofence functionality is also included — the site manager marks the site area on a map, and workers can only clock in when they are physically inside that area."
+		},
 
-    "images": {
-      "dashboardAlt": "Timesheets dashboard",
-      "whatsappAlt": "WhatsApp",
-      "analyticsAlt": "Timesheet analytics",
-      "geofenceClockInAlt": "WhatsApp clock-in confirmation with location check",
-      "geofenceAreaAlt": "Site area geofence setup on map"
-    }
-  },
+		"block2": {
+			"title": "What is your benefit",
+			"li1": "Get every work hour accounted for.",
+			"li2": "Bid labor precisely on the next project.",
+			"li3": "Identify waste, set targets, and measure KPIs for labor.",
+			"li4": "Geofence control ensures workers can clock in only on-site."
+		},
 
-  "Analytics": {
-    "title": "Analytics",
+		"images": {
+			"dashboardAlt": "Timesheets dashboard",
+			"whatsappAlt": "WhatsApp",
+			"analyticsAlt": "Timesheet analytics",
+			"geofenceClockInAlt": "WhatsApp clock-in confirmation with location check",
+			"geofenceAreaAlt": "Site area geofence setup on map"
+		}
+	},
 
-    "block1": {
-      "title": "How do we do that",
-      "text": "We combine data science with AI and construction industry expertise to automatically extract analytics from your data. We’ll provide the insights you need—bill of quantities, progress statistics, hindrances, delays, average performance, cost per category and period, areas of waste and improvement, and more."
-    },
+	"Analytics": {
+		"title": "Analytics",
 
-    "block2": {
-      "title": "What is your benefit",
-      "li1": "Advanced pre-made analytics for immediate results.",
-      "li2": "Custom analytics for specific needs.",
-      "li3": "Fully dynamic — updates as the project progresses.",
-      "li4": "Forecast finances, cash flow, and work progress."
-    },
+		"block1": {
+			"title": "How do we do that",
+			"text": "We combine data science with AI and construction industry expertise to automatically extract analytics from your data. We’ll provide the insights you need—bill of quantities, progress statistics, hindrances, delays, average performance, cost per category and period, areas of waste and improvement, and more."
+		},
 
-    "images": {
-      "overviewAlt": "Analytics overview",
-      "detailsAlt": "Analytics details"
-    }
-  },
+		"block2": {
+			"title": "What is your benefit",
+			"li1": "Advanced pre-made analytics for immediate results.",
+			"li2": "Custom analytics for specific needs.",
+			"li3": "Fully dynamic — updates as the project progresses.",
+			"li4": "Forecast finances, cash flow, and work progress."
+		},
 
-  "Manufacturing": {
-    "eyebrow": "WorksRecorded for manufacturing",
-    "title": "Production journal",
-    "intro": "WorksRecorded helps manufacturers see how long every operation takes, compare actual output against planned labor norms, and calculate costs automatically.",
-    "videoTitle": "WorksRecorded manufacturing production journal demo",
-    "dashboard": {
-      "title": "Production data in one place",
-      "text": "In the production journal you can see when each operation started and finished, who completed it, total time, completed volume, costs, and photos.",
-      "items": [
-        "Actual time spent on each manufacturing operation.",
-        "Planned versus actual labor norm comparison.",
-        "Element and project summaries with hours, m², costs, and plan variance.",
-        "Automatic payroll, productivity, and Excel export calculations."
-      ]
-    },
-    "whatsapp": {
-      "title": "Workers only need WhatsApp",
-      "text": "A worker photographs the drawing, says which task has started by voice or text, and sends a completion message with work photos when finished.",
-      "items": [
-        "The system automatically recognizes the project and element number.",
-        "Work can be paused or interrupted by another task, and the system accounts for it.",
-        "Completed work is saved online together with photos.",
-        "The whole reporting flow takes less than a minute."
-      ]
-    },
-    "benefits": {
-      "title": "What management gets",
-      "items": [
-        "React to time overruns in real time and minimize costs.",
-        "Estimate future projects more accurately using real production data.",
-        "Motivate workers with clear productivity visibility.",
-        "Improve quality because every operation has photos and history."
-      ]
-    }
-  },
+		"images": {
+			"overviewAlt": "Analytics overview",
+			"detailsAlt": "Analytics details"
+		}
+	},
 
-  "CustomSolutions": {
-    "title": "Custom digital solutions",
+	"Manufacturing": {
+		"hero": {
+			"titlePrefix": "Built for",
+			"titleHighlight": "factories",
+			"description": "WorksRecorded turns workers’ WhatsApp updates into structured production data—without introducing difficult software on the factory floor.",
+			"cta": "Book a demo",
+			"photoAlt": "Precast concrete factory with production lines and an overhead crane",
+			"caption": "Actual time, costs, quality, and production variances in one journal."
+		},
+		"features": [
+			{
+				"title": "Workers only need WhatsApp",
+				"description": "No difficult integration, new software, or complicated forms—your team already uses WhatsApp as a communication tool."
+			},
+			{
+				"title": "Turn drawings into structured data",
+				"description": "WorksRecorded automatically extracts the project name, element types, and required work from the drawing."
+			},
+			{
+				"title": "Keep every type of work connected",
+				"description": "Planned, additional, and unexpected work is captured in one flow and connected to the correct project."
+			},
+			{
+				"title": "Turn voice updates into production records",
+				"description": "A worker reports what they are doing; WorksRecorded transcribes the message and organizes it by project, element, and work type."
+			},
+			{
+				"title": "A quality-control flow for your QA team",
+				"description": "Quality checks, photos, and approvals stay connected to the relevant element and production operation."
+			},
+			{
+				"title": "Calculate every operation’s cost automatically",
+				"description": "Actual labor time and completed quantities produce a clear cost for every task, element, and project."
+			},
+			{
+				"title": "Implementation led by our team",
+				"description": "We visit your factory, speak directly with your team, and adapt WorksRecorded to your production workflow."
+			}
+		],
+		"comparison": {
+			"eyebrow": "Production visibility",
+			"titlePrefix": "From assumptions to",
+			"titleHighlight": "actual costs",
+			"description": "Compare production without structured reporting with the daily operational data captured by WorksRecorded.",
+			"withoutTitle": "Without WorksRecorded",
+			"withTitle": "With WorksRecorded",
+			"withoutItems": [
+				"No cost breakdown for a project.",
+				"Productivity is difficult to measure.",
+				"No data for estimation.",
+				"No clear benchmark for measuring worker performance.",
+				"Budget overruns only become visible when it is too late.",
+				"The same mistakes are made again."
+			],
+			"withItems": [
+				"Every hour of labor is accounted for.",
+				"Clear cost breakdown per m², kg, tonne, project, element, and work type.",
+				"Every delay or hindrance during production is recorded.",
+				"Clear time spent on each task is recorded.",
+				"Actual price data for future estimation.",
+				"Visibility for the project management team.",
+				"Estimates are compared with factual costs."
+			]
+		},
+		"visual": {
+			"worker": "Factory floor",
+			"whatsapp": "WhatsApp",
+			"productionRecord": "Production data",
+			"project": "Project",
+			"element": "Element",
+			"workType": "Work type",
+			"planned": "Planned work",
+			"additional": "Additional work",
+			"unexpected": "Unexpected work",
+			"voiceMessage": "Worker voice message",
+			"structuredData": "Structured record",
+			"qaCheck": "Quality check",
+			"approved": "Approved",
+			"labour": "Actual labor time",
+			"actualCost": "Actual cost",
+			"factoryVisit": "Factory visit",
+			"workflowSetup": "Workflow setup",
+			"teamTraining": "Team onboarding"
+		}
+	},
 
-    "block1": {
-      "title": "How do we do that",
-      "p1": {
-        "prefix": "We speak ",
-        "highlight": "construction language",
-        "suffix": ". We dive into your processes, map where value is created, and identify what data to capture and how you’ll benefit from it."
-      },
-      "p2": "Once a custom system is designed and implemented, it keeps paying off—clean records, less manual work, and analytics that support decisions.",
-      "p3": "Email us the process you want to digitalize and automate, and we’ll propose an effective, pragmatic solution."
-    },
+	"CustomSolutions": {
+		"title": "Custom digital solutions",
 
-    "block2": {
-      "title": "What is your benefit",
-      "p1": "Construction is one of the last under-digitalized frontiers. Get ahead and leverage the AI wave to improve margins, bids, and day-to-day processes.",
-      "p2": "From construction professionals to construction professionals. Practical tools, minimal friction, real outcomes."
-    },
+		"block1": {
+			"title": "How do we do that",
+			"p1": {
+				"prefix": "We speak ",
+				"highlight": "construction language",
+				"suffix": ". We dive into your processes, map where value is created, and identify what data to capture and how you’ll benefit from it."
+			},
+			"p2": "Once a custom system is designed and implemented, it keeps paying off—clean records, less manual work, and analytics that support decisions.",
+			"p3": "Email us the process you want to digitalize and automate, and we’ll propose an effective, pragmatic solution."
+		},
 
-    "images": {
-      "siteAlt": "On-site digital solutions",
-      "developmentAlt": "Custom development"
-    }
-  },
+		"block2": {
+			"title": "What is your benefit",
+			"p1": "Construction is one of the last under-digitalized frontiers. Get ahead and leverage the AI wave to improve margins, bids, and day-to-day processes.",
+			"p2": "From construction professionals to construction professionals. Practical tools, minimal friction, real outcomes."
+		},
 
-  "Pricing": {
-    "title": {
-      "prefix": "20 EUR /",
-      "highlight": "user"
-    },
-    "description": "Transparent monthly pricing per user, designed to scale with your project’s size and complexity. We also offer per-project pricing options, depending on how your company operates and discounts if you have many operatives. Contact us for a custom quote."
-  },
+		"images": {
+			"siteAlt": "On-site digital solutions",
+			"developmentAlt": "Custom development"
+		}
+	},
 
-  "About": {
-    "title": "About",
-    "p1": "Do you know what is happening on your construction site? Tracking construction works is not easy.",
-    "p2": "Site management is often overloaded and reluctant to take up additional admin burden to keep records.",
-    "p3": "Even if they exist, records are often scattered, unorganized, and need large effort to be sorted to become useful.",
-    "p4": "When records are missing, it is hard to improve processes, track metrics, argue claims/additional works, account for lost time, or generally understand why things are where they are.",
-    "p5": "Current digital tools are complex, take time and effort to integrate, and are often met with resistance from overloaded site teams.",
-    "p6": {
-      "prefix": "To help, I created a small tool called",
-      "bold": "WorksRecorded.com"
-    },
-    "p7": "Site managers use WhatsApp to take voice/text notes of site activities. The system then automatically sorts and stores records, which can be viewed from a browser.",
-    "p8": "This allows site management to spend more time on site, overseeing works, and less time in the office doing admin.",
-    "p9": "Simultaneously, this also lets project management better understand the project so they can analyze, act, and argue their position confidently to the GC/Client.",
-    "p10": "I have used this tool myself and find it simple yet powerful during complicated construction projects.",
-    "p11": "I will be happy if it helps you too. It is free for one project for everyone while in beta, and I will be happy to discuss and help if you have any questions. WorksRecorded is a product of Buvconsult SIA, Latvia",
-    "images": {
-      "selfieAlt": "Vjaceslavs Gromatovičs"
-    }
-  },
+	"Pricing": {
+		"title": {
+			"prefix": "20 EUR /",
+			"highlight": "user"
+		},
+		"description": "Transparent monthly pricing per user, designed to scale with your project’s size and complexity. We also offer per-project pricing options, depending on how your company operates and discounts if you have many operatives. Contact us for a custom quote."
+	},
 
-  "Contact": {
-    "heroTitle": "Let's Connect! 🚀",
-    "heroDescription": "Call us, send an email, write on WhatsApp, or fill out the form. We guarantee to get in touch with you **the same day**!",
+	"About": {
+		"title": "About",
+		"p1": "Do you know what is happening on your construction site? Tracking construction works is not easy.",
+		"p2": "Site management is often overloaded and reluctant to take up additional admin burden to keep records.",
+		"p3": "Even if they exist, records are often scattered, unorganized, and need large effort to be sorted to become useful.",
+		"p4": "When records are missing, it is hard to improve processes, track metrics, argue claims/additional works, account for lost time, or generally understand why things are where they are.",
+		"p5": "Current digital tools are complex, take time and effort to integrate, and are often met with resistance from overloaded site teams.",
+		"p6": {
+			"prefix": "To help, I created a small tool called",
+			"bold": "WorksRecorded.com"
+		},
+		"p7": "Site managers use WhatsApp to take voice/text notes of site activities. The system then automatically sorts and stores records, which can be viewed from a browser.",
+		"p8": "This allows site management to spend more time on site, overseeing works, and less time in the office doing admin.",
+		"p9": "Simultaneously, this also lets project management better understand the project so they can analyze, act, and argue their position confidently to the GC/Client.",
+		"p10": "I have used this tool myself and find it simple yet powerful during complicated construction projects.",
+		"p11": "I will be happy if it helps you too. It is free for one project for everyone while in beta, and I will be happy to discuss and help if you have any questions. WorksRecorded is a product of Buvconsult SIA, Latvia",
+		"images": {
+			"selfieAlt": "Vjaceslavs Gromatovičs"
+		}
+	},
 
-    "quickDetailsTitle": "Quick Details",
-    "phoneLabel": "Phone:",
-    "emailLabel": "Email:",
-    "webLabel": "Web:",
+	"Contact": {
+		"heroTitle": "Let's Connect! 🚀",
+		"heroDescription": "Call us, send an email, write on WhatsApp, or fill out the form. We guarantee to get in touch with you **the same day**!",
 
-    "formTitle": "Send us a Message",
+		"quickDetailsTitle": "Quick Details",
+		"phoneLabel": "Phone:",
+		"emailLabel": "Email:",
+		"webLabel": "Web:",
 
-    "firstNameLabel": "First Name",
-    "lastNameLabel": "Last Name",
-    "emailFieldLabel": "Email",
-    "subjectLabel": "Subject",
-    "messageLabel": "Message",
+		"formTitle": "Send us a Message",
 
-    "firstNamePlaceholder": "First Name",
-    "lastNamePlaceholder": "Last Name",
-    "emailPlaceholder": "Your best email",
-    "subjectPlaceholder": "Project Inquiry, Consultation, etc.",
-    "messagePlaceholder": "Tell us about your project or inquiry...",
+		"firstNameLabel": "First Name",
+		"lastNameLabel": "Last Name",
+		"emailFieldLabel": "Email",
+		"subjectLabel": "Subject",
+		"messageLabel": "Message",
 
-    "sending": "Sending…",
-    "sendMessage": "Send Message",
+		"firstNamePlaceholder": "First Name",
+		"lastNamePlaceholder": "Last Name",
+		"emailPlaceholder": "Your best email",
+		"subjectPlaceholder": "Project Inquiry, Consultation, etc.",
+		"messagePlaceholder": "Tell us about your project or inquiry...",
 
-    "status": {
-      "errorDefault": "Something went wrong. Please try again."
-    }
-  },
+		"sending": "Sending…",
+		"sendMessage": "Send Message",
 
-  "Navigation": {
-    "features": "Features",
+		"status": {
+			"errorDefault": "Something went wrong. Please try again."
+		}
+	},
 
-    "data": {
-      "whatsapp": {
-        "title": "Site records",
-        "description": "Use custom WhatsApp channel for reporting with voice/text"
-      },
-      "manufacturing": {
-        "title": "Manufacturing",
-        "description": "Track production operations, productivity, and costs from WhatsApp reports"
-      },
-      "timesheets": {
-        "title": "Timesheets",
-        "description": "Workers clock in/out via WhatsApp chat"
-      },
-      "analytics": {
-        "title": "Analytics",
-        "description": "Get live custom analytics"
-      },
-            "projects": {
-        "title": "Projects",
-        "description": "Case studies"
-      }
-    },
+	"Navigation": {
+		"features": "Features",
 
-    "main": {
-      "custom": "Custom solutions",
-      "pricing": "Pricing",
-      "about": "About",
-      "news": "News",
-      "contacts": "Contacts",
-      "caseStudies": "Projects"
+		"data": {
+			"whatsapp": {
+				"title": "Site records",
+				"description": "Use custom WhatsApp channel for reporting with voice/text"
+			},
+			"manufacturing": {
+				"title": "Manufacturing",
+				"description": "Track production operations, productivity, and costs from WhatsApp reports"
+			},
+			"timesheets": {
+				"title": "Timesheets",
+				"description": "Workers clock in/out via WhatsApp chat"
+			},
+			"analytics": {
+				"title": "Analytics",
+				"description": "Get live custom analytics"
+			},
+			"projects": {
+				"title": "Projects",
+				"description": "Case studies"
+			}
+		},
 
-    },
+		"main": {
+			"custom": "Custom solutions",
+			"pricing": "Pricing",
+			"about": "About",
+			"news": "News",
+			"contacts": "Contacts",
+			"caseStudies": "Projects"
+		},
 
-    "combined": {
-      "generic": "Get live custom analytics"
-    }
-  },
+		"combined": {
+			"generic": "Get live custom analytics"
+		}
+	},
 
-  "AuthButtons": {
-    "signIn": "Sign in",
-    "signUp": "Sign up",
-    "tryForFree": "Try for free"
-  },
+	"AuthButtons": {
+		"signIn": "Sign in",
+		"signUp": "Sign up",
+		"tryForFree": "Try for free"
+	},
 
-  "Header": {
-    "bisIntegrated": "Integrated with"
-  },
+	"Header": {
+		"bisIntegrated": "Integrated with"
+	},
 
-  "Footer": {
-    "data": "Data",
-    "siteDiary": "Site diary",
-    "timesheets": "Timesheets",
-    "analytics": "Analytics",
-    "features": "Features",
-    "custom": "Custom digital solutions",
-    "pricing": "Pricing",
-    "about": "About",
-    "privacy": "Privacy policy",
-    "contact": "Contact",
-    "contactHelp": "Contact us about a demo or any questions.",
-    "phone": "tel. +371 24885690",
-    "rights": "All rights reserved. WorksRecorded is a product of Buvconsult SIA, Latvia"
-  }
-
+	"Footer": {
+		"data": "Data",
+		"siteDiary": "Site diary",
+		"timesheets": "Timesheets",
+		"analytics": "Analytics",
+		"features": "Features",
+		"custom": "Custom digital solutions",
+		"pricing": "Pricing",
+		"about": "About",
+		"privacy": "Privacy policy",
+		"contact": "Contact",
+		"contactHelp": "Contact us about a demo or any questions.",
+		"phone": "tel. +371 24885690",
+		"rights": "All rights reserved. WorksRecorded is a product of Buvconsult SIA, Latvia"
+	}
 }
