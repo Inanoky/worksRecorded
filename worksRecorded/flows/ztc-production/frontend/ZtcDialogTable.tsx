@@ -31,6 +31,9 @@ import defaultConfig from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMa
 import { useMediaQuery } from "@/components/sitediary/Use-media-querty";
 import { ZTC_ALL_PROJECTS_RATE_NAME } from "@/flows/ztc-production/lib/ztc-rate-constants";
 import { ZTC_RATE_UNITS } from "@/flows/ztc-production/lib/ztc-rate-units";
+import { findZtcDefaultRateForTask, type ZtcRateCategory } from "@/flows/ztc-production/lib/ztc-rate-matching";
+import { getZtcProjectCategoryRates } from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import { buildZtcRateSelectOption } from "@/flows/ztc-production/lib/ztc-rate-option";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
@@ -143,11 +146,11 @@ function SearchableZtcSelect({
               type="button"
               className="flex w-full min-w-0 items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
               onClick={() => {
-                onChange(option.label);
+                onChange(option.value);
                 setOpen(false);
               }}
             >
-              <Check className={`mt-0.5 h-4 w-4 shrink-0 ${value === option.label ? "opacity-100" : "opacity-0"}`} />
+              <Check className={`mt-0.5 h-4 w-4 shrink-0 ${value === option.value ? "opacity-100" : "opacity-0"}`} />
               <span className="min-w-0 whitespace-normal break-words">{option.label}</span>
             </button>
           ))}
@@ -634,56 +637,22 @@ export function ZtcDialogTable({
     return drawingIndex.elementAreas.get(normalizedElement) ?? null;
   };
 
-  const getProjectRateConfig = (projectName: string) => {
-    const normalizedProject = normalizeOption(projectName).toLowerCase();
-    const allProject = defaultRates.find(
-      (project) =>
-        normalizeOption(project.projectName).toLowerCase() ===
-        ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
-    );
-    const project = defaultRates.find(
-      (candidate) =>
-        normalizeOption(candidate.projectName).toLowerCase() === normalizedProject,
-    );
-    return { project, allProject };
-  };
+  const getEffectiveRates = (projectName: string, category: ZtcRateCategory) =>
+    getZtcProjectCategoryRates(defaultRates, projectName, category);
 
   const getStandardRateOptions = (projectName: string) => {
-    const { project, allProject } = getProjectRateConfig(projectName);
-    const seen = new Set<string>();
-    return [...(allProject?.works ?? []), ...(project?.works ?? [])]
+    return getEffectiveRates(projectName, "works")
       .map((entry) => normalizeZtcWorkName(entry.task))
-      .filter((task) => {
-        const key = task.toLowerCase();
-        if (!task || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      .filter(Boolean);
   };
 
   const getSpecialRateOptions = (
     row: any,
     category: "additionalDetails" | "additionalWorks",
   ) => {
-    const normalizedProject = normalizeOption(row.Location).toLowerCase();
-    const allProject = defaultRates.find(
-      (project) =>
-        normalizeOption(project.projectName).toLowerCase() ===
-        ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
-    );
-    const project = defaultRates.find(
-      (candidate) =>
-        normalizeOption(candidate.projectName).toLowerCase() === normalizedProject,
-    );
-    const seen = new Set<string>();
-    return [...(allProject?.[category] ?? []), ...(project?.[category] ?? [])]
+    return getEffectiveRates(row.Location, category)
       .map((entry) => normalizeZtcWorkName(entry.task))
-      .filter((task) => {
-        const key = task.toLowerCase();
-        if (!task || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      .filter(Boolean);
   };
 
   const getSpecialRateEntry = (
@@ -691,31 +660,30 @@ export function ZtcDialogTable({
     category: "additionalDetails" | "additionalWorks",
     task: string,
   ) => {
-    const normalizedProject = normalizeOption(row.Location).toLowerCase();
-    const normalizedTask = normalizeZtcWorkName(task).toLowerCase();
-    const allProject = defaultRates.find(
-      (project) =>
-        normalizeOption(project.projectName).toLowerCase() ===
-        ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
-    );
-    const project = defaultRates.find(
-      (candidate) =>
-        normalizeOption(candidate.projectName).toLowerCase() === normalizedProject,
-    );
-    return [project, allProject]
-      .filter(Boolean)
-      .flatMap((rateProject) => rateProject?.[category] ?? [])
-      .find((entry) => normalizeZtcWorkName(entry.task).toLowerCase() === normalizedTask);
+    return findZtcDefaultRateForTask(
+      normalizeZtcWorkName(task),
+      getEffectiveRates(row.Location, category),
+      { category },
+    )?.entry;
   };
 
   const getStandardRateEntry = (projectName: string, task: string) => {
-    const normalizedTask = normalizeZtcWorkName(task).toLowerCase();
-    const { project, allProject } = getProjectRateConfig(projectName);
-    return [project, allProject]
-      .filter(Boolean)
-      .flatMap((rateProject) => rateProject?.works ?? [])
-      .find((entry) => normalizeZtcWorkName(entry.task).toLowerCase() === normalizedTask);
+    return findZtcDefaultRateForTask(
+      normalizeZtcWorkName(task),
+      getEffectiveRates(projectName, "works"),
+      { category: "works" },
+    )?.entry;
   };
+
+  const getRateSelectOption = (
+    row: any,
+    task: string,
+    category: ZtcRateCategory,
+  ) => buildZtcRateSelectOption({
+    task,
+    rates: getEffectiveRates(row.Location, category),
+    category,
+  });
 
   const isAdditionalWorkOption = (row: any, task: string) =>
     Boolean(getSpecialRateEntry(row, "additionalWorks", task));
@@ -752,7 +720,7 @@ export function ZtcDialogTable({
       if (specialCategory) {
         const rateOptions = getSpecialRateOptions(row, specialCategory);
         if (rateOptions.length) {
-          return rateOptions.map((label) => ({ value: label, label }));
+          return rateOptions.map((task) => getRateSelectOption(row, task, specialCategory));
         }
       }
 
@@ -776,7 +744,11 @@ export function ZtcDialogTable({
         seen.add(key);
         return true;
       });
-      return workOptions.map((label) => ({ value: label, label }));
+      return workOptions.map((task) => {
+        const standardOption = getRateSelectOption(row, task, "works");
+        if (standardOption.label !== standardOption.value) return standardOption;
+        return getRateSelectOption(row, task, "additionalWorks");
+      });
     }
 
     if (field === "Units") {
@@ -1146,7 +1118,7 @@ export function ZtcDialogTable({
     if (field === "Location") {
       const currentValue = String(row[field] ?? "");
       const options = getDropdownOptions(field, row);
-      const optionValues = new Set(options.map((option) => option.label));
+      const optionValues = new Set(options.map((option) => option.value));
       const mergedOptions =
         currentValue && !optionValues.has(currentValue)
           ? [{ value: currentValue, label: currentValue }, ...options]
@@ -1188,7 +1160,7 @@ export function ZtcDialogTable({
     if (field === "Works" && getZtcSpecialCategory(row)) {
       const options = getDropdownOptions(field, row);
       const currentValue = String(row[field] ?? "");
-      const optionValues = new Set(options.map((option) => option.label));
+      const optionValues = new Set(options.map((option) => option.value));
       const mergedOptions =
         currentValue && !optionValues.has(currentValue)
           ? [{ value: currentValue, label: currentValue }, ...options]
@@ -1227,7 +1199,7 @@ export function ZtcDialogTable({
     if (type === "dropdown") {
       const currentValue = String(row[field] ?? "");
       const options = getDropdownOptions(field, row);
-      const optionValues = new Set(options.map((option) => option.label));
+      const optionValues = new Set(options.map((option) => option.value));
       const mergedOptions =
         currentValue && !optionValues.has(currentValue)
           ? [{ value: currentValue, label: currentValue }, ...options]
