@@ -136,7 +136,10 @@ import {
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
 import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
 import { exportZtcElementsToExcel } from "@/flows/ztc-production/lib/ztc-element-export";
-import { resolveZtcRateTaskForRow } from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import {
+  resolveZtcRateTaskForRow,
+  ztcRowMatchesConfiguredWorkFilter,
+} from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
 
@@ -567,44 +570,6 @@ function toLocalDateKey(d: Date) {
   const month = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function normalizeZtcSpecialLabel(value: unknown) {
-  return String(value ?? "")
-    .trim()
-    .toLocaleLowerCase("lv")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function getZtcAdditionalDetailMainWork(row: DiaryRow) {
-  if (normalizeZtcSpecialLabel(row.Works_Custom_1) !== "papilddetalas") return null;
-  try {
-    const metadata = JSON.parse(String(row.Comments_Custom_2 ?? ""));
-    return typeof metadata?.mainWork === "string" ? metadata.mainWork.trim() : null;
-  } catch {
-    return null;
-  }
-}
-
-function ztcRowMatchesWorkFilter(row: DiaryRow, selectedWork: string) {
-  if (selectedWork === "__ALL__") return true;
-  const normalizedSelected = normalizeZtcSpecialLabel(selectedWork);
-  if (normalizedSelected === "papilddetalas") {
-    return normalizeZtcSpecialLabel(row.Works_Custom_1) === "papilddetalas";
-  }
-  if (normalizedSelected === "papilddarbi") {
-    return (
-      normalizeZtcSpecialLabel(row.Location) === "papilddarbi" ||
-      normalizeZtcSpecialLabel(row.Location_Custom_1) === "papilddarbi" ||
-      normalizeZtcSpecialLabel(row.Works_Custom_1) === "papilddarbi"
-    );
-  }
-  if (cleanZtcWorkName(row.Works) === cleanZtcWorkName(selectedWork)) return true;
-  return (
-    cleanZtcWorkName(getZtcAdditionalDetailMainWork(row)) ===
-    cleanZtcWorkName(selectedWork)
-  );
 }
 
 function getDiaryRowSearchableText(row: DiaryRow) {
@@ -1351,9 +1316,9 @@ export default function SiteDiaryCalendar({
   const worksOptions = React.useMemo(
     () =>
       isZtcSite
-        ? withSelectedOption(ztcFilterOptions.works, workFilter)
+        ? ztcFilterOptions.works
         : pageWorksOptions,
-    [isZtcSite, pageWorksOptions, workFilter, ztcFilterOptions.works],
+    [isZtcSite, pageWorksOptions, ztcFilterOptions.works],
   );
 
   React.useEffect(() => {
@@ -1451,7 +1416,10 @@ export default function SiteDiaryCalendar({
       if (startMs !== null && t < startMs) return false;
       if (endMs !== null && t > endMs) return false;
 
-      if (workFilter !== "__ALL__" && !ztcRowMatchesWorkFilter(r, workFilter)) return false;
+      if (
+        workFilter !== "__ALL__" &&
+        !ztcRowMatchesConfiguredWorkFilter(r, workFilter, ztc.defaultRates)
+      ) return false;
 
       if (floorFilter !== "__ALL__") {
         if (!r.Location || r.Location !== floorFilter) return false;
@@ -1467,7 +1435,17 @@ export default function SiteDiaryCalendar({
 
       return true;
     });
-  }, [rows, dateFrom, dateTo, workFilter, floorFilter, elementFilter, workerFilter, isZtcSite]);
+  }, [
+    rows,
+    dateFrom,
+    dateTo,
+    workFilter,
+    floorFilter,
+    elementFilter,
+    workerFilter,
+    isZtcSite,
+    ztc.defaultRates,
+  ]);
 
   // Group filtered rows by day
   const dayGroups: DayGroup[] = React.useMemo(() => {
@@ -1841,7 +1819,10 @@ export default function SiteDiaryCalendar({
     }) as DiaryRow[];
     const normalizedKeyword = keywordFilter.trim().toLowerCase();
     return allRows.filter((row) => {
-      if (workFilter !== "__ALL__" && !ztcRowMatchesWorkFilter(row, workFilter)) return false;
+      if (
+        workFilter !== "__ALL__" &&
+        !ztcRowMatchesConfiguredWorkFilter(row, workFilter, ztc.defaultRates)
+      ) return false;
       if (floorFilter !== "__ALL__" && row.Location !== floorFilter) return false;
       if (isZtcSite && elementFilter !== "__ALL__" && row.Location_Custom_1 !== elementFilter) return false;
       if (isZtcSite && workerFilter !== "__ALL__" && row.createdBy !== workerFilter) return false;
@@ -1857,6 +1838,7 @@ export default function SiteDiaryCalendar({
     keywordFilter,
     siteDiaryFlowId,
     siteId,
+    ztc.defaultRates,
     workFilter,
     workerFilter,
   ]);
@@ -2839,6 +2821,7 @@ export default function SiteDiaryCalendar({
                           onValueChange={(value) => {
                             setFloorFilter(value);
                             setElementFilter("__ALL__");
+                            setWorkFilter("__ALL__");
                           }}
                           options={floorOptions.map((value) => ({ value, label: value }))}
                           allLabel="Visi projekti"

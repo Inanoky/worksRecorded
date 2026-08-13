@@ -25,6 +25,10 @@ import {
 import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
 import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
 import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
+import {
+  ztcRowMatchesConfiguredWorkFilter,
+  type ZtcRateProject,
+} from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import { syncDefaultConstructionForma2WorkAssignments } from "@/flows/default-construction/backend/forma2-analytics-actions";
 
 type SiteDiaryFlowHint = {
@@ -1849,6 +1853,22 @@ function compactFilterValue(value?: string | null) {
   return trimmed && trimmed !== "__ALL__" ? trimmed : null;
 }
 
+async function loadZtcFilterRates(siteId: string): Promise<ZtcRateProject[]> {
+  const site = await prisma.site.findUnique({
+    where: { id: siteId },
+    select: { siteDiaryRecordsMap: true },
+  });
+  const config = site?.siteDiaryRecordsMap;
+  if (!config || typeof config !== "object" || Array.isArray(config)) return [];
+  const otherSettings = (config as Record<string, any>).otherSettings;
+  const projects = otherSettings?.ztcDefaultTaskRates?.projects;
+  return Array.isArray(projects) ? (projects as ZtcRateProject[]) : [];
+}
+
+function withoutWorkFilter(options: SiteDiaryRecordsPageOptions) {
+  return { ...options, workFilter: undefined };
+}
+
 function buildZtcWorkFilterWhere(workName: string) {
   const normalized = workName
     .trim()
@@ -2062,13 +2082,51 @@ export async function getSiteDiaryRecordsPage(siteId: string, options: SiteDiary
   const pageSize = normalizeSiteDiaryPageSize(options.pageSize);
   const trace = createPerfTrace({ route: "action.siteDiary.recordsPage", category: "action", siteId });
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
-  const where = buildSiteDiaryListWhere(siteId, options, useZtcRecords);
+  const ztcWorkFilter = useZtcRecords ? compactFilterValue(options.workFilter) : null;
+  const where = buildSiteDiaryListWhere(
+    siteId,
+    ztcWorkFilter ? withoutWorkFilter(options) : options,
+    useZtcRecords,
+  );
   const orderBy = useZtcRecords
     ? [{ Date: "desc" as const }, { Date_Custom_1: "desc" as const }, { createdAt: "desc" as const }, { id: "desc" as const }]
     : [{ Date: "desc" as const }, { createdAt: "desc" as const }, { id: "desc" as const }];
   const skip = (page - 1) * pageSize;
 
   try {
+    if (useZtcRecords && ztcWorkFilter) {
+      const [allRecords, defaultRates] = await trace.measure(
+        "recordsPageConfiguredWorkQuery",
+        () =>
+          Promise.all([
+            prisma.ztcRecords.findMany({
+              where,
+              orderBy,
+              select: {
+                ...siteDiaryListSelect,
+                pausedAt: true,
+                pauseIntervals: true,
+              },
+            }),
+            loadZtcFilterRates(siteId),
+          ]),
+      );
+      const matchingRecords = allRecords.filter((row) =>
+        ztcRowMatchesConfiguredWorkFilter(row, ztcWorkFilter, defaultRates),
+      );
+      const totalCount = matchingRecords.length;
+      const rows = matchingRecords
+        .slice(skip, skip + pageSize)
+        .map(mapSiteDiaryListRecord);
+      const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+
+      trace.end({
+        status: 200,
+        extra: { returnedCount: rows.length, totalCount, page, pageSize },
+      });
+      return { rows, totalCount, page, pageSize, totalPages };
+    }
+
     const [records, totalCount] = await trace.measure("recordsPageQuery", () =>
       useZtcRecords
         ? Promise.all([
@@ -2124,6 +2182,7 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
 
   const trace = createPerfTrace({ route: "action.siteDiary.mediaOnlyDays", category: "action", siteId });
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
+  const ztcWorkFilter = useZtcRecords ? compactFilterValue(options.workFilter) : null;
   const dateFilter = buildSiteDiaryListDateFilter(options);
   const photoWhere: any = {
     siteId,
@@ -2155,7 +2214,7 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
   }
 
   try {
-    const [photos, records] = await trace.measure("mediaOnlyDaysQuery", () =>
+    const [photos, records, defaultRates] = await trace.measure("mediaOnlyDaysQuery", () =>
       Promise.all([
         prisma.photos.findMany({
           where: photoWhere,
@@ -2168,18 +2227,40 @@ export async function getSiteDiaryMediaOnlyDays(siteId: string, options: SiteDia
         }),
         useZtcRecords
           ? prisma.ztcRecords.findMany({
-              where: buildSiteDiaryListWhere(siteId, options, true),
-              select: { Date: true, Date_Custom_1: true },
+              where: buildSiteDiaryListWhere(
+                siteId,
+                ztcWorkFilter ? withoutWorkFilter(options) : options,
+                true,
+              ),
+              select: {
+                Date: true,
+                Date_Custom_1: true,
+                Location: true,
+                Location_Custom_1: true,
+                Works: true,
+                Works_Custom_1: true,
+                Comments_Custom_2: true,
+                Units: true,
+              },
             })
           : prisma.sitediaryrecords.findMany({
               where: buildSiteDiaryListWhere(siteId, options, false),
               select: { Date: true, Date_Custom_1: true },
             }),
+        useZtcRecords && ztcWorkFilter
+          ? loadZtcFilterRates(siteId)
+          : Promise.resolve([]),
       ]),
     );
+    const filteredRecords =
+      useZtcRecords && ztcWorkFilter
+        ? records.filter((row) =>
+            ztcRowMatchesConfiguredWorkFilter(row, ztcWorkFilter, defaultRates),
+          )
+        : records;
 
     const recordDays = new Set<string>();
-    records.forEach((record) => {
+    filteredRecords.forEach((record) => {
       const dateKey = toLocalDayISOFromDate(record.Date);
       if (dateKey) recordDays.add(dateKey);
       const customDateKey = toLocalDayISOFromDate(record.Date_Custom_1);
@@ -2255,7 +2336,12 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, option
 
   const trace = createPerfTrace({ route: "action.siteDiary.exportExcel", category: "action", siteId });
   const useZtcRecords = await shouldUseZtcRecordsForSite(siteId, options);
-  const where = buildSiteDiaryListWhere(siteId, options, useZtcRecords);
+  const ztcWorkFilter = useZtcRecords ? compactFilterValue(options.workFilter) : null;
+  const where = buildSiteDiaryListWhere(
+    siteId,
+    ztcWorkFilter ? withoutWorkFilter(options) : options,
+    useZtcRecords,
+  );
   const select = useZtcRecords
     ? {
         id: true,
@@ -2351,6 +2437,14 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, option
       ? prisma.ztcRecords.findMany(query)
       : prisma.sitediaryrecords.findMany(query),
   );
+  const defaultRates =
+    useZtcRecords && ztcWorkFilter ? await loadZtcFilterRates(siteId) : [];
+  const exportRecords =
+    useZtcRecords && ztcWorkFilter
+      ? records.filter((row) =>
+          ztcRowMatchesConfiguredWorkFilter(row, ztcWorkFilter, defaultRates),
+        )
+      : records;
 
   const formatCreatorName = (
     firstName: string | null | undefined,
@@ -2362,7 +2456,7 @@ export async function getSitediaryRecordsBySiteIdForExcel(siteId: string, option
     return parts.join(" ");
   };
 
-  const rows = records.map((rec) => {
+  const rows = exportRecords.map((rec) => {
     let createdBy = "";
 
     if (rec.User) {

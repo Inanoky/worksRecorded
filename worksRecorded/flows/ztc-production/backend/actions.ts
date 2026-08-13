@@ -25,7 +25,11 @@ import {
   normalizeZtcRateTaskKey,
   type ZtcProjectRateExclusions,
 } from "@/flows/ztc-production/lib/ztc-rate-exclusions";
-import { resolveZtcRateTaskForRow } from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import {
+  buildZtcConfiguredWorkFilterOptions,
+  resolveZtcRateTaskForRow,
+  ztcRowMatchesConfiguredWorkFilter,
+} from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 import {
   attachZtcLaborNormToMetadata,
@@ -1010,10 +1014,7 @@ export async function getZtcScopeSummary(args: {
         { Works: null },
         { Works: "" },
       ],
-      AND: [
-        buildZtcNotCancelledWhere(),
-        ...(workName ? [buildZtcParentAwareWorkWhere(workName)] : []),
-      ],
+      AND: [buildZtcNotCancelledWhere()],
     },
     orderBy: [{ Date: "desc" }, { Date_Custom_1: "desc" }, { createdAt: "desc" }],
     select: {
@@ -1076,6 +1077,11 @@ export async function getZtcScopeSummary(args: {
         .join(" ")
         .toLowerCase()
         .includes(keyword),
+    );
+  }
+  if (workName) {
+    rows = rows.filter((row) =>
+      ztcRowMatchesConfiguredWorkFilter(row, workName, defaultRates),
     );
   }
   const elementTotalAreaM2 = elementName
@@ -1210,6 +1216,9 @@ export async function getZtcFilterOptions(args: {
   keyword?: string | null;
 }) {
   const context = await requireZtcAccess(args.siteId);
+  const defaultRates = getDefaultTaskRatesFromConfig(
+    await loadZtcSiteDiaryConfig(args.siteId),
+  );
 
   const normalizeFilter = (value: unknown) => {
     const normalized = String(value ?? "").trim();
@@ -1311,9 +1320,15 @@ export async function getZtcFilterOptions(args: {
     }),
     prisma.ztcRecords.findMany({
       where: makeWhere("work"),
-      distinct: ["Works"],
-      select: { Works: true },
-      orderBy: { Works: "asc" },
+      distinct: ["Location", "Works", "Works_Custom_1", "Units"],
+      select: {
+        Location: true,
+        Location_Custom_1: true,
+        Works: true,
+        Works_Custom_1: true,
+        Units: true,
+      },
+      orderBy: [{ Location: "asc" }, { Works: "asc" }],
     }),
     prisma.ztcRecords.findMany({
       where: {
@@ -1343,10 +1358,12 @@ export async function getZtcFilterOptions(args: {
   return {
     projects: uniqueSorted(projectRows.map((row) => row.Location ?? "")),
     elements: uniqueSorted(elementRows.map((row) => row.Location_Custom_1 ?? "")),
-    works: uniqueSorted([
-      ...workRows.map((row) => cleanZtcWorkName(row.Works)),
-      ...specialWorkRows.map((row) => row.Works_Custom_1 ?? ""),
-    ]),
+    works: buildZtcConfiguredWorkFilterOptions({
+      rows: workRows,
+      defaultRates,
+      projectName: normalizeFilter(args.projectName),
+      additionalOptions: specialWorkRows.map((row) => row.Works_Custom_1 ?? ""),
+    }),
     workers: uniqueSorted(workers),
   };
 }
