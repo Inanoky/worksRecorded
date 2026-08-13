@@ -636,6 +636,34 @@ const materialImageClassificationSchema = z.object({
 	reason: z.string(),
 });
 
+const MATERIAL_DOCUMENT_EXTRACTION_CONFIDENCE_THRESHOLD = 0.65;
+const UNCERTAIN_DOCUMENT_EXTRACTION_CONFIDENCE_THRESHOLD = 0.4;
+
+function shouldAttemptMaterialExtraction(classification: {
+	isMaterialDocument: boolean;
+	confidence: number;
+	reason: string;
+}) {
+	if (
+		classification.isMaterialDocument &&
+		classification.confidence >=
+			MATERIAL_DOCUMENT_EXTRACTION_CONFIDENCE_THRESHOLD
+	) {
+		return true;
+	}
+
+	if (
+		classification.confidence <
+		UNCERTAIN_DOCUMENT_EXTRACTION_CONFIDENCE_THRESHOLD
+	) {
+		return false;
+	}
+
+	return /\b(invoice|receipt|delivery note|bill of lading|purchase order|supplier document|document|r[ēe]ķins|pavadz[īi]me|kv[īi]ts|čeks|ceks)\b/i.test(
+		classification.reason,
+	);
+}
+
 export async function classifyMaterialDocumentImage(
 	publicUrl: string,
 	context?: MetaMaterialContext | null,
@@ -660,30 +688,31 @@ export async function classifyMaterialDocumentImage(
 			prompt: `You are routing WhatsApp images for a construction site diary.
 
 Task:
-Decide whether this image should go to construction-material invoice extraction.
+Decide whether this image should go to invoice/spend extraction.
 
 Return isMaterialDocument=true only when all of these are true:
 1. The image is readable enough to inspect text.
-2. It is a document-like source, such as an invoice, receipt, delivery note, bill of lading, purchase order, product label, price table, or supplier document.
-3. It contains construction material or product line items, quantities, units, prices, invoice numbers, delivery references, or similar purchasing details.
+2. It is a document-like source, such as an invoice, receipt, delivery note, bill of lading, purchase order, product label, price table, estimate, quote, service invoice, work invoice, or supplier document.
+3. It contains invoice-like purchasing or billing details: material rows, product rows, service rows, labor hours, work descriptions, quantities, units, prices, invoice numbers, delivery references, or similar spend details.
 
 Return isMaterialDocument=false for:
 - normal site progress photos
 - progress report images, site diary notes, work summaries, or instructions to save completed work
 - selfies or people photos
 - equipment-only photos
-- drawings/plans without material purchase rows
-- screenshots or chat messages without material line items
+- drawings/plans without invoice, purchase, delivery, or billing details
+- screenshots or chat messages without invoice, purchase, delivery, or billing details
 - unreadable, cropped, or blurry images
-- documents that are not about construction materials
+- documents that are not about construction work, construction services, construction materials, site purchases, supplier billing, or project spend
 
 Confidence guidance:
-- 0.90-1.00: clear material invoice/receipt/delivery note with readable rows
-- 0.70-0.89: likely material document, but some fields are partly unclear
-- 0.40-0.69: document-like image, but material rows are uncertain
+- 0.90-1.00: clear invoice/receipt/delivery note/service invoice with readable spend rows
+- 0.70-0.89: likely invoice/spend document, but some fields are partly unclear
+- 0.40-0.69: document-like invoice/spend image, but rows are uncertain
 - 0.00-0.39: not a material document or not readable
 
-Be conservative. If material line items are not visible, return false.`,
+Do not reject invoice-like documents only because they contain services, labor, cleaning, restoration, or construction work instead of material products.
+Use construction_material_id=no_match later for rows that are not material categories.`,
 		}),
 		buildLangChainRunConfig({
 			name: "MetaMaterialImageClassification",
@@ -795,16 +824,19 @@ export async function extractBISMaterialsFromPublicUrl(args: {
 	const payload = await extractor.invoke(
 		buildImageMessage({
 			publicUrl: args.publicUrl,
-			prompt: `You are extracting construction material purchases from one WhatsApp image.
+			prompt: `You are extracting construction invoice and spend rows from one WhatsApp image.
 
 Today is ${todayIso} in Europe/Riga.
 
 Goal:
-Return an object with an items array. Each item represents one invoice line that should be tracked from a construction material/spend invoice.
+Return an object with an items array. Each item represents one invoice, receipt, delivery note, service invoice, labor invoice, or spend document line that should be tracked for a construction project.
 
 Include:
 - construction materials and products
 - tools, equipment, lighting, fixtures, consumables, pallets, packaging, deposits, and delivery/transport service rows when they are invoice lines related to the material purchase
+- labor, service, cleaning, restoration, repair, construction work, subcontractor, machinery, rental, delivery, and other project spend rows
+- service rows even when there are no material/product rows
+- invoice-like documents with one visible service description and one visible total; return one row for that service/total
 - rows that do not match a BIS material category, using construction_material_id = no_match
 
 Ignore only:
@@ -820,15 +852,15 @@ ${categories
 	.join("\n")}
 
 Output fields:
-- name: copy the product/material name from the document in the original language. Do not translate or normalize brand names.
+- name: copy the product, material, service, labor, work, or spend line name from the document in the original language. Do not translate or normalize brand names.
 - invoiceNr: copy the invoice, receipt, delivery note, waybill, or document number. Use an empty string if no document number is visible.
 - invoiceDate: use the document date when visible. If multiple dates exist, prefer invoice/receipt issue date over due date or delivery date. Return an ISO string at midnight UTC, for example 2025-12-04T00:00:00Z. Use null if no date is visible.
 - invoiceDateText: copy the exact visible document date text, for example "04.12.2025" or "04.12.". Use an empty string if no document date text is visible.
 - invoiceDateYearVisible: return true only when the document date visibly includes a year. Return false when the year is missing, cropped, unreadable, or inferred.
 - costCode: copy a visible project/cost code from the document. If no row cost code is visible, generate a stable row code in invoice order: CC-1001, CC-1002, CC-1003, and so on.
-- cost: use the line total for that material row, excluding VAT when both net and gross are visible. If only gross total is visible, use it. If only unit price is visible, multiply by the extracted invoice quantity. Use 0 only when no price is visible.
+- cost: use the line total for that row, excluding VAT when both net and gross are visible. If only gross total is visible, use it. If only unit price/rate is visible, multiply by the extracted invoice quantity/hours. Use 0 only when no price is visible.
 - construction_material_id: select the best id from the allowed material categories. Use no_match when none fits confidently.
-- quantity: return the numeric quantity for the row.
+- quantity: return the numeric quantity for the row. For service/labor rows, use visible hours/units when shown; otherwise use 1 for a visible service or invoice total row.
 
 Invoice date rules:
 1. Material invoices sent over WhatsApp are normally from today or the previous month.
@@ -850,7 +882,8 @@ Category matching rules:
 1. Match by material meaning, not by supplier or brand.
 2. Prefer the most specific category that clearly matches the line item.
 3. Do not force a category when the material kind is ambiguous.
-4. Never output a category id that is not in the allowed list.
+4. Use no_match for service, labor, cleaning, restoration, repair, rental, machinery, subcontractor, transport, and other non-material spend rows unless a listed material category clearly matches.
+5. Never output a category id that is not in the allowed list.
 
 Examples:
 - "80 maisi x Cements 25 kg" matched to a unit category means quantity = 80, the total amount can be calculated by user later.
@@ -858,12 +891,15 @@ Examples:
 - "Armatūra 12 mm, 120 m" matched to a meter category means quantity = 120.
 - "1 palete bloki, 48 gab." matched to a piece category means quantity = 48.
 - "10 kg Siešanas stieple" matched to a tonne category means quantity = 0.01.
+- "Celtniecības pakalpojumi" with total 4200 and no quantity means quantity = 1, construction_material_id = no_match.
+- "B68 - UZKOPŠANA" with total 227.50 means quantity = 1, construction_material_id = no_match.
+- "Darba stundas 12 h x 25" means quantity = 12, cost = 300, construction_material_id = no_match.
 
 Quality rules:
 - Extract only facts visible in the image.
 - If a row is unreadable, skip it.
-- Do not merge distinct material rows unless the document itself groups them as one line.
-- Return an empty items array if no material line item is readable.`,
+- Do not merge distinct rows unless the document itself groups them as one line.
+- Return an empty items array only when no invoice/spend/service/material row or invoice-level billable description is readable.`,
 		}),
 		buildLangChainRunConfig({
 			name: "MetaMaterialInvoiceExtraction",
@@ -956,16 +992,15 @@ export async function processMaterialDocumentImageFromPublicUrl(args: {
 
 	console.log("Meta material image classification", classification);
 
-	if (!classification.isMaterialDocument || classification.confidence < 0.65) {
+	if (!shouldAttemptMaterialExtraction(classification)) {
 		return false;
 	}
 
-	await extractAndSaveBISMaterialsFromPublicUrl(
+	return await extractAndSaveBISMaterialsFromPublicUrl(
 		args.publicUrl,
 		args.senderPhone,
 		context,
 	);
-	return true;
 }
 
 export async function sendToGpt(mediaId: string, senderPhone?: string) {
@@ -989,10 +1024,17 @@ export async function extractAndSaveBISMaterialsFromPublicUrl(
 
 	console.log(`THis is GPT output : ${JSON.stringify(payload)}`);
 	console.log(`And this are categories : ${mockupCategories}`);
+	if (payload.items.length === 0) {
+		console.warn(
+			"Material document extraction returned no rows; leaving image on regular photo path.",
+			{ publicUrl },
+		);
+		return false;
+	}
 
 	await saveBISMaterialPayloadToDatabase(payload, publicUrl, context);
 
-	return JSON.stringify(payload);
+	return true;
 }
 
 //Ok now need to save the response

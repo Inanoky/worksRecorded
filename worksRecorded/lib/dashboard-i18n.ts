@@ -290,6 +290,7 @@ type WarehouseUiMessages = {
   cost: string;
   invoice: string;
   invoiceDate: string;
+  uploadedDate: string;
   action: string;
   sendToBis: string;
   openInBis: string;
@@ -1084,6 +1085,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     cost: "Cost",
     invoice: "Invoice",
     invoiceDate: "Invoice date",
+    uploadedDate: "Uploaded",
     action: "Action",
     sendToBis: "Send to BIS",
     openInBis: "Open in BIS",
@@ -1202,6 +1204,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     cost: "Izmaksas",
     invoice: "Rēķins",
     invoiceDate: "Rēķina datums",
+    uploadedDate: "Augšupielādēts",
     action: "Darbība",
     sendToBis: "Sūtīt uz BIS",
     openInBis: "Atvērt BIS",
