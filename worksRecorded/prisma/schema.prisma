@@ -346,6 +346,21 @@ model ZtcRecords {
   @@map("ZTCrecords")
 }
 
+model ZtcRateChangeAudit {
+  id             String   @id @default(uuid())
+  siteId         String
+  organizationId String?
+  actorUserId    String
+  actorEmail     String?
+  beforeRates    Json
+  afterRates     Json
+  changes        Json
+  createdAt      DateTime @default(now())
+
+  @@index([siteId, createdAt], map: "ZtcRateChangeAudit_site_created_idx")
+  @@index([organizationId, createdAt], map: "ZtcRateChangeAudit_org_created_idx")
+}
+
 model sitediarysettings {
   id      String  @id @default(uuid())
   User    User?   @relation(fields: [userId], references: [id])

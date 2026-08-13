@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
@@ -17,6 +18,7 @@ import {
   type ZtcRateUnit,
 } from "@/flows/ztc-production/lib/ztc-rate-units";
 import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
+import { buildZtcRateAuditChanges } from "@/flows/ztc-production/lib/ztc-rate-audit";
 import {
   getZtcExcludedRateTaskKeys,
   normalizeZtcProjectRateExclusions,
@@ -902,7 +904,7 @@ export async function updateZtcDefaultTaskRates(args: {
   siteId: string;
   rates: ZtcProjectTaskRates[];
 }) {
-  await requireZtcAccess(args.siteId);
+  const context = await requireZtcAccess(args.siteId);
 
   const site = await prisma.site.findUnique({
     where: { id: args.siteId },
@@ -915,18 +917,49 @@ export async function updateZtcDefaultTaskRates(args: {
       ? structuredClone(site.siteDiaryRecordsMap as Record<string, any>)
       : structuredClone(ztcSiteDiaryRecordsMap as Record<string, any>);
 
+  const beforeRates = getDefaultTaskRatesFromConfig(currentMap);
   const rates = normalizeProjectRates({ projects: args.rates });
+  const changes = buildZtcRateAuditChanges(beforeRates, rates);
+  if (!changes.length) return { ok: true, rates };
+
   currentMap.otherSettings = {
     ...(currentMap.otherSettings ?? {}),
     [ZTC_DEFAULT_TASK_RATES_KEY]: { projects: rates },
   };
 
-  await prisma.site.update({
-    where: { id: args.siteId },
-    data: { siteDiaryRecordsMap: currentMap },
-  });
+  await prisma.$transaction([
+    prisma.site.update({
+      where: { id: args.siteId },
+      data: { siteDiaryRecordsMap: currentMap },
+    }),
+    prisma.ztcRateChangeAudit.create({
+      data: {
+        siteId: args.siteId,
+        organizationId: context.organizationId,
+        actorUserId: context.user.id,
+        actorEmail: context.user.email ?? null,
+        beforeRates: beforeRates as unknown as Prisma.InputJsonValue,
+        afterRates: rates as unknown as Prisma.InputJsonValue,
+        changes: changes as unknown as Prisma.InputJsonValue,
+      },
+    }),
+  ]);
 
   return { ok: true, rates };
+}
+
+export async function getZtcRateChangeHistory(args: {
+  siteId: string;
+  limit?: number;
+}) {
+  await requireZtcAccess(args.siteId);
+  const limit = Math.min(Math.max(Math.trunc(args.limit ?? 50), 1), 200);
+
+  return prisma.ztcRateChangeAudit.findMany({
+    where: { siteId: args.siteId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
 }
 
 export async function getZtcSiteDiaryRecords(args: { siteId: string; date: string }) {
