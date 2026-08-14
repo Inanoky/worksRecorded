@@ -137,10 +137,9 @@ import {
 import { applyZtcExcelNumberFormats, formatZtcRowsForExcel } from "@/flows/ztc-production/lib/ztc-excel-export";
 import { exportZtcElementsToExcel } from "@/flows/ztc-production/lib/ztc-element-export";
 import {
-  resolveZtcRateTaskForRow,
+  getZtcRateTaskDisplayForRow,
   ztcRowMatchesConfiguredWorkFilter,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
-import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
 
 import { toast } from "sonner";
@@ -962,16 +961,11 @@ export default function SiteDiaryCalendar({
     setLocationFilter: setFloorFilter,
     setWorkFilter,
   });
-  const getZtcResolvedWork = React.useCallback(
-    (row: DiaryRow) =>
-      isZtcSite ? resolveZtcRateTaskForRow(row, ztc.defaultRates) : null,
-    [isZtcSite, ztc.defaultRates],
-  );
   const renderZtcWorkName = React.useCallback(
     (row: DiaryRow, fallback: string) => {
-      const resolved = getZtcResolvedWork(row);
-      const primary = resolved?.canonicalTask || cleanZtcWorkName(row.Works) || fallback;
-      const extracted = resolved?.differs ? cleanZtcWorkName(resolved.extractedTask) : null;
+      const display = getZtcRateTaskDisplayForRow(row, ztc.defaultRates);
+      const primary = display.rateTask || fallback;
+      const extracted = display.extractedTask;
 
       return (
         <span className="block min-w-0">
@@ -987,7 +981,7 @@ export default function SiteDiaryCalendar({
         </span>
       );
     },
-    [getZtcResolvedWork],
+    [ztc.defaultRates],
   );
   const handleZtcWorkerFilterChange = React.useCallback(
     (value: string) => {

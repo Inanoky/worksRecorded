@@ -27,6 +27,7 @@ import {
 } from "@/flows/ztc-production/lib/ztc-rate-exclusions";
 import {
   buildZtcRecordedWorkFilterOptions,
+  isZtcUnassignedRateTaskFilter,
   resolveZtcRateTaskForRow,
   ztcRowMatchesConfiguredWorkFilter,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
@@ -1334,7 +1335,13 @@ export async function getZtcFilterOptions(args: {
 
     if (projectName && exclude !== "project") andFilters.push({ Location: projectName });
     if (elementName && exclude !== "element") andFilters.push({ Location_Custom_1: elementName });
-    if (workName && exclude !== "work") andFilters.push(buildZtcParentAwareWorkWhere(workName));
+    if (
+      workName &&
+      exclude !== "work" &&
+      !isZtcUnassignedRateTaskFilter(workName)
+    ) {
+      andFilters.push(buildZtcParentAwareWorkWhere(workName));
+    }
     if (workerName && exclude !== "worker") andFilters.push(workerCondition(workerName));
     if (keywordCondition) andFilters.push(keywordCondition);
 
