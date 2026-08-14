@@ -26,6 +26,10 @@ import { resolvePersistableAudioUrl } from "@/lib/utils/uploadthing-file-url";
 import { isZtcProductionFlowRuntime } from "@/lib/production-flow/runtime-server";
 import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
 import {
+  setDefaultConstructionWorkDropdownOptions,
+  withDefaultConstructionSystemWorks,
+} from "@/flows/default-construction/lib/site-diary-productivity-settings";
+import {
   ztcRowMatchesConfiguredWorkFilter,
   type ZtcRateProject,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
@@ -254,7 +258,17 @@ export async function getConfig(siteId: string, options: SiteDiaryFlowHint = {})
     return baseMap;
   }
 
-  return clientConfig?.siteDiaryRecordsMap ?? null;
+  if (!clientConfig) return null;
+  const defaultConstructionMap =
+    clientConfig.siteDiaryRecordsMap && typeof clientConfig.siteDiaryRecordsMap === "object"
+      ? structuredClone(clientConfig.siteDiaryRecordsMap as Record<string, any>)
+      : structuredClone(defaultConfig as Record<string, any>);
+
+  setDefaultConstructionWorkDropdownOptions(
+    defaultConstructionMap,
+    withDefaultConstructionSystemWorks(defaultConstructionMap),
+  );
+  return defaultConstructionMap;
 }
 
 export async function updateSiteDiaryDropdownOptions(args: {
@@ -293,19 +307,22 @@ export async function updateSiteDiaryDropdownOptions(args: {
     );
   }
 
-  const nextDropdownOptions = Object.fromEntries(
-    normalizedOptions.map((option) => [option, option]),
-  );
-
   const fallbackFieldConfig = (fallbackMap as Record<string, any>)?.[args.fieldKey] ?? {
     Type: "dropdown",
     DisplayName: args.fieldKey,
   };
 
-  currentMap[args.fieldKey] = {
-    ...(currentMap[args.fieldKey] ?? fallbackFieldConfig),
-    DropDownOptions: nextDropdownOptions,
-  };
+  if (!useZtcConfig && args.fieldKey === "Works") {
+    setDefaultConstructionWorkDropdownOptions(currentMap, normalizedOptions);
+  } else {
+    const nextDropdownOptions = Object.fromEntries(
+      normalizedOptions.map((option) => [option, option]),
+    );
+    currentMap[args.fieldKey] = {
+      ...(currentMap[args.fieldKey] ?? fallbackFieldConfig),
+      DropDownOptions: nextDropdownOptions,
+    };
+  }
 
   await prisma.site.update({
     where: { id: args.siteId },

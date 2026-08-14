@@ -46,12 +46,17 @@ type WorkDraft = {
   laborNormHoursPerUnit: string;
   hourlyCost: string;
   costCalculationMode: "hourly" | "output";
-  source?: {
-    type: "forma2";
-    documentId: string;
-    positionId: string;
-    ownedByForma2: boolean;
-  };
+  source?:
+    | {
+        type: "forma2";
+        documentId: string;
+        positionId: string;
+        ownedByForma2: boolean;
+      }
+    | {
+        type: "systemDefault";
+        locked: true;
+      };
 };
 
 const PRODUCTIVITY_MESSAGES = {
@@ -67,6 +72,9 @@ const PRODUCTIVITY_MESSAGES = {
     outputMode: "Output",
     forma2Managed:
       "This work name is managed by the active Forma 2. Replace or remove the Forma 2 document to change it.",
+    systemDefaultManaged:
+      "This default work name is required for AI matching and cannot be changed.",
+    systemDefaultBadge: "Default",
     costModeHint:
       "Output: planned and factual costs both follow completed quantity × output rate. Hourly rate: factual cost follows recorded hours × hourly rate.",
     selectUnit: "No unit",
@@ -88,6 +96,9 @@ const PRODUCTIVITY_MESSAGES = {
     outputMode: "Izpilde",
     forma2Managed:
       "Šī darba nosaukumu pārvalda aktīvā Forma 2. Lai to mainītu, aizstājiet vai noņemiet Formas 2 dokumentu.",
+    systemDefaultManaged:
+      "Šis noklusējuma darbs",
+    systemDefaultBadge: "Noklusējums",
     costModeHint:
       "Izpilde: plāna un faktiskās izmaksas = izpildītais daudzums × izpildes likme. Stundas likme: faktiskās izmaksas = reģistrētās stundas × stundas likme.",
     selectUnit: "Nav norādīta",
@@ -514,6 +525,17 @@ export function SiteDiaryOptionsManager({
                   const availableUnits = Array.from(
                     new Set([...unitOptions, work.unit].filter(Boolean)),
                   );
+                  const isLockedWorkName =
+                    work.source?.type === "systemDefault" ||
+                    (work.source?.type === "forma2" &&
+                      work.source.ownedByForma2);
+                  const lockedWorkTitle =
+                    work.source?.type === "systemDefault"
+                      ? p.systemDefaultManaged
+                      : work.source?.type === "forma2" &&
+                          work.source.ownedByForma2
+                        ? p.forma2Managed
+                        : undefined;
                   return (
                     <div
                       key={work.id}
@@ -523,17 +545,23 @@ export function SiteDiaryOptionsManager({
                         <Input
                           value={work.work}
                           maxLength={MAX_OPTION_LENGTH}
-                          disabled={work.source?.ownedByForma2}
-                          title={
-                            work.source?.ownedByForma2
-                              ? p.forma2Managed
-                              : undefined
-                          }
+                          disabled={isLockedWorkName}
+                          title={lockedWorkTitle}
                           onChange={(event) =>
                             updateWork(index, { work: event.target.value })
                           }
                         />
-                        {work.source?.ownedByForma2 ? (
+                        {work.source?.type === "systemDefault" ? (
+                          <Badge
+                            variant="secondary"
+                            className="shrink-0"
+                            title={p.systemDefaultManaged}
+                          >
+                            {p.systemDefaultBadge}
+                          </Badge>
+                        ) : null}
+                        {work.source?.type === "forma2" &&
+                        work.source.ownedByForma2 ? (
                           <Badge
                             variant="secondary"
                             className="shrink-0"
@@ -622,12 +650,8 @@ export function SiteDiaryOptionsManager({
                             current.filter((_, rowIndex) => rowIndex !== index),
                           )
                         }
-                        disabled={work.source?.ownedByForma2}
-                        title={
-                          work.source?.ownedByForma2
-                            ? p.forma2Managed
-                            : undefined
-                        }
+                        disabled={isLockedWorkName}
+                        title={lockedWorkTitle}
                         aria-label={t.deleteOption}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

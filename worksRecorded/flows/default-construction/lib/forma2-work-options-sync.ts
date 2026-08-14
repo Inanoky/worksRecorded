@@ -2,15 +2,16 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import type { Forma2Position } from "@/flows/default-construction/lib/forma2-analytics";
 import {
 	DEFAULT_CONSTRUCTION_FORMA2_WORK_SYNC_KEY,
-	getDefaultConstructionForma2WorkSyncManifest,
-	normalizeForma2WorkOptionKey,
 	type DefaultConstructionForma2WorkSyncEntry,
 	type DefaultConstructionForma2WorkSyncManifest,
+	getDefaultConstructionForma2WorkSyncManifest,
+	normalizeForma2WorkOptionKey,
 } from "@/flows/default-construction/lib/forma2-work-options-manifest";
 import {
 	DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY,
-	getDefaultConstructionProductivitySettings,
 	type DefaultConstructionWorkProductivitySetting,
+	getDefaultConstructionProductivitySettings,
+	setDefaultConstructionWorkDropdownOptions,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
 
@@ -99,6 +100,10 @@ function setDropdownValues(
 		...(config[field] ?? fallback),
 		DropDownOptions: Object.fromEntries(values.map((value) => [value, value])),
 	};
+}
+
+function setWorkDropdownValues(config: Record<string, any>, values: string[]) {
+	setDefaultConstructionWorkDropdownOptions(config, values);
 }
 
 export function isDefaultConstructionForma2WorkSyncCurrent(
@@ -217,7 +222,7 @@ export function syncDefaultConstructionForma2WorkOptions(args: {
 			? config.otherSettings
 			: {};
 
-	setDropdownValues(config, "Works", works);
+	setWorkDropdownValues(config, works);
 	setDropdownValues(config, "Units", units);
 	config.otherSettings = {
 		...otherSettings,
@@ -270,7 +275,7 @@ export function removeDefaultConstructionForma2WorkOptions(
 		version: 4,
 		works: settings,
 	};
-	setDropdownValues(config, "Works", works);
+	setWorkDropdownValues(config, works);
 	config.otherSettings = otherSettings;
 	return { config, removedWorks: ownedKeys.size };
 }

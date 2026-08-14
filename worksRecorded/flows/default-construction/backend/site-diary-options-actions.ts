@@ -5,10 +5,12 @@ import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
 import { DEFAULT_CONSTRUCTION_FORMA2_WORK_SYNC_KEY } from "@/flows/default-construction/lib/forma2-work-options-manifest";
 import { reconcileForma2WorkManifestAfterOptionsSave } from "@/flows/default-construction/lib/forma2-work-options-sync";
 import {
+  assertDefaultConstructionSystemWorksPreserved,
   DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY,
   type DefaultConstructionWorkProductivitySetting,
   getDefaultConstructionOptionValues,
   normalizeDefaultConstructionWorkSettings,
+  setDefaultConstructionWorkDropdownOptions,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { prisma } from "@/lib/utils/db";
 import { requireUser } from "@/lib/utils/requireUser";
@@ -66,6 +68,7 @@ export async function saveDefaultConstructionSiteDiaryOptions(args: {
   const config = await readAuthorizedConfig(args.siteId);
   const locations = normalizeSimpleOptions(args.locations, "Location");
   const works = normalizeDefaultConstructionWorkSettings(args.works);
+  assertDefaultConstructionSystemWorksPreserved(works);
   const forma2Manifest = reconcileForma2WorkManifestAfterOptionsSave(
     config,
     works,
@@ -81,10 +84,10 @@ export async function saveDefaultConstructionSiteDiaryOptions(args: {
       locations.map((value) => [value, value]),
     ),
   };
-  config.Works = {
-    ...(config.Works ?? (defaultConfig as Record<string, any>).Works),
-    DropDownOptions: Object.fromEntries(works.map(({ work }) => [work, work])),
-  };
+  setDefaultConstructionWorkDropdownOptions(
+    config,
+    works.map(({ work }) => work),
+  );
   const otherSettings = {
     ...(config.otherSettings ?? {}),
     [DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY]: {
