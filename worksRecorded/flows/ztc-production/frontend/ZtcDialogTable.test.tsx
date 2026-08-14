@@ -2,12 +2,14 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const mockGetZtcDialogPrefetchData = jest.fn();
+const mockSaveZtcSiteDiaryDialogRows = jest.fn();
 
 jest.mock("@/flows/ztc-production/backend/actions", () => ({
 	deleteZtcSiteDiaryRecord: jest.fn(),
 	getZtcDialogPrefetchData: (...args: unknown[]) =>
 		mockGetZtcDialogPrefetchData(...args),
-	saveZtcSiteDiaryDialogRows: jest.fn(),
+	saveZtcSiteDiaryDialogRows: (...args: unknown[]) =>
+		mockSaveZtcSiteDiaryDialogRows(...args),
 }));
 
 jest.mock("@/components/sitediary/Use-media-querty", () => ({
@@ -206,5 +208,123 @@ describe("ZtcDialogTable project element catalogue", () => {
 		expect(
 			screen.queryByRole("button", { name: "X-99" }),
 		).not.toBeInTheDocument();
+	});
+
+	it("renames every visible part of a split task without changing its m2", async () => {
+		const rows = [
+			{
+				id: "11111111-1111-4111-8111-111111111111",
+				Date: new Date("2026-08-14T07:49:00.000Z"),
+				Date_Custom_2: new Date("2026-08-14T08:10:00.000Z"),
+				Location: "Project RD",
+				Location_Custom_1: "J-2-1",
+				Works: "R1/T1 - Difūzijas membrāna Solitex",
+				Units: "m2",
+				Amounts: 6,
+				TimeInvolved: 1,
+				Comments_Custom_2: JSON.stringify({
+					type: "ztc_drawing_context",
+					elements: [
+						{
+							elementName: "J-2-1",
+							totalAreaM2: 10,
+							works: [
+								{
+									name: "R1/T1 - Difūzijas membrāna Solitex",
+									amountM2: 10,
+								},
+							],
+						},
+					],
+				}),
+			},
+			{
+				id: "22222222-2222-4222-8222-222222222222",
+				Date: new Date("2026-08-14T08:11:00.000Z"),
+				Date_Custom_2: new Date("2026-08-14T08:38:00.000Z"),
+				Location: "Project RD",
+				Location_Custom_1: "J-2-1",
+				Works: "R1/T1 - Difūzijas membrāna Solitex",
+				Units: "m2",
+				Amounts: 4,
+				TimeInvolved: 0.5,
+				Comments_Custom_2: JSON.stringify({
+					type: "ztc_drawing_context",
+					elements: [
+						{
+							elementName: "J-2-1",
+							totalAreaM2: 10,
+							works: [
+								{
+									name: "R1/T1 - Difūzijas membrāna Solitex",
+									amountM2: 10,
+								},
+							],
+						},
+					],
+				}),
+			},
+		];
+		mockGetZtcDialogPrefetchData.mockResolvedValue({
+			config: defaultConfig,
+			rows,
+			rates: [],
+			elementCatalogRows: [],
+		});
+		mockSaveZtcSiteDiaryDialogRows.mockResolvedValue({
+			ok: true,
+			updated: 2,
+			created: 0,
+		});
+
+		render(
+			<ZtcDialogTable
+				date={new Date("2026-08-14T12:00:00.000Z")}
+				siteId="ztc-site"
+				initialRows={rows}
+				initialConfig={defaultConfig}
+				initialRates={[]}
+			/>,
+		);
+
+		await waitFor(() =>
+			expect(
+				screen
+					.getAllByRole("combobox")
+					.filter((element) => element.textContent?.trim() === "J-2-1"),
+			).toHaveLength(2),
+		);
+		const elementSelects = screen
+			.getAllByRole("combobox")
+			.filter((element) => element.textContent?.trim() === "J-2-1");
+		await userEvent.setup().click(elementSelects[0]);
+		await userEvent
+			.setup()
+			.type(screen.getByPlaceholderText("Meklēt..."), "J-21");
+		await userEvent
+			.setup()
+			.click(screen.getByRole("button", { name: "Izmantot “J-21”" }));
+
+		await waitFor(() =>
+			expect(
+				screen
+					.getAllByRole("combobox")
+					.filter((element) => element.textContent?.trim() === "J-21"),
+			).toHaveLength(2),
+		);
+		await userEvent.setup().click(screen.getByRole("button", { name: "Save" }));
+
+		await waitFor(() =>
+			expect(mockSaveZtcSiteDiaryDialogRows).toHaveBeenCalled(),
+		);
+		const savedRows =
+			mockSaveZtcSiteDiaryDialogRows.mock.calls[0][0].existingRows;
+		expect(savedRows).toHaveLength(2);
+		expect(
+			savedRows.map((row: Record<string, unknown>) => row.Location_Custom_1),
+		).toEqual(["J-21", "J-21"]);
+		expect(
+			savedRows.map((row: Record<string, unknown>) => row.Amounts),
+		).toEqual([6, 4]);
 	});
 });

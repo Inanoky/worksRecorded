@@ -31,7 +31,10 @@ import {
   ztcRowMatchesConfiguredWorkFilter,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
-import { applyZtcElementNameChange } from "@/flows/ztc-production/lib/ztc-project-edit";
+import {
+  applyZtcElementNameChange,
+  getZtcSplitTaskRenameGroupKey,
+} from "@/flows/ztc-production/lib/ztc-project-edit";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
@@ -1459,25 +1462,108 @@ export async function saveZtcSiteDiaryDialogRows(args: {
         },
         select: {
           id: true,
+          Date_Custom_2: true,
+          Location: true,
           Location_Custom_1: true,
+          Works: true,
+          Works_Custom_1: true,
+          Units: true,
+          Comments_Custom_2: true,
         },
       })
     : [];
   const storedRowsById = new Map(storedRows.map((row) => [row.id, row]));
   const correctedAt = new Date().toISOString();
+  const normalizeElementName = (value: unknown) =>
+    String(value ?? "").trim().toLocaleLowerCase("lv");
+  const renameGroups = new Map<
+    string,
+    {
+      source: (typeof storedRows)[number];
+      previousElementName: string;
+      elementName: string;
+    }
+  >();
+
+  for (const row of args.existingRows) {
+    const storedRow = storedRowsById.get(row.id);
+    const previousElementName = String(storedRow?.Location_Custom_1 ?? "").trim();
+    const elementName = String(row.Location_Custom_1 ?? "").trim();
+    if (
+      !storedRow ||
+      !previousElementName ||
+      !elementName ||
+      normalizeElementName(previousElementName) === normalizeElementName(elementName)
+    ) {
+      continue;
+    }
+
+    const groupKey = getZtcSplitTaskRenameGroupKey(storedRow);
+    if (!groupKey) continue;
+
+    const existingGroup = renameGroups.get(groupKey);
+    if (
+      existingGroup &&
+      normalizeElementName(existingGroup.elementName) !== normalizeElementName(elementName)
+    ) {
+      throw new Error("Saistītās sadalītā darba daļas nevar pārdēvēt atšķirīgi.");
+    }
+
+    renameGroups.set(groupKey, {
+      source: storedRow,
+      previousElementName,
+      elementName,
+    });
+  }
+
+  const relatedRows = (
+    await Promise.all(
+      [...renameGroups.entries()].map(async ([groupKey, correction]) => {
+        const candidates = await prisma.ztcRecords.findMany({
+          where: {
+            siteId,
+            organizationId,
+            Location: correction.source.Location,
+            Location_Custom_1: correction.source.Location_Custom_1,
+            Date_Custom_2: { not: null },
+            AND: [buildZtcNotCancelledWhere()],
+          },
+          select: {
+            id: true,
+            Date_Custom_2: true,
+            Location: true,
+            Location_Custom_1: true,
+            Works: true,
+            Works_Custom_1: true,
+            Units: true,
+            Comments_Custom_2: true,
+          },
+        });
+
+        return candidates
+          .filter((candidate) => getZtcSplitTaskRenameGroupKey(candidate) === groupKey)
+          .map((candidate) => ({ candidate, correction }));
+      }),
+    )
+  ).flat();
+  const groupedCorrectionsById = new Map(
+    relatedRows.map(({ candidate, correction }) => [candidate.id, { candidate, correction }]),
+  );
 
   const existingRows = args.existingRows
     .filter((row) => row.id)
     .map((row) => {
       const { id, siteId, _tempId, createdBy, ...data } = row;
-      const previousElementName = storedRowsById.get(id)?.Location_Custom_1;
+      const groupedCorrection = groupedCorrectionsById.get(id)?.correction;
+      const previousElementName =
+        groupedCorrection?.previousElementName ?? storedRowsById.get(id)?.Location_Custom_1;
+      const nextElementName = groupedCorrection?.elementName ?? data.Location_Custom_1;
       const hasElementCorrection =
         Boolean(previousElementName) &&
-        Boolean(data.Location_Custom_1) &&
-        String(previousElementName).trim().toLocaleLowerCase("lv") !==
-          String(data.Location_Custom_1).trim().toLocaleLowerCase("lv");
+        Boolean(nextElementName) &&
+        normalizeElementName(previousElementName) !== normalizeElementName(nextElementName);
       const correctedData = hasElementCorrection
-        ? applyZtcElementNameChange(data, data.Location_Custom_1, {
+        ? applyZtcElementNameChange(data, nextElementName, {
             previousElementName,
             audit: {
               correctedAt,
@@ -1493,6 +1579,26 @@ export async function saveZtcSiteDiaryDialogRows(args: {
         }),
       };
     });
+  const submittedRowIds = new Set(existingRows.map((row) => row.id));
+  const relatedElementUpdates = relatedRows
+    .filter(({ candidate }) => !submittedRowIds.has(candidate.id))
+    .map(({ candidate, correction }) => ({
+      id: candidate.id,
+      data: applyZtcElementNameChange(
+        {
+          Location_Custom_1: candidate.Location_Custom_1,
+          Comments_Custom_2: candidate.Comments_Custom_2,
+        },
+        correction.elementName,
+        {
+          previousElementName: correction.previousElementName,
+          audit: {
+            correctedAt,
+            correctedBy: user.id,
+          },
+        },
+      ),
+    }));
 
   const newRows = args.newRows.map((row) => ({
     userId: user.id,
@@ -1506,7 +1612,7 @@ export async function saveZtcSiteDiaryDialogRows(args: {
     Photos: [],
   }));
 
-  if (!existingRows.length && !newRows.length) {
+  if (!existingRows.length && !relatedElementUpdates.length && !newRows.length) {
     return { ok: true, updated: 0, created: 0 };
   }
 
@@ -1521,12 +1627,26 @@ export async function saveZtcSiteDiaryDialogRows(args: {
         data: row.data,
       }),
     ),
+    ...relatedElementUpdates.map((row) =>
+      prisma.ztcRecords.updateMany({
+        where: {
+          id: row.id,
+          siteId,
+          organizationId,
+        },
+        data: row.data,
+      }),
+    ),
     ...(newRows.length
       ? [prisma.ztcRecords.createMany({ data: newRows })]
       : []),
   ]);
 
-  return { ok: true, updated: existingRows.length, created: newRows.length };
+  return {
+    ok: true,
+    updated: existingRows.length + relatedElementUpdates.length,
+    created: newRows.length,
+  };
 }
 
 export async function updateZtcSiteDiaryRecord(args: {

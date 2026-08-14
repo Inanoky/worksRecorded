@@ -43,6 +43,7 @@ import {
 import {
   applyZtcElementNameChange,
   applyZtcProjectNameChange,
+  getZtcSplitTaskRenameGroupKey,
 } from "@/flows/ztc-production/lib/ztc-project-edit";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
@@ -813,23 +814,44 @@ export function ZtcDialogTable({
 
   const handleChange = (rowKey: string, field: string, value: any) => {
     hasClientEditsRef.current = true;
-    setDirtyRowKeys((prev) => new Set(prev).add(rowKey));
+    const selectedRow = rows.find((row) => row.id === rowKey || row._tempId === rowKey);
+    const isElementRename =
+      field === "Location_Custom_1" &&
+      normalizeSpecialLabel(value) !== "papilddarbi" &&
+      normalizeOption(selectedRow?.Location_Custom_1).toLocaleLowerCase("lv") !==
+        normalizeOption(value).toLocaleLowerCase("lv");
+    const splitRenameGroupKey = isElementRename
+      ? getZtcSplitTaskRenameGroupKey(selectedRow)
+      : null;
+    const affectedRowKeys = rows
+      .filter(
+        (row) =>
+          row.id === rowKey ||
+          row._tempId === rowKey ||
+          (splitRenameGroupKey &&
+            getZtcSplitTaskRenameGroupKey(row) === splitRenameGroupKey),
+      )
+      .map((row) => String(row.id ?? row._tempId));
+    setDirtyRowKeys((prev) => {
+      const next = new Set(prev);
+      for (const affectedRowKey of affectedRowKeys) next.add(affectedRowKey);
+      return next;
+    });
     setRows((prev) =>
       prev.map((row) => {
-        if (row.id !== rowKey && row._tempId !== rowKey) return row;
+        const isSelectedRow = row.id === rowKey || row._tempId === rowKey;
+        const isRelatedSplitRow = Boolean(
+          isElementRename &&
+            splitRenameGroupKey &&
+            getZtcSplitTaskRenameGroupKey(row) === splitRenameGroupKey,
+        );
+        if (!isSelectedRow && !isRelatedSplitRow) return row;
+        if (!isSelectedRow) return applyZtcElementNameChange(row, value);
 
-        const isCustomElementName =
-          field === "Location_Custom_1" &&
-          normalizeSpecialLabel(value) !== "papilddarbi" &&
-          !getElementOptions(row.Location).some(
-            (option) =>
-              normalizeOption(option).toLocaleLowerCase("lv") ===
-              normalizeOption(value).toLocaleLowerCase("lv"),
-          );
         const next =
           field === "Location"
             ? applyZtcProjectNameChange(row, value)
-            : isCustomElementName
+            : isElementRename
               ? applyZtcElementNameChange(row, value)
               : { ...row, [field]: value };
 
@@ -862,7 +884,7 @@ export function ZtcDialogTable({
             return next;
           }
 
-          if (isCustomElementName) return next;
+          if (isElementRename) return next;
 
           if (isZtcQualityRow(next)) return next;
 
@@ -1114,7 +1136,7 @@ export function ZtcDialogTable({
 
     try {
       setSaving(true);
-      await saveZtcSiteDiaryDialogRows({
+      const saveResult = await saveZtcSiteDiaryDialogRows({
         existingRows: existingRows.map((row) => ({
           ...stripUiFields(row),
           id: row.id,
@@ -1127,7 +1149,9 @@ export function ZtcDialogTable({
       });
 
       invalidateCurrentPrefetchCache();
-      toast.success(toastMessages.diarySaved(existingRows.length, newRows.length));
+      toast.success(
+        toastMessages.diarySaved(saveResult.updated, saveResult.created),
+      );
       setDirtyRowKeys(new Set());
       hasClientEditsRef.current = false;
       onSaved?.();

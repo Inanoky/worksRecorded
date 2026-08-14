@@ -1,3 +1,5 @@
+import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-identity";
+
 export function updateZtcMetadataProjectName(
 	metadataValue: unknown,
 	projectName: unknown,
@@ -136,4 +138,42 @@ export function applyZtcElementNameChange<T extends Record<string, unknown>>(
 			options?.audit,
 		),
 	};
+}
+
+function normalizeRenameIdentity(value: unknown) {
+	return String(value ?? "")
+		.trim()
+		.toLocaleLowerCase("lv")
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "");
+}
+
+function isHourlyRenameUnit(value: unknown) {
+	const unit = normalizeRenameIdentity(value).replace(/\.$/, "");
+	return ["st", "h", "hr", "hour", "hours", "stunda", "stundas"].includes(unit);
+}
+
+export function getZtcSplitTaskRenameGroupKey(
+	row: Record<string, unknown> | null | undefined,
+) {
+	if (!row?.Date_Custom_2) return null;
+
+	const project = normalizeRenameIdentity(row.Location);
+	const element = normalizeRenameIdentity(row.Location_Custom_1);
+	const work = getZtcTaskIdentityKey(row.Works);
+	const workCategory = normalizeRenameIdentity(row.Works_Custom_1);
+	if (
+		!project ||
+		!element ||
+		!work ||
+		project === "papilddarbi" ||
+		element === "papilddarbi" ||
+		workCategory === "papilddetalas" ||
+		normalizeRenameIdentity(row.Works) === "kvalitates kontrole" ||
+		isHourlyRenameUnit(row.Units)
+	) {
+		return null;
+	}
+
+	return JSON.stringify([project, element, work]);
 }
