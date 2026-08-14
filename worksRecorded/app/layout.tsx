@@ -106,7 +106,10 @@ export default function RootLayout({
           {children}
           <Toaster richColors closeButton />
         </ThemeProvider>
-        <MarketingTagManager gtmId="GTM-TSLDCSGF" />
+        <MarketingTagManager
+          gaId="G-VZBQYSLZP2"
+          gtmId="GTM-TSLDCSGF"
+        />
       </body>
     </html>
   );

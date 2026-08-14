@@ -40,7 +40,11 @@ import {
   normalizeZtcLaborNorm,
   readZtcLaborNormFromMetadata,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
-import { applyZtcProjectNameChange } from "@/flows/ztc-production/lib/ztc-project-edit";
+import {
+  applyZtcElementNameChange,
+  applyZtcProjectNameChange,
+  getZtcSplitTaskRenameGroupKey,
+} from "@/flows/ztc-production/lib/ztc-project-edit";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
 
 type ZtcDrawingMetadata = {
@@ -72,6 +76,7 @@ type ZtcDialogPrefetchCacheEntry = {
   config: Record<string, any>;
   rows: any[];
   rates?: ZtcProjectTaskRates[];
+  elementCatalogRows?: any[];
 };
 
 type ZtcSelectOption = {
@@ -79,17 +84,21 @@ type ZtcSelectOption = {
   label: string;
 };
 
-function SearchableZtcSelect({
+export function SearchableZtcSelect({
   value,
   options,
   placeholder,
   width,
+  allowCustomValue = false,
+  customValueMaxLength,
   onChange,
 }: {
   value: string;
   options: ZtcSelectOption[];
   placeholder: string;
   width: string | number;
+  allowCustomValue?: boolean;
+  customValueMaxLength?: number;
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -98,6 +107,21 @@ function SearchableZtcSelect({
   const filteredOptions = options.filter((option) =>
     option.label.toLocaleLowerCase("lv").includes(normalizedSearch),
   );
+  const customValue = search.trim();
+  const hasExactOption = options.some(
+    (option) =>
+      option.value.trim().toLocaleLowerCase("lv") ===
+      customValue.toLocaleLowerCase("lv"),
+  );
+  const canUseCustomValue =
+    allowCustomValue && Boolean(customValue) && !hasExactOption;
+
+  const selectCustomValue = () => {
+    if (!canUseCustomValue) return;
+    onChange(customValue);
+    setOpen(false);
+    setSearch("");
+  };
 
   return (
     <Popover
@@ -131,7 +155,13 @@ function SearchableZtcSelect({
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" || !canUseCustomValue) return;
+              event.preventDefault();
+              selectCustomValue();
+            }}
             placeholder="Meklēt..."
+            maxLength={customValueMaxLength}
             className="h-10 border-0 px-0 shadow-none focus-visible:ring-0"
             autoFocus
           />
@@ -154,7 +184,18 @@ function SearchableZtcSelect({
               <span className="min-w-0 whitespace-normal break-words">{option.label}</span>
             </button>
           ))}
-          {filteredOptions.length === 0 ? (
+          {canUseCustomValue ? (
+            <button
+              type="button"
+              className="flex w-full min-w-0 items-start gap-2 rounded-sm px-2 py-2 text-left text-sm font-medium hover:bg-accent"
+              onClick={selectCustomValue}
+            >
+              <span className="min-w-0 whitespace-normal break-words">
+                Izmantot “{customValue}”
+              </span>
+            </button>
+          ) : null}
+          {filteredOptions.length === 0 && !canUseCustomValue ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">
               Nav atrasts
             </p>
@@ -455,7 +496,7 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
     if (rowProject) ensureProject(rowProject);
 
     const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
-    const metadataProject = normalizeOption(metadata?.projectName) || rowProject;
+    const metadataProject = rowProject || normalizeOption(metadata?.projectName);
     for (const element of metadata?.elements ?? []) {
       const elementName = normalizeOption(element.elementName);
       for (const work of element.works ?? []) {
@@ -512,6 +553,7 @@ export function ZtcDialogTable({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
+  const [elementCatalogRows, setElementCatalogRows] = useState<any[]>([]);
   const [tableHeads, setTableHeads] = useState<string[]>([]);
   const [fieldMap, setFieldMap] = useState<Record<string, any>>(defaultConfig);
   const [defaultRates, setDefaultRates] = useState<ZtcProjectTaskRates[]>([]);
@@ -543,7 +585,10 @@ export function ZtcDialogTable({
     createdBy: "",
   });
 
-  const drawingIndex = useMemo(() => buildZtcDrawingIndex(rows), [rows]);
+  const drawingIndex = useMemo(
+    () => buildZtcDrawingIndex([...elementCatalogRows, ...rows]),
+    [elementCatalogRows, rows],
+  );
 
   const getProjectOptions = () => {
     const projects = new Map<string, string>();
@@ -769,15 +814,46 @@ export function ZtcDialogTable({
 
   const handleChange = (rowKey: string, field: string, value: any) => {
     hasClientEditsRef.current = true;
-    setDirtyRowKeys((prev) => new Set(prev).add(rowKey));
+    const selectedRow = rows.find((row) => row.id === rowKey || row._tempId === rowKey);
+    const isElementRename =
+      field === "Location_Custom_1" &&
+      normalizeSpecialLabel(value) !== "papilddarbi" &&
+      normalizeOption(selectedRow?.Location_Custom_1).toLocaleLowerCase("lv") !==
+        normalizeOption(value).toLocaleLowerCase("lv");
+    const splitRenameGroupKey = isElementRename
+      ? getZtcSplitTaskRenameGroupKey(selectedRow)
+      : null;
+    const affectedRowKeys = rows
+      .filter(
+        (row) =>
+          row.id === rowKey ||
+          row._tempId === rowKey ||
+          (splitRenameGroupKey &&
+            getZtcSplitTaskRenameGroupKey(row) === splitRenameGroupKey),
+      )
+      .map((row) => String(row.id ?? row._tempId));
+    setDirtyRowKeys((prev) => {
+      const next = new Set(prev);
+      for (const affectedRowKey of affectedRowKeys) next.add(affectedRowKey);
+      return next;
+    });
     setRows((prev) =>
       prev.map((row) => {
-        if (row.id !== rowKey && row._tempId !== rowKey) return row;
+        const isSelectedRow = row.id === rowKey || row._tempId === rowKey;
+        const isRelatedSplitRow = Boolean(
+          isElementRename &&
+            splitRenameGroupKey &&
+            getZtcSplitTaskRenameGroupKey(row) === splitRenameGroupKey,
+        );
+        if (!isSelectedRow && !isRelatedSplitRow) return row;
+        if (!isSelectedRow) return applyZtcElementNameChange(row, value);
 
         const next =
           field === "Location"
             ? applyZtcProjectNameChange(row, value)
-            : { ...row, [field]: value };
+            : isElementRename
+              ? applyZtcElementNameChange(row, value)
+              : { ...row, [field]: value };
 
         if (field === ZTC_LABOR_NORM_FIELD) {
           next.Comments_Custom_2 = applyZtcLaborNormDraftToMetadata(
@@ -807,6 +883,8 @@ export function ZtcDialogTable({
             }
             return next;
           }
+
+          if (isElementRename) return next;
 
           if (isZtcQualityRow(next)) return next;
 
@@ -1058,7 +1136,7 @@ export function ZtcDialogTable({
 
     try {
       setSaving(true);
-      await saveZtcSiteDiaryDialogRows({
+      const saveResult = await saveZtcSiteDiaryDialogRows({
         existingRows: existingRows.map((row) => ({
           ...stripUiFields(row),
           id: row.id,
@@ -1071,7 +1149,9 @@ export function ZtcDialogTable({
       });
 
       invalidateCurrentPrefetchCache();
-      toast.success(toastMessages.diarySaved(existingRows.length, newRows.length));
+      toast.success(
+        toastMessages.diarySaved(saveResult.updated, saveResult.created),
+      );
       setDirtyRowKeys(new Set());
       hasClientEditsRef.current = false;
       onSaved?.();
@@ -1214,6 +1294,12 @@ export function ZtcDialogTable({
           }))}
           placeholder={t.select}
           width={width}
+          allowCustomValue={field === "Location_Custom_1"}
+          customValueMaxLength={
+            field === "Location_Custom_1"
+              ? ZTC_FIELD_MAX_LENGTHS.Location_Custom_1
+              : undefined
+          }
           onChange={(value) => handleChange(rowKey, field, value)}
         />
       );
@@ -1269,6 +1355,7 @@ export function ZtcDialogTable({
 
       setFieldMap(config);
       setDefaultRates(data.rates ?? []);
+      setElementCatalogRows(data.elementCatalogRows ?? []);
       setTableHeads(visibleFields);
       if (options?.preserveRows) return;
 
@@ -1326,10 +1413,11 @@ export function ZtcDialogTable({
         })
           .then((data) => {
             ztcDialogPrefetchCache.set(adjacentKey, {
-              config: ((data.config ?? defaultConfig) as Record<string, any>),
-              rows: data.rows,
-              rates: data.rates,
-            });
+            config: ((data.config ?? defaultConfig) as Record<string, any>),
+            rows: data.rows,
+            rates: data.rates,
+            elementCatalogRows: data.elementCatalogRows,
+          });
           })
           .catch(() => {
             // Best-effort prefetch only; visible load path handles user errors.
@@ -1357,6 +1445,7 @@ export function ZtcDialogTable({
             config: (initialConfig ?? defaultConfig) as Record<string, any>,
             rows: initialRows,
             rates: initialRates ?? [],
+            elementCatalogRows: [],
           }
         : null;
 
@@ -1389,6 +1478,7 @@ export function ZtcDialogTable({
           config: ((data.config ?? defaultConfig) as Record<string, any>),
           rows: data.rows,
           rates: data.rates,
+          elementCatalogRows: data.elementCatalogRows,
         };
         ztcDialogPrefetchCache.set(cacheKey, cacheEntry);
         applyPrefetchData(cacheEntry, {

@@ -1,5 +1,8 @@
 import {
+	applyZtcElementNameChange,
 	applyZtcProjectNameChange,
+	getZtcSplitTaskRenameGroupKey,
+	updateZtcMetadataElementName,
 	updateZtcMetadataProjectName,
 } from "@/flows/ztc-production/lib/ztc-project-edit";
 
@@ -73,5 +76,137 @@ describe("updateZtcMetadataProjectName", () => {
 				checkedWork: "R3/T3 - Latojums 25x50",
 			}),
 		});
+	});
+});
+
+describe("getZtcSplitTaskRenameGroupKey", () => {
+	it("groups completed split records by project, element, and task identity", () => {
+		const firstPart = {
+			Date_Custom_2: new Date("2026-08-14T08:10:00.000Z"),
+			Location: "Project RD",
+			Location_Custom_1: "J-2-1",
+			Works: "R1/T1 - Difūzijas membrāna Solitex",
+			Works_Custom_1: "",
+			Units: "m2",
+			Amounts: 6,
+		};
+		const secondPart = {
+			...firstPart,
+			Works: "R1/T1 - cits apraksts",
+			Amounts: 4,
+		};
+
+		expect(getZtcSplitTaskRenameGroupKey(firstPart)).toBe(
+			getZtcSplitTaskRenameGroupKey(secondPart),
+		);
+		expect(
+			getZtcSplitTaskRenameGroupKey({
+				...secondPart,
+				Location_Custom_1: "J-22",
+			}),
+		).not.toBe(getZtcSplitTaskRenameGroupKey(firstPart));
+	});
+
+	it("does not group unfinished or hourly records", () => {
+		const row = {
+			Date_Custom_2: new Date("2026-08-14T08:10:00.000Z"),
+			Location: "Project RD",
+			Location_Custom_1: "J-2-1",
+			Works: "R1/T1 - Difūzijas membrāna Solitex",
+			Units: "m2",
+		};
+
+		expect(
+			getZtcSplitTaskRenameGroupKey({ ...row, Date_Custom_2: null }),
+		).toBeNull();
+		expect(getZtcSplitTaskRenameGroupKey({ ...row, Units: "st" })).toBeNull();
+	});
+});
+
+describe("updateZtcMetadataElementName", () => {
+	it("renames an unseen element while preserving its drawing data", () => {
+		const original = {
+			type: "ztc_drawing_context",
+			projectName: "dz. eka. auto nojume (rd)",
+			elements: [
+				{
+					elementName: "J-2-1",
+					totalAreaM2: 3.82,
+					works: [
+						{
+							name: "R1/T1 - Difūzijas membrāna Solitex",
+							amountM2: 3.82,
+							complexityCode: "1",
+						},
+					],
+				},
+			],
+			ztcLaborNormHoursPerUnit: 0.06,
+		};
+
+		const updated = JSON.parse(
+			String(
+				updateZtcMetadataElementName(JSON.stringify(original), "J-2-1", "J-21"),
+			),
+		);
+
+		expect(updated).toEqual({
+			...original,
+			elements: [{ ...original.elements[0], elementName: "J-21" }],
+		});
+	});
+
+	it("preserves row values when applying an element correction", () => {
+		const row = {
+			Location_Custom_1: "J-2-1",
+			Works: "R1/T1 - Difūzijas membrāna Solitex",
+			Amounts: "3.82",
+			Location_Custom_2: "0.9",
+			Units: "m2",
+			__ztcLaborNorm: "0.06",
+			Comments_Custom_2: JSON.stringify({
+				type: "ztc_drawing_context",
+				elements: [{ elementName: "J-2-1", totalAreaM2: 3.82 }],
+			}),
+		};
+
+		const updated = applyZtcElementNameChange(row, "J-21");
+
+		expect(updated).toEqual({
+			...row,
+			Location_Custom_1: "J-21",
+			Comments_Custom_2: JSON.stringify({
+				type: "ztc_drawing_context",
+				elements: [{ elementName: "J-21", totalAreaM2: 3.82 }],
+			}),
+		});
+	});
+
+	it("adds a server-side correction audit after the client metadata rename", () => {
+		const updated = JSON.parse(
+			String(
+				updateZtcMetadataElementName(
+					JSON.stringify({
+						type: "ztc_drawing_context",
+						elements: [{ elementName: "J-21" }],
+					}),
+					"J-2-1",
+					"J-21",
+					{
+						correctedAt: "2026-08-14T10:00:00.000Z",
+						correctedBy: "user-1",
+					},
+				),
+			),
+		);
+
+		expect(updated.ztcElementCorrections).toEqual([
+			{
+				from: "J-2-1",
+				to: "J-21",
+				correctedAt: "2026-08-14T10:00:00.000Z",
+				correctedBy: "user-1",
+			},
+		]);
 	});
 });

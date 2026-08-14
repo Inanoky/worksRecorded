@@ -1,5 +1,8 @@
-import { prisma } from "@/lib/utils/db";
 import { ZTC_CANCELLED_SESSION_PREFIX } from "@/flows/ztc-production/lib/ztc-session-markers";
+import { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-identity";
+import { prisma } from "@/lib/utils/db";
+
+export { getZtcTaskIdentityKey } from "@/flows/ztc-production/lib/ztc-task-identity";
 
 type AllocationInput = {
   id: string;
@@ -26,30 +29,6 @@ function normalizeText(value: unknown) {
 function isHourlyUnit(value: unknown) {
   const normalized = normalizeText(value).replace(/\.$/, "");
   return ["st", "h", "hr", "hour", "hours", "stunda", "stundas"].includes(normalized);
-}
-
-function normalizeTaskName(value: unknown) {
-  return normalizeText(value)
-    .replace(/^t\s*\d+(?=\s|[-/]|$)/i, "tl")
-    .replace(/^t(?!l)(?=\s|[-/]|$)/i, "tl");
-}
-
-export function getZtcTaskIdentityKey(value: unknown) {
-  const normalized = normalizeTaskName(value);
-  const codeMatch = normalized.match(
-    /^\s*((?:[lr]\s*\d\s*\/\s*[bt]\s*\d)|tl|l\s*0)(?=\s|[-/]|$)/i,
-  );
-
-  if (codeMatch?.[1]) {
-    return codeMatch[1].replace(/\s+/g, "").toLowerCase();
-  }
-
-  return normalized
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/gi, " ")
-    .trim()
-    .toLowerCase();
 }
 
 function positiveNumber(value: unknown) {
