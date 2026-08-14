@@ -26,7 +26,7 @@ import {
   type ZtcProjectRateExclusions,
 } from "@/flows/ztc-production/lib/ztc-rate-exclusions";
 import {
-  buildZtcConfiguredWorkFilterOptions,
+  buildZtcRecordedWorkFilterOptions,
   resolveZtcRateTaskForRow,
   ztcRowMatchesConfiguredWorkFilter,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
@@ -1344,7 +1344,7 @@ export async function getZtcFilterOptions(args: {
     };
   };
 
-  const [projectRows, elementRows, workRows, specialWorkRows, workerRows] = await Promise.all([
+  const [projectRows, elementRows, workRows, workerRows] = await Promise.all([
     prisma.ztcRecords.findMany({
       where: makeWhere("project"),
       distinct: ["Location"],
@@ -1366,17 +1366,9 @@ export async function getZtcFilterOptions(args: {
         Works: true,
         Works_Custom_1: true,
         Units: true,
+        Comments_Custom_2: true,
       },
       orderBy: [{ Location: "asc" }, { Works: "asc" }],
-    }),
-    prisma.ztcRecords.findMany({
-      where: {
-        ...makeWhere("work"),
-        Works_Custom_1: { in: ["Papilddetāļas", "Papilddarbi"] },
-      },
-      distinct: ["Works_Custom_1"],
-      select: { Works_Custom_1: true },
-      orderBy: { Works_Custom_1: "asc" },
     }),
     prisma.ztcRecords.findMany({
       where: makeWhere("worker"),
@@ -1397,11 +1389,9 @@ export async function getZtcFilterOptions(args: {
   return {
     projects: uniqueSorted(projectRows.map((row) => row.Location ?? "")),
     elements: uniqueSorted(elementRows.map((row) => row.Location_Custom_1 ?? "")),
-    works: buildZtcConfiguredWorkFilterOptions({
+    works: buildZtcRecordedWorkFilterOptions({
       rows: workRows,
       defaultRates,
-      projectName: normalizeFilter(args.projectName),
-      additionalOptions: specialWorkRows.map((row) => row.Works_Custom_1 ?? ""),
     }),
     workers: uniqueSorted(workers),
   };
