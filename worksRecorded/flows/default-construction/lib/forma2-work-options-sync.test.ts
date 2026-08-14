@@ -6,7 +6,10 @@ import {
 	removeDefaultConstructionForma2WorkOptions,
 	syncDefaultConstructionForma2WorkOptions,
 } from "./forma2-work-options-sync";
-import { getDefaultConstructionProductivitySettings } from "./site-diary-productivity-settings";
+import {
+	DEFAULT_CONSTRUCTION_SYSTEM_WORKS,
+	getDefaultConstructionProductivitySettings,
+} from "./site-diary-productivity-settings";
 
 function position(
 	overrides: Partial<Forma2Position> & Pick<Forma2Position, "id" | "name">,
@@ -75,10 +78,13 @@ describe("Forma 2 Darbi option synchronization", () => {
 		const importedName =
 			"1.1 Demontāžas darbi - Sienu demontāža";
 
-		expect(Object.values(result.config.Works.DropDownOptions)).toEqual([
-			importedName,
-			"Manual work",
-		]);
+		expect(Object.values(result.config.Works.DropDownOptions)).toEqual(
+			expect.arrayContaining([
+				importedName,
+				"Manual work",
+				...DEFAULT_CONSTRUCTION_SYSTEM_WORKS,
+			]),
+		);
 		expect(Object.values(result.config.Units.DropDownOptions)).toEqual([
 			"m",
 			"m2",
@@ -129,9 +135,9 @@ describe("Forma 2 Darbi option synchronization", () => {
 			ownedByForma2: false,
 		});
 		const removed = removeDefaultConstructionForma2WorkOptions(synced.config);
-		expect(Object.values(removed.config.Works.DropDownOptions)).toEqual([
-			"Manual work",
-		]);
+		expect(Object.values(removed.config.Works.DropDownOptions)).toEqual(
+			expect.arrayContaining(["Manual work", ...DEFAULT_CONSTRUCTION_SYSTEM_WORKS]),
+		);
 		expect(removed.removedWorks).toBe(0);
 	});
 

@@ -1,10 +1,33 @@
-import { compareSiteDiaryWorks } from "./site-diary-work-order";
 import { getDefaultConstructionForma2SourceByWork } from "./forma2-work-options-manifest";
+import { compareSiteDiaryWorks } from "./site-diary-work-order";
 
 export const DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY =
   "defaultConstructionProductivity";
 
+export const DEFAULT_CONSTRUCTION_SYSTEM_WORKS = [
+  "Uzkopšanas darbi",
+  "Elektroinstalācijas darbi",
+  "Santehnikas darbi",
+  "Apkures sistēmas un ventilācijas darbi",
+  "Materiālu piegāde",
+  "Kavēšanās",
+  "Papildu darbi",
+  "Piezīmes",
+] as const;
+
 export type DefaultConstructionWorkCostMode = "hourly" | "output";
+
+export type DefaultConstructionWorkSource =
+  | {
+      type: "forma2";
+      documentId: string;
+      positionId: string;
+      ownedByForma2: boolean;
+    }
+  | {
+      type: "systemDefault";
+      locked: true;
+    };
 
 export type DefaultConstructionWorkProductivitySetting = {
   work: string;
@@ -12,12 +35,7 @@ export type DefaultConstructionWorkProductivitySetting = {
   laborNormHoursPerUnit: number | null;
   hourlyCost?: number | null;
   costCalculationMode?: DefaultConstructionWorkCostMode;
-  source?: {
-    type: "forma2";
-    documentId: string;
-    positionId: string;
-    ownedByForma2: boolean;
-  };
+  source?: DefaultConstructionWorkSource;
 };
 
 export type DefaultConstructionProductivitySettings = {
@@ -29,6 +47,71 @@ const normalizedKey = (value: unknown) =>
   String(value ?? "")
     .trim()
     .toLocaleLowerCase("lv");
+
+function defaultSystemWorkByKey() {
+  return new Map(
+    DEFAULT_CONSTRUCTION_SYSTEM_WORKS.map((work) => [normalizedKey(work), work]),
+  );
+}
+
+export function withDefaultConstructionSystemWorks(
+  config: Record<string, any>,
+) {
+  const currentWorks = readDropdownOptions(config, "Works");
+  const defaultWorksByKey = defaultSystemWorkByKey();
+  const worksByKey = new Map<string, string>();
+
+  for (const work of currentWorks) {
+    const key = normalizedKey(work);
+    worksByKey.set(key, defaultWorksByKey.get(key) ?? work);
+  }
+  for (const work of DEFAULT_CONSTRUCTION_SYSTEM_WORKS) {
+    worksByKey.set(normalizedKey(work), work);
+  }
+
+  return Array.from(worksByKey.values()).sort(compareSiteDiaryWorks);
+}
+
+export function setDefaultConstructionWorkDropdownOptions(
+  config: Record<string, any>,
+  works: string[],
+) {
+  config.Works = {
+    ...(config.Works ?? {
+      Type: "dropdown",
+      DisplayName: "Works",
+    }),
+    DropDownOptions: Object.fromEntries(
+      withDefaultConstructionSystemWorks({
+        ...config,
+        Works: {
+          ...(config.Works ?? {}),
+          DropDownOptions: Object.fromEntries(works.map((work) => [work, work])),
+        },
+      }).map((work) => [work, work]),
+    ),
+  };
+}
+
+export function getDefaultConstructionSystemWorkSourceByWork() {
+  return new Map(
+    DEFAULT_CONSTRUCTION_SYSTEM_WORKS.map((work) => [
+      normalizedKey(work),
+      { type: "systemDefault" as const, locked: true as const },
+    ]),
+  );
+}
+
+export function assertDefaultConstructionSystemWorksPreserved(
+  works: DefaultConstructionWorkProductivitySetting[],
+) {
+  const savedKeys = new Set(works.map((setting) => normalizedKey(setting.work)));
+  for (const work of DEFAULT_CONSTRUCTION_SYSTEM_WORKS) {
+    if (!savedKeys.has(normalizedKey(work))) {
+      throw new Error("Default work names cannot be renamed or deleted");
+    }
+  }
+}
 
 function readDropdownOptions(
   config: Record<string, any>,
@@ -130,6 +213,7 @@ export function getDefaultConstructionProductivitySettings(
     config?.otherSettings?.[DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY];
   const rawWorks = Array.isArray(rawSettings?.works) ? rawSettings.works : [];
   const forma2SourceByWork = getDefaultConstructionForma2SourceByWork(config);
+  const systemSourceByWork = getDefaultConstructionSystemWorkSourceByWork();
   const savedByWork = new Map<
     string,
     DefaultConstructionWorkProductivitySetting
@@ -150,9 +234,7 @@ export function getDefaultConstructionProductivitySettings(
     });
   }
 
-  const dropdownWorks = readDropdownOptions(config, "Works").sort(
-    compareSiteDiaryWorks,
-  );
+  const dropdownWorks = withDefaultConstructionSystemWorks(config);
   const works = dropdownWorks.map((work) => {
     const saved = savedByWork.get(normalizedKey(work));
     return {
@@ -161,7 +243,9 @@ export function getDefaultConstructionProductivitySettings(
       laborNormHoursPerUnit: saved?.laborNormHoursPerUnit ?? null,
       hourlyCost: saved?.hourlyCost ?? null,
       costCalculationMode: saved?.costCalculationMode ?? "output",
-      source: forma2SourceByWork.get(normalizedKey(work)),
+      source:
+        systemSourceByWork.get(normalizedKey(work)) ??
+        forma2SourceByWork.get(normalizedKey(work)),
     };
   });
 
