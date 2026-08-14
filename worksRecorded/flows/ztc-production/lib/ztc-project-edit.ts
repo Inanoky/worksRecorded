@@ -38,3 +38,102 @@ export function applyZtcProjectNameChange<T extends Record<string, unknown>>(
 		),
 	};
 }
+
+type ZtcElementCorrectionAudit = {
+	correctedAt: string;
+	correctedBy: string;
+};
+
+const ZTC_ELEMENT_CORRECTIONS_KEY = "ztcElementCorrections";
+
+export function updateZtcMetadataElementName(
+	metadataValue: unknown,
+	previousElementName: unknown,
+	elementName: unknown,
+	audit?: ZtcElementCorrectionAudit,
+) {
+	if (typeof metadataValue !== "string" || !metadataValue.trim()) {
+		return metadataValue;
+	}
+
+	const previousName = String(previousElementName ?? "").trim();
+	const nextName = String(elementName ?? "").trim();
+	if (!previousName || !nextName || previousName === nextName) {
+		return metadataValue;
+	}
+
+	try {
+		const metadata = JSON.parse(metadataValue) as Record<string, unknown>;
+		if (!metadata || Array.isArray(metadata)) return metadataValue;
+
+		const matchesPrevious = (value: unknown) =>
+			String(value ?? "")
+				.trim()
+				.toLocaleLowerCase("lv") === previousName.toLocaleLowerCase("lv");
+		let changed = false;
+		const updated = { ...metadata };
+
+		if (
+			Object.hasOwn(updated, "elementName") &&
+			matchesPrevious(updated.elementName)
+		) {
+			updated.elementName = nextName;
+			changed = true;
+		}
+
+		if (Array.isArray(updated.elements)) {
+			updated.elements = updated.elements.map((element) => {
+				if (!element || typeof element !== "object" || Array.isArray(element)) {
+					return element;
+				}
+
+				const entry = element as Record<string, unknown>;
+				if (!matchesPrevious(entry.elementName)) return element;
+				changed = true;
+				return { ...entry, elementName: nextName };
+			});
+		}
+
+		if (audit) {
+			const corrections = Array.isArray(updated[ZTC_ELEMENT_CORRECTIONS_KEY])
+				? updated[ZTC_ELEMENT_CORRECTIONS_KEY]
+				: [];
+			updated[ZTC_ELEMENT_CORRECTIONS_KEY] = [
+				...corrections,
+				{
+					from: previousName,
+					to: nextName,
+					...audit,
+				},
+			].slice(-20);
+			changed = true;
+		}
+
+		return changed ? JSON.stringify(updated) : metadataValue;
+	} catch {
+		return metadataValue;
+	}
+}
+
+export function applyZtcElementNameChange<T extends Record<string, unknown>>(
+	row: T,
+	elementName: unknown,
+	options?: {
+		previousElementName?: unknown;
+		audit?: ZtcElementCorrectionAudit;
+	},
+) {
+	const previousElementName =
+		options?.previousElementName ?? row.Location_Custom_1;
+
+	return {
+		...row,
+		Location_Custom_1: String(elementName ?? "").trim(),
+		Comments_Custom_2: updateZtcMetadataElementName(
+			row.Comments_Custom_2,
+			previousElementName,
+			elementName,
+			options?.audit,
+		),
+	};
+}

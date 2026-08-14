@@ -31,6 +31,7 @@ import {
   ztcRowMatchesConfiguredWorkFilter,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
+import { applyZtcElementNameChange } from "@/flows/ztc-production/lib/ztc-project-edit";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
@@ -854,6 +855,41 @@ async function loadZtcSiteDiaryRecords(args: { siteId: string; organizationId: s
   return records.map(mapZtcRecord);
 }
 
+async function loadZtcProjectElementCatalog(args: {
+  siteId: string;
+  organizationId: string;
+}) {
+  const records = await prisma.ztcRecords.findMany({
+    where: {
+      siteId: args.siteId,
+      organizationId: args.organizationId,
+      Location: { notIn: ["", "Papilddarbi"] },
+      Location_Custom_1: { notIn: ["", "Papilddarbi"] },
+      Comments_Custom_2: { contains: '"type":"ztc_drawing_context"' },
+      AND: [buildZtcNotCancelledWhere()],
+    },
+    distinct: ["Location", "Location_Custom_1"],
+    orderBy: [
+      { Location: "asc" },
+      { Location_Custom_1: "asc" },
+      { createdAt: "desc" },
+    ],
+    select: {
+      Location: true,
+      Location_Custom_1: true,
+      Works: true,
+      Works_Custom_1: true,
+      Amounts: true,
+      Comments_Custom_2: true,
+    },
+  });
+
+  return records.map((record) => ({
+    ...record,
+    Amounts: record.Amounts?.toString() ?? "",
+  }));
+}
+
 export async function getZtcSiteDiaryConfig(siteId: string) {
   await requireZtcAccess(siteId);
   return loadZtcSiteDiaryConfig(siteId);
@@ -1371,13 +1407,14 @@ export async function getZtcFilterOptions(args: {
 export async function getZtcDialogPrefetchData(args: { siteId: string; date: string }) {
   const context = await requireZtcAccess(args.siteId);
 
-  const [config, rows, rates] = await Promise.all([
+  const [config, rows, rates, elementCatalogRows] = await Promise.all([
     loadZtcSiteDiaryConfig(args.siteId),
     loadZtcSiteDiaryRecords({ ...context, date: args.date }),
     getZtcDefaultTaskRates(args.siteId),
+    loadZtcProjectElementCatalog(context),
   ]);
 
-  return { config, rows, rates };
+  return { config, rows, rates, elementCatalogRows };
 }
 
 export async function createZtcSiteDiaryRecords(args: {
@@ -1413,13 +1450,47 @@ export async function saveZtcSiteDiaryDialogRows(args: {
   const { user, siteId, organizationId } = await requireZtcAccess(args.siteId);
   const defaultRates = await getZtcDefaultTaskRates(args.siteId);
 
+  const storedRows = args.existingRows.length
+    ? await prisma.ztcRecords.findMany({
+        where: {
+          id: { in: args.existingRows.map((row) => row.id).filter(Boolean) },
+          siteId,
+          organizationId,
+        },
+        select: {
+          id: true,
+          Location_Custom_1: true,
+        },
+      })
+    : [];
+  const storedRowsById = new Map(storedRows.map((row) => [row.id, row]));
+  const correctedAt = new Date().toISOString();
+
   const existingRows = args.existingRows
     .filter((row) => row.id)
     .map((row) => {
       const { id, siteId, _tempId, createdBy, ...data } = row;
+      const previousElementName = storedRowsById.get(id)?.Location_Custom_1;
+      const hasElementCorrection =
+        Boolean(previousElementName) &&
+        Boolean(data.Location_Custom_1) &&
+        String(previousElementName).trim().toLocaleLowerCase("lv") !==
+          String(data.Location_Custom_1).trim().toLocaleLowerCase("lv");
+      const correctedData = hasElementCorrection
+        ? applyZtcElementNameChange(data, data.Location_Custom_1, {
+            previousElementName,
+            audit: {
+              correctedAt,
+              correctedBy: user.id,
+            },
+          })
+        : data;
       return {
         id,
-        data: sanitizeZtcRecordRow({ ...data, __ztcDefaultTaskRates: defaultRates }),
+        data: sanitizeZtcRecordRow({
+          ...correctedData,
+          __ztcDefaultTaskRates: defaultRates,
+        }),
       };
     });
 
