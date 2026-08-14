@@ -1,13 +1,18 @@
+import { attachZtcLaborNormToMetadata } from "@/flows/ztc-production/lib/ztc-labor-norm";
+import {
+  applyZtcElementNameChange,
+  getZtcSplitTaskRenameGroupKey,
+} from "@/flows/ztc-production/lib/ztc-project-edit";
 import {
   buildZtcLaborNormSummaryRows,
   buildZtcLaborNormTotalSummary,
   buildZtcProductivityRows,
   buildZtcQualityDisplayStateByRowId,
-  getZtcProjectTotalAreaM2,
   getZtcPayrollValues,
+  getZtcProjectElementAreas,
+  getZtcProjectTotalAreaM2,
   getZtcQualityRowToneClass,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
-import { attachZtcLaborNormToMetadata } from "@/flows/ztc-production/lib/ztc-labor-norm";
 
 describe("getZtcPayrollValues", () => {
   const baseRow = {
@@ -390,6 +395,148 @@ describe("getZtcPayrollValues", () => {
     ], "Zemgales Prospekts 11 (ZP)");
 
     expect(total).toBe(35.61);
+  });
+
+  it("keeps the project summary correct after renaming every part of a split task", () => {
+    const projectName = "Project RD";
+    const splitTask = "R1/T1 - Difuzijas membrana Solitex";
+    const splitMetadata = attachZtcLaborNormToMetadata(
+      JSON.stringify({
+        type: "ztc_drawing_context",
+        version: 1,
+        projectName,
+        elements: [
+          {
+            elementName: "J-2-1",
+            totalAreaM2: 10,
+            works: [{ name: splitTask, amountM2: 10 }],
+          },
+        ],
+      }),
+      "0.2",
+      "m2",
+    );
+    const controlTask = "L0 - Mineralvate";
+    const controlMetadata = attachZtcLaborNormToMetadata(
+      JSON.stringify({
+        type: "ztc_drawing_context",
+        version: 1,
+        projectName,
+        elements: [
+          {
+            elementName: "J-22",
+            totalAreaM2: 5,
+            works: [{ name: controlTask, amountM2: 5 }],
+          },
+        ],
+      }),
+      "0.1",
+      "m2",
+    );
+    const rows = [
+      {
+        ...baseRow,
+        id: "split-1",
+        Date_Custom_2: "2026-06-17T09:00:00.000Z",
+        Location: projectName,
+        Location_Custom_1: "J-2-1",
+        Location_Custom_2: 2,
+        Works: splitTask,
+        Amounts: 6,
+        TimeInvolved: 1.2,
+        Comments_Custom_2: splitMetadata,
+      },
+      {
+        ...baseRow,
+        id: "split-2",
+        Date_Custom_2: "2026-06-17T10:00:00.000Z",
+        Location: projectName,
+        Location_Custom_1: "J-2-1",
+        Location_Custom_2: 2,
+        Works: splitTask,
+        Amounts: 4,
+        TimeInvolved: 0.8,
+        Comments_Custom_2: splitMetadata,
+      },
+      {
+        ...baseRow,
+        id: "control",
+        Date_Custom_2: "2026-06-17T11:00:00.000Z",
+        Location: projectName,
+        Location_Custom_1: "J-22",
+        Location_Custom_2: 3,
+        Works: controlTask,
+        Amounts: 5,
+        TimeInvolved: 1,
+        Comments_Custom_2: controlMetadata,
+      },
+      {
+        ...baseRow,
+        id: "other-project",
+        Date_Custom_2: "2026-06-17T12:00:00.000Z",
+        Location: "Other project",
+        Location_Custom_1: "X-1",
+        Amounts: 100,
+        TimeInvolved: 10,
+        Comments_Custom_2: JSON.stringify({
+          type: "ztc_drawing_context",
+          elements: [{ elementName: "X-1", totalAreaM2: 100 }],
+        }),
+      },
+    ];
+    const summarizeProject = (summaryRows: typeof rows) => {
+      const scopedRows = summaryRows.filter((row) => row.Location === projectName);
+      const projectAreaM2 = getZtcProjectTotalAreaM2(scopedRows, projectName);
+      const payroll = scopedRows.map(getZtcPayrollValues);
+      const hours = payroll.reduce((sum, row) => sum + row.hours, 0);
+      const money = payroll.reduce((sum, row) => sum + row.sum, 0);
+
+      return {
+        projectAreaM2,
+        completedAmountM2: payroll.reduce((sum, row) => sum + row.amountM2, 0),
+        hours,
+        money,
+        costPerM2:
+          projectAreaM2 && projectAreaM2 > 0
+            ? Number((money / projectAreaM2).toFixed(2))
+            : null,
+        laborNormTotal: buildZtcLaborNormTotalSummary(scopedRows, {
+          plannedAmountM2: projectAreaM2,
+          actualAmountM2: projectAreaM2,
+        }),
+      };
+    };
+
+    const splitGroupKey = getZtcSplitTaskRenameGroupKey(rows[0]);
+    const renamedRows = rows.map((row) =>
+      splitGroupKey && getZtcSplitTaskRenameGroupKey(row) === splitGroupKey
+        ? applyZtcElementNameChange(row, "J-21")
+        : row,
+    );
+    const before = summarizeProject(rows);
+    const after = summarizeProject(renamedRows);
+
+    expect(after).toEqual(before);
+    expect(after).toEqual({
+      projectAreaM2: 15,
+      completedAmountM2: 15,
+      hours: 3,
+      money: 35,
+      costPerM2: 2.33,
+      laborNormTotal: {
+        hours: 3,
+        amount: 15,
+        plannedHours: 2.5,
+        hoursDifference: 0.5,
+        planned: 0.1667,
+        actual: 0.2,
+        difference: 0.0333,
+      },
+    });
+    expect(getZtcProjectElementAreas(renamedRows, projectName)).toEqual([
+      { elementKey: "j-21", element: "J-21", area: 10 },
+      { elementKey: "j-22", element: "J-22", area: 5 },
+    ]);
   });
 });
 

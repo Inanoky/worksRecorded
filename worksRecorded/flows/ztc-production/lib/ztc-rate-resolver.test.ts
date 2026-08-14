@@ -1,5 +1,6 @@
 import {
   buildZtcConfiguredWorkFilterOptions,
+  buildZtcRecordedWorkFilterOptions,
   getZtcProjectWorkRates,
   resolveZtcRateTaskForRow,
   ztcRowMatchesConfiguredWorkFilter,
@@ -45,6 +46,34 @@ describe("getZtcProjectWorkRates", () => {
     );
 
     expect(rates.map((entry) => entry.task)).toEqual(["1 koeficients"]);
+  });
+});
+
+describe("buildZtcRecordedWorkFilterOptions", () => {
+  it("returns rate-group names only for groups represented by database records", () => {
+    const options = buildZtcRecordedWorkFilterOptions({
+      rows: [
+        { Location: "Project RD", Works: "L2/B2 - latojums 45x45" },
+        { Location: "Project RD", Works: "R1/T1 - difuzijas membrana" },
+        { Location: "Project RD", Works: "unmatched prefixed work" },
+        { Location: "Project RD", Works: "  " },
+      ],
+      defaultRates: [
+        {
+          projectName: "Project RD",
+          works: [
+            { task: "latojums 45x45", rate: "1.2", unit: "m2" },
+            { task: "difuzijas membrana", rate: "0.9", unit: "m2" },
+            { task: "configured but unused", rate: "1", unit: "m2" },
+          ],
+        },
+      ],
+    });
+
+    expect(options).toEqual(["difuzijas membrana", "latojums 45x45"]);
+    expect(options).not.toContain("L2/B2 - latojums 45x45");
+    expect(options).not.toContain("configured but unused");
+    expect(options).not.toContain("unmatched prefixed work");
   });
 });
 

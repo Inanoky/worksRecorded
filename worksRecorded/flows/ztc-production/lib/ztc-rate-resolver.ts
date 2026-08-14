@@ -234,3 +234,19 @@ export function buildZtcConfiguredWorkFilterOptions(args: {
 
   return Array.from(options).sort((left, right) => left.localeCompare(right, "lv"));
 }
+
+export function buildZtcRecordedWorkFilterOptions(args: {
+  rows: Array<Record<string, unknown>>;
+  defaultRates: ZtcRateProject[] | null | undefined;
+}) {
+  const options = new Set<string>();
+  for (const row of args.rows) {
+    const groupName = resolveZtcFilterRateTaskForRow(
+      row,
+      args.defaultRates,
+    )?.canonicalTask;
+    if (groupName) options.add(groupName);
+  }
+
+  return Array.from(options).sort((left, right) => left.localeCompare(right, "lv"));
+}
