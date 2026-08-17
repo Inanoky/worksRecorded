@@ -3,6 +3,9 @@ import { prisma } from "@/lib/utils/db";
 
 export const WAREHOUSE_MATERIAL_PAGE_SIZE = 50;
 export const WAREHOUSE_MATERIAL_PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+export const WAREHOUSE_CONFIG_FILTER_ALL = "all";
+export const WAREHOUSE_CONFIG_FILTER_CONFIGURED = "__configured__";
+export const WAREHOUSE_CONFIG_FILTER_UNCONFIGURED = "__unconfigured__";
 
 export type WarehouseMaterialStatusFilter = "all" | "sent" | "unsent";
 export type WarehouseMaterialSort =
@@ -26,6 +29,10 @@ export type WarehouseMaterialQueryInput = {
 export type WarehouseMaterialQueryOptions = WarehouseMaterialQueryInput & {
   siteId: string;
   includeSpendInsights?: boolean;
+  recordIdFilter?: {
+    include?: string[];
+    exclude?: string[];
+  };
 };
 
 export type WarehouseSpendInsightEntry = {
@@ -124,7 +131,7 @@ export function normalizeWarehouseMaterialQuery(input: WarehouseMaterialQueryInp
     pageSize,
     search: input.search?.trim() ?? "",
     status,
-    configFilter: input.configFilter?.trim() || "all",
+    configFilter: input.configFilter?.trim() || WAREHOUSE_CONFIG_FILTER_ALL,
     sortBy,
     invoiceDateFrom: normalizeDateInput(input.invoiceDateFrom),
     invoiceDateTo: normalizeDateInput(input.invoiceDateTo),
@@ -134,7 +141,10 @@ export function normalizeWarehouseMaterialQuery(input: WarehouseMaterialQueryInp
 export function buildWarehouseMaterialWhere(
   siteId: string,
   input: WarehouseMaterialQueryInput = {},
-  options: { dateFilteringMode?: "invoiceDate" | "none" } = {},
+  options: {
+    dateFilteringMode?: "invoiceDate" | "none";
+    recordIdFilter?: WarehouseMaterialQueryOptions["recordIdFilter"];
+  } = {},
 ): Prisma.BISmaterialRecordsWhereInput {
   const normalized = normalizeWarehouseMaterialQuery(input);
   const dateFilteringMode = options.dateFilteringMode ?? "invoiceDate";
@@ -160,8 +170,26 @@ export function buildWarehouseMaterialWhere(
     and.push({ BISId: null });
   }
 
-  if (normalized.configFilter !== "all") {
+  if (normalized.configFilter === WAREHOUSE_CONFIG_FILTER_CONFIGURED) {
+    and.push({ categoryId: { not: null, notIn: ["", "no_match"] } });
+  } else if (normalized.configFilter === WAREHOUSE_CONFIG_FILTER_UNCONFIGURED) {
+    and.push({
+      OR: [
+        { categoryId: null },
+        { categoryId: "" },
+        { categoryId: "no_match" },
+      ],
+    });
+  } else if (normalized.configFilter !== WAREHOUSE_CONFIG_FILTER_ALL) {
     and.push({ categoryId: normalized.configFilter });
+  }
+
+  if (options.recordIdFilter?.include) {
+    and.push({ id: { in: options.recordIdFilter.include } });
+  }
+
+  if (options.recordIdFilter?.exclude?.length) {
+    and.push({ id: { notIn: options.recordIdFilter.exclude } });
   }
 
   if (dateFilteringMode === "invoiceDate") {
@@ -337,6 +365,7 @@ export async function getWarehouseMaterialPage(
   const useEffectiveSpendDate = Boolean(options.includeSpendInsights);
   const where = buildWarehouseMaterialWhere(options.siteId, normalized, {
     dateFilteringMode: useEffectiveSpendDate ? "none" : "invoiceDate",
+    recordIdFilter: options.recordIdFilter,
   });
   const orderBy = buildWarehouseMaterialOrderBy(normalized.sortBy);
 
@@ -419,6 +448,7 @@ export async function getWarehouseMaterialExportRows(
   const normalized = normalizeWarehouseMaterialQuery(options);
   const where = buildWarehouseMaterialWhere(options.siteId, normalized, {
     dateFilteringMode: options.includeSpendInsights ? "none" : "invoiceDate",
+    recordIdFilter: options.recordIdFilter,
   });
   const orderBy = buildWarehouseMaterialOrderBy(normalized.sortBy);
 

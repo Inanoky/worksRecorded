@@ -1,4 +1,6 @@
 import {
+  WAREHOUSE_CONFIG_FILTER_CONFIGURED,
+  WAREHOUSE_CONFIG_FILTER_UNCONFIGURED,
   buildWarehouseMaterialOrderBy,
   buildWarehouseMaterialWhere,
   getWarehouseEffectiveSpendDate,
@@ -95,6 +97,44 @@ describe("warehouse material query", () => {
 
     expect(buildWarehouseMaterialWhere("site-1", { configFilter: "config-1" })).toEqual({
       AND: [{ siteId: "site-1" }, { categoryId: "config-1" }],
+    });
+
+    expect(buildWarehouseMaterialWhere("site-1", {
+      configFilter: WAREHOUSE_CONFIG_FILTER_CONFIGURED,
+    })).toEqual({
+      AND: [
+        { siteId: "site-1" },
+        { categoryId: { not: null, notIn: ["", "no_match"] } },
+      ],
+    });
+
+    expect(buildWarehouseMaterialWhere("site-1", {
+      configFilter: WAREHOUSE_CONFIG_FILTER_UNCONFIGURED,
+    })).toEqual({
+      AND: [
+        { siteId: "site-1" },
+        {
+          OR: [
+            { categoryId: null },
+            { categoryId: "" },
+            { categoryId: "no_match" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("builds include and exclude record filters", () => {
+    expect(buildWarehouseMaterialWhere("site-1", {}, {
+      recordIdFilter: { include: ["row-1", "row-2"] },
+    })).toEqual({
+      AND: [{ siteId: "site-1" }, { id: { in: ["row-1", "row-2"] } }],
+    });
+
+    expect(buildWarehouseMaterialWhere("site-1", {}, {
+      recordIdFilter: { exclude: ["row-3"] },
+    })).toEqual({
+      AND: [{ siteId: "site-1" }, { id: { notIn: ["row-3"] } }],
     });
   });
 

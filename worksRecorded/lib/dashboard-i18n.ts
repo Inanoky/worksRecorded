@@ -249,6 +249,8 @@ type WarehouseMaterialConfigSelectMessages = {
 };
 
 type WarehouseUiMessages = {
+  filters: string;
+  clearFilters: string;
   searchMaterials: string;
   totalCost: string;
   spendInsights: string;
@@ -266,6 +268,14 @@ type WarehouseUiMessages = {
   unsent: string;
   configPlaceholder: string;
   allConfigurations: string;
+  configuredMaterials: string;
+  unconfiguredMaterials: string;
+  forma2Assignment: string;
+  allAssignments: string;
+  assigned: string;
+  unassigned: string;
+  forma2Position: string;
+  allForma2Positions: string;
   sortBy: string;
   sortDefault: string;
   sortInvoiceNewest: string;
@@ -1044,7 +1054,9 @@ const WORKERS_UI_MESSAGES: Record<OrganizationLanguage, WorkersUiMessages> = {
 
 const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> = {
   en: {
-    searchMaterials: "Search materials...",
+    filters: "Filters",
+    clearFilters: "Clear filters",
+    searchMaterials: "Search materials, suppliers or invoices...",
     totalCost: "Total cost",
     spendInsights: "Spend insights",
     invoiceDateFrom: "Invoice date from",
@@ -1061,6 +1073,14 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     unsent: "Unsent",
     configPlaceholder: "Warehouse material configuration",
     allConfigurations: "All configurations",
+    configuredMaterials: "Configured materials",
+    unconfiguredMaterials: "Without configuration",
+    forma2Assignment: "Forma 2 assignment",
+    allAssignments: "All assignments",
+    assigned: "Assigned",
+    unassigned: "Unassigned",
+    forma2Position: "Forma 2 position",
+    allForma2Positions: "All Forma 2 positions",
     sortBy: "Sort by",
     sortDefault: "Default order",
     sortInvoiceNewest: "Invoice date (newest)",
@@ -1163,7 +1183,9 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     },
   },
   lv: {
-    searchMaterials: "Meklēt materiālus...",
+    filters: "Filtri",
+    clearFilters: "Notīrīt filtrus",
+    searchMaterials: "Meklēt materiālus, piegādātājus vai rēķinus...",
     totalCost: "Kopējās izmaksas",
     spendInsights: "Izmaksu pārskats",
     invoiceDateFrom: "Rēķina datums no",
@@ -1180,6 +1202,14 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     unsent: "Nenosūtīti",
     configPlaceholder: "Noliktavas materiāla konfigurācija",
     allConfigurations: "Visas konfigurācijas",
+    configuredMaterials: "Konfigurēti materiāli",
+    unconfiguredMaterials: "Bez konfigurācijas",
+    forma2Assignment: "Formas 2 piesaiste",
+    allAssignments: "Visas piesaistes",
+    assigned: "Piesaistīti",
+    unassigned: "Nav piesaistīti",
+    forma2Position: "Formas 2 pozīcija",
+    allForma2Positions: "Visas Formas 2 pozīcijas",
     sortBy: "Kārtot pēc",
     sortDefault: "Noklusējuma secība",
     sortInvoiceNewest: "Rēķina datums (jaunākie)",

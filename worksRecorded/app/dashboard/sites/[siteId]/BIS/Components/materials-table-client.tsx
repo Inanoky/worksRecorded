@@ -79,6 +79,8 @@ const MAX_MATERIAL_NAME_LENGTH = 120
 const MAX_MEASUREMENT_UNIT_LENGTH = 20
 const MAX_QUANTITY = 1_000_000
 const MAX_COST = 10_000_000
+const CONFIG_FILTER_CONFIGURED = "__configured__"
+const CONFIG_FILTER_UNCONFIGURED = "__unconfigured__"
 
 type BisApprover = {
   memberId: string
@@ -134,6 +136,8 @@ type WarehouseMaterialQueryInput = {
   sortBy?: "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
   invoiceDateFrom?: string
   invoiceDateTo?: string
+  forma2Assignment?: "all" | "assigned" | "unassigned"
+  forma2PositionId?: string
 }
 
 type WarehouseSpendInsightEntry = {
@@ -456,6 +460,10 @@ export default function MaterialsTableClient({
   const [configFilter, setConfigFilter] = React.useState("all")
   const [invoiceDateFrom, setInvoiceDateFrom] = React.useState("")
   const [invoiceDateTo, setInvoiceDateTo] = React.useState("")
+  const [forma2Assignment, setForma2Assignment] = React.useState<
+    "all" | "assigned" | "unassigned"
+  >("all")
+  const [forma2PositionId, setForma2PositionId] = React.useState("all")
   const [sortBy, setSortBy] = React.useState<
     "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
   >("default")
@@ -545,9 +553,24 @@ export default function MaterialsTableClient({
     status,
     configFilter,
     sortBy,
-    invoiceDateFrom: showSpendInsights ? invoiceDateFrom : undefined,
-    invoiceDateTo: showSpendInsights ? invoiceDateTo : undefined,
-  }), [page, pageSize, search, status, configFilter, sortBy, showSpendInsights, invoiceDateFrom, invoiceDateTo])
+    invoiceDateFrom: invoiceDateFrom || undefined,
+    invoiceDateTo: invoiceDateTo || undefined,
+    forma2Assignment: forma2Enabled ? forma2Assignment : undefined,
+    forma2PositionId:
+      forma2Enabled && forma2PositionId !== "all" ? forma2PositionId : undefined,
+  }), [
+    page,
+    pageSize,
+    search,
+    status,
+    configFilter,
+    sortBy,
+    invoiceDateFrom,
+    invoiceDateTo,
+    forma2Enabled,
+    forma2Assignment,
+    forma2PositionId,
+  ])
 
   const loadWarehousePage = React.useCallback(async (input: WarehouseMaterialQueryInput = queryInput) => {
     setTableLoading(true)
@@ -1233,6 +1256,29 @@ export default function MaterialsTableClient({
   }
 
   const filteredMaterials = rows
+  const hasActiveFilters = Boolean(
+    search.trim() ||
+      status !== "all" ||
+      configFilter !== "all" ||
+      invoiceDateFrom ||
+      invoiceDateTo ||
+      sortBy !== "default" ||
+      (forma2Enabled && forma2Assignment !== "all") ||
+      (forma2Enabled && forma2PositionId !== "all"),
+  )
+
+  const clearWarehouseFilters = () => {
+    setSearch("")
+    setStatus("all")
+    setConfigFilter("all")
+    setInvoiceDateFrom("")
+    setInvoiceDateTo("")
+    setForma2Assignment("all")
+    setForma2PositionId("all")
+    setSortBy("default")
+    setPage(1)
+    setPageInput("1")
+  }
 
   const allVisibleSelected = filteredMaterials.length > 0 && filteredMaterials.every((row) => selectedRowIds.includes(row.id))
   const someVisibleSelected = filteredMaterials.some((row) => selectedRowIds.includes(row.id))
@@ -1410,37 +1456,11 @@ export default function MaterialsTableClient({
                     <div className="space-y-3">
       {showSpendInsights ? (
         <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="mb-4">
             <div>
               <h2 className="text-base font-semibold">{t.spendInsights}</h2>
               <div className="mt-1 text-2xl font-semibold">{formatMoney(totalCost)}</div>
               <p className="text-sm text-muted-foreground">{t.totalCost}</p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="text-xs font-medium text-muted-foreground">
-                {t.invoiceDateFrom}
-                <Input
-                  type="date"
-                  value={invoiceDateFrom}
-                  onChange={(event) => {
-                    setInvoiceDateFrom(event.target.value)
-                    setPage(1)
-                  }}
-                  className="mt-1 h-9"
-                />
-              </label>
-              <label className="text-xs font-medium text-muted-foreground">
-                {t.invoiceDateTo}
-                <Input
-                  type="date"
-                  value={invoiceDateTo}
-                  onChange={(event) => {
-                    setInvoiceDateTo(event.target.value)
-                    setPage(1)
-                  }}
-                  className="mt-1 h-9"
-                />
-              </label>
             </div>
           </div>
 
@@ -1547,47 +1567,153 @@ export default function MaterialsTableClient({
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-4">
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setStatus(v as "all" | "sent" | "unsent")
-              setPage(1)
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t.status} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t.all}</SelectItem>
-              <SelectItem value="sent">{t.sent}</SelectItem>
-              <SelectItem value="unsent">{t.notSent}</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          {t.filters}
+        </div>
 
-          <Select value={configFilter} onValueChange={(value) => {
-            setConfigFilter(value)
-            setPage(1)
-          }}>
-            <SelectTrigger>
-              <SelectValue placeholder={t.configPlaceholder} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t.allConfigurations}</SelectItem>
-              {bisConfigurations.map((config) => (
-                <SelectItem key={config.id} value={config.id}>
-                  {config.material_kind}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-muted-foreground">{t.status}</div>
+            <Select
+              value={status}
+              onValueChange={(v) => {
+                setStatus(v as "all" | "sent" | "unsent")
+                setPage(1)
+              }}
+            >
+              <SelectTrigger aria-label={t.status}>
+                <SelectValue placeholder={t.status} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.all}</SelectItem>
+                <SelectItem value="sent">{t.sent}</SelectItem>
+                <SelectItem value="unsent">{t.notSent}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-muted-foreground">
+              {t.configPlaceholder}
+            </div>
+            <Select value={configFilter} onValueChange={(value) => {
+              setConfigFilter(value)
+              setPage(1)
+            }}>
+              <SelectTrigger aria-label={t.configPlaceholder}>
+                <SelectValue placeholder={t.configPlaceholder} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.allConfigurations}</SelectItem>
+                <SelectItem value={CONFIG_FILTER_CONFIGURED}>
+                  {t.configuredMaterials}
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                <SelectItem value={CONFIG_FILTER_UNCONFIGURED}>
+                  {t.unconfiguredMaterials}
+                </SelectItem>
+                {bisConfigurations.map((config) => (
+                  <SelectItem key={config.id} value={config.id}>
+                    {config.material_kind}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <label className="space-y-1.5">
+            <span className="block text-xs font-medium text-muted-foreground">
+              {t.invoiceDateFrom}
+            </span>
+            <Input
+              type="date"
+              value={invoiceDateFrom}
+              onChange={(event) => {
+                const nextDate = event.target.value
+                setInvoiceDateFrom(nextDate)
+                if (invoiceDateTo && nextDate > invoiceDateTo) {
+                  setInvoiceDateTo(nextDate)
+                }
+                setPage(1)
+              }}
+            />
+          </label>
+
+          <label className="space-y-1.5">
+            <span className="block text-xs font-medium text-muted-foreground">
+              {t.invoiceDateTo}
+            </span>
+            <Input
+              type="date"
+              min={invoiceDateFrom || undefined}
+              value={invoiceDateTo}
+              onChange={(event) => {
+                setInvoiceDateTo(event.target.value)
+                setPage(1)
+              }}
+            />
+          </label>
+
+          {forma2Enabled ? (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium text-muted-foreground">
+                {t.forma2Assignment}
+              </div>
+              <Select
+                value={forma2Assignment}
+                onValueChange={(value) => {
+                  const next = value as "all" | "assigned" | "unassigned"
+                  setForma2Assignment(next)
+                  if (next === "unassigned") setForma2PositionId("all")
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger aria-label={t.forma2Assignment}>
+                  <SelectValue placeholder={t.forma2Assignment} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.allAssignments}</SelectItem>
+                  <SelectItem value="assigned">{t.assigned}</SelectItem>
+                  <SelectItem value="unassigned">{t.unassigned}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          {forma2Enabled ? (
+            <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
+              <div className="text-xs font-medium text-muted-foreground">
+                {t.forma2Position}
+              </div>
+              <Select
+                value={forma2PositionId}
+                disabled={forma2Assignment === "unassigned"}
+                onValueChange={(value) => {
+                  setForma2PositionId(value)
+                  if (value !== "all") setForma2Assignment("assigned")
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger aria-label={t.forma2Position}>
+                  <SelectValue placeholder={t.forma2Position} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.allForma2Positions}</SelectItem>
+                  {forma2PositionOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {[option.code, option.categoryName, option.name]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Filter className="h-4 w-4" />
-            {t.sortBy}
-          </div>
+          <div className="text-sm text-muted-foreground">{t.sortBy}</div>
 
           <Select
             value={sortBy}
@@ -1614,6 +1740,18 @@ export default function MaterialsTableClient({
               <SelectItem value="quantity_desc">{t.sortHighestQty}</SelectItem>
             </SelectContent>
           </Select>
+
+          {hasActiveFilters ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearWarehouseFilters}
+            >
+              <X className="mr-2 h-4 w-4" />
+              {t.clearFilters}
+            </Button>
+          ) : null}
 
           {selectedRowIds.length > 0 ? (
             <Button

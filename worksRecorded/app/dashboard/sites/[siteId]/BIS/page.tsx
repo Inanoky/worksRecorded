@@ -12,7 +12,7 @@ import { normalizeMaterialConfigurationTemplates } from "@/lib/bis/material-conf
 import {
   getWarehouseMaterialExportRows,
   getWarehouseMaterialPage,
-  type WarehouseMaterialQueryInput,
+  type WarehouseMaterialQueryInput as BaseWarehouseMaterialQueryInput,
   type WarehouseMaterialRow,
 } from "@/lib/bis/warehouse-material-query";
 import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibility";
@@ -30,6 +30,11 @@ type BisApprover = {
   level: number | null;
   name: string | null;
   status: string | null;
+};
+
+type WarehouseMaterialQueryInput = BaseWarehouseMaterialQueryInput & {
+  forma2Assignment?: "all" | "assigned" | "unassigned";
+  forma2PositionId?: string;
 };
 
 type WarehouseMaterialAttachment = {
@@ -291,6 +296,41 @@ async function addForma2AssignmentsToMaterials(
       };
     }),
   };
+}
+
+async function getWarehouseForma2RecordIdFilter(
+  siteId: string,
+  filters: Pick<
+    WarehouseMaterialQueryInput,
+    "forma2Assignment" | "forma2PositionId"
+  >,
+) {
+  const assignmentFilter = filters.forma2Assignment ?? "all";
+  const positionId = filters.forma2PositionId?.trim();
+  if (assignmentFilter === "all" && !positionId) return undefined;
+
+  await applyDefaultConstructionForma2MaterialRules({ siteId });
+  const forma2 = await getDefaultConstructionForma2MaterialAssignments({ siteId });
+  if (!forma2.enabled) return { include: [] as string[] };
+
+  const assignedIds = forma2.assignments.map((assignment) => assignment.sourceId);
+  if (positionId) {
+    return {
+      include: forma2.assignments
+        .filter((assignment) => assignment.positionId === positionId)
+        .map((assignment) => assignment.sourceId),
+    };
+  }
+
+  if (assignmentFilter === "assigned") {
+    return { include: assignedIds };
+  }
+
+  if (assignmentFilter === "unassigned") {
+    return { exclude: assignedIds };
+  }
+
+  return undefined;
 }
 
 async function loadWarehouseBisState(
@@ -1866,7 +1906,17 @@ export async function fetchWarehouseMaterialsPage(siteId: string, input: Warehou
     siteOrganizationId: site?.organizationId,
     userRole: dbUser?.role,
   });
-  const pageData = await getWarehouseMaterialPage({ siteId, ...input, includeSpendInsights: showSpendInsights });
+  const { forma2Assignment, forma2PositionId, ...materialInput } = input;
+  const recordIdFilter = await getWarehouseForma2RecordIdFilter(siteId, {
+    forma2Assignment,
+    forma2PositionId,
+  });
+  const pageData = await getWarehouseMaterialPage({
+    siteId,
+    ...materialInput,
+    includeSpendInsights: showSpendInsights,
+    recordIdFilter,
+  });
 
   const forma2 = await addForma2AssignmentsToMaterials(
     siteId,
@@ -1897,7 +1947,17 @@ export async function exportWarehouseMaterials(siteId: string, input: WarehouseM
     siteOrganizationId: site?.organizationId,
     userRole: dbUser?.role,
   });
-  const rows = await getWarehouseMaterialExportRows({ siteId, ...input, includeSpendInsights: showSpendInsights });
+  const { forma2Assignment, forma2PositionId, ...materialInput } = input;
+  const recordIdFilter = await getWarehouseForma2RecordIdFilter(siteId, {
+    forma2Assignment,
+    forma2PositionId,
+  });
+  const rows = await getWarehouseMaterialExportRows({
+    siteId,
+    ...materialInput,
+    includeSpendInsights: showSpendInsights,
+    recordIdFilter,
+  });
   return rows.map(withoutWarehouseBisState);
 }
 
