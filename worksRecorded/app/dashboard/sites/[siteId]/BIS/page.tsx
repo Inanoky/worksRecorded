@@ -27,6 +27,7 @@ import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { createPerfTrace } from "@/lib/observability/perf";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import { normalizeWarehouseSourcePhoto } from "@/lib/bis/warehouse-source-photo-group";
 import {
   applyDefaultConstructionForma2MaterialRules,
   getDefaultConstructionForma2MaterialAssignments,
@@ -1245,6 +1246,80 @@ export async function updateMaterialDetails(
   return { success: true };
 }
 
+async function requireDefaultConstructionWarehouseSourcePhoto(
+  siteId: string,
+  recordId: string,
+) {
+  await requireUser();
+
+  const source = await prisma.bISmaterialRecords.findFirst({
+    where: { id: recordId, siteId },
+    select: {
+      sourcePhoto: true,
+      site: {
+        select: { organizationId: true },
+      },
+    },
+  });
+  if (!source) throw new Error("Material record not found");
+
+  const flowModuleKey = await resolveFlowModuleKeyForRuntime({
+    organizationId: source.site?.organizationId,
+    siteId,
+  });
+  if (flowModuleKey !== FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) {
+    throw new Error("Source photo date updates are available only for Default Construction");
+  }
+
+  return normalizeWarehouseSourcePhoto(source.sourcePhoto);
+}
+
+export async function getWarehouseSourcePhotoPositionCount(siteId: string, recordId: string) {
+  "use server";
+
+  const sourcePhoto = await requireDefaultConstructionWarehouseSourcePhoto(siteId, recordId);
+  if (!sourcePhoto) return { positionCount: 0 };
+
+  const positionCount = await prisma.bISmaterialRecords.count({
+    where: { siteId, sourcePhoto },
+  });
+
+  return { positionCount };
+}
+
+export async function updateRelatedWarehousePhotoDates(
+  siteId: string,
+  recordId: string,
+  payload: {
+    invoiceDate?: Date | null;
+    materialDate?: Date | null;
+  },
+) {
+  "use server";
+
+  if (!("invoiceDate" in payload) && !("materialDate" in payload)) {
+    return { updatedCount: 0 };
+  }
+
+  const sourcePhoto = await requireDefaultConstructionWarehouseSourcePhoto(siteId, recordId);
+  if (!sourcePhoto) return { updatedCount: 0 };
+
+  const data: { invoiceDate?: Date | null; materialDate?: Date | null } = {};
+  if ("invoiceDate" in payload) data.invoiceDate = payload.invoiceDate ?? null;
+  if ("materialDate" in payload) data.materialDate = payload.materialDate ?? null;
+
+  const result = await prisma.bISmaterialRecords.updateMany({
+    where: {
+      siteId,
+      sourcePhoto,
+    },
+    data,
+  });
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+  return { updatedCount: result.count };
+}
+
 export async function updateMaterialAttachments(
   recordId: string,
   payload: {
@@ -2128,7 +2203,7 @@ export default async function MaterialsPage({
         bisEnabled={bisEnabled}
         bisBaseUrl={getBisBaseUrl()}
         materials={materialsWithBisState}
-        requireCopyConfirmation={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
+        isDefaultConstructionFlow={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
         forma2Enabled={forma2.enabled}
         forma2PositionOptions={forma2.positionOptions}
         materialConfigurations={materialConfigurationData.materialConfigurations}
@@ -2154,6 +2229,8 @@ export default async function MaterialsPage({
         updateMaterialDate={updateMaterialDate}
         updateQuantity={updateQuantity}
         updateMaterialDetails={updateMaterialDetails}
+        getSourcePhotoPositionCount={getWarehouseSourcePhotoPositionCount}
+        updateRelatedPhotoDates={updateRelatedWarehousePhotoDates}
         updateMaterialAttachments={updateMaterialAttachments}
         attachCertificate={attachCertificateToMaterialConfiguration}
         copyMaterialRecord={copyWarehouseRecord}

@@ -345,6 +345,12 @@ type WarehouseUiMessages = {
   copyFailed: string;
   confirmCopyTitle: string;
   confirmCopyDescription: (materialName: string) => string;
+  applyDatesToSourcePhotoPositions: string;
+  applyDatesToSourcePhotoPositionsDescription: string;
+  sourcePhotoPositionCount: (count: number) => string;
+  singleSourcePhotoPosition: string;
+  singleSourcePhotoPositionDescription: string;
+  relatedPhotoDatesUpdated: (count: number) => string;
   materialConfigSelect: WarehouseMaterialConfigSelectMessages;
 };
 
@@ -1154,6 +1160,12 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     copyFailed: "Failed to copy material",
     confirmCopyTitle: "Copy material?",
     confirmCopyDescription: (materialName) => `A new warehouse record will be created using the data from “${materialName}”.`,
+    applyDatesToSourcePhotoPositions: "Apply date changes to all positions from this photo",
+    applyDatesToSourcePhotoPositionsDescription: "Only changed invoice and delivery dates will be applied. Other fields remain unchanged.",
+    sourcePhotoPositionCount: (count) => `This photo contains ${count} positions.`,
+    singleSourcePhotoPosition: "This photo has only one position",
+    singleSourcePhotoPositionDescription: "There are no other positions to update from this photo.",
+    relatedPhotoDatesUpdated: (count) => `Dates updated for ${count} positions from this photo`,
     materialConfigSelect: {
       materialKindRequired: "Material kind is required",
       measurementRequired: "Measurement is required",
@@ -1287,6 +1299,12 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     copyFailed: "Neizdevās kopēt materiālu",
     confirmCopyTitle: "Kopēt materiālu?",
     confirmCopyDescription: (materialName) => `Tiks izveidots jauns noliktavas ieraksts, izmantojot materiāla “${materialName}” datus.`,
+    applyDatesToSourcePhotoPositions: "Piemērot datumu izmaiņas visām pozīcijām no šī fotoattēla",
+    applyDatesToSourcePhotoPositionsDescription: "Tiks piemēroti tikai mainītie rēķina un piegādes datumi. Pārējie lauki netiks mainīti.",
+    sourcePhotoPositionCount: (count) => `Šim fotoattēlam ir ${count} pozīcijas.`,
+    singleSourcePhotoPosition: "Šim fotoattēlam ir tikai viena pozīcija",
+    singleSourcePhotoPositionDescription: "No šī fotoattēla nav citu pozīciju, ko atjaunināt.",
+    relatedPhotoDatesUpdated: (count) => `Datumi atjaunināti ${count} pozīcijām no šī fotoattēla`,
     materialConfigSelect: {
       materialKindRequired: "Materiāla veids ir obligāts",
       measurementRequired: "Mērvienība ir obligāta",

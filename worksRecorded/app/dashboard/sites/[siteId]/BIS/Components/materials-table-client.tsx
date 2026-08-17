@@ -178,7 +178,7 @@ type Props = {
   bisEnabled: boolean
   bisBaseUrl: string
   materials: MaterialRow[]
-  requireCopyConfirmation: boolean
+  isDefaultConstructionFlow: boolean
   forma2Enabled: boolean
   forma2PositionOptions: Forma2MaterialPositionOption[]
   materialConfigurations: MaterialCategory[]
@@ -285,6 +285,18 @@ type Props = {
       supplierName?: string | null
     },
   ) => Promise<{ success: boolean }>
+  getSourcePhotoPositionCount: (
+    siteId: string,
+    recordId: string,
+  ) => Promise<{ positionCount: number }>
+  updateRelatedPhotoDates: (
+    siteId: string,
+    recordId: string,
+    payload: {
+      invoiceDate?: Date | null
+      materialDate?: Date | null
+    },
+  ) => Promise<{ updatedCount: number }>
   attachCertificate: (
     siteId: string,
     materialConfigurationId: string,
@@ -468,7 +480,7 @@ export default function MaterialsTableClient({
   bisEnabled,
   bisBaseUrl,
   materials,
-  requireCopyConfirmation,
+  isDefaultConstructionFlow,
   forma2Enabled,
   forma2PositionOptions,
   materialConfigurations,
@@ -488,6 +500,8 @@ export default function MaterialsTableClient({
   updateMaterialDate,
   updateQuantity,
   updateMaterialDetails,
+  getSourcePhotoPositionCount,
+  updateRelatedPhotoDates,
   updateMaterialAttachments,
   attachCertificate,
   copyMaterialRecord,
@@ -545,8 +559,11 @@ export default function MaterialsTableClient({
   const [editModalOpen, setEditModalOpen] = React.useState(false)
   const [editModalMode, setEditModalMode] = React.useState<"edit" | "confirm-send">("edit")
   const [editSaveLoading, setEditSaveLoading] = React.useState(false)
+  const [applyDatesToSourcePhotoPositions, setApplyDatesToSourcePhotoPositions] = React.useState(false)
+  const [sourcePhotoPositionCount, setSourcePhotoPositionCount] = React.useState<number | null>(null)
   const [includeDeliveryNotePhoto, setIncludeDeliveryNotePhoto] = React.useState(true)
   const [modalSourcePhoto, setModalSourcePhoto] = React.useState<string | null>(null)
+  const editRecordIdRef = React.useRef<string | null>(null)
   const editNameRef = React.useRef("")
   const editQuantityRef = React.useRef("")
   const editCostRef = React.useRef("")
@@ -905,6 +922,7 @@ export default function MaterialsTableClient({
   }
 
   const openEditModal = (row: MaterialRow, mode: "edit" | "confirm-send" = "edit") => {
+    editRecordIdRef.current = row.id
     editNameRef.current = row.name ?? ""
     editQuantityRef.current = row.quantity == null ? "" : String(row.quantity)
     editCostRef.current = row.cost == null ? "" : String(row.cost)
@@ -926,9 +944,26 @@ export default function MaterialsTableClient({
       agreementAttachment: (Array.isArray(row.agreementAttachment) ? row.agreementAttachment as MaterialAttachment[] : []).map((file, index) => ({ id: `a-${index}-${file.name}`, ...file })),
     })
     setEditModalMode(mode)
+    setApplyDatesToSourcePhotoPositions(false)
+    setSourcePhotoPositionCount(null)
     setIncludeDeliveryNotePhoto(Boolean(row.sourcePhoto))
     setModalSourcePhoto(row.sourcePhoto ?? null)
     setEditModalOpen(true)
+
+    if (mode === "edit" && isDefaultConstructionFlow && row.sourcePhoto?.trim()) {
+      void getSourcePhotoPositionCount(siteId, row.id)
+        .then(({ positionCount }) => {
+          if (editRecordIdRef.current === row.id) setSourcePhotoPositionCount(positionCount)
+        })
+        .catch((error) => {
+          console.error("[Warehouse] Failed to count source photo positions", {
+            siteId,
+            recordId: row.id,
+            error,
+          })
+          if (editRecordIdRef.current === row.id) setSourcePhotoPositionCount(0)
+        })
+    }
   }
 
   const fileToBase64 = (file: File) =>
@@ -984,6 +1019,11 @@ export default function MaterialsTableClient({
     }
 
     const existingRow = rows.find((row) => row.id === editDraft.id)
+    const nextInvoiceDate = editInvoiceDateRef.current
+      ? new Date(`${editInvoiceDateRef.current}T00:00:00`)
+      : null
+    const invoiceDateChanged = toLocalDateInputValue(existingRow?.invoiceDate) !== editInvoiceDateRef.current
+    const materialDateChanged = toLocalDateInputValue(existingRow?.materialDate) !== toLocalDateInputValue(editDraft.materialDate)
     const hasValidDraftConfiguration = Boolean(editDraft.categoryId && editDraft.categoryId !== NO_MATCH_VALUE)
     const savedDeclarationAttachment = editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest)
     const savedAgreementAttachment = editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest)
@@ -1006,9 +1046,23 @@ export default function MaterialsTableClient({
         cost: Number.isNaN(cost as number) ? null : cost,
         materialDate: editDraft.materialDate,
         measurementUnit: trimmedMeasurementUnit || null,
-        invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
+        invoiceDate: nextInvoiceDate,
         supplierName: editDraft.supplierName,
       })
+      let relatedPhotoUpdatedCount = 0
+      if (
+        editModalMode === "edit" &&
+        isDefaultConstructionFlow &&
+        applyDatesToSourcePhotoPositions &&
+        existingRow &&
+        (invoiceDateChanged || materialDateChanged)
+      ) {
+        const result = await updateRelatedPhotoDates(siteId, editDraft.id, {
+          ...(invoiceDateChanged ? { invoiceDate: nextInvoiceDate } : {}),
+          ...(materialDateChanged ? { materialDate: editDraft.materialDate } : {}),
+        })
+        relatedPhotoUpdatedCount = result.updatedCount
+      }
       await updateQuantity(editDraft.id, Number.isNaN(quantity as number) ? null : quantity)
       await updateMaterialAttachments(editDraft.id, {
         declarationAttachment: savedDeclarationAttachment,
@@ -1062,7 +1116,7 @@ export default function MaterialsTableClient({
                 categoryName: editDraft.categoryName,
                 measurementUnitId: editDraft.measurementUnitId,
                 measurementUnit: trimmedMeasurementUnit || null,
-                invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
+                invoiceDate: nextInvoiceDate,
                 supplierName: editDraft.supplierName,
                 materialDate: editDraft.materialDate,
                 declarationAttachment: savedDeclarationAttachment,
@@ -1073,7 +1127,16 @@ export default function MaterialsTableClient({
         ),
       )
       setEditModalOpen(false)
-      toast.success(editModalMode === "confirm-send" ? toastMessages.materialConfirmedAndSent : toastMessages.materialUpdated)
+      editRecordIdRef.current = null
+      setSourcePhotoPositionCount(null)
+      setApplyDatesToSourcePhotoPositions(false)
+      toast.success(
+        relatedPhotoUpdatedCount > 1
+          ? t.relatedPhotoDatesUpdated(relatedPhotoUpdatedCount)
+          : editModalMode === "confirm-send"
+            ? toastMessages.materialConfirmedAndSent
+            : toastMessages.materialUpdated,
+      )
       void loadWarehousePage()
     } catch (error) {
       console.error(error)
@@ -1121,7 +1184,7 @@ export default function MaterialsTableClient({
   }
 
   const requestMaterialCopy = (row: MaterialRow) => {
-    if (requireCopyConfirmation) {
+    if (isDefaultConstructionFlow) {
       setCopyConfirmationRow(row)
       return
     }
@@ -1388,6 +1451,11 @@ export default function MaterialsTableClient({
     : Math.min(pagination.page * pagination.pageSize, pagination.totalCount)
 
   const showBisControls = bisEnabled
+  const editSourceRow = editDraft ? rows.find((row) => row.id === editDraft.id) : undefined
+  const editSourcePhoto = editSourceRow?.sourcePhoto?.trim() || null
+  const showSourcePhotoDateGroup = Boolean(
+    isDefaultConstructionFlow && editModalMode === "edit" && editSourcePhoto,
+  )
 
   const commitPageInput = React.useCallback(() => {
     const requestedPage = Math.floor(Number(pageInput))
@@ -2463,7 +2531,17 @@ export default function MaterialsTableClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+      <Dialog
+        open={editModalOpen}
+        onOpenChange={(open) => {
+          setEditModalOpen(open)
+          if (!open) {
+            editRecordIdRef.current = null
+            setSourcePhotoPositionCount(null)
+            setApplyDatesToSourcePhotoPositions(false)
+          }
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editModalMode === "confirm-send" ? "Apstiprināt" : t.editMaterial}</DialogTitle>
@@ -2586,6 +2664,49 @@ export default function MaterialsTableClient({
                     </PopoverContent>
                   </Popover>
                 </div>
+                {showSourcePhotoDateGroup && editSourcePhoto ? (
+                  <div className="flex items-start gap-3 rounded-md border bg-background p-3 sm:col-span-2">
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border bg-muted">
+                      <Image
+                        src={editSourcePhoto}
+                        alt={t.photo}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                    {sourcePhotoPositionCount === null ? (
+                      <p className="pt-1 text-sm text-muted-foreground">{t.loading}</p>
+                    ) : sourcePhotoPositionCount > 1 ? (
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="apply-dates-to-source-photo-positions"
+                          checked={applyDatesToSourcePhotoPositions}
+                          onCheckedChange={(value) => setApplyDatesToSourcePhotoPositions(Boolean(value))}
+                        />
+                        <div className="space-y-1">
+                          <label
+                            htmlFor="apply-dates-to-source-photo-positions"
+                            className="cursor-pointer text-sm font-medium leading-none"
+                          >
+                            {t.applyDatesToSourcePhotoPositions}
+                          </label>
+                          <p className="text-xs text-muted-foreground">
+                            {t.sourcePhotoPositionCount(sourcePhotoPositionCount)}{" "}
+                            {t.applyDatesToSourcePhotoPositionsDescription}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 pt-0.5">
+                        <p className="text-sm font-medium">{t.singleSourcePhotoPosition}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t.singleSourcePhotoPositionDescription}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
               {showBisControls ? (
                 <>
