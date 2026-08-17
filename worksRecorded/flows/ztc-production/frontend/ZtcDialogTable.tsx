@@ -761,29 +761,22 @@ export function ZtcDialogTable({
     }
 
     if (field === "Works") {
-      const specialCategory = getZtcSpecialCategory(row);
-      if (specialCategory) {
-        const rateOptions = getSpecialRateOptions(row, specialCategory);
-        if (rateOptions.length) {
-          return rateOptions.map((task) => getRateSelectOption(row, task, specialCategory));
-        }
-      }
-
       if (isZtcQualityRow(row)) {
         return [{ value: ZTC_QUALITY_WORK_LABEL, label: ZTC_QUALITY_WORK_LABEL }];
       }
 
-      const standardOptions = getElementWorkOptions(row.Location_Custom_1, row.Location);
-      const projectWorkOptions = getProjectWorkOptions(row.Location);
+      const specialCategory = getZtcSpecialCategory(row);
+      if (specialCategory) {
+        const rateOptions = getSpecialRateOptions(row, specialCategory);
+        return rateOptions.map((task) =>
+          getRateSelectOption(row, task, specialCategory),
+        );
+      }
+
       const rateOptions = getStandardRateOptions(row.Location);
       const additionalOptions = getSpecialRateOptions(row, "additionalWorks");
       const seen = new Set<string>();
-      const workOptions = [
-        ...standardOptions,
-        ...projectWorkOptions,
-        ...rateOptions,
-        ...additionalOptions,
-      ].filter((label) => {
+      const workOptions = [...rateOptions, ...additionalOptions].filter((label) => {
         const key = normalizeZtcWorkName(label).toLowerCase();
         if (!key || seen.has(key)) return false;
         seen.add(key);
@@ -891,7 +884,14 @@ export function ZtcDialogTable({
           const workOptions = getElementWorkOptions(value, next.Location);
           const projectWorkOptions = getProjectWorkOptions(next.Location);
           const isKnownProjectWork = projectWorkOptions.some((option) => option === next.Works);
-          if (!workOptions.some((option) => option === next.Works) && !isKnownProjectWork) {
+          const isConfiguredStandardWork = Boolean(
+            getStandardRateEntry(next.Location, next.Works),
+          );
+          if (
+            !workOptions.some((option) => option === next.Works) &&
+            !isKnownProjectWork &&
+            !isConfiguredStandardWork
+          ) {
             if (!isAdditionalWorkOption(next, next.Works)) {
               next.Works = "";
               next.Amounts = "";
@@ -1240,16 +1240,11 @@ export function ZtcDialogTable({
     if (field === "Works" && getZtcSpecialCategory(row)) {
       const options = getDropdownOptions(field, row);
       const currentValue = String(row[field] ?? "");
-      const optionValues = new Set(options.map((option) => option.value));
-      const mergedOptions =
-        currentValue && !optionValues.has(currentValue)
-          ? [{ value: currentValue, label: currentValue }, ...options]
-          : options;
 
       return (
         <SearchableZtcSelect
           value={currentValue}
-          options={mergedOptions}
+          options={options}
           placeholder={t.select}
           width={width}
           onChange={(value) => handleChange(rowKey, field, value)}
@@ -1281,7 +1276,7 @@ export function ZtcDialogTable({
       const options = getDropdownOptions(field, row);
       const optionValues = new Set(options.map((option) => option.value));
       const mergedOptions =
-        currentValue && !optionValues.has(currentValue)
+        field !== "Works" && currentValue && !optionValues.has(currentValue)
           ? [{ value: currentValue, label: currentValue }, ...options]
           : options;
 
