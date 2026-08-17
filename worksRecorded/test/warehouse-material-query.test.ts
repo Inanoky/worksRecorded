@@ -173,7 +173,11 @@ describe("warehouse material query", () => {
       { id: "desc" },
     ]);
     expect(buildWarehouseMaterialOrderBy("invoiceDate_asc")).toEqual([
-      { invoiceDate: { sort: "asc", nulls: "last" } },
+      { invoiceDate: { sort: "asc", nulls: "first" } },
+      { id: "asc" },
+    ]);
+    expect(buildWarehouseMaterialOrderBy("materialDate_asc")).toEqual([
+      { materialDate: { sort: "asc", nulls: "first" } },
       { id: "asc" },
     ]);
     expect(buildWarehouseMaterialOrderBy("quantity_desc")).toEqual([

@@ -343,6 +343,8 @@ type WarehouseUiMessages = {
   copying: string;
   copied: string;
   copyFailed: string;
+  confirmCopyTitle: string;
+  confirmCopyDescription: (materialName: string) => string;
   materialConfigSelect: WarehouseMaterialConfigSelectMessages;
 };
 
@@ -1150,6 +1152,8 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     copying: "Copying...",
     copied: "Material copied",
     copyFailed: "Failed to copy material",
+    confirmCopyTitle: "Copy material?",
+    confirmCopyDescription: (materialName) => `A new warehouse record will be created using the data from “${materialName}”.`,
     materialConfigSelect: {
       materialKindRequired: "Material kind is required",
       measurementRequired: "Measurement is required",
@@ -1281,6 +1285,8 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     copying: "Kopē...",
     copied: "Materiāls nokopēts",
     copyFailed: "Neizdevās kopēt materiālu",
+    confirmCopyTitle: "Kopēt materiālu?",
+    confirmCopyDescription: (materialName) => `Tiks izveidots jauns noliktavas ieraksts, izmantojot materiāla “${materialName}” datus.`,
     materialConfigSelect: {
       materialKindRequired: "Materiāla veids ir obligāts",
       measurementRequired: "Mērvienība ir obligāta",

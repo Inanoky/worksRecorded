@@ -355,6 +355,13 @@ function compareNullableAsc(a: number | string | null, b: number | string | null
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+function compareNullableAscNullsFirst(a: number | string | null, b: number | string | null) {
+  if (a == null && b == null) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function sortWarehouseRows(rows: WarehouseMaterialRow[], sortBy: WarehouseMaterialSort) {
   return [...rows].sort((a, b) => {
     switch (sortBy) {
@@ -377,7 +384,7 @@ function sortWarehouseRows(rows: WarehouseMaterialRow[], sortBy: WarehouseMateri
       case "categoryName_desc":
         return compareNullableDesc(a.categoryName?.toLowerCase() ?? null, b.categoryName?.toLowerCase() ?? null) || b.id.localeCompare(a.id);
       case "materialDate_asc":
-        return compareNullableAsc(getSortDateValue(a.materialDate), getSortDateValue(b.materialDate)) || a.id.localeCompare(b.id);
+        return compareNullableAscNullsFirst(getSortDateValue(a.materialDate), getSortDateValue(b.materialDate)) || a.id.localeCompare(b.id);
       case "materialDate_desc":
         return compareNullableDesc(getSortDateValue(a.materialDate), getSortDateValue(b.materialDate)) || b.id.localeCompare(a.id);
       case "quantity_asc":
@@ -395,7 +402,7 @@ function sortWarehouseRows(rows: WarehouseMaterialRow[], sortBy: WarehouseMateri
       case "invoiceNr_desc":
         return compareNullableDesc(a.invoiceNr?.toLowerCase() ?? null, b.invoiceNr?.toLowerCase() ?? null) || b.id.localeCompare(a.id);
       case "invoiceDate_asc":
-        return compareNullableAsc(getSortDateValue(a.invoiceDate), getSortDateValue(b.invoiceDate)) || a.id.localeCompare(b.id);
+        return compareNullableAscNullsFirst(getSortDateValue(a.invoiceDate), getSortDateValue(b.invoiceDate)) || a.id.localeCompare(b.id);
       case "invoiceDate_desc":
         return compareNullableDesc(getSortDateValue(a.invoiceDate), getSortDateValue(b.invoiceDate)) || b.id.localeCompare(a.id);
       case "name_asc":
@@ -425,7 +432,7 @@ export function buildWarehouseMaterialOrderBy(
     case "sourcePhoto_desc":
       return [{ sourcePhoto: { sort: "desc", nulls: "last" } }, { id: "desc" }];
     case "invoiceDate_asc":
-      return [{ invoiceDate: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+      return [{ invoiceDate: { sort: "asc", nulls: "first" } }, { id: "asc" }];
     case "name_asc":
       return [{ name: { sort: "asc", nulls: "last" } }, { id: "asc" }];
     case "name_desc":
@@ -443,7 +450,7 @@ export function buildWarehouseMaterialOrderBy(
     case "categoryName_desc":
       return [{ categoryName: { sort: "desc", nulls: "last" } }, { id: "desc" }];
     case "materialDate_asc":
-      return [{ materialDate: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+      return [{ materialDate: { sort: "asc", nulls: "first" } }, { id: "asc" }];
     case "materialDate_desc":
       return [{ materialDate: { sort: "desc", nulls: "last" } }, { id: "desc" }];
     case "quantity_asc":

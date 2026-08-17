@@ -178,6 +178,7 @@ type Props = {
   bisEnabled: boolean
   bisBaseUrl: string
   materials: MaterialRow[]
+  requireCopyConfirmation: boolean
   forma2Enabled: boolean
   forma2PositionOptions: Forma2MaterialPositionOption[]
   materialConfigurations: MaterialCategory[]
@@ -467,6 +468,7 @@ export default function MaterialsTableClient({
   bisEnabled,
   bisBaseUrl,
   materials,
+  requireCopyConfirmation,
   forma2Enabled,
   forma2PositionOptions,
   materialConfigurations,
@@ -532,6 +534,7 @@ export default function MaterialsTableClient({
   const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
   const [deleteLoading, setDeleteLoading] = React.useState(false)
   const [copyingRecordId, setCopyingRecordId] = React.useState<string | null>(null)
+  const [copyConfirmationRow, setCopyConfirmationRow] = React.useState<MaterialRow | null>(null)
   const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
   const [pendingEdits, setPendingEdits] = React.useState<Record<string, {
     name?: string | null
@@ -1090,7 +1093,7 @@ export default function MaterialsTableClient({
   }
 
   const copyMaterial = async (row: MaterialRow) => {
-    if (copyingRecordId) return
+    if (copyingRecordId) return false
 
     setCopyingRecordId(row.id)
     try {
@@ -1107,12 +1110,29 @@ export default function MaterialsTableClient({
       })
       toast.success(t.copied)
       void loadWarehousePage()
+      return true
     } catch (error) {
       console.error("[Warehouse BIS] Copy material failed", { siteId, recordId: row.id, error })
       toast.error(error instanceof Error ? error.message : t.copyFailed)
+      return false
     } finally {
       setCopyingRecordId(null)
     }
+  }
+
+  const requestMaterialCopy = (row: MaterialRow) => {
+    if (requireCopyConfirmation) {
+      setCopyConfirmationRow(row)
+      return
+    }
+
+    void copyMaterial(row)
+  }
+
+  const confirmMaterialCopy = async () => {
+    if (!copyConfirmationRow) return
+    const copied = await copyMaterial(copyConfirmationRow)
+    if (copied) setCopyConfirmationRow(null)
   }
 
   const deleteSelectedRows = async () => {
@@ -2298,7 +2318,7 @@ export default function MaterialsTableClient({
                                   </DropdownMenuItem>
                                 ) : null}
                                 <DropdownMenuItem
-                                  onClick={() => copyMaterial(r)}
+                                  onClick={() => requestMaterialCopy(r)}
                                   disabled={copyingRecordId !== null}
                                 >
                                   {copyingRecordId === r.id ? t.copying : t.copy}
@@ -2321,6 +2341,42 @@ export default function MaterialsTableClient({
           {renderPaginationControls("justify-end")}
         </div>
       </div>
+
+      <Dialog
+        open={copyConfirmationRow !== null}
+        onOpenChange={(open) => {
+          if (!open && !copyingRecordId) setCopyConfirmationRow(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.confirmCopyTitle}</DialogTitle>
+            <DialogDescription>
+              {copyConfirmationRow
+                ? t.confirmCopyDescription(getMaterialDisplayName(copyConfirmationRow))
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              autoFocus
+              disabled={copyingRecordId !== null}
+              onClick={() => setCopyConfirmationRow(null)}
+            >
+              {t.cancel}
+            </Button>
+            <Button
+              type="button"
+              disabled={copyingRecordId !== null}
+              onClick={() => void confirmMaterialCopy()}
+            >
+              {copyingRecordId ? t.copying : t.copy}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={approverDialogOpen}

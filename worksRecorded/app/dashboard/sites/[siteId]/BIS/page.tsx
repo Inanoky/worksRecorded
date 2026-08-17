@@ -25,6 +25,8 @@ import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibil
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { createPerfTrace } from "@/lib/observability/perf";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import {
   applyDefaultConstructionForma2MaterialRules,
   getDefaultConstructionForma2MaterialAssignments,
@@ -2063,7 +2065,7 @@ export default async function MaterialsPage({
     userRole: dbUser?.role,
   });
 
-  const [materialsPage, materialConfigurationData] = await trace.measure("initialData", () =>
+  const [materialsPage, materialConfigurationData, flowModuleKey] = await trace.measure("initialData", () =>
     Promise.all([
       getWarehouseMaterialPage({ siteId, includeSpendInsights: showSpendInsights }),
       bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
@@ -2079,6 +2081,10 @@ export default async function MaterialsPage({
         materialMeasures: [] as MaterialMeasure[],
         materialTypes: [] as MaterialType[],
       })),
+      resolveFlowModuleKeyForRuntime({
+        organizationId: siteOrg?.organizationId,
+        siteId,
+      }),
     ]),
   );
 
@@ -2122,6 +2128,7 @@ export default async function MaterialsPage({
         bisEnabled={bisEnabled}
         bisBaseUrl={getBisBaseUrl()}
         materials={materialsWithBisState}
+        requireCopyConfirmation={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
         forma2Enabled={forma2.enabled}
         forma2PositionOptions={forma2.positionOptions}
         materialConfigurations={materialConfigurationData.materialConfigurations}
