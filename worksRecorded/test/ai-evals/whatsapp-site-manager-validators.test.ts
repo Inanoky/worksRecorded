@@ -31,6 +31,15 @@ describe("WhatsApp site-manager eval validators", () => {
 	const materialInvoiceCase = webhookCases.find(
 		(item) => item.id === "material-invoice-latvian-date-image",
 	);
+	const bobcatSandCase = webhookCases.find(
+		(item) => item.id === "latvian-bobcat-foundation-sand-hours-only",
+	);
+	const sandDeliveryCase = webhookCases.find(
+		(item) => item.id === "latvian-sand-delivery-material-category",
+	);
+	const earthworksSixRecordsCase = webhookCases.find(
+		(item) => item.id === "latvian-weather-and-earthworks-six-records",
+	);
 
 	function savedPhoto(mediaPurpose: string | null) {
 		return {
@@ -866,6 +875,226 @@ describe("WhatsApp site-manager eval validators", () => {
 		expect(
 			result.results.find((item) => item.name === "record-count")?.status,
 		).toBe("pass");
+	});
+
+	it("passes strict persisted category signals for material delivery", () => {
+		if (!sandDeliveryCase) throw new Error("Missing sand delivery eval case");
+
+		const record = {
+			id: "record-sand",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			Works: "Materiālu piegāde",
+			Comments: "Ievestas smiltis.",
+			originalUserComment: "Test Manager : Ievestas smiltis.",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: sandDeliveryCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
+	});
+
+	it("fails strict persisted category signals when material delivery is saved as a note", () => {
+		if (!sandDeliveryCase) throw new Error("Missing sand delivery eval case");
+
+		const record = {
+			id: "record-sand",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			Works: "Piezīmes",
+			Comments: "Ievestas smiltis.",
+			originalUserComment: "Test Manager : Ievestas smiltis.",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: sandDeliveryCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("fail");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("fail");
+	});
+
+	it("allows zero for dash-style null numeric expectations when the case opts in", () => {
+		if (!bobcatSandCase) throw new Error("Missing bobcat sand eval case");
+
+		const record = {
+			id: "record-bobcat",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Pamati",
+			Works: "Smilts piebēršana pamatiem",
+			Comments: "Veikta smilts piebēršana pamatiem ar Bobcat operatoru.",
+			originalUserComment:
+				"Test Manager : Veikta smilts piebēršana pamatiem ar Bobcat operatoru, 9,5 stundas.",
+			originalAudioUrl: null,
+			WorkersInvolved: 0,
+			TimeInvolved: 9.5,
+			Amounts: 0,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: bobcatSandCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "workers-involved")?.status,
+		).toBe("pass");
+		expect(result.results.find((item) => item.name === "amounts")?.status).toBe(
+			"pass",
+		);
+	});
+
+	it("treats opted-in subrecord mismatches as warning-only diagnostics", () => {
+		if (!bobcatSandCase) throw new Error("Missing bobcat sand eval case");
+
+		const record = {
+			id: "record-bobcat",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Pamati",
+			Works: "Papilddarbi",
+			Comments: "Veikta smilts piebēršana pamatiem.",
+			originalUserComment:
+				"Test Manager : Veikta smilts piebēršana pamatiem ar Bobcat operatoru, 9,5 stundas.",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: 9.5,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: bobcatSandCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("warn");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1"),
+		).toMatchObject({
+			status: "fail",
+			severity: "warning",
+		});
+	});
+
+	it("matches expected multi-record rows without depending on save order", () => {
+		if (!earthworksSixRecordsCase)
+			throw new Error("Missing earthworks six-record eval case");
+
+		const baseRecord = {
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			originalUserComment: null,
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+		const records = [
+			{
+				...baseRecord,
+				id: "record-machinery",
+				Works: "Piezīmes",
+				Comments:
+					"Smilts piebēršanu veica bobkatu operators, grunts rakšanu veica ekskavatoru operators, strādāja arī palīkstrādnieks.",
+				Amounts: null,
+			},
+			{
+				...baseRecord,
+				id: "record-foundation-sand",
+				Works: "Smilts piebēršana pamatiem",
+				Comments: "Smilts piebēršana pamatiem 400 kubi.",
+				Amounts: 400,
+			},
+			{
+				...baseRecord,
+				id: "record-excess-soil",
+				Works: "Liekās grunts izvešana",
+				Comments: "Liekās grunts izvešana 110 kubi.",
+				Amounts: 110,
+			},
+			{
+				...baseRecord,
+				id: "record-excavation",
+				Works: "Grunts rakšana",
+				Comments: "Grunts rakšana 80 kubi.",
+				Amounts: 80,
+			},
+			{
+				...baseRecord,
+				id: "record-sand-delivery",
+				Works: "Materiālu piegāde",
+				Comments: "Ievestas smilts 180 kubi.",
+				Amounts: 180,
+			},
+			{
+				...baseRecord,
+				id: "record-weather",
+				Works: "Piezīmes",
+				Comments: "Laika apstākļi šodien saulains plus 27 grādi.",
+				Amounts: null,
+			},
+		];
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: earthworksSixRecordsCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: records[0],
+			records,
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.filter((item) => item.name.startsWith("expected-record:")),
+		).toHaveLength(6);
 	});
 
 	it("validates the persisted date for an explicit historical-date case", () => {

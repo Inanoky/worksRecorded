@@ -1,12 +1,25 @@
 import { z } from "zod";
 
+const SiteDiaryRecordFieldSignalsSchema = z
+	.record(z.array(z.string().min(1)))
+	.default({});
+
+const ExpectedSiteDiaryRecordSchema = z.object({
+	requiredTextSignals: z.array(z.string().min(1)).default([]),
+	requiredFieldSignals: SiteDiaryRecordFieldSignalsSchema,
+	forbiddenFieldSignals: SiteDiaryRecordFieldSignalsSchema,
+	workersInvolved: z.number().nonnegative().nullable().optional(),
+	timeInvolved: z.number().nonnegative().nullable().optional(),
+	amounts: z.number().nonnegative().nullable().optional(),
+	units: z.string().min(1).optional(),
+	nullNumericValuesCanBeZero: z.boolean().default(false),
+});
+
 const ExpectedSavedRecordSchema = z.object({
 	shouldCreateRecord: z.boolean().default(true),
 	expectedRecordCount: z.number().int().nonnegative().optional(),
 	expectedPhotoCount: z.number().int().nonnegative().optional(),
-	expectedPhotoPurpose: z
-		.enum(["site_diary", "warehouse_invoice"])
-		.optional(),
+	expectedPhotoPurpose: z.enum(["site_diary", "warehouse_invoice"]).optional(),
 	expectedWarehousePhotoCount: z.number().int().nonnegative().optional(),
 	materialRecords: z
 		.object({
@@ -27,9 +40,11 @@ const ExpectedSavedRecordSchema = z.object({
 	requiredTextSignals: z.array(z.string().min(1)).default([]),
 	requiredAnswerSignals: z.array(z.string().min(1)).default([]),
 	forbiddenAnswerSignals: z.array(z.string().min(1)).default([]),
+	records: z.array(ExpectedSiteDiaryRecordSchema).default([]),
 	workersInvolved: z.number().nonnegative().nullable().optional(),
 	timeInvolved: z.number().positive().optional(),
 	amounts: z.number().nullable().optional(),
+	nullNumericValuesCanBeZero: z.boolean().default(false),
 	expectedDateISO: z
 		.string()
 		.regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -356,6 +371,375 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			},
 		},
 		{
+			id: "latvian-bobcat-foundation-sand-hours-only",
+			intent:
+				"Verify Bobcat/operator wording is preserved without turning machinery/operator mentions into worker or quantity values.",
+			tags: ["save", "latvian", "hours", "amount", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-bobcat-foundation-sand",
+				body: "Veikta smilts piebēršana pamatiem ar Bobcat operatoru, 9,5 stundas.",
+				timestamp: "1782197650",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["smilts", "piebēr", "pamat", "bobcat|bobk"],
+				workersInvolved: null,
+				timeInvolved: 9.5,
+				amounts: null,
+				nullNumericValuesCanBeZero: true,
+				warningValidators: ["expected-record", "heuristic-min-score"],
+				records: [
+					{
+						requiredTextSignals: ["smilts", "piebēr", "pamat", "bobcat|bobk"],
+						forbiddenFieldSignals: {
+							Works: ["Papildu darbi|Papilddarbi"],
+							Works_Custom_1: ["Papilddarbi|Papildu darbi"],
+							Location: ["Papilddarbi|Papildu darbi"],
+							Location_Custom_1: ["Papilddarbi|Papildu darbi"],
+						},
+						workersInvolved: null,
+						timeInvolved: 9.5,
+						amounts: null,
+						nullNumericValuesCanBeZero: true,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-weather-and-earthworks-six-records",
+			intent:
+				"Verify a mixed weather, delivery, earthwork, and machinery message is split into six diary records with quantities but no inferred workers or hours.",
+			tags: ["save", "latvian", "multi-record", "amount", "note", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-weather-earthworks-six",
+				body: "Laika apstākļi šodien saulains plus 27 grādi. Ievestas smilts 180 kubi, grunts rakšana 80 kubi, liekās grunts izvešana 110 kubi, smilts piebēršana pamatiem 400 kubi, smilts piebēršana veica bobkatu operātors, strādāja 9,5 stundas, grunts rakšana veica ekskavatoru operātors, strādāja arī palīkstrādnieks 8 stundas.",
+				timestamp: "1782197651",
+			}),
+			expected: {
+				expectedRecordCount: 6,
+				nullNumericValuesCanBeZero: true,
+				warningValidators: ["expected-record", "heuristic-min-score"],
+				records: [
+					{
+						requiredTextSignals: ["laika", "saulains", "27"],
+						requiredFieldSignals: { Works: ["Piezīmes"] },
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: null,
+						nullNumericValuesCanBeZero: true,
+					},
+					{
+						requiredTextSignals: ["ievest", "smil"],
+						requiredFieldSignals: { Works: ["Materiālu piegāde"] },
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: 180,
+					},
+					{
+						requiredTextSignals: ["grunts", "rak"],
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: 80,
+						nullNumericValuesCanBeZero: true,
+					},
+					{
+						requiredTextSignals: ["liek", "grunts", "izve"],
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: 110,
+						nullNumericValuesCanBeZero: true,
+					},
+					{
+						requiredTextSignals: ["smilts", "piebēr", "pamat"],
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: 400,
+					},
+					{
+						requiredTextSignals: [
+							"bobkat|bobcat",
+							"operator",
+							"ekskavator",
+							"palīkstrādniek|palīgstrādniek",
+						],
+						requiredFieldSignals: { Works: ["Piezīmes"] },
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: null,
+						nullNumericValuesCanBeZero: true,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-sand-delivery-material-category",
+			intent:
+				"Verify a short sand delivery message is categorized as material delivery.",
+			tags: ["save", "latvian", "material-delivery", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-sand-delivery",
+				body: "Ievestas smiltis.",
+				timestamp: "1782197652",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["ievest", "smilt"],
+				records: [
+					{
+						requiredTextSignals: ["ievest", "smilt"],
+						requiredFieldSignals: { Works: ["Materiālu piegāde"] },
+						forbiddenFieldSignals: { Works: ["Piezīmes|Papildu darbi"] },
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-foundation-excavation-workers-hours",
+			intent:
+				"Verify foundation excavation preserves workers and hours without inventing a quantity.",
+			tags: ["save", "latvian", "worker-count", "hours", "amount"],
+			tier: "regression",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-foundation-excavation",
+				body: "Veikta grunts rakšana pamatiem, 3 cilvēki 5 stundas.",
+				timestamp: "1782197653",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["grunts", "rak", "pamat"],
+				workersInvolved: 3,
+				timeInvolved: 5,
+				amounts: null,
+				nullNumericValuesCanBeZero: true,
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-excavator-breakdown-note",
+			intent:
+				"Verify equipment breakdown context is saved as a note rather than normal work or additional work.",
+			tags: ["save", "latvian", "note", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-excavator-breakdown-note",
+				body: "Ekskavatoram saplīsa turbīna; ekskavators pusi dienas nestrādāja, līdz nomā paņemts cits ekskavators.",
+				timestamp: "1782197654",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["ekskavator", "turbīn", "nestrād", "nom"],
+				nullNumericValuesCanBeZero: true,
+				warningValidators: ["expected-record", "heuristic-min-score"],
+				records: [
+					{
+						requiredTextSignals: ["ekskavator", "turbīn", "nestrād", "nom"],
+						requiredFieldSignals: { Works: ["Piezīmes"] },
+						forbiddenFieldSignals: {
+							Works: ["Papildu darbi|Papilddarbi"],
+							Works_Custom_1: ["Papilddarbi|Papildu darbi"],
+						},
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: null,
+						nullNumericValuesCanBeZero: true,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-rain-weather-note",
+			intent: "Verify weather-only rain text is saved as a note.",
+			tags: ["save", "latvian", "note", "weather", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-rain-weather-note",
+				body: "Šodien list lietus",
+				timestamp: "1782197655",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["liet"],
+				nullNumericValuesCanBeZero: true,
+				warningValidators: ["expected-record", "heuristic-min-score"],
+				records: [
+					{
+						requiredTextSignals: ["liet"],
+						requiredFieldSignals: { Works: ["Piezīmes"] },
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: null,
+						nullNumericValuesCanBeZero: true,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-wool-installation-quantity-workers-hours",
+			intent:
+				"Verify wool installation saves quantity, unit, workers, and hours as normal work rather than additional work.",
+			tags: ["save", "latvian", "amount", "worker-count", "hours", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-wool-installation",
+				body: "Vates montāža, 20m2, 3 cilvēki 5 stundas",
+				timestamp: "1782197656",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["vat", "montāž"],
+				workersInvolved: 3,
+				timeInvolved: 5,
+				amounts: 20,
+				records: [
+					{
+						requiredTextSignals: ["vat", "montāž"],
+						requiredFieldSignals: { Works: ["vat"] },
+						forbiddenFieldSignals: {
+							Works: ["Papildu darbi|Papilddarbi"],
+							Works_Custom_1: ["Papilddarbi|Papildu darbi"],
+							Location: ["Papilddarbi|Papildu darbi"],
+							Location_Custom_1: ["Papilddarbi|Papildu darbi"],
+						},
+						workersInvolved: 3,
+						timeInvolved: 5,
+						amounts: 20,
+						units: "m2",
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-deflectometer-documents-note",
+			intent:
+				"Verify document submission for deflectometer certification is saved as a note.",
+			tags: ["save", "latvian", "note", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-deflectometer-docs-note",
+				body: "Nosūtīti būvuzraugam visi nepieciešamie dokumenti deflektometra sertifikācijai.",
+				timestamp: "1782197657",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: [
+					"būvuzraug",
+					"dokument",
+					"deflektometr",
+					"sertifik",
+				],
+				nullNumericValuesCanBeZero: true,
+				warningValidators: ["expected-record", "heuristic-min-score"],
+				records: [
+					{
+						requiredTextSignals: [
+							"būvuzraug",
+							"dokument",
+							"deflektometr",
+							"sertifik",
+						],
+						requiredFieldSignals: { Works: ["Projekts"] },
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: null,
+						nullNumericValuesCanBeZero: true,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-additional-works-machinery-note",
+			intent:
+				"Verify an additional-works status sentence with machinery hours is saved as a note unless there is explicit intent to categorize it as additional work.",
+			tags: ["save", "latvian", "note", "additional-work", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-additional-works-machinery-note",
+				body: "Papilddarbi pabeigti plkst. 18.00. Izmantots ekskavators 3 h un Manitou 1 h.",
+				timestamp: "1782197658",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["papilddarb", "18", "ekskavator", "manitou"],
+				nullNumericValuesCanBeZero: true,
+				warningValidators: ["expected-record", "heuristic-min-score"],
+				records: [
+					{
+						requiredTextSignals: ["papilddarb", "18", "ekskavator", "manitou"],
+						requiredFieldSignals: { Works: ["Papildu darbi"] },
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: null,
+						nullNumericValuesCanBeZero: true,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-excavator-started-at-time-note",
+			intent:
+				"Verify an in-progress machinery/time sentence is saved as a note rather than completed work.",
+			tags: ["save", "latvian", "note", "category"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-excavator-started-note",
+				body: "No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu.",
+				timestamp: "1782197659",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: [
+					"15",
+					"agris",
+					"ekskavator",
+					"zemes noņem",
+					"šķembo",
+				],
+				nullNumericValuesCanBeZero: true,
+				warningValidators: ["expected-record", "heuristic-min-score"],
+				records: [
+					{
+						requiredTextSignals: [
+							"15",
+							"agris",
+							"ekskavator",
+							"zemes noņem",
+							"šķembo",
+						],
+						requiredFieldSignals: { Works: ["Piezīmes"] },
+						forbiddenFieldSignals: {
+							Works: ["Papildu darbi|Papilddarbi"],
+							Works_Custom_1: ["Papilddarbi|Papildu darbi"],
+						},
+						workersInvolved: null,
+						timeInvolved: null,
+						amounts: null,
+						nullNumericValuesCanBeZero: true,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
 			id: "ambigious-bis-mention-in-task-decritpion",
 			intent:
 				"Verify a BIS-mentioned WhatsApp request with real work details is saved as a normal site diary record while explaining BIS submission must be done in the web app.",
@@ -418,7 +802,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					"šeit|whatsapp|ziņ|čat",
 					"bis",
 					"nosūt|iesnieg",
-					"nav pieslēg|nav savien|pieslēgt bis|savienot bis",
+					"nav pieslēg|nav savien|pieslēgt bis|savienot bis|nav konfigurēts|nav sakārtots|nav konfig",
 				],
 				forbiddenAnswerSignals: [
 					"nosūtīts uz bis",

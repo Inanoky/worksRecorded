@@ -12,10 +12,17 @@ export type SavedSiteDiaryRecord = {
 	workerId: string | null;
 	Date: Date | null;
 	Location: string | null;
+	Location_Custom_1?: string | null;
+	Location_Custom_2?: string | null;
 	Works: string | null;
+	Works_Custom_1?: string | null;
+	Works_Custom_2?: string | null;
 	Comments: string | null;
+	Comments_Custom_1?: string | null;
+	Comments_Custom_2?: string | null;
 	originalUserComment: string | null;
 	originalAudioUrl: string | null;
+	Units?: string | null;
 	WorkersInvolved: number | null;
 	TimeInvolved: number | null;
 	Amounts?: number | null;
@@ -82,9 +89,16 @@ function recordSearchText(record: SavedSiteDiaryRecord | null) {
 	return normalize(
 		[
 			record.Location,
+			record.Location_Custom_1,
+			record.Location_Custom_2,
 			record.Works,
+			record.Works_Custom_1,
+			record.Works_Custom_2,
 			record.Comments,
+			record.Comments_Custom_1,
+			record.Comments_Custom_2,
 			record.originalUserComment,
+			record.Units,
 			record.WorkersInvolved,
 			record.TimeInvolved,
 			record.Amounts,
@@ -175,6 +189,16 @@ function nearNumber(actual: number | null | undefined, expected: number) {
 	);
 }
 
+function matchesNumericExpectation(
+	actual: number | null | undefined,
+	expected: number | null | undefined,
+	allowZeroForNull: boolean,
+) {
+	if (expected === undefined) return true;
+	if (typeof expected === "number") return nearNumber(actual, expected);
+	return actual == null || (allowZeroForNull && nearNumber(actual, 0));
+}
+
 function formatNumberForMessage(value: number | null | undefined) {
 	return typeof value === "number" && Number.isFinite(value)
 		? String(value)
@@ -194,6 +218,78 @@ function toDateISO(value: Date | null | undefined) {
 	if (!value) return null;
 	const date = value instanceof Date ? value : new Date(value);
 	return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+}
+
+function recordFieldText(record: SavedSiteDiaryRecord, field: string) {
+	return normalize((record as Record<string, unknown>)[field]);
+}
+
+function recordSummary(record: SavedSiteDiaryRecord) {
+	return [
+		record.Location,
+		record.Location_Custom_1,
+		record.Works,
+		record.Works_Custom_1,
+		record.Units,
+		formatNumberForMessage(record.Amounts),
+		formatNumberForMessage(record.WorkersInvolved),
+		formatNumberForMessage(record.TimeInvolved),
+	]
+		.filter((value) => value !== null && value !== undefined && value !== "")
+		.join(" / ");
+}
+
+function recordMatchesExpectation(args: {
+	record: SavedSiteDiaryRecord;
+	expectedRecord: WebhookWhatsAppSiteManagerEvalCase["expected"]["records"][number];
+	allowZeroForNull: boolean;
+}) {
+	const { record, expectedRecord, allowZeroForNull } = args;
+	const searchText = recordSearchText(record);
+	const requiredTextMatches = expectedRecord.requiredTextSignals.every(
+		(signal) => includesSignal(searchText, signal),
+	);
+	const requiredFieldMatches = Object.entries(
+		expectedRecord.requiredFieldSignals,
+	).every(([field, signals]) =>
+		signals.every((signal) =>
+			includesSignal(recordFieldText(record, field), signal),
+		),
+	);
+	const forbiddenFieldMatches = Object.entries(
+		expectedRecord.forbiddenFieldSignals,
+	).every(([field, signals]) =>
+		signals.every(
+			(signal) => !includesSignal(recordFieldText(record, field), signal),
+		),
+	);
+	const numericMatches =
+		matchesNumericExpectation(
+			record.WorkersInvolved,
+			expectedRecord.workersInvolved,
+			allowZeroForNull,
+		) &&
+		matchesNumericExpectation(
+			record.TimeInvolved,
+			expectedRecord.timeInvolved,
+			allowZeroForNull,
+		) &&
+		matchesNumericExpectation(
+			record.Amounts,
+			expectedRecord.amounts,
+			allowZeroForNull,
+		);
+	const unitsMatch = expectedRecord.units
+		? includesSignal(normalize(record.Units), expectedRecord.units)
+		: true;
+
+	return (
+		requiredTextMatches &&
+		requiredFieldMatches &&
+		forbiddenFieldMatches &&
+		numericMatches &&
+		unitsMatch
+	);
 }
 
 export function validateWhatsappSiteManagerRecord(args: {
@@ -482,7 +578,7 @@ export function validateWhatsappSiteManagerRecord(args: {
 	);
 
 	for (const signal of evalCase.expected.requiredTextSignals) {
-		const passed = searchText.includes(normalize(signal));
+		const passed = includesSignal(searchText, signal);
 		heuristicResults.push(
 			createResult(
 				`text-signal:${signal}`,
@@ -491,6 +587,37 @@ export function validateWhatsappSiteManagerRecord(args: {
 				validatorSeverity(`text-signal:${signal}`, warningValidators),
 			),
 		);
+	}
+
+	const expectedRecords = evalCase.expected.records;
+	if (expectedRecords.length > 0) {
+		const actualRecords = records ?? (record ? [record] : []);
+		const usedRecordIndexes = new Set<number>();
+		expectedRecords.forEach((expectedRecord, index) => {
+			const allowZeroForNull =
+				evalCase.expected.nullNumericValuesCanBeZero ||
+				expectedRecord.nullNumericValuesCanBeZero;
+			const matchingIndex = actualRecords.findIndex(
+				(candidate, candidateIndex) =>
+					!usedRecordIndexes.has(candidateIndex) &&
+					recordMatchesExpectation({
+						record: candidate,
+						expectedRecord,
+						allowZeroForNull,
+					}),
+			);
+			if (matchingIndex >= 0) usedRecordIndexes.add(matchingIndex);
+			heuristicResults.push(
+				createResult(
+					`expected-record:${index + 1}`,
+					matchingIndex >= 0,
+					matchingIndex >= 0
+						? `Expected record ${index + 1} matched ${actualRecords[matchingIndex]?.id}.`
+						: `Expected record ${index + 1} did not match any saved record. Saved records: ${actualRecords.map(recordSummary).join(" | ") || "none"}.`,
+					validatorSeverity(`expected-record:${index + 1}`, warningValidators),
+				),
+			);
+		});
 	}
 
 	if (typeof evalCase.expected.workersInvolved === "number") {
@@ -507,8 +634,12 @@ export function validateWhatsappSiteManagerRecord(args: {
 		heuristicResults.push(
 			createResult(
 				"workers-involved",
-				record?.WorkersInvolved == null,
-				`WorkersInvolved must be null when no worker count is stated; got ${formatNumberForMessage(record?.WorkersInvolved)}.`,
+				matchesNumericExpectation(
+					record?.WorkersInvolved,
+					null,
+					evalCase.expected.nullNumericValuesCanBeZero,
+				),
+				`WorkersInvolved must be null${evalCase.expected.nullNumericValuesCanBeZero ? " or 0" : ""} when no worker count is stated; got ${formatNumberForMessage(record?.WorkersInvolved)}.`,
 				validatorSeverity("workers-involved", warningValidators),
 			),
 		);
@@ -540,8 +671,12 @@ export function validateWhatsappSiteManagerRecord(args: {
 		heuristicResults.push(
 			createResult(
 				"amounts",
-				record?.Amounts == null,
-				`Amounts must be null when no completed quantity is stated; got ${formatNumberForMessage(record?.Amounts)}.`,
+				matchesNumericExpectation(
+					record?.Amounts,
+					null,
+					evalCase.expected.nullNumericValuesCanBeZero,
+				),
+				`Amounts must be null${evalCase.expected.nullNumericValuesCanBeZero ? " or 0" : ""} when no completed quantity is stated; got ${formatNumberForMessage(record?.Amounts)}.`,
 				validatorSeverity("amounts", warningValidators),
 			),
 		);
