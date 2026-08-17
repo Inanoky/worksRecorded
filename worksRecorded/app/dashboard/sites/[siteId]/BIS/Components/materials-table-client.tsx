@@ -11,6 +11,9 @@ import {
   CameraOff,
   Download,
   X,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
 } from "lucide-react"
 import {
   CartesianGrid,
@@ -74,6 +77,11 @@ import {
   type Forma2MaterialPositionOption,
 } from "@/flows/default-construction/frontend/DefaultConstructionForma2AssignmentSelect"
 import { DefaultConstructionForma2MaterialRulesDialog } from "@/flows/default-construction/frontend/DefaultConstructionForma2MaterialRulesDialog"
+import type { WarehouseMaterialSort as DatabaseWarehouseMaterialSort } from "@/lib/bis/warehouse-material-query"
+import {
+  getWarehouseForma2PositionLabel,
+  type WarehouseForma2Sort,
+} from "@/lib/bis/warehouse-forma2-sort"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
 const MAX_MEASUREMENT_UNIT_LENGTH = 20
@@ -127,13 +135,15 @@ type MaterialRow = {
   forma2AssignmentConfidence?: number | null
 }
 
+type WarehouseMaterialSort = DatabaseWarehouseMaterialSort | WarehouseForma2Sort
+
 type WarehouseMaterialQueryInput = {
   page?: number
   pageSize?: number
   search?: string
   status?: "all" | "sent" | "unsent"
   configFilter?: string
-  sortBy?: "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
+  sortBy?: WarehouseMaterialSort
   invoiceDateFrom?: string
   invoiceDateTo?: string
   forma2Assignment?: "all" | "assigned" | "unassigned"
@@ -408,6 +418,49 @@ function getExportStatusLabel(row: MaterialRow, messages: ReturnType<typeof getW
   return row.bisStatus ? `BIS ${row.bisStatus}` : messages.statusWorksRecorded
 }
 
+function SortableWarehouseHeader({
+  label,
+  sortBy,
+  ascendingSort,
+  descendingSort,
+  ascendingLabel,
+  descendingLabel,
+  onSort,
+  className,
+}: {
+  label: string
+  sortBy: WarehouseMaterialSort
+  ascendingSort: WarehouseMaterialSort
+  descendingSort: WarehouseMaterialSort
+  ascendingLabel: string
+  descendingLabel: string
+  onSort: (sort: WarehouseMaterialSort) => void
+  className?: string
+}) {
+  const isAscending = sortBy === ascendingSort
+  const isDescending = sortBy === descendingSort
+  const nextSort = isAscending ? descendingSort : ascendingSort
+  const nextSortLabel = isAscending ? descendingLabel : ascendingLabel
+  const SortIcon = isAscending ? ArrowUp : isDescending ? ArrowDown : ArrowUpDown
+
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(nextSort)}
+        className={`group flex w-full items-center gap-1.5 text-left font-medium hover:text-foreground ${
+          isAscending || isDescending ? "text-foreground" : "text-muted-foreground"
+        }`}
+        aria-label={`${label}: ${nextSortLabel}`}
+        title={`${label}: ${nextSortLabel}`}
+      >
+        <span>{label}</span>
+        <SortIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      </button>
+    </TableHead>
+  )
+}
+
 export default function MaterialsTableClient({
   siteId,
   organizationLanguage,
@@ -464,9 +517,7 @@ export default function MaterialsTableClient({
     "all" | "assigned" | "unassigned"
   >("all")
   const [forma2PositionId, setForma2PositionId] = React.useState("all")
-  const [sortBy, setSortBy] = React.useState<
-    "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
-  >("default")
+  const [sortBy, setSortBy] = React.useState<WarehouseMaterialSort>("default")
   const [page, setPage] = React.useState(initialPagination.page)
   const [pageInput, setPageInput] = React.useState(String(initialPagination.page))
   const [pageSize, setPageSize] = React.useState(initialPagination.pageSize)
@@ -522,6 +573,20 @@ export default function MaterialsTableClient({
     () => configurations.filter((configuration) => configuration.source === "organization_template"),
     [configurations],
   )
+  const forma2PositionLabels = React.useMemo(
+    () => new Map(
+      forma2PositionOptions.map((position) => [
+        position.id,
+        getWarehouseForma2PositionLabel(position),
+      ]),
+    ),
+    [forma2PositionOptions],
+  )
+  const handleWarehouseSort = React.useCallback((nextSort: WarehouseMaterialSort) => {
+    setSortBy(nextSort)
+    setPage(1)
+    setPageInput("1")
+  }, [])
 
   React.useEffect(() => {
     setRows(materials)
@@ -1395,6 +1460,7 @@ export default function MaterialsTableClient({
         ...(showSpendInsights ? [t.supplier] : []),
         t.status,
         t.bisMaterialConfiguration,
+        ...(forma2Enabled ? [t.forma2Position] : []),
         t.deliveryDate,
         t.qty,
         t.unit,
@@ -1412,6 +1478,11 @@ export default function MaterialsTableClient({
           ...(showSpendInsights ? [material.supplierName || "—"] : []),
           getExportStatusLabel(material, t),
           material.categoryName || "—",
+          ...(forma2Enabled
+            ? [material.forma2PositionId
+              ? forma2PositionLabels.get(material.forma2PositionId) || "—"
+              : "—"]
+            : []),
           formatDate(material.materialDate),
           material.quantity ?? "",
           material.measurementUnit || "—",
@@ -1430,6 +1501,7 @@ export default function MaterialsTableClient({
         ...(showSpendInsights ? [{ wch: 28 }] : []),
         { wch: 18 },
         { wch: 32 },
+        ...(forma2Enabled ? [{ wch: 40 }] : []),
         { wch: 16 },
         { wch: 12 },
         { wch: 12 },
@@ -1713,34 +1785,6 @@ export default function MaterialsTableClient({
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="text-sm text-muted-foreground">{t.sortBy}</div>
-
-          <Select
-            value={sortBy}
-            onValueChange={(v) => {
-              setSortBy(
-                v as
-                  | "invoiceDate_desc"
-                  | "invoiceDate_asc"
-                  | "default"
-                  | "name_asc"
-                  | "quantity_desc",
-              )
-              setPage(1)
-            }}
-          >
-            <SelectTrigger className="w-[220px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">{t.sortDefault}</SelectItem>
-              <SelectItem value="invoiceDate_desc">{t.sortInvoiceNewest}</SelectItem>
-              <SelectItem value="invoiceDate_asc">{t.sortInvoiceOldest}</SelectItem>
-              <SelectItem value="name_asc">{t.sortNameAz}</SelectItem>
-              <SelectItem value="quantity_desc">{t.sortHighestQty}</SelectItem>
-            </SelectContent>
-          </Select>
-
           {hasActiveFilters ? (
             <Button
               type="button"
@@ -1826,23 +1870,142 @@ export default function MaterialsTableClient({
                     aria-label={t.selectAllRows}
                   />
                 </TableHead>
-                <TableHead className="w-[76px]">{t.photo}</TableHead>
-                <TableHead className="w-[18%]">{t.material}</TableHead>
-                {showSpendInsights ? <TableHead className="w-[12%]">{t.supplier}</TableHead> : null}
-                <TableHead className="w-[9%]">{t.status}</TableHead>
-                {showBisControls ? <TableHead className="w-[16%]">{t.bisMaterialConfiguration}</TableHead> : null}
-                {forma2Enabled ? (
-                  <TableHead className="w-[18%]">
-                    {language === "lv" ? "Formas 2 pozīcija" : "Forma 2 position"}
-                  </TableHead>
+                <SortableWarehouseHeader
+                  className="w-[76px]"
+                  label={t.photo}
+                  sortBy={sortBy}
+                  ascendingSort="sourcePhoto_asc"
+                  descendingSort="sourcePhoto_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[18%]"
+                  label={t.material}
+                  sortBy={sortBy}
+                  ascendingSort="name_asc"
+                  descendingSort="name_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                {showSpendInsights ? (
+                  <SortableWarehouseHeader
+                    className="w-[12%]"
+                    label={t.supplier}
+                    sortBy={sortBy}
+                    ascendingSort="supplierName_asc"
+                    descendingSort="supplierName_desc"
+                    ascendingLabel={t.sortAscending}
+                    descendingLabel={t.sortDescending}
+                    onSort={handleWarehouseSort}
+                  />
                 ) : null}
-                <TableHead className="w-[11%]">{t.deliveryDate}</TableHead>
-                <TableHead className="w-[6%]">{t.qty}</TableHead>
-                <TableHead className="w-[5%]">{t.unit}</TableHead>
-                <TableHead className="w-[7%]">{t.cost}</TableHead>
-                <TableHead className="w-[7%]">{t.invoice}</TableHead>
-                <TableHead className="w-[9%]">{t.invoiceDate}</TableHead>
-                <TableHead className="w-[9%]">{t.uploadedDate}</TableHead>
+                <SortableWarehouseHeader
+                  className="w-[9%]"
+                  label={t.status}
+                  sortBy={sortBy}
+                  ascendingSort="status_asc"
+                  descendingSort="status_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                {showBisControls ? (
+                  <SortableWarehouseHeader
+                    className="w-[16%]"
+                    label={t.bisMaterialConfiguration}
+                    sortBy={sortBy}
+                    ascendingSort="categoryName_asc"
+                    descendingSort="categoryName_desc"
+                    ascendingLabel={t.sortAscending}
+                    descendingLabel={t.sortDescending}
+                    onSort={handleWarehouseSort}
+                  />
+                ) : null}
+                {forma2Enabled ? (
+                  <SortableWarehouseHeader
+                    className="w-[18%]"
+                    label={t.forma2Position}
+                    sortBy={sortBy}
+                    ascendingSort="forma2Position_asc"
+                    descendingSort="forma2Position_desc"
+                    ascendingLabel={t.sortAscending}
+                    descendingLabel={t.sortDescending}
+                    onSort={handleWarehouseSort}
+                  />
+                ) : null}
+                <SortableWarehouseHeader
+                  className="w-[11%]"
+                  label={t.deliveryDate}
+                  sortBy={sortBy}
+                  ascendingSort="materialDate_asc"
+                  descendingSort="materialDate_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[6%]"
+                  label={t.qty}
+                  sortBy={sortBy}
+                  ascendingSort="quantity_asc"
+                  descendingSort="quantity_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[5%]"
+                  label={t.unit}
+                  sortBy={sortBy}
+                  ascendingSort="measurementUnit_asc"
+                  descendingSort="measurementUnit_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[7%]"
+                  label={t.cost}
+                  sortBy={sortBy}
+                  ascendingSort="cost_asc"
+                  descendingSort="cost_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[7%]"
+                  label={t.invoice}
+                  sortBy={sortBy}
+                  ascendingSort="invoiceNr_asc"
+                  descendingSort="invoiceNr_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[9%]"
+                  label={t.invoiceDate}
+                  sortBy={sortBy}
+                  ascendingSort="invoiceDate_asc"
+                  descendingSort="invoiceDate_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[9%]"
+                  label={t.uploadedDate}
+                  sortBy={sortBy}
+                  ascendingSort="createdAt_asc"
+                  descendingSort="createdAt_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
                 <TableHead className="w-[11%] text-right">{t.action}</TableHead>
               </TableRow>
             </TableHeader>

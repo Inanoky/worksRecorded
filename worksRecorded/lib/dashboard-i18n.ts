@@ -282,6 +282,8 @@ type WarehouseUiMessages = {
   sortInvoiceOldest: string;
   sortNameAz: string;
   sortHighestQty: string;
+  sortAscending: string;
+  sortDescending: string;
   showingRows: (from: number, to: number, total: number) => string;
   pageSize: string;
   page: string;
@@ -1087,6 +1089,8 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     sortInvoiceOldest: "Invoice date (oldest)",
     sortNameAz: "Name A–Z",
     sortHighestQty: "Highest quantity",
+    sortAscending: "Sort ascending",
+    sortDescending: "Sort descending",
     showingRows: (from, to, total) => `Showing ${from}-${to} of ${total}`,
     pageSize: "Rows",
     page: "Page",
@@ -1216,6 +1220,8 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     sortInvoiceOldest: "Rēķina datums (vecākie)",
     sortNameAz: "Nosaukums A–Z",
     sortHighestQty: "Lielākais daudzums",
+    sortAscending: "Kārtot augošā secībā",
+    sortDescending: "Kārtot dilstošā secībā",
     showingRows: (from, to, total) => `Rāda ${from}-${to} no ${total}`,
     pageSize: "Rindas",
     page: "Lapa",

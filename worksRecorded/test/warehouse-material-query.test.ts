@@ -180,6 +180,22 @@ describe("warehouse material query", () => {
       { quantity: { sort: "desc", nulls: "last" } },
       { id: "desc" },
     ]);
+    expect(buildWarehouseMaterialOrderBy("name_desc")).toEqual([
+      { name: { sort: "desc", nulls: "last" } },
+      { id: "desc" },
+    ]);
+    expect(buildWarehouseMaterialOrderBy("supplierName_asc")).toEqual([
+      { supplierName: { sort: "asc", nulls: "last" } },
+      { id: "asc" },
+    ]);
+    expect(buildWarehouseMaterialOrderBy("cost_asc")).toEqual([
+      { cost: { sort: "asc", nulls: "last" } },
+      { id: "asc" },
+    ]);
+    expect(buildWarehouseMaterialOrderBy("createdAt_desc")).toEqual([
+      { createdAt: "desc" },
+      { id: "desc" },
+    ]);
   });
 
   it("returns paged rows with all-filtered count and total cost", async () => {

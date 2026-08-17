@@ -12,9 +12,15 @@ import { normalizeMaterialConfigurationTemplates } from "@/lib/bis/material-conf
 import {
   getWarehouseMaterialExportRows,
   getWarehouseMaterialPage,
+  normalizeWarehouseMaterialQuery,
   type WarehouseMaterialQueryInput as BaseWarehouseMaterialQueryInput,
   type WarehouseMaterialRow,
+  type WarehouseMaterialSort,
 } from "@/lib/bis/warehouse-material-query";
+import {
+  sortWarehouseRowsByForma2Position,
+  type WarehouseForma2Sort,
+} from "@/lib/bis/warehouse-forma2-sort";
 import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibility";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
@@ -32,10 +38,15 @@ type BisApprover = {
   status: string | null;
 };
 
-type WarehouseMaterialQueryInput = BaseWarehouseMaterialQueryInput & {
+type WarehouseMaterialQueryInput = Omit<BaseWarehouseMaterialQueryInput, "sortBy"> & {
+  sortBy?: WarehouseMaterialSort | WarehouseForma2Sort;
   forma2Assignment?: "all" | "assigned" | "unassigned";
   forma2PositionId?: string;
 };
+
+function isWarehouseForma2Sort(sortBy: WarehouseMaterialQueryInput["sortBy"]): sortBy is WarehouseForma2Sort {
+  return sortBy === "forma2Position_asc" || sortBy === "forma2Position_desc";
+}
 
 type WarehouseMaterialAttachment = {
   name: string;
@@ -1906,14 +1917,63 @@ export async function fetchWarehouseMaterialsPage(siteId: string, input: Warehou
     siteOrganizationId: site?.organizationId,
     userRole: dbUser?.role,
   });
-  const { forma2Assignment, forma2PositionId, ...materialInput } = input;
+  const { forma2Assignment, forma2PositionId, sortBy, ...materialInput } = input;
   const recordIdFilter = await getWarehouseForma2RecordIdFilter(siteId, {
     forma2Assignment,
     forma2PositionId,
   });
+  if (isWarehouseForma2Sort(sortBy)) {
+    const baseInput = {
+      ...materialInput,
+      sortBy: "default" as const,
+    };
+    const [allRows, spendPage] = await Promise.all([
+      getWarehouseMaterialExportRows({
+        siteId,
+        ...baseInput,
+        includeSpendInsights: showSpendInsights,
+        recordIdFilter,
+      }),
+      showSpendInsights
+        ? getWarehouseMaterialPage({
+          siteId,
+          ...baseInput,
+          page: 1,
+          includeSpendInsights: true,
+          recordIdFilter,
+        })
+        : Promise.resolve(null),
+    ]);
+    const forma2 = await addForma2AssignmentsToMaterials(
+      siteId,
+      allRows.map(withoutWarehouseBisState),
+    );
+    const sortedRows = sortWarehouseRowsByForma2Position(
+      forma2.materials,
+      forma2.positionOptions,
+      sortBy,
+    );
+    const normalized = normalizeWarehouseMaterialQuery(baseInput);
+    const totalCount = sortedRows.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / normalized.pageSize));
+    const page = Math.min(normalized.page, totalPages);
+    const skip = (page - 1) * normalized.pageSize;
+
+    return {
+      rows: sortedRows.slice(skip, skip + normalized.pageSize),
+      totalCount,
+      totalCost: sortedRows.reduce((total, row) => total + (row.cost ?? 0), 0),
+      page,
+      pageSize: normalized.pageSize,
+      totalPages,
+      spendInsights: spendPage?.spendInsights,
+    };
+  }
+
   const pageData = await getWarehouseMaterialPage({
     siteId,
     ...materialInput,
+    sortBy,
     includeSpendInsights: showSpendInsights,
     recordIdFilter,
   });
@@ -1947,7 +2007,7 @@ export async function exportWarehouseMaterials(siteId: string, input: WarehouseM
     siteOrganizationId: site?.organizationId,
     userRole: dbUser?.role,
   });
-  const { forma2Assignment, forma2PositionId, ...materialInput } = input;
+  const { forma2Assignment, forma2PositionId, sortBy, ...materialInput } = input;
   const recordIdFilter = await getWarehouseForma2RecordIdFilter(siteId, {
     forma2Assignment,
     forma2PositionId,
@@ -1955,10 +2015,18 @@ export async function exportWarehouseMaterials(siteId: string, input: WarehouseM
   const rows = await getWarehouseMaterialExportRows({
     siteId,
     ...materialInput,
+    sortBy: isWarehouseForma2Sort(sortBy) ? "default" : sortBy,
     includeSpendInsights: showSpendInsights,
     recordIdFilter,
   });
-  return rows.map(withoutWarehouseBisState);
+  const forma2 = await addForma2AssignmentsToMaterials(
+    siteId,
+    rows.map(withoutWarehouseBisState),
+  );
+
+  return isWarehouseForma2Sort(sortBy)
+    ? sortWarehouseRowsByForma2Position(forma2.materials, forma2.positionOptions, sortBy)
+    : forma2.materials;
 }
 
 export default async function MaterialsPage({
