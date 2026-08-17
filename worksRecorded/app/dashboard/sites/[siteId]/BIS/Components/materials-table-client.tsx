@@ -1641,13 +1641,19 @@ export default function MaterialsTableClient({
       ) : null}
 
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
-        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="text-sm text-muted-foreground">
-            {t.totalCost}: <span className="font-medium text-foreground">{formatMoney(totalCost)}</span>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t.totalCost}
+            </div>
+            <div className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+              {formatMoney(totalCost)}
+            </div>
           </div>
-          <div className="relative w-full md:w-[420px]">
+          <div className="relative w-full lg:max-w-[420px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              aria-label={t.searchMaterials}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value)
@@ -1659,12 +1665,26 @@ export default function MaterialsTableClient({
           </div>
         </div>
 
-        <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          {t.filters}
-        </div>
+        <div className="mt-4 border-t pt-4">
+          <div className="mb-3 flex min-h-8 items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              {t.filters}
+            </div>
+            {hasActiveFilters ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearWarehouseFilters}
+              >
+                <X className="mr-2 h-4 w-4" />
+                {t.clearFilters}
+              </Button>
+            ) : null}
+          </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="space-y-1.5">
             <div className="text-xs font-medium text-muted-foreground">{t.status}</div>
             <Select
@@ -1674,7 +1694,7 @@ export default function MaterialsTableClient({
                 setPage(1)
               }}
             >
-              <SelectTrigger aria-label={t.status}>
+              <SelectTrigger className="w-full" aria-label={t.status}>
                 <SelectValue placeholder={t.status} />
               </SelectTrigger>
               <SelectContent>
@@ -1693,7 +1713,7 @@ export default function MaterialsTableClient({
               setConfigFilter(value)
               setPage(1)
             }}>
-              <SelectTrigger aria-label={t.configPlaceholder}>
+              <SelectTrigger className="w-full" aria-label={t.configPlaceholder}>
                 <SelectValue placeholder={t.configPlaceholder} />
               </SelectTrigger>
               <SelectContent>
@@ -1713,11 +1733,12 @@ export default function MaterialsTableClient({
             </Select>
           </div>
 
-          <label className="space-y-1.5">
+          <label htmlFor="warehouse-invoice-date-from" className="space-y-1.5">
             <span className="block text-xs font-medium text-muted-foreground">
               {t.invoiceDateFrom}
             </span>
             <Input
+              id="warehouse-invoice-date-from"
               type="date"
               value={invoiceDateFrom}
               onChange={(event) => {
@@ -1731,11 +1752,12 @@ export default function MaterialsTableClient({
             />
           </label>
 
-          <label className="space-y-1.5">
+          <label htmlFor="warehouse-invoice-date-to" className="space-y-1.5">
             <span className="block text-xs font-medium text-muted-foreground">
               {t.invoiceDateTo}
             </span>
             <Input
+              id="warehouse-invoice-date-to"
               type="date"
               min={invoiceDateFrom || undefined}
               value={invoiceDateTo}
@@ -1760,7 +1782,7 @@ export default function MaterialsTableClient({
                   setPage(1)
                 }}
               >
-                <SelectTrigger aria-label={t.forma2Assignment}>
+                <SelectTrigger className="w-full" aria-label={t.forma2Assignment}>
                   <SelectValue placeholder={t.forma2Assignment} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1773,7 +1795,7 @@ export default function MaterialsTableClient({
           ) : null}
 
           {forma2Enabled ? (
-            <div className="space-y-1.5 sm:col-span-2 xl:col-span-3">
+            <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
               <div className="text-xs font-medium text-muted-foreground">
                 {t.forma2Position}
               </div>
@@ -1786,7 +1808,7 @@ export default function MaterialsTableClient({
                   setPage(1)
                 }}
               >
-                <SelectTrigger aria-label={t.forma2Position}>
+                <SelectTrigger className="w-full" aria-label={t.forma2Position}>
                   <SelectValue placeholder={t.forma2Position} />
                 </SelectTrigger>
                 <SelectContent>
@@ -1802,79 +1824,71 @@ export default function MaterialsTableClient({
               </Select>
             </div>
           ) : null}
+          </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {hasActiveFilters ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={clearWarehouseFilters}
-            >
-              <X className="mr-2 h-4 w-4" />
-              {t.clearFilters}
-            </Button>
-          ) : null}
+        <div className="mt-4 flex flex-col gap-3 border-t pt-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedRowIds.length > 0 ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={deleteSelectedRows}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
+              </Button>
+            ) : null}
 
-          {selectedRowIds.length > 0 ? (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={deleteSelectedRows}
-              disabled={deleteLoading}
-            >
-              {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
-            </Button>
-          ) : null}
+            {forma2Enabled ? (
+              <DefaultConstructionForma2MaterialRulesDialog
+                siteId={siteId}
+                organizationLanguage={organizationLanguage}
+                onAssignmentsChanged={() => {
+                  void loadWarehousePage()
+                }}
+              />
+            ) : null}
 
-          {forma2Enabled ? (
-            <DefaultConstructionForma2MaterialRulesDialog
-              siteId={siteId}
-              organizationLanguage={organizationLanguage}
-              onAssignmentsChanged={() => {
-                void loadWarehousePage()
-              }}
-            />
-          ) : null}
+            {editableRowIds.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={saveRowEdits}
+              >
+                {t.save}
+              </Button>
+            ) : null}
+          </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={exportMaterialsToExcel}
-            disabled={pagination.totalCount === 0 || exportLoading}
-            className="ml-auto"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            {exportLoading ? t.loading : t.exportToExcel}
-          </Button>
-
-          {showBisControls ? (
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={syncRowsFromBis}
-              disabled={syncLoading}
+              onClick={exportMaterialsToExcel}
+              disabled={pagination.totalCount === 0 || exportLoading}
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${syncLoading ? "animate-spin" : ""}`} />
-              {syncLoading ? "..." : t.refresh}
+              <Download className="mr-2 h-4 w-4" />
+              {exportLoading ? t.loading : t.exportToExcel}
             </Button>
-          ) : null}
 
-          {editableRowIds.length > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={saveRowEdits}
-            >
-              {t.save}
-            </Button>
-          ) : null}
+            {showBisControls ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={syncRowsFromBis}
+                disabled={syncLoading}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${syncLoading ? "animate-spin" : ""}`} />
+                {syncLoading ? "..." : t.refresh}
+              </Button>
+            ) : null}
 
-          {renderPaginationControls()}
+            {renderPaginationControls()}
+          </div>
         </div>
       </div>
 
