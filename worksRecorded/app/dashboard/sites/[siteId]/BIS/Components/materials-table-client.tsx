@@ -538,6 +538,7 @@ export default function MaterialsTableClient({
   const [pageInput, setPageInput] = React.useState(String(initialPagination.page))
   const [pageSize, setPageSize] = React.useState(initialPagination.pageSize)
   const [tableLoading, setTableLoading] = React.useState(false)
+  const loadRequestIdRef = React.useRef(0)
   const [exportLoading, setExportLoading] = React.useState(false)
   const [approverDialogOpen, setApproverDialogOpen] = React.useState(false)
   const [approverDialogRow, setApproverDialogRow] = React.useState<MaterialRow | null>(null)
@@ -658,9 +659,12 @@ export default function MaterialsTableClient({
   ])
 
   const loadWarehousePage = React.useCallback(async (input: WarehouseMaterialQueryInput = queryInput) => {
+    const requestId = ++loadRequestIdRef.current
     setTableLoading(true)
     try {
       const result = await fetchMaterials(siteId, input)
+      if (requestId !== loadRequestIdRef.current) return
+
       setRows(result.rows)
       setPagination({
         totalCount: result.totalCount,
@@ -675,10 +679,12 @@ export default function MaterialsTableClient({
       setPageSize(result.pageSize)
       setSelectedRowIds((current) => current.filter((id) => result.rows.some((row) => row.id === id)))
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return
+
       console.error("[Warehouse BIS] Failed to load warehouse page", { siteId, input, error })
       toast.error(toastMessages.failedLoadMaterials)
     } finally {
-      setTableLoading(false)
+      if (requestId === loadRequestIdRef.current) setTableLoading(false)
     }
   }, [fetchMaterials, queryInput, siteId, toastMessages.failedLoadMaterials])
 
@@ -1960,8 +1966,25 @@ export default function MaterialsTableClient({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-        <div className="w-full overflow-x-auto">
+      <div
+        className="relative overflow-hidden rounded-2xl border bg-background shadow-sm"
+        aria-busy={isDefaultConstructionFlow && tableLoading}
+      >
+        {isDefaultConstructionFlow && tableLoading ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute inset-x-0 top-0 z-30 flex h-14 items-center justify-center gap-2 border-b bg-background/95 px-4 text-sm font-medium shadow-sm backdrop-blur-sm"
+          >
+            <RefreshCw className="h-4 w-4 animate-spin text-green-600" aria-hidden="true" />
+            <span>{t.loadingResults}</span>
+          </div>
+        ) : null}
+        <div
+          className={`w-full overflow-x-auto transition-opacity ${
+            isDefaultConstructionFlow && tableLoading ? "pointer-events-none opacity-50" : "opacity-100"
+          }`}
+        >
           <Table className={`${forma2Enabled ? "min-w-[1720px]" : showSpendInsights ? "min-w-[1480px]" : "min-w-[1360px]"} text-sm`}>
             <TableHeader>
               <TableRow className="bg-muted/40 [&_th]:px-3 [&_th]:py-3">

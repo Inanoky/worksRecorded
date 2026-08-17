@@ -290,6 +290,7 @@ type WarehouseUiMessages = {
   previousPage: string;
   nextPage: string;
   loading: string;
+  loadingResults: string;
   selectAllRows: string;
   photo: string;
   material: string;
@@ -1105,6 +1106,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     previousPage: "Previous",
     nextPage: "Next",
     loading: "Loading...",
+    loadingResults: "Updating warehouse results...",
     selectAllRows: "Select all visible warehouse records",
     photo: "Photo",
     material: "Material",
@@ -1244,6 +1246,7 @@ const WAREHOUSE_UI_MESSAGES: Record<OrganizationLanguage, WarehouseUiMessages> =
     previousPage: "Iepriekšējā",
     nextPage: "Nākamā",
     loading: "Ielādē...",
+    loadingResults: "Atjaunina noliktavas rezultātus...",
     selectAllRows: "Atlasīt visus redzamos noliktavas ierakstus",
     photo: "Foto",
     material: "Materiāls",
