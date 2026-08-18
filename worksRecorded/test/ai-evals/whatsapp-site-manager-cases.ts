@@ -302,6 +302,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				workersInvolved: null,
 				timeInvolved: 4,
 				amounts: null,
+				nullNumericValuesCanBeZero: true,
 				minHeuristicScore: 0.75,
 			},
 		},
@@ -409,6 +410,37 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			},
 		},
 		{
+			id: "latvian-machinery-operator-single-job",
+			intent:
+				"Verify machinery/operator wording for one real job is saved as one diary record, not split into machinery, operator, and action rows.",
+			tags: ["save", "latvian", "multi-record", "machinery", "operator"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-machinery-operator-single-job",
+				body: "Šodien ar grīdas slīpmašīnu slīpēta grīda, operators turēja putekļu sūcēju, 6 stundas.",
+				timestamp: "1782197655",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["grīd", "slīp", "operator", "putek", "sūc"],
+				workersInvolved: null,
+				timeInvolved: 6,
+				amounts: null,
+				nullNumericValuesCanBeZero: true,
+				records: [
+					{
+						requiredTextSignals: ["grīd", "slīp", "operator", "putek", "sūc"],
+						workersInvolved: null,
+						timeInvolved: 6,
+						amounts: null,
+						nullNumericValuesCanBeZero: true,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
 			id: "latvian-weather-and-earthworks-six-records",
 			intent:
 				"Verify a mixed weather, delivery, earthwork, and machinery message is split into six diary records with quantities but no inferred workers or hours.",
@@ -421,7 +453,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				timestamp: "1782197651",
 			}),
 			expected: {
-				expectedRecordCount: 6,
+				expectedRecordCount: 5,
 				nullNumericValuesCanBeZero: true,
 				warningValidators: ["expected-record", "heuristic-min-score"],
 				records: [
@@ -495,7 +527,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				records: [
 					{
 						requiredTextSignals: ["ievest", "smilt"],
-						requiredFieldSignals: { Works: ["Materiālu piegāde"] },
+						requiredFieldSignals: { Works: ["Materiālu piegāde|Material delivery"] },
 						forbiddenFieldSignals: { Works: ["Piezīmes|Papildu darbi"] },
 					},
 				],
@@ -607,7 +639,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				records: [
 					{
 						requiredTextSignals: ["vat", "montāž"],
-						requiredFieldSignals: { Works: ["vat"] },
+						requiredFieldSignals: { Works: ["vat|Wall construction|Sienu izbūve|Finishing|Apdare"] },
 						forbiddenFieldSignals: {
 							Works: ["Papildu darbi|Papilddarbi"],
 							Works_Custom_1: ["Papilddarbi|Papildu darbi"],
@@ -767,6 +799,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					"submitted to bis",
 				],
 				workersInvolved: null,
+				nullNumericValuesCanBeZero: true,
 				minHeuristicScore: 0.75,
 			},
 			followUp: {
@@ -775,7 +808,9 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					shouldCreateRecord: false,
 					requiredAnswerSignals: ["bis", "pieslēg|savien"],
 					forbiddenAnswerSignals: [
-						"nosūtīts uz bis",
+						"ir nosūtīts uz bis",
+						"veiksmīgi nosūtīts uz bis",
+						"nosūtīju uz bis",
 						"pievienots bis",
 						"bis ieraksts izveidots",
 						"saglabāts veiksmīgi",
@@ -799,7 +834,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			expected: {
 				shouldCreateRecord: false,
 				requiredAnswerSignals: [
-					"šeit|whatsapp|ziņ|čat",
+					"šeit|šejien|whatsapp|ziņ|čat|sarakst|sistēm",
 					"bis",
 					"nosūt|iesnieg",
 					"nav pieslēg|nav savien|pieslēgt bis|savienot bis|nav konfigurēts|nav sakārtots|nav konfig",

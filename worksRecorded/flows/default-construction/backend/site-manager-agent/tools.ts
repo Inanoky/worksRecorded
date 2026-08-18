@@ -49,6 +49,10 @@ import {
   readBisMaterialRecords,
   readSiteDiaryBisStatuses,
 } from "@/server/ai-flows/agents/bis-support-agent/tools";
+import {
+  invokeSiteDiaryExtractionChecker,
+  siteDiaryExtractionCheckerModel,
+} from "./siteDiaryExtractionChecker";
 
 function currentDiaryDate() {
   const parts = new Intl.DateTimeFormat("en-GB", {
@@ -93,6 +97,7 @@ type StructuredSaveResult = {
   count: number;
   records?: SiteDiaryConfirmationRecord[];
   rows?: Record<string, any>[];
+  rawRecords?: Record<string, any>[];
   intentReason?: string;
   intentConfidence?: number;
 };
@@ -108,13 +113,141 @@ function usageFromMessage(message: any) {
   };
 }
 
+const timeUnitPattern = String.raw`(?:h|hr|hrs|st\.?|stunda|stundas|stundu|hour|hours|minute|minutes|minūte|minūtes|minūšu|min\.?)`;
+const amountUnitPattern = String.raw`(?:m2|m3|m²|m³|m|kg|tn|t|pcs|gab\.?|gabali|gabals|package|packages|set|sets|komplekts|komplekti|pacelšana|pacelšanas|lifts)`;
+const workerUnitPattern = String.raw`(?:cilvēks|cilvēki|strādnieks|strādnieki|darbinieks|darbinieki|workers?|people|persons?)`;
+const timeOnlyUnits = new Set(["hour", "hours", "h", "hr", "hrs", "st", "st.", "stunda", "stundas", "minute", "minutes", "min", "min.", "minūte", "minūtes"]);
+
+function numberEvidencePattern(value: number) {
+  const normalized = String(Math.abs(value));
+  const [integer, decimals] = normalized.split(".");
+  if (!decimals) return String.raw`${integer}(?:[,.]0+)?`;
+  return String.raw`${integer}[,.]${decimals}`;
+}
+
+function hasNumberWithUnit(source: string, value: number, unitPattern: string) {
+  if (!Number.isFinite(value)) return false;
+  const numberPattern = numberEvidencePattern(value);
+  return new RegExp(String.raw`(?:^|[^\d])${numberPattern}\s*${unitPattern}(?=$|[^\p{L}\p{N}_])`, "iu").test(source);
+}
+
+function roundHours(value: number) {
+  return Math.round(value * 10000) / 10000;
+}
+
+function clockTimeToDecimalHours(hours: string, minutes: string) {
+  return roundHours(Number(hours) + Number(minutes) / 60);
+}
+
+function clockTimeToDotNumber(hours: string, minutes: string) {
+  return Number(`${Number(hours)}.${minutes.padStart(2, "0")}`);
+}
+
+function matchesParsedDuration(value: number, hours: string, minutes: string) {
+  return (
+    clockTimeToDecimalHours(hours, minutes) === value ||
+    clockTimeToDotNumber(hours, minutes) === value
+  );
+}
+
+function parseTimeInvolvedFromSource(source: string, value: number) {
+  if (!Number.isFinite(value)) return null;
+
+  const clockMatch = source.match(
+    /(?:^|[^\d])(\d{1,2})\s*:\s*([0-5]\d)(?=$|[^\p{L}\p{N}_])/iu,
+  );
+  if (clockMatch && matchesParsedDuration(value, clockMatch[1], clockMatch[2])) {
+    return clockTimeToDecimalHours(clockMatch[1], clockMatch[2]);
+  }
+
+  const compactHourMinuteMatch = source.match(
+    /(?:^|[^\d])(\d{1,2})\s*h\s*([0-5]\d)(?=$|[^\p{L}\p{N}_])/iu,
+  );
+  if (
+    compactHourMinuteMatch &&
+    matchesParsedDuration(value, compactHourMinuteMatch[1], compactHourMinuteMatch[2])
+  ) {
+    return clockTimeToDecimalHours(compactHourMinuteMatch[1], compactHourMinuteMatch[2]);
+  }
+
+  const wordHourMinuteMatch = source.match(
+    /(?:^|[^\d])(\d{1,2})\s*(?:h|st\.?|stunda|stundas|stundu|hour|hours)\s+([0-5]?\d)\s*(?:min|mins|min\.?|minūte|minūtes|minūšu|minutes?)(?=$|[^\p{L}\p{N}_])/iu,
+  );
+  if (
+    wordHourMinuteMatch &&
+    matchesParsedDuration(value, wordHourMinuteMatch[1], wordHourMinuteMatch[2])
+  ) {
+    return clockTimeToDecimalHours(wordHourMinuteMatch[1], wordHourMinuteMatch[2]);
+  }
+
+  const dotClockMatch = source.match(
+    /(?:^|[^\d])(\d{1,2})\.([0-5]\d)\s*(?:h|st\.?|stunda|stundas|stundu|hour|hours)(?=$|[^\p{L}\p{N}_])/iu,
+  );
+  if (dotClockMatch && matchesParsedDuration(value, dotClockMatch[1], dotClockMatch[2])) {
+    return clockTimeToDecimalHours(dotClockMatch[1], dotClockMatch[2]);
+  }
+
+  if (hasNumberWithUnit(source, value, timeUnitPattern)) return value;
+  return null;
+}
+
+function hasWorkerEvidence(source: string, value: number) {
+  if (!Number.isFinite(value)) return false;
+  const numberPattern = numberEvidencePattern(value);
+  return new RegExp(
+    String.raw`(?:^|[^\d])(?:${numberPattern}\s*${workerUnitPattern}|${workerUnitPattern}\s*[:=-]?\s*${numberPattern})(?=$|[^\p{L}\p{N}_])`,
+    "iu",
+  ).test(source);
+}
+
+function normalizeUnit(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function hasSupportedAmountEvidence(row: Record<string, any>, source: string) {
+  if (typeof row.Amounts !== "number") return true;
+  const unit = normalizeUnit(row.Units);
+  if (!unit || timeOnlyUnits.has(unit)) return false;
+  return hasNumberWithUnit(source, row.Amounts, amountUnitPattern);
+}
+
 function normalizeUnknownNumericFields(
   row: Record<string, any>,
   source: string,
 ) {
   const normalized = { ...row };
-  const hasExplicitZeroAmount = /(?:^|\s)0(?:[.,]0+)?\s*(?:m2|m3|m²|m³|m|kg|tn|pcs|gab|gabali|pieces?|units?)\b/iu.test(source);
+  if (typeof normalized.TimeInvolved === "number") {
+    const parsedTime = parseTimeInvolvedFromSource(source, normalized.TimeInvolved);
+    if (parsedTime !== null) {
+      normalized.TimeInvolved = parsedTime;
+    } else if (normalized.TimeInvolved === 0 || normalized.TimeInvolved === 1) {
+      normalized.TimeInvolved = null;
+    }
+  }
+  if (
+    typeof normalized.WorkersInvolved === "number" &&
+    (normalized.WorkersInvolved === 0 || normalized.WorkersInvolved === 1) &&
+    !hasWorkerEvidence(source, normalized.WorkersInvolved)
+  ) {
+    normalized.WorkersInvolved = null;
+  }
+  const hasExplicitZeroAmount = hasNumberWithUnit(source, 0, amountUnitPattern);
   if (normalized.Amounts === 0 && !hasExplicitZeroAmount) normalized.Amounts = null;
+  if (
+    typeof normalized.Amounts === "number" &&
+    normalized.Amounts !== 0 &&
+    !hasSupportedAmountEvidence(normalized, source)
+  ) {
+    if (
+      typeof normalized.TimeInvolved !== "number" &&
+      hasNumberWithUnit(source, normalized.Amounts, timeUnitPattern)
+    ) {
+      normalized.TimeInvolved =
+        parseTimeInvolvedFromSource(source, normalized.Amounts) ?? normalized.Amounts;
+    }
+    normalized.Amounts = null;
+    normalized.Units = null;
+  }
   return normalized;
 }
 
@@ -142,6 +275,8 @@ export async function extractAndSaveSiteDiary(args: {
   requestedDate?: string;
   allowFallback?: boolean;
   persist?: boolean;
+  runExtractionChecker?: boolean;
+  repairInstructions?: string;
   fastPathTrace?: FastPathTraceMetadata;
   intentContext?: { hasReplyContext: boolean; hasPendingCorrection: boolean };
 }): Promise<StructuredSaveResult> {
@@ -250,6 +385,9 @@ export async function extractAndSaveSiteDiary(args: {
           `${systemPrompt}\ntoday is : ${date}\n${siteId}` +
             (args.allowFallback
               ? `\nClassify the complete message, never isolated keywords. Set action=save_new_report only for a new site diary report. Set action=correct_existing_report when the user is asking to change a previous report. Set action=clarify when save-versus-correction intent is genuinely ambiguous. Set action=fallback for questions, greetings, BIS requests, project commands, or other conversation. Return no records unless action=save_new_report. Set correctionMode=not_applicable unless action=correct_existing_report. For correction intent, set correctionMode=intent_only when the user only asks to correct/change the earlier record but does not provide the new facts; set correctionMode=supplied when the message contains the requested change or trusted pending-correction state makes this message the supplied change. Latvian completed-work statements such as "Šodien salabojām durvis" are new reports, while imperatives referring to an earlier record such as "Salabo iepriekšējo ierakstu" are corrections. Trusted state: replyContext=${Boolean(args.intentContext?.hasReplyContext)}, pendingCorrection=${Boolean(args.intentContext?.hasPendingCorrection)}. Reply context and a pending correction are strong evidence, but still interpret the full message.`
+              : "") +
+            (args.repairInstructions
+              ? `\nThe previous extraction was rejected by a checker. Rerun extraction once using these repair instructions. Keep only records supported by the original report. Do not create separate records for machinery, tools, operators, or sub-actions when they describe one real job.\nRepair instructions: ${args.repairInstructions}`
               : ""),
         ),
       ],
@@ -260,7 +398,11 @@ export async function extractAndSaveSiteDiary(args: {
     const durationMs = Date.now() - extractionStarted;
     recordSiteManagerTiming("structuredExtractionMs", durationMs);
     recordSiteManagerModelCall({
-      purpose: args.allowFallback ? "fast-path-extraction" : "structured-extraction",
+      purpose: args.repairInstructions
+        ? "structured-repair-extraction"
+        : args.allowFallback
+          ? "fast-path-extraction"
+          : "structured-extraction",
       model: structuredSiteDiaryModel,
       actualModel: null,
       durationMs,
@@ -286,7 +428,11 @@ export async function extractAndSaveSiteDiary(args: {
   const usage = usageFromMessage(rawMessage);
   recordSiteManagerTiming("structuredExtractionMs", extractionDurationMs);
   recordSiteManagerModelCall({
-    purpose: args.allowFallback ? "fast-path-extraction" : "structured-extraction",
+    purpose: args.repairInstructions
+      ? "structured-repair-extraction"
+      : args.allowFallback
+        ? "fast-path-extraction"
+        : "structured-extraction",
     model: structuredSiteDiaryModel,
     actualModel: rawMessage?.response_metadata?.model_name ?? null,
     durationMs: extractionDurationMs,
@@ -348,13 +494,119 @@ export async function extractAndSaveSiteDiary(args: {
   if (args.persist === false) {
     updateTraceOutcome("save");
     recordSiteManagerToolCall({ name: "shadow_save_to_database", durationMs: Date.now() - toolStarted, ok: true });
-    return { action: "save_new_report", correctionMode: "not_applicable", language, content: "", ok: true, count: rows.length, rows };
+    return { action: "save_new_report", correctionMode: "not_applicable", language, content: "", ok: true, count: rows.length, rows, rawRecords };
+  }
+
+  let rowsToSave = rows;
+  let rawRecordsToTrace = rawRecords;
+  if (args.runExtractionChecker !== false && rows.length > 1) {
+    const checkerStarted = Date.now();
+    try {
+      const checkerTrace = buildAiRunContext({
+        flow: "structured-site-diary-save",
+        runName: runContext?.senderLabel
+          ? `SiteDiaryExtractionChecker - ${runContext.senderLabel}`
+          : "SiteDiaryExtractionChecker",
+        threadId: `structured-site-diary-checker:${siteId}:${userId}`,
+        siteId,
+        userId,
+        channel: "tool",
+        model: siteDiaryExtractionCheckerModel,
+        metadata: {
+          date,
+          proposedRecordCount: rows.length,
+          whatsappMessageId: whatsappSourceContext.messageId ?? null,
+          originalUserCommentPreview: summarizeForTrace(originalUserComment),
+          ...senderTraceMetadata,
+          ...(runContext?.traceMetadata ?? {}),
+          ...structuredTrace.metadata,
+        },
+        tags: [
+          ...senderTraceTags,
+          ...(runContext?.traceTags ?? []),
+          "site-diary-extraction-checker",
+          ...structuredTrace.tags,
+        ],
+      });
+      const checker = await invokeSiteDiaryExtractionChecker({
+        originalMessage: args.question,
+        rows,
+        language,
+        runnableConfig: checkerTrace.runnableConfig,
+      });
+      const checkerDurationMs = Date.now() - checkerStarted;
+      const checkerUsage = usageFromMessage(checker.raw);
+      recordSiteManagerTiming("structuredCheckerMs", checkerDurationMs);
+      recordSiteManagerModelCall({
+        purpose: "site_diary_extraction_checker",
+        model: siteDiaryExtractionCheckerModel,
+        actualModel: checker.raw?.response_metadata?.model_name ?? null,
+        durationMs: checkerDurationMs,
+        ...checkerUsage,
+      });
+      recordSiteManagerToolCall({
+        name: "site_diary_extraction_checker",
+        durationMs: checkerDurationMs,
+        ok: true,
+      });
+      Object.assign(aiContext.runnableConfig.metadata, {
+        extractionCheckerVerdict: checker.parsed.verdict,
+        extractionCheckerReason: summarizeForTrace(checker.parsed.reason),
+        extractionCheckerExpectedRecordCount: checker.parsed.expectedRecordCount ?? null,
+      });
+
+      if (checker.parsed.verdict === "retry") {
+        recordSiteManagerTiming("structuredCheckerRetries", 1);
+        const repair = await extractAndSaveSiteDiary({
+          question: args.question,
+          requestedDate: date,
+          allowFallback: false,
+          persist: false,
+          runExtractionChecker: false,
+          repairInstructions: checker.parsed.repairInstructions || checker.parsed.reason,
+          fastPathTrace: args.fastPathTrace,
+          intentContext: args.intentContext,
+        });
+        if (!repair.ok || !repair.rows?.length) {
+          updateTraceOutcome("error", "extraction-error");
+          recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok: false });
+          return {
+            action: "save_new_report",
+            correctionMode: "not_applicable",
+            language,
+            content: "Failed to save site diary entry. Reason: Checker-guided repair extraction returned no records",
+            ok: false,
+            count: 0,
+          };
+        }
+        rowsToSave = repair.rows;
+        rawRecordsToTrace = repair.rawRecords ?? repair.rows;
+      }
+    } catch (error) {
+      const checkerDurationMs = Date.now() - checkerStarted;
+      console.warn("site diary extraction checker failed; saving original extraction", error);
+      recordSiteManagerTiming("structuredCheckerMs", checkerDurationMs);
+      recordSiteManagerModelCall({
+        purpose: "site_diary_extraction_checker",
+        model: siteDiaryExtractionCheckerModel,
+        actualModel: null,
+        durationMs: checkerDurationMs,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+      });
+      recordSiteManagerToolCall({
+        name: "site_diary_extraction_checker",
+        durationMs: checkerDurationMs,
+        ok: false,
+      });
+    }
   }
   const persistenceStarted = Date.now();
   let result;
   try {
     result = await saveSiteDiaryRecord({
-      rows,
+      rows: rowsToSave,
       userId,
       siteId,
       originalUserComment,
@@ -381,20 +633,20 @@ export async function extractAndSaveSiteDiary(args: {
     userId,
     date,
     originalUserComment,
-    rawRecords,
-    mappedRows: rows,
+    rawRecords: rawRecordsToTrace,
+    mappedRows: rowsToSave,
     normalizedInsertRows: result?.normalizedInsertRows ?? [],
     persistedRecords: result?.records ?? [],
   });
 
-  const content = formatSiteDiarySaveToolResult(result, rows.length);
+  const content = formatSiteDiarySaveToolResult(result, rowsToSave.length);
   const ok = Boolean(result?.ok);
   updateTraceOutcome(ok ? "save" : "error");
-  const count = result?.count ?? rows.length;
+  const count = result?.count ?? rowsToSave.length;
   const confirmationRecords = ok ? toConfirmationRecords(result?.records) : [];
   setSiteManagerSavedConfirmationRecords(confirmationRecords);
   recordSiteManagerToolCall({ name: "save_to_database", durationMs: Date.now() - toolStarted, ok });
-  return { action: "save_new_report", correctionMode: "not_applicable", language, content, ok, count, records: confirmationRecords, rows };
+  return { action: "save_new_report", correctionMode: "not_applicable", language, content, ok, count, records: confirmationRecords, rows: rowsToSave, rawRecords: rawRecordsToTrace };
 }
 
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({

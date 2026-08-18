@@ -71,6 +71,8 @@ describe("buildZodSchemaFromConfig", () => {
     expect(shape.Workers.description).toContain("darbinieki: 2");
     expect(shape.Hours.description).toContain("3h");
     expect(shape.Amounts.description).toContain("not worker count");
+    expect(schema.safeParse({ Workers: 2, Hours: 9.5, Amounts: null }).success).toBe(true);
+    expect(schema.safeParse({ Workers: 2.5, Hours: 9.5, Amounts: null }).success).toBe(false);
   });
 
   it("keeps explicit AI descriptions over defaults", () => {

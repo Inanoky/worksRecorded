@@ -272,7 +272,6 @@
     "Type": "float",
     "DisplayName": "Hours",
     "customSettings": {
-      "integer": true,
       "order": 6,
       "cellWidth": 65,
       "displayinSiteList": "yes",

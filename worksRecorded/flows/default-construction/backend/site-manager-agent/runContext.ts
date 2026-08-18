@@ -46,7 +46,13 @@ export function fastPathTraceConfig(metadata: FastPathTraceMetadata) {
 }
 
 export type SiteManagerModelCallMetric = {
-  purpose: "routing" | "final-response" | "structured-extraction" | "fast-path-extraction";
+  purpose:
+    | "routing"
+    | "final-response"
+    | "structured-extraction"
+    | "structured-repair-extraction"
+    | "fast-path-extraction"
+    | "site_diary_extraction_checker";
   model: string;
   actualModel: string | null;
   durationMs: number;
