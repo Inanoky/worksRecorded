@@ -470,15 +470,27 @@ function isWorkSelectionValid(
 		.map((item) => ({
 			item,
 			match: getZtcRateCrossSectionMatch(rawWork, item.task),
+			isGenericDimensionFallback:
+				hasZtcRateCrossSection(rawWork) &&
+				!hasZtcRateCrossSection(item.task),
 		}))
 		.filter(
 			(result) =>
 				result.match.kind === "exact" ||
+				result.isGenericDimensionFallback ||
 				result.match.kind === "compatible",
 		)
 		.sort((left, right) => {
-			const leftRank = left.match.kind === "exact" ? 2 : 1;
-			const rightRank = right.match.kind === "exact" ? 2 : 1;
+			const leftRank = left.match.kind === "exact"
+				? 3
+				: left.isGenericDimensionFallback
+					? 2
+					: 1;
+			const rightRank = right.match.kind === "exact"
+				? 3
+				: right.isGenericDimensionFallback
+					? 2
+					: 1;
 			return (
 				rightRank - leftRank ||
 				(left.match.distance ?? Number.POSITIVE_INFINITY) -
@@ -486,9 +498,12 @@ function isWorkSelectionValid(
 			);
 		});
 	const bestMatch = rankedFamilyCandidates[0]?.match;
-	if (!bestMatch) return false;
+	const bestCandidate = rankedFamilyCandidates[0];
+	if (!bestMatch || !bestCandidate) return false;
 
 	return (
+		(hasZtcRateCrossSection(rawWork) && !hasZtcRateCrossSection(candidate.task)) ===
+			bestCandidate.isGenericDimensionFallback &&
 		selectedCrossSection.kind === bestMatch.kind &&
 		selectedCrossSection.distance === bestMatch.distance
 	);

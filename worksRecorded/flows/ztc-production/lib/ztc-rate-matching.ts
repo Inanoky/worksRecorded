@@ -207,7 +207,10 @@ export function getZtcRateCrossSectionMatch(
   if (!taskDimensions && !rateDimensions) {
     return { kind: "not_applicable", distance: null };
   }
-  if (!taskDimensions || !rateDimensions) {
+  if (taskDimensions && !rateDimensions) {
+    return { kind: "not_applicable", distance: null };
+  }
+  if (!taskDimensions && rateDimensions) {
     return { kind: "incompatible", distance: null };
   }
 
@@ -269,6 +272,7 @@ export function findZtcDefaultRateForTask(
   if (!taskTokens.size) return null;
   const taskDimensions = ztcRateDimensionTokens(taskName);
   const taskNumbers = ztcRateNumberTokens(taskName);
+  const taskHasCrossSection = hasZtcRateCrossSection(taskName);
 
   let best: {
     entry: ZtcDefaultTaskRate;
@@ -335,7 +339,9 @@ export function findZtcDefaultRateForTask(
     const threshold = options.category === "additionalDetails" ? 0.35 : 0.45;
     const crossSectionRank =
       crossSectionMatch.kind === "exact"
-        ? 2
+        ? 3
+        : taskHasCrossSection && !hasZtcRateCrossSection(entry.task)
+          ? 2
         : crossSectionMatch.kind === "compatible"
           ? 1
           : 0;

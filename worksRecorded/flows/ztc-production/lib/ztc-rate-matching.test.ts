@@ -101,13 +101,23 @@ describe("findZtcDefaultRateForTask", () => {
     expect(result?.entry.task).toBe("latojums 45x45");
   });
 
-  it("does not use a latojums rate without a compatible cross-section", () => {
+  it("uses a generic same-work rate before an incompatible cross-section", () => {
     const result = findZtcDefaultRateForTask(
       "R3/T3 - latojums 25x45",
       [
         { task: "latojums", rate: "0.6", unit: "m2" },
         { task: "latojums 28x70", rate: "0.8", unit: "m2" },
       ],
+      { category: "works" },
+    );
+
+    expect(result?.entry.task).toBe("latojums");
+  });
+
+  it("rejects an incompatible dimension-specific rate when no generic rate exists", () => {
+    const result = findZtcDefaultRateForTask(
+      "R3/T3 - latojums 25x45",
+      [{ task: "latojums 28x70", rate: "0.8", unit: "m2" }],
       { category: "works" },
     );
 
@@ -136,6 +146,51 @@ describe("findZtcDefaultRateForTask", () => {
       rate: "0.95",
       unit: "m2",
     });
+  });
+
+  it("prefers an exact apdares dēlis dimension, falls back to generic, and rejects unrelated work", () => {
+    const genericRate = {
+      task: "apdares dēļis ar piezāģēšanu",
+      rate: "7.5",
+      unit: "m2" as const,
+    };
+    const dimensionRate = {
+      task: "apdares dēļis ar piezāģēšanu 21x145",
+      rate: "8.5",
+      unit: "m2" as const,
+    };
+
+    expect(
+      findZtcDefaultRateForTask(
+        "R3/T3 - apdares dēļis 21x145 ar piezāģēšanu",
+        [genericRate],
+        { category: "works" },
+      )?.entry,
+    ).toEqual(genericRate);
+
+    expect(
+      findZtcDefaultRateForTask(
+        "R3/T3 - apdares dēļis 21x145 ar piezāģēšanu",
+        [genericRate, dimensionRate],
+        { category: "works" },
+      )?.entry,
+    ).toEqual(dimensionRate);
+
+    expect(
+      findZtcDefaultRateForTask(
+        "R3/T3 - apdares dēļis 30x180 ar piezāģēšanu",
+        [genericRate, dimensionRate],
+        { category: "works" },
+      )?.entry,
+    ).toEqual(genericRate);
+
+    expect(
+      findZtcDefaultRateForTask(
+        "R3/T3 - apdares dēļis 21x145 ar piezāģēšanu",
+        [{ task: "Karkasa montāža", rate: "3.0", unit: "m2" }],
+        { category: "works" },
+      ),
+    ).toBeNull();
   });
 
   it("ignores numeric dimensions and units while matching rates", () => {
