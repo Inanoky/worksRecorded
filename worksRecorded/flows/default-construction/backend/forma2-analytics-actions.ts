@@ -20,13 +20,18 @@ import {
 	suggestForma2Position,
 } from "@/flows/default-construction/lib/forma2-analytics";
 import {
-	calculateDefaultConstructionWorkCost,
-	getDefaultConstructionProductivitySettings,
-} from "@/flows/default-construction/lib/site-diary-productivity-settings";
+	getDefaultConstructionForma2WorkSyncManifest,
+	normalizeForma2WorkOptionKey,
+} from "@/flows/default-construction/lib/forma2-work-options-manifest";
 import {
+	buildDefaultConstructionForma2LegacyWorkEntries,
 	removeDefaultConstructionForma2WorkOptions,
 	syncDefaultConstructionForma2WorkOptions,
 } from "@/flows/default-construction/lib/forma2-work-options-sync";
+import {
+	calculateDefaultConstructionWorkCost,
+	getDefaultConstructionProductivitySettings,
+} from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { prisma } from "@/lib/utils/db";
@@ -174,6 +179,50 @@ function isoDate(value: Date | null | undefined) {
 	return value ? value.toISOString() : null;
 }
 
+function getCurrentForma2WorkSelections(
+	config: Parameters<typeof getDefaultConstructionForma2WorkSyncManifest>[0],
+	state: DefaultConstructionForma2State,
+) {
+	const document = state.document;
+	const manifest = getDefaultConstructionForma2WorkSyncManifest(config);
+	if (!document) {
+		return {
+			positionByWorkKey: new Map<string, string>(),
+			workOptions: [] as string[],
+		};
+	}
+
+	const positionIds = new Set(
+		document.positions.map((position) => position.id),
+	);
+	const legacyEntries = buildDefaultConstructionForma2LegacyWorkEntries(
+		document.positions,
+	);
+	const manifestEntries =
+		manifest?.documentId === document.id
+			? manifest.entries.filter((entry) => positionIds.has(entry.positionId))
+			: [];
+	const entriesByWorkKey = new Map(
+		legacyEntries.map((entry) => [
+			normalizeForma2WorkOptionKey(entry.work),
+			entry,
+		]),
+	);
+	for (const entry of manifestEntries) {
+		entriesByWorkKey.set(normalizeForma2WorkOptionKey(entry.work), entry);
+	}
+	const entries = Array.from(entriesByWorkKey.values());
+	return {
+		positionByWorkKey: new Map(
+			entries.map((entry) => [
+				normalizeForma2WorkOptionKey(entry.work),
+				entry.positionId,
+			]),
+		),
+		workOptions: entries.map((entry) => entry.work),
+	};
+}
+
 async function loadDefaultConstructionForma2Data(
 	siteId: string,
 	options: { sourceScope?: "all" | "allocated" } = {},
@@ -192,6 +241,7 @@ async function loadDefaultConstructionForma2Data(
 				.filter((allocation) => allocation.sourceType === "material")
 				.map((allocation) => allocation.sourceId)
 		: [];
+	const allocatedWorkIdSet = new Set(allocatedWorkIds);
 	const [state, site, workRows, materialRows] = await Promise.all([
 		allocatedState ? Promise.resolve(allocatedState) : statePromise,
 		prisma.site.findUnique({
@@ -199,10 +249,7 @@ async function loadDefaultConstructionForma2Data(
 			select: { name: true, siteDiaryRecordsMap: true },
 		}),
 		prisma.sitediaryrecords.findMany({
-			where:
-				options.sourceScope === "allocated"
-					? { siteId, archivedAt: null, id: { in: allocatedWorkIds } }
-					: { siteId, archivedAt: null, Works: { not: null } },
+			where: { siteId, archivedAt: null, Works: { not: null } },
 			orderBy: [{ Date: "desc" }, { createdAt: "desc" }],
 			select: {
 				id: true,
@@ -250,6 +297,7 @@ async function loadDefaultConstructionForma2Data(
 					typeof getDefaultConstructionProductivitySettings
 				>[0]);
 	const productivity = getDefaultConstructionProductivitySettings(config);
+	const { positionByWorkKey } = getCurrentForma2WorkSelections(config, state);
 	const settingsByWork = new Map(
 		productivity.works.map((setting) => [
 			setting.work.trim().toLocaleLowerCase("lv"),
@@ -274,6 +322,8 @@ async function loadDefaultConstructionForma2Data(
 			return {
 				id: row.id,
 				type: "work",
+				selectedPositionId:
+					positionByWorkKey.get(normalizeForma2WorkOptionKey(work)) ?? null,
 				label: work,
 				secondaryLabel: text(row.Location),
 				date: isoDate(row.Date),
@@ -286,6 +336,14 @@ async function loadDefaultConstructionForma2Data(
 				actualCost: cost.actualCost,
 			};
 		});
+	const scopedWorkSources =
+		options.sourceScope === "allocated"
+			? workSources.filter(
+					(source) =>
+						Boolean(source.selectedPositionId) ||
+						allocatedWorkIdSet.has(source.id),
+				)
+			: workSources;
 
 	const materialSources: Forma2ActualSource[] = materialRows.map((row) => ({
 		id: row.id,
@@ -313,7 +371,7 @@ async function loadDefaultConstructionForma2Data(
 	return {
 		siteName: site.name,
 		state,
-		sources: [...workSources, ...materialSources],
+		sources: [...scopedWorkSources, ...materialSources],
 	};
 }
 
@@ -462,9 +520,16 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 		.flatMap((source) => {
 			if (args.costType !== "total" && source.type !== args.costType) return [];
 			const allocation = allocationsBySource.get(`${source.type}:${source.id}`);
-			if (!allocation || !includedPositionIds.has(allocation.positionId))
+			const selectedPositionId =
+				source.selectedPositionId &&
+				positionsById.has(source.selectedPositionId)
+					? source.selectedPositionId
+					: null;
+			const assignedPositionId =
+				selectedPositionId ?? allocation?.positionId ?? null;
+			if (!assignedPositionId || !includedPositionIds.has(assignedPositionId))
 				return [];
-			const assignedPosition = positionsById.get(allocation.positionId);
+			const assignedPosition = positionsById.get(assignedPositionId);
 			if (!assignedPosition) return [];
 			return [
 				{
@@ -478,10 +543,14 @@ export async function getDefaultConstructionForma2PositionCostDetails(args: {
 					hours: source.hours,
 					hourlyRate: source.hourlyRate ?? null,
 					unitRate: source.unitRate ?? null,
-          costCalculationMode: source.costCalculationMode ?? "output",
+					costCalculationMode: source.costCalculationMode ?? "output",
 					actualCost: source.actualCost,
-					assignmentMethod: allocation.method,
-					assignmentConfidence: allocation.confidence,
+					assignmentMethod: selectedPositionId
+						? ("manual" as const)
+						: (allocation?.method ?? "manual"),
+					assignmentConfidence: selectedPositionId
+						? 1
+						: (allocation?.confidence ?? null),
 					assignedPosition: {
 						id: assignedPosition.id,
 						code: assignedPosition.code,
@@ -555,24 +624,45 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 	const allocatedMaterialIds = Array.from(allocationsBySource.values())
 		.filter((allocation) => allocation.sourceType === "material")
 		.map((allocation) => allocation.sourceId);
+	const config =
+		site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
+			? (site.siteDiaryRecordsMap as Parameters<
+					typeof getDefaultConstructionProductivitySettings
+				>[0])
+			: (defaultConfig as Parameters<
+					typeof getDefaultConstructionProductivitySettings
+				>[0]);
+	const { positionByWorkKey, workOptions } = getCurrentForma2WorkSelections(
+		config,
+		state,
+	);
+	const workFilters: Prisma.sitediaryrecordsWhereInput[] = [];
+	if (assignment === "assigned") {
+		workFilters.push({
+			OR: [{ id: { in: allocatedWorkIds } }, { Works: { in: workOptions } }],
+		});
+	} else if (assignment === "unassigned") {
+		workFilters.push({
+			AND: [
+				{ id: { notIn: allocatedWorkIds } },
+				{ Works: { notIn: workOptions } },
+			],
+		});
+	}
+	if (search) {
+		workFilters.push({
+			OR: [
+				{ Works: { contains: search, mode: "insensitive" } },
+				{ Location: { contains: search, mode: "insensitive" } },
+				{ Units: { contains: search, mode: "insensitive" } },
+			],
+		});
+	}
 	const workWhere: Prisma.sitediaryrecordsWhereInput = {
 		siteId: args.siteId,
 		archivedAt: null,
 		Works: { not: null },
-		...(assignment === "assigned"
-			? { id: { in: allocatedWorkIds } }
-			: assignment === "unassigned"
-				? { id: { notIn: allocatedWorkIds } }
-				: {}),
-		...(search
-			? {
-					OR: [
-						{ Works: { contains: search, mode: "insensitive" } },
-						{ Location: { contains: search, mode: "insensitive" } },
-						{ Units: { contains: search, mode: "insensitive" } },
-					],
-				}
-			: {}),
+		AND: workFilters,
 	};
 	const materialWhere: Prisma.BISmaterialRecordsWhereInput = {
 		siteId: args.siteId,
@@ -659,14 +749,6 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 				})
 			: [],
 	]);
-	const config =
-		site.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
-			? (site.siteDiaryRecordsMap as Parameters<
-					typeof getDefaultConstructionProductivitySettings
-				>[0])
-			: (defaultConfig as Parameters<
-					typeof getDefaultConstructionProductivitySettings
-				>[0]);
 	const settingsByWork = new Map(
 		getDefaultConstructionProductivitySettings(config).works.map((setting) => [
 			setting.work.trim().toLocaleLowerCase("lv"),
@@ -690,6 +772,8 @@ export async function getDefaultConstructionForma2MappingPage(args: {
 			return {
 				id: row.id,
 				type: "work",
+				selectedPositionId:
+					positionByWorkKey.get(normalizeForma2WorkOptionKey(work)) ?? null,
 				label: work,
 				secondaryLabel: text(row.Location),
 				date: isoDate(row.Date),

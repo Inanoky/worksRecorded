@@ -12,13 +12,22 @@ import { normalizeMaterialConfigurationTemplates } from "@/lib/bis/material-conf
 import {
   getWarehouseMaterialExportRows,
   getWarehouseMaterialPage,
-  type WarehouseMaterialQueryInput,
+  normalizeWarehouseMaterialQuery,
+  type WarehouseMaterialQueryInput as BaseWarehouseMaterialQueryInput,
   type WarehouseMaterialRow,
+  type WarehouseMaterialSort,
 } from "@/lib/bis/warehouse-material-query";
+import {
+  sortWarehouseRowsByForma2Position,
+  type WarehouseForma2Sort,
+} from "@/lib/bis/warehouse-forma2-sort";
 import { canShowWarehouseSpendInsights } from "@/lib/bis/warehouse-spend-visibility";
 import TourRunner from "@/components/joyride/TourRunner";
 import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { createPerfTrace } from "@/lib/observability/perf";
+import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import { normalizeWarehouseSourcePhoto } from "@/lib/bis/warehouse-source-photo-group";
 import {
   applyDefaultConstructionForma2MaterialRules,
   getDefaultConstructionForma2MaterialAssignments,
@@ -31,6 +40,16 @@ type BisApprover = {
   name: string | null;
   status: string | null;
 };
+
+type WarehouseMaterialQueryInput = Omit<BaseWarehouseMaterialQueryInput, "sortBy"> & {
+  sortBy?: WarehouseMaterialSort | WarehouseForma2Sort;
+  forma2Assignment?: "all" | "assigned" | "unassigned";
+  forma2PositionId?: string;
+};
+
+function isWarehouseForma2Sort(sortBy: WarehouseMaterialQueryInput["sortBy"]): sortBy is WarehouseForma2Sort {
+  return sortBy === "forma2Position_asc" || sortBy === "forma2Position_desc";
+}
 
 type WarehouseMaterialAttachment = {
   name: string;
@@ -291,6 +310,41 @@ async function addForma2AssignmentsToMaterials(
       };
     }),
   };
+}
+
+async function getWarehouseForma2RecordIdFilter(
+  siteId: string,
+  filters: Pick<
+    WarehouseMaterialQueryInput,
+    "forma2Assignment" | "forma2PositionId"
+  >,
+) {
+  const assignmentFilter = filters.forma2Assignment ?? "all";
+  const positionId = filters.forma2PositionId?.trim();
+  if (assignmentFilter === "all" && !positionId) return undefined;
+
+  await applyDefaultConstructionForma2MaterialRules({ siteId });
+  const forma2 = await getDefaultConstructionForma2MaterialAssignments({ siteId });
+  if (!forma2.enabled) return { include: [] as string[] };
+
+  const assignedIds = forma2.assignments.map((assignment) => assignment.sourceId);
+  if (positionId) {
+    return {
+      include: forma2.assignments
+        .filter((assignment) => assignment.positionId === positionId)
+        .map((assignment) => assignment.sourceId),
+    };
+  }
+
+  if (assignmentFilter === "assigned") {
+    return { include: assignedIds };
+  }
+
+  if (assignmentFilter === "unassigned") {
+    return { exclude: assignedIds };
+  }
+
+  return undefined;
 }
 
 async function loadWarehouseBisState(
@@ -1192,6 +1246,80 @@ export async function updateMaterialDetails(
   return { success: true };
 }
 
+async function requireDefaultConstructionWarehouseSourcePhoto(
+  siteId: string,
+  recordId: string,
+) {
+  await requireUser();
+
+  const source = await prisma.bISmaterialRecords.findFirst({
+    where: { id: recordId, siteId },
+    select: {
+      sourcePhoto: true,
+      site: {
+        select: { organizationId: true },
+      },
+    },
+  });
+  if (!source) throw new Error("Material record not found");
+
+  const flowModuleKey = await resolveFlowModuleKeyForRuntime({
+    organizationId: source.site?.organizationId,
+    siteId,
+  });
+  if (flowModuleKey !== FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION) {
+    throw new Error("Source photo date updates are available only for Default Construction");
+  }
+
+  return normalizeWarehouseSourcePhoto(source.sourcePhoto);
+}
+
+export async function getWarehouseSourcePhotoPositionCount(siteId: string, recordId: string) {
+  "use server";
+
+  const sourcePhoto = await requireDefaultConstructionWarehouseSourcePhoto(siteId, recordId);
+  if (!sourcePhoto) return { positionCount: 0 };
+
+  const positionCount = await prisma.bISmaterialRecords.count({
+    where: { siteId, sourcePhoto },
+  });
+
+  return { positionCount };
+}
+
+export async function updateRelatedWarehousePhotoDates(
+  siteId: string,
+  recordId: string,
+  payload: {
+    invoiceDate?: Date | null;
+    materialDate?: Date | null;
+  },
+) {
+  "use server";
+
+  if (!("invoiceDate" in payload) && !("materialDate" in payload)) {
+    return { updatedCount: 0 };
+  }
+
+  const sourcePhoto = await requireDefaultConstructionWarehouseSourcePhoto(siteId, recordId);
+  if (!sourcePhoto) return { updatedCount: 0 };
+
+  const data: { invoiceDate?: Date | null; materialDate?: Date | null } = {};
+  if ("invoiceDate" in payload) data.invoiceDate = payload.invoiceDate ?? null;
+  if ("materialDate" in payload) data.materialDate = payload.materialDate ?? null;
+
+  const result = await prisma.bISmaterialRecords.updateMany({
+    where: {
+      siteId,
+      sourcePhoto,
+    },
+    data,
+  });
+
+  revalidatePath(`/dashboard/sites/${siteId}/BIS`);
+  return { updatedCount: result.count };
+}
+
 export async function updateMaterialAttachments(
   recordId: string,
   payload: {
@@ -1866,7 +1994,66 @@ export async function fetchWarehouseMaterialsPage(siteId: string, input: Warehou
     siteOrganizationId: site?.organizationId,
     userRole: dbUser?.role,
   });
-  const pageData = await getWarehouseMaterialPage({ siteId, ...input, includeSpendInsights: showSpendInsights });
+  const { forma2Assignment, forma2PositionId, sortBy, ...materialInput } = input;
+  const recordIdFilter = await getWarehouseForma2RecordIdFilter(siteId, {
+    forma2Assignment,
+    forma2PositionId,
+  });
+  if (isWarehouseForma2Sort(sortBy)) {
+    const baseInput = {
+      ...materialInput,
+      sortBy: "default" as const,
+    };
+    const [allRows, spendPage] = await Promise.all([
+      getWarehouseMaterialExportRows({
+        siteId,
+        ...baseInput,
+        includeSpendInsights: showSpendInsights,
+        recordIdFilter,
+      }),
+      showSpendInsights
+        ? getWarehouseMaterialPage({
+          siteId,
+          ...baseInput,
+          page: 1,
+          includeSpendInsights: true,
+          recordIdFilter,
+        })
+        : Promise.resolve(null),
+    ]);
+    const forma2 = await addForma2AssignmentsToMaterials(
+      siteId,
+      allRows.map(withoutWarehouseBisState),
+    );
+    const sortedRows = sortWarehouseRowsByForma2Position(
+      forma2.materials,
+      forma2.positionOptions,
+      sortBy,
+    );
+    const normalized = normalizeWarehouseMaterialQuery(baseInput);
+    const totalCount = sortedRows.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / normalized.pageSize));
+    const page = Math.min(normalized.page, totalPages);
+    const skip = (page - 1) * normalized.pageSize;
+
+    return {
+      rows: sortedRows.slice(skip, skip + normalized.pageSize),
+      totalCount,
+      totalCost: sortedRows.reduce((total, row) => total + (row.cost ?? 0), 0),
+      page,
+      pageSize: normalized.pageSize,
+      totalPages,
+      spendInsights: spendPage?.spendInsights,
+    };
+  }
+
+  const pageData = await getWarehouseMaterialPage({
+    siteId,
+    ...materialInput,
+    sortBy,
+    includeSpendInsights: showSpendInsights,
+    recordIdFilter,
+  });
 
   const forma2 = await addForma2AssignmentsToMaterials(
     siteId,
@@ -1897,8 +2084,26 @@ export async function exportWarehouseMaterials(siteId: string, input: WarehouseM
     siteOrganizationId: site?.organizationId,
     userRole: dbUser?.role,
   });
-  const rows = await getWarehouseMaterialExportRows({ siteId, ...input, includeSpendInsights: showSpendInsights });
-  return rows.map(withoutWarehouseBisState);
+  const { forma2Assignment, forma2PositionId, sortBy, ...materialInput } = input;
+  const recordIdFilter = await getWarehouseForma2RecordIdFilter(siteId, {
+    forma2Assignment,
+    forma2PositionId,
+  });
+  const rows = await getWarehouseMaterialExportRows({
+    siteId,
+    ...materialInput,
+    sortBy: isWarehouseForma2Sort(sortBy) ? "default" : sortBy,
+    includeSpendInsights: showSpendInsights,
+    recordIdFilter,
+  });
+  const forma2 = await addForma2AssignmentsToMaterials(
+    siteId,
+    rows.map(withoutWarehouseBisState),
+  );
+
+  return isWarehouseForma2Sort(sortBy)
+    ? sortWarehouseRowsByForma2Position(forma2.materials, forma2.positionOptions, sortBy)
+    : forma2.materials;
 }
 
 export default async function MaterialsPage({
@@ -1935,7 +2140,7 @@ export default async function MaterialsPage({
     userRole: dbUser?.role,
   });
 
-  const [materialsPage, materialConfigurationData] = await trace.measure("initialData", () =>
+  const [materialsPage, materialConfigurationData, flowModuleKey] = await trace.measure("initialData", () =>
     Promise.all([
       getWarehouseMaterialPage({ siteId, includeSpendInsights: showSpendInsights }),
       bisEnabled ? fetchWarehouseMaterialConfigurationData(siteId).catch(async (error) => {
@@ -1951,6 +2156,10 @@ export default async function MaterialsPage({
         materialMeasures: [] as MaterialMeasure[],
         materialTypes: [] as MaterialType[],
       })),
+      resolveFlowModuleKeyForRuntime({
+        organizationId: siteOrg?.organizationId,
+        siteId,
+      }),
     ]),
   );
 
@@ -1994,6 +2203,7 @@ export default async function MaterialsPage({
         bisEnabled={bisEnabled}
         bisBaseUrl={getBisBaseUrl()}
         materials={materialsWithBisState}
+        isDefaultConstructionFlow={flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION}
         forma2Enabled={forma2.enabled}
         forma2PositionOptions={forma2.positionOptions}
         materialConfigurations={materialConfigurationData.materialConfigurations}
@@ -2019,6 +2229,8 @@ export default async function MaterialsPage({
         updateMaterialDate={updateMaterialDate}
         updateQuantity={updateQuantity}
         updateMaterialDetails={updateMaterialDetails}
+        getSourcePhotoPositionCount={getWarehouseSourcePhotoPositionCount}
+        updateRelatedPhotoDates={updateRelatedWarehousePhotoDates}
         updateMaterialAttachments={updateMaterialAttachments}
         attachCertificate={attachCertificateToMaterialConfiguration}
         copyMaterialRecord={copyWarehouseRecord}

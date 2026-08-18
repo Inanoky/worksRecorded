@@ -1,8 +1,10 @@
 import {
   buildZtcConfiguredWorkFilterOptions,
   buildZtcRecordedWorkFilterOptions,
+  getZtcRateTaskDisplayForRow,
   getZtcProjectWorkRates,
   resolveZtcRateTaskForRow,
+  ZTC_UNASSIGNED_RATE_TASK_LABEL,
   ztcRowMatchesConfiguredWorkFilter,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
 
@@ -70,10 +72,43 @@ describe("buildZtcRecordedWorkFilterOptions", () => {
       ],
     });
 
-    expect(options).toEqual(["difuzijas membrana", "latojums 45x45"]);
+    expect(options).toEqual([
+      "difuzijas membrana",
+      "latojums 45x45",
+      ZTC_UNASSIGNED_RATE_TASK_LABEL,
+    ]);
     expect(options).not.toContain("L2/B2 - latojums 45x45");
     expect(options).not.toContain("configured but unused");
     expect(options).not.toContain("unmatched prefixed work");
+  });
+
+  it("does not treat quality-control records as unassigned rate tasks", () => {
+    const options = buildZtcRecordedWorkFilterOptions({
+      rows: [
+        {
+          Location: "Project RD",
+          Works: "Kvalitātes kontrole",
+          Comments_Custom_2: JSON.stringify({ type: "ztc_quality_check" }),
+        },
+      ],
+      defaultRates: [],
+    });
+
+    expect(options).toEqual([]);
+  });
+});
+
+describe("getZtcRateTaskDisplayForRow", () => {
+  it("shows assignment status while preserving the extracted work for an unmatched row", () => {
+    expect(
+      getZtcRateTaskDisplayForRow(
+        { Location: "Project RD", Works: "R3/T3 - Apdares dēlis 21x145" },
+        [],
+      ),
+    ).toEqual({
+      rateTask: ZTC_UNASSIGNED_RATE_TASK_LABEL,
+      extractedTask: "R3/T3 - Apdares dēlis 21x145",
+    });
   });
 });
 
@@ -206,5 +241,42 @@ describe("ztcRowMatchesConfiguredWorkFilter", () => {
         [],
       ),
     ).toBe(true);
+  });
+
+  it("matches only uncategorized production rows for the unassigned-rate filter", () => {
+    const rates = [
+      {
+        projectName: "Project RD",
+        works: [
+          { task: "latojums 45x45", rate: "0.8", unit: "m2" as const },
+        ],
+      },
+    ];
+
+    expect(
+      ztcRowMatchesConfiguredWorkFilter(
+        { Location: "Project RD", Works: "R3/T3 - Apdares dēlis 21x145" },
+        ZTC_UNASSIGNED_RATE_TASK_LABEL,
+        rates,
+      ),
+    ).toBe(true);
+    expect(
+      ztcRowMatchesConfiguredWorkFilter(
+        { Location: "Project RD", Works: "L2/B2 - latojums 45x45" },
+        ZTC_UNASSIGNED_RATE_TASK_LABEL,
+        rates,
+      ),
+    ).toBe(false);
+    expect(
+      ztcRowMatchesConfiguredWorkFilter(
+        {
+          Location: "Project RD",
+          Works: "Kvalitātes kontrole",
+          Comments_Custom_2: JSON.stringify({ type: "ztc_quality_check" }),
+        },
+        ZTC_UNASSIGNED_RATE_TASK_LABEL,
+        rates,
+      ),
+    ).toBe(false);
   });
 });

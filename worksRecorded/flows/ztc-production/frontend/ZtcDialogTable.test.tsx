@@ -210,6 +210,88 @@ describe("ZtcDialogTable project element catalogue", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("offers only effective Darba likmes entries in the Darbi dropdown", async () => {
+		const currentRow = {
+			id: "record-rate-options",
+			Date: new Date("2026-08-14T07:49:00.000Z"),
+			Date_Custom_2: new Date("2026-08-14T08:38:00.000Z"),
+			Location: "Project RD",
+			Location_Custom_1: "J-18",
+			Works: "R3/T3 - Apdares dēlis 21x145",
+			Units: "m2",
+			Amounts: 3.79,
+			Comments_Custom_2: JSON.stringify({
+				type: "ztc_drawing_context",
+				projectName: "Project RD",
+				elements: [
+					{
+						elementName: "J-18",
+						totalAreaM2: 3.79,
+						works: [
+							{ name: "R3/T3 - Apdares dēlis 21x145", amountM2: 3.79 },
+							{ name: "Drawing-only work", amountM2: 3.79 },
+						],
+					},
+				],
+			}),
+		};
+		const rates = [
+			{
+				projectName: "Project RD",
+				works: [
+					{ task: "Apdares dēlis", rate: "1.4", unit: "m2" as const },
+					{ task: "latojums 45x45", rate: "0.9", unit: "m2" as const },
+				],
+				additionalWorks: [
+					{ task: "Paneļu labošana", rate: "15", unit: "st" as const },
+				],
+			},
+		];
+		mockGetZtcDialogPrefetchData.mockResolvedValue({
+			config: defaultConfig,
+			rows: [currentRow],
+			rates,
+			elementCatalogRows: [],
+		});
+
+		render(
+			<ZtcDialogTable
+				date={new Date("2026-08-14T12:00:00.000Z")}
+				siteId="ztc-site"
+				focusedRecordId="record-rate-options"
+				initialRows={[currentRow]}
+				initialConfig={defaultConfig}
+				initialRates={rates}
+			/>,
+		);
+
+		const workSelect = screen
+			.getAllByRole("combobox")
+			.find((element) =>
+				element.textContent?.includes("R3/T3 - Apdares dēlis 21x145"),
+			);
+		expect(workSelect).toBeDefined();
+		await userEvent.setup().click(workSelect!);
+
+		expect(
+			await screen.findByRole("button", { name: /Apdares dēlis \[/ }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /latojums 45x45 \[/ }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /Paneļu labošana \[/ }),
+		).toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", { name: "Drawing-only work" }),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole("button", {
+				name: "R3/T3 - Apdares dēlis 21x145",
+			}),
+		).not.toBeInTheDocument();
+	});
+
 	it("renames every visible part of a split task without changing its m2", async () => {
 		const rows = [
 			{

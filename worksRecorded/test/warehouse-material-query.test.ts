@@ -1,4 +1,6 @@
 import {
+  WAREHOUSE_CONFIG_FILTER_CONFIGURED,
+  WAREHOUSE_CONFIG_FILTER_UNCONFIGURED,
   buildWarehouseMaterialOrderBy,
   buildWarehouseMaterialWhere,
   getWarehouseEffectiveSpendDate,
@@ -96,6 +98,44 @@ describe("warehouse material query", () => {
     expect(buildWarehouseMaterialWhere("site-1", { configFilter: "config-1" })).toEqual({
       AND: [{ siteId: "site-1" }, { categoryId: "config-1" }],
     });
+
+    expect(buildWarehouseMaterialWhere("site-1", {
+      configFilter: WAREHOUSE_CONFIG_FILTER_CONFIGURED,
+    })).toEqual({
+      AND: [
+        { siteId: "site-1" },
+        { categoryId: { not: null, notIn: ["", "no_match"] } },
+      ],
+    });
+
+    expect(buildWarehouseMaterialWhere("site-1", {
+      configFilter: WAREHOUSE_CONFIG_FILTER_UNCONFIGURED,
+    })).toEqual({
+      AND: [
+        { siteId: "site-1" },
+        {
+          OR: [
+            { categoryId: null },
+            { categoryId: "" },
+            { categoryId: "no_match" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("builds include and exclude record filters", () => {
+    expect(buildWarehouseMaterialWhere("site-1", {}, {
+      recordIdFilter: { include: ["row-1", "row-2"] },
+    })).toEqual({
+      AND: [{ siteId: "site-1" }, { id: { in: ["row-1", "row-2"] } }],
+    });
+
+    expect(buildWarehouseMaterialWhere("site-1", {}, {
+      recordIdFilter: { exclude: ["row-3"] },
+    })).toEqual({
+      AND: [{ siteId: "site-1" }, { id: { notIn: ["row-3"] } }],
+    });
   });
 
   it("builds invoice date range filters and excludes no-date rows when active", () => {
@@ -133,11 +173,31 @@ describe("warehouse material query", () => {
       { id: "desc" },
     ]);
     expect(buildWarehouseMaterialOrderBy("invoiceDate_asc")).toEqual([
-      { invoiceDate: { sort: "asc", nulls: "last" } },
+      { invoiceDate: { sort: "asc", nulls: "first" } },
+      { id: "asc" },
+    ]);
+    expect(buildWarehouseMaterialOrderBy("materialDate_asc")).toEqual([
+      { materialDate: { sort: "asc", nulls: "first" } },
       { id: "asc" },
     ]);
     expect(buildWarehouseMaterialOrderBy("quantity_desc")).toEqual([
       { quantity: { sort: "desc", nulls: "last" } },
+      { id: "desc" },
+    ]);
+    expect(buildWarehouseMaterialOrderBy("name_desc")).toEqual([
+      { name: { sort: "desc", nulls: "last" } },
+      { id: "desc" },
+    ]);
+    expect(buildWarehouseMaterialOrderBy("supplierName_asc")).toEqual([
+      { supplierName: { sort: "asc", nulls: "last" } },
+      { id: "asc" },
+    ]);
+    expect(buildWarehouseMaterialOrderBy("cost_asc")).toEqual([
+      { cost: { sort: "asc", nulls: "last" } },
+      { id: "asc" },
+    ]);
+    expect(buildWarehouseMaterialOrderBy("createdAt_desc")).toEqual([
+      { createdAt: "desc" },
       { id: "desc" },
     ]);
   });

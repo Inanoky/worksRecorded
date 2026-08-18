@@ -66,6 +66,28 @@ export function buildDefaultConstructionForma2WorkOptionName(
 	return limitedName([code, description].filter(Boolean).join(" "));
 }
 
+export function buildDefaultConstructionForma2LegacyWorkEntries(
+	positions: Forma2Position[],
+) {
+	const candidates = positions
+		.filter((position) => position.kind === "work")
+		.map((position) => ({
+			positionId: position.id,
+			work: buildDefaultConstructionForma2WorkOptionName(position),
+		}))
+		.filter((entry) => entry.work);
+	const occurrencesByKey = new Map<string, number>();
+	for (const entry of candidates) {
+		const key = normalizeForma2WorkOptionKey(entry.work);
+		occurrencesByKey.set(key, (occurrencesByKey.get(key) ?? 0) + 1);
+	}
+
+	return candidates.filter(
+		(entry) =>
+			occurrencesByKey.get(normalizeForma2WorkOptionKey(entry.work)) === 1,
+	);
+}
+
 function workCandidates(positions: Forma2Position[]) {
 	const usedNames = new Set<string>();
 	return positions
@@ -131,7 +153,8 @@ export function syncDefaultConstructionForma2WorkOptions(args: {
 	const oldEntriesByPositionId = new Map(
 		(oldManifest?.entries ?? []).map((entry) => [entry.positionId, entry]),
 	);
-	const currentSettings = getDefaultConstructionProductivitySettings(config).works;
+	const currentSettings =
+		getDefaultConstructionProductivitySettings(config).works;
 	const settingsByWork = new Map(
 		currentSettings.map((setting) => [
 			normalizeForma2WorkOptionKey(setting.work),
@@ -209,7 +232,9 @@ export function syncDefaultConstructionForma2WorkOptions(args: {
 	const units = Array.from(
 		new Set([
 			...dropdownValues(config, "Units"),
-			...candidates.map(({ position }) => compactText(position.unit)).filter(Boolean),
+			...candidates
+				.map(({ position }) => compactText(position.unit))
+				.filter(Boolean),
 		]),
 	);
 	const manifest: DefaultConstructionForma2WorkSyncManifest = {
@@ -242,9 +267,8 @@ export function syncDefaultConstructionForma2WorkOptions(args: {
 		config,
 		manifest,
 		importedWorks: candidates.length,
-		addedWorks: Array.from(newOwnedKeys).filter(
-			(key) => !oldOwnedKeys.has(key),
-		).length,
+		addedWorks: Array.from(newOwnedKeys).filter((key) => !oldOwnedKeys.has(key))
+			.length,
 		removedWorks: Array.from(oldOwnedKeys).filter(
 			(key) => !newOwnedKeys.has(key),
 		).length,
@@ -266,8 +290,10 @@ export function removeDefaultConstructionForma2WorkOptions(
 	const works = dropdownValues(config, "Works")
 		.filter((work) => !ownedKeys.has(normalizeForma2WorkOptionKey(work)))
 		.sort(compareSiteDiaryWorks);
-	const settings = getDefaultConstructionProductivitySettings(config).works
-		.filter((setting) => !ownedKeys.has(normalizeForma2WorkOptionKey(setting.work)))
+	const settings = getDefaultConstructionProductivitySettings(config)
+		.works.filter(
+			(setting) => !ownedKeys.has(normalizeForma2WorkOptionKey(setting.work)),
+		)
 		.map(persistedSetting);
 	const otherSettings = { ...(config.otherSettings ?? {}) };
 	delete otherSettings[DEFAULT_CONSTRUCTION_FORMA2_WORK_SYNC_KEY];

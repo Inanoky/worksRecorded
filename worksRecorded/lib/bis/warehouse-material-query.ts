@@ -3,14 +3,65 @@ import { prisma } from "@/lib/utils/db";
 
 export const WAREHOUSE_MATERIAL_PAGE_SIZE = 50;
 export const WAREHOUSE_MATERIAL_PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+export const WAREHOUSE_CONFIG_FILTER_ALL = "all";
+export const WAREHOUSE_CONFIG_FILTER_CONFIGURED = "__configured__";
+export const WAREHOUSE_CONFIG_FILTER_UNCONFIGURED = "__unconfigured__";
 
 export type WarehouseMaterialStatusFilter = "all" | "sent" | "unsent";
 export type WarehouseMaterialSort =
   | "default"
+  | "sourcePhoto_asc"
+  | "sourcePhoto_desc"
+  | "name_desc"
+  | "supplierName_asc"
+  | "supplierName_desc"
+  | "status_asc"
+  | "status_desc"
+  | "categoryName_asc"
+  | "categoryName_desc"
+  | "materialDate_asc"
+  | "materialDate_desc"
+  | "quantity_asc"
+  | "measurementUnit_asc"
+  | "measurementUnit_desc"
+  | "cost_asc"
+  | "cost_desc"
+  | "invoiceNr_asc"
+  | "invoiceNr_desc"
   | "invoiceDate_desc"
   | "invoiceDate_asc"
   | "name_asc"
-  | "quantity_desc";
+  | "quantity_desc"
+  | "createdAt_asc"
+  | "createdAt_desc";
+
+export const WAREHOUSE_MATERIAL_SORTS: readonly WarehouseMaterialSort[] = [
+  "default",
+  "sourcePhoto_asc",
+  "sourcePhoto_desc",
+  "name_asc",
+  "name_desc",
+  "supplierName_asc",
+  "supplierName_desc",
+  "status_asc",
+  "status_desc",
+  "categoryName_asc",
+  "categoryName_desc",
+  "materialDate_asc",
+  "materialDate_desc",
+  "quantity_asc",
+  "quantity_desc",
+  "measurementUnit_asc",
+  "measurementUnit_desc",
+  "cost_asc",
+  "cost_desc",
+  "invoiceNr_asc",
+  "invoiceNr_desc",
+  "invoiceDate_asc",
+  "invoiceDate_desc",
+  "createdAt_asc",
+  "createdAt_desc",
+];
 
 export type WarehouseMaterialQueryInput = {
   page?: number;
@@ -26,6 +77,10 @@ export type WarehouseMaterialQueryInput = {
 export type WarehouseMaterialQueryOptions = WarehouseMaterialQueryInput & {
   siteId: string;
   includeSpendInsights?: boolean;
+  recordIdFilter?: {
+    include?: string[];
+    exclude?: string[];
+  };
 };
 
 export type WarehouseSpendInsightEntry = {
@@ -109,13 +164,7 @@ export function normalizeWarehouseMaterialQuery(input: WarehouseMaterialQueryInp
     : WAREHOUSE_MATERIAL_PAGE_SIZE;
   const page = Math.max(1, Math.floor(Number(input.page ?? 1)) || 1);
   const status = input.status === "sent" || input.status === "unsent" ? input.status : "all";
-  const sortBy = [
-    "default",
-    "invoiceDate_desc",
-    "invoiceDate_asc",
-    "name_asc",
-    "quantity_desc",
-  ].includes(input.sortBy ?? "")
+  const sortBy = WAREHOUSE_MATERIAL_SORTS.includes(input.sortBy as WarehouseMaterialSort)
     ? input.sortBy as WarehouseMaterialSort
     : "default";
 
@@ -124,7 +173,7 @@ export function normalizeWarehouseMaterialQuery(input: WarehouseMaterialQueryInp
     pageSize,
     search: input.search?.trim() ?? "",
     status,
-    configFilter: input.configFilter?.trim() || "all",
+    configFilter: input.configFilter?.trim() || WAREHOUSE_CONFIG_FILTER_ALL,
     sortBy,
     invoiceDateFrom: normalizeDateInput(input.invoiceDateFrom),
     invoiceDateTo: normalizeDateInput(input.invoiceDateTo),
@@ -134,7 +183,10 @@ export function normalizeWarehouseMaterialQuery(input: WarehouseMaterialQueryInp
 export function buildWarehouseMaterialWhere(
   siteId: string,
   input: WarehouseMaterialQueryInput = {},
-  options: { dateFilteringMode?: "invoiceDate" | "none" } = {},
+  options: {
+    dateFilteringMode?: "invoiceDate" | "none";
+    recordIdFilter?: WarehouseMaterialQueryOptions["recordIdFilter"];
+  } = {},
 ): Prisma.BISmaterialRecordsWhereInput {
   const normalized = normalizeWarehouseMaterialQuery(input);
   const dateFilteringMode = options.dateFilteringMode ?? "invoiceDate";
@@ -160,8 +212,26 @@ export function buildWarehouseMaterialWhere(
     and.push({ BISId: null });
   }
 
-  if (normalized.configFilter !== "all") {
+  if (normalized.configFilter === WAREHOUSE_CONFIG_FILTER_CONFIGURED) {
+    and.push({ categoryId: { not: null, notIn: ["", "no_match"] } });
+  } else if (normalized.configFilter === WAREHOUSE_CONFIG_FILTER_UNCONFIGURED) {
+    and.push({
+      OR: [
+        { categoryId: null },
+        { categoryId: "" },
+        { categoryId: "no_match" },
+      ],
+    });
+  } else if (normalized.configFilter !== WAREHOUSE_CONFIG_FILTER_ALL) {
     and.push({ categoryId: normalized.configFilter });
+  }
+
+  if (options.recordIdFilter?.include) {
+    and.push({ id: { in: options.recordIdFilter.include } });
+  }
+
+  if (options.recordIdFilter?.exclude?.length) {
+    and.push({ id: { notIn: options.recordIdFilter.exclude } });
   }
 
   if (dateFilteringMode === "invoiceDate") {
@@ -285,18 +355,64 @@ function compareNullableAsc(a: number | string | null, b: number | string | null
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+function compareNullableAscNullsFirst(a: number | string | null, b: number | string | null) {
+  if (a == null && b == null) return 0;
+  if (a == null) return -1;
+  if (b == null) return 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function sortWarehouseRows(rows: WarehouseMaterialRow[], sortBy: WarehouseMaterialSort) {
   return [...rows].sort((a, b) => {
     switch (sortBy) {
+      case "sourcePhoto_asc":
+        return compareNullableAsc(a.sourcePhoto?.toLowerCase() ?? null, b.sourcePhoto?.toLowerCase() ?? null) || a.id.localeCompare(b.id);
+      case "sourcePhoto_desc":
+        return compareNullableDesc(a.sourcePhoto?.toLowerCase() ?? null, b.sourcePhoto?.toLowerCase() ?? null) || b.id.localeCompare(a.id);
+      case "name_desc":
+        return compareNullableDesc(a.name?.toLowerCase() ?? null, b.name?.toLowerCase() ?? null) || b.id.localeCompare(a.id);
+      case "supplierName_asc":
+        return compareNullableAsc(a.supplierName?.toLowerCase() ?? null, b.supplierName?.toLowerCase() ?? null) || a.id.localeCompare(b.id);
+      case "supplierName_desc":
+        return compareNullableDesc(a.supplierName?.toLowerCase() ?? null, b.supplierName?.toLowerCase() ?? null) || b.id.localeCompare(a.id);
+      case "status_asc":
+        return compareNullableAsc(a.bisStatus?.toLowerCase() ?? (a.BISId ? "sent" : null), b.bisStatus?.toLowerCase() ?? (b.BISId ? "sent" : null)) || a.id.localeCompare(b.id);
+      case "status_desc":
+        return compareNullableDesc(a.bisStatus?.toLowerCase() ?? (a.BISId ? "sent" : null), b.bisStatus?.toLowerCase() ?? (b.BISId ? "sent" : null)) || b.id.localeCompare(a.id);
+      case "categoryName_asc":
+        return compareNullableAsc(a.categoryName?.toLowerCase() ?? null, b.categoryName?.toLowerCase() ?? null) || a.id.localeCompare(b.id);
+      case "categoryName_desc":
+        return compareNullableDesc(a.categoryName?.toLowerCase() ?? null, b.categoryName?.toLowerCase() ?? null) || b.id.localeCompare(a.id);
+      case "materialDate_asc":
+        return compareNullableAscNullsFirst(getSortDateValue(a.materialDate), getSortDateValue(b.materialDate)) || a.id.localeCompare(b.id);
+      case "materialDate_desc":
+        return compareNullableDesc(getSortDateValue(a.materialDate), getSortDateValue(b.materialDate)) || b.id.localeCompare(a.id);
+      case "quantity_asc":
+        return compareNullableAsc(a.quantity, b.quantity) || a.id.localeCompare(b.id);
+      case "measurementUnit_asc":
+        return compareNullableAsc(a.measurementUnit?.toLowerCase() ?? null, b.measurementUnit?.toLowerCase() ?? null) || a.id.localeCompare(b.id);
+      case "measurementUnit_desc":
+        return compareNullableDesc(a.measurementUnit?.toLowerCase() ?? null, b.measurementUnit?.toLowerCase() ?? null) || b.id.localeCompare(a.id);
+      case "cost_asc":
+        return compareNullableAsc(a.cost, b.cost) || a.id.localeCompare(b.id);
+      case "cost_desc":
+        return compareNullableDesc(a.cost, b.cost) || b.id.localeCompare(a.id);
+      case "invoiceNr_asc":
+        return compareNullableAsc(a.invoiceNr?.toLowerCase() ?? null, b.invoiceNr?.toLowerCase() ?? null) || a.id.localeCompare(b.id);
+      case "invoiceNr_desc":
+        return compareNullableDesc(a.invoiceNr?.toLowerCase() ?? null, b.invoiceNr?.toLowerCase() ?? null) || b.id.localeCompare(a.id);
       case "invoiceDate_asc":
-        return compareNullableAsc(getSortDateValue(a.invoiceDate), getSortDateValue(b.invoiceDate)) || a.id.localeCompare(b.id);
+        return compareNullableAscNullsFirst(getSortDateValue(a.invoiceDate), getSortDateValue(b.invoiceDate)) || a.id.localeCompare(b.id);
       case "invoiceDate_desc":
         return compareNullableDesc(getSortDateValue(a.invoiceDate), getSortDateValue(b.invoiceDate)) || b.id.localeCompare(a.id);
       case "name_asc":
         return compareNullableAsc(a.name?.toLowerCase() ?? null, b.name?.toLowerCase() ?? null) || a.id.localeCompare(b.id);
       case "quantity_desc":
         return compareNullableDesc(a.quantity, b.quantity) || b.id.localeCompare(a.id);
-      case "default":
+      case "createdAt_asc":
+        return compareNullableAsc(a.createdAt.getTime(), b.createdAt.getTime()) || a.id.localeCompare(b.id);
+      case "createdAt_desc":
+        return compareNullableDesc(a.createdAt.getTime(), b.createdAt.getTime()) || b.id.localeCompare(a.id);
       default:
         return (
           compareNullableDesc(getSortDateValue(a.materialDate), getSortDateValue(b.materialDate)) ||
@@ -311,15 +427,54 @@ export function buildWarehouseMaterialOrderBy(
   sortBy: WarehouseMaterialSort = "default",
 ): Prisma.BISmaterialRecordsOrderByWithRelationInput[] {
   switch (sortBy) {
+    case "sourcePhoto_asc":
+      return [{ sourcePhoto: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+    case "sourcePhoto_desc":
+      return [{ sourcePhoto: { sort: "desc", nulls: "last" } }, { id: "desc" }];
     case "invoiceDate_asc":
-      return [{ invoiceDate: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+      return [{ invoiceDate: { sort: "asc", nulls: "first" } }, { id: "asc" }];
     case "name_asc":
       return [{ name: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+    case "name_desc":
+      return [{ name: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+    case "supplierName_asc":
+      return [{ supplierName: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+    case "supplierName_desc":
+      return [{ supplierName: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+    case "status_asc":
+      return [{ bisStatus: { sort: "asc", nulls: "last" } }, { BISId: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+    case "status_desc":
+      return [{ bisStatus: { sort: "desc", nulls: "last" } }, { BISId: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+    case "categoryName_asc":
+      return [{ categoryName: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+    case "categoryName_desc":
+      return [{ categoryName: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+    case "materialDate_asc":
+      return [{ materialDate: { sort: "asc", nulls: "first" } }, { id: "asc" }];
+    case "materialDate_desc":
+      return [{ materialDate: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+    case "quantity_asc":
+      return [{ quantity: { sort: "asc", nulls: "last" } }, { id: "asc" }];
     case "quantity_desc":
       return [{ quantity: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+    case "measurementUnit_asc":
+      return [{ measurementUnit: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+    case "measurementUnit_desc":
+      return [{ measurementUnit: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+    case "cost_asc":
+      return [{ cost: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+    case "cost_desc":
+      return [{ cost: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+    case "invoiceNr_asc":
+      return [{ invoiceNr: { sort: "asc", nulls: "last" } }, { id: "asc" }];
+    case "invoiceNr_desc":
+      return [{ invoiceNr: { sort: "desc", nulls: "last" } }, { id: "desc" }];
     case "invoiceDate_desc":
       return [{ invoiceDate: { sort: "desc", nulls: "last" } }, { id: "desc" }];
-    case "default":
+    case "createdAt_asc":
+      return [{ createdAt: "asc" }, { id: "asc" }];
+    case "createdAt_desc":
+      return [{ createdAt: "desc" }, { id: "desc" }];
     default:
       return [
         { materialDate: { sort: "desc", nulls: "last" } },
@@ -337,6 +492,7 @@ export async function getWarehouseMaterialPage(
   const useEffectiveSpendDate = Boolean(options.includeSpendInsights);
   const where = buildWarehouseMaterialWhere(options.siteId, normalized, {
     dateFilteringMode: useEffectiveSpendDate ? "none" : "invoiceDate",
+    recordIdFilter: options.recordIdFilter,
   });
   const orderBy = buildWarehouseMaterialOrderBy(normalized.sortBy);
 
@@ -419,6 +575,7 @@ export async function getWarehouseMaterialExportRows(
   const normalized = normalizeWarehouseMaterialQuery(options);
   const where = buildWarehouseMaterialWhere(options.siteId, normalized, {
     dateFilteringMode: options.includeSpendInsights ? "none" : "invoiceDate",
+    recordIdFilter: options.recordIdFilter,
   });
   const orderBy = buildWarehouseMaterialOrderBy(normalized.sortBy);
 

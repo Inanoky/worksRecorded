@@ -11,6 +11,9 @@ import {
   CameraOff,
   Download,
   X,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
 } from "lucide-react"
 import {
   CartesianGrid,
@@ -74,11 +77,18 @@ import {
   type Forma2MaterialPositionOption,
 } from "@/flows/default-construction/frontend/DefaultConstructionForma2AssignmentSelect"
 import { DefaultConstructionForma2MaterialRulesDialog } from "@/flows/default-construction/frontend/DefaultConstructionForma2MaterialRulesDialog"
+import type { WarehouseMaterialSort as DatabaseWarehouseMaterialSort } from "@/lib/bis/warehouse-material-query"
+import {
+  getWarehouseForma2PositionLabel,
+  type WarehouseForma2Sort,
+} from "@/lib/bis/warehouse-forma2-sort"
 
 const MAX_MATERIAL_NAME_LENGTH = 120
 const MAX_MEASUREMENT_UNIT_LENGTH = 20
 const MAX_QUANTITY = 1_000_000
 const MAX_COST = 10_000_000
+const CONFIG_FILTER_CONFIGURED = "__configured__"
+const CONFIG_FILTER_UNCONFIGURED = "__unconfigured__"
 
 type BisApprover = {
   memberId: string
@@ -125,15 +135,19 @@ type MaterialRow = {
   forma2AssignmentConfidence?: number | null
 }
 
+type WarehouseMaterialSort = DatabaseWarehouseMaterialSort | WarehouseForma2Sort
+
 type WarehouseMaterialQueryInput = {
   page?: number
   pageSize?: number
   search?: string
   status?: "all" | "sent" | "unsent"
   configFilter?: string
-  sortBy?: "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
+  sortBy?: WarehouseMaterialSort
   invoiceDateFrom?: string
   invoiceDateTo?: string
+  forma2Assignment?: "all" | "assigned" | "unassigned"
+  forma2PositionId?: string
 }
 
 type WarehouseSpendInsightEntry = {
@@ -164,6 +178,7 @@ type Props = {
   bisEnabled: boolean
   bisBaseUrl: string
   materials: MaterialRow[]
+  isDefaultConstructionFlow: boolean
   forma2Enabled: boolean
   forma2PositionOptions: Forma2MaterialPositionOption[]
   materialConfigurations: MaterialCategory[]
@@ -270,6 +285,18 @@ type Props = {
       supplierName?: string | null
     },
   ) => Promise<{ success: boolean }>
+  getSourcePhotoPositionCount: (
+    siteId: string,
+    recordId: string,
+  ) => Promise<{ positionCount: number }>
+  updateRelatedPhotoDates: (
+    siteId: string,
+    recordId: string,
+    payload: {
+      invoiceDate?: Date | null
+      materialDate?: Date | null
+    },
+  ) => Promise<{ updatedCount: number }>
   attachCertificate: (
     siteId: string,
     materialConfigurationId: string,
@@ -404,12 +431,56 @@ function getExportStatusLabel(row: MaterialRow, messages: ReturnType<typeof getW
   return row.bisStatus ? `BIS ${row.bisStatus}` : messages.statusWorksRecorded
 }
 
+function SortableWarehouseHeader({
+  label,
+  sortBy,
+  ascendingSort,
+  descendingSort,
+  ascendingLabel,
+  descendingLabel,
+  onSort,
+  className,
+}: {
+  label: string
+  sortBy: WarehouseMaterialSort
+  ascendingSort: WarehouseMaterialSort
+  descendingSort: WarehouseMaterialSort
+  ascendingLabel: string
+  descendingLabel: string
+  onSort: (sort: WarehouseMaterialSort) => void
+  className?: string
+}) {
+  const isAscending = sortBy === ascendingSort
+  const isDescending = sortBy === descendingSort
+  const nextSort = isAscending ? descendingSort : ascendingSort
+  const nextSortLabel = isAscending ? descendingLabel : ascendingLabel
+  const SortIcon = isAscending ? ArrowUp : isDescending ? ArrowDown : ArrowUpDown
+
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(nextSort)}
+        className={`group flex w-full items-center gap-1.5 text-left font-medium hover:text-foreground ${
+          isAscending || isDescending ? "text-foreground" : "text-muted-foreground"
+        }`}
+        aria-label={`${label}: ${nextSortLabel}`}
+        title={`${label}: ${nextSortLabel}`}
+      >
+        <span>{label}</span>
+        <SortIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      </button>
+    </TableHead>
+  )
+}
+
 export default function MaterialsTableClient({
   siteId,
   organizationLanguage,
   bisEnabled,
   bisBaseUrl,
   materials,
+  isDefaultConstructionFlow,
   forma2Enabled,
   forma2PositionOptions,
   materialConfigurations,
@@ -429,6 +500,8 @@ export default function MaterialsTableClient({
   updateMaterialDate,
   updateQuantity,
   updateMaterialDetails,
+  getSourcePhotoPositionCount,
+  updateRelatedPhotoDates,
   updateMaterialAttachments,
   attachCertificate,
   copyMaterialRecord,
@@ -456,13 +529,16 @@ export default function MaterialsTableClient({
   const [configFilter, setConfigFilter] = React.useState("all")
   const [invoiceDateFrom, setInvoiceDateFrom] = React.useState("")
   const [invoiceDateTo, setInvoiceDateTo] = React.useState("")
-  const [sortBy, setSortBy] = React.useState<
-    "default" | "invoiceDate_desc" | "invoiceDate_asc" | "name_asc" | "quantity_desc"
-  >("default")
+  const [forma2Assignment, setForma2Assignment] = React.useState<
+    "all" | "assigned" | "unassigned"
+  >("all")
+  const [forma2PositionId, setForma2PositionId] = React.useState("all")
+  const [sortBy, setSortBy] = React.useState<WarehouseMaterialSort>("default")
   const [page, setPage] = React.useState(initialPagination.page)
   const [pageInput, setPageInput] = React.useState(String(initialPagination.page))
   const [pageSize, setPageSize] = React.useState(initialPagination.pageSize)
   const [tableLoading, setTableLoading] = React.useState(false)
+  const loadRequestIdRef = React.useRef(0)
   const [exportLoading, setExportLoading] = React.useState(false)
   const [approverDialogOpen, setApproverDialogOpen] = React.useState(false)
   const [approverDialogRow, setApproverDialogRow] = React.useState<MaterialRow | null>(null)
@@ -473,6 +549,7 @@ export default function MaterialsTableClient({
   const [selectedRowIds, setSelectedRowIds] = React.useState<string[]>([])
   const [deleteLoading, setDeleteLoading] = React.useState(false)
   const [copyingRecordId, setCopyingRecordId] = React.useState<string | null>(null)
+  const [copyConfirmationRow, setCopyConfirmationRow] = React.useState<MaterialRow | null>(null)
   const [editableRowIds, setEditableRowIds] = React.useState<string[]>([])
   const [pendingEdits, setPendingEdits] = React.useState<Record<string, {
     name?: string | null
@@ -483,8 +560,11 @@ export default function MaterialsTableClient({
   const [editModalOpen, setEditModalOpen] = React.useState(false)
   const [editModalMode, setEditModalMode] = React.useState<"edit" | "confirm-send">("edit")
   const [editSaveLoading, setEditSaveLoading] = React.useState(false)
+  const [applyDatesToSourcePhotoPositions, setApplyDatesToSourcePhotoPositions] = React.useState(false)
+  const [sourcePhotoPositionCount, setSourcePhotoPositionCount] = React.useState<number | null>(null)
   const [includeDeliveryNotePhoto, setIncludeDeliveryNotePhoto] = React.useState(true)
   const [modalSourcePhoto, setModalSourcePhoto] = React.useState<string | null>(null)
+  const editRecordIdRef = React.useRef<string | null>(null)
   const editNameRef = React.useRef("")
   const editQuantityRef = React.useRef("")
   const editCostRef = React.useRef("")
@@ -514,6 +594,20 @@ export default function MaterialsTableClient({
     () => configurations.filter((configuration) => configuration.source === "organization_template"),
     [configurations],
   )
+  const forma2PositionLabels = React.useMemo(
+    () => new Map(
+      forma2PositionOptions.map((position) => [
+        position.id,
+        getWarehouseForma2PositionLabel(position),
+      ]),
+    ),
+    [forma2PositionOptions],
+  )
+  const handleWarehouseSort = React.useCallback((nextSort: WarehouseMaterialSort) => {
+    setSortBy(nextSort)
+    setPage(1)
+    setPageInput("1")
+  }, [])
 
   React.useEffect(() => {
     setRows(materials)
@@ -545,14 +639,32 @@ export default function MaterialsTableClient({
     status,
     configFilter,
     sortBy,
-    invoiceDateFrom: showSpendInsights ? invoiceDateFrom : undefined,
-    invoiceDateTo: showSpendInsights ? invoiceDateTo : undefined,
-  }), [page, pageSize, search, status, configFilter, sortBy, showSpendInsights, invoiceDateFrom, invoiceDateTo])
+    invoiceDateFrom: invoiceDateFrom || undefined,
+    invoiceDateTo: invoiceDateTo || undefined,
+    forma2Assignment: forma2Enabled ? forma2Assignment : undefined,
+    forma2PositionId:
+      forma2Enabled && forma2PositionId !== "all" ? forma2PositionId : undefined,
+  }), [
+    page,
+    pageSize,
+    search,
+    status,
+    configFilter,
+    sortBy,
+    invoiceDateFrom,
+    invoiceDateTo,
+    forma2Enabled,
+    forma2Assignment,
+    forma2PositionId,
+  ])
 
   const loadWarehousePage = React.useCallback(async (input: WarehouseMaterialQueryInput = queryInput) => {
+    const requestId = ++loadRequestIdRef.current
     setTableLoading(true)
     try {
       const result = await fetchMaterials(siteId, input)
+      if (requestId !== loadRequestIdRef.current) return
+
       setRows(result.rows)
       setPagination({
         totalCount: result.totalCount,
@@ -567,10 +679,12 @@ export default function MaterialsTableClient({
       setPageSize(result.pageSize)
       setSelectedRowIds((current) => current.filter((id) => result.rows.some((row) => row.id === id)))
     } catch (error) {
+      if (requestId !== loadRequestIdRef.current) return
+
       console.error("[Warehouse BIS] Failed to load warehouse page", { siteId, input, error })
       toast.error(toastMessages.failedLoadMaterials)
     } finally {
-      setTableLoading(false)
+      if (requestId === loadRequestIdRef.current) setTableLoading(false)
     }
   }, [fetchMaterials, queryInput, siteId, toastMessages.failedLoadMaterials])
 
@@ -814,6 +928,7 @@ export default function MaterialsTableClient({
   }
 
   const openEditModal = (row: MaterialRow, mode: "edit" | "confirm-send" = "edit") => {
+    editRecordIdRef.current = row.id
     editNameRef.current = row.name ?? ""
     editQuantityRef.current = row.quantity == null ? "" : String(row.quantity)
     editCostRef.current = row.cost == null ? "" : String(row.cost)
@@ -835,9 +950,26 @@ export default function MaterialsTableClient({
       agreementAttachment: (Array.isArray(row.agreementAttachment) ? row.agreementAttachment as MaterialAttachment[] : []).map((file, index) => ({ id: `a-${index}-${file.name}`, ...file })),
     })
     setEditModalMode(mode)
+    setApplyDatesToSourcePhotoPositions(false)
+    setSourcePhotoPositionCount(null)
     setIncludeDeliveryNotePhoto(Boolean(row.sourcePhoto))
     setModalSourcePhoto(row.sourcePhoto ?? null)
     setEditModalOpen(true)
+
+    if (mode === "edit" && isDefaultConstructionFlow && row.sourcePhoto?.trim()) {
+      void getSourcePhotoPositionCount(siteId, row.id)
+        .then(({ positionCount }) => {
+          if (editRecordIdRef.current === row.id) setSourcePhotoPositionCount(positionCount)
+        })
+        .catch((error) => {
+          console.error("[Warehouse] Failed to count source photo positions", {
+            siteId,
+            recordId: row.id,
+            error,
+          })
+          if (editRecordIdRef.current === row.id) setSourcePhotoPositionCount(0)
+        })
+    }
   }
 
   const fileToBase64 = (file: File) =>
@@ -893,6 +1025,11 @@ export default function MaterialsTableClient({
     }
 
     const existingRow = rows.find((row) => row.id === editDraft.id)
+    const nextInvoiceDate = editInvoiceDateRef.current
+      ? new Date(`${editInvoiceDateRef.current}T00:00:00`)
+      : null
+    const invoiceDateChanged = toLocalDateInputValue(existingRow?.invoiceDate) !== editInvoiceDateRef.current
+    const materialDateChanged = toLocalDateInputValue(existingRow?.materialDate) !== toLocalDateInputValue(editDraft.materialDate)
     const hasValidDraftConfiguration = Boolean(editDraft.categoryId && editDraft.categoryId !== NO_MATCH_VALUE)
     const savedDeclarationAttachment = editDraft.declarationAttachment.map(({ id: _id, ...rest }) => rest)
     const savedAgreementAttachment = editDraft.agreementAttachment.map(({ id: _id, ...rest }) => rest)
@@ -915,9 +1052,23 @@ export default function MaterialsTableClient({
         cost: Number.isNaN(cost as number) ? null : cost,
         materialDate: editDraft.materialDate,
         measurementUnit: trimmedMeasurementUnit || null,
-        invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
+        invoiceDate: nextInvoiceDate,
         supplierName: editDraft.supplierName,
       })
+      let relatedPhotoUpdatedCount = 0
+      if (
+        editModalMode === "edit" &&
+        isDefaultConstructionFlow &&
+        applyDatesToSourcePhotoPositions &&
+        existingRow &&
+        (invoiceDateChanged || materialDateChanged)
+      ) {
+        const result = await updateRelatedPhotoDates(siteId, editDraft.id, {
+          ...(invoiceDateChanged ? { invoiceDate: nextInvoiceDate } : {}),
+          ...(materialDateChanged ? { materialDate: editDraft.materialDate } : {}),
+        })
+        relatedPhotoUpdatedCount = result.updatedCount
+      }
       await updateQuantity(editDraft.id, Number.isNaN(quantity as number) ? null : quantity)
       await updateMaterialAttachments(editDraft.id, {
         declarationAttachment: savedDeclarationAttachment,
@@ -971,7 +1122,7 @@ export default function MaterialsTableClient({
                 categoryName: editDraft.categoryName,
                 measurementUnitId: editDraft.measurementUnitId,
                 measurementUnit: trimmedMeasurementUnit || null,
-                invoiceDate: editInvoiceDateRef.current ? new Date(`${editInvoiceDateRef.current}T00:00:00`) : null,
+                invoiceDate: nextInvoiceDate,
                 supplierName: editDraft.supplierName,
                 materialDate: editDraft.materialDate,
                 declarationAttachment: savedDeclarationAttachment,
@@ -982,7 +1133,16 @@ export default function MaterialsTableClient({
         ),
       )
       setEditModalOpen(false)
-      toast.success(editModalMode === "confirm-send" ? toastMessages.materialConfirmedAndSent : toastMessages.materialUpdated)
+      editRecordIdRef.current = null
+      setSourcePhotoPositionCount(null)
+      setApplyDatesToSourcePhotoPositions(false)
+      toast.success(
+        relatedPhotoUpdatedCount > 1
+          ? t.relatedPhotoDatesUpdated(relatedPhotoUpdatedCount)
+          : editModalMode === "confirm-send"
+            ? toastMessages.materialConfirmedAndSent
+            : toastMessages.materialUpdated,
+      )
       void loadWarehousePage()
     } catch (error) {
       console.error(error)
@@ -1002,7 +1162,7 @@ export default function MaterialsTableClient({
   }
 
   const copyMaterial = async (row: MaterialRow) => {
-    if (copyingRecordId) return
+    if (copyingRecordId) return false
 
     setCopyingRecordId(row.id)
     try {
@@ -1019,12 +1179,29 @@ export default function MaterialsTableClient({
       })
       toast.success(t.copied)
       void loadWarehousePage()
+      return true
     } catch (error) {
       console.error("[Warehouse BIS] Copy material failed", { siteId, recordId: row.id, error })
       toast.error(error instanceof Error ? error.message : t.copyFailed)
+      return false
     } finally {
       setCopyingRecordId(null)
     }
+  }
+
+  const requestMaterialCopy = (row: MaterialRow) => {
+    if (isDefaultConstructionFlow) {
+      setCopyConfirmationRow(row)
+      return
+    }
+
+    void copyMaterial(row)
+  }
+
+  const confirmMaterialCopy = async () => {
+    if (!copyConfirmationRow) return
+    const copied = await copyMaterial(copyConfirmationRow)
+    if (copied) setCopyConfirmationRow(null)
   }
 
   const deleteSelectedRows = async () => {
@@ -1233,6 +1410,29 @@ export default function MaterialsTableClient({
   }
 
   const filteredMaterials = rows
+  const hasActiveFilters = Boolean(
+    search.trim() ||
+      status !== "all" ||
+      configFilter !== "all" ||
+      invoiceDateFrom ||
+      invoiceDateTo ||
+      sortBy !== "default" ||
+      (forma2Enabled && forma2Assignment !== "all") ||
+      (forma2Enabled && forma2PositionId !== "all"),
+  )
+
+  const clearWarehouseFilters = () => {
+    setSearch("")
+    setStatus("all")
+    setConfigFilter("all")
+    setInvoiceDateFrom("")
+    setInvoiceDateTo("")
+    setForma2Assignment("all")
+    setForma2PositionId("all")
+    setSortBy("default")
+    setPage(1)
+    setPageInput("1")
+  }
 
   const allVisibleSelected = filteredMaterials.length > 0 && filteredMaterials.every((row) => selectedRowIds.includes(row.id))
   const someVisibleSelected = filteredMaterials.some((row) => selectedRowIds.includes(row.id))
@@ -1257,6 +1457,11 @@ export default function MaterialsTableClient({
     : Math.min(pagination.page * pagination.pageSize, pagination.totalCount)
 
   const showBisControls = bisEnabled
+  const editSourceRow = editDraft ? rows.find((row) => row.id === editDraft.id) : undefined
+  const editSourcePhoto = editSourceRow?.sourcePhoto?.trim() || null
+  const showSourcePhotoDateGroup = Boolean(
+    isDefaultConstructionFlow && editModalMode === "edit" && editSourcePhoto,
+  )
 
   const commitPageInput = React.useCallback(() => {
     const requestedPage = Math.floor(Number(pageInput))
@@ -1349,6 +1554,7 @@ export default function MaterialsTableClient({
         ...(showSpendInsights ? [t.supplier] : []),
         t.status,
         t.bisMaterialConfiguration,
+        ...(forma2Enabled ? [t.forma2Position] : []),
         t.deliveryDate,
         t.qty,
         t.unit,
@@ -1366,6 +1572,11 @@ export default function MaterialsTableClient({
           ...(showSpendInsights ? [material.supplierName || "—"] : []),
           getExportStatusLabel(material, t),
           material.categoryName || "—",
+          ...(forma2Enabled
+            ? [material.forma2PositionId
+              ? forma2PositionLabels.get(material.forma2PositionId) || "—"
+              : "—"]
+            : []),
           formatDate(material.materialDate),
           material.quantity ?? "",
           material.measurementUnit || "—",
@@ -1384,6 +1595,7 @@ export default function MaterialsTableClient({
         ...(showSpendInsights ? [{ wch: 28 }] : []),
         { wch: 18 },
         { wch: 32 },
+        ...(forma2Enabled ? [{ wch: 40 }] : []),
         { wch: 16 },
         { wch: 12 },
         { wch: 12 },
@@ -1410,37 +1622,11 @@ export default function MaterialsTableClient({
                     <div className="space-y-3">
       {showSpendInsights ? (
         <div className="rounded-2xl border bg-background p-4 shadow-sm">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="mb-4">
             <div>
               <h2 className="text-base font-semibold">{t.spendInsights}</h2>
               <div className="mt-1 text-2xl font-semibold">{formatMoney(totalCost)}</div>
               <p className="text-sm text-muted-foreground">{t.totalCost}</p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label className="text-xs font-medium text-muted-foreground">
-                {t.invoiceDateFrom}
-                <Input
-                  type="date"
-                  value={invoiceDateFrom}
-                  onChange={(event) => {
-                    setInvoiceDateFrom(event.target.value)
-                    setPage(1)
-                  }}
-                  className="mt-1 h-9"
-                />
-              </label>
-              <label className="text-xs font-medium text-muted-foreground">
-                {t.invoiceDateTo}
-                <Input
-                  type="date"
-                  value={invoiceDateTo}
-                  onChange={(event) => {
-                    setInvoiceDateTo(event.target.value)
-                    setPage(1)
-                  }}
-                  className="mt-1 h-9"
-                />
-              </label>
             </div>
           </div>
 
@@ -1529,13 +1715,19 @@ export default function MaterialsTableClient({
       ) : null}
 
       <div className="rounded-2xl border bg-background p-4 shadow-sm">
-        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="text-sm text-muted-foreground">
-            {t.totalCost}: <span className="font-medium text-foreground">{formatMoney(totalCost)}</span>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t.totalCost}
+            </div>
+            <div className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+              {formatMoney(totalCost)}
+            </div>
           </div>
-          <div className="relative w-full md:w-[420px]">
+          <div className="relative w-full lg:max-w-[420px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
+              aria-label={t.searchMaterials}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value)
@@ -1547,137 +1739,252 @@ export default function MaterialsTableClient({
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-4">
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setStatus(v as "all" | "sent" | "unsent")
-              setPage(1)
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t.status} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t.all}</SelectItem>
-              <SelectItem value="sent">{t.sent}</SelectItem>
-              <SelectItem value="unsent">{t.notSent}</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={configFilter} onValueChange={(value) => {
-            setConfigFilter(value)
-            setPage(1)
-          }}>
-            <SelectTrigger>
-              <SelectValue placeholder={t.configPlaceholder} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t.allConfigurations}</SelectItem>
-              {bisConfigurations.map((config) => (
-                <SelectItem key={config.id} value={config.id}>
-                  {config.material_kind}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Filter className="h-4 w-4" />
-            {t.sortBy}
+        <div className="mt-4 border-t pt-4">
+          <div className="mb-3 flex min-h-8 items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              {t.filters}
+            </div>
+            {hasActiveFilters ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearWarehouseFilters}
+              >
+                <X className="mr-2 h-4 w-4" />
+                {t.clearFilters}
+              </Button>
+            ) : null}
           </div>
 
-          <Select
-            value={sortBy}
-            onValueChange={(v) => {
-              setSortBy(
-                v as
-                  | "invoiceDate_desc"
-                  | "invoiceDate_asc"
-                  | "default"
-                  | "name_asc"
-                  | "quantity_desc",
-              )
-              setPage(1)
-            }}
-          >
-            <SelectTrigger className="w-[220px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">{t.sortDefault}</SelectItem>
-              <SelectItem value="invoiceDate_desc">{t.sortInvoiceNewest}</SelectItem>
-              <SelectItem value="invoiceDate_asc">{t.sortInvoiceOldest}</SelectItem>
-              <SelectItem value="name_asc">{t.sortNameAz}</SelectItem>
-              <SelectItem value="quantity_desc">{t.sortHighestQty}</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {selectedRowIds.length > 0 ? (
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              onClick={deleteSelectedRows}
-              disabled={deleteLoading}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-muted-foreground">{t.status}</div>
+            <Select
+              value={status}
+              onValueChange={(v) => {
+                setStatus(v as "all" | "sent" | "unsent")
+                setPage(1)
+              }}
             >
-              {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
-            </Button>
+              <SelectTrigger className="w-full" aria-label={t.status}>
+                <SelectValue placeholder={t.status} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.all}</SelectItem>
+                <SelectItem value="sent">{t.sent}</SelectItem>
+                <SelectItem value="unsent">{t.notSent}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="text-xs font-medium text-muted-foreground">
+              {t.configPlaceholder}
+            </div>
+            <Select value={configFilter} onValueChange={(value) => {
+              setConfigFilter(value)
+              setPage(1)
+            }}>
+              <SelectTrigger className="w-full" aria-label={t.configPlaceholder}>
+                <SelectValue placeholder={t.configPlaceholder} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t.allConfigurations}</SelectItem>
+                <SelectItem value={CONFIG_FILTER_CONFIGURED}>
+                  {t.configuredMaterials}
+                </SelectItem>
+                <SelectItem value={CONFIG_FILTER_UNCONFIGURED}>
+                  {t.unconfiguredMaterials}
+                </SelectItem>
+                {bisConfigurations.map((config) => (
+                  <SelectItem key={config.id} value={config.id}>
+                    {config.material_kind}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <label htmlFor="warehouse-invoice-date-from" className="space-y-1.5">
+            <span className="block text-xs font-medium text-muted-foreground">
+              {t.invoiceDateFrom}
+            </span>
+            <Input
+              id="warehouse-invoice-date-from"
+              type="date"
+              value={invoiceDateFrom}
+              onChange={(event) => {
+                const nextDate = event.target.value
+                setInvoiceDateFrom(nextDate)
+                if (invoiceDateTo && nextDate > invoiceDateTo) {
+                  setInvoiceDateTo(nextDate)
+                }
+                setPage(1)
+              }}
+            />
+          </label>
+
+          <label htmlFor="warehouse-invoice-date-to" className="space-y-1.5">
+            <span className="block text-xs font-medium text-muted-foreground">
+              {t.invoiceDateTo}
+            </span>
+            <Input
+              id="warehouse-invoice-date-to"
+              type="date"
+              min={invoiceDateFrom || undefined}
+              value={invoiceDateTo}
+              onChange={(event) => {
+                setInvoiceDateTo(event.target.value)
+                setPage(1)
+              }}
+            />
+          </label>
+
+          {forma2Enabled ? (
+            <div className="space-y-1.5">
+              <div className="text-xs font-medium text-muted-foreground">
+                {t.forma2Assignment}
+              </div>
+              <Select
+                value={forma2Assignment}
+                onValueChange={(value) => {
+                  const next = value as "all" | "assigned" | "unassigned"
+                  setForma2Assignment(next)
+                  if (next === "unassigned") setForma2PositionId("all")
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="w-full" aria-label={t.forma2Assignment}>
+                  <SelectValue placeholder={t.forma2Assignment} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.allAssignments}</SelectItem>
+                  <SelectItem value="assigned">{t.assigned}</SelectItem>
+                  <SelectItem value="unassigned">{t.unassigned}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           ) : null}
 
           {forma2Enabled ? (
-            <DefaultConstructionForma2MaterialRulesDialog
-              siteId={siteId}
-              organizationLanguage={organizationLanguage}
-              onAssignmentsChanged={() => {
-                void loadWarehousePage()
-              }}
-            />
+            <div className="space-y-1.5 md:col-span-2 xl:col-span-3">
+              <div className="text-xs font-medium text-muted-foreground">
+                {t.forma2Position}
+              </div>
+              <Select
+                value={forma2PositionId}
+                disabled={forma2Assignment === "unassigned"}
+                onValueChange={(value) => {
+                  setForma2PositionId(value)
+                  if (value !== "all") setForma2Assignment("assigned")
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="w-full" aria-label={t.forma2Position}>
+                  <SelectValue placeholder={t.forma2Position} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t.allForma2Positions}</SelectItem>
+                  {forma2PositionOptions.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {[option.code, option.categoryName, option.name]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           ) : null}
+          </div>
+        </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={exportMaterialsToExcel}
-            disabled={pagination.totalCount === 0 || exportLoading}
-            className="ml-auto"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            {exportLoading ? t.loading : t.exportToExcel}
-          </Button>
+        <div className="mt-4 flex flex-col gap-3 border-t pt-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedRowIds.length > 0 ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={deleteSelectedRows}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? "..." : `${t.delete} (${selectedRowIds.length})`}
+              </Button>
+            ) : null}
 
-          {showBisControls ? (
+            {forma2Enabled ? (
+              <DefaultConstructionForma2MaterialRulesDialog
+                siteId={siteId}
+                organizationLanguage={organizationLanguage}
+                onAssignmentsChanged={() => {
+                  void loadWarehousePage()
+                }}
+              />
+            ) : null}
+
+            {editableRowIds.length > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={saveRowEdits}
+              >
+                {t.save}
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={syncRowsFromBis}
-              disabled={syncLoading}
+              onClick={exportMaterialsToExcel}
+              disabled={pagination.totalCount === 0 || exportLoading}
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${syncLoading ? "animate-spin" : ""}`} />
-              {syncLoading ? "..." : t.refresh}
+              <Download className="mr-2 h-4 w-4" />
+              {exportLoading ? t.loading : t.exportToExcel}
             </Button>
-          ) : null}
 
-          {editableRowIds.length > 0 ? (
-            <Button
-              type="button"
-              size="sm"
-              onClick={saveRowEdits}
-            >
-              {t.save}
-            </Button>
-          ) : null}
+            {showBisControls ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={syncRowsFromBis}
+                disabled={syncLoading}
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${syncLoading ? "animate-spin" : ""}`} />
+                {syncLoading ? "..." : t.refresh}
+              </Button>
+            ) : null}
 
-          {renderPaginationControls()}
+            {renderPaginationControls()}
+          </div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
-        <div className="w-full overflow-x-auto">
+      <div
+        className="relative overflow-hidden rounded-2xl border bg-background shadow-sm"
+        aria-busy={isDefaultConstructionFlow && tableLoading}
+      >
+        {isDefaultConstructionFlow && tableLoading ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="absolute inset-x-0 top-0 z-30 flex h-14 items-center justify-center gap-2 border-b bg-background/95 px-4 text-sm font-medium shadow-sm backdrop-blur-sm"
+          >
+            <RefreshCw className="h-4 w-4 animate-spin text-green-600" aria-hidden="true" />
+            <span>{t.loadingResults}</span>
+          </div>
+        ) : null}
+        <div
+          className={`w-full overflow-x-auto transition-opacity ${
+            isDefaultConstructionFlow && tableLoading ? "pointer-events-none opacity-50" : "opacity-100"
+          }`}
+        >
           <Table className={`${forma2Enabled ? "min-w-[1720px]" : showSpendInsights ? "min-w-[1480px]" : "min-w-[1360px]"} text-sm`}>
             <TableHeader>
               <TableRow className="bg-muted/40 [&_th]:px-3 [&_th]:py-3">
@@ -1688,23 +1995,142 @@ export default function MaterialsTableClient({
                     aria-label={t.selectAllRows}
                   />
                 </TableHead>
-                <TableHead className="w-[76px]">{t.photo}</TableHead>
-                <TableHead className="w-[18%]">{t.material}</TableHead>
-                {showSpendInsights ? <TableHead className="w-[12%]">{t.supplier}</TableHead> : null}
-                <TableHead className="w-[9%]">{t.status}</TableHead>
-                {showBisControls ? <TableHead className="w-[16%]">{t.bisMaterialConfiguration}</TableHead> : null}
-                {forma2Enabled ? (
-                  <TableHead className="w-[18%]">
-                    {language === "lv" ? "Formas 2 pozīcija" : "Forma 2 position"}
-                  </TableHead>
+                <SortableWarehouseHeader
+                  className="w-[76px]"
+                  label={t.photo}
+                  sortBy={sortBy}
+                  ascendingSort="sourcePhoto_asc"
+                  descendingSort="sourcePhoto_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[18%]"
+                  label={t.material}
+                  sortBy={sortBy}
+                  ascendingSort="name_asc"
+                  descendingSort="name_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                {showSpendInsights ? (
+                  <SortableWarehouseHeader
+                    className="w-[12%]"
+                    label={t.supplier}
+                    sortBy={sortBy}
+                    ascendingSort="supplierName_asc"
+                    descendingSort="supplierName_desc"
+                    ascendingLabel={t.sortAscending}
+                    descendingLabel={t.sortDescending}
+                    onSort={handleWarehouseSort}
+                  />
                 ) : null}
-                <TableHead className="w-[11%]">{t.deliveryDate}</TableHead>
-                <TableHead className="w-[6%]">{t.qty}</TableHead>
-                <TableHead className="w-[5%]">{t.unit}</TableHead>
-                <TableHead className="w-[7%]">{t.cost}</TableHead>
-                <TableHead className="w-[7%]">{t.invoice}</TableHead>
-                <TableHead className="w-[9%]">{t.invoiceDate}</TableHead>
-                <TableHead className="w-[9%]">{t.uploadedDate}</TableHead>
+                <SortableWarehouseHeader
+                  className="w-[9%]"
+                  label={t.status}
+                  sortBy={sortBy}
+                  ascendingSort="status_asc"
+                  descendingSort="status_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                {showBisControls ? (
+                  <SortableWarehouseHeader
+                    className="w-[16%]"
+                    label={t.bisMaterialConfiguration}
+                    sortBy={sortBy}
+                    ascendingSort="categoryName_asc"
+                    descendingSort="categoryName_desc"
+                    ascendingLabel={t.sortAscending}
+                    descendingLabel={t.sortDescending}
+                    onSort={handleWarehouseSort}
+                  />
+                ) : null}
+                {forma2Enabled ? (
+                  <SortableWarehouseHeader
+                    className="w-[18%]"
+                    label={t.forma2Position}
+                    sortBy={sortBy}
+                    ascendingSort="forma2Position_asc"
+                    descendingSort="forma2Position_desc"
+                    ascendingLabel={t.sortAscending}
+                    descendingLabel={t.sortDescending}
+                    onSort={handleWarehouseSort}
+                  />
+                ) : null}
+                <SortableWarehouseHeader
+                  className="w-[11%]"
+                  label={t.deliveryDate}
+                  sortBy={sortBy}
+                  ascendingSort="materialDate_asc"
+                  descendingSort="materialDate_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[6%]"
+                  label={t.qty}
+                  sortBy={sortBy}
+                  ascendingSort="quantity_asc"
+                  descendingSort="quantity_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[5%]"
+                  label={t.unit}
+                  sortBy={sortBy}
+                  ascendingSort="measurementUnit_asc"
+                  descendingSort="measurementUnit_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[7%]"
+                  label={t.cost}
+                  sortBy={sortBy}
+                  ascendingSort="cost_asc"
+                  descendingSort="cost_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[7%]"
+                  label={t.invoice}
+                  sortBy={sortBy}
+                  ascendingSort="invoiceNr_asc"
+                  descendingSort="invoiceNr_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[9%]"
+                  label={t.invoiceDate}
+                  sortBy={sortBy}
+                  ascendingSort="invoiceDate_asc"
+                  descendingSort="invoiceDate_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
+                <SortableWarehouseHeader
+                  className="w-[9%]"
+                  label={t.uploadedDate}
+                  sortBy={sortBy}
+                  ascendingSort="createdAt_asc"
+                  descendingSort="createdAt_desc"
+                  ascendingLabel={t.sortAscending}
+                  descendingLabel={t.sortDescending}
+                  onSort={handleWarehouseSort}
+                />
                 <TableHead className="w-[11%] text-right">{t.action}</TableHead>
               </TableRow>
             </TableHeader>
@@ -1997,7 +2423,7 @@ export default function MaterialsTableClient({
                                   </DropdownMenuItem>
                                 ) : null}
                                 <DropdownMenuItem
-                                  onClick={() => copyMaterial(r)}
+                                  onClick={() => requestMaterialCopy(r)}
                                   disabled={copyingRecordId !== null}
                                 >
                                   {copyingRecordId === r.id ? t.copying : t.copy}
@@ -2020,6 +2446,42 @@ export default function MaterialsTableClient({
           {renderPaginationControls("justify-end")}
         </div>
       </div>
+
+      <Dialog
+        open={copyConfirmationRow !== null}
+        onOpenChange={(open) => {
+          if (!open && !copyingRecordId) setCopyConfirmationRow(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.confirmCopyTitle}</DialogTitle>
+            <DialogDescription>
+              {copyConfirmationRow
+                ? t.confirmCopyDescription(getMaterialDisplayName(copyConfirmationRow))
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              autoFocus
+              disabled={copyingRecordId !== null}
+              onClick={() => setCopyConfirmationRow(null)}
+            >
+              {t.cancel}
+            </Button>
+            <Button
+              type="button"
+              disabled={copyingRecordId !== null}
+              onClick={() => void confirmMaterialCopy()}
+            >
+              {copyingRecordId ? t.copying : t.copy}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={approverDialogOpen}
@@ -2092,7 +2554,17 @@ export default function MaterialsTableClient({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+      <Dialog
+        open={editModalOpen}
+        onOpenChange={(open) => {
+          setEditModalOpen(open)
+          if (!open) {
+            editRecordIdRef.current = null
+            setSourcePhotoPositionCount(null)
+            setApplyDatesToSourcePhotoPositions(false)
+          }
+        }}
+      >
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editModalMode === "confirm-send" ? "Apstiprināt" : t.editMaterial}</DialogTitle>
@@ -2215,6 +2687,49 @@ export default function MaterialsTableClient({
                     </PopoverContent>
                   </Popover>
                 </div>
+                {showSourcePhotoDateGroup && editSourcePhoto ? (
+                  <div className="flex items-start gap-3 rounded-md border bg-background p-3 sm:col-span-2">
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border bg-muted">
+                      <Image
+                        src={editSourcePhoto}
+                        alt={t.photo}
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                    {sourcePhotoPositionCount === null ? (
+                      <p className="pt-1 text-sm text-muted-foreground">{t.loading}</p>
+                    ) : sourcePhotoPositionCount > 1 ? (
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          id="apply-dates-to-source-photo-positions"
+                          checked={applyDatesToSourcePhotoPositions}
+                          onCheckedChange={(value) => setApplyDatesToSourcePhotoPositions(Boolean(value))}
+                        />
+                        <div className="space-y-1">
+                          <label
+                            htmlFor="apply-dates-to-source-photo-positions"
+                            className="cursor-pointer text-sm font-medium leading-none"
+                          >
+                            {t.applyDatesToSourcePhotoPositions}
+                          </label>
+                          <p className="text-xs text-muted-foreground">
+                            {t.sourcePhotoPositionCount(sourcePhotoPositionCount)}{" "}
+                            {t.applyDatesToSourcePhotoPositionsDescription}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1 pt-0.5">
+                        <p className="text-sm font-medium">{t.singleSourcePhotoPosition}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t.singleSourcePhotoPositionDescription}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
               {showBisControls ? (
                 <>
