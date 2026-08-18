@@ -60,6 +60,7 @@ export type DefaultConstructionForma2State = {
 export type Forma2ActualSource = {
 	id: string;
 	type: Forma2SourceType;
+	selectedPositionId?: string | null;
 	label: string;
 	secondaryLabel: string;
 	date: string | null;
@@ -577,13 +578,19 @@ export function buildForma2AnalyticsView(args: {
 	);
 	const mappingRows = args.sources.map((source) => {
 		const allocation = allocationsBySource.get(`${source.type}:${source.id}`);
+		const selectedPositionId =
+			source.selectedPositionId && positionsById.has(source.selectedPositionId)
+				? source.selectedPositionId
+				: null;
+		const assignedPositionId =
+			selectedPositionId ?? allocation?.positionId ?? null;
 		const suggestion =
-			allocation || args.includeSuggestions === false
+			assignedPositionId || args.includeSuggestions === false
 				? null
 				: suggestForma2Position(source, args.positions);
 		return {
 			...source,
-			assignedPositionId: allocation?.positionId ?? null,
+			assignedPositionId,
 			suggestedPositionId: suggestion?.positionId ?? null,
 			suggestionConfidence: suggestion?.confidence ?? null,
 			suggestionReason: suggestion?.reason ?? null,

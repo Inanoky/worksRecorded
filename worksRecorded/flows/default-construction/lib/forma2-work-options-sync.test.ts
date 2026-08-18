@@ -1,6 +1,7 @@
 import type { Forma2Position } from "./forma2-analytics";
 import { getDefaultConstructionForma2WorkSyncManifest } from "./forma2-work-options-manifest";
 import {
+	buildDefaultConstructionForma2LegacyWorkEntries,
 	buildDefaultConstructionForma2WorkOptionName,
 	reconcileForma2WorkManifestAfterOptionsSave,
 	removeDefaultConstructionForma2WorkOptions,
@@ -75,8 +76,7 @@ describe("Forma 2 Darbi option synchronization", () => {
 			documentId: "document-1",
 			positions: [work, material],
 		});
-		const importedName =
-			"1.1 Demontāžas darbi - Sienu demontāža";
+		const importedName = "1.1 Demontāžas darbi - Sienu demontāža";
 
 		expect(Object.values(result.config.Works.DropDownOptions)).toEqual(
 			expect.arrayContaining([
@@ -136,7 +136,10 @@ describe("Forma 2 Darbi option synchronization", () => {
 		});
 		const removed = removeDefaultConstructionForma2WorkOptions(synced.config);
 		expect(Object.values(removed.config.Works.DropDownOptions)).toEqual(
-			expect.arrayContaining(["Manual work", ...DEFAULT_CONSTRUCTION_SYSTEM_WORKS]),
+			expect.arrayContaining([
+				"Manual work",
+				...DEFAULT_CONSTRUCTION_SYSTEM_WORKS,
+			]),
 		);
 		expect(removed.removedWorks).toBe(0);
 	});
@@ -176,6 +179,25 @@ describe("Forma 2 Darbi option synchronization", () => {
 				},
 			]),
 		).toThrow("cannot be renamed or deleted");
+	});
+
+	it("builds only unique legacy labels for imports without a manifest", () => {
+		const unique = position({ id: "work-1", name: "Unique work" });
+		const duplicateA = position({ id: "duplicate-1", name: "Duplicate" });
+		const duplicateB = position({ id: "duplicate-2", name: "Duplicate" });
+
+		expect(
+			buildDefaultConstructionForma2LegacyWorkEntries([
+				unique,
+				duplicateA,
+				duplicateB,
+			]),
+		).toEqual([
+			{
+				positionId: unique.id,
+				work: buildDefaultConstructionForma2WorkOptionName(unique),
+			},
+		]);
 	});
 
 	it("builds a stable prefixed category label", () => {

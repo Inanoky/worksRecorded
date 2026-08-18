@@ -3,6 +3,7 @@ import {
 	calculateForma2MoneyTotals,
 	extractForma2PositionsFromRows,
 	type Forma2ActualSource,
+	type Forma2Position,
 	normalizeForma2MaterialRuleName,
 	suggestForma2Position,
 } from "./forma2-analytics";
@@ -173,6 +174,106 @@ describe("Forma 2 analytics", () => {
 			actualTotalCost: 121.95,
 			assignedRecords: 1,
 		});
+	});
+
+	it("summarizes journal work directly from its selected Forma 2 position", () => {
+		const positions = extractForma2PositionsFromRows(rows, "1-1").positions;
+		const sources: Forma2ActualSource[] = [
+			{
+				id: "journal-80",
+				type: "work",
+				selectedPositionId: positions[0].id,
+				label: positions[0].name,
+				secondaryLabel: "4. stÄvs",
+				date: "2026-07-24T00:00:00.000Z",
+				unit: "m2",
+				quantity: 80,
+				hours: null,
+				actualCost: 1008,
+			},
+			{
+				id: "journal-250",
+				type: "work",
+				selectedPositionId: positions[0].id,
+				label: positions[0].name,
+				secondaryLabel: "3. stÄvs",
+				date: "2026-07-24T00:00:00.000Z",
+				unit: "m2",
+				quantity: 250,
+				hours: null,
+				actualCost: 3150,
+			},
+			{
+				id: "journal-1297",
+				type: "work",
+				selectedPositionId: positions[0].id,
+				label: positions[0].name,
+				secondaryLabel: "",
+				date: "2026-07-25T00:00:00.000Z",
+				unit: "m2",
+				quantity: 1297,
+				hours: null,
+				actualCost: 16342.2,
+			},
+		];
+
+		const view = buildForma2AnalyticsView({
+			positions,
+			sources,
+			allocations: [],
+		});
+
+		expect(view.summary).toMatchObject({
+			factualRecords: 3,
+			assignedRecords: 3,
+			unassignedRecords: 0,
+			assignedCost: 20500.2,
+		});
+		expect(view.resultRows[0]).toMatchObject({
+			actualWorkCost: 20500.2,
+			actualTotalCost: 20500.2,
+			assignedRecords: 3,
+		});
+	});
+
+	it("prefers a journal selection over an old allocation", () => {
+		const positions = extractForma2PositionsFromRows(rows, "1-1").positions;
+		const otherPosition: Forma2Position = {
+			...positions[0],
+			id: "work:other",
+			code: "1.2",
+			name: "Other work",
+		};
+		const source: Forma2ActualSource = {
+			id: "journal-current-selection",
+			type: "work",
+			selectedPositionId: positions[0].id,
+			label: positions[0].name,
+			secondaryLabel: "",
+			date: null,
+			unit: "m2",
+			quantity: 10,
+			hours: null,
+			actualCost: 126,
+		};
+		const view = buildForma2AnalyticsView({
+			positions: [positions[0], otherPosition],
+			sources: [source],
+			allocations: [
+				{
+					sourceType: "work",
+					sourceId: source.id,
+					positionId: otherPosition.id,
+					method: "manual",
+					confidence: null,
+					assignedAt: "2026-07-01T00:00:00.000Z",
+				},
+			],
+		});
+
+		expect(view.mappingRows[0].assignedPositionId).toBe(positions[0].id);
+		expect(view.resultRows[0].actualWorkCost).toBe(126);
+		expect(view.resultRows[1].actualWorkCost).toBe(0);
 	});
 
 	it("counts material spending assigned directly to a parent work position", () => {
