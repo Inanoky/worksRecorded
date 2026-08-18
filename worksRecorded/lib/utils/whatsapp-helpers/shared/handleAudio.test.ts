@@ -1,6 +1,7 @@
 const uploadFilesMock = jest.fn();
 const transcriptionCreateMock = jest.fn();
 const sendMessageMock = jest.fn();
+const getOrganizationLanguageByUserIdMock = jest.fn();
 
 jest.mock("uploadthing/server", () => ({
   UTApi: jest.fn().mockImplementation(() => ({
@@ -37,6 +38,10 @@ jest.mock("@/lib/utils/whatsapp-helpers/shared/sender", () => ({
   sendMessage: sendMessageMock,
 }));
 
+jest.mock("@/server/actions/shared-actions", () => ({
+  getOrganizationLanguageByUserId: getOrganizationLanguageByUserIdMock,
+}));
+
 import { handleAudio, storeWhatsAppAudioFromUrl } from "./handleAudio";
 import { fetchWhatsAppMediaAsBuffer } from "@/lib/utils/whatsapp-helpers/shared/helpers";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
@@ -49,6 +54,7 @@ describe("handleAudio", () => {
       data: { ufsUrl: "https://ut.test.ufs.sh/f/voice.ogg" },
     });
     transcriptionCreateMock.mockResolvedValue({ text: "Test transcript" });
+    getOrganizationLanguageByUserIdMock.mockResolvedValue("lv");
   });
 
   function audioFormData() {
@@ -126,9 +132,11 @@ describe("handleAudio", () => {
     expect(uploadFilesMock).toHaveBeenCalledTimes(1);
     expect(transcriptionCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: "gpt-4o-transcribe",
+        model: "gpt-transcribe",
+        language: "lv",
       }),
     );
+    expect(getOrganizationLanguageByUserIdMock).toHaveBeenCalledWith("user-1");
     expect(agent).toHaveBeenCalledWith(
       "Test transcript",
       "site-1",

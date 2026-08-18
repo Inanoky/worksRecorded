@@ -5,6 +5,7 @@ import { sendMessage } from "@/lib/utils/whatsapp-helpers/shared/sender";
 import { AgentFn } from "./types";
 import { getUploadThingUfsUrl } from "@/lib/utils/uploadthing-file-url";
 import { runWithWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
+import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 
 const WHATSAPP_SAFE_LIMIT = 1400;
 const utapi = new UTApi();
@@ -134,10 +135,17 @@ export async function handleAudio(args: {
     const file = await toFile(buf, `voice-message.${ext}`);
 
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const tr = await openai.audio.transcriptions.create({ file, model: "gpt-4o-transcribe" });
+    const organizationLanguage = await getOrganizationLanguageByUserId(user.id);
+    const transcriptionLanguage = organizationLanguage === "lv" ? "lv" : "en";
+    const tr = await openai.audio.transcriptions.create({
+      file,
+      model: "gpt-transcribe",
+      language: transcriptionLanguage,
+    });
     const transcript = tr.text || "(No text recognized)";
     console.log("[originalAudioUrl][handleAudio] transcription completed", {
       transcriptLength: transcript.length,
+      transcriptionLanguage,
       sourceAudioUrl: describeUrlForLog(sourceAudioUrl),
       userId: user?.id,
       siteId,
