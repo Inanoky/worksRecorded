@@ -37,6 +37,9 @@ describe("WhatsApp site-manager eval validators", () => {
 	const sandDeliveryCase = webhookCases.find(
 		(item) => item.id === "latvian-sand-delivery-material-category",
 	);
+	const woolInstallationCase = webhookCases.find(
+		(item) => item.id === "latvian-wool-installation-quantity-workers-hours",
+	);
 	const earthworksSixRecordsCase = webhookCases.find(
 		(item) => item.id === "latvian-weather-and-earthworks-six-records",
 	);
@@ -499,6 +502,22 @@ describe("WhatsApp site-manager eval validators", () => {
 		).toBe("pass");
 	});
 
+	it("passes when a work report without an explicit worker count stores zero", () => {
+		if (!workerlessCase) throw new Error("Missing workerless eval case");
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: workerlessCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: workerlessRecord(0),
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "workers-involved")?.status,
+		).toBe("pass");
+	});
+
 	it("fails when a worker-less report is assigned an invented worker count", () => {
 		if (!workerlessCase) throw new Error("Missing workerless eval case");
 
@@ -776,6 +795,30 @@ describe("WhatsApp site-manager eval validators", () => {
 		).toBe("pass");
 	});
 
+	it("allows zero workers for ambiguous BIS cleaning when no worker count is stated", () => {
+		if (!ambiguousBisCase) throw new Error("Missing ambiguous BIS eval case");
+
+		const record = {
+			...ambiguousBisRecord(),
+			WorkersInvolved: 0,
+			TimeInvolved: 0,
+		};
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: ambiguousBisCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+			answer:
+				"WorksRecorded saglabāju 1 darbu ierakstu.\n\nCleaning — Others\n   Telpa iztīrīta.\n   Datums: 18.08.2026 · Darbinieki: 0 · Stundas: 0",
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "workers-involved")?.status,
+		).toBe("pass");
+	});
+
 	it("passes BIS no-bis guidance when agent explains BIS is not connected without naming the platform", () => {
 		const bisNoBisCase = webhookCases.find(
 			(item) => item.id === "bis-entry-how-to-guidance-only-no-bis",
@@ -790,6 +833,84 @@ describe("WhatsApp site-manager eval validators", () => {
 			records: [],
 			answer:
 				"Lai ievadītu ierakstus BISā caur šo čatu, vispirms jābūt pieslēgtam BIS integrācijai. Šobrīd tavai vietnei BIS nav pieslēgts. Ko darīt: atver projekta iestatījumus un aktivizē savienojumu. Kad savienojums būs aktīvs, varēšu palīdzēt ar ierakstu nosūtīšanu.",
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "record-created")?.status,
+		).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "forbidden-answer-signals")
+				?.status,
+		).toBe("pass");
+	});
+
+	it("passes BIS no-bis guidance when agent refers to this conversation", () => {
+		const bisNoBisCase = webhookCases.find(
+			(item) => item.id === "bis-entry-how-to-guidance-only-no-bis",
+		);
+		if (!bisNoBisCase) throw new Error("Missing bis no-bis eval case");
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: bisNoBisCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: null,
+			records: [],
+			answer:
+				"Pašlaik šim objektam BIS savienojums nav pieslēgts, tāpēc ierakstus no šīs sarakstes uz BIS nosūtīt nevar. Lai ievadītu ierakstus BIS, pieslēdziet BIS integrāciju objekta iestatījumos un pēc savienojuma aktivizēšanas ierakstus varēs nosūtīt uz BIS.",
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "record-created")?.status,
+		).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "forbidden-answer-signals")
+				?.status,
+		).toBe("pass");
+	});
+
+	it("passes BIS no-bis guidance when agent says no submission from here", () => {
+		const bisNoBisCase = webhookCases.find(
+			(item) => item.id === "bis-entry-how-to-guidance-only-no-bis",
+		);
+		if (!bisNoBisCase) throw new Error("Missing bis no-bis eval case");
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: bisNoBisCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: null,
+			records: [],
+			answer:
+				"Pašlaik šai vietnei BIS savienojums nav konfigurēts sistēmā, tāpēc no šejienes ierakstus uz BIS nosūtīt nevar. Varu palīdzēt noformulēt dienas ierakstu, ko pēc tam ievietot BIS manuāli.",
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "record-created")?.status,
+		).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "forbidden-answer-signals")
+				?.status,
+		).toBe("pass");
+	});
+
+	it("passes BIS no-bis guidance when agent says no submission from this system", () => {
+		const bisNoBisCase = webhookCases.find(
+			(item) => item.id === "bis-entry-how-to-guidance-only-no-bis",
+		);
+		if (!bisNoBisCase) throw new Error("Missing bis no-bis eval case");
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: bisNoBisCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: null,
+			records: [],
+			answer:
+				"BIS pieslēgums šim objektam nav konfigurēts, tāpēc ierakstus no šīs sistēmas pašlaik nevar nosūtīt uz BIS.",
 		});
 
 		expect(result.status).toBe("pass");
@@ -911,6 +1032,40 @@ describe("WhatsApp site-manager eval validators", () => {
 		).toBe("pass");
 	});
 
+	it("passes English material delivery category signals for sand delivery", () => {
+		if (!sandDeliveryCase) throw new Error("Missing sand delivery eval case");
+
+		const record = {
+			id: "record-sand",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Project",
+			Works: "Material delivery",
+			Comments: "Ievestas smiltis.",
+			originalUserComment: "Test Manager : Ievestas smiltis.",
+			originalAudioUrl: null,
+			WorkersInvolved: 1,
+			TimeInvolved: 1,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: sandDeliveryCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
+	});
+
 	it("fails strict persisted category signals when material delivery is saved as a note", () => {
 		if (!sandDeliveryCase) throw new Error("Missing sand delivery eval case");
 
@@ -943,6 +1098,78 @@ describe("WhatsApp site-manager eval validators", () => {
 		expect(
 			result.results.find((item) => item.name === "expected-record:1")?.status,
 		).toBe("fail");
+	});
+
+	it("passes wool installation saved under wall construction with correct quantity and labor", () => {
+		if (!woolInstallationCase) throw new Error("Missing wool installation eval case");
+
+		const record = {
+			id: "record-wool",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: null,
+			Works: "Wall construction",
+			Comments: "Veikta vates montāža, 3 cilvēki, 5 stundas.",
+			originalUserComment:
+				"Test Manager : Vates montāža, 20m2, 3 cilvēki 5 stundas",
+			originalAudioUrl: null,
+			Units: "m2",
+			WorkersInvolved: 3,
+			TimeInvolved: 5,
+			Amounts: 20,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: woolInstallationCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
+	});
+
+	it("passes wool installation saved under finishing with correct quantity and labor", () => {
+		if (!woolInstallationCase) throw new Error("Missing wool installation eval case");
+
+		const record = {
+			id: "record-wool",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: null,
+			Works: "Finishing",
+			Comments: "Veikta vates montāža, 3 cilvēki, 5 stundas.",
+			originalUserComment:
+				"Test Manager : Vates montāža, 20m2, 3 cilvēki 5 stundas",
+			originalAudioUrl: null,
+			Units: "m2",
+			WorkersInvolved: 3,
+			TimeInvolved: 5,
+			Amounts: 20,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: woolInstallationCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
 	});
 
 	it("allows zero for dash-style null numeric expectations when the case opts in", () => {

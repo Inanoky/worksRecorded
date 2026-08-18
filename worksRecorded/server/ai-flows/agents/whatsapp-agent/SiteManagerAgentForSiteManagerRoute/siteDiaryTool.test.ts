@@ -150,6 +150,23 @@ const siteConfig = {
     Type: "float",
     DisplayName: "Quantity",
   },
+  Units: {
+    Type: "dropdown",
+    DisplayName: "Mrv",
+    DropDownOptions: {
+      m3: "m3",
+      hour: "hour",
+    },
+  },
+  WorkersInvolved: {
+    Type: "float",
+    DisplayName: "Workers",
+    customSettings: { integer: true },
+  },
+  TimeInvolved: {
+    Type: "float",
+    DisplayName: "Hours",
+  },
 };
 
 describe("save_to_database site diary tool", () => {
@@ -204,7 +221,7 @@ describe("save_to_database site diary tool", () => {
   it("extracts the question, maps real config fields, and saves with trusted context", async () => {
     structuredInvokeMock.mockResolvedValue({
       records: [
-        { Area: "Building A", Activity: "Concrete pour", Quantity: 12.5 },
+        { Area: "Building A", Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" },
       ],
     });
     saveSiteDiaryRecordMock.mockResolvedValue({
@@ -260,7 +277,7 @@ describe("save_to_database site diary tool", () => {
     );
     expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith({
       rows: [
-        { Location: "Building A", Works: "Concrete pour", Amounts: 12.5 },
+        { Location: "Building A", Works: "Concrete pour", Amounts: 12.5, Units: "m3" },
       ],
       userId: "user-1",
       siteId: "site-1",
@@ -270,10 +287,10 @@ describe("save_to_database site diary tool", () => {
     expect(recordTraceMock).toHaveBeenCalledWith(
       expect.objectContaining({
         rawRecords: [
-          { Area: "Building A", Activity: "Concrete pour", Quantity: 12.5 },
+          { Area: "Building A", Activity: "Concrete pour", Quantity: 12.5, Mrv: "m3" },
         ],
         mappedRows: [
-          { Location: "Building A", Works: "Concrete pour", Amounts: 12.5 },
+          { Location: "Building A", Works: "Concrete pour", Amounts: 12.5, Units: "m3" },
         ],
       }),
     );
@@ -357,14 +374,178 @@ describe("save_to_database site diary tool", () => {
     expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0].Amounts).toBeNull();
   });
 
-  it("preserves nonzero mapped amounts without validation metadata", async () => {
+  it("moves a model-misplaced hour amount to TimeInvolved", async () => {
     structuredInvokeMock.mockResolvedValue({
-      records: [{ Area: "Floor 2", Activity: "Concrete pour", Quantity: 2 }],
+      records: [{
+        Area: "Pamati",
+        Activity: "Concrete pour",
+        Quantity: 9.5,
+        Mrv: "hour",
+        Hours: null,
+      }],
     });
     saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
 
     await siteDiaryToDatabaseTool.invoke({
-      question: "Šodien apmestas sienas 2 stāvā, 4h",
+      question: "Veikta smilts piebēršana pamatiem ar Bobcat operatoru, 9,5 stundas.",
+    });
+
+    expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
+      expect.objectContaining({
+        Amounts: null,
+        Units: null,
+        TimeInvolved: 9.5,
+      }),
+    );
+  });
+
+  it("preserves decimal hours mapped to TimeInvolved", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      records: [{
+        Area: "Pamati",
+        Activity: "Concrete pour",
+        Quantity: null,
+        Mrv: null,
+        Hours: 9.5,
+      }],
+    });
+    saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+    await siteDiaryToDatabaseTool.invoke({
+      question: "Veikta smilts piebēršana pamatiem ar Bobcat operatoru, 9,5 stundas.",
+    });
+
+    expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rows: [
+          expect.objectContaining({
+            Amounts: null,
+            Units: null,
+            TimeInvolved: 9.5,
+          }),
+        ],
+        evalMetadata: { evaluationId: "eval-1" },
+      }),
+    );
+  });
+
+  it.each([
+    ["9,5 stundas", 9.5, 9.5],
+    ["9.5h", 9.5, 9.5],
+    ["9:15", 9.25, 9.25],
+    ["9h15", 9.15, 9.25],
+    ["9 h 15 min", 9.15, 9.25],
+    ["9.15 stundas", 9.15, 9.25],
+    ["9.50 stundas", 9.5, 9.8333],
+  ])("normalizes human duration input %s to decimal hours", async (durationText, modelHours, expectedHours) => {
+    structuredInvokeMock.mockResolvedValue({
+      records: [{
+        Area: "Pamati",
+        Activity: "Concrete pour",
+        Quantity: null,
+        Mrv: null,
+        Hours: modelHours,
+      }],
+    });
+    saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+    await siteDiaryToDatabaseTool.invoke({
+      question: `Veikta smilts piebēršana pamatiem, ${durationText}.`,
+    });
+
+    expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0].TimeInvolved).toBe(expectedHours);
+  });
+
+  it("nulls invented default workers and hours when the source has no labor evidence", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      records: [{
+        Area: "Project",
+        Activity: "Concrete pour",
+        Quantity: null,
+        Mrv: null,
+        Workers: 1,
+        Hours: 1,
+      }],
+    });
+    saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+    await siteDiaryToDatabaseTool.invoke({
+      question: "Pievieno BIS sistēmā, ka šodien iztīrījām telpu.",
+    });
+
+    expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
+      expect.objectContaining({
+        WorkersInvolved: null,
+        TimeInvolved: null,
+      }),
+    );
+  });
+
+  it("preserves explicit one worker and one hour from source evidence", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      records: [{
+        Area: "Project",
+        Activity: "Concrete pour",
+        Quantity: null,
+        Mrv: null,
+        Workers: 1,
+        Hours: 1,
+      }],
+    });
+    saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+    await siteDiaryToDatabaseTool.invoke({
+      question: "Iztīrīta telpa, 1 cilvēks, 1 stunda.",
+    });
+
+    expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
+      expect.objectContaining({
+        WorkersInvolved: 1,
+        TimeInvolved: 1,
+      }),
+    );
+  });
+
+  it("preserves source-supported quantities and decimal hours", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      records: [{
+        Area: "Pamati",
+        Activity: "Concrete pour",
+        Quantity: 20,
+        Mrv: "m3",
+        Hours: 9.5,
+      }],
+    });
+    saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+    await siteDiaryToDatabaseTool.invoke({
+      question: "Piebērti 20 m3 smilts, 9,5 stundas.",
+    });
+
+    expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
+      expect.objectContaining({
+        Amounts: 20,
+        Units: "m3",
+        TimeInvolved: 9.5,
+      }),
+    );
+  });
+
+  it("nulls context numbers mapped to Amounts", async () => {
+    structuredInvokeMock.mockResolvedValue({
+      records: [{
+        Area: "2 stāvs",
+        Activity: "Concrete pour",
+        Quantity: 2,
+        Mrv: null,
+        Workers: 2,
+        Hours: 4,
+      }],
+    });
+    saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+    await siteDiaryToDatabaseTool.invoke({
+      question: "Šodien apmestas sienas 2 stāvā, 2 cilvēki, 4h",
     });
 
     const [, runnableConfig] = structuredInvokeMock.mock.calls[0];
@@ -375,14 +556,12 @@ describe("save_to_database site diary tool", () => {
         senderLabel: "Anna Bērziņa",
       }),
     }));
-    expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(
+    expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
       expect.objectContaining({
-        rows: [
-          expect.objectContaining({
-            Amounts: 2,
-          }),
-        ],
-        evalMetadata: { evaluationId: "eval-1" },
+        Amounts: null,
+        Units: null,
+        WorkersInvolved: 2,
+        TimeInvolved: 4,
       }),
     );
     expect(runnableConfig.metadata).not.toHaveProperty("siteDiaryValidationWarningCount");

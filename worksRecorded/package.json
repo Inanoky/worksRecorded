@@ -15,7 +15,7 @@
 		"eval:ai:whatsapp-site-manager": "tsx test/ai-evals/run-whatsapp-site-manager-eval.ts",
 		"eval:ai:whatsapp-worker": "tsx test/ai-evals/run-whatsapp-worker-eval.ts",
 		"eval:ai:deterministic": "npm run eval:ai:dashboard && npm run eval:ai:whatsapp-site-manager && npm run eval:ai:whatsapp-worker",
-		"eval:ai:critical": "npm run eval:ai:dashboard -- --critical && npm run eval:ai:whatsapp-site-manager -- --critical && npm run eval:ai:whatsapp-worker -- --critical",
+		"eval:ai:critical": "npm run eval:ai:whatsapp-site-manager -- --critical && npm run eval:ai:whatsapp-worker -- --critical && npm run eval:ai:dashboard -- --critical",
 		"eval:ai:judge": "npm run eval:ai:dashboard -- --judge && npm run eval:ai:whatsapp-site-manager -- --judge && npm run eval:ai:whatsapp-worker",
 		"eval:ai:guard": "tsx test/ai-evals/assert-eval-environment.ts",
 		"eval:ai:gate": "tsx lib/ai-evals/eval-gate.ts",

@@ -104,7 +104,7 @@ function safeKey(name: string) {
   return name.trim().replace(/\s+/g, "_").replace(/[^\w]/g, "");
 }
 
-function buildFieldSchema(field: MapField): {
+function buildFieldSchema(field: MapField, dbKey: string): {
   schema: z.ZodTypeAny;
   valueMap?: Record<string, string>;
 } | null {
@@ -134,7 +134,12 @@ function buildFieldSchema(field: MapField): {
 
     case "float": {
       const base = z.coerce.number();
-      const num = field.customSettings?.integer ? base.int() : base;
+      const displayKey = field.DisplayName?.trim() || "";
+      const isHoursField =
+        dbKey.toLowerCase() === "timeinvolved" ||
+        displayKey.toLowerCase() === "hours" ||
+        displayKey.toLowerCase() === "timeinvolved";
+      const num = field.customSettings?.integer && !isHoursField ? base.int() : base;
       return { schema: num.nullable().optional() };
     }
 
@@ -149,7 +154,7 @@ export function buildZodSchemaFromConfig(config: ConfigMap) {
   const dropdownValueMaps: Record<string, Record<string, string>> = {};
 
   for (const [dbKey, field] of Object.entries(config)) {
-    const fieldSchema = buildFieldSchema(field);
+    const fieldSchema = buildFieldSchema(field, dbKey);
     if (!fieldSchema) continue;
 
     const displayRaw = field.DisplayName?.trim() || dbKey;
