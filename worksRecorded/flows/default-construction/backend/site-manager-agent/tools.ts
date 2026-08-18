@@ -114,7 +114,7 @@ function usageFromMessage(message: any) {
 }
 
 const timeUnitPattern = String.raw`(?:h|hr|hrs|st\.?|stunda|stundas|stundu|hour|hours|minute|minutes|minūte|minūtes|minūšu|min\.?)`;
-const amountUnitPattern = String.raw`(?:m2|m3|m²|m³|m|kg|tn|t|pcs|gab\.?|gabali|gabals|package|packages|set|sets|komplekts|komplekti|pacelšana|pacelšanas|lifts)`;
+const amountUnitPattern = String.raw`(?:m2|m3|m²|m³|kvadr\u0101tus|m|kg|tn|t|pcs|gab\.?|gabali|gabals|package|packages|set|sets|komplekts|komplekti|pacelšana|pacelšanas|lifts)`;
 const workerUnitPattern = String.raw`(?:cilvēks|cilvēki|strādnieks|strādnieki|darbinieks|darbinieki|workers?|people|persons?)`;
 const timeOnlyUnits = new Set(["hour", "hours", "h", "hr", "hrs", "st", "st.", "stunda", "stundas", "minute", "minutes", "min", "min.", "minūte", "minūtes"]);
 
