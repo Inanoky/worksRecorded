@@ -1,47 +1,43 @@
 "use server";
 
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/utils/db";
-import { requireUser } from "@/lib/utils/requireUser";
 import ztcSiteDiaryRecordsMap from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
-import { orgCheck } from "@/server/actions/shared-actions";
-import {
-  getZtcComplexityCoefficientByCode,
-  isZtcComplexityCoefficientTask,
-  normalizeZtcComplexityCode,
-  type ZtcComplexityCode,
-  ZTC_ALL_PROJECTS_RATE_NAME,
-  ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
-} from "@/flows/ztc-production/lib/ztc-rate-constants";
-import {
-  normalizeZtcRateUnit,
-  type ZtcRateUnit,
-} from "@/flows/ztc-production/lib/ztc-rate-units";
-import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
-import { buildZtcRateAuditChanges } from "@/flows/ztc-production/lib/ztc-rate-audit";
-import {
-  getZtcExcludedRateTaskKeys,
-  normalizeZtcProjectRateExclusions,
-  normalizeZtcRateTaskKey,
-  type ZtcProjectRateExclusions,
-} from "@/flows/ztc-production/lib/ztc-rate-exclusions";
-import {
-  buildZtcRecordedWorkFilterOptions,
-  isZtcUnassignedRateTaskFilter,
-  resolveZtcRateTaskForRow,
-  ztcRowMatchesConfiguredWorkFilter,
-} from "@/flows/ztc-production/lib/ztc-rate-resolver";
-import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
-import {
-  applyZtcElementNameChange,
-  getZtcSplitTaskRenameGroupKey,
-} from "@/flows/ztc-production/lib/ztc-project-edit";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
   normalizeZtcLaborNorm,
   parseZtcLaborNormNumber,
 } from "@/flows/ztc-production/lib/ztc-labor-norm";
+import {
+  applyZtcElementNameChange,
+  getZtcSplitTaskRenameGroupKey,
+} from "@/flows/ztc-production/lib/ztc-project-edit";
+import { buildZtcRateAuditChanges } from "@/flows/ztc-production/lib/ztc-rate-audit";
+import {
+  getZtcComplexityCoefficientByCode,
+  isZtcComplexityCoefficientTask,
+  normalizeZtcComplexityCode,
+  ZTC_ALL_PROJECTS_RATE_NAME,
+  ZTC_COMPLEXITY_COEFFICIENT_RATE_ROWS,
+  type ZtcComplexityCode,
+} from "@/flows/ztc-production/lib/ztc-rate-constants";
+import {
+  getZtcExcludedRateTaskKeys,
+  normalizeZtcProjectRateExclusions,
+  normalizeZtcRateTaskKey,
+  type ZtcProjectRateExclusions,
+} from "@/flows/ztc-production/lib/ztc-rate-exclusions";
+import { findZtcDefaultRateForTask } from "@/flows/ztc-production/lib/ztc-rate-matching";
+import {
+  buildZtcRecordedWorkFilterOptions,
+  isZtcUnassignedRateTaskFilter,
+  resolveZtcRateTaskForRow,
+  ztcRowMatchesConfiguredWorkFilter,
+} from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import {
+  normalizeZtcRateUnit,
+  type ZtcRateUnit,
+} from "@/flows/ztc-production/lib/ztc-rate-units";
 import { buildZtcNotCancelledWhere } from "@/flows/ztc-production/lib/ztc-session-markers";
 import {
   buildZtcLaborNormSummaryRows,
@@ -56,10 +52,19 @@ import {
   isZtcQualityRow as isZtcSummaryQualityRow,
   type ZtcDiaryRow,
 } from "@/flows/ztc-production/lib/ztc-site-diary-utils";
+import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
+import { createPerfTrace } from "@/lib/observability/perf";
 import { resolveAdvancedProductionWorkflowContextForSite } from "@/lib/production-flow/runtime-server";
+import { prisma } from "@/lib/utils/db";
+import { requireUser } from "@/lib/utils/requireUser";
+import { orgCheck } from "@/server/actions/shared-actions";
 
 const ZTC_DEFAULT_TASK_RATES_KEY = "ztcDefaultTaskRates";
-const ZTC_RATE_CATEGORIES = ["works", "additionalDetails", "additionalWorks"] as const;
+const ZTC_RATE_CATEGORIES = [
+  "works",
+  "additionalDetails",
+  "additionalWorks",
+] as const;
 
 export type ZtcRateCategory = (typeof ZTC_RATE_CATEGORIES)[number];
 
@@ -83,7 +88,9 @@ export type ZtcProjectTaskRates = {
 async function requireZtcAccess(siteId: string) {
   const context = await resolveAdvancedProductionWorkflowContextForSite(siteId);
   if (!context) {
-    throw new Error("Ražošanas darbības var izmantot tikai ražošanas plūsmas objektam.");
+    throw new Error(
+      "Ražošanas darbības var izmantot tikai ražošanas plūsmas objektam.",
+    );
   }
 
   const user = await requireUser();
@@ -131,11 +138,13 @@ function buildZtcParentAwareWorkWhere(workName: string) {
 
   const canonicalWorkName = cleanZtcWorkName(workName);
   const workNameVariants = Array.from(
-    new Set([
-      workName,
-      canonicalWorkName,
-      canonicalWorkName.replace(/\./g, ","),
-    ].filter(Boolean)),
+    new Set(
+      [
+        workName,
+        canonicalWorkName,
+        canonicalWorkName.replace(/\./g, ","),
+      ].filter(Boolean),
+    ),
   );
 
   return {
@@ -181,7 +190,9 @@ function normalizeTaskRateEntries(
 
   for (const item of value) {
     const task = normalizeTaskName((item as Record<string, unknown>)?.task);
-    const rate = normalizePayrollTextNumber((item as Record<string, unknown>)?.rate);
+    const rate = normalizePayrollTextNumber(
+      (item as Record<string, unknown>)?.rate,
+    );
     const unit = normalizeZtcRateUnit(
       (item as Record<string, unknown>)?.unit,
       fallbackUnit,
@@ -219,7 +230,8 @@ function ensureZtcComplexityCoefficientRows(
   const sanitizedProjects = projects.map((project) => ({ ...project }));
   let allProjects = sanitizedProjects.find(
     (project) =>
-      project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+      project.projectName.toLowerCase() ===
+      ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
   );
 
   if (!allProjects) {
@@ -261,7 +273,10 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
       (item) =>
         item &&
         typeof item === "object" &&
-        ("projectName" in item || "works" in item || "additionalDetails" in item || "additionalWorks" in item),
+        ("projectName" in item ||
+          "works" in item ||
+          "additionalDetails" in item ||
+          "additionalWorks" in item),
     );
     if (looksLikeProjectRates) {
       return normalizeProjectRates({ projects: value });
@@ -277,7 +292,9 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     ]);
   }
 
-  const rawProjects = Array.isArray((value as Record<string, unknown> | null)?.projects)
+  const rawProjects = Array.isArray(
+    (value as Record<string, unknown> | null)?.projects,
+  )
     ? ((value as Record<string, unknown>).projects as unknown[])
     : [];
   const projects = rawProjects.map((project) => {
@@ -296,19 +313,23 @@ function normalizeProjectRates(value: unknown): ZtcProjectTaskRates[] {
     projects.length
       ? projects
       : [
-        {
-          projectName: ZTC_ALL_PROJECTS_RATE_NAME,
-          manual: false,
-          works: [],
-          additionalDetails: [],
-          additionalWorks: [],
-        },
-      ],
+          {
+            projectName: ZTC_ALL_PROJECTS_RATE_NAME,
+            manual: false,
+            works: [],
+            additionalDetails: [],
+            additionalWorks: [],
+          },
+        ],
   );
 }
 
-function getDefaultTaskRatesFromConfig(config: Record<string, any> | null | undefined) {
-  return normalizeProjectRates(config?.otherSettings?.[ZTC_DEFAULT_TASK_RATES_KEY]);
+function getDefaultTaskRatesFromConfig(
+  config: Record<string, any> | null | undefined,
+) {
+  return normalizeProjectRates(
+    config?.otherSettings?.[ZTC_DEFAULT_TASK_RATES_KEY],
+  );
 }
 
 const ZTC_RATE_STOP_WORDS = new Set([
@@ -357,7 +378,10 @@ function normalizeRateToken(token: string) {
 function rateTokenVariants(token: string) {
   const normalized = normalizeRateToken(token);
   if (!normalized) return [];
-  const stem = normalized.replace(/(iem|am|us|as|es|is|ai|ei|am|em|i|a|e|u|s)$/i, "");
+  const stem = normalized.replace(
+    /(iem|am|us|as|es|is|ai|ei|am|em|i|a|e|u|s)$/i,
+    "",
+  );
   return Array.from(
     new Set([normalized, stem.length >= 3 ? stem : normalized].filter(Boolean)),
   );
@@ -401,7 +425,8 @@ function isZtcAdditionalWorkRow(row: Record<string, any>) {
 
 function getZtcRateCategoryForRow(row: Record<string, any>): ZtcRateCategory {
   if (row.Works_Custom_1 === "Papilddetāļas") return "additionalDetails";
-  if (isZtcAdditionalWorkRow(row) || row.Units === "st") return "additionalWorks";
+  if (isZtcAdditionalWorkRow(row) || row.Units === "st")
+    return "additionalWorks";
   return "works";
 }
 
@@ -415,7 +440,9 @@ function getProjectCategoryRates(
     (project) => project.projectName.toLowerCase() === normalizedProject,
   );
   const allProjectRates = projects.find(
-    (project) => project.projectName.toLowerCase() === ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
+    (project) =>
+      project.projectName.toLowerCase() ===
+      ZTC_ALL_PROJECTS_RATE_NAME.toLowerCase(),
   );
 
   const excludedTaskKeys = getZtcExcludedRateTaskKeys(
@@ -427,7 +454,9 @@ function getProjectCategoryRates(
   );
   for (const override of projectRates?.[category] ?? []) {
     const index = merged.findIndex(
-      (entry) => normalizeTaskName(entry.task).toLowerCase() === normalizeTaskName(override.task).toLowerCase(),
+      (entry) =>
+        normalizeTaskName(entry.task).toLowerCase() ===
+        normalizeTaskName(override.task).toLowerCase(),
     );
     if (index >= 0) {
       merged[index] = {
@@ -462,14 +491,22 @@ function getZtcDrawingComplexityCode(
         }>;
       }>;
     };
-    if (metadata.type !== "ztc_drawing_context" || !Array.isArray(metadata.elements)) {
+    if (
+      metadata.type !== "ztc_drawing_context" ||
+      !Array.isArray(metadata.elements)
+    ) {
       return "";
     }
 
-    const normalizedElement = String(elementName ?? "").trim().toLowerCase();
+    const normalizedElement = String(elementName ?? "")
+      .trim()
+      .toLowerCase();
     const normalizedTask = normalizeTaskName(taskName).toLowerCase();
     const element = metadata.elements.find(
-      (entry) => String(entry.elementName ?? "").trim().toLowerCase() === normalizedElement,
+      (entry) =>
+        String(entry.elementName ?? "")
+          .trim()
+          .toLowerCase() === normalizedElement,
     );
     const work = element?.works?.find(
       (entry) => normalizeTaskName(entry.name).toLowerCase() === normalizedTask,
@@ -504,13 +541,21 @@ function getZtcElementAreaM2FromMetadata(
         totalAreaM2?: number | string | null;
       }>;
     };
-    if (metadata.type !== "ztc_drawing_context" || !Array.isArray(metadata.elements)) {
+    if (
+      metadata.type !== "ztc_drawing_context" ||
+      !Array.isArray(metadata.elements)
+    ) {
       return null;
     }
 
-    const normalizedElement = String(elementName ?? "").trim().toLowerCase();
+    const normalizedElement = String(elementName ?? "")
+      .trim()
+      .toLowerCase();
     const element = metadata.elements.find(
-      (entry) => String(entry.elementName ?? "").trim().toLowerCase() === normalizedElement,
+      (entry) =>
+        String(entry.elementName ?? "")
+          .trim()
+          .toLowerCase() === normalizedElement,
     );
     const area = Number(String(element?.totalAreaM2 ?? "").replace(",", "."));
     return Number.isFinite(area) && area > 0 ? area : null;
@@ -519,7 +564,10 @@ function getZtcElementAreaM2FromMetadata(
   }
 }
 
-function calculateZtcHours(start: Date | null | undefined, end: Date | null | undefined) {
+function calculateZtcHours(
+  start: Date | null | undefined,
+  end: Date | null | undefined,
+) {
   if (!start || !end) return null;
   const hours = (end.getTime() - start.getTime()) / 3_600_000;
   return Number.isFinite(hours) && hours >= 0 ? Number(hours.toFixed(2)) : null;
@@ -531,23 +579,33 @@ function normalizeZtcPauseIntervalsForHours(value: unknown) {
   return value
     .map((item) => {
       if (!item || typeof item !== "object") return null;
-      const start = new Date(String((item as Record<string, unknown>).start ?? ""));
+      const start = new Date(
+        String((item as Record<string, unknown>).start ?? ""),
+      );
       const end = new Date(String((item as Record<string, unknown>).end ?? ""));
-      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()))
+        return null;
       if (end.getTime() < start.getTime()) return null;
       return { start, end };
     })
     .filter((item): item is { start: Date; end: Date } => Boolean(item));
 }
 
-function calculateZtcEffectiveHours(row: Record<string, any>, start: Date | null | undefined, end: Date | null | undefined) {
+function calculateZtcEffectiveHours(
+  row: Record<string, any>,
+  start: Date | null | undefined,
+  end: Date | null | undefined,
+) {
   const grossHours = calculateZtcHours(start, end);
   if (grossHours == null || !start || !end) return grossHours;
 
   const intervals = normalizeZtcPauseIntervalsForHours(row.pauseIntervals);
   if (row.pausedAt) {
     const pauseStart = new Date(row.pausedAt);
-    if (!Number.isNaN(pauseStart.getTime()) && end.getTime() > pauseStart.getTime()) {
+    if (
+      !Number.isNaN(pauseStart.getTime()) &&
+      end.getTime() > pauseStart.getTime()
+    ) {
       intervals.push({ start: pauseStart, end });
     }
   }
@@ -573,11 +631,14 @@ function normalizeZtcUnitKey(value: unknown) {
 
 function getZtcAmountUnitAliases(unit: string) {
   const normalizedUnit = normalizeZtcUnitKey(unit);
-  if (normalizedUnit === "gab") return ["gab", "gab.", "gb", "pcs", "piece", "pieces"];
-  if (normalizedUnit === "tn") return ["tn", "tn.", "t", "ton", "tons", "tonna", "tonnas"];
+  if (normalizedUnit === "gab")
+    return ["gab", "gab.", "gb", "pcs", "piece", "pieces"];
+  if (normalizedUnit === "tn")
+    return ["tn", "tn.", "t", "ton", "tons", "tonna", "tonnas"];
   if (normalizedUnit === "kg") return ["kg", "kilogrami", "kilograms"];
   if (normalizedUnit === "m3") return ["m3", "m³", "kub", "kubikmetri"];
-  if (normalizedUnit === "tm" || normalizedUnit === "t.m") return ["t.m.", "tm", "t/m"];
+  if (normalizedUnit === "tm" || normalizedUnit === "t.m")
+    return ["t.m.", "tm", "t/m"];
   return [unit].filter(Boolean);
 }
 
@@ -591,7 +652,10 @@ function extractZtcAmountForUnitFromText(text: unknown, unit: string) {
   if (!aliases) return undefined;
 
   const match = source.match(
-    new RegExp(`(?:^|\\s)(\\d+(?:[,.]\\d+)?)\\s*(?:${aliases})(?=\\s|\\.|,|;|:|$)`, "i"),
+    new RegExp(
+      `(?:^|\\s)(\\d+(?:[,.]\\d+)?)\\s*(?:${aliases})(?=\\s|\\.|,|;|:|$)`,
+      "i",
+    ),
   );
   return normalizeNumber(match?.[1]);
 }
@@ -631,38 +695,42 @@ function sanitizeZtcRecordRow(row: Record<string, any>) {
     row.Location !== "Papilddarbi" &&
     row.Location_Custom_1;
   const elementAreaM2 = isElementRelatedAdditionalWork
-    ? getZtcElementAreaM2FromMetadata(row.Comments_Custom_2, row.Location_Custom_1)
+    ? getZtcElementAreaM2FromMetadata(
+        row.Comments_Custom_2,
+        row.Location_Custom_1,
+      )
     : null;
   const timeInvolved =
-    normalizeNumber(row.TimeInvolved) ?? calculateZtcEffectiveHours(row, startDate, endDate);
+    normalizeNumber(row.TimeInvolved) ??
+    calculateZtcEffectiveHours(row, startDate, endDate);
   const additionalWorkUnit =
     category === "additionalWorks"
       ? isElementRelatedAdditionalWork
-        ? defaultRate?.unit ?? normalizeZtcRateUnit(row.Units, "st")
+        ? (defaultRate?.unit ?? normalizeZtcRateUnit(row.Units, "st"))
         : "st"
       : null;
   const units =
     category === "additionalWorks"
       ? additionalWorkUnit
-      : row.Units ||
-        (category === "additionalDetails" ? "gab" : "m2");
+      : row.Units || (category === "additionalDetails" ? "gab" : "m2");
   const normalizedAdditionalWorkUnit = normalizeZtcUnitKey(units);
   const reportedAmount = getZtcReportedAmountForUnit(row, units);
   const amounts =
     category === "additionalWorks"
       ? isElementRelatedAdditionalWork && normalizedAdditionalWorkUnit === "m2"
-        ? elementAreaM2 ?? normalizeNumber(row.Amounts) ?? null
+        ? (elementAreaM2 ?? normalizeNumber(row.Amounts) ?? null)
         : normalizedAdditionalWorkUnit === "st"
-          ? timeInvolved ?? reportedAmount ?? null
-          : reportedAmount ?? null
-      : normalizeNumber(row.Amounts) ?? null;
+          ? (timeInvolved ?? reportedAmount ?? null)
+          : (reportedAmount ?? null)
+      : (normalizeNumber(row.Amounts) ?? null);
   const works =
     (category === "additionalWorks" || category === "additionalDetails") &&
     defaultRate?.task?.trim()
       ? defaultRate.task.trim()
       : row.Works || null;
-  const normalizedWorks = category === "works" ? cleanZtcWorkName(works) || null : works;
-  const hasExplicitLaborNorm = Object.prototype.hasOwnProperty.call(row, "__ztcLaborNorm");
+  const normalizedWorks =
+    category === "works" ? cleanZtcWorkName(works) || null : works;
+  const hasExplicitLaborNorm = Object.hasOwn(row, "__ztcLaborNorm");
   const explicitLaborNorm = hasExplicitLaborNorm
     ? normalizeZtcLaborNorm(row.__ztcLaborNorm)
     : null;
@@ -763,7 +831,9 @@ async function loadZtcSiteDiaryConfig(siteId: string) {
     select: { siteDiaryRecordsMap: true },
   });
 
-  const baseMap = structuredClone(ztcSiteDiaryRecordsMap as Record<string, any>);
+  const baseMap = structuredClone(
+    ztcSiteDiaryRecordsMap as Record<string, any>,
+  );
   const savedMap =
     site?.siteDiaryRecordsMap && typeof site.siteDiaryRecordsMap === "object"
       ? (site.siteDiaryRecordsMap as Record<string, any>)
@@ -773,7 +843,7 @@ async function loadZtcSiteDiaryConfig(siteId: string) {
 
   baseMap.otherSettings = {
     ...(baseMap.otherSettings ?? {}),
-    ...((savedMap.otherSettings && typeof savedMap.otherSettings === "object")
+    ...(savedMap.otherSettings && typeof savedMap.otherSettings === "object"
       ? savedMap.otherSettings
       : {}),
   };
@@ -795,7 +865,11 @@ async function loadZtcSiteDiaryConfig(siteId: string) {
   return baseMap;
 }
 
-async function loadZtcSiteDiaryRecords(args: { siteId: string; organizationId: string; date: string }) {
+async function loadZtcSiteDiaryRecords(args: {
+  siteId: string;
+  organizationId: string;
+  date: string;
+}) {
   const start = new Date(args.date);
   start.setHours(0, 0, 0, 0);
   const end = new Date(args.date);
@@ -806,18 +880,18 @@ async function loadZtcSiteDiaryRecords(args: { siteId: string; organizationId: s
       siteId: args.siteId,
       organizationId: args.organizationId,
       Date_Custom_2: { not: null },
-      NOT: [
-        { Date: null },
-        { Works: null },
-        { Works: "" },
-      ],
+      NOT: [{ Date: null }, { Works: null }, { Works: "" }],
       AND: [buildZtcNotCancelledWhere()],
       OR: [
         { Date: { gte: start, lte: end } },
         { Date_Custom_1: { gte: start, lte: end } },
       ],
     },
-    orderBy: [{ Date: "desc" }, { Date_Custom_1: "desc" }, { createdAt: "desc" }],
+    orderBy: [
+      { Date: "desc" },
+      { Date_Custom_1: "desc" },
+      { createdAt: "desc" },
+    ],
     select: {
       id: true,
       Date: true,
@@ -1006,7 +1080,10 @@ export async function getZtcRateChangeHistory(args: {
   });
 }
 
-export async function getZtcSiteDiaryRecords(args: { siteId: string; date: string }) {
+export async function getZtcSiteDiaryRecords(args: {
+  siteId: string;
+  date: string;
+}) {
   const context = await requireZtcAccess(args.siteId);
   return loadZtcSiteDiaryRecords({ ...context, date: args.date });
 }
@@ -1022,12 +1099,16 @@ export async function getZtcScopeSummary(args: {
   keyword?: string | null;
 }) {
   const context = await requireZtcAccess(args.siteId);
-  const defaultRates = getDefaultTaskRatesFromConfig(await loadZtcSiteDiaryConfig(args.siteId));
+  const defaultRates = getDefaultTaskRatesFromConfig(
+    await loadZtcSiteDiaryConfig(args.siteId),
+  );
   const projectName = String(args.projectName ?? "").trim();
   const elementName = String(args.elementName ?? "").trim();
   const workerName = String(args.workerName ?? "").trim();
   const workName = String(args.workName ?? "").trim();
-  const keyword = String(args.keyword ?? "").trim().toLowerCase();
+  const keyword = String(args.keyword ?? "")
+    .trim()
+    .toLowerCase();
   const dateFrom = normalizeDate(args.dateFrom);
   const dateTo = normalizeDate(args.dateTo);
   const dateFilter: Record<string, Date> = {};
@@ -1039,7 +1120,15 @@ export async function getZtcScopeSummary(args: {
     dateTo.setHours(23, 59, 59, 999);
     dateFilter.lte = dateTo;
   }
-  if (!projectName && !elementName && !workerName && !workName && !keyword && Object.keys(dateFilter).length === 0) return null;
+  if (
+    !projectName &&
+    !elementName &&
+    !workerName &&
+    !workName &&
+    !keyword &&
+    Object.keys(dateFilter).length === 0
+  )
+    return null;
 
   const records = await prisma.ztcRecords.findMany({
     where: {
@@ -1049,14 +1138,14 @@ export async function getZtcScopeSummary(args: {
       ...(projectName ? { Location: projectName } : {}),
       ...(elementName ? { Location_Custom_1: elementName } : {}),
       ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
-      NOT: [
-        { Date: null },
-        { Works: null },
-        { Works: "" },
-      ],
+      NOT: [{ Date: null }, { Works: null }, { Works: "" }],
       AND: [buildZtcNotCancelledWhere()],
     },
-    orderBy: [{ Date: "desc" }, { Date_Custom_1: "desc" }, { createdAt: "desc" }],
+    orderBy: [
+      { Date: "desc" },
+      { Date_Custom_1: "desc" },
+      { createdAt: "desc" },
+    ],
     select: {
       id: true,
       Date: true,
@@ -1100,7 +1189,9 @@ export async function getZtcScopeSummary(args: {
   let rows = workerName
     ? mappedRows.filter(
         (row) =>
-          String(row.createdBy ?? "").trim().toLowerCase() === normalizedWorkerName,
+          String(row.createdBy ?? "")
+            .trim()
+            .toLowerCase() === normalizedWorkerName,
       )
     : mappedRows;
   if (keyword) {
@@ -1142,11 +1233,18 @@ export async function getZtcScopeSummary(args: {
         !isZtcSummaryQualityRow(row) &&
         !isZtcSummaryAdditionalWorkRow(row) &&
         !isZtcSummaryAdditionalDetailsRow(row);
-      if (isTechnicalRow && hasZtcSummaryPlannedLaborNorm(row, resolvePlannedLaborNormFromRates)) {
+      if (
+        isTechnicalRow &&
+        hasZtcSummaryPlannedLaborNorm(row, resolvePlannedLaborNormFromRates)
+      ) {
         acc.technicalHours += payroll.hours;
       }
       acc.money += payroll.sum;
-      if (elementName && elementTotalAreaM2 == null && payroll.amountM2 > acc.elementM2) {
+      if (
+        elementName &&
+        elementTotalAreaM2 == null &&
+        payroll.amountM2 > acc.elementM2
+      ) {
         acc.elementM2 = payroll.amountM2;
       }
       return acc;
@@ -1155,46 +1253,48 @@ export async function getZtcScopeSummary(args: {
   );
 
   const relatedAdditionalRows = Array.from(
-    rows.reduce(
-      (groups, row) => {
-        const type = isZtcSummaryAdditionalDetailsRow(row)
-          ? "Papilddetāļas"
-          : isZtcSummaryAdditionalWorkRow(row)
-            ? "Papilddarbi"
-            : null;
-        if (!type) return groups;
+    rows
+      .reduce(
+        (groups, row) => {
+          const type = isZtcSummaryAdditionalDetailsRow(row)
+            ? "Papilddetāļas"
+            : isZtcSummaryAdditionalWorkRow(row)
+              ? "Papilddarbi"
+              : null;
+          if (!type) return groups;
 
-        const task = String(row.Works ?? "").trim() || "—";
-        const unit = String(row.Units ?? "").trim() || "—";
-        const key = `${type}::${task}::${unit}`;
-        const payroll = getZtcPayrollValues(row);
-        const existing = groups.get(key) ?? {
-          type,
-          task,
-          unit,
-          amount: 0,
-          hours: 0,
-          sum: 0,
-        };
+          const task = String(row.Works ?? "").trim() || "—";
+          const unit = String(row.Units ?? "").trim() || "—";
+          const key = `${type}::${task}::${unit}`;
+          const payroll = getZtcPayrollValues(row);
+          const existing = groups.get(key) ?? {
+            type,
+            task,
+            unit,
+            amount: 0,
+            hours: 0,
+            sum: 0,
+          };
 
-        existing.amount += payroll.amountM2;
-        existing.hours += payroll.hours;
-        existing.sum += payroll.sum;
-        groups.set(key, existing);
-        return groups;
-      },
-      new Map<
-        string,
-        {
-          type: string;
-          task: string;
-          unit: string;
-          amount: number;
-          hours: number;
-          sum: number;
-        }
-      >(),
-    ).values(),
+          existing.amount += payroll.amountM2;
+          existing.hours += payroll.hours;
+          existing.sum += payroll.sum;
+          groups.set(key, existing);
+          return groups;
+        },
+        new Map<
+          string,
+          {
+            type: string;
+            task: string;
+            unit: string;
+            amount: number;
+            hours: number;
+            sum: number;
+          }
+        >(),
+      )
+      .values(),
   )
     .map((row) => ({
       ...row,
@@ -1202,10 +1302,14 @@ export async function getZtcScopeSummary(args: {
       hours: Number(row.hours.toFixed(2)),
       sum: Number(row.sum.toFixed(2)),
     }))
-    .sort((a, b) => a.type.localeCompare(b.type, "lv") || a.task.localeCompare(b.task, "lv"));
+    .sort(
+      (a, b) =>
+        a.type.localeCompare(b.type, "lv") ||
+        a.task.localeCompare(b.task, "lv"),
+    );
 
   const scopeAreaM2 = elementName
-    ? elementTotalAreaM2 ?? (totals.elementM2 > 0 ? totals.elementM2 : null)
+    ? (elementTotalAreaM2 ?? (totals.elementM2 > 0 ? totals.elementM2 : null))
     : projectName
       ? projectTotalAreaM2
       : null;
@@ -1214,7 +1318,9 @@ export async function getZtcScopeSummary(args: {
     project: projectName || null,
     element: elementName || null,
     worker: workerName || null,
-    filtered: Boolean(workName || keyword || Object.keys(dateFilter).length > 0),
+    filtered: Boolean(
+      workName || keyword || Object.keys(dateFilter).length > 0,
+    ),
     rows: rows.length,
     hours: totals.hours,
     technicalHours: Number(totals.technicalHours.toFixed(2)),
@@ -1225,21 +1331,23 @@ export async function getZtcScopeSummary(args: {
         : null,
     productivity: workerName ? buildZtcProductivitySummary(rows) : null,
     elementM2: elementName
-      ? elementTotalAreaM2 ?? totals.elementM2
+      ? (elementTotalAreaM2 ?? totals.elementM2)
       : projectName
         ? projectTotalAreaM2
         : null,
     laborNormRows: buildZtcLaborNormSummaryRows(rows, {
       requirePlannedLaborNorm: true,
       resolvePlannedLaborNorm: resolvePlannedLaborNormFromRates,
-      resolveCanonicalTask: (row) => resolveRateTaskFromRates(row)?.canonicalTask,
+      resolveCanonicalTask: (row) =>
+        resolveRateTaskFromRates(row)?.canonicalTask,
     }),
     laborNormTotal: buildZtcLaborNormTotalSummary(rows, {
       plannedAmountM2: scopeAreaM2,
       actualAmountM2: scopeAreaM2,
       requirePlannedLaborNorm: true,
       resolvePlannedLaborNorm: resolvePlannedLaborNormFromRates,
-      resolveCanonicalTask: (row) => resolveRateTaskFromRates(row)?.canonicalTask,
+      resolveCanonicalTask: (row) =>
+        resolveRateTaskFromRates(row)?.canonicalTask,
     }),
     relatedAdditionalRows,
   };
@@ -1266,8 +1374,8 @@ export async function getZtcFilterOptions(args: {
   };
   const normalizeOption = (value: unknown) => String(value ?? "").trim();
   const uniqueSorted = (values: string[]) =>
-    Array.from(new Set(values.map(normalizeOption).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b, "lv"),
+    Array.from(new Set(values.map(normalizeOption).filter(Boolean))).sort(
+      (a, b) => a.localeCompare(b, "lv"),
     );
 
   const dateFrom = normalizeDate(args.dateFrom);
@@ -1286,23 +1394,32 @@ export async function getZtcFilterOptions(args: {
     siteId: context.siteId,
     organizationId: context.organizationId,
     Date_Custom_2: { not: null },
-    NOT: [
-      { Date: null },
-      { Works: null },
-      { Works: "" },
-    ],
+    NOT: [{ Date: null }, { Works: null }, { Works: "" }],
     ...(Object.keys(dateFilter).length > 0 ? { Date: dateFilter } : {}),
   };
 
   const keyword = normalizeFilter(args.keyword);
-  const contains = (value: string) => ({ contains: value, mode: "insensitive" as const });
+  const contains = (value: string) => ({
+    contains: value,
+    mode: "insensitive" as const,
+  });
   const workerCondition = (workerName: string) => {
     const containsWorker = contains(workerName);
     return {
       OR: [
         { originalUserComment: containsWorker },
-        { User: { is: { OR: [{ firstName: containsWorker }, { lastName: containsWorker }] } } },
-        { Worker: { is: { OR: [{ name: containsWorker }, { surname: containsWorker }] } } },
+        {
+          User: {
+            is: {
+              OR: [{ firstName: containsWorker }, { lastName: containsWorker }],
+            },
+          },
+        },
+        {
+          Worker: {
+            is: { OR: [{ name: containsWorker }, { surname: containsWorker }] },
+          },
+        },
       ],
     };
   };
@@ -1320,8 +1437,26 @@ export async function getZtcFilterOptions(args: {
           { Comments_Custom_2: contains(keyword) },
           { Units: contains(keyword) },
           { originalUserComment: contains(keyword) },
-          { User: { is: { OR: [{ firstName: contains(keyword) }, { lastName: contains(keyword) }] } } },
-          { Worker: { is: { OR: [{ name: contains(keyword) }, { surname: contains(keyword) }] } } },
+          {
+            User: {
+              is: {
+                OR: [
+                  { firstName: contains(keyword) },
+                  { lastName: contains(keyword) },
+                ],
+              },
+            },
+          },
+          {
+            Worker: {
+              is: {
+                OR: [
+                  { name: contains(keyword) },
+                  { surname: contains(keyword) },
+                ],
+              },
+            },
+          },
         ],
       }
     : null;
@@ -1333,8 +1468,10 @@ export async function getZtcFilterOptions(args: {
     const workerName = normalizeFilter(args.workerName);
     const workName = normalizeFilter(args.workName);
 
-    if (projectName && exclude !== "project") andFilters.push({ Location: projectName });
-    if (elementName && exclude !== "element") andFilters.push({ Location_Custom_1: elementName });
+    if (projectName && exclude !== "project")
+      andFilters.push({ Location: projectName });
+    if (elementName && exclude !== "element")
+      andFilters.push({ Location_Custom_1: elementName });
     if (
       workName &&
       exclude !== "work" &&
@@ -1342,7 +1479,8 @@ export async function getZtcFilterOptions(args: {
     ) {
       andFilters.push(buildZtcParentAwareWorkWhere(workName));
     }
-    if (workerName && exclude !== "worker") andFilters.push(workerCondition(workerName));
+    if (workerName && exclude !== "worker")
+      andFilters.push(workerCondition(workerName));
     if (keywordCondition) andFilters.push(keywordCondition);
 
     return {
@@ -1388,14 +1526,18 @@ export async function getZtcFilterOptions(args: {
   ]);
 
   const workers = workerRows.map((rec) => {
-    if (rec.User) return formatCreatorName(rec.User.firstName, rec.User.lastName);
-    if (rec.Worker) return formatCreatorName(rec.Worker.name, rec.Worker.surname);
+    if (rec.User)
+      return formatCreatorName(rec.User.firstName, rec.User.lastName);
+    if (rec.Worker)
+      return formatCreatorName(rec.Worker.name, rec.Worker.surname);
     return getCreatorNameFromOriginalComment(rec.originalUserComment);
   });
 
   return {
     projects: uniqueSorted(projectRows.map((row) => row.Location ?? "")),
-    elements: uniqueSorted(elementRows.map((row) => row.Location_Custom_1 ?? "")),
+    elements: uniqueSorted(
+      elementRows.map((row) => row.Location_Custom_1 ?? ""),
+    ),
     works: buildZtcRecordedWorkFilterOptions({
       rows: workRows,
       defaultRates,
@@ -1404,17 +1546,43 @@ export async function getZtcFilterOptions(args: {
   };
 }
 
-export async function getZtcDialogPrefetchData(args: { siteId: string; date: string }) {
-  const context = await requireZtcAccess(args.siteId);
+export async function getZtcDialogPrefetchData(args: {
+  siteId: string;
+  date: string;
+}) {
+  const trace = createPerfTrace({
+    route: "action:ztc-dialog-prefetch",
+    category: "action",
+    siteId: args.siteId,
+  });
 
-  const [config, rows, rates, elementCatalogRows] = await Promise.all([
-    loadZtcSiteDiaryConfig(args.siteId),
-    loadZtcSiteDiaryRecords({ ...context, date: args.date }),
-    getZtcDefaultTaskRates(args.siteId),
-    loadZtcProjectElementCatalog(context),
-  ]);
+  try {
+    const context = await trace.measure("access", () =>
+      requireZtcAccess(args.siteId),
+    );
+    const [config, rows, elementCatalogRows] = await Promise.all([
+      trace.measure("config", () => loadZtcSiteDiaryConfig(args.siteId)),
+      trace.measure("rows", () =>
+        loadZtcSiteDiaryRecords({ ...context, date: args.date }),
+      ),
+      trace.measure("elementCatalog", () =>
+        loadZtcProjectElementCatalog(context),
+      ),
+    ]);
+    const rates = getDefaultTaskRatesFromConfig(config);
 
-  return { config, rows, rates, elementCatalogRows };
+    trace.end({
+      status: 200,
+      extra: {
+        rowCount: rows.length,
+        elementCatalogRowCount: elementCatalogRows.length,
+      },
+    });
+    return { config, rows, rates, elementCatalogRows };
+  } catch (error) {
+    trace.fail(error, { status: 500 });
+    throw error;
+  }
 }
 
 export async function createZtcSiteDiaryRecords(args: {
@@ -1422,7 +1590,8 @@ export async function createZtcSiteDiaryRecords(args: {
   rows: Array<Record<string, any>>;
 }) {
   const { user, siteId, organizationId } = await requireZtcAccess(args.siteId);
-  const defaultRates = await getZtcDefaultTaskRates(args.siteId);
+  const config = await loadZtcSiteDiaryConfig(args.siteId);
+  const defaultRates = getDefaultTaskRatesFromConfig(config);
 
   const rows = args.rows.map((row) => ({
     userId: user.id,
@@ -1436,7 +1605,8 @@ export async function createZtcSiteDiaryRecords(args: {
     Photos: [],
   }));
 
-  if (!rows.length) return { ok: false, message: "Nav ierakstu, ko pievienot." };
+  if (!rows.length)
+    return { ok: false, message: "Nav ierakstu, ko pievienot." };
 
   await prisma.ztcRecords.createMany({ data: rows });
   return { ok: true, count: rows.length };
@@ -1447,203 +1617,263 @@ export async function saveZtcSiteDiaryDialogRows(args: {
   existingRows: Array<Record<string, any> & { id: string }>;
   newRows: Array<Record<string, any>>;
 }) {
-  const { user, siteId, organizationId } = await requireZtcAccess(args.siteId);
-  const defaultRates = await getZtcDefaultTaskRates(args.siteId);
+  const trace = createPerfTrace({
+    route: "action:ztc-dialog-save",
+    category: "action",
+    siteId: args.siteId,
+  });
+  let user: Awaited<ReturnType<typeof requireZtcAccess>>["user"];
+  let siteId: string;
+  let organizationId: string;
+  let defaultRates: ZtcProjectTaskRates[];
 
-  const storedRows = args.existingRows.length
-    ? await prisma.ztcRecords.findMany({
-        where: {
-          id: { in: args.existingRows.map((row) => row.id).filter(Boolean) },
-          siteId,
-          organizationId,
-        },
-        select: {
-          id: true,
-          Date_Custom_2: true,
-          Location: true,
-          Location_Custom_1: true,
-          Works: true,
-          Works_Custom_1: true,
-          Units: true,
-          Comments_Custom_2: true,
-        },
-      })
-    : [];
-  const storedRowsById = new Map(storedRows.map((row) => [row.id, row]));
-  const correctedAt = new Date().toISOString();
-  const normalizeElementName = (value: unknown) =>
-    String(value ?? "").trim().toLocaleLowerCase("lv");
-  const renameGroups = new Map<
-    string,
-    {
-      source: (typeof storedRows)[number];
-      previousElementName: string;
-      elementName: string;
-    }
-  >();
-
-  for (const row of args.existingRows) {
-    const storedRow = storedRowsById.get(row.id);
-    const previousElementName = String(storedRow?.Location_Custom_1 ?? "").trim();
-    const elementName = String(row.Location_Custom_1 ?? "").trim();
-    if (
-      !storedRow ||
-      !previousElementName ||
-      !elementName ||
-      normalizeElementName(previousElementName) === normalizeElementName(elementName)
-    ) {
-      continue;
-    }
-
-    const groupKey = getZtcSplitTaskRenameGroupKey(storedRow);
-    if (!groupKey) continue;
-
-    const existingGroup = renameGroups.get(groupKey);
-    if (
-      existingGroup &&
-      normalizeElementName(existingGroup.elementName) !== normalizeElementName(elementName)
-    ) {
-      throw new Error("Saistītās sadalītā darba daļas nevar pārdēvēt atšķirīgi.");
-    }
-
-    renameGroups.set(groupKey, {
-      source: storedRow,
-      previousElementName,
-      elementName,
-    });
+  try {
+    const context = await trace.measure("access", () =>
+      requireZtcAccess(args.siteId),
+    );
+    user = context.user;
+    siteId = context.siteId;
+    organizationId = context.organizationId;
+    const config = await trace.measure("config", () =>
+      loadZtcSiteDiaryConfig(args.siteId),
+    );
+    defaultRates = getDefaultTaskRatesFromConfig(config);
+  } catch (error) {
+    trace.fail(error, { status: 500 });
+    throw error;
   }
 
-  const relatedRows = (
-    await Promise.all(
-      [...renameGroups.entries()].map(async ([groupKey, correction]) => {
-        const candidates = await prisma.ztcRecords.findMany({
-          where: {
-            siteId,
-            organizationId,
-            Location: correction.source.Location,
-            Location_Custom_1: correction.source.Location_Custom_1,
-            Date_Custom_2: { not: null },
-            AND: [buildZtcNotCancelledWhere()],
-          },
-          select: {
-            id: true,
-            Date_Custom_2: true,
-            Location: true,
-            Location_Custom_1: true,
-            Works: true,
-            Works_Custom_1: true,
-            Units: true,
-            Comments_Custom_2: true,
-          },
-        });
+  try {
+    const storedRows = args.existingRows.length
+      ? await trace.measure("storedRows", () =>
+          prisma.ztcRecords.findMany({
+            where: {
+              id: {
+                in: args.existingRows.map((row) => row.id).filter(Boolean),
+              },
+              siteId,
+              organizationId,
+            },
+            select: {
+              id: true,
+              Date_Custom_2: true,
+              Location: true,
+              Location_Custom_1: true,
+              Works: true,
+              Works_Custom_1: true,
+              Units: true,
+              Comments_Custom_2: true,
+            },
+          }),
+        )
+      : [];
+    const storedRowsById = new Map(storedRows.map((row) => [row.id, row]));
+    const correctedAt = new Date().toISOString();
+    const normalizeElementName = (value: unknown) =>
+      String(value ?? "")
+        .trim()
+        .toLocaleLowerCase("lv");
+    const renameGroups = new Map<
+      string,
+      {
+        source: (typeof storedRows)[number];
+        previousElementName: string;
+        elementName: string;
+      }
+    >();
 
-        return candidates
-          .filter((candidate) => getZtcSplitTaskRenameGroupKey(candidate) === groupKey)
-          .map((candidate) => ({ candidate, correction }));
-      }),
-    )
-  ).flat();
-  const groupedCorrectionsById = new Map(
-    relatedRows.map(({ candidate, correction }) => [candidate.id, { candidate, correction }]),
-  );
+    for (const row of args.existingRows) {
+      const storedRow = storedRowsById.get(row.id);
+      const previousElementName = String(
+        storedRow?.Location_Custom_1 ?? "",
+      ).trim();
+      const elementName = String(row.Location_Custom_1 ?? "").trim();
+      if (
+        !storedRow ||
+        !previousElementName ||
+        !elementName ||
+        normalizeElementName(previousElementName) ===
+          normalizeElementName(elementName)
+      ) {
+        continue;
+      }
 
-  const existingRows = args.existingRows
-    .filter((row) => row.id)
-    .map((row) => {
-      const { id, siteId, _tempId, createdBy, ...data } = row;
-      const groupedCorrection = groupedCorrectionsById.get(id)?.correction;
-      const previousElementName =
-        groupedCorrection?.previousElementName ?? storedRowsById.get(id)?.Location_Custom_1;
-      const nextElementName = groupedCorrection?.elementName ?? data.Location_Custom_1;
-      const hasElementCorrection =
-        Boolean(previousElementName) &&
-        Boolean(nextElementName) &&
-        normalizeElementName(previousElementName) !== normalizeElementName(nextElementName);
-      const correctedData = hasElementCorrection
-        ? applyZtcElementNameChange(data, nextElementName, {
-            previousElementName,
+      const groupKey = getZtcSplitTaskRenameGroupKey(storedRow);
+      if (!groupKey) continue;
+
+      const existingGroup = renameGroups.get(groupKey);
+      if (
+        existingGroup &&
+        normalizeElementName(existingGroup.elementName) !==
+          normalizeElementName(elementName)
+      ) {
+        throw new Error(
+          "Saistītās sadalītā darba daļas nevar pārdēvēt atšķirīgi.",
+        );
+      }
+
+      renameGroups.set(groupKey, {
+        source: storedRow,
+        previousElementName,
+        elementName,
+      });
+    }
+
+    const relatedRows = (
+      await trace.measure("relatedRows", () =>
+        Promise.all(
+          [...renameGroups.entries()].map(async ([groupKey, correction]) => {
+            const candidates = await prisma.ztcRecords.findMany({
+              where: {
+                siteId,
+                organizationId,
+                Location: correction.source.Location,
+                Location_Custom_1: correction.source.Location_Custom_1,
+                Date_Custom_2: { not: null },
+                AND: [buildZtcNotCancelledWhere()],
+              },
+              select: {
+                id: true,
+                Date_Custom_2: true,
+                Location: true,
+                Location_Custom_1: true,
+                Works: true,
+                Works_Custom_1: true,
+                Units: true,
+                Comments_Custom_2: true,
+              },
+            });
+
+            return candidates
+              .filter(
+                (candidate) =>
+                  getZtcSplitTaskRenameGroupKey(candidate) === groupKey,
+              )
+              .map((candidate) => ({ candidate, correction }));
+          }),
+        ),
+      )
+    ).flat();
+    const groupedCorrectionsById = new Map(
+      relatedRows.map(({ candidate, correction }) => [
+        candidate.id,
+        { candidate, correction },
+      ]),
+    );
+
+    const existingRows = args.existingRows
+      .filter((row) => row.id)
+      .map((row) => {
+        const { id, siteId, _tempId, createdBy, ...data } = row;
+        const groupedCorrection = groupedCorrectionsById.get(id)?.correction;
+        const previousElementName =
+          groupedCorrection?.previousElementName ??
+          storedRowsById.get(id)?.Location_Custom_1;
+        const nextElementName =
+          groupedCorrection?.elementName ?? data.Location_Custom_1;
+        const hasElementCorrection =
+          Boolean(previousElementName) &&
+          Boolean(nextElementName) &&
+          normalizeElementName(previousElementName) !==
+            normalizeElementName(nextElementName);
+        const correctedData = hasElementCorrection
+          ? applyZtcElementNameChange(data, nextElementName, {
+              previousElementName,
+              audit: {
+                correctedAt,
+                correctedBy: user.id,
+              },
+            })
+          : data;
+        return {
+          id,
+          data: sanitizeZtcRecordRow({
+            ...correctedData,
+            __ztcDefaultTaskRates: defaultRates,
+          }),
+        };
+      });
+    const submittedRowIds = new Set(existingRows.map((row) => row.id));
+    const relatedElementUpdates = relatedRows
+      .filter(({ candidate }) => !submittedRowIds.has(candidate.id))
+      .map(({ candidate, correction }) => ({
+        id: candidate.id,
+        data: applyZtcElementNameChange(
+          {
+            Location_Custom_1: candidate.Location_Custom_1,
+            Comments_Custom_2: candidate.Comments_Custom_2,
+          },
+          correction.elementName,
+          {
+            previousElementName: correction.previousElementName,
             audit: {
               correctedAt,
               correctedBy: user.id,
             },
-          })
-        : data;
-      return {
-        id,
-        data: sanitizeZtcRecordRow({
-          ...correctedData,
-          __ztcDefaultTaskRates: defaultRates,
-        }),
-      };
-    });
-  const submittedRowIds = new Set(existingRows.map((row) => row.id));
-  const relatedElementUpdates = relatedRows
-    .filter(({ candidate }) => !submittedRowIds.has(candidate.id))
-    .map(({ candidate, correction }) => ({
-      id: candidate.id,
-      data: applyZtcElementNameChange(
-        {
-          Location_Custom_1: candidate.Location_Custom_1,
-          Comments_Custom_2: candidate.Comments_Custom_2,
-        },
-        correction.elementName,
-        {
-          previousElementName: correction.previousElementName,
-          audit: {
-            correctedAt,
-            correctedBy: user.id,
           },
-        },
-      ),
+        ),
+      }));
+
+    const newRows = args.newRows.map((row) => ({
+      userId: user.id,
+      siteId,
+      organizationId,
+      ...sanitizeZtcRecordRow({
+        ...row,
+        __ztcDefaultTaskRates: defaultRates,
+        __ztcSnapshotLaborNorm: true,
+      }),
+      Photos: [],
     }));
 
-  const newRows = args.newRows.map((row) => ({
-    userId: user.id,
-    siteId,
-    organizationId,
-    ...sanitizeZtcRecordRow({
-      ...row,
-      __ztcDefaultTaskRates: defaultRates,
-      __ztcSnapshotLaborNorm: true,
-    }),
-    Photos: [],
-  }));
+    if (
+      !existingRows.length &&
+      !relatedElementUpdates.length &&
+      !newRows.length
+    ) {
+      trace.end({ status: 200, extra: { updated: 0, created: 0 } });
+      return { ok: true, updated: 0, created: 0 };
+    }
 
-  if (!existingRows.length && !relatedElementUpdates.length && !newRows.length) {
-    return { ok: true, updated: 0, created: 0 };
+    await trace.measure("transaction", () =>
+      prisma.$transaction([
+        ...existingRows.map((row) =>
+          prisma.ztcRecords.updateMany({
+            where: {
+              id: row.id,
+              siteId,
+              organizationId,
+            },
+            data: row.data,
+          }),
+        ),
+        ...relatedElementUpdates.map((row) =>
+          prisma.ztcRecords.updateMany({
+            where: {
+              id: row.id,
+              siteId,
+              organizationId,
+            },
+            data: row.data,
+          }),
+        ),
+        ...(newRows.length
+          ? [prisma.ztcRecords.createMany({ data: newRows })]
+          : []),
+      ]),
+    );
+
+    const result = {
+      ok: true,
+      updated: existingRows.length + relatedElementUpdates.length,
+      created: newRows.length,
+    };
+    trace.end({ status: 200, extra: result });
+    return result;
+  } catch (error) {
+    trace.fail(error, { status: 500 });
+    throw error;
   }
-
-  await prisma.$transaction([
-    ...existingRows.map((row) =>
-      prisma.ztcRecords.updateMany({
-        where: {
-          id: row.id,
-          siteId,
-          organizationId,
-        },
-        data: row.data,
-      }),
-    ),
-    ...relatedElementUpdates.map((row) =>
-      prisma.ztcRecords.updateMany({
-        where: {
-          id: row.id,
-          siteId,
-          organizationId,
-        },
-        data: row.data,
-      }),
-    ),
-    ...(newRows.length
-      ? [prisma.ztcRecords.createMany({ data: newRows })]
-      : []),
-  ]);
-
-  return {
-    ok: true,
-    updated: existingRows.length + relatedElementUpdates.length,
-    created: newRows.length,
-  };
 }
 
 export async function updateZtcSiteDiaryRecord(args: {
@@ -1653,7 +1883,8 @@ export async function updateZtcSiteDiaryRecord(args: {
 }) {
   const context = await requireZtcAccess(args.siteId);
   const { id, siteId, _tempId, createdBy, ...row } = args;
-  const defaultRates = await getZtcDefaultTaskRates(siteId);
+  const config = await loadZtcSiteDiaryConfig(siteId);
+  const defaultRates = getDefaultTaskRatesFromConfig(config);
 
   const result = await prisma.ztcRecords.updateMany({
     where: {
@@ -1672,7 +1903,10 @@ export async function updateZtcSiteDiaryRecord(args: {
   return { ok: true, record };
 }
 
-export async function deleteZtcSiteDiaryRecord(args: { siteId: string; id: string }) {
+export async function deleteZtcSiteDiaryRecord(args: {
+  siteId: string;
+  id: string;
+}) {
   const { user, siteId, organizationId } = await requireZtcAccess(args.siteId);
 
   const record = await prisma.ztcRecords.findFirst({
@@ -1754,8 +1988,15 @@ export async function updateZtcPayrollFields(args: {
     return { ok: false, message: "Algas koeficientam jābūt derīgam skaitlim." };
   }
 
-  if (args.complexity !== "" && args.complexity != null && complexity === undefined) {
-    return { ok: false, message: "Sarežģītības koeficientam jābūt derīgam skaitlim." };
+  if (
+    args.complexity !== "" &&
+    args.complexity != null &&
+    complexity === undefined
+  ) {
+    return {
+      ok: false,
+      message: "Sarežģītības koeficientam jābūt derīgam skaitlim.",
+    };
   }
 
   const result = await prisma.ztcRecords.updateMany({

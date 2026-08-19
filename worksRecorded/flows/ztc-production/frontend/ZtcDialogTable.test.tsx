@@ -293,6 +293,7 @@ describe("ZtcDialogTable project element catalogue", () => {
 	});
 
 	it("renames every visible part of a split task without changing its m2", async () => {
+		const onSaved = jest.fn();
 		const rows = [
 			{
 				id: "11111111-1111-4111-8111-111111111111",
@@ -366,6 +367,7 @@ describe("ZtcDialogTable project element catalogue", () => {
 				initialRows={rows}
 				initialConfig={defaultConfig}
 				initialRates={[]}
+				onSaved={onSaved}
 			/>,
 		);
 
@@ -408,5 +410,6 @@ describe("ZtcDialogTable project element catalogue", () => {
 		expect(
 			savedRows.map((row: Record<string, unknown>) => row.Amounts),
 		).toEqual([6, 4]);
+		expect(onSaved).toHaveBeenCalledWith({ refreshDialog: false });
 	});
 });

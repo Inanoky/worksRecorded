@@ -1,6 +1,19 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronsUpDown, Loader2, Search, Trash2 } from "lucide-react";
+import type React from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import defaultConfig from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
+import { useMediaQuery } from "@/components/sitediary/Use-media-querty";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Table,
   TableBody,
@@ -9,31 +22,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Check, ChevronsUpDown, Loader2, Search, Trash2 } from "lucide-react";
-import { toast } from "sonner";
 import {
   deleteZtcSiteDiaryRecord,
   getZtcDialogPrefetchData,
   saveZtcSiteDiaryDialogRows,
   type ZtcProjectTaskRates,
 } from "@/flows/ztc-production/backend/actions";
-import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
-import defaultConfig from "@/components/sitediary/configs/ZTC/siteDiaryRecordsMap.json";
-import { useMediaQuery } from "@/components/sitediary/Use-media-querty";
-import { ZTC_ALL_PROJECTS_RATE_NAME } from "@/flows/ztc-production/lib/ztc-rate-constants";
-import { ZTC_RATE_UNITS } from "@/flows/ztc-production/lib/ztc-rate-units";
-import { findZtcDefaultRateForTask, type ZtcRateCategory } from "@/flows/ztc-production/lib/ztc-rate-matching";
-import { getZtcProjectCategoryRates } from "@/flows/ztc-production/lib/ztc-rate-resolver";
-import { buildZtcRateSelectOption } from "@/flows/ztc-production/lib/ztc-rate-option";
 import {
   attachZtcLaborNormToMetadata,
   clearZtcLaborNormFromMetadata,
@@ -45,7 +40,20 @@ import {
   applyZtcProjectNameChange,
   getZtcSplitTaskRenameGroupKey,
 } from "@/flows/ztc-production/lib/ztc-project-edit";
+import { ZTC_ALL_PROJECTS_RATE_NAME } from "@/flows/ztc-production/lib/ztc-rate-constants";
+import {
+  findZtcDefaultRateForTask,
+  type ZtcRateCategory,
+} from "@/flows/ztc-production/lib/ztc-rate-matching";
+import { buildZtcRateSelectOption } from "@/flows/ztc-production/lib/ztc-rate-option";
+import { getZtcProjectCategoryRates } from "@/flows/ztc-production/lib/ztc-rate-resolver";
+import { ZTC_RATE_UNITS } from "@/flows/ztc-production/lib/ztc-rate-units";
 import { cleanZtcWorkName } from "@/flows/ztc-production/lib/ztc-work-name-cleanup";
+import {
+  getSiteDiaryDialogMessages,
+  getToastMessages,
+  normalizeOrganizationLanguage,
+} from "@/lib/dashboard-i18n";
 
 type ZtcDrawingMetadata = {
   type: "ztc_drawing_context";
@@ -64,7 +72,7 @@ type ZtcDialogTableProps = {
   className?: string;
   date: Date | null;
   siteId: string | null;
-  onSaved?: () => void;
+  onSaved?: (options?: { refreshDialog?: boolean }) => void;
   organizationLanguage?: string | null;
   initialRows?: Record<string, any>[] | null;
   initialConfig?: Record<string, any> | null;
@@ -180,8 +188,12 @@ export function SearchableZtcSelect({
                 setOpen(false);
               }}
             >
-              <Check className={`mt-0.5 h-4 w-4 shrink-0 ${value === option.value ? "opacity-100" : "opacity-0"}`} />
-              <span className="min-w-0 whitespace-normal break-words">{option.label}</span>
+              <Check
+                className={`mt-0.5 h-4 w-4 shrink-0 ${value === option.value ? "opacity-100" : "opacity-0"}`}
+              />
+              <span className="min-w-0 whitespace-normal break-words">
+                {option.label}
+              </span>
             </button>
           ))}
           {canUseCustomValue ? (
@@ -224,7 +236,10 @@ function parseZtcDrawingMetadata(value: unknown): ZtcDrawingMetadata | null {
 
   try {
     const parsed = JSON.parse(value) as ZtcDrawingMetadata;
-    if (parsed?.type !== "ztc_drawing_context" || !Array.isArray(parsed.elements)) {
+    if (
+      parsed?.type !== "ztc_drawing_context" ||
+      !Array.isArray(parsed.elements)
+    ) {
       return null;
     }
     return {
@@ -263,7 +278,9 @@ const ZTC_ADDITIONAL_WORKS_LABEL = "Papilddarbi";
 function isZtcQualityRow(row: any) {
   return (
     normalizeOption(row?.Works) === ZTC_QUALITY_WORK_LABEL ||
-    String(row?.Comments_Custom_2 ?? "").includes('"type":"ztc_quality_check"') ||
+    String(row?.Comments_Custom_2 ?? "").includes(
+      '"type":"ztc_quality_check"',
+    ) ||
     String(row?.Comments_Custom_1 ?? "").startsWith("__ZTC_QA_PENDING__")
   );
 }
@@ -278,7 +295,9 @@ function splitDrawingWorkList(value: unknown) {
 function isUUID(id: unknown) {
   return (
     typeof id === "string" &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      id,
+    )
   );
 }
 
@@ -305,8 +324,13 @@ function applyZtcLaborNormDraftToMetadata(
 ) {
   const normalized = normalizeZtcLaborNorm(laborNorm);
   if (normalized === null) return clearZtcLaborNormFromMetadata(metadataValue);
-  if (normalized === undefined) return String(metadataValue ?? "").trim() || null;
-  return attachZtcLaborNormToMetadata(metadataValue, normalized, String(unit ?? "m2").trim() || "m2");
+  if (normalized === undefined)
+    return String(metadataValue ?? "").trim() || null;
+  return attachZtcLaborNormToMetadata(
+    metadataValue,
+    normalized,
+    String(unit ?? "m2").trim() || "m2",
+  );
 }
 
 const ZTC_FIELD_MAX_LENGTHS: Record<string, number> = {
@@ -372,7 +396,9 @@ function isZtcAdditionalWorkRow(row: any) {
   );
 }
 
-function getZtcSpecialCategory(row: any): "additionalDetails" | "additionalWorks" | null {
+function getZtcSpecialCategory(
+  row: any,
+): "additionalDetails" | "additionalWorks" | null {
   if (isZtcAdditionalDetailsRow(row)) return "additionalDetails";
   if (isZtcAdditionalWorkRow(row)) return "additionalWorks";
   return null;
@@ -386,8 +412,14 @@ function isValidDateValue(value: unknown) {
 
 function validateZtcFieldLengths(row: any, label: string) {
   return Object.entries(ZTC_FIELD_MAX_LENGTHS)
-    .filter(([field, maxLength]) => String(row[field] ?? "").trim().length > maxLength)
-    .map(([field, maxLength]) => `${label}: lauks "${ZTC_FIELD_LABELS[field] ?? field}" nedrīkst pārsniegt ${maxLength} zīmes.`);
+    .filter(
+      ([field, maxLength]) =>
+        String(row[field] ?? "").trim().length > maxLength,
+    )
+    .map(
+      ([field, maxLength]) =>
+        `${label}: lauks "${ZTC_FIELD_LABELS[field] ?? field}" nedrīkst pārsniegt ${maxLength} zīmes.`,
+    );
 }
 
 function getRenderableFieldsOrdered(map: Record<string, any>) {
@@ -427,8 +459,14 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
   const projects = new Map<string, string>();
   const elementsByProject = new Map<string, Map<string, string>>();
   const elementAreasByProject = new Map<string, Map<string, number>>();
-  const worksByProjectElement = new Map<string, Map<string, Map<string, string>>>();
-  const amountsByProjectElementWork = new Map<string, Map<string, Map<string, number>>>();
+  const worksByProjectElement = new Map<
+    string,
+    Map<string, Map<string, string>>
+  >();
+  const amountsByProjectElementWork = new Map<
+    string,
+    Map<string, Map<string, number>>
+  >();
   const elements = new Map<string, string>();
   const elementAreas = new Map<string, number>();
   const worksByElement = new Map<string, Map<string, string>>();
@@ -437,10 +475,14 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
   const ensureProject = (projectName: string) => {
     const projectKey = projectName.toLowerCase();
     projects.set(projectKey, projectName);
-    if (!elementsByProject.has(projectKey)) elementsByProject.set(projectKey, new Map());
-    if (!elementAreasByProject.has(projectKey)) elementAreasByProject.set(projectKey, new Map());
-    if (!worksByProjectElement.has(projectKey)) worksByProjectElement.set(projectKey, new Map());
-    if (!amountsByProjectElementWork.has(projectKey)) amountsByProjectElementWork.set(projectKey, new Map());
+    if (!elementsByProject.has(projectKey))
+      elementsByProject.set(projectKey, new Map());
+    if (!elementAreasByProject.has(projectKey))
+      elementAreasByProject.set(projectKey, new Map());
+    if (!worksByProjectElement.has(projectKey))
+      worksByProjectElement.set(projectKey, new Map());
+    if (!amountsByProjectElementWork.has(projectKey))
+      amountsByProjectElementWork.set(projectKey, new Map());
     return projectKey;
   };
 
@@ -466,7 +508,9 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
     const numericElementArea = normalizeNumber(elementArea);
     if (numericElementArea != null) {
       elementAreas.set(elementKey, numericElementArea);
-      elementAreasByProject.get(projectKey)?.set(elementKey, numericElementArea);
+      elementAreasByProject
+        .get(projectKey)
+        ?.set(elementKey, numericElementArea);
     }
 
     const workMap = worksByElement.get(elementKey) ?? new Map<string, string>();
@@ -474,20 +518,25 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
     worksByElement.set(elementKey, workMap);
 
     const projectElementWorks =
-      worksByProjectElement.get(projectKey)?.get(elementKey) ?? new Map<string, string>();
+      worksByProjectElement.get(projectKey)?.get(elementKey) ??
+      new Map<string, string>();
     projectElementWorks.set(workKey, normalizedWork);
     worksByProjectElement.get(projectKey)?.set(elementKey, projectElementWorks);
 
     const numericAmount = normalizeNumber(amount) ?? numericElementArea;
     if (numericAmount != null) {
-      const amountMap = amountsByElementWork.get(elementKey) ?? new Map<string, number>();
+      const amountMap =
+        amountsByElementWork.get(elementKey) ?? new Map<string, number>();
       amountMap.set(workKey, numericAmount);
       amountsByElementWork.set(elementKey, amountMap);
 
       const projectAmountMap =
-        amountsByProjectElementWork.get(projectKey)?.get(elementKey) ?? new Map<string, number>();
+        amountsByProjectElementWork.get(projectKey)?.get(elementKey) ??
+        new Map<string, number>();
       projectAmountMap.set(workKey, numericAmount);
-      amountsByProjectElementWork.get(projectKey)?.set(elementKey, projectAmountMap);
+      amountsByProjectElementWork
+        .get(projectKey)
+        ?.set(elementKey, projectAmountMap);
     }
   };
 
@@ -496,11 +545,18 @@ function buildZtcDrawingIndex(sourceRows: any[]) {
     if (rowProject) ensureProject(rowProject);
 
     const metadata = parseZtcDrawingMetadata(row.Comments_Custom_2);
-    const metadataProject = rowProject || normalizeOption(metadata?.projectName);
+    const metadataProject =
+      rowProject || normalizeOption(metadata?.projectName);
     for (const element of metadata?.elements ?? []) {
       const elementName = normalizeOption(element.elementName);
       for (const work of element.works ?? []) {
-        addElementWork(metadataProject, elementName, work.name ?? "", work.amountM2, element.totalAreaM2);
+        addElementWork(
+          metadataProject,
+          elementName,
+          work.name ?? "",
+          work.amountM2,
+          element.totalAreaM2,
+        );
       }
     }
 
@@ -617,7 +673,9 @@ export function ZtcDialogTable({
       ? [...(drawingIndex.elementsByProject.get(projectKey)?.values() ?? [])]
       : drawingIndex.elements;
     const options = [...projectElements];
-    if (!options.some((option) => normalizeSpecialLabel(option) === "papilddarbi")) {
+    if (
+      !options.some((option) => normalizeSpecialLabel(option) === "papilddarbi")
+    ) {
       options.push(ZTC_ADDITIONAL_WORKS_LABEL);
     }
     return options;
@@ -629,11 +687,15 @@ export function ZtcDialogTable({
     if (!normalizedElement) return [];
 
     const projectOptions = projectKey
-      ? drawingIndex.worksByProjectElement.get(projectKey)?.get(normalizedElement)
+      ? drawingIndex.worksByProjectElement
+          .get(projectKey)
+          ?.get(normalizedElement)
       : null;
     if (projectOptions?.size) return [...projectOptions.values()];
 
-    return [...(drawingIndex.worksByElement.get(normalizedElement)?.values() ?? [])];
+    return [
+      ...(drawingIndex.worksByElement.get(normalizedElement)?.values() ?? []),
+    ];
   };
 
   const getProjectWorkOptions = (projectName: string) => {
@@ -652,7 +714,11 @@ export function ZtcDialogTable({
     return [...works.values()];
   };
 
-  const getWorkAmountM2 = (elementName: string, workName: string, projectName?: string) => {
+  const getWorkAmountM2 = (
+    elementName: string,
+    workName: string,
+    projectName?: string,
+  ) => {
     const projectKey = getSelectedProjectKey(projectName ?? "");
     const normalizedElement = normalizeOption(elementName).toLowerCase();
     const normalizedWork = normalizeZtcWorkName(workName).toLowerCase();
@@ -666,7 +732,11 @@ export function ZtcDialogTable({
       : null;
     if (projectAmount != null) return projectAmount;
 
-    return drawingIndex.amountsByElementWork.get(normalizedElement)?.get(normalizedWork) ?? null;
+    return (
+      drawingIndex.amountsByElementWork
+        .get(normalizedElement)
+        ?.get(normalizedWork) ?? null
+    );
   };
 
   const getElementAreaM2 = (elementName: string, projectName?: string) => {
@@ -675,7 +745,9 @@ export function ZtcDialogTable({
     if (!normalizedElement) return null;
 
     const projectArea = projectKey
-      ? drawingIndex.elementAreasByProject.get(projectKey)?.get(normalizedElement)
+      ? drawingIndex.elementAreasByProject
+          .get(projectKey)
+          ?.get(normalizedElement)
       : null;
     if (projectArea != null) return projectArea;
 
@@ -724,25 +796,31 @@ export function ZtcDialogTable({
     row: any,
     task: string,
     category: ZtcRateCategory,
-  ) => buildZtcRateSelectOption({
-    task,
-    rates: getEffectiveRates(row.Location, category),
-    category,
-  });
+  ) =>
+    buildZtcRateSelectOption({
+      task,
+      rates: getEffectiveRates(row.Location, category),
+      category,
+    });
 
   const isAdditionalWorkOption = (row: any, task: string) =>
     Boolean(getSpecialRateEntry(row, "additionalWorks", task));
 
   const getUnitOptions = (row: any) => {
-    const configuredOptions = Object.values(fieldMap.Units?.DropDownOptions ?? {})
+    const configuredOptions = Object.values(
+      fieldMap.Units?.DropDownOptions ?? {},
+    )
       .map((label) => String(label))
       .filter(Boolean);
     const fallbackOptions = getZtcSpecialCategory(row)
       ? ZTC_RATE_UNITS.map((unit) => String(unit))
       : ["m2"];
     const currentUnit = normalizeOption(row.Units);
-    return Array.from(new Set([...configuredOptions, ...fallbackOptions, currentUnit].filter(Boolean)))
-      .map((label) => ({ value: label, label }));
+    return Array.from(
+      new Set(
+        [...configuredOptions, ...fallbackOptions, currentUnit].filter(Boolean),
+      ),
+    ).map((label) => ({ value: label, label }));
   };
 
   const getDropdownOptions = (field: string, row: any) => {
@@ -762,7 +840,9 @@ export function ZtcDialogTable({
 
     if (field === "Works") {
       if (isZtcQualityRow(row)) {
-        return [{ value: ZTC_QUALITY_WORK_LABEL, label: ZTC_QUALITY_WORK_LABEL }];
+        return [
+          { value: ZTC_QUALITY_WORK_LABEL, label: ZTC_QUALITY_WORK_LABEL },
+        ];
       }
 
       const specialCategory = getZtcSpecialCategory(row);
@@ -776,15 +856,18 @@ export function ZtcDialogTable({
       const rateOptions = getStandardRateOptions(row.Location);
       const additionalOptions = getSpecialRateOptions(row, "additionalWorks");
       const seen = new Set<string>();
-      const workOptions = [...rateOptions, ...additionalOptions].filter((label) => {
-        const key = normalizeZtcWorkName(label).toLowerCase();
-        if (!key || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const workOptions = [...rateOptions, ...additionalOptions].filter(
+        (label) => {
+          const key = normalizeZtcWorkName(label).toLowerCase();
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        },
+      );
       return workOptions.map((task) => {
         const standardOption = getRateSelectOption(row, task, "works");
-        if (standardOption.label !== standardOption.value) return standardOption;
+        if (standardOption.label !== standardOption.value)
+          return standardOption;
         return getRateSelectOption(row, task, "additionalWorks");
       });
     }
@@ -807,12 +890,15 @@ export function ZtcDialogTable({
 
   const handleChange = (rowKey: string, field: string, value: any) => {
     hasClientEditsRef.current = true;
-    const selectedRow = rows.find((row) => row.id === rowKey || row._tempId === rowKey);
+    const selectedRow = rows.find(
+      (row) => row.id === rowKey || row._tempId === rowKey,
+    );
     const isElementRename =
       field === "Location_Custom_1" &&
       normalizeSpecialLabel(value) !== "papilddarbi" &&
-      normalizeOption(selectedRow?.Location_Custom_1).toLocaleLowerCase("lv") !==
-        normalizeOption(value).toLocaleLowerCase("lv");
+      normalizeOption(selectedRow?.Location_Custom_1).toLocaleLowerCase(
+        "lv",
+      ) !== normalizeOption(value).toLocaleLowerCase("lv");
     const splitRenameGroupKey = isElementRename
       ? getZtcSplitTaskRenameGroupKey(selectedRow)
       : null;
@@ -872,7 +958,9 @@ export function ZtcDialogTable({
               next.Works = "";
               next.Amounts = "";
               next[ZTC_LABOR_NORM_FIELD] = "";
-              next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
+              next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(
+                next.Comments_Custom_2,
+              );
             }
             return next;
           }
@@ -883,7 +971,9 @@ export function ZtcDialogTable({
 
           const workOptions = getElementWorkOptions(value, next.Location);
           const projectWorkOptions = getProjectWorkOptions(next.Location);
-          const isKnownProjectWork = projectWorkOptions.some((option) => option === next.Works);
+          const isKnownProjectWork = projectWorkOptions.some(
+            (option) => option === next.Works,
+          );
           const isConfiguredStandardWork = Boolean(
             getStandardRateEntry(next.Location, next.Works),
           );
@@ -896,8 +986,12 @@ export function ZtcDialogTable({
               next.Works = "";
               next.Amounts = "";
               next[ZTC_LABOR_NORM_FIELD] = "";
-              next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
-              if (normalizeSpecialLabel(next.Works_Custom_1) === "papilddarbi") {
+              next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(
+                next.Comments_Custom_2,
+              );
+              if (
+                normalizeSpecialLabel(next.Works_Custom_1) === "papilddarbi"
+              ) {
                 next.Works_Custom_1 = "";
               }
             }
@@ -919,7 +1013,9 @@ export function ZtcDialogTable({
             const rate = getSpecialRateEntry(next, specialCategory, value);
             if (rate?.rate) next.Location_Custom_2 = rate.rate;
             next[ZTC_LABOR_NORM_FIELD] = "";
-            next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
+            next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(
+              next.Comments_Custom_2,
+            );
             if (specialCategory === "additionalDetails") {
               next.Units = rate?.unit ?? next.Units ?? "gab";
             } else {
@@ -930,12 +1026,15 @@ export function ZtcDialogTable({
                 normalizeOption(next.Location_Custom_1) &&
                 normalizeSpecialLabel(next.Location_Custom_1) !== "papilddarbi";
               const unit = isElementRelatedAdditionalWork
-                ? rate?.unit ?? next.Units ?? "st"
+                ? (rate?.unit ?? next.Units ?? "st")
                 : "st";
               next.Units = unit;
               const unitKey = normalizeUnitKey(unit);
               if (isElementRelatedAdditionalWork && unitKey === "m2") {
-                const amountM2 = getElementAreaM2(next.Location_Custom_1, next.Location);
+                const amountM2 = getElementAreaM2(
+                  next.Location_Custom_1,
+                  next.Location,
+                );
                 next.Amounts = amountM2 != null ? String(amountM2) : "";
               } else if (unitKey === "st") {
                 next.Amounts = normalizeOption(next.TimeInvolved);
@@ -948,12 +1047,19 @@ export function ZtcDialogTable({
 
           if (isZtcQualityRow(next)) return next;
 
-          const additionalRate = getSpecialRateEntry(next, "additionalWorks", value);
+          const additionalRate = getSpecialRateEntry(
+            next,
+            "additionalWorks",
+            value,
+          );
           if (additionalRate) {
             next.Works_Custom_1 = ZTC_ADDITIONAL_WORKS_LABEL;
-            if (additionalRate.rate) next.Location_Custom_2 = additionalRate.rate;
+            if (additionalRate.rate)
+              next.Location_Custom_2 = additionalRate.rate;
             next[ZTC_LABOR_NORM_FIELD] = "";
-            next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(next.Comments_Custom_2);
+            next.Comments_Custom_2 = clearZtcLaborNormFromMetadata(
+              next.Comments_Custom_2,
+            );
 
             const isElementRelatedAdditionalWork =
               additionalRate.relatesToElement === true &&
@@ -961,17 +1067,23 @@ export function ZtcDialogTable({
               normalizeSpecialLabel(next.Location) !== "papilddarbi" &&
               normalizeOption(next.Location_Custom_1) &&
               normalizeSpecialLabel(next.Location_Custom_1) !== "papilddarbi";
-            if (!isElementRelatedAdditionalWork && normalizeSpecialLabel(next.Location) !== "papilddarbi") {
+            if (
+              !isElementRelatedAdditionalWork &&
+              normalizeSpecialLabel(next.Location) !== "papilddarbi"
+            ) {
               next.Location_Custom_1 = ZTC_ADDITIONAL_WORKS_LABEL;
             }
 
             const unit = isElementRelatedAdditionalWork
-              ? additionalRate.unit ?? next.Units ?? "st"
+              ? (additionalRate.unit ?? next.Units ?? "st")
               : "st";
             next.Units = unit;
             const unitKey = normalizeUnitKey(unit);
             if (isElementRelatedAdditionalWork && unitKey === "m2") {
-              const amountM2 = getElementAreaM2(next.Location_Custom_1, next.Location);
+              const amountM2 = getElementAreaM2(
+                next.Location_Custom_1,
+                next.Location,
+              );
               next.Amounts = amountM2 != null ? String(amountM2) : "";
             } else if (unitKey === "st") {
               next.Amounts = normalizeOption(next.TimeInvolved);
@@ -1006,7 +1118,9 @@ export function ZtcDialogTable({
   };
 
   const handleDeleteRow = async (row: any) => {
-    const confirmed = window.confirm("Dzēst šo žurnāla ierakstu? Šo darbību nevarēs atsaukt.");
+    const confirmed = window.confirm(
+      "Dzēst šo žurnāla ierakstu? Šo darbību nevarēs atsaukt.",
+    );
     if (!confirmed) return;
 
     if (row.id) {
@@ -1014,7 +1128,7 @@ export function ZtcDialogTable({
       await deleteZtcSiteDiaryRecord({ siteId, id: row.id });
       invalidateCurrentPrefetchCache();
       toast.success(toastMessages.diaryRowDeleted);
-      onSaved?.();
+      onSaved?.({ refreshDialog: true });
       return;
     }
 
@@ -1030,8 +1144,15 @@ export function ZtcDialogTable({
 
     const validationErrors: string[] = [];
     const normalizeDialogRowForSave = (row: any) => {
-      const inferredAdditionalRate = getSpecialRateEntry(row, "additionalWorks", row.Works);
-      if (!inferredAdditionalRate && normalizeSpecialLabel(row.Location_Custom_1) !== "papilddarbi") {
+      const inferredAdditionalRate = getSpecialRateEntry(
+        row,
+        "additionalWorks",
+        row.Works,
+      );
+      if (
+        !inferredAdditionalRate &&
+        normalizeSpecialLabel(row.Location_Custom_1) !== "papilddarbi"
+      ) {
         return row;
       }
 
@@ -1051,7 +1172,9 @@ export function ZtcDialogTable({
       return next;
     };
 
-    const rowsToSave = rows.filter(hasAnyRowValue).map(normalizeDialogRowForSave);
+    const rowsToSave = rows
+      .filter(hasAnyRowValue)
+      .map(normalizeDialogRowForSave);
 
     rowsToSave.forEach((row, index) => {
       const label = `Rinda ${index + 1}`;
@@ -1087,21 +1210,30 @@ export function ZtcDialogTable({
       }
 
       if (start && end && end.getTime() < start.getTime()) {
-        validationErrors.push(`${label}: beigu laiks nevar būt pirms sākuma laika.`);
+        validationErrors.push(
+          `${label}: beigu laiks nevar būt pirms sākuma laika.`,
+        );
       }
 
-      if (row.Amounts !== "" && row.Amounts != null && (amount == null || amount < 0)) {
+      if (
+        row.Amounts !== "" &&
+        row.Amounts != null &&
+        (amount == null || amount < 0)
+      ) {
         validationErrors.push(`${label}: daudzumam jābūt pozitīvam skaitlim.`);
       }
 
-      if (row.TimeInvolved !== "" && row.TimeInvolved != null && (hours == null || hours < 0)) {
+      if (
+        row.TimeInvolved !== "" &&
+        row.TimeInvolved != null &&
+        (hours == null || hours < 0)
+      ) {
         validationErrors.push(`${label}: stundām jābūt pozitīvam skaitlim.`);
       }
 
       if (laborNorm === undefined) {
         validationErrors.push(`${label}: plānam jābūt derīgam skaitlim.`);
       }
-
     });
 
     if (!rowsToSave.length) {
@@ -1126,7 +1258,9 @@ export function ZtcDialogTable({
       };
     };
 
-    const existingRows = rowsToSave.filter((row) => isUUID(row.id) && dirtyRowKeys.has(row.id));
+    const existingRows = rowsToSave.filter(
+      (row) => isUUID(row.id) && dirtyRowKeys.has(row.id),
+    );
     const newRows = rowsToSave.filter((row) => !isUUID(row.id));
 
     if (!existingRows.length && !newRows.length) {
@@ -1154,7 +1288,7 @@ export function ZtcDialogTable({
       );
       setDirtyRowKeys(new Set());
       hasClientEditsRef.current = false;
-      onSaved?.();
+      onSaved?.({ refreshDialog: newRows.length > 0 });
     } catch (error: any) {
       toast.error(error?.message ?? toastMessages.somethingWentWrong);
     } finally {
@@ -1163,7 +1297,9 @@ export function ZtcDialogTable({
   };
 
   const getDisplayName = (field: string) =>
-    field === ZTC_LABOR_NORM_FIELD ? "Plāns" : fieldMap[field]?.DisplayName ?? field;
+    field === ZTC_LABOR_NORM_FIELD
+      ? "Plāns"
+      : (fieldMap[field]?.DisplayName ?? field);
   const getCellWidth = (field: string, fallback = 180) =>
     fieldMap[field]?.customSettings?.cellWidth ?? fallback;
 
@@ -1268,7 +1404,9 @@ export function ZtcDialogTable({
         }
       }
 
-      return <span className="text-sm text-muted-foreground">{String(value)}</span>;
+      return (
+        <span className="text-sm text-muted-foreground">{String(value)}</span>
+      );
     }
 
     if (type === "dropdown") {
@@ -1285,7 +1423,10 @@ export function ZtcDialogTable({
           value={currentValue}
           options={mergedOptions.map((option) => ({
             value: option.value,
-            label: field === "Units" ? t.unitLabels[option.label] ?? option.label : option.label,
+            label:
+              field === "Units"
+                ? (t.unitLabels[option.label] ?? option.label)
+                : option.label,
           }))}
           placeholder={t.select}
           width={width}
@@ -1342,8 +1483,14 @@ export function ZtcDialogTable({
       const laborNormIndex = visibleFields.indexOf(ZTC_LABOR_NORM_FIELD);
       if (laborNormIndex >= 0) visibleFields.splice(laborNormIndex, 1);
       const timeIndex = visibleFields.indexOf("TimeInvolved");
-      visibleFields.splice(timeIndex >= 0 ? timeIndex + 1 : visibleFields.length, 0, ZTC_LABOR_NORM_FIELD);
-      const fieldsToKeep = Array.from(new Set([...renderableFields, ...HIDDEN_FIELDS_TO_KEEP]));
+      visibleFields.splice(
+        timeIndex >= 0 ? timeIndex + 1 : visibleFields.length,
+        0,
+        ZTC_LABOR_NORM_FIELD,
+      );
+      const fieldsToKeep = Array.from(
+        new Set([...renderableFields, ...HIDDEN_FIELDS_TO_KEEP]),
+      );
       const completedRows = data.rows
         .filter(isCompletedZtcDiaryRow)
         .filter((row) => !focusedRecordId || row.id === focusedRecordId);
@@ -1358,7 +1505,9 @@ export function ZtcDialogTable({
         id: row.id ?? undefined,
         _tempId: crypto.randomUUID(),
         createdBy: row.createdBy ?? "",
-        ...Object.fromEntries(fieldsToKeep.map((field) => [field, row[field] ?? ""])),
+        ...Object.fromEntries(
+          fieldsToKeep.map((field) => [field, row[field] ?? ""]),
+        ),
         [ZTC_LABOR_NORM_FIELD]: getZtcLaborNormDraft(row.Comments_Custom_2),
       }));
       setDirtyRowKeys(new Set());
@@ -1370,9 +1519,7 @@ export function ZtcDialogTable({
               .map((row) => [String(row.id), row]),
           );
           const currentIds = new Set(
-            currentRows
-              .filter((row) => row.id)
-              .map((row) => String(row.id)),
+            currentRows.filter((row) => row.id).map((row) => String(row.id)),
           );
           return [
             ...currentRows.flatMap((row) => {
@@ -1408,11 +1555,11 @@ export function ZtcDialogTable({
         })
           .then((data) => {
             ztcDialogPrefetchCache.set(adjacentKey, {
-            config: ((data.config ?? defaultConfig) as Record<string, any>),
-            rows: data.rows,
-            rates: data.rates,
-            elementCatalogRows: data.elementCatalogRows,
-          });
+              config: (data.config ?? defaultConfig) as Record<string, any>,
+              rows: data.rows,
+              rates: data.rates,
+              elementCatalogRows: data.elementCatalogRows,
+            });
           })
           .catch(() => {
             // Best-effort prefetch only; visible load path handles user errors.
@@ -1470,7 +1617,7 @@ export function ZtcDialogTable({
         if (cancelled) return;
 
         const cacheEntry = {
-          config: ((data.config ?? defaultConfig) as Record<string, any>),
+          config: (data.config ?? defaultConfig) as Record<string, any>,
           rows: data.rows,
           rates: data.rates,
           elementCatalogRows: data.elementCatalogRows,
@@ -1501,7 +1648,10 @@ export function ZtcDialogTable({
   if (loading) return <div className="p-4">{t.loading}</div>;
 
   return (
-    <form onSubmit={handleSubmit} className={`${className ?? ""} flex min-h-0 flex-1 flex-col`}>
+    <form
+      onSubmit={handleSubmit}
+      className={`${className ?? ""} flex min-h-0 flex-1 flex-col`}
+    >
       <div className="sticky top-0 z-10 flex items-center justify-end gap-2 border-b bg-background/95 pb-3 backdrop-blur">
         {!focusedRecordId ? (
           <Button
@@ -1533,7 +1683,14 @@ export function ZtcDialogTable({
           <TableHeader>
             <TableRow className="bg-muted/60 hover:bg-muted/60">
               {tableHeads.map((field) => (
-                <TableHead key={field} className="h-10 whitespace-nowrap text-xs font-semibold uppercase tracking-normal text-muted-foreground" style={{ width: getControlWidth(field), minWidth: getControlWidth(field) }}>
+                <TableHead
+                  key={field}
+                  className="h-10 whitespace-nowrap text-xs font-semibold uppercase tracking-normal text-muted-foreground"
+                  style={{
+                    width: getControlWidth(field),
+                    minWidth: getControlWidth(field),
+                  }}
+                >
                   {getDisplayName(field)}
                 </TableHead>
               ))}
@@ -1547,7 +1704,16 @@ export function ZtcDialogTable({
               return (
                 <TableRow key={rowKey}>
                   {tableHeads.map((field) => (
-                    <TableCell key={field} className="align-top py-2" style={{ width: getControlWidth(field), minWidth: getControlWidth(field) }}>{renderCell(field, row)}</TableCell>
+                    <TableCell
+                      key={field}
+                      className="align-top py-2"
+                      style={{
+                        width: getControlWidth(field),
+                        minWidth: getControlWidth(field),
+                      }}
+                    >
+                      {renderCell(field, row)}
+                    </TableCell>
                   ))}
                   {!focusedRecordId ? (
                     <TableCell>

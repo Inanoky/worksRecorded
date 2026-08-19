@@ -1,27 +1,25 @@
 "use client";
 import * as React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import TourRunner from "@/components/joyride/TourRunner";
+import { DialogTable } from "@/components/sitediary/DiealogueTable";
+import ImageGallery from "@/components/sitediary/ImageGallery";
 import { Button } from "@/components/ui/button";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import { DialogTable } from "@/components/sitediary/DiealogueTable";
-import { ZtcDialogTable } from "@/flows/ztc-production/frontend/ZtcDialogTable";
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ZtcProjectTaskRates } from "@/flows/ztc-production/backend/actions";
-import ImageGallery from "@/components/sitediary/ImageGallery";
-import TourRunner from "@/components/joyride/TourRunner";
-import { getSiteDiaryDialogMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
+import { ZtcDialogTable } from "@/flows/ztc-production/frontend/ZtcDialogTable";
+import {
+  getSiteDiaryDialogMessages,
+  normalizeOrganizationLanguage,
+} from "@/lib/dashboard-i18n";
 
 type DialogWindowProps = {
   open: any;
@@ -54,12 +52,21 @@ export default function DialogWindow({
   initialTab = "records",
 }: DialogWindowProps) {
   const [refreshKey, setRefreshKey] = React.useState(0);
-  const [selectedTab, setSelectedTab] = React.useState<"records" | "media">("records");
-  const t = getSiteDiaryDialogMessages(normalizeOrganizationLanguage(organizationLanguage));
-  const dateLocale = normalizeOrganizationLanguage(organizationLanguage) === "lv" ? "lv-LV" : "en-GB";
-  const handleSaved = async () => {
+  const [selectedTab, setSelectedTab] = React.useState<"records" | "media">(
+    "records",
+  );
+  const t = getSiteDiaryDialogMessages(
+    normalizeOrganizationLanguage(organizationLanguage),
+  );
+  const dateLocale =
+    normalizeOrganizationLanguage(organizationLanguage) === "lv"
+      ? "lv-LV"
+      : "en-GB";
+  const handleSaved = async (options?: { refreshDialog?: boolean }) => {
     await onSaved?.();
-    setRefreshKey((key) => key + 1);
+    if (!isZtcFlow || options?.refreshDialog) {
+      setRefreshKey((key) => key + 1);
+    }
   };
 
   React.useEffect(() => {
@@ -100,7 +107,9 @@ export default function DialogWindow({
       >
         <Tabs
           value={selectedTab}
-          onValueChange={(value) => setSelectedTab(value === "media" ? "media" : "records")}
+          onValueChange={(value) =>
+            setSelectedTab(value === "media" ? "media" : "records")
+          }
           className="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-0 sm:pb-0"
         >
           <div
@@ -140,7 +149,9 @@ export default function DialogWindow({
             className="mt-0 min-h-0 flex-1 overflow-y-auto"
           >
             <div data-tour="dialog-table">
-              {initialTab === "media" && !initialRows?.length && !focusedRecordId ? (
+              {initialTab === "media" &&
+              !initialRows?.length &&
+              !focusedRecordId ? (
                 <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
                   {t.photosOnlyEmptyRows}
                 </div>
