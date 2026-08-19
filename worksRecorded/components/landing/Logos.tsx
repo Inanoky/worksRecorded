@@ -12,7 +12,9 @@ type Client = {
 	name: string;
 	descriptionKey: string;
 	href: string;
-	logo: StaticImageData;
+	logo: StaticImageData | string;
+	logoWidth?: number;
+	logoHeight?: number;
 };
 
 const CLIENTS: Client[] = [
@@ -34,6 +36,14 @@ const CLIENTS: Client[] = [
 		href: "https://ztc.lv/",
 		logo: ZtcLogo,
 	},
+	{
+		name: "Stone & Tree",
+		descriptionKey: "clientStoneAndTreeDescription",
+		href: "https://stoneandtree.lv/",
+		logo: "/logos/stone-and-tree.svg",
+		logoWidth: 844,
+		logoHeight: 300,
+	},
 ];
 
 export function Logos() {
@@ -43,23 +53,60 @@ export function Logos() {
 		<section className="relative bg-transparent">
 			<div className="mx-auto w-full max-w-[1440px] px-5 pb-20 pt-10 sm:px-8 lg:px-10 lg:pb-28 lg:pt-12 xl:px-14">
 				{/* Logo strip */}
-				<div className="grid grid-cols-1 items-center gap-6 sm:grid-cols-3">
-					{CLIENTS.map((client) => (
-						<Link
-							key={client.name}
-							href={client.href}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="group flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-6 shadow-sm ring-1 ring-black/5 transition hover:shadow-md hover:ring-[#b8dfcc] dark:border-slate-800 dark:bg-slate-900 dark:ring-white/5 dark:hover:ring-emerald-900"
-						>
-							<Image
-								src={client.logo}
-								alt={client.name}
-								className="max-h-10 w-auto object-contain"
-							/>
-						</Link>
-					))}
+				<div className="logo-marquee overflow-hidden py-1 [mask-image:linear-gradient(to_right,transparent,black_4%,black_96%,transparent)]">
+					<div className="logo-marquee-track flex w-max items-center gap-6">
+						{[...CLIENTS, ...CLIENTS].map((client, index) => (
+							<Link
+								key={`${client.name}-${index}`}
+								href={client.href}
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-hidden={index >= CLIENTS.length}
+								tabIndex={index >= CLIENTS.length ? -1 : undefined}
+								className="group flex h-[84px] w-[260px] shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-8 py-5 shadow-sm ring-1 ring-black/5 transition hover:shadow-md hover:ring-[#b8dfcc] sm:w-[280px] dark:border-slate-800 dark:bg-white dark:ring-white/5 dark:hover:ring-emerald-900"
+							>
+								<Image
+									src={client.logo}
+									alt={client.name}
+									width={client.logoWidth}
+									height={client.logoHeight}
+									className="max-h-10 w-auto object-contain"
+								/>
+							</Link>
+						))}
+					</div>
 				</div>
+
+				<style jsx>{`
+					.logo-marquee-track {
+						animation: logo-marquee 24s linear infinite;
+					}
+
+					.logo-marquee:hover .logo-marquee-track,
+					.logo-marquee:focus-within .logo-marquee-track {
+						animation-play-state: paused;
+					}
+
+					@keyframes logo-marquee {
+						from {
+							transform: translateX(0);
+						}
+						to {
+							transform: translateX(calc(-50% - 0.75rem));
+						}
+					}
+
+					@media (prefers-reduced-motion: reduce) {
+						.logo-marquee {
+							overflow-x: auto;
+							mask-image: none;
+						}
+
+						.logo-marquee-track {
+							animation: none;
+						}
+					}
+				`}</style>
 
 				<p className="mt-5 text-center text-xs font-medium leading-5 text-slate-500/80 dark:text-slate-400/80">
 					{t("clientsSubheading")}
@@ -67,7 +114,12 @@ export function Logos() {
 
 				<div className="hidden mt-6 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
 					{CLIENTS.map((client) => {
-						const paragraphs = t.raw(client.descriptionKey) as string[];
+						const rawParagraphs = t.raw(client.descriptionKey);
+						const paragraphs = Array.isArray(rawParagraphs)
+							? rawParagraphs.filter(
+									(paragraph): paragraph is string => typeof paragraph === "string",
+								)
+							: [];
 						return (
 							<div
 								key={client.name}
