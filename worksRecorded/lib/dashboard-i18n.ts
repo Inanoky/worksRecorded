@@ -72,6 +72,7 @@ type SiteDiaryListMessages = {
   noWorksRecorded: string;
   workers: string;
   hours: string;
+  manHours: string;
   noComments: string;
   bisApproved: string;
   bisPending: string;
@@ -724,6 +725,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     noWorksRecorded: "No works recorded",
     workers: "Workers",
     hours: "Hours",
+    manHours: "Man-hours",
     noComments: "No comments",
     bisApproved: "BIS approved",
     bisPending: "BIS pending",
@@ -840,6 +842,7 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     noWorksRecorded: "Nav reģistrētu darbu",
     workers: "Darbinieki",
     hours: "Stundas",
+    manHours: "Cilvēkstundas",
     noComments: "Nav komentāru",
     bisApproved: "BIS apstiprināts",
     bisPending: "BIS gaida apstiprinājumu",

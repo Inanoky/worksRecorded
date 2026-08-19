@@ -19,8 +19,8 @@ export type DefaultConstructionSummarySourceRow = {
   Works?: string | null;
   Units?: string | null;
   Amounts?: number | null;
-  WorkersInvolved?: number | null;
-  TimeInvolved?: number | null;
+  WorkersInvolved?: number | string | null;
+  TimeInvolved?: number | string | null;
 };
 
 export type DefaultConstructionQuantityTotal = {
@@ -107,6 +107,22 @@ function isPresentFiniteNumber(value: unknown) {
   );
 }
 
+export function calculateDefaultConstructionManHours(
+  row: Pick<
+    DefaultConstructionSummarySourceRow,
+    "WorkersInvolved" | "TimeInvolved"
+  >,
+) {
+  if (
+    !isPresentFiniteNumber(row.WorkersInvolved) ||
+    !isPresentFiniteNumber(row.TimeInvolved)
+  ) {
+    return null;
+  }
+
+  return Number(row.WorkersInvolved) * Number(row.TimeInvolved);
+}
+
 function addQuantity(
   map: Map<string, number>,
   unitValue: unknown,
@@ -165,7 +181,8 @@ export function buildDefaultConstructionScopeSummary(args: {
 
   for (const row of summaryRows) {
     const workers = finiteNumber(row.WorkersInvolved);
-    const hours = finiteNumber(row.TimeInvolved);
+    const manHours = calculateDefaultConstructionManHours(row);
+    const hours = manHours ?? 0;
     totals.workers += workers;
     totals.hours += hours;
     addQuantity(quantities, row.Units, row.Amounts);
@@ -194,13 +211,13 @@ export function buildDefaultConstructionScopeSummary(args: {
     current.amount += finiteNumber(row.Amounts);
     current.workers += workers;
     current.hours += hours;
-    if (isPresentFiniteNumber(row.TimeInvolved)) current.hoursRecords += 1;
+    if (manHours != null) current.hoursRecords += 1;
     if (
       isPresentFiniteNumber(row.Amounts) &&
-      isPresentFiniteNumber(row.TimeInvolved)
+      manHours != null
     ) {
       current.comparedAmount += Number(row.Amounts);
-      current.comparedHours += Number(row.TimeInvolved);
+      current.comparedHours += manHours;
       current.comparedRecords += 1;
     }
     breakdown.set(key, current);

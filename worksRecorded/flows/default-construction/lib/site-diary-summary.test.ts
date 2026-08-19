@@ -1,4 +1,7 @@
-import { buildDefaultConstructionScopeSummary } from "./site-diary-summary";
+import {
+  buildDefaultConstructionScopeSummary,
+  calculateDefaultConstructionManHours,
+} from "./site-diary-summary";
 
 describe("default-construction site diary summaries", () => {
   const rows = [
@@ -31,6 +34,21 @@ describe("default-construction site diary summaries", () => {
     },
   ];
 
+  it("calculates man-hours only when both workers and hours are present", () => {
+    expect(
+      calculateDefaultConstructionManHours({
+        WorkersInvolved: 3,
+        TimeInvolved: 8,
+      }),
+    ).toBe(24);
+    expect(
+      calculateDefaultConstructionManHours({
+        WorkersInvolved: null,
+        TimeInvolved: 8,
+      }),
+    ).toBeNull();
+  });
+
   it("aggregates a location and breaks it down by work and unit", () => {
     const result = buildDefaultConstructionScopeSummary({
       scope: "location",
@@ -41,7 +59,7 @@ describe("default-construction site diary summaries", () => {
     expect(result).toMatchObject({
       records: 3,
       workers: 5,
-      hours: 15,
+      hours: 36,
       quantities: [
         { unit: "m2", amount: 20 },
         { unit: "tn", amount: 1.25 },
@@ -53,13 +71,13 @@ describe("default-construction site diary summaries", () => {
         label: "Masonry",
         unit: "m2",
         amount: 20,
-        hours: 14,
+        hours: 36,
       }),
       expect.objectContaining({
         label: "Material delivery",
         unit: "tn",
         amount: 1.25,
-        hours: 1,
+        hours: 0,
       }),
     ]);
   });
@@ -84,8 +102,8 @@ describe("default-construction site diary summaries", () => {
         comparableGroups: 1,
         totalGroups: 2,
         plannedHours: 11.25,
-        actualHours: 16,
-        hoursDifference: 3.75,
+        actualHours: 39,
+        hoursDifference: 27.75,
         status: "behind",
       },
     });
@@ -170,13 +188,13 @@ describe("default-construction site diary summaries", () => {
         label: "Masonry",
         unit: "m2",
         amount: 24,
-        hours: 16,
+        hours: 42,
       }),
       expect.objectContaining({
         label: "Masonry",
         unit: "pcs",
         amount: 3,
-        hours: 1,
+        hours: 3,
       }),
     ]);
     expect(result.breakdown.every((row) => !row.label.includes("Floor"))).toBe(
@@ -206,17 +224,17 @@ describe("default-construction site diary summaries", () => {
     expect(result.breakdown[0]).toMatchObject({
       unit: "m2",
       plannedHours: 10,
-      hours: 14,
+      hours: 36,
       plannedNorm: 0.5,
-      actualNorm: 0.7,
-      hoursDifference: 4,
-      normDifference: 0.2,
+      actualNorm: 1.8,
+      hoursDifference: 26,
+      normDifference: 1.3,
       hourlyCost: 20,
       plannedCost: 200,
-      actualCost: 280,
-      costDifference: 80,
+      actualCost: 720,
+      costDifference: 520,
       plannedUnitCost: 10,
-      actualUnitCost: 14,
+      actualUnitCost: 36,
       comparisonStatus: "behind",
       matchesConfiguredUnit: true,
       hasConfiguredPlan: true,
@@ -238,15 +256,15 @@ describe("default-construction site diary summaries", () => {
       plannedGroups: 1,
       actualGroups: 2,
       plannedHours: 10,
-      actualHours: 15,
-      hoursDifference: 4,
+      actualHours: 39,
+      hoursDifference: 26,
       status: "behind",
       costComparableGroups: 1,
       plannedCostGroups: 1,
       actualCostGroups: 2,
       plannedCost: 200,
-      actualCost: 300,
-      costDifference: 80,
+      actualCost: 780,
+      costDifference: 520,
       costStatus: "behind",
     });
   });
@@ -255,7 +273,14 @@ describe("default-construction site diary summaries", () => {
     const result = buildDefaultConstructionScopeSummary({
       scope: "work",
       value: "Masonry",
-      rows: [{ ...rows[0], Amounts: 10, TimeInvolved: 5 }],
+      rows: [
+        {
+          ...rows[0],
+          Amounts: 10,
+          WorkersInvolved: 1,
+          TimeInvolved: 5,
+        },
+      ],
       productivitySettings: [
         { work: "Masonry", unit: "m2", laborNormHoursPerUnit: 0.5 },
       ],
@@ -270,8 +295,18 @@ describe("default-construction site diary summaries", () => {
       scope: "work",
       value: "Masonry",
       rows: [
-        { ...rows[0], Amounts: 10, TimeInvolved: 5 },
-        { ...rows[0], Amounts: 2, TimeInvolved: null },
+        {
+          ...rows[0],
+          Amounts: 10,
+          WorkersInvolved: 1,
+          TimeInvolved: 5,
+        },
+        {
+          ...rows[0],
+          Amounts: 2,
+          WorkersInvolved: 1,
+          TimeInvolved: null,
+        },
       ],
       productivitySettings: [
         {

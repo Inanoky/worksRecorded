@@ -141,6 +141,7 @@ import {
   ztcRowMatchesConfiguredWorkFilter,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
 import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
+import { calculateDefaultConstructionManHours } from "@/flows/default-construction/lib/site-diary-summary";
 
 import { toast } from "sonner";
 import { getSiteDiaryListMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
@@ -3658,6 +3659,21 @@ export default function SiteDiaryCalendar({
                                     )}
                                   </span>
                                 </span>
+                                {!isZtcSite ? (
+                                  <span>
+                                    {t.manHours}:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {(() => {
+                                        const manHours = calculateDefaultConstructionManHours(r);
+                                        return manHours == null
+                                          ? "—"
+                                          : `${manHours.toLocaleString(dateLocale, {
+                                              maximumFractionDigits: 2,
+                                            })} h`;
+                                      })()}
+                                    </span>
+                                  </span>
+                                ) : null}
                                 {(() => {
                                   const laborNorm = getZtcPayrollValues(r).laborNorm;
                                   if (laborNorm.planned == null && laborNorm.actual == null) return null;
@@ -4202,7 +4218,7 @@ export default function SiteDiaryCalendar({
                             }));
 
                             return (
-                              <Table className={`table-fixed ${isZtcSite ? "min-w-[1180px]" : "min-w-[760px]"} text-xs sm:text-sm`}>
+                              <Table className={`table-fixed ${isZtcSite ? "min-w-[1180px]" : "min-w-[865px]"} text-xs sm:text-sm`}>
                                 {/* HEADER */}
                                 <TableHeader>
                                   <TableRow>
@@ -4253,6 +4269,11 @@ export default function SiteDiaryCalendar({
                                               <TableHead className="text-right" style={{ width: 105 }}>Sarežģītība</TableHead>
                                               <TableHead className="text-right" style={{ width: 95 }}>Summa</TableHead>
                                             </>
+                                          ) : null}
+                                          {!isZtcSite && head === "TimeInvolved" ? (
+                                            <TableHead className="text-center" style={{ width: 105 }}>
+                                              {t.manHours}
+                                            </TableHead>
                                           ) : null}
                                         </React.Fragment>
                                       );
@@ -4413,6 +4434,23 @@ export default function SiteDiaryCalendar({
                                                 {formatZtcMoney(payroll.sum)}
                                               </TableCell>
                                             </>
+                                          ) : null}
+                                          {!isZtcSite && field === "TimeInvolved" ? (
+                                            <TableCell
+                                              className="align-top px-3 py-3 text-center tabular-nums"
+                                              style={{ width: 105 }}
+                                            >
+                                              {(() => {
+                                                const manHours = calculateDefaultConstructionManHours(
+                                                  originalRow,
+                                                );
+                                                return manHours == null
+                                                  ? "—"
+                                                  : manHours.toLocaleString(dateLocale, {
+                                                      maximumFractionDigits: 2,
+                                                    });
+                                              })()}
+                                            </TableCell>
                                           ) : null}
                                           </React.Fragment>
                                         );
