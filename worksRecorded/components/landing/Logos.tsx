@@ -70,7 +70,7 @@ export function Logos() {
 									alt={client.name}
 									width={client.logoWidth}
 									height={client.logoHeight}
-									className="max-h-10 w-auto object-contain"
+									className="max-h-10 w-auto object-contain grayscale opacity-70 transition duration-300 group-hover:grayscale-0 group-hover:opacity-100 group-focus-visible:grayscale-0 group-focus-visible:opacity-100"
 								/>
 							</Link>
 						))}
