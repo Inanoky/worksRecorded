@@ -85,7 +85,7 @@ export const allowedUnits = [
   "hour", "set", "minute", "lifts",
 ] as const;
 
-const structuredSiteDiaryModel = "gpt-5.6-terra";
+const structuredSiteDiaryModel = "gpt-5.6-sol";
 const structuredSiteDiaryReasoningEffort = "medium" as const;
 
 type StructuredSaveResult = {

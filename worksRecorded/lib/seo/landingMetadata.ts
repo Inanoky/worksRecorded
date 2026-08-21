@@ -326,7 +326,7 @@ export function buildLandingMetadata({
   return {
     metadataBase: new URL(SITE_URL),
     applicationName: "WorksRecorded",
-    title: seoTitle,
+    title: { absolute: seoTitle },
     description: seoDescription,
     keywords: seoKeywords,
     category: "construction software",
@@ -406,7 +406,26 @@ export function buildLandingJsonLd(locale: string) {
         name: "WorksRecorded",
         legalName: "Buvconsult SIA",
         url: SITE_URL,
-        logo: `${SITE_URL}/default.png`,
+        sameAs: ["https://www.linkedin.com/company/worksrecorded/"],
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/favicon/favicon-512x512.png`,
+          contentUrl: `${SITE_URL}/favicon/favicon-512x512.png`,
+          width: 512,
+          height: 512,
+        },
+        description:
+          "WorksRecorded turns construction-site messages, voice notes, photos, and documents into structured site diaries, timesheets, BIS records, and project data.",
+        telephone: "+37124885690",
+        email: "vjaceslavs@worksrecorded.com",
+        vatID: "LV40203643527",
+        address: {
+          "@type": "PostalAddress",
+          streetAddress: "Brivibas iela 91-22",
+          addressLocality: "Riga",
+          postalCode: "LV-1001",
+          addressCountry: "LV",
+        },
         areaServed: [{ "@type": "Country", name: countryName }],
         contactPoint: [
           {

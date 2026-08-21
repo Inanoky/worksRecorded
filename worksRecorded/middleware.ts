@@ -52,7 +52,7 @@ export default function middleware(req: NextRequest) {
       return NextResponse.redirect(callbackUrl);
     }
 
-    return NextResponse.redirect(new URL("/lv", req.url));
+    return NextResponse.redirect(new URL("/lv/Landing", req.url), 308);
   }
 
     return intlMiddleware(req);
