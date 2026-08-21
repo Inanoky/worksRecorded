@@ -28,7 +28,7 @@ import DepromLogo from "@/public/logos/deprom.webp";
 import LecLogo from "@/public/logos/lec.png";
 import ZtcLogo from "@/public/logos/ztc.jpg";
 import styles from "./LandingV3.module.css";
-
+//nothing
 const archivo = Archivo({
 	subsets: ["latin"],
 	variable: "--font-v3-body",
