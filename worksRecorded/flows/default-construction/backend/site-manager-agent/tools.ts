@@ -3,6 +3,11 @@ import { z } from "zod";
 import { ToolNode } from "@langchain/langgraph/prebuilt"
 import { GraphState } from "@/server/ai-flows/agents/shared-between-agents/state";
 import { ChatOpenAI } from "@langchain/openai";
+import {
+  patchConfig,
+  RunnableLambda,
+  type RunnableConfig,
+} from "@langchain/core/runnables";
 
 import {
   archiveAndReplaceSiteDiaryBatch,
@@ -270,7 +275,7 @@ function toConfirmationRecords(records: unknown): SiteDiaryConfirmationRecord[] 
   });
 }
 
-export async function extractAndSaveSiteDiary(args: {
+type ExtractAndSaveSiteDiaryArgs = {
   question: string;
   requestedDate?: string;
   allowFallback?: boolean;
@@ -279,7 +284,12 @@ export async function extractAndSaveSiteDiary(args: {
   repairInstructions?: string;
   fastPathTrace?: FastPathTraceMetadata;
   intentContext?: { hasReplyContext: boolean; hasPendingCorrection: boolean };
-}): Promise<StructuredSaveResult> {
+  runnableConfig?: RunnableConfig;
+};
+
+async function extractAndSaveSiteDiaryCore(
+  args: ExtractAndSaveSiteDiaryArgs,
+): Promise<StructuredSaveResult> {
   const toolStarted = Date.now();
   const toolContext = getSiteManagerToolContext();
   if (!toolContext) {
@@ -331,6 +341,7 @@ export async function extractAndSaveSiteDiary(args: {
       ...structuredTrace.metadata,
     },
     tags: [...senderTraceTags, ...(runContext?.traceTags ?? []), ...structuredTrace.tags],
+    parentConfig: args.runnableConfig,
   });
 
   const updateTraceOutcome = (
@@ -527,6 +538,7 @@ export async function extractAndSaveSiteDiary(args: {
           "site-diary-extraction-checker",
           ...structuredTrace.tags,
         ],
+        parentConfig: args.runnableConfig,
       });
       const checker = await invokeSiteDiaryExtractionChecker({
         originalMessage: args.question,
@@ -566,6 +578,7 @@ export async function extractAndSaveSiteDiary(args: {
           repairInstructions: checker.parsed.repairInstructions || checker.parsed.reason,
           fastPathTrace: args.fastPathTrace,
           intentContext: args.intentContext,
+          runnableConfig: args.runnableConfig,
         });
         if (!repair.ok || !repair.rows?.length) {
           updateTraceOutcome("error", "extraction-error");
@@ -649,6 +662,31 @@ export async function extractAndSaveSiteDiary(args: {
   return { action: "save_new_report", correctionMode: "not_applicable", language, content, ok, count, records: confirmationRecords, rows: rowsToSave, rawRecords: rawRecordsToTrace };
 }
 
+const siteDiarySavePipeline = RunnableLambda.from<
+  ExtractAndSaveSiteDiaryArgs,
+  StructuredSaveResult
+>(async (pipelineArgs, runnableConfig) =>
+  extractAndSaveSiteDiaryCore({
+    ...pipelineArgs,
+    runnableConfig: runnableConfig as RunnableConfig,
+  }));
+
+export function extractAndSaveSiteDiary(
+  args: ExtractAndSaveSiteDiaryArgs,
+): Promise<StructuredSaveResult> {
+  const { runnableConfig, ...pipelineInput } = args;
+  return siteDiarySavePipeline.invoke(pipelineInput, {
+    ...(runnableConfig ?? {}),
+    runName: "SiteDiarySavePipeline",
+    tags: [
+      ...new Set([
+        ...(runnableConfig?.tags ?? []),
+        "site-diary-save-pipeline",
+      ]),
+    ],
+  });
+}
+
 export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
   name: "save_to_database",
   description:
@@ -664,8 +702,15 @@ export const siteDiaryToDatabaseTool = new DynamicStructuredTool({
       .describe("The explicit diary date from the user, usually dd-mm-yyyy. Omit it when no date was specified."),
   }),
 
-  async func({ question, date: requestedDate }) {
-    return (await extractAndSaveSiteDiary({ question, requestedDate })).content;
+  async func({ question, date: requestedDate }, runManager, parentConfig) {
+    const runnableConfig = patchConfig(parentConfig, {
+      callbacks: runManager?.getChild(),
+    });
+    return (await extractAndSaveSiteDiary({
+      question,
+      requestedDate,
+      runnableConfig,
+    })).content;
   },
 });
 

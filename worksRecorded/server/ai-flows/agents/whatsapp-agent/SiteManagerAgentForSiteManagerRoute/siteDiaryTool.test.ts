@@ -14,8 +14,16 @@ const getSiteDiaryCorrectionTargetMock = jest.fn();
 const startSiteDiaryCorrectionMock = jest.fn();
 const mockBuildAiRunContext = jest.fn((args) => {
   const runName = args.runName ?? "SiteDiaryStructuredSave";
-  const tags = ["works-recorded", `flow:${args.flow}`, ...(args.tags ?? [])];
-  const metadata = { ...(args.metadata ?? {}) };
+  const tags = [
+    ...(args.parentConfig?.tags ?? []),
+    "works-recorded",
+    `flow:${args.flow}`,
+    ...(args.tags ?? []),
+  ];
+  const metadata = {
+    ...(args.parentConfig?.metadata ?? {}),
+    ...(args.metadata ?? {}),
+  };
 
   return {
     runName,
@@ -23,6 +31,7 @@ const mockBuildAiRunContext = jest.fn((args) => {
     tags,
     metadata,
     runnableConfig: {
+      ...(args.parentConfig ?? {}),
       configurable: { thread_id: "test-thread" },
       runName,
       tags,
@@ -675,6 +684,53 @@ describe("save_to_database site diary tool", () => {
     );
     expect(structuredInvokeMock).not.toHaveBeenCalled();
     expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+  });
+
+  it("nests the save pipeline trace under the save_to_database tool", async () => {
+    getSiteDiaryToolContextMock.mockReturnValue(undefined);
+    const starts: Array<{
+      kind: "tool" | "chain";
+      runId: string;
+      parentRunId?: string;
+      runName?: string;
+    }> = [];
+    const callbacks = [{
+      name: "trace-parent-test",
+      handleToolStart(
+        _tool: unknown,
+        _input: string,
+        runId: string,
+        parentRunId?: string,
+        _tags?: string[],
+        _metadata?: Record<string, unknown>,
+        runName?: string,
+      ) {
+        starts.push({ kind: "tool", runId, parentRunId, runName });
+      },
+      handleChainStart(
+        _chain: unknown,
+        _inputs: unknown,
+        runId: string,
+        parentRunId?: string,
+        _tags?: string[],
+        _metadata?: Record<string, unknown>,
+        _runType?: string,
+        runName?: string,
+      ) {
+        starts.push({ kind: "chain", runId, parentRunId, runName });
+      },
+    }];
+
+    await siteDiaryToDatabaseTool.invoke(toolInput, { callbacks });
+
+    const toolStart = starts.find((start) => start.kind === "tool");
+    const pipelineStart = starts.find(
+      (start) => start.kind === "chain" && start.runName === "SiteDiarySavePipeline",
+    );
+    expect(toolStart).toBeDefined();
+    expect(pipelineStart).toEqual(expect.objectContaining({
+      parentRunId: toolStart?.runId,
+    }));
   });
 });
 

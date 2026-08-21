@@ -1,3 +1,4 @@
+import type { RunnableConfig } from "@langchain/core/runnables";
 import {
   buildAiRunContext,
   getBisMaterialsAgentThreadId,
@@ -88,6 +89,31 @@ describe("AI run context helpers", () => {
       flow: "whatsapp-site-manager",
       senderLabel: "Anna Bērziņa",
       userId: "user-1",
+    });
+  });
+
+  it("preserves parent callbacks and configurable state for nested trace spans", () => {
+    const callbacks = [{ name: "parent-callback" }] as unknown as RunnableConfig["callbacks"];
+    const context = buildAiRunContext({
+      flow: "structured-site-diary-save",
+      threadId: "site-diary-thread",
+      tags: ["child-tag"],
+      metadata: { childValue: "yes" },
+      parentConfig: {
+        callbacks,
+        configurable: { thread_id: "parent-thread" },
+        tags: ["parent-tag"],
+        metadata: { parentValue: "yes" },
+      },
+    });
+
+    expect(context.runnableConfig.callbacks).toBe(callbacks);
+    expect(context.runnableConfig.configurable).toEqual({ thread_id: "parent-thread" });
+    expect(context.tags).toEqual(expect.arrayContaining(["parent-tag", "child-tag"]));
+    expect(context.metadata).toMatchObject({
+      parentValue: "yes",
+      childValue: "yes",
+      threadId: "site-diary-thread",
     });
   });
 

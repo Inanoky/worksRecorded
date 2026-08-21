@@ -1,3 +1,5 @@
+import type { RunnableConfig } from "@langchain/core/runnables";
+
 export const AI_FLOW_NAMES = [
   "dashboard-chat",
   "whatsapp-site-manager",
@@ -24,6 +26,7 @@ type BuildAiRunContextArgs = {
   model?: string | null;
   metadata?: Record<string, MetadataValue>;
   tags?: string[];
+  parentConfig?: RunnableConfig;
 };
 
 const FLOW_RUN_NAMES: Record<AiFlowName, string> = {
@@ -41,7 +44,7 @@ function cleanTag(value: string) {
   return value.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9:._-]/g, "_");
 }
 
-function compactMetadata(metadata: Record<string, MetadataValue>) {
+function compactMetadata(metadata: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(metadata).filter(([, value]) => value !== undefined),
   );
@@ -79,7 +82,8 @@ export function getBisMaterialsAgentThreadId(siteId: string) {
 
 export function buildAiRunContext(args: BuildAiRunContextArgs) {
   const runName = args.runName ?? FLOW_RUN_NAMES[args.flow];
-  const tags = [
+  const tags = [...new Set([
+    ...(args.parentConfig?.tags ?? []),
     "works-recorded",
     `flow:${args.flow}`,
     args.channel ? `channel:${args.channel}` : null,
@@ -89,9 +93,10 @@ export function buildAiRunContext(args: BuildAiRunContextArgs) {
     ...(args.tags ?? []),
   ]
     .filter((tag): tag is string => Boolean(tag))
-    .map(cleanTag);
+    .map(cleanTag))];
 
   const metadata = compactMetadata({
+    ...(args.parentConfig?.metadata ?? {}),
     app: "works-recorded",
     flow: args.flow,
     channel: args.channel,
@@ -109,6 +114,7 @@ export function buildAiRunContext(args: BuildAiRunContextArgs) {
     tags,
     metadata,
     runnableConfig: {
+      ...(args.parentConfig ?? {}),
       runName,
       tags,
       metadata,
