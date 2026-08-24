@@ -40,7 +40,11 @@
 		},
 		"langsmith": {
 			"type": "local",
-			"command": ["uvx", "langsmith-mcp-server"],
+			"command": [
+        "zsh",
+        "-lc",
+        "set -a; [ -f .env ] && source .env; exec uvx langsmith-mcp-server"
+  ],
 			"enabled": true,
 			"environment": {
 				"LANGSMITH_API_KEY": "{env:LANGSMITH_API_KEY}",

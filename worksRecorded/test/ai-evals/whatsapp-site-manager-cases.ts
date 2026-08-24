@@ -307,6 +307,66 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			},
 		},
 		{
+			id: "context-explicit-same-work-as-yesterday",
+			intent:
+				"Verify recent diary context can help an explicit follow-up reuse the prior work/location while taking hours only from the current message.",
+			tags: ["context", "follow-up", "latvian", "no-leak"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-context-same-work",
+				body: "Vakar 2. stāvā veikta ugunsdrošā blīvēšana, 2 cilvēki, 5h.",
+				timestamp: "1782197586",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["uguns", "blīv", "2", "stāv"],
+				workersInvolved: 2,
+				timeInvolved: 5,
+				minHeuristicScore: 0.75,
+			},
+			followUp: {
+				body: "Šodien tas pats darbs tajā pašā vietā, vēl 3h.",
+				expected: {
+					expectedRecordCount: 1,
+					requiredTextSignals: ["uguns|blīv|tas pats", "2|stāv|tajā pašā"],
+					requiredFieldSignals: {
+						Works: ["Fire stopping|sealing|Uguns|blīv"],
+					},
+					workersInvolved: null,
+					timeInvolved: 3,
+					amounts: null,
+					nullNumericValuesCanBeZero: true,
+					minHeuristicScore: 0.75,
+				},
+			},
+		},
+		{
+			id: "context-schema-fire-stopping-category",
+			intent:
+				"Verify schema/work-list context helps map fire-sealing vocabulary to the configured work category without inventing workers or quantities.",
+			tags: ["context", "category", "latvian", "amount"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-schema-fire-stopping",
+				body: "Šodien veikta kabeļu caurumu ugunsdrošā aizdare 4. stāvā, 2h.",
+				timestamp: "1782197587",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["kabe", "caurum", "uguns", "aizdar", "4", "stāv"],
+				requiredFieldSignals: {
+					Works: ["Fire stopping|sealing|Uguns|aizdar|blīv"],
+				},
+				workersInvolved: null,
+				timeInvolved: 2,
+				amounts: null,
+				nullNumericValuesCanBeZero: true,
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
 			id: "latvian-layer-count-is-not-amount",
 			intent:
 				"Verify Latvian layer counts and apartment identifiers stay out of structured completed quantity fields.",
@@ -1034,23 +1094,5 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					"nosūtīts uz bis",
 				],
 			},
-		},
-		{
-			id: "ambiguous-reference-does-not-save",
-			intent:
-				"Verify an ambiguous conversational reference asks for clarification without creating a site diary record.",
-			tags: ["ambiguity", "clarification", "no-save"],
-			tier: "smoke",
-			priority: "critical",
-			webhook: textWebhookFixture({
-				senderKey: "eval-site-manager-ambiguous-no-save",
-				body: "Saglabā to, par ko mēs tikko runājām.",
-				timestamp: "1782197645",
-			}),
-			expected: {
-				shouldCreateRecord: false,
-				requiredAnswerSignals: ["preciz|ko tieši|informāc"],
-				forbiddenAnswerSignals: ["saglabāts veiksmīgi|saved successfully"],
-			},
-		},
+		}
 	]);

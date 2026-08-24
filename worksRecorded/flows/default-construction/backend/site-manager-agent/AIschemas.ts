@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-type FieldType =
+export type FieldType =
   | "fixed"
   | "timePicker"
   | "datePicker"
@@ -9,8 +9,8 @@ type FieldType =
   | "float"
   | "noRender";
 
-type MapField = {
-  Type: FieldType;
+export type MapField = {
+  Type: FieldType | string;
   DisplayName?: string;
   DropDownOptions?: Record<string, string>;
   customSettings?: {
@@ -19,7 +19,7 @@ type MapField = {
   };
 };
 
-type ConfigMap = Record<string, MapField>;
+export type ConfigMap = Record<string, MapField>;
 
 function isSafeStructuredOutputEnumValue(value: string) {
   return !/["\\\u0000-\u001f]/.test(value);
@@ -70,7 +70,7 @@ function enumFromDropdown(field: MapField) {
   };
 }
 
-function defaultAiDescription(dbKey: string, displayKey: string) {
+export function defaultAiDescription(dbKey: string, displayKey: string) {
   const normalizedDbKey = dbKey.toLowerCase();
   const normalizedDisplayKey = displayKey.toLowerCase();
 
@@ -89,14 +89,21 @@ function defaultAiDescription(dbKey: string, displayKey: string) {
   return null;
 }
 
+export function getAiFieldDescription(
+  field: MapField,
+  dbKey: string,
+  displayKey: string,
+) {
+  return field.customSettings?.aiDescription?.trim() || defaultAiDescription(dbKey, displayKey);
+}
+
 function withFieldDescription(
   schema: z.ZodTypeAny,
   field: MapField,
   dbKey: string,
   displayKey: string,
 ) {
-  const explicitDescription = field.customSettings?.aiDescription?.trim();
-  const description = explicitDescription || defaultAiDescription(dbKey, displayKey);
+  const description = getAiFieldDescription(field, dbKey, displayKey);
   return description ? schema.describe(description) : schema;
 }
 

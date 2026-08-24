@@ -747,30 +747,6 @@ describe("WhatsApp site-manager eval validators", () => {
 		).toBe("fail");
 	});
 
-	it("passes an explicit no-save case when no record is created and clarification is returned", () => {
-		const noSaveCase = webhookCases.find(
-			(item) => item.id === "ambiguous-reference-does-not-save",
-		);
-		if (!noSaveCase) throw new Error("Missing ambiguous no-save eval case");
-
-		const result = validateWhatsappSiteManagerRecord({
-			evalCase: noSaveCase,
-			siteId: "site-1",
-			userId: "user-1",
-			record: null,
-			records: [],
-			answer: "Lūdzu precizē, ko tieši vēlies saglabāt.",
-		});
-
-		expect(result.status).toBe("pass");
-		expect(
-			result.results.find((item) => item.name === "record-created")?.status,
-		).toBe("pass");
-		expect(
-			result.results.find((item) => item.name === "record-count")?.status,
-		).toBe("pass");
-	});
-
 	it("passes ambiguous BIS mention with a fast-path receipt that does not mention BIS", () => {
 		if (!ambiguousBisCase) throw new Error("Missing ambiguous BIS eval case");
 

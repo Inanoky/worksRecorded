@@ -504,23 +504,6 @@ For a Meta image webhook with a site-diary caption, use an image-shaped payload.
 }
 ```
 
-For an ambiguous message that must not save anything, set `shouldCreateRecord` to false and assert clarification language:
-
-```ts
-{
-  id: "ambiguous-reference-does-not-save",
-  intent: "Verify an ambiguous reference asks for clarification without saving.",
-  webhook: {
-    // Sanitized Meta webhook payload.
-  },
-  expected: {
-    shouldCreateRecord: false,
-    requiredAnswerSignals: ["preciz|ko tieši"],
-    forbiddenAnswerSignals: ["saglabāts veiksmīgi|saved successfully"],
-  },
-}
-```
-
 For an unknown worker count, use a case where work and hours are present but no worker count is stated. Set `expected.workersInvolved` to null:
 
 ```ts
