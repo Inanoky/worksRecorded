@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import Image, { type StaticImageData } from "next/image";
 import { type ReactNode, useEffect, useState } from "react";
-import { WhatsAppIcon } from "@/components/ui/whatsappIcon";
 import concretePhoto from "@/public/frontend/pages/SiteDiary/hero-construction-site-scott-blake.jpg";
 import cranePhoto from "@/public/pictures/deprom.jpeg";
 import winterPhoto from "@/public/pictures/ufix.jpg";
@@ -212,8 +211,14 @@ function PhoneHeader({ status }: { status: string }) {
 	return (
 		<div className="flex h-[76px] items-end gap-2 bg-[#075e54] px-3 pb-2.5 text-white">
 			<ArrowLeft className="mb-2 size-5 shrink-0" strokeWidth={2.2} />
-			<div className="mb-0.5 grid size-10 shrink-0 place-items-center rounded-full bg-white shadow-sm">
-				<WhatsAppIcon size={32} />
+			<div className="mb-0.5 grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-sm">
+				<Image
+					src="/logos/worksrecorded-letter.png"
+					alt=""
+					width={40}
+					height={40}
+					className="size-10 translate-x-0.5 -translate-y-px scale-[1.19] object-cover"
+				/>
 			</div>
 			<div className="min-w-0 flex-1 pb-0.5">
 				<p className="truncate text-[15px] font-semibold leading-tight">
