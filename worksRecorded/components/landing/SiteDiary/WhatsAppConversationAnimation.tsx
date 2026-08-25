@@ -78,8 +78,8 @@ const PHOTO_MESSAGES: StaticImageData[] = [
 ];
 const MESSAGE_ENTER =
 	"animate-in fade-in slide-in-from-bottom-3 duration-500 motion-reduce:animate-none";
-const TIMELINE = [500, 2200, 3900, 5000, 7900, 9600] as const;
-const LOOP_DURATION = 13_500;
+const TIMELINE = [1500, 3200, 4900, 6000, 8900, 10_600] as const;
+const LOOP_DURATION = 14_500;
 
 export function WhatsAppConversationAnimation({ locale }: { locale: string }) {
 	const copy = locale.toLowerCase().startsWith("lv")
@@ -187,7 +187,7 @@ export function WhatsAppChatPhone({
 							{copy.workerReply}
 						</MessageBubble>
 					) : null}
-					{stage === 3 ? <TypingBubble /> : null}
+					{stage === 0 || stage === 3 ? <TypingBubble /> : null}
 					{stage >= 4 ? (
 						<MessageBubble direction="incoming" time="08:38">
 							<p className="font-semibold text-[#087a49]">{copy.saved}</p>
