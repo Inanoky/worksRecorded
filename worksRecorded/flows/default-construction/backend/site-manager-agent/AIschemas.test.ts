@@ -69,6 +69,8 @@ describe("buildZodSchemaFromConfig", () => {
     expect(shape.Workers.description).toContain("2 strādnieki");
     expect(shape.Workers.description).toContain("trīs strādnieki");
     expect(shape.Workers.description).toContain("darbinieki: 2");
+    expect(shape.Workers.description).toContain("ekskavatora operators un palīgstrādnieks");
+    expect(shape.Workers.description).toContain("Do not infer Workers: 1");
     expect(shape.Hours.description).toContain("3h");
     expect(shape.Amounts.description).toContain("not worker count");
     expect(schema.safeParse({ Workers: 2, Hours: 9.5, Amounts: null }).success).toBe(true);

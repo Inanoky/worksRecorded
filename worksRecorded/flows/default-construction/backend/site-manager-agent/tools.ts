@@ -161,7 +161,7 @@ function usageFromMessage(message: any) {
 }
 
 const timeUnitPattern = String.raw`(?:h|hr|hrs|st\.?|stunda|stundas|stundu|hour|hours|minute|minutes|minūte|minūtes|minūšu|min\.?)`;
-const amountUnitPattern = String.raw`(?:m2|m3|m²|m³|kvadr\u0101tus|m|kg|tn|t|pcs|gab\.?|gabali|gabals|package|packages|set|sets|komplekts|komplekti|pacelšana|pacelšanas|lifts)`;
+const amountUnitPattern = String.raw`(?:m2|m3|m²|m³|kubi|kubs|kubu|kubus|kubik\p{L}*|kvadr\u0101tus|m|kg|tn|t|pcs|gab\.?|gabali|gabals|package|packages|set|sets|komplekts|komplekti|pacelšana|pacelšanas|lifts)`;
 const workerUnitPattern = `(?:cilvēks|cilvēki|strādnieks|strādnieki|darbinieks|darbinieki|workers?|people|persons?)`;
 const timeOnlyUnits = new Set([
 	"hour",
@@ -282,6 +282,52 @@ function hasWorkerEvidence(source: string, value: number) {
 	).test(source);
 }
 
+function inferWorkerCountFromRoleEvidence(row: Record<string, any>) {
+	const text = [row.Works, row.Works_Custom_1, row.Comments, row.Comments_Custom_1]
+		.map((value) => String(value ?? ""))
+		.join(" ")
+		.toLocaleLowerCase("lv-LV");
+	const signals = new Set<string>();
+	let count = 0;
+
+	const numberedWorkerMatch = text.match(
+		/(?:^|[^\p{L}\p{N}_])(\d{1,2})\s*(?:būv)?strādniek\p{L}*(?=$|[^\p{L}\p{N}_])/iu,
+	);
+	if (numberedWorkerMatch) {
+		count += Number(numberedWorkerMatch[1]);
+		signals.add("numbered-workers");
+	}
+
+	const rolePatterns: Array<[string, RegExp]> = [
+		["operator", /(?:^|[^\p{L}\p{N}_])oper[āa]tor\p{L}*(?=$|[^\p{L}\p{N}_])/iu],
+		[
+			"helper",
+			/(?:^|[^\p{L}\p{N}_])pal[īi]gstr[āa]dniek\p{L}*(?=$|[^\p{L}\p{N}_])/iu,
+		],
+		[
+			"brigadier",
+			/(?:^|[^\p{L}\p{N}_])brigadier\p{L}*(?=$|[^\p{L}\p{N}_])/iu,
+		],
+		[
+			"site-manager-assistant",
+			/(?:^|[^\p{L}\p{N}_])būvdarbu\s+vad\.?\s+pal[īi]g\p{L}*(?=$|[^\p{L}\p{N}_])/iu,
+		],
+	];
+	if (!numberedWorkerMatch) {
+		rolePatterns.push([
+			"construction-worker",
+			/(?:^|[^\p{L}\p{N}_])būvstr[āa]dniek\p{L}*(?=$|[^\p{L}\p{N}_])/iu,
+		]);
+	}
+
+	for (const [signal, pattern] of rolePatterns) {
+		if (pattern.test(text)) signals.add(signal);
+	}
+	count += signals.size - (signals.has("numbered-workers") ? 1 : 0);
+
+	return count >= 2 ? count : null;
+}
+
 function normalizeUnit(value: unknown) {
 	return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
@@ -315,6 +361,16 @@ function normalizeUnknownNumericFields(
 		!hasWorkerEvidence(source, normalized.WorkersInvolved)
 	) {
 		normalized.WorkersInvolved = null;
+	}
+	if (
+		(normalized.WorkersInvolved === null ||
+			normalized.WorkersInvolved === undefined) &&
+		!isMaterialDeliveryRow(normalized)
+	) {
+		const inferredWorkers = inferWorkerCountFromRoleEvidence(normalized);
+		if (inferredWorkers !== null) {
+			normalized.WorkersInvolved = inferredWorkers;
+		}
 	}
 	const hasExplicitZeroAmount = hasNumberWithUnit(source, 0, amountUnitPattern);
 	if (normalized.Amounts === 0 && !hasExplicitZeroAmount)

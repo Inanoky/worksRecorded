@@ -454,7 +454,6 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				timeInvolved: 9.5,
 				amounts: null,
 				nullNumericValuesCanBeZero: true,
-				warningValidators: ["expected-record", "heuristic-min-score"],
 				records: [
 					{
 						requiredTextSignals: ["smilts", "piebēr", "pamat", "bobcat|bobk"],
@@ -519,11 +518,10 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			expected: {
 				expectedRecordCount: 5,
 				nullNumericValuesCanBeZero: true,
-				warningValidators: ["expected-record", "heuristic-min-score"],
 				records: [
 					{
 						requiredTextSignals: ["laika", "saulains", "27"],
-						requiredFieldSignals: { Works: ["Piezīmes"] },
+						requiredFieldSignals: { Works: ["Piezīmes|Notes"] },
 						workersInvolved: null,
 						timeInvolved: null,
 						amounts: null,
@@ -531,30 +529,45 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					},
 					{
 						requiredTextSignals: ["ievest", "smil"],
-						requiredFieldSignals: { Works: ["Materiālu piegāde"] },
+						requiredFieldSignals: {
+							Works: ["Materiālu piegāde|Material delivery"],
+						},
 						workersInvolved: null,
 						timeInvolved: null,
 						amounts: 180,
+						units: "m3",
 					},
 					{
 						requiredTextSignals: ["grunts", "rak"],
-						workersInvolved: null,
-						timeInvolved: null,
+						requiredFieldSignals: {
+							Works: ["Grunts rakšana|Excavation|Rakšanas darbi|Zemes darbi"],
+						},
+						workersInvolved: 2,
+						timeInvolved: 8,
 						amounts: 80,
+						units: "m3",
 						nullNumericValuesCanBeZero: true,
 					},
 					{
 						requiredTextSignals: ["liek", "grunts", "izve"],
+						requiredFieldSignals: {
+							Works: ["Liekās grunts izvešana|Excavation|Rakšanas darbi|Zemes darbi"],
+						},
 						workersInvolved: null,
 						timeInvolved: null,
 						amounts: 110,
+						units: "m3",
 						nullNumericValuesCanBeZero: true,
 					},
 					{
 						requiredTextSignals: ["smilts", "piebēr", "pamat"],
+						requiredFieldSignals: {
+							Works: ["Smilts piebēršana pamatiem|Backfilling"],
+						},
 						workersInvolved: null,
-						timeInvolved: null,
+						timeInvolved: 9.5,
 						amounts: 400,
+						units: "m3",
 					},
 				],
 				minHeuristicScore: 0.75,
@@ -744,11 +757,10 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				expectedRecordCount: 1,
 				requiredTextSignals: ["ekskavator", "turbīn", "nestrād", "nom"],
 				nullNumericValuesCanBeZero: true,
-				warningValidators: ["expected-record", "heuristic-min-score"],
 				records: [
 					{
 						requiredTextSignals: ["ekskavator", "turbīn", "nestrād", "nom"],
-						requiredFieldSignals: { Works: ["Piezīmes"] },
+						requiredFieldSignals: { Works: ["Piezīmes|Notes|Kavēšanās"] },
 						forbiddenFieldSignals: {
 							Works: ["Papildu darbi|Papilddarbi"],
 							Works_Custom_1: ["Papilddarbi|Papildu darbi"],
@@ -777,11 +789,10 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				expectedRecordCount: 1,
 				requiredTextSignals: ["liet"],
 				nullNumericValuesCanBeZero: true,
-				warningValidators: ["expected-record", "heuristic-min-score"],
 				records: [
 					{
 						requiredTextSignals: ["liet"],
-						requiredFieldSignals: { Works: ["Piezīmes"] },
+						requiredFieldSignals: { Works: ["Piezīmes|Notes"] },
 						workersInvolved: null,
 						timeInvolved: null,
 						amounts: null,
@@ -851,7 +862,6 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					"sertifik",
 				],
 				nullNumericValuesCanBeZero: true,
-				warningValidators: ["expected-record", "heuristic-min-score"],
 				records: [
 					{
 						requiredTextSignals: [
@@ -860,7 +870,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 							"deflektometr",
 							"sertifik",
 						],
-						requiredFieldSignals: { Works: ["Projekts"] },
+						requiredFieldSignals: { Works: ["Piezīmes|Notes|Projekts"] },
 						workersInvolved: null,
 						timeInvolved: null,
 						amounts: null,
@@ -886,7 +896,6 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				expectedRecordCount: 1,
 				requiredTextSignals: ["papilddarb", "18", "ekskavator", "manitou"],
 				nullNumericValuesCanBeZero: true,
-				warningValidators: ["expected-record", "heuristic-min-score"],
 				records: [
 					{
 						requiredTextSignals: ["papilddarb", "18", "ekskavator", "manitou"],
@@ -922,7 +931,6 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					"šķembo",
 				],
 				nullNumericValuesCanBeZero: true,
-				warningValidators: ["expected-record", "heuristic-min-score"],
 				records: [
 					{
 						requiredTextSignals: [
@@ -932,7 +940,9 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 							"zemes noņem",
 							"šķembo",
 						],
-						requiredFieldSignals: { Works: ["Piezīmes"] },
+						requiredFieldSignals: {
+							Works: ["Piezīmes|Notes|Excavation|Rakšanas darbi|Zemes darbi"],
+						},
 						forbiddenFieldSignals: {
 							Works: ["Papildu darbi|Papilddarbi"],
 							Works_Custom_1: ["Papilddarbi|Papildu darbi"],

@@ -1089,6 +1089,91 @@ describe("save_to_database site diary tool", () => {
 		);
 	});
 
+	it("repairs one-machine in-progress sub-actions back into one row before saving", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Area: "Project",
+						Activity: "Excavation",
+						Comments: "No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu.",
+					},
+					{
+						Area: "Project",
+						Activity: "Backfilling",
+						Comments: "No plkst. 15.00 Agris ar ekskavatoru veic šķembošanu.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "needs_model_repair",
+					reason:
+						"Viena mašīna un viens cilvēks veic saistītas iesāktas apakšdarbības vienā teikumā.",
+					badSplitSignals: ["one actor sub-action split", "start time only"],
+					repairInstructions:
+						"Saglabā vienu ierakstu ar abām darbībām komentārā; neizdomā stundas no sākuma laika.",
+					expectedRecordCount: 1,
+					repairActions: [],
+				},
+				raw: {},
+			})
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Area: "Project",
+						Activity: "Excavation",
+						Comments:
+							"No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "accept",
+					reason: "Viens korekts iesākta darba ieraksts.",
+					badSplitSignals: [],
+					repairInstructions: "",
+					expectedRecordCount: 1,
+					repairActions: [],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		const result = await extractAndSaveSiteDiary({
+			question:
+				"No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu.",
+			requestedDate: "18-08-2026",
+		});
+
+		expect(result.ok).toBe(true);
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(4);
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Works: "Excavation",
+			}),
+		]);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).not.toHaveProperty(
+			"TimeInvolved",
+		);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				checker: expect.objectContaining({
+					verdict: "needs_model_repair",
+					expectedRecordCount: 1,
+					appliedRepair: true,
+					repairVerdict: "accept",
+				}),
+			}),
+		);
+	});
+
 	it("defaults a missing date in the backend", async () => {
 		jest.useFakeTimers().setSystemTime(new Date("2026-07-01T21:30:00.000Z"));
 		structuredInvokeMock.mockResolvedValue({
@@ -1176,6 +1261,84 @@ describe("save_to_database site diary tool", () => {
 					}),
 				],
 				evalMetadata: { evaluationId: "eval-1" },
+			}),
+		);
+	});
+
+	it("infers two workers from row-local operator and helper role evidence", async () => {
+		getConfigMock.mockResolvedValue({
+			...siteConfig,
+			Comments: {
+				Type: "textInput",
+				DisplayName: "Comments",
+			},
+		});
+		structuredInvokeMock.mockResolvedValue({
+			records: [
+				{
+					Area: "Project",
+					Activity: "Excavation",
+					Quantity: 80,
+					Mrv: "m3",
+					Hours: 8,
+					Workers: null,
+					Comments:
+						"Izrakti 80 m3 grunts ar ekskavatoru; strādāja ekskavatora operators un palīgstrādnieks.",
+				},
+			],
+		});
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+		await siteDiaryToDatabaseTool.invoke({
+			question:
+				"Grunts rakšana 80 kubi, grunts rakšana veica ekskavatoru operātors, strādāja arī palīgstrādnieks 8 stundas.",
+		});
+
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
+			expect.objectContaining({
+				Works: "Excavation",
+				Amounts: 80,
+				Units: "m3",
+				TimeInvolved: 8,
+				WorkersInvolved: 2,
+			}),
+		);
+	});
+
+	it("does not infer a worker count from a lone machinery operator mention", async () => {
+		getConfigMock.mockResolvedValue({
+			...siteConfig,
+			Comments: {
+				Type: "textInput",
+				DisplayName: "Comments",
+			},
+		});
+		structuredInvokeMock.mockResolvedValue({
+			records: [
+				{
+					Area: "Pamati",
+					Activity: "Backfilling",
+					Quantity: null,
+					Mrv: null,
+					Hours: 9.5,
+					Workers: null,
+					Comments:
+						"Veikta smilts piebēršana pamatiem ar Bobcat operatoru.",
+				},
+			],
+		});
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+		await siteDiaryToDatabaseTool.invoke({
+			question:
+				"Veikta smilts piebēršana pamatiem ar Bobcat operatoru, 9,5 stundas.",
+		});
+
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
+			expect.objectContaining({
+				Works: "Backfilling",
+				TimeInvolved: 9.5,
+				WorkersInvolved: null,
 			}),
 		);
 	});
@@ -1293,6 +1456,55 @@ describe("save_to_database site diary tool", () => {
 				TimeInvolved: 9.5,
 			}),
 		);
+	});
+
+	it("preserves Latvian cubic quantities expressed as kubi", async () => {
+		structuredInvokeMock.mockResolvedValue({
+			records: [
+				{
+					Area: "Objekts",
+					Activity: "Material delivery",
+					Quantity: 180,
+					Mrv: "m3",
+				},
+				{
+					Area: "Objekts",
+					Activity: "Excavation",
+					Quantity: 80,
+					Mrv: "m3",
+				},
+				{
+					Area: "Pamati",
+					Activity: "Backfilling",
+					Quantity: 400,
+					Mrv: "m3",
+				},
+			],
+		});
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 3 });
+
+		await siteDiaryToDatabaseTool.invoke({
+			question:
+				"Ievestas smilts 180 kubi, grunts rakšana 80 kubi, smilts piebēršana pamatiem 400 kubi.",
+		});
+
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Works: "Material delivery",
+				Amounts: 180,
+				Units: "m3",
+			}),
+			expect.objectContaining({
+				Works: "Excavation",
+				Amounts: 80,
+				Units: "m3",
+			}),
+			expect.objectContaining({
+				Works: "Backfilling",
+				Amounts: 400,
+				Units: "m3",
+			}),
+		]);
 	});
 
 	it("preserves an m2 quantity expressed as Latvian kvadrātus", async () => {

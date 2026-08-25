@@ -116,6 +116,67 @@ describe("site diary extraction checker", () => {
 		expect(result.parsed.repairInstructions).toContain("Apvieno");
 	});
 
+	it("instructs the checker to reject one-machine in-progress sub-action splits", () => {
+		const messages = buildSiteDiaryExtractionCheckerMessages({
+			originalMessage:
+				"No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu.",
+			language: "lv",
+			rows: [
+				{
+					Works: "Excavation",
+					Comments:
+						"No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu.",
+				},
+				{
+					Works: "Backfilling",
+					Comments: "No plkst. 15.00 Agris ar ekskavatoru veic šķembošanu.",
+				},
+			],
+		});
+
+		const systemText = String(messages[0]?.content ?? "");
+		expect(systemText).toContain("one actor or one machine");
+		expect(systemText).toContain("expectedRecordCount=1");
+		expect(systemText).toContain("No plkst. HH.MM");
+	});
+
+	it("rejects one-machine in-progress sub-actions split into two rows", async () => {
+		mockInvoke.mockResolvedValue({
+			parsed: {
+				verdict: "needs_model_repair",
+				reason:
+					"Viena mašīna un viens cilvēks veic saistītas apakšdarbības vienā teikumā.",
+				badSplitSignals: ["one actor sub-action split", "start time only"],
+				repairInstructions:
+					"Apvieno vienā ierakstā ar abām darbībām komentārā un neatvasini stundas no sākuma laika.",
+				expectedRecordCount: 1,
+				repairActions: [],
+			},
+			raw: {},
+		});
+
+		const result = await invokeSiteDiaryExtractionChecker({
+			originalMessage:
+				"No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu.",
+			language: "lv",
+			rows: [
+				{
+					Works: "Excavation",
+					Comments:
+						"No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu.",
+				},
+				{
+					Works: "Backfilling",
+					Comments: "No plkst. 15.00 Agris ar ekskavatoru veic šķembošanu.",
+				},
+			],
+		});
+
+		expect(result.parsed.verdict).toBe("needs_model_repair");
+		expect(result.parsed.expectedRecordCount).toBe(1);
+		expect(result.parsed.badSplitSignals).toContain("start time only");
+	});
+
 	it("rejects shared-hours rows that were split unsafely", async () => {
 		mockInvoke.mockResolvedValue({
 			parsed: {

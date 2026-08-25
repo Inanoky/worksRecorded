@@ -9,6 +9,15 @@ describe("WhatsApp site-manager eval validators", () => {
 		(item): item is WebhookWhatsAppSiteManagerEvalCase =>
 			item.mode === "webhook",
 	);
+	const formerWarningCaseIds = [
+		"latvian-bobcat-foundation-sand-hours-only",
+		"latvian-weather-and-earthworks-five-records",
+		"latvian-excavator-breakdown-note",
+		"latvian-rain-weather-note",
+		"latvian-deflectometer-documents-note",
+		"latvian-additional-works-machinery-note",
+		"latvian-excavator-started-at-time-note",
+	];
 	const evalCase = webhookCases[0];
 	const workerlessCase = webhookCases.find(
 		(item) => item.id === "latvian-wall-plaster-hours-without-workers",
@@ -33,6 +42,15 @@ describe("WhatsApp site-manager eval validators", () => {
 	);
 	const bobcatSandCase = webhookCases.find(
 		(item) => item.id === "latvian-bobcat-foundation-sand-hours-only",
+	);
+	const excavatorBreakdownCase = webhookCases.find(
+		(item) => item.id === "latvian-excavator-breakdown-note",
+	);
+	const deflectometerDocumentsCase = webhookCases.find(
+		(item) => item.id === "latvian-deflectometer-documents-note",
+	);
+	const excavatorStartedCase = webhookCases.find(
+		(item) => item.id === "latvian-excavator-started-at-time-note",
 	);
 	const sandDeliveryCase = webhookCases.find(
 		(item) => item.id === "latvian-sand-delivery-material-category",
@@ -1268,7 +1286,13 @@ describe("WhatsApp site-manager eval validators", () => {
 		};
 
 		const result = validateWhatsappSiteManagerRecord({
-			evalCase: bobcatSandCase,
+			evalCase: {
+				...bobcatSandCase,
+				expected: {
+					...bobcatSandCase.expected,
+					warningValidators: ["expected-record", "heuristic-min-score"],
+				},
+			},
 			siteId: "site-1",
 			userId: "user-1",
 			record,
@@ -1282,6 +1306,173 @@ describe("WhatsApp site-manager eval validators", () => {
 			status: "fail",
 			severity: "warning",
 		});
+	});
+
+	it("keeps former warning-only site-manager cases critical by default", () => {
+		const formerWarningCases = webhookCases.filter((item) =>
+			formerWarningCaseIds.includes(item.id),
+		);
+
+		expect(formerWarningCases.map((item) => item.id).sort()).toEqual(
+			[...formerWarningCaseIds].sort(),
+		);
+		expect(
+			formerWarningCases.flatMap((item) => item.expected.warningValidators),
+		).toEqual([]);
+	});
+
+	it("fails former warning-only classification mismatches as critical", () => {
+		if (!bobcatSandCase) throw new Error("Missing bobcat sand eval case");
+
+		const record = {
+			id: "record-bobcat",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Pamati",
+			Works: "Papilddarbi",
+			Comments: "Veikta smilts piebēršana pamatiem.",
+			originalUserComment:
+				"Test Manager : Veikta smilts piebēršana pamatiem ar Bobcat operatoru, 9,5 stundas.",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: 9.5,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: bobcatSandCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("fail");
+		expect(result.criticalFailures).toBeGreaterThan(0);
+		expect(result.warnings).toBe(0);
+		expect(
+			result.results.find((item) => item.name === "expected-record:1"),
+		).toMatchObject({
+			status: "fail",
+			severity: "critical",
+		});
+	});
+
+	it("passes excavator breakdown saved as delay", () => {
+		if (!excavatorBreakdownCase) {
+			throw new Error("Missing excavator breakdown eval case");
+		}
+
+		const record = {
+			id: "record-breakdown",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			Works: "Kavēšanās",
+			Comments:
+				"Ekskavatora turbīnas bojājuma dēļ darbi kavējās pusi dienas; nomā paņemts cits ekskavators.",
+			originalUserComment:
+				"Test Manager : Ekskavatoram saplīsa turbīna; ekskavators pusi dienas nestrādāja, līdz nomā paņemts cits ekskavators.",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: excavatorBreakdownCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
+	});
+
+	it("passes deflectometer documents saved as notes", () => {
+		if (!deflectometerDocumentsCase) {
+			throw new Error("Missing deflectometer documents eval case");
+		}
+
+		const record = {
+			id: "record-deflectometer",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			Works: "Piezīmes",
+			Comments:
+				"Būvuzraugam nosūtīti visi nepieciešamie dokumenti deflektometra sertifikācijai.",
+			originalUserComment:
+				"Test Manager : Nosūtīti būvuzraugam visi nepieciešamie dokumenti deflektometra sertifikācijai.",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: deflectometerDocumentsCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
+	});
+
+	it("passes in-progress excavator task saved as excavation", () => {
+		if (!excavatorStartedCase) {
+			throw new Error("Missing excavator-started eval case");
+		}
+
+		const record = {
+			id: "record-excavator-started",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			Works: "Excavation",
+			Comments:
+				"No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu.",
+			originalUserComment:
+				"Test Manager : No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu.",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: excavatorStartedCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
 	});
 
 	it("matches expected five-task rows without depending on save order", () => {
@@ -1306,13 +1497,16 @@ describe("WhatsApp site-manager eval validators", () => {
 				id: "record-foundation-sand",
 				Works: "Smilts piebēršana pamatiem",
 				Comments: "Smilts piebēršana pamatiem 400 kubi.",
+				Units: "m3",
 				Amounts: 400,
+				TimeInvolved: 9.5,
 			},
 			{
 				...baseRecord,
 				id: "record-excess-soil",
 				Works: "Liekās grunts izvešana",
 				Comments: "Liekās grunts izvešana 110 kubi.",
+				Units: "m3",
 				Amounts: 110,
 			},
 			{
@@ -1320,13 +1514,17 @@ describe("WhatsApp site-manager eval validators", () => {
 				id: "record-excavation",
 				Works: "Grunts rakšana",
 				Comments: "Grunts rakšana 80 kubi.",
+				Units: "m3",
 				Amounts: 80,
+				WorkersInvolved: 2,
+				TimeInvolved: 8,
 			},
 			{
 				...baseRecord,
 				id: "record-sand-delivery",
 				Works: "Materiālu piegāde",
 				Comments: "Ievestas smilts 180 kubi.",
+				Units: "m3",
 				Amounts: 180,
 			},
 			{
@@ -1350,6 +1548,79 @@ describe("WhatsApp site-manager eval validators", () => {
 		expect(
 			result.results.filter((item) => item.name.startsWith("expected-record:")),
 		).toHaveLength(5);
+	});
+
+	it("fails five-task earthworks rows critically when cubic quantities are nulled", () => {
+		if (!earthworksFiveRecordsCase)
+			throw new Error("Missing earthworks five-record eval case");
+
+		const baseRecord = {
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			originalUserComment: null,
+			originalAudioUrl: null,
+			Units: null,
+			Amounts: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+		const records = [
+			{
+				...baseRecord,
+				id: "record-weather",
+				Works: "Piezīmes",
+				Comments: "Laika apstākļi šodien saulains plus 27 grādi.",
+			},
+			{
+				...baseRecord,
+				id: "record-sand-delivery",
+				Works: "Materiālu piegāde",
+				Comments: "Ievestas smilts 180 kubi.",
+			},
+			{
+				...baseRecord,
+				id: "record-excavation",
+				Works: "Grunts rakšana",
+				Comments: "Grunts rakšana 80 kubi.",
+				WorkersInvolved: 2,
+				TimeInvolved: 8,
+			},
+			{
+				...baseRecord,
+				id: "record-excess-soil",
+				Works: "Liekās grunts izvešana",
+				Comments: "Liekās grunts izvešana 110 kubi.",
+			},
+			{
+				...baseRecord,
+				id: "record-foundation-sand",
+				Works: "Smilts piebēršana pamatiem",
+				Comments: "Smilts piebēršana pamatiem 400 kubi.",
+				TimeInvolved: 9.5,
+			},
+		];
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: earthworksFiveRecordsCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: records[0],
+			records,
+		});
+
+		expect(result.status).toBe("fail");
+		expect(result.criticalFailures).toBeGreaterThan(0);
+		expect(result.warnings).toBe(0);
+		expect(
+			result.results.find((item) => item.name === "expected-record:2"),
+		).toMatchObject({
+			status: "fail",
+			severity: "critical",
+		});
 	});
 
 	it("passes sand delivery plus backfill labor split into two records", () => {

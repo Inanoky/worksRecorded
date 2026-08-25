@@ -75,7 +75,7 @@ export function defaultAiDescription(dbKey: string, displayKey: string) {
   const normalizedDisplayKey = displayKey.toLowerCase();
 
   if (normalizedDbKey === "workersinvolved" || normalizedDisplayKey === "workers") {
-    return "Number of workers or people involved in this activity, not named worker records. Extract explicit counts from phrases like '2 workers', '2 people', '2 cilvēki', '2 strādnieki', 'trīs strādnieki', or 'darbinieki: 2'. Leave null if the worker count is unknown. Do not use 0 unless the source explicitly says zero workers.";
+    return "Number of workers or people involved in this activity, not named worker records. Extract explicit counts from phrases like '2 workers', '2 people', '2 cilvēki', '2 strādnieki', 'trīs strādnieki', or 'darbinieki: 2'. Count explicitly listed human roles when at least two participants are tied to the same activity, for example 'ekskavatora operators un palīgstrādnieks' means Workers: 2. Leave null if the worker count is unknown. Do not infer Workers: 1 from one machinery operator mention such as 'Bobcat operatoru'. Do not use 0 unless the source explicitly says zero workers.";
   }
 
   if (normalizedDbKey === "timeinvolved" || normalizedDisplayKey === "hours") {

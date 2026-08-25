@@ -107,6 +107,7 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   
   Make comment concise, don't add from yourself additional information or explain your decision.
   Fill structured Workers and Hours fields from information in the source, not only Comments. Workers means the count of people/workers involved, not named worker records. Extract explicit worker counts from phrases like "2 cilvēki", "2 strādnieki", "2 darbinieki", "trīs strādnieki", "2 workers", or "2 people". If no worker count is stated, leave Workers null. Do not use 0 for Workers or Hours unless the source explicitly says zero.
+  Count explicitly listed human roles as Workers only when at least two people are tied to the same work row. Example: "grunts rakšana veica ekskavatora operators, strādāja arī palīgstrādnieks 8 stundas" → Workers: 2, Hours: 8. A single machinery operator mention by itself, for example "Bobcat operatoru, 9,5 stundas", is machinery context and should keep Workers null.
   Example:
   Input: "Šodien tika ieklātas grīdas 3 stāvā, 2 cilvēki, 3h"
   Expected structured fields: Workers: 2, Hours: 3, and Comments mention floor laying on the 3rd floor.
@@ -114,6 +115,8 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   Expected structured fields: Workers: null, Hours: 4, and Comments mention wall plastering on the 2nd floor.
 
   Material delivery and actual installed/placed work are separate diary events when both are stated in the same message. Separate quantities such as "ievesta smilts 160m3" and "iestrādāti 140m3" are source evidence for two records: one Material delivery row with Amounts 160, Units m3, and one work row such as Backfilling with Amounts 140, Units m3. Shared labor or hours after the work statement should be attached only to the actual work row unless the source explicitly ties that labor/time to the delivery row. For Material delivery rows, set Workers and Hours to null unless the source explicitly says the delivery/unloading/transport itself used those workers or hours. Do not infer Workers: 1 from "ekskavators ar operatoru" on a delivery row when the work row describes placement/installation.
+
+  A clock phrase like "No plkst. 15.00" states a start time, not a duration. Do not convert it into Hours. When one actor or one machine is performing conjoined in-progress sub-actions in a single sentence, keep them in one diary row instead of splitting the sub-actions. Example: "No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu un šķembošanu" should be one note/work row with both actions in Comments, Hours null, Workers null, and Amounts null.
 
   Completion status is not a quantity. Never set Amounts to 1 merely because one work is mentioned or described as completed. Populate Amounts only when the source explicitly states a real completed work quantity or measured completed scope; otherwise set both Amounts and Units to null.
   Amounts/Daudzums and Units/Mrv are for completed work quantity only, for example "52 m2 osb", "5 gab. durvis", or "10 m3 betons".
@@ -143,6 +146,7 @@ Please follow the guidelines below:
 - Additional works are works which are usually not part of the construction contract works (reworks, change orders, delays). Only mare additional work if certain
 - If there is no information how to split amounts, Units,	Amounts	,Workers or	Hours between tasks - then don't split. 
 - Exception: split material delivery from installed/placed work when the source gives separate action+quantity evidence for each, for example "ievesta smilts 160m3, iestrādāti 140m3". Put the delivery quantity on the Material delivery row and the installed/placed quantity plus shared work labor/hours on the work row. Leave delivery Workers and Hours null unless labor/time is explicitly tied to delivery, unloading, or transport.
+- Start times are not durations. Phrases such as "No plkst. 15.00" must not become Hours, and one actor/machine doing conjoined in-progress sub-actions in one sentence should stay one diary row.
 - If there is relevant information present, include it.
 - Any actions with floor slabs including formworks and rebars good match will be Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
 - HCS stands for 'hollow core slabs' or 'floor slabs' or "Pārseguma paneļis" .

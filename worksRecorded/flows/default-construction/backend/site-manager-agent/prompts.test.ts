@@ -77,4 +77,21 @@ describe("site-manager BIS routing prompt", () => {
     expect(prompt).toContain('"Dz 6, 2 cilvēki, 3h" → Workers: 2, Hours: 3, Amounts: null, Units: null');
     expect(prompt).toContain('"Dz5f durvju aile demontāža" → Amounts: null, Units: null');
   });
+
+  it("counts multi-role worker evidence without inferring a lone operator", async () => {
+    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
+
+    expect(prompt).toContain("Count explicitly listed human roles as Workers");
+    expect(prompt).toContain("ekskavatora operators, strādāja arī palīgstrādnieks");
+    expect(prompt).toContain("Bobcat operatoru, 9,5 stundas");
+    expect(prompt).toContain("should keep Workers null");
+  });
+
+  it("keeps start-time conjoined machinery sub-actions in one structured row", async () => {
+    const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
+
+    expect(prompt).toContain('"No plkst. 15.00" states a start time, not a duration');
+    expect(prompt).toContain("one actor or one machine is performing conjoined in-progress sub-actions");
+    expect(prompt).toContain("should be one note/work row with both actions in Comments");
+  });
 });
