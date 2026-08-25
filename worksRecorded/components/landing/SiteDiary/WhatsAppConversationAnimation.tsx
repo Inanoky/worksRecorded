@@ -83,6 +83,55 @@ const TIMELINE = [500, 2200, 3900, 5000, 7900, 9600] as const;
 const LOOP_DURATION = 13_500;
 
 export function WhatsAppConversationAnimation({ locale }: { locale: string }) {
+	const copy = locale.toLowerCase().startsWith("lv")
+		? LATVIAN_COPY
+		: ENGLISH_COPY;
+
+	return (
+		<section className="relative mx-auto grid w-full max-w-[1328px] items-center gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:px-10 lg:py-24 xl:px-14">
+			<div className="max-w-xl">
+				<p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#087a49]">
+					<span className="h-0.5 w-8 rounded-full bg-[#087a49]" />
+					{copy.eyebrow}
+				</p>
+				<h2 className="mt-5 text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] sm:text-5xl lg:text-[4rem]">
+					{copy.title}
+				</h2>
+				<p className="mt-6 text-lg leading-8 text-slate-600 dark:text-slate-300">
+					{copy.description}
+				</p>
+				<div className="mt-8 flex flex-wrap gap-2">
+					{copy.chips.map((label) => (
+						<span
+							key={label}
+							className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-[#087a49] dark:border-emerald-900 dark:bg-emerald-950/30"
+						>
+							{label}
+						</span>
+					))}
+				</div>
+			</div>
+
+			<div className="relative flex justify-center lg:justify-end">
+				<div className="pointer-events-none absolute inset-x-10 bottom-2 h-20 rounded-full bg-emerald-900/20 blur-3xl" />
+				<WhatsAppChatPhone locale={locale} />
+			</div>
+
+			<p className="sr-only">
+				{copy.reminder} {copy.workerReply} {copy.saved} {copy.date}{" "}
+				{copy.concrete} {copy.additionalWorks} {copy.photoRequest}
+			</p>
+		</section>
+	);
+}
+
+export function WhatsAppChatPhone({
+	locale,
+	className = "",
+}: {
+	locale: string;
+	className?: string;
+}) {
 	const [stage, setStage] = useState(0);
 	const copy = locale.toLowerCase().startsWith("lv")
 		? LATVIAN_COPY
@@ -113,82 +162,49 @@ export function WhatsAppConversationAnimation({ locale }: { locale: string }) {
 	}, []);
 
 	return (
-		<section className="relative mx-auto grid w-full max-w-[1328px] items-center gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[0.85fr_1.15fr] lg:px-10 lg:py-24 xl:px-14">
-			<div className="max-w-xl">
-				<p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.2em] text-[#087a49]">
-					<span className="h-0.5 w-8 rounded-full bg-[#087a49]" />
-					{copy.eyebrow}
-				</p>
-				<h2 className="mt-5 text-balance text-4xl font-bold leading-[1.06] tracking-[-0.04em] sm:text-5xl lg:text-[4rem]">
-					{copy.title}
-				</h2>
-				<p className="mt-6 text-lg leading-8 text-slate-600 dark:text-slate-300">
-					{copy.description}
-				</p>
-				<div className="mt-8 flex flex-wrap gap-2">
-					{copy.chips.map((label) => (
-						<span
-							key={label}
-							className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-[#087a49] dark:border-emerald-900 dark:bg-emerald-950/30"
-						>
-							{label}
-						</span>
-					))}
-				</div>
-			</div>
-
-			<div className="relative flex justify-center lg:justify-end">
-				<div className="pointer-events-none absolute inset-x-10 bottom-2 h-20 rounded-full bg-emerald-900/20 blur-3xl" />
+		<div
+			className={`relative w-full max-w-[390px] rounded-[3rem] border-[9px] border-[#101312] bg-[#101312] p-1 shadow-[0_34px_90px_rgba(3,59,39,0.3)] ${className}`}
+			aria-hidden="true"
+		>
+			<div className="absolute left-1/2 top-2 z-20 h-5 w-28 -translate-x-1/2 rounded-full bg-[#101312]" />
+			<div className="overflow-hidden rounded-[2.35rem] bg-[#efeae2]">
+				<PhoneHeader status={copy.status} />
 				<div
-					className="relative w-full max-w-[390px] rounded-[3rem] border-[9px] border-[#101312] bg-[#101312] p-1 shadow-[0_34px_90px_rgba(3,59,39,0.3)]"
-					aria-hidden="true"
+					className="flex h-[570px] flex-col justify-start gap-3 overflow-hidden px-3 pb-4 pt-8 sm:h-[610px] sm:px-4"
+					style={{
+						backgroundColor: "#efeae2",
+						backgroundImage:
+							"radial-gradient(circle at 18px 22px, rgba(17,94,89,0.06) 1.5px, transparent 1.5px), radial-gradient(circle at 52px 58px, rgba(17,94,89,0.04) 2px, transparent 2px)",
+						backgroundSize: "72px 72px",
+					}}
 				>
-					<div className="absolute left-1/2 top-2 z-20 h-5 w-28 -translate-x-1/2 rounded-full bg-[#101312]" />
-					<div className="overflow-hidden rounded-[2.35rem] bg-[#efeae2]">
-						<PhoneHeader status={copy.status} />
-						<div
-							className="flex h-[570px] flex-col justify-end gap-3 overflow-hidden px-3 pb-4 pt-8 sm:h-[610px] sm:px-4"
-							style={{
-								backgroundColor: "#efeae2",
-								backgroundImage:
-									"radial-gradient(circle at 18px 22px, rgba(17,94,89,0.06) 1.5px, transparent 1.5px), radial-gradient(circle at 52px 58px, rgba(17,94,89,0.04) 2px, transparent 2px)",
-								backgroundSize: "72px 72px",
-							}}
-						>
-							{stage >= 1 ? (
-								<MessageBubble direction="incoming" time="08:30">
-									{copy.reminder}
-								</MessageBubble>
-							) : null}
-							{stage >= 2 ? (
-								<MessageBubble direction="outgoing" time="08:37" sent>
-									{copy.workerReply}
-								</MessageBubble>
-							) : null}
-							{stage === 3 ? <TypingBubble /> : null}
-							{stage >= 4 ? (
-								<MessageBubble direction="incoming" time="08:38">
-									<p className="font-semibold text-[#087a49]">{copy.saved}</p>
-									<p>{copy.date}</p>
-									<p className="mt-1">{copy.concrete}</p>
-									<p>{copy.additionalWorks}</p>
-									<p className="mt-2">{copy.photoRequest}</p>
-								</MessageBubble>
-							) : null}
-							{stage >= 5 ? (
-								<PhotoMessage copy={copy} uploading={stage === 5} />
-							) : null}
-						</div>
-						<Composer placeholder={copy.composer} />
-					</div>
+					{stage >= 1 ? (
+						<MessageBubble direction="incoming" time="08:30">
+							{copy.reminder}
+						</MessageBubble>
+					) : null}
+					{stage >= 2 ? (
+						<MessageBubble direction="outgoing" time="08:37" sent>
+							{copy.workerReply}
+						</MessageBubble>
+					) : null}
+					{stage === 3 ? <TypingBubble /> : null}
+					{stage >= 4 ? (
+						<MessageBubble direction="incoming" time="08:38">
+							<p className="font-semibold text-[#087a49]">{copy.saved}</p>
+							<p>{copy.date}</p>
+							<p className="mt-1">{copy.concrete}</p>
+							<p>{copy.additionalWorks}</p>
+							<p className="mt-2">{copy.photoRequest}</p>
+						</MessageBubble>
+					) : null}
+					{stage >= 5 ? (
+						<PhotoMessage copy={copy} uploading={stage === 5} />
+					) : null}
 				</div>
+				<Composer placeholder={copy.composer} />
 			</div>
-
-			<p className="sr-only">
-				{copy.reminder} {copy.workerReply} {copy.saved} {copy.date}{" "}
-				{copy.concrete} {copy.additionalWorks} {copy.photoRequest}
-			</p>
-		</section>
+		</div>
 	);
 }
 

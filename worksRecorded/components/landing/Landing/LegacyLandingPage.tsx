@@ -130,7 +130,7 @@ export default function LegacyLandingPage() {
 
 					<div className="relative mx-auto min-h-[340px] w-full max-w-3xl sm:min-h-[470px] lg:min-h-[610px] lg:max-w-none">
 						<div className="pointer-events-none absolute inset-x-[12%] bottom-[10%] h-[24%] rounded-full bg-emerald-900/10 blur-3xl dark:bg-emerald-400/10" />
-						<HeroProductMockup />
+						<HeroProductMockup locale={locale} />
 					</div>
 				</div>
 			</section>

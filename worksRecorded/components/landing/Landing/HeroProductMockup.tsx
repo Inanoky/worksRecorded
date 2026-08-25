@@ -1,13 +1,13 @@
 import Image from "next/image";
+import { WhatsAppChatPhone } from "@/components/landing/SiteDiary/WhatsAppConversationAnimation";
 import HeroLaptopDashboard from "@/public/frontend/pages/Home/HeroLaptopDashboardDiagram.png";
-import HeroWhatsAppPhone from "@/public/frontend/pages/Home/HeroWhatsAppPhoneSource.png";
 
-export function HeroProductMockup() {
+export function HeroProductMockup({ locale }: { locale: string }) {
 	return (
 		<div
 			className="relative mx-auto h-[340px] w-full max-w-[800px] sm:h-[470px] lg:h-[610px]"
 			role="img"
-			aria-label="WorksRecorded dashboard and WhatsApp shown in a laptop and smartphone mockup"
+			aria-label="WorksRecorded dashboard and an animated WhatsApp site diary conversation"
 		>
 			<div className="absolute top-[12%] right-[-3%] z-10 w-[86%] drop-shadow-[0_28px_32px_rgba(15,23,42,0.22)]">
 				<div className="relative aspect-[3/2] overflow-hidden rounded-[clamp(0.65rem,1.7vw,1.25rem)] border-[clamp(4px,0.75vw,7px)] border-slate-950 bg-slate-950">
@@ -30,16 +30,8 @@ export function HeroProductMockup() {
 				</div>
 			</div>
 
-			<div className="absolute top-[7%] left-[1%] z-20 h-[80%] aspect-[0.48] overflow-hidden rounded-[14%] drop-shadow-[0_24px_28px_rgba(15,23,42,0.28)] sm:h-[84%] lg:h-[80%]">
-				<Image
-					src={HeroWhatsAppPhone}
-					alt=""
-					fill
-					priority
-					placeholder="blur"
-					sizes="(min-width: 1024px) 16vw, 34vw"
-					className="scale-[1.055] object-cover"
-				/>
+			<div className="absolute left-[1%] top-[1%] z-20 w-[390px] origin-top-left scale-[0.43] sm:scale-[0.58] lg:scale-[0.74] xl:scale-[0.78]">
+				<WhatsAppChatPhone locale={locale} />
 			</div>
 		</div>
 	);
