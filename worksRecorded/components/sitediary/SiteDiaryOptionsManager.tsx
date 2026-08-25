@@ -34,7 +34,7 @@ import {
   normalizeOrganizationLanguage,
 } from "@/lib/dashboard-i18n";
 import { matchesPersistedWorkSearch } from "@/flows/default-construction/lib/site-diary-options-search";
-import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
+import { groupDefaultConstructionSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
 
 const MAX_OPTION_LENGTH = 200;
 type ManagedField = "Location" | "Works";
@@ -79,6 +79,8 @@ const PRODUCTIVITY_MESSAGES = {
       "Output: planned and factual costs both follow completed quantity × output rate. Hourly rate: factual cost follows recorded hours × hourly rate.",
     selectUnit: "No unit",
     addWork: "Add work",
+    customWorksGroup: "Custom and Forma 2 works",
+    defaultWorksGroup: "Default works",
     invalidNorm: "Time norm must be a number greater than zero.",
     invalidHourlyCost:
       "Hourly cost must be a number equal to or greater than zero.",
@@ -97,12 +99,14 @@ const PRODUCTIVITY_MESSAGES = {
     forma2Managed:
       "Šī darba nosaukumu pārvalda aktīvā Forma 2. Lai to mainītu, aizstājiet vai noņemiet Formas 2 dokumentu.",
     systemDefaultManaged:
-      "Šis noklusējuma darbs",
+      "Šis noklusējuma darbs ir nepieciešams AI atpazīšanai, tāpēc nosaukumu nevar mainīt.",
     systemDefaultBadge: "Noklusējums",
     costModeHint:
       "Izpilde: plāna un faktiskās izmaksas = izpildītais daudzums × izpildes likme. Stundas likme: faktiskās izmaksas = reģistrētās stundas × stundas likme.",
     selectUnit: "Nav norādīta",
     addWork: "Pievienot darbu",
+    customWorksGroup: "Pielāgotie un Forma 2 darbi",
+    defaultWorksGroup: "Noklusējuma darbi",
     invalidNorm: "Laika normai jābūt skaitlim, kas lielāks par nulli.",
     invalidHourlyCost:
       "Stundas likmei jābūt skaitlim, kas nav mazāks par nulli.",
@@ -203,10 +207,25 @@ export function SiteDiaryOptionsManager({
     );
   const visibleWorks = works
     .map((work, index) => ({ work, index }))
-    .filter(({ work }) => matchesPersistedWorkSearch(work, normalizedSearch))
-    .sort((left, right) =>
-      compareSiteDiaryWorks(left.work.work, right.work.work),
-    );
+    .filter(({ work }) => matchesPersistedWorkSearch(work, normalizedSearch));
+  const visibleWorkGroups = groupDefaultConstructionSiteDiaryWorks(
+    visibleWorks,
+    ({ work }) => work.work,
+  );
+  const hasVisibleWorks = Boolean(
+    visibleWorkGroups.customWorks.length ||
+      visibleWorkGroups.defaultWorks.length,
+  );
+  const renderedWorkGroups = [
+    {
+      label: p.customWorksGroup,
+      rows: visibleWorkGroups.customWorks,
+    },
+    {
+      label: p.defaultWorksGroup,
+      rows: visibleWorkGroups.defaultWorks,
+    },
+  ].filter((group) => group.rows.length);
 
   const validateLocation = (rawValue: string, ignoredIndex?: number) => {
     const value = rawValue.trim();
@@ -521,145 +540,156 @@ export function SiteDiaryOptionsManager({
                   <div title={p.costModeHint}>{p.costMode}</div>
                   <div />
                 </div>
-                {visibleWorks.map(({ work, index }) => {
-                  const availableUnits = Array.from(
-                    new Set([...unitOptions, work.unit].filter(Boolean)),
-                  );
-                  const isLockedWorkName =
-                    work.source?.type === "systemDefault" ||
-                    (work.source?.type === "forma2" &&
-                      work.source.ownedByForma2);
-                  const lockedWorkTitle =
-                    work.source?.type === "systemDefault"
-                      ? p.systemDefaultManaged
-                      : work.source?.type === "forma2" &&
-                          work.source.ownedByForma2
-                        ? p.forma2Managed
-                        : undefined;
-                  return (
-                    <div
-                      key={work.id}
-                      className="grid grid-cols-[minmax(220px,1fr)_120px_135px_135px_220px_40px] items-center gap-2 rounded-md border p-2"
-                    >
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Input
-                          value={work.work}
-                          maxLength={MAX_OPTION_LENGTH}
-                          disabled={isLockedWorkName}
-                          title={lockedWorkTitle}
-                          onChange={(event) =>
-                            updateWork(index, { work: event.target.value })
-                          }
-                        />
-                        {work.source?.type === "systemDefault" ? (
-                          <Badge
-                            variant="secondary"
-                            className="shrink-0"
-                            title={p.systemDefaultManaged}
-                          >
-                            {p.systemDefaultBadge}
-                          </Badge>
-                        ) : null}
-                        {work.source?.type === "forma2" &&
-                        work.source.ownedByForma2 ? (
-                          <Badge
-                            variant="secondary"
-                            className="shrink-0"
-                            title={p.forma2Managed}
-                          >
-                            Forma 2
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <select
-                        value={work.unit}
-                        onChange={(event) =>
-                          updateWork(index, { unit: event.target.value })
-                        }
-                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-                      >
-                        <option value="">{p.selectUnit}</option>
-                        {availableUnits.map((unit) => (
-                          <option key={unit} value={unit}>
-                            {unit}
-                          </option>
-                        ))}
-                      </select>
-                      <Input
-                        value={work.laborNormHoursPerUnit}
-                        inputMode="decimal"
-                        placeholder={p.normHint}
-                        onChange={(event) =>
-                          updateWork(index, {
-                            laborNormHoursPerUnit: event.target.value,
-                          })
-                        }
-                      />
-                      <Input
-                        value={work.hourlyCost}
-                        inputMode="decimal"
-                        placeholder={p.hourlyCostHint}
-                        onChange={(event) =>
-                          updateWork(index, { hourlyCost: event.target.value })
-                        }
-                      />
-                      <div
-                        className="flex h-10 items-center justify-center gap-2 rounded-md border border-input px-2"
-                        title={p.costModeHint}
-                      >
-                        <span
-                          className={`text-xs transition-colors ${
-                            work.costCalculationMode === "output"
-                              ? "font-semibold text-foreground"
-                              : "text-muted-foreground"
-                          }`}
-                        >
-                          {p.outputMode}
-                        </span>
-                        <Switch
-                          checked={work.costCalculationMode === "hourly"}
-                          onCheckedChange={(checked) =>
-                            updateWork(index, {
-                              costCalculationMode: checked
-                                ? "hourly"
-                                : "output",
-                            })
-                          }
-                          aria-label={`${p.costMode}: ${
-                            work.costCalculationMode === "hourly"
-                              ? p.hourlyMode
-                              : p.outputMode
-                          }`}
-                        />
-                        <span
-                          className={`text-xs transition-colors ${
-                            work.costCalculationMode === "hourly"
-                              ? "font-semibold text-foreground"
-                              : "text-muted-foreground"
-                          }`}
-                        >
-                          {p.hourlyMode}
-                        </span>
-                      </div>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        onClick={() =>
-                          setWorks((current) =>
-                            current.filter((_, rowIndex) => rowIndex !== index),
-                          )
-                        }
-                        disabled={isLockedWorkName}
-                        title={lockedWorkTitle}
-                        aria-label={t.deleteOption}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                {renderedWorkGroups.map((group) => (
+                  <div key={group.label} className="space-y-2">
+                    <div className="px-2 pt-3 text-xs font-semibold uppercase text-muted-foreground">
+                      {group.label}
                     </div>
-                  );
-                })}
-                {!visibleWorks.length ? (
+                    {group.rows.map(({ work, index }) => {
+                      const availableUnits = Array.from(
+                        new Set([...unitOptions, work.unit].filter(Boolean)),
+                      );
+                      const isLockedWorkName =
+                        work.source?.type === "systemDefault" ||
+                        (work.source?.type === "forma2" &&
+                          work.source.ownedByForma2);
+                      const lockedWorkTitle =
+                        work.source?.type === "systemDefault"
+                          ? p.systemDefaultManaged
+                          : work.source?.type === "forma2" &&
+                              work.source.ownedByForma2
+                            ? p.forma2Managed
+                            : undefined;
+                      return (
+                        <div
+                          key={work.id}
+                          className="grid grid-cols-[minmax(220px,1fr)_120px_135px_135px_220px_40px] items-center gap-2 rounded-md border p-2"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Input
+                              value={work.work}
+                              maxLength={MAX_OPTION_LENGTH}
+                              disabled={isLockedWorkName}
+                              title={lockedWorkTitle}
+                              onChange={(event) =>
+                                updateWork(index, { work: event.target.value })
+                              }
+                            />
+                            {work.source?.type === "systemDefault" ? (
+                              <Badge
+                                variant="secondary"
+                                className="shrink-0"
+                                title={p.systemDefaultManaged}
+                              >
+                                {p.systemDefaultBadge}
+                              </Badge>
+                            ) : null}
+                            {work.source?.type === "forma2" &&
+                            work.source.ownedByForma2 ? (
+                              <Badge
+                                variant="secondary"
+                                className="shrink-0"
+                                title={p.forma2Managed}
+                              >
+                                Forma 2
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <select
+                            value={work.unit}
+                            onChange={(event) =>
+                              updateWork(index, { unit: event.target.value })
+                            }
+                            className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                          >
+                            <option value="">{p.selectUnit}</option>
+                            {availableUnits.map((unit) => (
+                              <option key={unit} value={unit}>
+                                {unit}
+                              </option>
+                            ))}
+                          </select>
+                          <Input
+                            value={work.laborNormHoursPerUnit}
+                            inputMode="decimal"
+                            placeholder={p.normHint}
+                            onChange={(event) =>
+                              updateWork(index, {
+                                laborNormHoursPerUnit: event.target.value,
+                              })
+                            }
+                          />
+                          <Input
+                            value={work.hourlyCost}
+                            inputMode="decimal"
+                            placeholder={p.hourlyCostHint}
+                            onChange={(event) =>
+                              updateWork(index, {
+                                hourlyCost: event.target.value,
+                              })
+                            }
+                          />
+                          <div
+                            className="flex h-10 items-center justify-center gap-2 rounded-md border border-input px-2"
+                            title={p.costModeHint}
+                          >
+                            <span
+                              className={`text-xs transition-colors ${
+                                work.costCalculationMode === "output"
+                                  ? "font-semibold text-foreground"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {p.outputMode}
+                            </span>
+                            <Switch
+                              checked={work.costCalculationMode === "hourly"}
+                              onCheckedChange={(checked) =>
+                                updateWork(index, {
+                                  costCalculationMode: checked
+                                    ? "hourly"
+                                    : "output",
+                                })
+                              }
+                              aria-label={`${p.costMode}: ${
+                                work.costCalculationMode === "hourly"
+                                  ? p.hourlyMode
+                                  : p.outputMode
+                              }`}
+                            />
+                            <span
+                              className={`text-xs transition-colors ${
+                                work.costCalculationMode === "hourly"
+                                  ? "font-semibold text-foreground"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {p.hourlyMode}
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() =>
+                              setWorks((current) =>
+                                current.filter(
+                                  (_, rowIndex) => rowIndex !== index,
+                                )
+                              )
+                            }
+                            disabled={isLockedWorkName}
+                            title={lockedWorkTitle}
+                            aria-label={t.deleteOption}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+                {!hasVisibleWorks ? (
                   <p className="py-4 text-center text-sm text-muted-foreground">
                     {t.noOptionsFound}
                   </p>

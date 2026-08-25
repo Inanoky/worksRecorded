@@ -13,7 +13,7 @@ import {
 	getDefaultConstructionProductivitySettings,
 	setDefaultConstructionWorkDropdownOptions,
 } from "@/flows/default-construction/lib/site-diary-productivity-settings";
-import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
+import { sortDefaultConstructionSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
 
 const MAX_WORK_LENGTH = 200;
 
@@ -215,7 +215,10 @@ export function syncDefaultConstructionForma2WorkOptions(args: {
 		});
 	}
 
-	const works = [...manualWorks, ...ownedWorks].sort(compareSiteDiaryWorks);
+	const works = sortDefaultConstructionSiteDiaryWorks([
+		...manualWorks,
+		...ownedWorks,
+	]);
 	const settings = works.map((work) => {
 		const key = normalizeForma2WorkOptionKey(work);
 		return persistedSetting(
@@ -287,9 +290,11 @@ export function removeDefaultConstructionForma2WorkOptions(
 			.filter((entry) => entry.ownedByForma2)
 			.map((entry) => normalizeForma2WorkOptionKey(entry.work)),
 	);
-	const works = dropdownValues(config, "Works")
-		.filter((work) => !ownedKeys.has(normalizeForma2WorkOptionKey(work)))
-		.sort(compareSiteDiaryWorks);
+	const works = sortDefaultConstructionSiteDiaryWorks(
+		dropdownValues(config, "Works").filter(
+			(work) => !ownedKeys.has(normalizeForma2WorkOptionKey(work)),
+		),
+	);
 	const settings = getDefaultConstructionProductivitySettings(config)
 		.works.filter(
 			(setting) => !ownedKeys.has(normalizeForma2WorkOptionKey(setting.work)),

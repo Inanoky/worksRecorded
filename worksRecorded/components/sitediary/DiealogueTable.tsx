@@ -46,7 +46,10 @@ import { useMediaQuery } from "./Use-media-querty";
 import { z } from "zod";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
 import { getSiteDiaryDialogMessages, getToastMessages, normalizeOrganizationLanguage } from "@/lib/dashboard-i18n";
-import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
+import {
+  groupDefaultConstructionSiteDiaryWorks,
+  sortDefaultConstructionSiteDiaryWorks,
+} from "@/flows/default-construction/lib/site-diary-work-order";
 
 type SearchableWorksSelectProps = {
   value: string;
@@ -55,6 +58,8 @@ type SearchableWorksSelectProps = {
   selectLabel: string;
   searchLabel: string;
   noOptionsLabel: string;
+  customWorksGroupLabel: string;
+  defaultWorksGroupLabel: string;
   onChange: (value: string) => void;
 };
 
@@ -65,6 +70,8 @@ function SearchableWorksSelect({
   selectLabel,
   searchLabel,
   noOptionsLabel,
+  customWorksGroupLabel,
+  defaultWorksGroupLabel,
   onChange,
 }: SearchableWorksSelectProps) {
   const [open, setOpen] = useState(false);
@@ -73,6 +80,14 @@ function SearchableWorksSelect({
   const filteredOptions = options.filter((option) =>
     option.label.toLocaleLowerCase("lv").includes(normalizedSearch),
   );
+  const groupedOptions = groupDefaultConstructionSiteDiaryWorks(
+    filteredOptions,
+    (option) => option.label,
+  );
+  const optionGroups = [
+    { label: customWorksGroupLabel, options: groupedOptions.customWorks },
+    { label: defaultWorksGroupLabel, options: groupedOptions.defaultWorks },
+  ].filter((group) => group.options.length);
 
   return (
     <Popover
@@ -119,25 +134,32 @@ function SearchableWorksSelect({
           }}
         >
           <div className="p-1">
-            {filteredOptions.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className="flex w-full min-w-0 items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
-                onClick={() => {
-                  onChange(option.label);
-                  setOpen(false);
-                }}
-              >
-                <Check
-                  className={`mt-0.5 h-4 w-4 shrink-0 ${
-                    value === option.label ? "opacity-100" : "opacity-0"
-                  }`}
-                />
-                <span className="min-w-0 whitespace-normal break-words">
-                  {option.label}
-                </span>
-              </button>
+            {optionGroups.map((group) => (
+              <div key={group.label}>
+                <div className="px-2 py-1.5 text-xs font-semibold uppercase text-muted-foreground">
+                  {group.label}
+                </div>
+                {group.options.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className="flex w-full min-w-0 items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent"
+                    onClick={() => {
+                      onChange(option.label);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={`mt-0.5 h-4 w-4 shrink-0 ${
+                        value === option.label ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                    <span className="min-w-0 whitespace-normal break-words">
+                      {option.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
             ))}
             {filteredOptions.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-muted-foreground">
@@ -842,15 +864,22 @@ export function DialogTable({
       }
 
       if (field === "Works") {
-        options.sort((left, right) => compareSiteDiaryWorks(left.label, right.label));
+        const sortedOptions = sortDefaultConstructionSiteDiaryWorks(
+          options.map((option) => option.label),
+        ).map((label) => {
+          const option = options.find((entry) => entry.label === label);
+          return option ?? { value: label, label };
+        });
         return (
           <SearchableWorksSelect
             value={currentValue}
-            options={options}
+            options={sortedOptions}
             width={isMobile ? "100%" : getCellWidthByKey(field, defaultMap)}
             selectLabel={t.select}
             searchLabel={t.searchOption}
             noOptionsLabel={t.noOptionsFound}
+            customWorksGroupLabel={t.customWorksGroup}
+            defaultWorksGroupLabel={t.defaultWorksGroup}
             onChange={(value) => handleChange(rowKey, field, value)}
           />
         );

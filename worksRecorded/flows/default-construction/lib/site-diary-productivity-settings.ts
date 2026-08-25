@@ -1,19 +1,13 @@
 import { getDefaultConstructionForma2SourceByWork } from "./forma2-work-options-manifest";
-import { compareSiteDiaryWorks } from "./site-diary-work-order";
+import {
+  DEFAULT_CONSTRUCTION_SYSTEM_WORKS,
+  sortDefaultConstructionSiteDiaryWorks,
+} from "./site-diary-work-order";
+
+export { DEFAULT_CONSTRUCTION_SYSTEM_WORKS };
 
 export const DEFAULT_CONSTRUCTION_PRODUCTIVITY_SETTINGS_KEY =
   "defaultConstructionProductivity";
-
-export const DEFAULT_CONSTRUCTION_SYSTEM_WORKS = [
-  "Uzkopšanas darbi",
-  "Elektroinstalācijas darbi",
-  "Santehnikas darbi",
-  "Apkures sistēmas un ventilācijas darbi",
-  "Materiālu piegāde",
-  "Kavēšanās",
-  "Papildu darbi",
-  "Piezīmes",
-] as const;
 
 export type DefaultConstructionWorkCostMode = "hourly" | "output";
 
@@ -69,7 +63,7 @@ export function withDefaultConstructionSystemWorks(
     worksByKey.set(normalizedKey(work), work);
   }
 
-  return Array.from(worksByKey.values()).sort(compareSiteDiaryWorks);
+  return sortDefaultConstructionSiteDiaryWorks(Array.from(worksByKey.values()));
 }
 
 export function setDefaultConstructionWorkDropdownOptions(

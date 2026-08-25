@@ -75,7 +75,9 @@ import {
   SelectTrigger,
   SelectValue,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
 } from "@/components/ui/select";
 import {
   Tooltip,
@@ -140,7 +142,11 @@ import {
   getZtcRateTaskDisplayForRow,
   ztcRowMatchesConfiguredWorkFilter,
 } from "@/flows/ztc-production/lib/ztc-rate-resolver";
-import { compareSiteDiaryWorks } from "@/flows/default-construction/lib/site-diary-work-order";
+import {
+  compareSiteDiaryWorks,
+  groupDefaultConstructionSiteDiaryWorks,
+  sortDefaultConstructionSiteDiaryWorks,
+} from "@/flows/default-construction/lib/site-diary-work-order";
 import { calculateDefaultConstructionManHours } from "@/flows/default-construction/lib/site-diary-summary";
 
 import { toast } from "sonner";
@@ -1305,7 +1311,7 @@ export default function SiteDiaryCalendar({
       }
       if (r.Works && String(r.Works).trim()) set.add(String(r.Works).trim());
     });
-    return Array.from(set).sort(compareSiteDiaryWorks);
+    return sortDefaultConstructionSiteDiaryWorks(Array.from(set));
   }, [rows, isZtcSite, floorFilter, elementFilter]);
 
   const worksOptions = React.useMemo(
@@ -1314,6 +1320,10 @@ export default function SiteDiaryCalendar({
         ? ztcFilterOptions.works
         : pageWorksOptions,
     [isZtcSite, pageWorksOptions, ztcFilterOptions.works],
+  );
+  const groupedWorksOptions = React.useMemo(
+    () => groupDefaultConstructionSiteDiaryWorks(worksOptions, (work) => work),
+    [worksOptions],
   );
 
   React.useEffect(() => {
@@ -2867,11 +2877,26 @@ export default function SiteDiaryCalendar({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="__ALL__">{t.allWorks}</SelectItem>
-                            {worksOptions.map((w) => (
-                              <SelectItem key={w} value={w}>
-                                {w}
-                              </SelectItem>
-                            ))}
+                            {groupedWorksOptions.customWorks.length ? (
+                              <SelectGroup>
+                                <SelectLabel>{t.customWorksGroup}</SelectLabel>
+                                {groupedWorksOptions.customWorks.map((w) => (
+                                  <SelectItem key={w} value={w}>
+                                    {w}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            ) : null}
+                            {groupedWorksOptions.defaultWorks.length ? (
+                              <SelectGroup>
+                                <SelectLabel>{t.defaultWorksGroup}</SelectLabel>
+                                {groupedWorksOptions.defaultWorks.map((w) => (
+                                  <SelectItem key={w} value={w}>
+                                    {w}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            ) : null}
                           </SelectContent>
                         </Select>
 

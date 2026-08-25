@@ -38,6 +38,8 @@ type SiteDiaryListMessages = {
   toDate: string;
   filterByWorks: string;
   allWorks: string;
+  customWorksGroup: string;
+  defaultWorksGroup: string;
   filterByFloorLocation: string;
   allFloorsLocations: string;
   keywordSearchPlaceholder: string;
@@ -503,6 +505,8 @@ type SiteDiaryDialogMessages = {
   worksTab: string;
   manageLocationsTitle: string;
   manageWorksTitle: string;
+  customWorksGroup: string;
+  defaultWorksGroup: string;
   searchOption: string;
   addNewOption: string;
   add: string;
@@ -691,6 +695,8 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     toDate: "To date",
     filterByWorks: "Filter by works",
     allWorks: "All works",
+    customWorksGroup: "Custom and Forma 2 works",
+    defaultWorksGroup: "Default works",
     filterByFloorLocation: "Filter by floor/location",
     allFloorsLocations: "All floors / locations",
     keywordSearchPlaceholder: "Search keyword…",
@@ -808,6 +814,8 @@ const SITE_DIARY_LIST_MESSAGES: Record<OrganizationLanguage, SiteDiaryListMessag
     toDate: "Datums līdz",
     filterByWorks: "Filtrēt pēc darbiem",
     allWorks: "Visi darbi",
+    customWorksGroup: "Pielāgotie un Forma 2 darbi",
+    defaultWorksGroup: "Noklusējuma darbi",
     filterByFloorLocation: "Filtrēt pēc stāva/lokācijas",
     allFloorsLocations: "Visi stāvi / lokācijas",
     keywordSearchPlaceholder: "Meklēt pēc atslēgvārda…",
@@ -1593,6 +1601,8 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     worksTab: "Works",
     manageLocationsTitle: "Manage locations",
     manageWorksTitle: "Manage works",
+    customWorksGroup: "Custom and Forma 2 works",
+    defaultWorksGroup: "Default works",
     searchOption: "Search option",
     addNewOption: "Add new option",
     add: "Add",
@@ -1679,6 +1689,8 @@ const SITE_DIARY_DIALOG_MESSAGES: Record<OrganizationLanguage, SiteDiaryDialogMe
     worksTab: "Darbi",
     manageLocationsTitle: "Pārvaldīt lokācijas",
     manageWorksTitle: "Pārvaldīt darbus",
+    customWorksGroup: "Pielāgotie un Forma 2 darbi",
+    defaultWorksGroup: "Noklusējuma darbi",
     searchOption: "Meklēt opciju",
     addNewOption: "Pievienot jaunu opciju",
     add: "Pievienot",
