@@ -16,6 +16,7 @@ import {
 	X,
 	type LucideIcon,
 } from "lucide-react";
+import { WhatsAppConversationAnimation } from "@/components/landing/SiteDiary/WhatsAppConversationAnimation";
 import { buildLandingMetadata } from "@/lib/seo/landingMetadata";
 
 type PageProps = {
@@ -122,6 +123,8 @@ export default function Page() {
 					</div>
 				</div>
 			</section>
+
+			<WhatsAppConversationAnimation locale={locale} />
 
 			<section className="mx-auto w-full max-w-[1440px] px-5 pb-16 sm:px-8 lg:px-10 lg:pb-24 xl:px-14">
 				<div className="border-y border-slate-200/80 dark:border-slate-800">
