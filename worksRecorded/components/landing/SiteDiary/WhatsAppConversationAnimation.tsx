@@ -170,7 +170,7 @@ export function WhatsAppChatPhone({
 			<div className="overflow-hidden rounded-[2.35rem] bg-[#efeae2]">
 				<PhoneHeader status={copy.status} />
 				<div
-					className="flex h-[570px] flex-col justify-start gap-3 overflow-hidden px-3 pb-4 pt-8 sm:h-[610px] sm:px-4"
+					className="flex h-[650px] flex-col justify-start gap-3 overflow-hidden px-3 pb-4 pt-8 sm:px-4"
 					style={{
 						backgroundColor: "#efeae2",
 						backgroundImage:
@@ -244,7 +244,7 @@ function MessageBubble({
 	const outgoing = direction === "outgoing";
 	return (
 		<div
-			className={`${MESSAGE_ENTER} relative max-w-[88%] rounded-xl px-3 pb-1.5 pt-2 text-[13px] leading-[1.4] text-slate-900 shadow-[0_1px_1px_rgba(15,23,42,0.12)] ${
+			className={`${MESSAGE_ENTER} relative max-w-[96%] rounded-xl px-[15px] pb-2 pt-2.5 text-[16.5px] leading-[1.4] text-slate-900 shadow-[0_1px_1px_rgba(15,23,42,0.12)] ${
 				outgoing
 					? "ml-auto rounded-tr-sm bg-[#d9fdd3]"
 					: "mr-auto rounded-tl-sm bg-white"
@@ -258,10 +258,10 @@ function MessageBubble({
 
 function MessageMeta({ time, sent = false }: { time: string; sent?: boolean }) {
 	return (
-		<span className="ml-3 inline-flex translate-y-1 items-center gap-0.5 whitespace-nowrap text-[9px] text-slate-500">
+		<span className="ml-[15px] inline-flex translate-y-1 items-center gap-1 whitespace-nowrap text-[11.5px] text-slate-500">
 			{time}
 			{sent ? (
-				<CheckCheck className="size-3.5 text-[#53bdeb]" strokeWidth={2.2} />
+				<CheckCheck className="size-[18px] text-[#53bdeb]" strokeWidth={2.2} />
 			) : null}
 		</span>
 	);
@@ -270,12 +270,12 @@ function MessageMeta({ time, sent = false }: { time: string; sent?: boolean }) {
 function TypingBubble() {
 	return (
 		<div
-			className={`${MESSAGE_ENTER} mr-auto flex h-9 items-center gap-1 rounded-xl rounded-tl-sm bg-white px-4 shadow-[0_1px_1px_rgba(15,23,42,0.12)]`}
+			className={`${MESSAGE_ENTER} mr-auto flex h-[46px] items-center gap-1 rounded-xl rounded-tl-sm bg-white px-5 shadow-[0_1px_1px_rgba(15,23,42,0.12)]`}
 		>
 			{[0, 1, 2].map((dot) => (
 				<span
 					key={dot}
-					className="size-1.5 animate-bounce rounded-full bg-slate-400 motion-reduce:animate-none"
+					className="size-2 animate-bounce rounded-full bg-slate-400 motion-reduce:animate-none"
 					style={{ animationDelay: `${dot * 120}ms` }}
 				/>
 			))}
@@ -292,7 +292,7 @@ function PhotoMessage({
 }) {
 	return (
 		<div
-			className={`${MESSAGE_ENTER} ml-auto w-[88%] rounded-xl rounded-tr-sm bg-[#d9fdd3] p-1.5 shadow-[0_1px_1px_rgba(15,23,42,0.12)]`}
+			className={`${MESSAGE_ENTER} ml-auto w-[96%] rounded-xl rounded-tr-sm bg-[#d9fdd3] p-2 shadow-[0_1px_1px_rgba(15,23,42,0.12)]`}
 		>
 			<div className="grid h-36 grid-cols-2 gap-1 overflow-hidden rounded-lg">
 				<div className="relative row-span-2 overflow-hidden">

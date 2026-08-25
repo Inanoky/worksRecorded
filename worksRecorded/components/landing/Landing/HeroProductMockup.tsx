@@ -30,7 +30,7 @@ export function HeroProductMockup({ locale }: { locale: string }) {
 				</div>
 			</div>
 
-			<div className="absolute left-[1%] top-[1%] z-20 w-[390px] origin-top-left scale-[0.43] sm:scale-[0.58] lg:scale-[0.74] xl:scale-[0.78]">
+			<div className="absolute left-[1%] top-[1%] z-20 w-[390px] origin-top-left scale-[0.4] sm:scale-[0.56] lg:scale-[0.74]">
 				<WhatsAppChatPhone locale={locale} />
 			</div>
 		</div>
