@@ -3,6 +3,7 @@ import path from "node:path";
 import { Prisma } from "@prisma/client";
 import OpenAI from "openai";
 
+import { buildSiteManagerWorkflowTraceContext } from "@/flows/default-construction/backend/site-manager-agent/runContext";
 import { prisma } from "@/lib/utils/db";
 import { runWithSiteManagerAgentEvalContext } from "@/server/ai-flows/agents/whatsapp-agent/SiteManagerAgentForSiteManagerRoute/agent";
 import {
@@ -434,6 +435,7 @@ function prepareWebhookPayload(args: {
 	return {
 		payload,
 		messageId,
+		messageType: typeof message.type === "string" ? message.type : null,
 		inputText: textFromWebhook(payload),
 	};
 }
@@ -1139,22 +1141,31 @@ async function main() {
 				senderPhone,
 				bsuid,
 			});
+			const workflowTrace = buildSiteManagerWorkflowTraceContext({
+				messageType: prepared.messageType,
+			});
 			const evalTraceMetadata = {
 				evalRunId: runId,
 				evalCaseId: evalCase.id,
 				evalMode: "real-meta-webhook-regression",
 				webhookMessageId: prepared.messageId,
+				...workflowTrace.metadata,
 			};
 			const evalTraceTags = [
 				"eval",
 				"eval:whatsapp-site-manager",
 				`eval-run:${runId}`,
 				`eval-case:${evalCase.id}`,
+				...workflowTrace.tags,
 			];
 			const evalRecordMetadata = {
 				isEval: true,
 				environment: "single-db",
 				flow: "whatsapp-site-manager",
+				workflowId: workflowTrace.workflowId,
+				workflowName: workflowTrace.workflowName,
+				messageType: workflowTrace.messageType,
+				mediaPurpose: workflowTrace.mediaPurpose,
 				runId,
 				caseId: evalCase.id,
 				siteId,
@@ -1204,6 +1215,11 @@ async function main() {
 							model: agentModel,
 							traceMetadata: evalTraceMetadata,
 							traceTags: evalTraceTags,
+							workflowId: workflowTrace.workflowId,
+							workflowName: workflowTrace.workflowName,
+							workflowRunLabel: workflowTrace.workflowRunLabel,
+							messageType: workflowTrace.messageType,
+							mediaPurpose: workflowTrace.mediaPurpose,
 							evalRecordMetadata,
 							bisConnectionOverride: getSimulatedBisConnection(webhookEvalCase),
 						},
@@ -1358,6 +1374,9 @@ async function main() {
 						body: webhookEvalCase.followUp.body,
 						messageSuffix: "follow-up",
 					});
+					const followUpWorkflowTrace = buildSiteManagerWorkflowTraceContext({
+						messageType: followUpPrepared.messageType,
+					});
 					const followUpStartedAt = new Date();
 					const followUpStarted = Date.now();
 					const followUpTraceMetadata = {
@@ -1365,11 +1384,16 @@ async function main() {
 						evalCaseId: followUpId,
 						evalMode: "real-meta-webhook-regression-follow-up",
 						webhookMessageId: followUpPrepared.messageId,
+						...followUpWorkflowTrace.metadata,
 					};
 					const followUpRecordMetadata = {
 						isEval: true,
 						environment: "single-db",
 						flow: "whatsapp-site-manager",
+						workflowId: followUpWorkflowTrace.workflowId,
+						workflowName: followUpWorkflowTrace.workflowName,
+						messageType: followUpWorkflowTrace.messageType,
+						mediaPurpose: followUpWorkflowTrace.mediaPurpose,
 						runId,
 						caseId: followUpId,
 						siteId,
@@ -1384,7 +1408,16 @@ async function main() {
 								threadId,
 								model: agentModel,
 								traceMetadata: followUpTraceMetadata,
-								traceTags: [...evalTraceTags, "eval-follow-up"],
+								traceTags: [
+									...evalTraceTags,
+									...followUpWorkflowTrace.tags,
+									"eval-follow-up",
+								],
+								workflowId: followUpWorkflowTrace.workflowId,
+								workflowName: followUpWorkflowTrace.workflowName,
+								workflowRunLabel: followUpWorkflowTrace.workflowRunLabel,
+								messageType: followUpWorkflowTrace.messageType,
+								mediaPurpose: followUpWorkflowTrace.mediaPurpose,
 								evalRecordMetadata: followUpRecordMetadata,
 								bisConnectionOverride:
 									getSimulatedBisConnection(webhookEvalCase),

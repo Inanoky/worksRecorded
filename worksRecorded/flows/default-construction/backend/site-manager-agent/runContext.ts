@@ -38,6 +38,28 @@ export type FastPathTraceMetadata = {
   fallbackReason?: FastPathFallbackReason;
 };
 
+export type SiteManagerWorkflowId =
+  | "whatsapp-site-manager:text"
+  | "whatsapp-site-manager:image-caption"
+  | "whatsapp-site-manager:audio"
+  | "meta-material:image-classification"
+  | "meta-material:invoice-extraction";
+
+export type SiteManagerMessageType = "text" | "image" | "audio";
+
+export type SiteManagerMediaPurpose =
+  | "site_diary_caption"
+  | "material_invoice"
+  | "unknown";
+
+type SiteManagerWorkflowDefinition = {
+  workflowId: SiteManagerWorkflowId;
+  workflowName: string;
+  runLabel: string;
+  messageType: SiteManagerMessageType | null;
+  mediaPurpose: SiteManagerMediaPurpose;
+};
+
 export function fastPathTraceConfig(metadata: FastPathTraceMetadata) {
   return {
     metadata,
@@ -79,6 +101,11 @@ export type SiteManagerAgentRunOptions = {
   threadId?: string;
   traceMetadata?: Record<string, string | number | boolean | null | undefined>;
   traceTags?: string[];
+  workflowId?: SiteManagerWorkflowId;
+  workflowName?: string;
+  workflowRunLabel?: string;
+  messageType?: SiteManagerMessageType | null;
+  mediaPurpose?: SiteManagerMediaPurpose;
   senderFirstName?: string | null;
   senderLastName?: string | null;
   senderName?: string | null;
@@ -113,6 +140,113 @@ function buildInitials(parts: string[]) {
     .join("")
     .toUpperCase();
   return initials || null;
+}
+
+const WORKFLOW_DEFINITIONS: Record<SiteManagerWorkflowId, SiteManagerWorkflowDefinition> = {
+  "whatsapp-site-manager:text": {
+    workflowId: "whatsapp-site-manager:text",
+    workflowName: "WhatsApp site-manager text",
+    runLabel: "WhatsApp Text",
+    messageType: "text",
+    mediaPurpose: "unknown",
+  },
+  "whatsapp-site-manager:image-caption": {
+    workflowId: "whatsapp-site-manager:image-caption",
+    workflowName: "WhatsApp site-manager image caption",
+    runLabel: "WhatsApp Image Caption",
+    messageType: "image",
+    mediaPurpose: "site_diary_caption",
+  },
+  "whatsapp-site-manager:audio": {
+    workflowId: "whatsapp-site-manager:audio",
+    workflowName: "WhatsApp site-manager audio",
+    runLabel: "WhatsApp Audio",
+    messageType: "audio",
+    mediaPurpose: "unknown",
+  },
+  "meta-material:image-classification": {
+    workflowId: "meta-material:image-classification",
+    workflowName: "Meta material image classification",
+    runLabel: "Meta Image Classification",
+    messageType: "image",
+    mediaPurpose: "material_invoice",
+  },
+  "meta-material:invoice-extraction": {
+    workflowId: "meta-material:invoice-extraction",
+    workflowName: "Meta material invoice extraction",
+    runLabel: "Meta Invoice Extraction",
+    messageType: "image",
+    mediaPurpose: "material_invoice",
+  },
+};
+
+function workflowIdFromMessageType(
+  messageType?: SiteManagerMessageType | string | null,
+): SiteManagerWorkflowId {
+  if (messageType === "image") return "whatsapp-site-manager:image-caption";
+  if (messageType === "audio") return "whatsapp-site-manager:audio";
+  return "whatsapp-site-manager:text";
+}
+
+function normalizeMediaPurpose(
+  mediaPurpose: SiteManagerMediaPurpose | string | null | undefined,
+): SiteManagerMediaPurpose | null {
+  if (
+    mediaPurpose === "site_diary_caption" ||
+    mediaPurpose === "material_invoice" ||
+    mediaPurpose === "unknown"
+  ) {
+    return mediaPurpose;
+  }
+  return null;
+}
+
+export function getSiteManagerWorkflowDefinition(
+  workflowId?: SiteManagerWorkflowId | null,
+) {
+  return WORKFLOW_DEFINITIONS[workflowId ?? "whatsapp-site-manager:text"];
+}
+
+export function buildSiteManagerWorkflowTraceContext(args: {
+  workflowId?: SiteManagerWorkflowId | null;
+  messageType?: SiteManagerMessageType | string | null;
+  mediaPurpose?: SiteManagerMediaPurpose | string | null;
+}) {
+  const definition = getSiteManagerWorkflowDefinition(
+    args.workflowId ?? workflowIdFromMessageType(args.messageType),
+  );
+  const messageType = definition.messageType;
+  const mediaPurpose = normalizeMediaPurpose(args.mediaPurpose) ?? definition.mediaPurpose;
+
+  return {
+    workflowId: definition.workflowId,
+    workflowName: definition.workflowName,
+    workflowRunLabel: definition.runLabel,
+    messageType,
+    mediaPurpose,
+    metadata: {
+      workflowId: definition.workflowId,
+      workflowName: definition.workflowName,
+      messageType,
+      mediaPurpose,
+    },
+    tags: [
+      `workflow:${definition.workflowId}`,
+      messageType ? `message-type:${messageType}` : null,
+      mediaPurpose && mediaPurpose !== "unknown" ? `media-purpose:${mediaPurpose}` : null,
+    ].filter((tag): tag is string => Boolean(tag)),
+  };
+}
+
+export function formatSiteManagerWorkflowRunName(args: {
+  prefix?: string;
+  workflowRunLabel?: string | null;
+  senderLabel?: string | null;
+  fallback: string;
+}) {
+  const base = [args.prefix, args.workflowRunLabel].filter(Boolean).join(" - ");
+  const label = base || args.fallback;
+  return args.senderLabel ? `${label} - ${args.senderLabel}` : label;
 }
 
 export function buildSiteManagerSenderTraceContext(args: {

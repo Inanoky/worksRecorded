@@ -117,6 +117,69 @@ describe("AI run context helpers", () => {
     });
   });
 
+  it("keeps site-manager fast-path children attached to the message trace config", () => {
+    const callbacks = [{ name: "message-callback" }] as unknown as RunnableConfig["callbacks"];
+    const messageContext = buildAiRunContext({
+      flow: "whatsapp-site-manager",
+      threadId: "siteManager:site-1:user-1",
+      runName: "WhatsApp Text - Anna",
+      siteId: "site-1",
+      userId: "user-1",
+      channel: "whatsapp",
+      metadata: {
+        workflowId: "whatsapp-site-manager:text",
+        workflowName: "WhatsApp site-manager text",
+        messageType: "text",
+        mediaPurpose: "unknown",
+        whatsappMessageId: "wamid.1",
+        questionPreview: "Šodien betonējām pamatus.",
+        senderLabel: "Anna",
+      },
+      tags: ["sender:Anna", "workflow:whatsapp-site-manager:text", "message-type:text"],
+    });
+
+    const childContext = buildAiRunContext({
+      flow: "structured-site-diary-save",
+      threadId: "structured-site-diary-save:site-1:user-1",
+      runName: "Structured Save - WhatsApp Text - Anna",
+      siteId: "site-1",
+      userId: "user-1",
+      channel: "tool",
+      metadata: {
+        executionPath: "fast-path",
+        fastPathOutcome: "save",
+      },
+      tags: ["execution-path:fast-path"],
+      parentConfig: {
+        ...messageContext.runnableConfig,
+        callbacks,
+      },
+    });
+
+    expect(childContext.runnableConfig.callbacks).toBe(callbacks);
+    expect(childContext.tags).toEqual(expect.arrayContaining([
+      "flow:whatsapp-site-manager",
+      "flow:structured-site-diary-save",
+      "sender:Anna",
+      "workflow:whatsapp-site-manager:text",
+      "message-type:text",
+      "execution-path:fast-path",
+    ]));
+    expect(childContext.metadata).toMatchObject({
+      workflowId: "whatsapp-site-manager:text",
+      workflowName: "WhatsApp site-manager text",
+      messageType: "text",
+      mediaPurpose: "unknown",
+      whatsappMessageId: "wamid.1",
+      questionPreview: "Šodien betonējām pamatus.",
+      senderLabel: "Anna",
+      flow: "structured-site-diary-save",
+      channel: "tool",
+      executionPath: "fast-path",
+      fastPathOutcome: "save",
+    });
+  });
+
   it("summarizes text for trace metadata", () => {
     expect(summarizeForTrace("  hello\n\nworld  ")).toBe("hello world");
     expect(summarizeForTrace("abcdef", 4)).toBe("abcd...");

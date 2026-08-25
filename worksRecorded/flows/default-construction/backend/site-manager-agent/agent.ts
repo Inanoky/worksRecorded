@@ -2,6 +2,7 @@
 import {Annotation, END, START, StateGraph, messagesStateReducer} from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import {AIMessage, BaseMessage, HumanMessage, SystemMessage} from "@langchain/core/messages";
+import { RunnableLambda, type RunnableConfig } from "@langchain/core/runnables";
 import {PostgresSaver} from "@langchain/langgraph-checkpoint-postgres";
 import { systemPromptFunction} from "@/flows/default-construction/backend/site-manager-agent/prompts"
 import {
@@ -36,6 +37,8 @@ import {
     getSiteManagerMetricsSnapshot,
     getSiteManagerSenderTraceMetadata,
     getSiteManagerSenderTraceTags,
+    buildSiteManagerWorkflowTraceContext,
+    formatSiteManagerWorkflowRunName,
     recordSiteManagerModelCall,
     recordSiteManagerTiming,
     runWithSiteManagerAgentEvalContext,
@@ -106,20 +109,97 @@ async function setupCheckpointerOnce(checkpointer: PostgresCheckpointer) {
     await checkpointerSetupPromise;
 }
 
+type SiteManagerMessageInput = {
+    question: string;
+    siteId: string;
+    userId: string;
+    originalAudioUrl?: string | null;
+};
+
+const siteManagerMessageRun = RunnableLambda.from<SiteManagerMessageInput, string | null>(
+    async ({ question, siteId, userId, originalAudioUrl }, runnableConfig) =>
+        talkToWhatsappAgentCore(
+            question,
+            siteId,
+            userId,
+            originalAudioUrl,
+            runnableConfig as RunnableConfig,
+        ),
+);
+
 export default async function talkToWhatsappAgent(question, siteId, userId, originalAudioUrl?: string | null) {
+    const runContext = getSiteManagerAgentRunContext();
+    const requestedModel = runContext?.model ?? siteManagerAgentForSiteManagerRouteModelModel;
+    const senderTraceMetadata = getSiteManagerSenderTraceMetadata(runContext);
+    const senderTraceTags = getSiteManagerSenderTraceTags(runContext);
+    const sourceContext = getWhatsappSourceContext();
+    const whatsappMessageId = sourceContext.messageId ?? null;
+    const replyToMessageId = sourceContext.replyToMessageId ?? null;
+    const workflowTrace = buildSiteManagerWorkflowTraceContext({
+        workflowId: runContext?.workflowId,
+        messageType: runContext?.messageType ?? sourceContext.messageType,
+        mediaPurpose: runContext?.mediaPurpose ?? sourceContext.mediaPurpose,
+    });
+    const runName = formatSiteManagerWorkflowRunName({
+        workflowRunLabel: runContext?.workflowRunLabel ?? workflowTrace.workflowRunLabel,
+        senderLabel: runContext?.senderLabel,
+        fallback: "WhatsAppSiteManagerMessage",
+    });
+    const messageContext = buildAiRunContext({
+        flow: "whatsapp-site-manager",
+        threadId: runContext?.threadId ?? getSiteManagerThreadId(siteId, userId),
+        runName,
+        siteId,
+        userId,
+        channel: "whatsapp",
+        model: requestedModel,
+        metadata: {
+            hasOriginalAudioUrl: Boolean(originalAudioUrl),
+            questionPreview: summarizeForTrace(question),
+            whatsappMessageId,
+            replyToMessageId,
+            ...workflowTrace.metadata,
+            ...senderTraceMetadata,
+            ...(runContext?.traceMetadata ?? {}),
+        },
+        tags: [...senderTraceTags, ...workflowTrace.tags, ...(runContext?.traceTags ?? [])],
+    });
+
+    return siteManagerMessageRun.invoke(
+        { question, siteId, userId, originalAudioUrl },
+        messageContext.runnableConfig,
+    );
+}
+
+async function talkToWhatsappAgentCore(
+    question,
+    siteId,
+    userId,
+    originalAudioUrl?: string | null,
+    parentConfig?: RunnableConfig,
+) {
     const totalStarted = Date.now();
     console.log("=== talkToWhatsappAgent (Site Manager) called ===", { hasAudio: !!originalAudioUrl });
     const runContext = getSiteManagerAgentRunContext();
     const requestedModel = runContext?.model ?? siteManagerAgentForSiteManagerRouteModelModel;
     const senderTraceMetadata = getSiteManagerSenderTraceMetadata(runContext);
     const senderTraceTags = getSiteManagerSenderTraceTags(runContext);
-    const runName = runContext?.senderLabel
-        ? `WhatsAppSiteManagerAgent - ${runContext.senderLabel}`
-        : undefined;
+    const sourceContext = getWhatsappSourceContext();
+    const workflowTrace = buildSiteManagerWorkflowTraceContext({
+        workflowId: runContext?.workflowId,
+        messageType: runContext?.messageType ?? sourceContext.messageType,
+        mediaPurpose: runContext?.mediaPurpose ?? sourceContext.mediaPurpose,
+    });
+    const runName = formatSiteManagerWorkflowRunName({
+        prefix: "Agent",
+        workflowRunLabel: runContext?.workflowRunLabel ?? workflowTrace.workflowRunLabel,
+        senderLabel: runContext?.senderLabel,
+        fallback: "WhatsAppSiteManagerAgent",
+    });
     const userFullName = (await getUserFullNameById(userId))?.trim();
     const normalizedQuestion = question.trim();
-    const whatsappMessageId = getWhatsappSourceContext().messageId ?? null;
-    const replyToMessageId = getWhatsappSourceContext().replyToMessageId ?? null;
+    const whatsappMessageId = sourceContext.messageId ?? null;
+    const replyToMessageId = sourceContext.replyToMessageId ?? null;
     const pendingCorrection = await getPendingSiteDiaryCorrection({ siteId, userId });
     const intentContext = {
         hasReplyContext: Boolean(replyToMessageId),
@@ -174,6 +254,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
                     question: normalizedQuestion,
                     allowFallback: true,
                     persist: false,
+                    runnableConfig: parentConfig,
                     fastPathTrace: {
                         fastPathMode: "shadow",
                         fastPathCandidate: true,
@@ -218,6 +299,7 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
                 () => extractAndSaveSiteDiary({
                     question: normalizedQuestion,
                     allowFallback: true,
+                    runnableConfig: parentConfig,
                     fastPathTrace: {
                         fastPathMode: "on",
                         fastPathCandidate: true,
@@ -351,11 +433,18 @@ export default async function talkToWhatsappAgent(question, siteId, userId, orig
             correctionMode: classifiedCorrectionMode,
             intentConfidence: classifiedIntentConfidence,
             intentReason: classifiedIntentReason,
+            ...workflowTrace.metadata,
             ...senderTraceMetadata,
             ...(runContext?.traceMetadata ?? {}),
             ...legacyTrace.metadata,
         },
-        tags: [...senderTraceTags, ...(runContext?.traceTags ?? []), ...legacyTrace.tags],
+        tags: [
+            ...senderTraceTags,
+            ...workflowTrace.tags,
+            ...(runContext?.traceTags ?? []),
+            ...legacyTrace.tags,
+        ],
+        parentConfig,
     });
 
     const shouldContinue = (state) => {

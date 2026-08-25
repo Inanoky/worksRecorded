@@ -4,7 +4,11 @@ import { ChatOpenAI } from "@langchain/openai";
 import { uuid7 } from "langsmith";
 import { UTApi } from "uploadthing/server";
 import { z } from "zod";
-import { buildSiteManagerSenderTraceContext } from "@/flows/default-construction/backend/site-manager-agent/runContext";
+import {
+	buildSiteManagerSenderTraceContext,
+	buildSiteManagerWorkflowTraceContext,
+	formatSiteManagerWorkflowRunName,
+} from "@/flows/default-construction/backend/site-manager-agent/runContext";
 import { PHOTO_MEDIA_PURPOSE_WAREHOUSE_INVOICE } from "@/lib/photos/media-purpose";
 import { prisma } from "@/lib/utils/db";
 import { getUploadThingFileUrl } from "@/lib/utils/uploadthing-file-url";
@@ -278,15 +282,25 @@ function mergeMetaMaterialSenderTraceContext(
 	};
 }
 
-function buildMetaMaterialLangSmithExtra(args: {
+export function buildMetaMaterialLangSmithExtra(args: {
 	name: MetaMaterialLangSmithRunName;
 	model: string;
 	publicUrl: string;
 	context?: MetaMaterialContext | null;
 }) {
-	const runName = args.context?.senderLabel
-		? `${args.name} - ${args.context.senderLabel}`
-		: args.name;
+	const workflowTrace = buildSiteManagerWorkflowTraceContext({
+		workflowId:
+			args.name === "MetaMaterialInvoiceExtraction"
+				? "meta-material:invoice-extraction"
+				: "meta-material:image-classification",
+		messageType: "image",
+		mediaPurpose: "material_invoice",
+	});
+	const runName = formatSiteManagerWorkflowRunName({
+		workflowRunLabel: workflowTrace.workflowRunLabel,
+		senderLabel: args.context?.senderLabel,
+		fallback: args.name,
+	});
 
 	return {
 		name: runName,
@@ -294,6 +308,7 @@ function buildMetaMaterialLangSmithExtra(args: {
 			"whatsapp-site-manager",
 			"meta-image",
 			"material-document",
+			...workflowTrace.tags,
 			args.name === "MetaMaterialInvoiceExtraction"
 				? "invoice-extraction"
 				: "image-classification",
@@ -305,6 +320,7 @@ function buildMetaMaterialLangSmithExtra(args: {
 			source: "meta-image-handler",
 			model: args.model,
 			imageHost: describeImageForTrace(args.publicUrl),
+			...workflowTrace.metadata,
 			siteId: args.context?.siteId ?? null,
 			userId: args.context?.userId ?? null,
 			orgId: args.context?.orgId ?? null,

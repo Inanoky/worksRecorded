@@ -1,6 +1,8 @@
 import {
+  buildSiteManagerWorkflowTraceContext,
   buildSiteManagerSenderTraceContext,
   fastPathTraceConfig,
+  formatSiteManagerWorkflowRunName,
   getSiteManagerAgentRunContext,
   getSiteManagerMetricsSnapshot,
   getSiteManagerSenderTraceMetadata,
@@ -233,5 +235,51 @@ describe("site-manager sender trace metadata", () => {
         );
       },
     );
+  });
+});
+
+describe("site-manager workflow trace metadata", () => {
+  it("builds specific WhatsApp text workflow labels", () => {
+    const workflow = buildSiteManagerWorkflowTraceContext({ messageType: "text" });
+
+    expect(workflow).toEqual(expect.objectContaining({
+      workflowId: "whatsapp-site-manager:text",
+      workflowName: "WhatsApp site-manager text",
+      workflowRunLabel: "WhatsApp Text",
+      messageType: "text",
+      mediaPurpose: "unknown",
+    }));
+    expect(workflow.tags).toEqual([
+      "workflow:whatsapp-site-manager:text",
+      "message-type:text",
+    ]);
+    expect(formatSiteManagerWorkflowRunName({
+      workflowRunLabel: workflow.workflowRunLabel,
+      senderLabel: "Janis Rumba",
+      fallback: "WhatsAppSiteManagerMessage",
+    })).toBe("WhatsApp Text - Janis Rumba");
+  });
+
+  it("distinguishes image captions from Meta invoice extraction", () => {
+    const imageCaption = buildSiteManagerWorkflowTraceContext({
+      messageType: "image",
+    });
+    const invoiceExtraction = buildSiteManagerWorkflowTraceContext({
+      workflowId: "meta-material:invoice-extraction",
+      messageType: "image",
+      mediaPurpose: "material_invoice",
+    });
+
+    expect(imageCaption.workflowRunLabel).toBe("WhatsApp Image Caption");
+    expect(imageCaption.metadata).toMatchObject({
+      workflowId: "whatsapp-site-manager:image-caption",
+      mediaPurpose: "site_diary_caption",
+    });
+    expect(invoiceExtraction.workflowRunLabel).toBe("Meta Invoice Extraction");
+    expect(invoiceExtraction.tags).toEqual(expect.arrayContaining([
+      "workflow:meta-material:invoice-extraction",
+      "message-type:image",
+      "media-purpose:material_invoice",
+    ]));
   });
 });

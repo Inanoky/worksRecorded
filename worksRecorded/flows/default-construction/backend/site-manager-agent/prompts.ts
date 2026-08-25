@@ -1,35 +1,26 @@
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { getConfig } from "@/server/actions/site-diary-actions";
-import { getUserFirstNameById } from "@/server/actions/whatsapp-actions"
-import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents/getTodayDDMMYYY"
+import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
+import { getTodayDDMMYYYY } from "@/server/ai-flows/agents/shared-between-agents/getTodayDDMMYYY";
 import { getUserAddressName } from "./nameAddressing";
 
-
-
-
-
-
-
 export async function systemPromptFunction(siteId: string, userId: string) {
+	const [userName, config] = await Promise.all([
+		getUserFirstNameById(userId),
+		getConfig(siteId),
+	]);
 
-  const [userName, config] = await Promise.all([
-    getUserFirstNameById(userId),
-    getConfig(siteId),
-  ]);
+	const canonicalUserName = getUserAddressName(userName, "en");
+	const latvianAddressName = getUserAddressName(userName, "lv");
+	const nameGuidance =
+		canonicalUserName && latvianAddressName
+			? `The user's first name is ${canonicalUserName}. Only when greeting the user, address them by name. In Latvian greetings use the vocative form ${latvianAddressName}; in English or Russian use ${canonicalUserName}. Do not repeat the user's name in ordinary answers or save confirmations.`
+			: "Do not invent a name for the user.";
 
-  const canonicalUserName = getUserAddressName(userName, "en");
-  const latvianAddressName = getUserAddressName(userName, "lv");
-  const nameGuidance = canonicalUserName && latvianAddressName
-    ? `The user's first name is ${canonicalUserName}. Only when greeting the user, address them by name. In Latvian greetings use the vocative form ${latvianAddressName}; in English or Russian use ${canonicalUserName}. Do not repeat the user's name in ordinary answers or save confirmations.`
-    : "Do not invent a name for the user.";
+	//---------------This we need so when we want simpliest option without any sorting-----------------
 
-
-
-  //---------------This we need so when we want simpliest option without any sorting-----------------
-
-  if (config?.AIpromptToUse?.Client === "NoSorting") {
-
-    const NoSorting = `Store users construction comments without changes using save_to_database.
+	if (config?.AIpromptToUse?.Client === "NoSorting") {
+		const NoSorting = `Store users construction comments without changes using save_to_database.
     ${nameGuidance}
     Do not save BIS questions. Use get_bis_connection_status for every BIS connection, setup, eligibility, or submission question and contextual follow-up.
     Use read_bis_material_records only for questions about locally stored BIS materials. Use read_site_diary_bis_statuses only for questions about diary records sent to BIS or their submission status.
@@ -41,23 +32,14 @@ export async function systemPromptFunction(siteId: string, userId: string) {
     userId : ${userId}
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
 
-  `
+  `;
 
+		return NoSorting;
+	}
 
-    return NoSorting
-
-
-  }
-
-
-
-
-
-
-
-
-  const prompt_08_05_2026 = `You are construction site manager assistnat. You are having a professional conversation about construction ` +
-    ` activities on site through the WhatsApp channel. ${nameGuidance} If it is a greeting, greet the user politely, but do not save greetings or questions asked specifically to you. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
+	const prompt_08_05_2026 =
+		`You are construction site manager assistnat. You are having a professional conversation about construction ` +
+		` activities on site through the WhatsApp channel. ${nameGuidance} If it is a greeting, greet the user politely, but do not save greetings or questions asked specifically to you. Your job extract all information you can gather from user message and save it calling the save_to_database tool for the
     correct date (for example if user reports yesterdays actvities save accordingly yesterdays date). 
     Answer user in the language he speaks, but you can only answer in English, Russian or Latvian. If user speaks for example Spanish, or any other langauge not listed, you answer in english.
     
@@ -95,45 +77,29 @@ export async function systemPromptFunction(siteId: string, userId: string) {
    
 
     
-    `
-    +
-    `siteId : ${siteId}
+    ` +
+		`siteId : ${siteId}
     userId : ${userId}
     Date today is : ${getTodayDDMMYYYY()} (format dd-mm-yyyy)
    
 
     If information provided by user is not a description of construction works (administrative task, general information, general remark) - mark Works as Notes
 
-    `
+    `;
 
+	const prompt = prompt_08_05_2026;
 
+	//nothing
 
-
-
-
-  const prompt = prompt_08_05_2026
-
-
-  //nothing
-
-
-  return prompt
+	return prompt;
 }
 
-
 export async function systemPromptSaveToDatabaseFunction(userId, client) {
+	const language = await getOrganizationLanguageByUserId(userId);
 
+	//nothing
 
-  const language = await getOrganizationLanguageByUserId(userId)
-
-//nothing
-
-
-
-
-
-
-  const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Analyze and map Location and Works
+	const systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Analyze and map Location and Works
   according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
@@ -147,6 +113,8 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   Input: "Šodien apmestas sienas 2 stāvā, 4h"
   Expected structured fields: Workers: null, Hours: 4, and Comments mention wall plastering on the 2nd floor.
 
+  Material delivery and actual installed/placed work are separate diary events when both are stated in the same message. Separate quantities such as "ievesta smilts 160m3" and "iestrādāti 140m3" are source evidence for two records: one Material delivery row with Amounts 160, Units m3, and one work row such as Backfilling with Amounts 140, Units m3. Shared labor or hours after the work statement should be attached only to the actual work row unless the source explicitly ties that labor/time to the delivery row. For Material delivery rows, set Workers and Hours to null unless the source explicitly says the delivery/unloading/transport itself used those workers or hours. Do not infer Workers: 1 from "ekskavators ar operatoru" on a delivery row when the work row describes placement/installation.
+
   Completion status is not a quantity. Never set Amounts to 1 merely because one work is mentioned or described as completed. Populate Amounts only when the source explicitly states a real completed work quantity or measured completed scope; otherwise set both Amounts and Units to null.
   Amounts/Daudzums and Units/Mrv are for completed work quantity only, for example "52 m2 osb", "5 gab. durvis", or "10 m3 betons".
   Do not use apartment numbers, floor numbers, layer counts, worker counts, hours, or other construction-method/context numbers as Amounts.
@@ -158,16 +126,9 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   Example: "Dz 6, 2 cilvēki, 3h" → Workers: 2, Hours: 3, Amounts: null, Units: null.
   Example: "Dz5f durvju aile demontāža" → Amounts: null, Units: null.
   
-  `
+  `;
 
-
-
-
-
-  const glossary_08_05_2026 =
-
-
-    `
+	const glossary_08_05_2026 = `
 # Glossary and Mapping Instructions
 
 This document provides instructions to improve mapping accuracy.
@@ -181,6 +142,7 @@ Please follow the guidelines below:
 - If total task duration/workers is given, don't split the record. For example records like : "Ūdens trubas plus kanalizācija, ūdens radiatori, divpadsmit stundas." we don't split, as total time is given and we don't know how to split time
 - Additional works are works which are usually not part of the construction contract works (reworks, change orders, delays). Only mare additional work if certain
 - If there is no information how to split amounts, Units,	Amounts	,Workers or	Hours between tasks - then don't split. 
+- Exception: split material delivery from installed/placed work when the source gives separate action+quantity evidence for each, for example "ievesta smilts 160m3, iestrādāti 140m3". Put the delivery quantity on the Material delivery row and the installed/placed quantity plus shared work labor/hours on the work row. Leave delivery Workers and Hours null unless labor/time is explicitly tied to delivery, unloading, or transport.
 - If there is relevant information present, include it.
 - Any actions with floor slabs including formworks and rebars good match will be Works to Pārseguma paneļu montāža – HCS 220, tajā skaitā šuvju betonēšana (Pamatu pārsegums).
 - HCS stands for 'hollow core slabs' or 'floor slabs' or "Pārseguma paneļis" .
@@ -212,19 +174,12 @@ When mapping, try to select the most suitable work category from the provided Zo
 
 `;
 
-
-
-
-  const NoSortingPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Save the message in comments.
+	const NoSortingPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Save the message in comments.
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  `
+  `;
 
-
-  const NoSorting =
-
-
-    `
+	const NoSorting = `
 # Glossary and Mapping Instructions
 
 This document provides instructions to improve mapping accuracy.
@@ -236,20 +191,12 @@ Store message as it is without changes. Do not extract locations, mark records a
 
 `;
 
-
-
-  const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Analyze and map according to the zod schema you are given
+	const GMCIRL_systemPromptSaveToDatabase_02_01_2026 = ` You will receive a log of construction activities on site. Analyze and map according to the zod schema you are given
 
   Date format: Input dates are dd-mm-yyyy. Convert to ISO date string (yyyy-mm-dd), UTC (no time part).
-  For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)`
+  For comments describe what was completed, where and with what labor in ${language}, and then include original log in brackets (without change)`;
 
-
-
-
-  const GMCIRL_glossary =
-
-
-    `
+	const GMCIRL_glossary = `
 # Glossary and Mapping Instructions
 
 This document provides instructions to improve mapping accuracy. Begin with a concise checklist (3–7 bullets) of the steps you will take before mapping, to ensure clarity and completeness.
@@ -279,31 +226,17 @@ When mapping, try to select the most suitable work category from the provided Zo
   }
 
 
-`
+`;
 
+	let systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${glossary_08_05_2026}`;
 
+	if (client === "GMCIRL") {
+		systemPromptSaveToDatabase = `${GMCIRL_systemPromptSaveToDatabase_02_01_2026}\n ${GMCIRL_glossary}`;
+	}
 
-  let systemPromptSaveToDatabase = `${systemPromptSaveToDatabase_02_01_2026}\n ${glossary_08_05_2026}`
+	if (client === "NoSorting") {
+		systemPromptSaveToDatabase = `${NoSortingPromptSaveToDatabase_02_01_2026}\n ${NoSorting}`;
+	}
 
-
-
-  if (client === "GMCIRL") {
-
-
-    systemPromptSaveToDatabase = `${GMCIRL_systemPromptSaveToDatabase_02_01_2026}\n ${GMCIRL_glossary}`
-
-  }
-
-  if (client === "NoSorting") {
-
-
-    systemPromptSaveToDatabase = `${NoSortingPromptSaveToDatabase_02_01_2026}\n ${NoSorting}`
-
-  }
-
-
-
-
-  return systemPromptSaveToDatabase
-
+	return systemPromptSaveToDatabase;
 }

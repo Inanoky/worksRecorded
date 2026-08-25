@@ -37,11 +37,17 @@ describe("WhatsApp site-manager eval validators", () => {
 	const sandDeliveryCase = webhookCases.find(
 		(item) => item.id === "latvian-sand-delivery-material-category",
 	);
+	const sandDeliveryBackfillLaborCase = webhookCases.find(
+		(item) => item.id === "latvian-sand-delivery-and-backfill-labor",
+	);
+	const sandDeliveryBackfillLabor200180Case = webhookCases.find(
+		(item) => item.id === "latvian-sand-delivery-and-backfill-labor-200-180",
+	);
 	const woolInstallationCase = webhookCases.find(
 		(item) => item.id === "latvian-wool-installation-quantity-workers-hours",
 	);
-	const earthworksSixRecordsCase = webhookCases.find(
-		(item) => item.id === "latvian-weather-and-earthworks-six-records",
+	const earthworksFiveRecordsCase = webhookCases.find(
+		(item) => item.id === "latvian-weather-and-earthworks-five-records",
 	);
 
 	function savedPhoto(mediaPurpose: string | null) {
@@ -899,6 +905,32 @@ describe("WhatsApp site-manager eval validators", () => {
 		).toBe("pass");
 	});
 
+	it("passes BIS no-bis guidance when agent says submission is unavailable", () => {
+		const bisNoBisCase = webhookCases.find(
+			(item) => item.id === "bis-entry-how-to-guidance-only-no-bis",
+		);
+		if (!bisNoBisCase) throw new Error("Missing bis no-bis eval case");
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: bisNoBisCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: null,
+			records: [],
+			answer:
+				"Tieša BIS iesniegšana no šīs sistēmas pašlaik nav pieejama. Ierakstus var saglabāt WorksRecorded, bet BIS nosūtīšanai vispirms vajadzīgs pieslēgums.",
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "record-created")?.status,
+		).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "forbidden-answer-signals")
+				?.status,
+		).toBe("pass");
+	});
+
 	it("passes BIS yes-bis guidance when agent says connection is configured", () => {
 		const bisYesBisCase = webhookCases.find(
 			(item) => item.id === "bis-entry-how-to-guidance-only-yes-bis",
@@ -913,6 +945,32 @@ describe("WhatsApp site-manager eval validators", () => {
 			records: [],
 			answer:
 				"Lai ievadītu ierakstus BISā, tev vispirms jābūt pieslēgtam BIS. Tev tas jau ir sakārtots: BIS savienojums ir konfigurēts un lieta ir izvēlēta. Ierakstus vari nosūtīt no čata.",
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "record-created")?.status,
+		).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "forbidden-answer-signals")
+				?.status,
+		).toBe("pass");
+	});
+
+	it("passes BIS yes-bis guidance when agent says the integration is active", () => {
+		const bisYesBisCase = webhookCases.find(
+			(item) => item.id === "bis-entry-how-to-guidance-only-yes-bis",
+		);
+		if (!bisYesBisCase) throw new Error("Missing bis yes-bis eval case");
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: bisYesBisCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: null,
+			records: [],
+			answer:
+				"BIS integrācija ir aktīva šim objektam. Ierakstus vari sagatavot un nosūtīt uz BIS no čata vai WorksRecorded skata, kad izvēlies attiecīgo dienasgrāmatas ierakstu.",
 		});
 
 		expect(result.status).toBe("pass");
@@ -1077,7 +1135,8 @@ describe("WhatsApp site-manager eval validators", () => {
 	});
 
 	it("passes wool installation saved under wall construction with correct quantity and labor", () => {
-		if (!woolInstallationCase) throw new Error("Missing wool installation eval case");
+		if (!woolInstallationCase)
+			throw new Error("Missing wool installation eval case");
 
 		const record = {
 			id: "record-wool",
@@ -1113,7 +1172,8 @@ describe("WhatsApp site-manager eval validators", () => {
 	});
 
 	it("passes wool installation saved under finishing with correct quantity and labor", () => {
-		if (!woolInstallationCase) throw new Error("Missing wool installation eval case");
+		if (!woolInstallationCase)
+			throw new Error("Missing wool installation eval case");
 
 		const record = {
 			id: "record-wool",
@@ -1224,9 +1284,9 @@ describe("WhatsApp site-manager eval validators", () => {
 		});
 	});
 
-	it("matches expected multi-record rows without depending on save order", () => {
-		if (!earthworksSixRecordsCase)
-			throw new Error("Missing earthworks six-record eval case");
+	it("matches expected five-task rows without depending on save order", () => {
+		if (!earthworksFiveRecordsCase)
+			throw new Error("Missing earthworks five-record eval case");
 
 		const baseRecord = {
 			siteId: "site-1",
@@ -1241,14 +1301,6 @@ describe("WhatsApp site-manager eval validators", () => {
 			createdAt: new Date("2026-07-01T00:00:00.000Z"),
 		};
 		const records = [
-			{
-				...baseRecord,
-				id: "record-machinery",
-				Works: "Piezīmes",
-				Comments:
-					"Smilts piebēršanu veica bobkatu operators, grunts rakšanu veica ekskavatoru operators, strādāja arī palīkstrādnieks.",
-				Amounts: null,
-			},
 			{
 				...baseRecord,
 				id: "record-foundation-sand",
@@ -1287,7 +1339,7 @@ describe("WhatsApp site-manager eval validators", () => {
 		];
 
 		const result = validateWhatsappSiteManagerRecord({
-			evalCase: earthworksSixRecordsCase,
+			evalCase: earthworksFiveRecordsCase,
 			siteId: "site-1",
 			userId: "user-1",
 			record: records[0],
@@ -1297,7 +1349,205 @@ describe("WhatsApp site-manager eval validators", () => {
 		expect(result.status).toBe("pass");
 		expect(
 			result.results.filter((item) => item.name.startsWith("expected-record:")),
-		).toHaveLength(6);
+		).toHaveLength(5);
+	});
+
+	it("passes sand delivery plus backfill labor split into two records", () => {
+		if (!sandDeliveryBackfillLaborCase)
+			throw new Error("Missing sand delivery and backfill labor eval case");
+
+		const baseRecord = {
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			originalUserComment:
+				"Janis Rumba : Šodien ievesta smilts 160m3, iestrādāti 140m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+			originalAudioUrl: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+		const records = [
+			{
+				...baseRecord,
+				id: "record-backfill",
+				Works: "Backfilling",
+				Comments:
+					"Iestrādāti 140 m3 smilts. Strādāja 10h ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+				Units: "m3",
+				Amounts: 140,
+				WorkersInvolved: 5,
+				TimeInvolved: 10,
+			},
+			{
+				...baseRecord,
+				id: "record-delivery",
+				Works: "Materiālu piegāde",
+				Comments: "Ievesta smilts 160 m3.",
+				Units: "m3",
+				Amounts: 160,
+				WorkersInvolved: null,
+				TimeInvolved: null,
+			},
+		];
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: sandDeliveryBackfillLaborCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: records[0],
+			records,
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.filter((item) => item.name.startsWith("expected-record:")),
+		).toHaveLength(2);
+	});
+
+	it("passes 200/180 sand delivery plus backfill labor split into two records", () => {
+		if (!sandDeliveryBackfillLabor200180Case) {
+			throw new Error("Missing 200/180 sand delivery backfill eval case");
+		}
+
+		const baseRecord = {
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			originalUserComment:
+				"Janis Rumba : Šodien ievesta smilts 200m3, iestrādāti 180m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+			originalAudioUrl: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+		const records = [
+			{
+				...baseRecord,
+				id: "record-delivery",
+				Works: "Materiālu piegāde",
+				Comments: "Ievesta smilts 200 m3.",
+				Units: "m3",
+				Amounts: 200,
+				WorkersInvolved: null,
+				TimeInvolved: null,
+			},
+			{
+				...baseRecord,
+				id: "record-backfill",
+				Works: "Backfilling",
+				Comments:
+					"Iestrādāti 180 m3 smilts. Strādāja 10h ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+				Units: "m3",
+				Amounts: 180,
+				WorkersInvolved: 5,
+				TimeInvolved: 10,
+			},
+		];
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: sandDeliveryBackfillLabor200180Case,
+			siteId: "site-1",
+			userId: "user-1",
+			record: records[0],
+			records,
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.filter((item) => item.name.startsWith("expected-record:")),
+		).toHaveLength(2);
+	});
+
+	it("fails sand delivery plus backfill labor when quantities are merged into one row", () => {
+		if (!sandDeliveryBackfillLaborCase)
+			throw new Error("Missing sand delivery and backfill labor eval case");
+
+		const record = {
+			id: "record-merged",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			Works: "Backfilling",
+			Comments: "Ievesta smilts 160 m3 un iestrādāti 140 m3.",
+			originalUserComment:
+				"Janis Rumba : Šodien ievesta smilts 160m3, iestrādāti 140m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+			originalAudioUrl: null,
+			Units: "m3",
+			Amounts: 300,
+			WorkersInvolved: 5,
+			TimeInvolved: 10,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: sandDeliveryBackfillLaborCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("fail");
+		expect(
+			result.results.find((item) => item.name === "record-count")?.status,
+		).toBe("fail");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("fail");
+	});
+
+	it("fails sand delivery plus backfill labor when work labor or amount is wrong", () => {
+		if (!sandDeliveryBackfillLaborCase)
+			throw new Error("Missing sand delivery and backfill labor eval case");
+
+		const baseRecord = {
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Objekts",
+			originalUserComment:
+				"Janis Rumba : Šodien ievesta smilts 160m3, iestrādāti 140m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+			originalAudioUrl: null,
+			Units: "m3",
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+		const records = [
+			{
+				...baseRecord,
+				id: "record-delivery",
+				Works: "Materiālu piegāde",
+				Comments: "Ievesta smilts 160 m3.",
+				Amounts: 160,
+				WorkersInvolved: null,
+				TimeInvolved: null,
+			},
+			{
+				...baseRecord,
+				id: "record-backfill",
+				Works: "Backfilling",
+				Comments: "Iestrādāti smilts.",
+				Amounts: null,
+				WorkersInvolved: 4,
+				TimeInvolved: 10,
+			},
+		];
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: sandDeliveryBackfillLaborCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: records[0],
+			records,
+		});
+
+		expect(result.status).toBe("fail");
+		expect(
+			result.results.find((item) => item.name === "expected-record:2")?.status,
+		).toBe("fail");
 	});
 
 	it("validates the persisted date for an explicit historical-date case", () => {

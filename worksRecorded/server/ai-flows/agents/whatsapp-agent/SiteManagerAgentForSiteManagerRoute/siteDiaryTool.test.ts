@@ -82,6 +82,27 @@ jest.mock(
 			metadata,
 			tags: [`execution-path:${metadata.executionPath}`],
 		})),
+		buildSiteManagerWorkflowTraceContext: jest.fn(() => ({
+			workflowId: "whatsapp-site-manager:text",
+			workflowName: "WhatsApp site-manager text",
+			workflowRunLabel: "WhatsApp Text",
+			messageType: "text",
+			mediaPurpose: "unknown",
+			metadata: {
+				workflowId: "whatsapp-site-manager:text",
+				workflowName: "WhatsApp site-manager text",
+				messageType: "text",
+				mediaPurpose: "unknown",
+			},
+			tags: ["workflow:whatsapp-site-manager:text", "message-type:text"],
+		})),
+		formatSiteManagerWorkflowRunName: jest.fn(
+			({ prefix, workflowRunLabel, senderLabel, fallback }) => {
+				const base = [prefix, workflowRunLabel].filter(Boolean).join(" - ");
+				const label = base || fallback;
+				return senderLabel ? `${label} - ${senderLabel}` : label;
+			},
+		),
 		getSiteManagerAgentRunContext: jest.fn(() => ({
 			evalRecordMetadata: { evaluationId: "eval-1" },
 			traceMetadata: { scenario: "unit-test" },
@@ -303,13 +324,18 @@ describe("save_to_database site diary tool", () => {
 		expect(runnableConfig).toEqual(
 			expect.objectContaining({
 				configurable: { thread_id: "test-thread" },
-				runName: "SiteDiaryStructuredSave - Anna Bērziņa",
+				runName: "Structured Save - WhatsApp Text - Anna Bērziņa",
 				tags: expect.arrayContaining([
 					"sender:Anna Bērziņa",
+					"workflow:whatsapp-site-manager:text",
 					"site-diary-test",
 				]),
 				metadata: expect.objectContaining({
 					fastPathOutcome: "save",
+					workflowId: "whatsapp-site-manager:text",
+					workflowName: "WhatsApp site-manager text",
+					messageType: "text",
+					mediaPurpose: "unknown",
 					senderFirstName: "Anna",
 					senderLastName: "Bērziņa",
 					senderName: "Anna Bērziņa",
@@ -320,8 +346,9 @@ describe("save_to_database site diary tool", () => {
 		);
 		expect(mockBuildAiRunContext).toHaveBeenCalledWith(
 			expect.objectContaining({
-				runName: "SiteDiaryStructuredSave - Anna Bērziņa",
+				runName: "Structured Save - WhatsApp Text - Anna Bērziņa",
 				metadata: expect.objectContaining({
+					workflowId: "whatsapp-site-manager:text",
 					senderFirstName: "Anna",
 					senderLastName: "Bērziņa",
 					senderName: "Anna Bērziņa",
@@ -422,31 +449,94 @@ describe("save_to_database site diary tool", () => {
 		);
 	});
 
-	it("runs checker-guided repair before saving and records checker trace details", async () => {
+	it("runs the checker before saving a one-row extraction", async () => {
 		structuredInvokeMock
 			.mockResolvedValueOnce({
 				records: [
 					{
-						Activity: "Material delivery",
-						Quantity: 180,
-						Mrv: "m3",
-						Hours: 10,
+						Area: "2. stāvs",
+						Activity: "Concrete pour",
+						Quantity: null,
+						Hours: 4,
 					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "accept",
+					reason: "One supported job.",
+					badSplitSignals: [],
+					repairInstructions: "",
+					expectedRecordCount: 1,
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question: "Šodien betonēšana 2. stāvā, 4h.",
+			requestedDate: "18-08-2026",
+		});
+
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+		const [, extractionConfig] = structuredInvokeMock.mock.calls[0];
+		const [checkerMessages] = structuredInvokeMock.mock.calls[1];
+		expect(checkerMessages[0].content).toContain(
+			"strict construction site diary extraction checker",
+		);
+		expect(checkerMessages[1].content).toContain("Trusted extraction context");
+		expect(checkerMessages[1].content).toContain(
+			"Trusted site diary extraction context for site-1",
+		);
+		expect(checkerMessages[1].content).toContain("Record 1");
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				rows: [
+					expect.objectContaining({
+						Location: "2. stāvs",
+						Works: "Concrete pour",
+						TimeInvolved: 4,
+					}),
+				],
+			}),
+		);
+		expect(extractionConfig).toEqual(
+			expect.objectContaining({
+				tags: expect.arrayContaining(["site-diary-checker:accept"]),
+				metadata: expect.objectContaining({
+					siteDiaryCheckerRan: true,
+					siteDiaryCheckerVerdict: "accept",
+					siteDiaryCheckerAppliedRepair: false,
+					siteDiaryCheckerSucceeded: true,
+					siteDiaryCheckerPersistedAfterRepair: false,
+				}),
+			}),
+		);
+	});
+
+	it("repairs a one-row under-split extraction before saving", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
 					{
-						Activity: "Sand installation",
-						Quantity: 120,
-						Mrv: "m3",
-						Hours: 10,
+						Area: "1. un 2. stāvs",
+						Activity: "Concrete pour",
+						Comments:
+							"1. stāvā uzstādītas durvis 2h un 2. stāvā nokrāsotas sienas 3h.",
 					},
 				],
 			})
 			.mockResolvedValueOnce({
 				parsed: {
 					verdict: "retry",
-					reason: "Delivery row has unsupported hours.",
-					badSplitSignals: ["unsupported delivery hours"],
+					reason: "Two distinct source-backed jobs were merged into one row.",
+					badSplitSignals: ["under-split"],
 					repairInstructions:
-						"Keep 2 rows, but remove TimeInvolved=10 from the delivery row.",
+						"Split into two rows: one for 1. stāva durvju uzstādīšana with 2h, and one for 2. stāva sienu krāsošana with 3h.",
 					expectedRecordCount: 2,
 				},
 				raw: {},
@@ -454,23 +544,21 @@ describe("save_to_database site diary tool", () => {
 			.mockResolvedValueOnce({
 				records: [
 					{
-						Activity: "Material delivery",
-						Quantity: 180,
-						Mrv: "m3",
-						Hours: null,
+						Area: "1. stāvs",
+						Activity: "Door installation",
+						Hours: 2,
 					},
 					{
-						Activity: "Sand installation",
-						Quantity: 120,
-						Mrv: "m3",
-						Hours: 10,
+						Area: "2. stāvs",
+						Activity: "Wall painting",
+						Hours: 3,
 					},
 				],
 			})
 			.mockResolvedValueOnce({
 				parsed: {
 					verdict: "accept",
-					reason: "Repair removed unsupported hours.",
+					reason: "Repair split the two supported jobs.",
 					badSplitSignals: [],
 					repairInstructions: "",
 					expectedRecordCount: 2,
@@ -485,19 +573,209 @@ describe("save_to_database site diary tool", () => {
 
 		await extractAndSaveSiteDiary({
 			question:
-				"Šodien ievesta smilts 180m3, iestrādāti 120m3. Strādāja pa 10h ekskavators ar operātoru.",
+				"Šodien 1. stāvā uzstādītas durvis, 2h un 2. stāvā nokrāsotas sienas, 3h.",
 			requestedDate: "18-08-2026",
+		});
+
+		const [, extractionConfig] = structuredInvokeMock.mock.calls[0];
+		const [repairMessages] = structuredInvokeMock.mock.calls[2];
+		expect(repairMessages[0].content).toContain("Checker repair is mandatory");
+		expect(repairMessages[0].content).toContain("Split into two rows");
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Location: "1. stāvs",
+				Works: "Door installation",
+				TimeInvolved: 2,
+			}),
+			expect.objectContaining({
+				Location: "2. stāvs",
+				Works: "Wall painting",
+				TimeInvolved: 3,
+			}),
+		]);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				checker: expect.objectContaining({
+					verdict: "retry",
+					expectedRecordCount: 2,
+					appliedRepair: true,
+					repairVerdict: "accept",
+				}),
+			}),
+		);
+		expect(extractionConfig).toEqual(
+			expect.objectContaining({
+				tags: expect.arrayContaining([
+					"site-diary-checker:retry",
+					"site-diary-checker:repair-applied",
+					"site-diary-checker:repair-accepted",
+				]),
+				metadata: expect.objectContaining({
+					siteDiaryCheckerRan: true,
+					siteDiaryCheckerVerdict: "retry",
+					siteDiaryCheckerAppliedRepair: true,
+					siteDiaryCheckerRepairVerdict: "accept",
+					siteDiaryCheckerSucceeded: true,
+					siteDiaryCheckerPersistedAfterRepair: true,
+				}),
+			}),
+		);
+	});
+
+	it("repairs merged material delivery and backfill rows before saving", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Activity: "Backfilling",
+						Area: "Project",
+						Quantity: 140,
+						Mrv: "m3",
+						Hours: 10,
+						Workers: 5,
+						Comments:
+							"Objektā ievesta smilts 160 m3 un iestrādāti 140 m3; 10 h strādāja ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "retry",
+					reason:
+						"Material delivery and backfilling have separate source-backed quantities.",
+					badSplitSignals: ["merged delivery and placed work"],
+					repairInstructions:
+						"Split into two rows: Material delivery for ievesta smilts 160 m3 with no workers/hours, and Backfilling for iestrādāti 140 m3 with 5 workers and 10 hours.",
+					expectedRecordCount: 2,
+				},
+				raw: {},
+			})
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Activity: "Material delivery",
+						Area: "Project",
+						Quantity: 160,
+						Mrv: "m3",
+						Hours: null,
+						Workers: null,
+						Comments: "Ievesta smilts 160 m3.",
+					},
+					{
+						Activity: "Backfilling",
+						Area: "Project",
+						Quantity: 140,
+						Mrv: "m3",
+						Hours: 10,
+						Workers: 5,
+						Comments:
+							"Iestrādāti 140 m3 smilts. Strādāja 10h ekskavatora operators, 2 būvstrādnieki, brigadieris un būvdarbu vadītāja palīgs.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "accept",
+					reason: "Delivery and backfill are split with supported quantities.",
+					badSplitSignals: [],
+					repairInstructions: "",
+					expectedRecordCount: 2,
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 2,
+			recordIds: ["record-delivery", "record-backfill"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question:
+				"Šodien ievesta smilts 160m3, iestrādāti 140m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+			requestedDate: "25-08-2026",
 		});
 
 		const [repairMessages] = structuredInvokeMock.mock.calls[2];
 		expect(repairMessages[0].content).toContain("Checker repair is mandatory");
-		expect(repairMessages[0].content).toContain("remove TimeInvolved=10");
-		expect(repairMessages[2].content).toContain("Šodien ievesta smilts");
+		expect(repairMessages[0].content).toContain("Material delivery");
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Works: "Material delivery",
+				Amounts: 160,
+				Units: "m3",
+				WorkersInvolved: null,
+				TimeInvolved: null,
+			}),
+			expect.objectContaining({
+				Works: "Backfilling",
+				Amounts: 140,
+				Units: "m3",
+				WorkersInvolved: 5,
+				TimeInvolved: 10,
+			}),
+		]);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				checker: expect.objectContaining({
+					verdict: "retry",
+					expectedRecordCount: 2,
+					appliedRepair: true,
+					repairVerdict: "accept",
+				}),
+			}),
+		);
+	});
+
+	it("applies simple checker field repair before saving", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Activity: "Material delivery",
+						Quantity: 180,
+						Mrv: "m3",
+						Hours: 10,
+						Workers: 5,
+					},
+					{
+						Activity: "Sand installation",
+						Quantity: 120,
+						Mrv: "m3",
+						Hours: 10,
+						Workers: 5,
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "retry",
+					reason: "Delivery row has unsupported copied work labor.",
+					badSplitSignals: ["unsupported delivery labor"],
+					repairInstructions:
+						"Keep 2 rows, but remove WorkersInvolved and TimeInvolved=10 from the delivery row.",
+					expectedRecordCount: 2,
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 2,
+			recordIds: ["record-1", "record-2"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question:
+				"Šodien ievesta smilts 180m3, iestrādāti 120m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs.",
+			requestedDate: "18-08-2026",
+		});
+
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
 		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
 			expect.objectContaining({
 				Works: "Material delivery",
 				Amounts: 180,
 				Units: "m3",
+				WorkersInvolved: null,
 				TimeInvolved: null,
 			}),
 			expect.objectContaining({
@@ -513,6 +791,78 @@ describe("save_to_database site diary tool", () => {
 					verdict: "retry",
 					appliedRepair: true,
 					repairVerdict: "accept",
+					repairReason:
+						"Applied deterministic checker field repair: cleared unsupported delivery workers/time.",
+				}),
+			}),
+		);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[1]).toEqual(
+			expect.objectContaining({
+				WorkersInvolved: 5,
+				TimeInvolved: 10,
+			}),
+		);
+	});
+
+	it("applies structured checker field repairs without model repair", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Area: "Project",
+						Activity: "Concrete pour",
+						Quantity: 20,
+						Mrv: "m3",
+						Hours: 10,
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "repairable",
+					reason: "Hours are not supported by the source.",
+					badSplitSignals: [],
+					repairInstructions: "Set TimeInvolved to null.",
+					expectedRecordCount: 1,
+					repairActions: [
+						{
+							rowIndex: 0,
+							field: "TimeInvolved",
+							operation: "set_null",
+							reason: "No source-backed hours.",
+						},
+					],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question: "Šodien betonēšana 20 m3.",
+			requestedDate: "18-08-2026",
+		});
+
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Works: "Concrete pour",
+				Amounts: 20,
+				Units: "m3",
+				TimeInvolved: null,
+			}),
+		]);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				checker: expect.objectContaining({
+					verdict: "repairable",
+					repairActions: [expect.objectContaining({ field: "TimeInvolved" })],
+					appliedRepair: true,
+					repairVerdict: "accept",
+					repairReason: "Applied 1 structured checker field repair action(s).",
 				}),
 			}),
 		);
@@ -539,10 +889,10 @@ describe("save_to_database site diary tool", () => {
 			.mockResolvedValueOnce({
 				parsed: {
 					verdict: "retry",
-					reason: "Delivery row has unsupported hours.",
-					badSplitSignals: ["unsupported delivery hours"],
-					repairInstructions: "Remove TimeInvolved from delivery.",
-					expectedRecordCount: 2,
+					reason: "Rows should be merged into one supported job.",
+					badSplitSignals: ["structural repair required"],
+					repairInstructions: "Merge into one supported row.",
+					expectedRecordCount: 1,
 				},
 				raw: {},
 			})
@@ -565,10 +915,10 @@ describe("save_to_database site diary tool", () => {
 			.mockResolvedValueOnce({
 				parsed: {
 					verdict: "retry",
-					reason: "Delivery row still has unsupported hours.",
-					badSplitSignals: ["unsupported delivery hours"],
-					repairInstructions: "Remove TimeInvolved from delivery.",
-					expectedRecordCount: 2,
+					reason: "Repair still has unsupported rows.",
+					badSplitSignals: ["structural repair required"],
+					repairInstructions: "Merge into one supported row.",
+					expectedRecordCount: 1,
 				},
 				raw: {},
 			});
@@ -584,6 +934,159 @@ describe("save_to_database site diary tool", () => {
 			"Checker-guided repair was still rejected",
 		);
 		expect(saveSiteDiaryRecordMock).not.toHaveBeenCalled();
+		const [, extractionConfig] = structuredInvokeMock.mock.calls[0];
+		expect(extractionConfig).toEqual(
+			expect.objectContaining({
+				tags: expect.arrayContaining([
+					"site-diary-checker:retry",
+					"site-diary-checker:repair-applied",
+					"site-diary-checker:failed",
+				]),
+				metadata: expect.objectContaining({
+					siteDiaryCheckerRan: true,
+					siteDiaryCheckerVerdict: "retry",
+					siteDiaryCheckerAppliedRepair: true,
+					siteDiaryCheckerRepairVerdict: "retry",
+					siteDiaryCheckerSucceeded: false,
+					siteDiaryCheckerPersistedAfterRepair: false,
+				}),
+			}),
+		);
+	});
+
+	it("saves model-repaired rows after a final structured field repair", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Activity: "Backfilling",
+						Area: "Project",
+						Quantity: 120,
+						Mrv: "m3",
+						Hours: 10,
+						Comments: "Piegāde un iestrāde kopā.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "needs_model_repair",
+					reason: "Delivery and work were merged.",
+					badSplitSignals: ["merged delivery and work"],
+					repairInstructions:
+						"Split delivery and backfilling into two source-backed rows.",
+					expectedRecordCount: 2,
+					repairActions: [],
+				},
+				raw: {},
+			})
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Activity: "Material delivery",
+						Area: "Project",
+						Quantity: 180,
+						Mrv: "m3",
+						Hours: 10,
+					},
+					{
+						Activity: "Backfilling",
+						Area: "Project",
+						Quantity: 120,
+						Mrv: "m3",
+						Hours: 10,
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "repairable",
+					reason: "Delivery row has copied work hours.",
+					badSplitSignals: [],
+					repairInstructions: "Set delivery TimeInvolved to null.",
+					expectedRecordCount: 2,
+					repairActions: [
+						{
+							rowIndex: 0,
+							field: "TimeInvolved",
+							operation: "set_null",
+							reason: "No delivery time evidence.",
+						},
+					],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 2,
+			recordIds: ["record-delivery", "record-work"],
+		});
+
+		const result = await extractAndSaveSiteDiary({
+			question:
+				"Šodien ievesta smilts 180m3, iestrādāti 120m3. Strādāja pa 10h ekskavators ar operātoru.",
+			requestedDate: "18-08-2026",
+		});
+
+		expect(result.ok).toBe(true);
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(4);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Works: "Material delivery",
+				Amounts: 180,
+				Units: "m3",
+				TimeInvolved: null,
+			}),
+			expect.objectContaining({
+				Works: "Backfilling",
+				Amounts: 120,
+				Units: "m3",
+				TimeInvolved: 10,
+			}),
+		]);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				checker: expect.objectContaining({
+					verdict: "needs_model_repair",
+					appliedRepair: true,
+					repairVerdict: "accept",
+					repairReason: "Applied 1 structured checker field repair action(s).",
+				}),
+			}),
+		);
+	});
+
+	it("marks checker trace failure while preserving fallback save behavior", async () => {
+		const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [{ Area: "2. stāvs", Activity: "Concrete pour", Hours: 4 }],
+			})
+			.mockRejectedValueOnce(new Error("checker unavailable"));
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		const result = await extractAndSaveSiteDiary({
+			question: "Šodien betonēšana 2. stāvā, 4h.",
+			requestedDate: "18-08-2026",
+		});
+
+		warnSpy.mockRestore();
+		expect(result.ok).toBe(true);
+		expect(saveSiteDiaryRecordMock).toHaveBeenCalledTimes(1);
+		const [, extractionConfig] = structuredInvokeMock.mock.calls[0];
+		expect(extractionConfig).toEqual(
+			expect.objectContaining({
+				tags: expect.arrayContaining(["site-diary-checker:failed"]),
+				metadata: expect.objectContaining({
+					siteDiaryCheckerRan: true,
+					siteDiaryCheckerSucceeded: false,
+				}),
+			}),
+		);
 	});
 
 	it("defaults a missing date in the backend", async () => {
@@ -841,12 +1344,14 @@ describe("save_to_database site diary tool", () => {
 		const [, runnableConfig] = structuredInvokeMock.mock.calls[0];
 		expect(runnableConfig).toEqual(
 			expect.objectContaining({
-				runName: "SiteDiaryStructuredSave - Anna Bērziņa",
+				runName: "Structured Save - WhatsApp Text - Anna Bērziņa",
 				tags: expect.arrayContaining([
 					"sender:Anna Bērziņa",
+					"workflow:whatsapp-site-manager:text",
 					"site-diary-test",
 				]),
 				metadata: expect.objectContaining({
+					workflowId: "whatsapp-site-manager:text",
 					senderLabel: "Anna Bērziņa",
 				}),
 			}),
@@ -999,7 +1504,9 @@ describe("save_to_database site diary tool", () => {
 		const toolStart = starts.find((start) => start.kind === "tool");
 		const pipelineStart = starts.find(
 			(start) =>
-				start.kind === "chain" && start.runName === "SiteDiarySavePipeline",
+				start.kind === "chain" &&
+				start.runName ===
+					"SiteDiarySavePipeline - WhatsApp Text - Anna Bērziņa",
 		);
 		expect(toolStart).toBeDefined();
 		expect(pipelineStart).toEqual(

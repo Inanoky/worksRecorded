@@ -1402,6 +1402,8 @@ export async function POST(req: Request): Promise<Response> {
           {
             messageId: message.id,
             replyToMessageId: typeof message.context?.id === "string" ? message.context.id : null,
+            messageType: message.type ?? null,
+            mediaPurpose: message.type === "image" ? "site_diary_caption" : "unknown",
           },
           () => runWithMetaReplyContext(
             {

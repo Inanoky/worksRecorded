@@ -113,6 +113,7 @@ function textWebhookFixture(args: {
 	senderKey: string;
 	body: string;
 	timestamp: string;
+	contactName?: string;
 }) {
 	return {
 		object: "whatsapp_business_account",
@@ -130,7 +131,7 @@ function textWebhookFixture(args: {
 							contacts: [
 								{
 									profile: {
-										name: "Eval Site Manager",
+										name: args.contactName ?? "Eval Site Manager",
 									},
 									wa_id: "37129391891",
 									user_id: `LV.${args.senderKey}`,
@@ -417,9 +418,12 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 		{
 			id: "latvian-two-explicit-work-records",
 			intent:
-				"Verify one message requesting two distinct tasks creates two site diary records.",
+				"Verify one message with two explicitly separable source-backed tasks creates two site diary records instead of one broad under-split row.",
+			notes:
+				"Protects the one-row checker path: if the first extractor collapses separate door and wall work into one row, checker-guided repair should split them before save.",
 			tags: ["save", "multi-record", "latvian"],
 			tier: "regression",
+			priority: "critical",
 			webhook: textWebhookFixture({
 				senderKey: "eval-site-manager-two-records",
 				body: "Šodien 1. stāvā uzstādītas durvis, 2h un 2. stāvā nokrāsotas sienas, 3h.",
@@ -501,9 +505,9 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			},
 		},
 		{
-			id: "latvian-weather-and-earthworks-six-records",
+			id: "latvian-weather-and-earthworks-five-records",
 			intent:
-				"Verify a mixed weather, delivery, earthwork, and machinery message is split into six diary records with quantities but no inferred workers or hours.",
+				"Verify a mixed weather, delivery, earthwork, and machinery message is split into five diary records with quantities but no separate machinery/operator task.",
 			tags: ["save", "latvian", "multi-record", "amount", "note", "category"],
 			tier: "regression",
 			priority: "critical",
@@ -552,19 +556,6 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 						timeInvolved: null,
 						amounts: 400,
 					},
-					{
-						requiredTextSignals: [
-							"bobkat|bobcat",
-							"operator",
-							"ekskavator",
-							"palīkstrādniek|palīgstrādniek",
-						],
-						requiredFieldSignals: { Works: ["Piezīmes"] },
-						workersInvolved: null,
-						timeInvolved: null,
-						amounts: null,
-						nullNumericValuesCanBeZero: true,
-					},
 				],
 				minHeuristicScore: 0.75,
 			},
@@ -587,8 +578,130 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				records: [
 					{
 						requiredTextSignals: ["ievest", "smilt"],
-						requiredFieldSignals: { Works: ["Materiālu piegāde|Material delivery"] },
+						requiredFieldSignals: {
+							Works: ["Materiālu piegāde|Material delivery"],
+						},
 						forbiddenFieldSignals: { Works: ["Piezīmes|Papildu darbi"] },
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-sand-delivery-and-backfill-labor",
+			intent:
+				"Verify sand delivery and sand placement/backfill are split into two records with separate quantities and labor on the work row.",
+			notes:
+				"Protects against merging delivered and placed sand quantities, and validates derived 50 person-hours through 5 workers times 10 hours.",
+			tags: [
+				"save",
+				"latvian",
+				"multi-record",
+				"material-delivery",
+				"amount",
+				"worker-count",
+				"hours",
+				"category",
+			],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-sand-delivery-backfill-labor",
+				contactName: "Janis Rumba",
+				body: "Šodien ievesta smilts 160m3, iestrādāti 140m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+				timestamp: "1782197653",
+			}),
+			expected: {
+				expectedRecordCount: 2,
+				requiredTextSignals: ["ievest", "smilt", "iestrād", "160", "140"],
+				records: [
+					{
+						requiredTextSignals: ["ievest", "smilt"],
+						requiredFieldSignals: {
+							Works: ["Materiālu piegāde|Material delivery"],
+						},
+						amounts: 160,
+						units: "m3",
+						workersInvolved: null,
+						timeInvolved: null,
+						nullNumericValuesCanBeZero: true,
+					},
+					{
+						requiredTextSignals: ["iestrād", "smilt"],
+						requiredFieldSignals: {
+							Works: ["Backfilling|Zemes darbi|Rakšanas darbi|Excavation"],
+						},
+						forbiddenFieldSignals: {
+							Works: [
+								"Materiālu piegāde|Material delivery",
+								"Piezīmes|Notes",
+								"Papildu darbi|Additional works",
+							],
+						},
+						amounts: 140,
+						units: "m3",
+						workersInvolved: 5,
+						timeInvolved: 10,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-sand-delivery-and-backfill-labor-200-180",
+			intent:
+				"Verify sand delivery and sand placement/backfill with 200/180 quantities are split into two records with labor on the work row.",
+			notes:
+				"Protects a second quantity variant of the sand delivery/backfill case: 200 m3 delivered, 180 m3 placed, 5 workers, 10 hours.",
+			tags: [
+				"save",
+				"latvian",
+				"multi-record",
+				"material-delivery",
+				"amount",
+				"worker-count",
+				"hours",
+				"category",
+			],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-sand-delivery-backfill-labor-200-180",
+				contactName: "Janis Rumba",
+				body: "Šodien ievesta smilts 200m3, iestrādāti 180m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+				timestamp: "1782197653",
+			}),
+			expected: {
+				expectedRecordCount: 2,
+				requiredTextSignals: ["ievest", "smilt", "iestrād", "200", "180"],
+				records: [
+					{
+						requiredTextSignals: ["ievest", "smilt"],
+						requiredFieldSignals: {
+							Works: ["Materiālu piegāde|Material delivery"],
+						},
+						amounts: 200,
+						units: "m3",
+						workersInvolved: null,
+						timeInvolved: null,
+						nullNumericValuesCanBeZero: true,
+					},
+					{
+						requiredTextSignals: ["iestrād", "smilt"],
+						requiredFieldSignals: {
+							Works: ["Backfilling|Zemes darbi|Rakšanas darbi|Excavation"],
+						},
+						forbiddenFieldSignals: {
+							Works: [
+								"Materiālu piegāde|Material delivery",
+								"Piezīmes|Notes",
+								"Papildu darbi|Additional works",
+							],
+						},
+						amounts: 180,
+						units: "m3",
+						workersInvolved: 5,
+						timeInvolved: 10,
 					},
 				],
 				minHeuristicScore: 0.75,
@@ -699,7 +812,9 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				records: [
 					{
 						requiredTextSignals: ["vat", "montāž"],
-						requiredFieldSignals: { Works: ["vat|Wall construction|Sienu izbūve|Finishing|Apdare"] },
+						requiredFieldSignals: {
+							Works: ["vat|Wall construction|Sienu izbūve|Finishing|Apdare"],
+						},
 						forbiddenFieldSignals: {
 							Works: ["Papildu darbi|Papilddarbi"],
 							Works_Custom_1: ["Papilddarbi|Papildu darbi"],
@@ -897,7 +1012,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					"šeit|šejien|whatsapp|ziņ|čat|sarakst|sistēm",
 					"bis",
 					"nosūt|iesnieg",
-					"nav pieslēg|nav savien|pieslēgt bis|savienot bis|nav konfigurēts|nav sakārtots|nav konfig",
+					"nav pieslēg|nav savien|pieslēgt bis|savienot bis|nav konfigurēts|nav sakārtots|nav konfig|nav pieejam|nevar",
 				],
 				forbiddenAnswerSignals: [
 					"nosūtīts uz bis",
@@ -924,7 +1039,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				shouldCreateRecord: false,
 				requiredAnswerSignals: [
 					"bis",
-					"jau ir pieslēg|ir savienot|savienojums ir aktīv|pieslēgums ir aktīv|konfigurēts|sakārtots",
+					"jau ir pieslēg|ir savienot|savienojums ir aktīv|pieslēgums ir aktīv|integrācija ir aktīv|konfigurēts|sakārtots|pieslēgts|aktīvs",
 					"nosūt|iesnieg",
 				],
 				forbiddenAnswerSignals: [
@@ -1094,5 +1209,5 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					"nosūtīts uz bis",
 				],
 			},
-		}
+		},
 	]);

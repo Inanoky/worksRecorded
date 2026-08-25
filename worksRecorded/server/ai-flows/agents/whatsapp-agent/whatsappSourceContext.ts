@@ -4,6 +4,8 @@ type WhatsappSourceContext = {
     originalAudioUrl?: string | null;
     messageId?: string | null;
     replyToMessageId?: string | null;
+    messageType?: "text" | "image" | "audio" | string | null;
+    mediaPurpose?: "site_diary_caption" | "material_invoice" | "unknown" | string | null;
 };
 
 const whatsappSourceContext = new AsyncLocalStorage<WhatsappSourceContext>();
@@ -30,6 +32,8 @@ export function consumeWhatsappAudioSourceContext(): WhatsappSourceContext {
         originalAudioUrl: store.originalAudioUrl ?? null,
         messageId: store.messageId ?? null,
         replyToMessageId: store.replyToMessageId ?? null,
+        messageType: store.messageType ?? null,
+        mediaPurpose: store.mediaPurpose ?? null,
     };
     store.originalAudioUrl = null;
     return context;
