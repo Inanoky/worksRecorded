@@ -60,7 +60,7 @@ export default function LegacyLandingPage() {
 			: "https://www.youtube-nocookie.com/embed/-CfwJd-hI4I?rel=0&modestbranding=1&playsinline=1";
 
 	return (
-		<main className="relative overflow-hidden bg-[radial-gradient(circle_at_10%_8%,rgba(8,122,73,0.12),transparent_18%),radial-gradient(circle_at_92%_32%,rgba(23,105,255,0.055),transparent_18%),radial-gradient(circle_at_8%_62%,rgba(8,122,73,0.08),transparent_17%),radial-gradient(circle_at_92%_86%,rgba(8,122,73,0.06),transparent_16%),linear-gradient(180deg,#f7f8f5_0%,#ffffff_48%,#f7f8f5_100%)] text-slate-950 dark:bg-slate-950 dark:text-white">
+		<main className="relative overflow-hidden bg-[radial-gradient(circle_at_10%_8%,rgba(8,122,73,0.12),transparent_18%),radial-gradient(circle_at_92%_32%,rgba(23,105,255,0.055),transparent_18%),radial-gradient(circle_at_8%_62%,rgba(8,122,73,0.08),transparent_17%),radial-gradient(circle_at_92%_86%,rgba(8,122,73,0.06),transparent_16%),linear-gradient(180deg,#f7f8f5_0%,#ffffff_48%,#f7f8f5_100%)] text-slate-950 dark:bg-none dark:bg-slate-950 dark:text-white">
 			<section className="relative overflow-hidden">
 
 				<div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-8 px-5 py-12 sm:px-8 sm:py-16 lg:min-h-[650px] lg:grid-cols-[0.9fr_1.1fr] lg:gap-14 lg:px-10 lg:py-12 xl:gap-20 xl:px-14">
