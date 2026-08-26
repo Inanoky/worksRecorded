@@ -65,6 +65,19 @@ export default function Page() {
 						<p className="mt-5 text-xl font-semibold text-[#087a49]">
 							{t("title.highlight")}
 						</p>
+						<div className="mt-7 rounded-2xl bg-[#f1f8f4] p-5 ring-1 ring-emerald-900/10 dark:bg-emerald-950/50 dark:ring-emerald-200/10">
+							<p className="text-sm font-bold uppercase tracking-[0.15em] text-[#087a49]">
+								{t("bisService.title")}
+							</p>
+							<div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+								<p className="text-4xl font-bold tracking-[-0.04em]">
+									{t("bisService.price")}
+								</p>
+								<p className="text-base font-medium text-slate-600 dark:text-slate-300">
+									{t("bisService.period")}
+								</p>
+							</div>
+						</div>
 						<div className="my-8 h-px bg-slate-200 dark:bg-slate-800" />
 						<ul className="grid gap-4">
 							{["WhatsApp", "AI", "BIS"].map((item) => (

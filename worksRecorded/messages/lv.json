@@ -456,7 +456,12 @@
 			"prefix": "30 EUR mēnesī par lietotāju.",
 			"highlight": "Pirmās 2 nedēļas bez maksas!"
 		},
-		"description": "Caurspīdīga mēneša maksa, pielāgota projekta apjomam un sarežģītībai. Piedāvājam arī cenu modeli par lietotāju vai par projektu — atkarībā no jūsu uzņēmuma darbības. Komandām ar vairāk nekā 5 lietotājiem pieejamas atlaides, kā arī piedāvājam individuālu cenu lieliem projektiem. Par pielāgotu izstrādi sazinieties: vjaceslavs@worksrecorded.com."
+		"description": "Caurspīdīga mēneša maksa, pielāgota projekta apjomam un sarežģītībai. Piedāvājam arī cenu modeli par lietotāju vai par projektu — atkarībā no jūsu uzņēmuma darbības. Komandām ar vairāk nekā 5 lietotājiem pieejamas atlaides, kā arī piedāvājam individuālu cenu lieliem projektiem. Par pielāgotu izstrādi sazinieties: vjaceslavs@worksrecorded.com.",
+		"bisService": {
+			"title": "BIS aizpildīšana",
+			"price": "150 €",
+			"period": "par BIS lietu mēnesī"
+		}
 	},
 
 	"About": {
