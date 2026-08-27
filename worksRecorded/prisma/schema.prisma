@@ -60,7 +60,7 @@ model User {
   // NEW
   reminderTime   DateTime?  // interpreted in user's timezone
   timezone       String?    // e.g. "Europe/Riga"; default on write if missing
-  remindersEnabled Boolean   @default(true)
+  remindersEnabled Boolean   @default(false)
   reminderText   String?
 
 
@@ -530,6 +530,33 @@ model MetaInboundMessage {
   updatedAt             DateTime  @updatedAt
 
   @@index([status, receivedAt], map: "MetaInboundMessage_status_received_idx")
+}
+
+model WhatsappReminderLog {
+  id                    String    @id @default(uuid())
+  targetType            String
+  targetId              String
+  organizationId        String?
+  siteId                String?
+  localDate             String?
+  timezone              String?
+  scheduledHHmm         String?
+  dedupeKey             String?
+  source                String
+  status                String
+  reason                String?
+  recipientPhoneMasked  String?
+  metaMessageId         String?
+  metaStatus            Int?
+  metaResponseSummary   String?
+  errorMessage          String?
+  sentAt                DateTime?
+  createdAt             DateTime  @default(now())
+
+  @@unique([dedupeKey], map: "WhatsappReminderLog_dedupe_key_unique")
+  @@index([organizationId, createdAt], map: "WhatsappReminderLog_org_created_idx")
+  @@index([targetType, targetId, createdAt], map: "WhatsappReminderLog_target_created_idx")
+  @@index([status, createdAt], map: "WhatsappReminderLog_status_created_idx")
 }
 
 model ZtcInboundMediaBatch {

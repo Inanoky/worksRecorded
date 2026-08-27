@@ -5,8 +5,8 @@
 			"schedule": "0 */12 * * *"
 		},
 		{
-			"path": "/api/webhook/langsmith-heartbeat",
-			"schedule": "*/10 * * * *"
+			"path": "/api/webhook/reminders",
+			"schedule": "*/15 5-16 * * 1-5"
 		}
 	]
 }

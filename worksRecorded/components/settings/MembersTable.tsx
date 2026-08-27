@@ -43,7 +43,7 @@ export type Member = {
   firstName: string | null;
   lastName: string | null;
   phone: string | null; // stored WITHOUT '+'
-  role: Role | null;
+  role: Role | string | null;
   status?: string | null;
   reminderTime?: string | Date | null;
   remindersEnabled?: boolean | null;
@@ -55,6 +55,7 @@ type MembersTableProps = {
   pageSize: number;
   userid?: string;
   orgId?: string;
+  exportFileName?: string;
   organizationLanguage?: string | null;
   hideReminders?: boolean;
   hidePhone?: boolean;
@@ -85,7 +86,10 @@ function getColumns(
     columns.splice(3, 0, { accessorKey: "phone", header: t.phoneColumn });
   }
   if (!hideRole) {
-    const statusIndex = columns.findIndex((column) => column.accessorKey === "status");
+    const statusIndex = columns.findIndex((column) => {
+      const accessorKey = (column as { accessorKey?: unknown }).accessorKey;
+      return accessorKey === "status";
+    });
     columns.splice(statusIndex >= 0 ? statusIndex : columns.length, 0, {
       accessorKey: "role",
       header: t.roleColumn,
@@ -430,7 +434,6 @@ export function MembersTable({
             if (!hideReminders && patch.reminderText != null) {
               fd.set("reminderText", String(patch.reminderText));
             }
-            // @ts-expect-error bound server action
             return action(fd);
           }}
         >
@@ -707,7 +710,8 @@ export function MembersTable({
                   <PaginationItem>
                     <PaginationPrevious
                       onClick={() => table.previousPage()}
-                      disabled={!table.getCanPreviousPage()}
+                      aria-disabled={!table.getCanPreviousPage()}
+                      className={!table.getCanPreviousPage() ? "pointer-events-none opacity-50" : undefined}
                     >
                       {t.previous}
                     </PaginationPrevious>
@@ -716,7 +720,8 @@ export function MembersTable({
                   <PaginationItem>
                     <PaginationNext
                       onClick={() => table.nextPage()}
-                      disabled={!table.getCanNextPage()}
+                      aria-disabled={!table.getCanNextPage()}
+                      className={!table.getCanNextPage() ? "pointer-events-none opacity-50" : undefined}
                     >
                       {t.next}
                     </PaginationNext>
