@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { siteDiaryPhotoPurposeWhere } from "@/lib/photos/media-purpose";
+import { estimatePhotoExportSize } from "@/lib/photos/photo-export-size";
 import { createPhotoZipStream } from "@/lib/photos/photo-export-zip";
 import { prisma } from "@/lib/utils/db";
 import { orgCheck } from "@/server/actions/shared-actions";
@@ -21,7 +22,7 @@ function getArchiveFileName(siteName: string) {
 }
 
 export async function GET(
-	_request: Request,
+	request: Request,
 	{ params }: { params: Promise<{ siteId: string }> },
 ) {
 	const { siteId } = await params;
@@ -68,6 +69,16 @@ export async function GET(
 
 	if (exportablePhotos.length === 0) {
 		return NextResponse.json({ error: "No photos to export" }, { status: 404 });
+	}
+
+	if (new URL(request.url).searchParams.get("info") === "1") {
+		const estimate = await estimatePhotoExportSize(
+			exportablePhotos.map((photo) => photo.fileUrl),
+		);
+		return NextResponse.json(
+			{ ...estimate, photoCount: exportablePhotos.length },
+			{ headers: { "Cache-Control": "private, no-store" } },
+		);
 	}
 
 	const fileName = getArchiveFileName(site.name);
