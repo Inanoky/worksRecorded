@@ -10,6 +10,7 @@ export const defaultConstructionFlowModule = {
   ui: {
     showDashboardAiWidget: true,
     showSiteDiaryAiWidget: true,
+    showPhotoExport: true,
   },
   entryPoints: {
     frontend: [
