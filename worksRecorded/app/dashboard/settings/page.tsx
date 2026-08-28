@@ -2,12 +2,17 @@ import { MembersTable } from "@/components/settings/MembersTable";
 import { WorkersSettingsTable } from "@/components/settings/WorkersSettingsTable";
 import { OrganizationLanguageSwitcher } from "@/components/settings/OrganizationLanguageSwitcher";
 import { MaterialConfigurationTemplatesSettings } from "@/components/settings/MaterialConfigurationTemplatesSettings";
+import { WhatsappReminderLogsTable } from "@/components/settings/WhatsappReminderLogsTable";
 import { requireUser } from "@/lib/utils/requireUser";
 import {
   getOrganizationIdByUserId,
   getOrganizationLanguageByUserId,
 } from "@/server/actions/shared-actions";
-import { getOrganizationWorkers, getUserData } from "@/server/actions/settings-actions";
+import {
+  getOrganizationWorkers,
+  getUserData,
+  getWhatsappReminderLogs,
+} from "@/server/actions/settings-actions";
 import {
   getOrganizationMaterialConfigurationTemplateOptions,
   getOrganizationMaterialConfigurationTemplates,
@@ -29,6 +34,9 @@ export default async function SettingsSiteRoute() {
   const hideMemberReminderSettings = Boolean(flowUi.hideMemberReminderSettings);
   const userData = await getUserData(orgId);
   const workersData = await getOrganizationWorkers(orgId);
+  const reminderLogs = hideMemberReminderSettings
+    ? []
+    : await getWhatsappReminderLogs(orgId, { take: 50 });
   const materialConfigurationTemplates = orgId && !hideOrganizationMaterialSettings
     ? await getOrganizationMaterialConfigurationTemplates(orgId)
     : [];
@@ -68,6 +76,12 @@ export default async function SettingsSiteRoute() {
         organizationLanguage={currentLanguage}
         hideReminders={hideMemberReminderSettings}
       />
+      {!hideMemberReminderSettings ? (
+        <WhatsappReminderLogsTable
+          logs={reminderLogs}
+          organizationLanguage={currentLanguage}
+        />
+      ) : null}
     </>
   );
 }

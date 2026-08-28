@@ -4,6 +4,7 @@ import { prisma } from "@/lib/utils/db";
 import { Prisma } from "@prisma/client";
 import { Resend } from "resend";
 import defaultConfig from "@/components/sitediary/configs/defaultConfig.json"
+import { sendManualWhatsappReminder } from "@/lib/whatsapp-reminders/engine";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/utils/requireUser";
@@ -412,83 +413,106 @@ export async function deleteOrganizationUser(userId: string) {
   return { ok: true };
 }
 
-function normalizePhoneForMeta(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const digits = raw.replace(/\D/g, "");
-  return digits || null;
-}
-
-async function sendMetaWhatsAppTemplate(to: string, variableText: string) {
-  const token = process.env.META_ACCESS_TOKEN;
-  const businessPhoneNumberId = process.env.META_PHONE_NUMBER_ID;
-
-  if (!token || !businessPhoneNumberId) {
-    throw new Error("Missing META_ACCESS_TOKEN or META_PHONE_NUMBER_ID");
-  }
-
-  const res = await fetch(`https://graph.facebook.com/v18.0/${businessPhoneNumberId}/messages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "template",
-      template: {
-        name: "reminder_custom",
-        language: { code: "en" },
-        components: [
-          {
-            type: "body",
-            parameters: [{ type: "text", text: variableText }],
-          },
-        ],
-      },
-    }),
-  });
-
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => "");
-    throw new Error(`Meta send failed (${res.status}): ${errorBody}`);
-  }
-}
-
 export async function sendManualReminder(args: {
   targetType: "user" | "worker";
   targetId: string;
   reminderText?: string | null;
 }) {
-  const overrideText = args.reminderText?.trim() || null;
+  return await sendManualWhatsappReminder(args);
+}
 
-  if (args.targetType === "user") {
-    const user = await prisma.user.findUnique({
-      where: { id: args.targetId },
-      select: { phone: true, reminderText: true },
-    });
-
-    const to = normalizePhoneForMeta(user?.phone);
-    if (!to) throw new Error("User does not have a valid phone number");
-
-    const text = overrideText || user?.reminderText?.trim() || null;
-    if (!text) throw new Error("Reminder text is empty. Please set reminder text first.");
-
-    await sendMetaWhatsAppTemplate(to, text);
-    return { ok: true };
-  }
-
-  const worker = await prisma.workers.findUnique({
-    where: { id: args.targetId },
-    select: { phone: true, reminderText: true },
+export async function getWhatsappReminderLogs(
+  orgId: string,
+  filters?: {
+    status?: string | null;
+    targetType?: string | null;
+    take?: number | null;
+  },
+) {
+  const user = await requireUser();
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { organizationId: true },
   });
 
-  const to = normalizePhoneForMeta(worker?.phone);
-  if (!to) throw new Error("Worker does not have a valid phone number");
+  if (!dbUser?.organizationId || dbUser.organizationId !== orgId) {
+    throw new Error("Unauthorized");
+  }
 
-  const text = overrideText || worker?.reminderText?.trim() || null;
-  if (!text) throw new Error("Reminder text is empty. Please set reminder text first.");
+  const take = Math.min(Math.max(filters?.take ?? 50, 1), 100);
+  const logs = await prisma.whatsappReminderLog.findMany({
+    where: {
+      organizationId: orgId,
+      ...(filters?.status ? { status: filters.status } : {}),
+      ...(filters?.targetType ? { targetType: filters.targetType } : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    take,
+  });
 
-  await sendMetaWhatsAppTemplate(to, text);
-  return { ok: true };
+  const userIds = logs
+    .filter((log) => log.targetType === "user")
+    .map((log) => log.targetId);
+  const workerIds = logs
+    .filter((log) => log.targetType === "worker")
+    .map((log) => log.targetId);
+  const siteIds = logs
+    .map((log) => log.siteId)
+    .filter((siteId): siteId is string => Boolean(siteId));
+
+  const users = userIds.length
+    ? await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, firstName: true, lastName: true, email: true },
+      })
+    : [];
+  const workers = workerIds.length
+    ? await prisma.workers.findMany({
+        where: { id: { in: workerIds } },
+        select: { id: true, name: true, surname: true },
+      })
+    : [];
+  const sites = siteIds.length
+    ? await prisma.site.findMany({
+        where: { id: { in: siteIds }, organizationId: orgId },
+        select: { id: true, name: true },
+      })
+    : [];
+
+  const userNameById = new Map(
+    users.map((target) => [
+      target.id,
+      [target.firstName, target.lastName].filter(Boolean).join(" ") || target.email,
+    ]),
+  );
+  const workerNameById = new Map(
+    workers.map((target) => [
+      target.id,
+      [target.name, target.surname].filter(Boolean).join(" ") || target.id,
+    ]),
+  );
+  const siteNameById = new Map(sites.map((site) => [site.id, site.name]));
+
+  return logs.map((log) => ({
+    id: log.id,
+    targetType: log.targetType,
+    targetId: log.targetId,
+    targetName:
+      log.targetType === "user"
+        ? userNameById.get(log.targetId) ?? log.targetId
+        : workerNameById.get(log.targetId) ?? log.targetId,
+    siteName: log.siteId ? siteNameById.get(log.siteId) ?? log.siteId : null,
+    localDate: log.localDate,
+    timezone: log.timezone,
+    scheduledHHmm: log.scheduledHHmm,
+    source: log.source,
+    status: log.status,
+    reason: log.reason,
+    recipientPhoneMasked: log.recipientPhoneMasked,
+    metaMessageId: log.metaMessageId,
+    metaStatus: log.metaStatus,
+    errorMessage: log.errorMessage,
+    sentAt: log.sentAt?.toISOString() ?? null,
+    createdAt: log.createdAt.toISOString(),
+  }));
 }
