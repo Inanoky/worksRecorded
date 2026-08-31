@@ -868,6 +868,314 @@ describe("save_to_database site diary tool", () => {
 		);
 	});
 
+	it("passes first extraction amounts and units into the checker", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Area: "Project",
+						Activity: "Concrete pour",
+						Quantity: 45,
+						Mrv: "m2",
+						Comments: "Ieklats OSB 22 mm.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "accept",
+					reason: "Completed scope quantity is source-backed.",
+					badSplitSignals: [],
+					repairInstructions: "",
+					expectedRecordCount: 1,
+					repairActions: [],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question: "OSB 22 mm, ieklāti 45 m2.",
+			requestedDate: "18-08-2026",
+		});
+
+		const [checkerMessages] = structuredInvokeMock.mock.calls[1];
+		const checkerHumanMessage = String(checkerMessages[1].content);
+		expect(checkerHumanMessage).toContain("Original WhatsApp message");
+		expect(checkerHumanMessage).toContain("OSB 22 mm, ieklāti 45 m2.");
+		expect(checkerHumanMessage).toContain("Amounts: 45");
+		expect(checkerHumanMessage).toContain("Units: m2");
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Amounts: 45,
+				Units: "m2",
+			}),
+		]);
+	});
+
+	it("preserves source-backed amount and unit when checker asks to null them", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Area: "Project",
+						Activity: "Concrete pour",
+						Quantity: 45,
+						Mrv: "m2",
+						Comments: "Ieklats OSB 22 mm.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "repairable",
+					reason: "Checker confused completed scope with material thickness.",
+					badSplitSignals: [],
+					repairInstructions: "Set Amounts and Units to null.",
+					expectedRecordCount: 1,
+					repairActions: [
+						{
+							rowIndex: 0,
+							field: "Amounts",
+							operation: "set_null",
+							reason: "Incorrectly treated 45 m2 as unsupported.",
+						},
+						{
+							rowIndex: 0,
+							field: "Units",
+							operation: "set_null",
+							reason: "Incorrectly treated m2 as unsupported.",
+						},
+					],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question: "OSB 22 mm, ieklāti 45 m2.",
+			requestedDate: "18-08-2026",
+		});
+
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Amounts: 45,
+				Units: "m2",
+			}),
+		]);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				checker: expect.objectContaining({
+					verdict: "repairable",
+					repairActions: [
+						expect.objectContaining({ field: "Amounts" }),
+						expect.objectContaining({ field: "Units" }),
+					],
+					appliedRepair: true,
+					repairVerdict: "accept",
+					repairReason:
+						"Applied 0 structured checker field repair action(s); preserved 2 exact source-backed amount/unit pair repair action(s).",
+				}),
+			}),
+		);
+	});
+
+	it("nulls wrong amount unit pairs before checker and does not protect checker repair", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Area: "Project",
+						Activity: "Concrete pour",
+						Quantity: 45,
+						Mrv: "m3",
+						Hours: 4,
+						Comments: "Ieklats OSB 22 mm.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "repairable",
+					reason: "Wrong quantity unit and unsupported hours.",
+					badSplitSignals: [],
+					repairInstructions: "Set Amounts, Units, and TimeInvolved to null.",
+					expectedRecordCount: 1,
+					repairActions: [
+						{
+							rowIndex: 0,
+							field: "Amounts",
+							operation: "set_null",
+							reason: "45 m3 is not source-backed.",
+						},
+						{
+							rowIndex: 0,
+							field: "Units",
+							operation: "set_null",
+							reason: "m3 is not source-backed for 45.",
+						},
+						{
+							rowIndex: 0,
+							field: "TimeInvolved",
+							operation: "set_null",
+							reason: "No source-backed hours.",
+						},
+					],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question: "OSB 22 mm, ieklāti 45 m2.",
+			requestedDate: "18-08-2026",
+		});
+
+		const [checkerMessages] = structuredInvokeMock.mock.calls[1];
+		const checkerHumanMessage = String(checkerMessages[1].content);
+		expect(checkerHumanMessage).not.toContain("Amounts: 45");
+		expect(checkerHumanMessage).not.toContain("Units: m3");
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Amounts: null,
+				Units: null,
+				TimeInvolved: null,
+			}),
+		]);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				checker: expect.objectContaining({
+					verdict: "repairable",
+					appliedRepair: true,
+					repairVerdict: "accept",
+					repairReason: "Applied 3 structured checker field repair action(s).",
+				}),
+			}),
+		);
+	});
+
+	it("preserves cubic aliases when checker asks to null the m3 pair", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Area: "Project",
+						Activity: "Material delivery",
+						Quantity: 180,
+						Mrv: "m3",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "repairable",
+					reason: "Checker incorrectly rejected a cubic amount alias.",
+					badSplitSignals: [],
+					repairInstructions: "Set Amounts and Units to null.",
+					expectedRecordCount: 1,
+					repairActions: [
+						{
+							rowIndex: 0,
+							field: "Amounts",
+							operation: "set_null",
+							reason: "Incorrectly treated kubi as unsupported.",
+						},
+						{
+							rowIndex: 0,
+							field: "Units",
+							operation: "set_null",
+							reason: "Incorrectly treated kubi as unsupported.",
+						},
+					],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question: "Ievestas smilts 180 kubi.",
+			requestedDate: "18-08-2026",
+		});
+
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Amounts: 180,
+				Units: "m3",
+			}),
+		]);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				checker: expect.objectContaining({
+					verdict: "repairable",
+					appliedRepair: true,
+					repairVerdict: "accept",
+					repairReason:
+						"Applied 0 structured checker field repair action(s); preserved 2 exact source-backed amount/unit pair repair action(s).",
+				}),
+			}),
+		);
+	});
+
+	it("does not protect material dimensions as completed amounts", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Area: "Project",
+						Activity: "Concrete pour",
+						Quantity: 22,
+						Mrv: "m2",
+						Comments: "Izmantots OSB 22 mm.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "accept",
+					reason: "Material dimension was removed from quantity fields.",
+					badSplitSignals: [],
+					repairInstructions: "",
+					expectedRecordCount: 1,
+					repairActions: [],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question: "Izmantots OSB 22 mm.",
+			requestedDate: "18-08-2026",
+		});
+
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Amounts: null,
+				Units: null,
+			}),
+		]);
+	});
+
 	it("does not save rows when checker-guided repair is still rejected", async () => {
 		structuredInvokeMock
 			.mockResolvedValueOnce({

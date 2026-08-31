@@ -72,6 +72,8 @@ describe("site-manager BIS routing prompt", () => {
 
     expect(prompt).toContain("Amounts/Daudzums and Units/Mrv are for completed work quantity only");
     expect(prompt).toContain("Do not use apartment numbers, floor numbers, layer counts, worker counts, hours");
+    expect(prompt).toContain("Prefer \"45 m2\" completed scope over \"22 mm\" OSB thickness");
+    expect(prompt).toContain('"OSB 22 mm, ieklāti 45 m2" → Amounts: 45, Units: "m2"');
     expect(prompt).toContain('"reģipsis 2 kārtās" → Amounts: null, Units: null');
     expect(prompt).toContain('"Dz 6 45m2 vate, osb" → Amounts: 45, Units: "m2"');
     expect(prompt).toContain('"Dz 6, 2 cilvēki, 3h" → Workers: 2, Hours: 3, Amounts: null, Units: null');

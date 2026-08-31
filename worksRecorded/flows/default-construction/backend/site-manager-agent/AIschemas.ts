@@ -83,7 +83,7 @@ export function defaultAiDescription(dbKey: string, displayKey: string) {
   }
 
   if (normalizedDbKey === "amounts" || normalizedDisplayKey === "amounts") {
-    return "Completed work quantity or amount. This is not worker count and not work duration hours. Leave null if the completed quantity is unknown.";
+    return "Completed work quantity or amount, for example '45 m2', '180 kubi', or '10 m3'. This is not worker count, work duration hours, apartment/floor number, layer count, or material/resource dimension such as '22 mm' or '45x45'. When both material dimensions and completed scope appear, use the completed scope quantity. Leave null if the completed quantity is unknown.";
   }
 
   return null;

@@ -52,6 +52,7 @@ export type SavedPhotoRecord = {
 	fileUrl: string | null;
 	Comment: string | null;
 	mediaPurpose: string | null;
+	Date?: Date | null;
 	createdAt: Date;
 };
 
@@ -380,6 +381,20 @@ export function validateWhatsappSiteManagerRecord(args: {
 					`photo-purpose:${expectedPurpose}`,
 					warningValidators,
 				),
+			),
+		);
+	}
+	if (evalCase.expected.expectedPhotoDateISO) {
+		const expectedPhotoDateISO = evalCase.expected.expectedPhotoDateISO;
+		results.push(
+			createResult(
+				"photo-date",
+				createdPhotos.length > 0 &&
+					createdPhotos.every(
+						(photo) => toDateISO(photo.Date) === expectedPhotoDateISO,
+					),
+				`Expected saved photo date ${expectedPhotoDateISO}; got ${createdPhotos.map((photo) => toDateISO(photo.Date) ?? "null").join(", ") || "none"}.`,
+				validatorSeverity("photo-date", warningValidators),
 			),
 		);
 	}

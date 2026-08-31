@@ -121,9 +121,11 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   Completion status is not a quantity. Never set Amounts to 1 merely because one work is mentioned or described as completed. Populate Amounts only when the source explicitly states a real completed work quantity or measured completed scope; otherwise set both Amounts and Units to null.
   Amounts/Daudzums and Units/Mrv are for completed work quantity only, for example "52 m2 osb", "5 gab. durvis", or "10 m3 betons".
   Do not use apartment numbers, floor numbers, layer counts, worker counts, hours, or other construction-method/context numbers as Amounts.
-  If a number describes context or construction method, keep it in Comments only and leave Amounts and Units null.
+  If a number describes context, construction method, or material/resource specification, keep it in Comments only and leave Amounts and Units null unless the same phrase also has a separate completed scope quantity.
+  When both material/resource dimensions and completed scope quantity are present, use the completed scope quantity for Amounts/Units and keep the dimensions only in Comments. Prefer "45 m2" completed scope over "22 mm" OSB thickness or "45x45" lath dimensions.
   Example: "Pabeigta siltinājuma montāža" → Amounts: null, Units: null.
   Example: "Pabeigta 10 m2 siltinājuma montāža" → Amounts: 10, Units: "m2".
+  Example: "OSB 22 mm, ieklāti 45 m2" → Amounts: 45, Units: "m2", Comments mention OSB 22 mm.
   Example: "reģipsis 2 kārtās" → Amounts: null, Units: null.
   Example: "Dz 6 45m2 vate, osb" → Amounts: 45, Units: "m2".
   Example: "Dz 6, 2 cilvēki, 3h" → Workers: 2, Hours: 3, Amounts: null, Units: null.
@@ -154,7 +156,7 @@ Please follow the guidelines below:
 - Choose the best fitting works enum
 - Amounts - means amount of work completed. If not clear - leave blank.
 - Units  - units of works completed. For example m3, tn, m2, m, gab. Leave blank if not clear.
-- Amounts and Units don't guess. Do not use apartment numbers, floor numbers, layer counts, workers, hours, or method/context numbers as Amounts.
+- Amounts and Units don't guess. Do not use apartment numbers, floor numbers, layer counts, workers, hours, or method/context/material-specification numbers as Amounts. When material/resource dimensions such as "22 mm" or "45x45" appear together with completed scope such as "45 m2", use the completed scope and keep dimensions in comments.
 - All units convert to standarts units (m,kg,m2,m3,tn., gab, komplekts, stunda, pacelšana, minute, projekt )
 
 

@@ -87,6 +87,40 @@ describe("site diary extraction checker", () => {
 		);
 	});
 
+	it("passes proposed amounts and units into the checker payload", async () => {
+		mockInvoke.mockResolvedValue({
+			parsed: {
+				verdict: "accept",
+				reason: "Daudzums un mērvienība ir pamatoti ar avotu.",
+				badSplitSignals: [],
+				repairInstructions: "",
+				expectedRecordCount: 1,
+				repairActions: [],
+			},
+			raw: {},
+		});
+
+		await invokeSiteDiaryExtractionChecker({
+			originalMessage: "OSB 22 mm, ieklāti 45 m2.",
+			language: "lv",
+			rows: [
+				{
+					Works: "OSB installation",
+					Comments: "Ieklats OSB 22 mm.",
+					Amounts: 45,
+					Units: "m2",
+				},
+			],
+		});
+
+		const [messages] = mockInvoke.mock.calls[0];
+		const human = String(messages[1].content);
+		expect(human).toContain("Original WhatsApp message");
+		expect(human).toContain("OSB 22 mm, ieklāti 45 m2.");
+		expect(human).toContain("Amounts: 45");
+		expect(human).toContain("Units: m2");
+	});
+
 	it("rejects one machinery/operator job split into multiple rows", async () => {
 		mockInvoke.mockResolvedValue({
 			parsed: {
@@ -457,6 +491,8 @@ describe("site diary extraction checker", () => {
 
 		expect(serialized).toContain("Record 1");
 		expect(serialized).toContain("Works: Durvis");
+		expect(serialized).toContain("Amounts: 5");
+		expect(serialized).toContain("Units: pcs");
 		expect(serialized).toContain("TimeInvolved: 3");
 		expect(serialized).not.toContain("hidden");
 	});
@@ -473,6 +509,10 @@ describe("site diary extraction checker", () => {
 		expect(system).toContain("real separate diary events/jobs");
 		expect(system).toContain("trusted reference items");
 		expect(system).toContain("vēl 3h");
+		expect(system).toContain("Amounts and Units are first-class fields");
+		expect(system).toContain("OSB 22 mm, ieklāti 45 m2");
+		expect(system).toContain("material/resource dimensions");
+		expect(system).toContain("source-backed completed quantity");
 		expect(system).toContain("machinery/tools/operators/sub-actions");
 		expect(system).toContain(
 			"multiple distinct source-backed diary events/jobs",

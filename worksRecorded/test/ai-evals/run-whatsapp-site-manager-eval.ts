@@ -31,6 +31,7 @@ import { evaluateSiteManagerCheckpointInspection } from "./whatsapp-site-manager
 import {
 	cleanupWhatsappSiteManagerEvalCheckpointThread,
 	getPersistedEvalRecordsFromTrace,
+	prepareBatchedImageWebhookPayloads,
 	selectNewestEvalRecord,
 	selectRecordsForWhatsappEval,
 } from "./whatsapp-site-manager-runner-utils";
@@ -216,6 +217,10 @@ function preview(value: string, maxLength = 220) {
 	return compact.length <= maxLength
 		? compact
 		: `${compact.slice(0, maxLength)}...`;
+}
+
+function sleep(ms: number) {
+	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function createRunId() {
@@ -656,6 +661,7 @@ async function findCreatedPhotos(args: {
 	userId: string;
 	startedAt: Date;
 	inputText: string;
+	includeTextFilter?: boolean;
 }): Promise<SavedPhotoRecord[]> {
 	return prisma.photos.findMany({
 		where: {
@@ -663,9 +669,13 @@ async function findCreatedPhotos(args: {
 			userId: args.userId,
 			workerId: null,
 			createdAt: { gte: args.startedAt },
-			Comment: {
-				contains: args.inputText,
-			},
+			...(args.includeTextFilter === false
+				? {}
+				: {
+						Comment: {
+							contains: args.inputText,
+						},
+					}),
 		},
 		orderBy: { createdAt: "desc" },
 		select: {
@@ -677,6 +687,7 @@ async function findCreatedPhotos(args: {
 			fileUrl: true,
 			Comment: true,
 			mediaPurpose: true,
+			Date: true,
 			createdAt: true,
 		},
 	});
@@ -706,6 +717,7 @@ async function findPhotosBySourceUrl(args: {
 			fileUrl: true,
 			Comment: true,
 			mediaPurpose: true,
+			Date: true,
 			createdAt: true,
 		},
 	});
@@ -1141,14 +1153,26 @@ async function main() {
 				senderPhone,
 				bsuid,
 			});
+			const preparedBatch = webhookEvalCase.imageBatch
+				? prepareBatchedImageWebhookPayloads({
+						baseWebhook: webhookEvalCase.webhook,
+						caseId: webhookEvalCase.id,
+						runId,
+						businessPhoneNumberId,
+						senderPhone,
+						bsuid,
+						imageBatch: webhookEvalCase.imageBatch,
+					})
+				: null;
+			const preparedForCase = preparedBatch ?? prepared;
 			const workflowTrace = buildSiteManagerWorkflowTraceContext({
-				messageType: prepared.messageType,
+				messageType: preparedForCase.messageType,
 			});
 			const evalTraceMetadata = {
 				evalRunId: runId,
 				evalCaseId: evalCase.id,
 				evalMode: "real-meta-webhook-regression",
-				webhookMessageId: prepared.messageId,
+				webhookMessageId: preparedForCase.messageId,
 				...workflowTrace.metadata,
 			};
 			const evalTraceTags = [
@@ -1171,7 +1195,7 @@ async function main() {
 				siteId,
 				userId,
 				organizationId: process.env.AI_EVAL_ALLOWED_ORGANIZATION_ID ?? null,
-				messageId: prepared.messageId,
+				messageId: preparedForCase.messageId,
 				createdBy: "ai-eval-runner",
 			};
 
@@ -1180,7 +1204,7 @@ async function main() {
 					await cleanupPreviousEvalCaseRows({
 						siteId,
 						userId,
-						inputText: prepared.inputText,
+						inputText: preparedForCase.inputText,
 						caseId: evalCase.id,
 						materialSourcePhoto: webhookEvalCase.expected.materialRecords
 							? currentUploadedImageUrl
@@ -1209,25 +1233,62 @@ async function main() {
 				const started = Date.now();
 				const caseStartedAt = new Date();
 				const tracedRun = await runWithStructuredSaveTrace(() =>
-					runWithSiteManagerAgentEvalContext(
-						{
-							threadId,
-							model: agentModel,
-							traceMetadata: evalTraceMetadata,
-							traceTags: evalTraceTags,
-							workflowId: workflowTrace.workflowId,
-							workflowName: workflowTrace.workflowName,
-							workflowRunLabel: workflowTrace.workflowRunLabel,
-							messageType: workflowTrace.messageType,
-							mediaPurpose: workflowTrace.mediaPurpose,
-							evalRecordMetadata,
-							bisConnectionOverride: getSimulatedBisConnection(webhookEvalCase),
-						},
-						() =>
-							POST({
-								json: async () => prepared.payload,
-							} as Request),
-					),
+					preparedBatch
+						? (async () => {
+								const runs: Array<
+									ReturnType<typeof runWithSiteManagerAgentEvalContext>
+								> = [];
+								for (const batchPayload of preparedBatch.payloads) {
+									runs.push(
+										runWithSiteManagerAgentEvalContext(
+											{
+												threadId,
+												model: agentModel,
+												traceMetadata: {
+													...evalTraceMetadata,
+													webhookMessageId: batchPayload.messageId,
+												},
+												traceTags: [...evalTraceTags, "eval-image-batch"],
+												workflowId: workflowTrace.workflowId,
+												workflowName: workflowTrace.workflowName,
+												workflowRunLabel: workflowTrace.workflowRunLabel,
+												messageType: workflowTrace.messageType,
+												mediaPurpose: workflowTrace.mediaPurpose,
+												evalRecordMetadata,
+												bisConnectionOverride:
+													getSimulatedBisConnection(webhookEvalCase),
+											},
+											() =>
+												POST({
+													json: async () => batchPayload.payload,
+												} as Request),
+										),
+									);
+									await sleep(50);
+								}
+								const completed = await Promise.all(runs);
+								return completed[completed.length - 1];
+							})()
+						: runWithSiteManagerAgentEvalContext(
+								{
+									threadId,
+									model: agentModel,
+									traceMetadata: evalTraceMetadata,
+									traceTags: evalTraceTags,
+									workflowId: workflowTrace.workflowId,
+									workflowName: workflowTrace.workflowName,
+									workflowRunLabel: workflowTrace.workflowRunLabel,
+									messageType: workflowTrace.messageType,
+									mediaPurpose: workflowTrace.mediaPurpose,
+									evalRecordMetadata,
+									bisConnectionOverride:
+										getSimulatedBisConnection(webhookEvalCase),
+								},
+								() =>
+									POST({
+										json: async () => prepared.payload,
+									} as Request),
+							),
 				);
 				const agentRun = tracedRun.result;
 				const latencyMs = Date.now() - started;
@@ -1242,7 +1303,7 @@ async function main() {
 					siteId,
 					userId,
 					startedAt: caseStartedAt,
-					inputText: prepared.inputText,
+					inputText: preparedForCase.inputText,
 					runId,
 					caseId: evalCase.id,
 				});
@@ -1250,7 +1311,10 @@ async function main() {
 					siteId,
 					userId,
 					startedAt: caseStartedAt,
-					inputText: prepared.inputText,
+					inputText: preparedForCase.inputText,
+					includeTextFilter: webhookEvalCase.expected.expectedPhotoDateISO
+						? false
+						: undefined,
 				});
 				warehousePhotos = webhookEvalCase.expected.materialRecords
 					? await findPhotosBySourceUrl({
@@ -1303,7 +1367,7 @@ async function main() {
 								client: judgeClient,
 								model: judgeModel,
 								evalCase: webhookEvalCase,
-								inputText: prepared.inputText,
+								inputText: preparedForCase.inputText,
 								record: selectedRecord,
 								deterministic,
 							})
@@ -1316,8 +1380,8 @@ async function main() {
 
 				results.push({
 					caseId: evalCase.id,
-					webhookMessageId: prepared.messageId,
-					inputPreview: preview(prepared.inputText),
+					webhookMessageId: preparedForCase.messageId,
+					inputPreview: preview(preparedForCase.inputText),
 					createdRecordIds,
 					createdPhotoIds,
 					createdMaterialRecordIds,

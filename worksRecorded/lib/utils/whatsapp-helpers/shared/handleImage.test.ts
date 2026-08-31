@@ -95,6 +95,28 @@ describe("handleImage", () => {
     );
   });
 
+  it("passes an explicit photo date to persistence", async () => {
+    const formData = new FormData();
+    formData.set("MediaUrl0", "https://meta.example.com/image");
+    formData.set("MediaContentType0", "image/jpeg");
+    const date = new Date("2026-08-27T09:00:00.000Z");
+
+    await handleImage({
+      formData,
+      numMedia: 1,
+      siteId: "site-1",
+      userId: "user-1",
+      to: "whatsapp:+37100000000",
+      body: "Pievieno šo foto vakardienai",
+      acknowledgeSavedPhoto: false,
+      date,
+    });
+
+    expect(mockSavePhoto).toHaveBeenCalledWith(
+      expect.objectContaining({ date }),
+    );
+  });
+
   it("keeps the existing checkmark acknowledgement without a post-save handler", async () => {
     const formData = new FormData();
     formData.set("MediaUrl0", "https://meta.example.com/image");

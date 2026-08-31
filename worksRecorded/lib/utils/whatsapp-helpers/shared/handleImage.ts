@@ -44,6 +44,7 @@ export async function handleImage(args: {
   onUploadedImage?: (context: UploadedImageContext) => Promise<boolean>;
   acknowledgeSavedPhoto?: boolean;
   imageIndex?: number;
+  date?: Date;
 }): Promise<HandleImageResult | false> {
   const {
     formData,
@@ -57,6 +58,7 @@ export async function handleImage(args: {
     onUploadedImage,
     acknowledgeSavedPhoto = true,
     imageIndex,
+    date,
   } = args;
 
   const idx = imageIndex ?? findFirstImageIndex(formData, numMedia);
@@ -131,7 +133,7 @@ export async function handleImage(args: {
       fileUrl: resolvedPublicUrl,
       comment: prefixedComment,
       location: null,
-      date: new Date(),
+      date: date ?? new Date(),
     });
 
     if (acknowledgeSavedPhoto) {

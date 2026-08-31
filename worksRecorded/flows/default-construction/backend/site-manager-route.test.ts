@@ -215,6 +215,83 @@ describe("default-construction site-manager image captions", () => {
     expect(mockSendMessage).toHaveBeenCalledWith("whatsapp:+37100000000", "✅");
   });
 
+  it("saves a placement-only image caption to the requested relative date without invoking the agent", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-28T09:00:00.000Z"));
+    mockHandleImage.mockResolvedValue({
+      outcome: "photo_saved",
+      savedPhoto: { id: "photo-1" },
+    });
+    const formData = new FormData();
+    formData.set("Body", "Pievieno šo foto vakardienai");
+    formData.set("NumMedia", "1");
+    formData.set("MediaContentType0", "image/jpeg");
+
+    try {
+      await handleSiteManagerRoute({
+        from: "whatsapp:+37100000000",
+        formData,
+        user: {
+          id: "user-1",
+          firstName: "Anna",
+          lastName: "Bērziņa",
+          lastSelectedSiteIdforWhatsapp: "site-1",
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+
+    expect(mockHandleImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: "Pievieno šo foto vakardienai",
+        date: new Date("2026-08-27T09:00:00.000Z"),
+      }),
+    );
+    expect(mockHandleText).not.toHaveBeenCalled();
+    expect(mockSendMessage).toHaveBeenCalledWith("whatsapp:+37100000000", "✅");
+  });
+
+  it("saves a work-report image caption to the requested relative date and processes the caption", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-28T09:00:00.000Z"));
+    mockHandleImage.mockResolvedValue({
+      outcome: "photo_saved",
+      savedPhoto: { id: "photo-1" },
+    });
+    const formData = new FormData();
+    formData.set("Body", "Vakardien pabeidzām starpsienas, 2 cilvēki, 3h");
+    formData.set("NumMedia", "1");
+    formData.set("MediaContentType0", "image/jpeg");
+    const user = {
+      id: "user-1",
+      firstName: "Anna",
+      lastName: "Bērziņa",
+      lastSelectedSiteIdforWhatsapp: "site-1",
+    };
+
+    try {
+      await handleSiteManagerRoute({
+        from: "whatsapp:+37100000000",
+        formData,
+        user,
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+
+    expect(mockHandleImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: "Vakardien pabeidzām starpsienas, 2 cilvēki, 3h",
+        date: new Date("2026-08-27T09:00:00.000Z"),
+      }),
+    );
+    expect(mockHandleText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: "Vakardien pabeidzām starpsienas, 2 cilvēki, 3h",
+        user,
+      }),
+    );
+  });
+
   it("saves a collected image batch and sends one localized count", async () => {
     mockHandleImage
       .mockResolvedValueOnce({
@@ -278,6 +355,68 @@ describe("default-construction site-manager image captions", () => {
     expect(mockHandleText).toHaveBeenCalledWith(
       expect.objectContaining({ body: "Otrā stāva sienas" }),
     );
+  });
+
+  it("applies a batch-level relative date to uncaptained images in the same batch", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-08-28T09:00:00.000Z"));
+    mockHandleImage
+      .mockResolvedValueOnce({
+        outcome: "photo_saved",
+        savedPhoto: { id: "photo-1" },
+      })
+      .mockResolvedValueOnce({
+        outcome: "photo_saved",
+        savedPhoto: { id: "photo-2" },
+      });
+
+    const formData = new FormData();
+    formData.set("Body", "Pievieno šos foto vakardienai");
+    formData.set("NumMedia", "2");
+    formData.set("MetaBatchSize", "2");
+    formData.set("MessageTimestamp", "1782197581");
+    for (let index = 0; index < 2; index += 1) {
+      formData.set(
+        `MediaUrl${index}`,
+        `https://meta.example.com/batch-date-${index}`,
+      );
+      formData.set(`MediaContentType${index}`, "image/jpeg");
+      formData.set(`MediaMessageId${index}`, `batch-date-message-${index}`);
+      formData.set(`MediaBody${index}`, "");
+    }
+    formData.set("MediaBody0", "Pievieno šos foto vakardienai");
+
+    try {
+      await handleSiteManagerRoute({
+        from: "whatsapp:+37100000000",
+        formData,
+        user: {
+          id: "user-1",
+          phone: "37100000000",
+          firstName: "Anna",
+          lastName: "Bērziņa",
+          lastSelectedSiteIdforWhatsapp: "site-1",
+        },
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+
+    expect(mockHandleImage).toHaveBeenCalledTimes(2);
+    expect(mockHandleImage).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        body: "Pievieno šos foto vakardienai",
+        date: new Date("2026-06-22T09:00:00.000Z"),
+      }),
+    );
+    expect(mockHandleImage).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        body: "",
+        date: new Date("2026-06-22T09:00:00.000Z"),
+      }),
+    );
+    expect(mockHandleText).not.toHaveBeenCalled();
   });
 
   it("does not send a photo save summary for a material-only image batch", async () => {
