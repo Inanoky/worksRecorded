@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { UploadImageForm } from "@/components/settings/UploadImageForm";
+import { PhotoExportCard } from "@/components/settings/PhotoExportCard";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { prisma } from "@/lib/utils/db";
 
@@ -42,6 +43,7 @@ import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { getFlowModuleUi } from "@/lib/flows/registry";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
 import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
+import { siteDiaryPhotoPurposeWhere } from "@/lib/photos/media-purpose";
 
 export default async function SettingsSiteRoute({
   params,
@@ -71,6 +73,7 @@ export default async function SettingsSiteRoute({
   const flowUi = getFlowModuleUi(flowModuleKey);
   const hideBisSettings = Boolean(flowUi.hideBisSettings);
   const hideSiteAreaSettings = Boolean(flowUi.hideSiteAreaSettings);
+  const showPhotoExport = Boolean(flowUi.showPhotoExport);
 
   const [
     ,
@@ -80,6 +83,7 @@ export default async function SettingsSiteRoute({
     remindersData,
     ,
     bisToken,
+    photoCount,
   ] = await Promise.all([
     getUserData(orgId),
     prisma.site.findUnique({
@@ -95,6 +99,18 @@ export default async function SettingsSiteRoute({
     hideBisSettings
       ? Promise.resolve(null)
       : getUserBisTokenByUserId(user.id),
+    showPhotoExport
+      ? prisma.photos.count({
+          where: {
+            siteId,
+            AND: [
+              { fileUrl: { not: null } },
+              { fileUrl: { not: "" } },
+              siteDiaryPhotoPurposeWhere(),
+            ],
+          },
+        })
+      : Promise.resolve(0),
   ]);
 
   console.log(`this is page.tsx ${remindersData}`);
@@ -261,6 +277,14 @@ export default async function SettingsSiteRoute({
       </div>
 
       <div data-tour="settings-image"><UploadImageForm siteId={siteId} organizationLanguage={organizationLanguage} /></div>
+
+      {showPhotoExport ? (
+        <PhotoExportCard
+          organizationLanguage={organizationLanguage}
+          photoCount={photoCount}
+          siteId={siteId}
+        />
+      ) : null}
 
       {!hideBisSettings ? (
         <div data-tour="settings-bis">

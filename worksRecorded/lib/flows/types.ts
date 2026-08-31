@@ -31,6 +31,7 @@ export type FlowModuleDefinition = {
     hideMemberReminderSettings?: boolean;
     hideMemberPhoneSettings?: boolean;
     hideMemberRoleSettings?: boolean;
+    showPhotoExport?: boolean;
     settingsTitleVariant?: "default" | "adminPanel";
   };
   entryPoints: {

@@ -89,7 +89,7 @@ export async function systemPromptFunction(siteId: string, userId: string) {
 
 	const prompt = prompt_08_05_2026;
 
-	//nothing
+	//nothing1
 
 	return prompt;
 }
@@ -139,7 +139,6 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
 This document provides instructions to improve mapping accuracy.
 
 Please follow the guidelines below:
-
 
 
 
