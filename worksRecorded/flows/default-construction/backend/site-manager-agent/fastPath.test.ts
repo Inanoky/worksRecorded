@@ -1,15 +1,16 @@
 import {
   debugSiteDiaryFastPathCandidate,
   detectReplyLanguage,
-  formatDeterministicSaveReply,
   formatDeterministicCorrectionReply,
+  formatDeterministicSaveReply,
   formatSavedDiaryRecords,
   isCorrectionOnlyToolRound,
-  isSiteDiaryFastPathCandidate,
   isSaveOnlyToolRound,
+  isSiteDiaryFastPathCandidate,
   parseCorrectionToolResult,
   parseSaveToolOutcome,
   serializeCorrectionToolResult,
+  shouldAcceptFastPathCorrectionIntent,
 } from "./fastPath";
 
 function expectFastPathCandidate(message: string, expected: boolean) {
@@ -74,6 +75,63 @@ describe("site-manager fast path", () => {
     "Salabo iepriekšējo ierakstu",
   ])("does not use correction vocabulary as an authoritative deterministic rule: %s", (message) => {
     expect(debugSiteDiaryFastPathCandidate(message).final).toBe(true);
+  });
+
+  it.each([
+    "Veikta smilts piebēršana pamatiem ar Bobcat operatoru, 9,5 stundas.",
+    "Šodien ievesta smilts 160m3, iestrādāti 140m3. Strādāja pa 10h ekskavators ar operātoru, 2 būvstrādnieki, brigadieris un būvdarbu vad. Palīgs",
+    "Šodien trīs cilvēki pa desmit stundām aizbetonēja 100 kvadrātmetru, 100 milimetru biezuma grīdas, un arī divi cilvēki sastiegroja 150 kvadrātmetru stiegrojumu, un arī bija papildu darbi trīs stundas divi cilvēki, viņi tur piebetonēja, pasūtītājam vēl tur nelielu siju.",
+    "Šodien salabojām durvis",
+  ])("rejects model-only fast-path correction for standalone work reports: %s", (message) => {
+    expect(
+      shouldAcceptFastPathCorrectionIntent(message, {
+        hasReplyContext: false,
+        hasPendingCorrection: false,
+      }),
+    ).toBe(false);
+  });
+
+  it.each([
+    "Salabo iepriekšējo ierakstu",
+    "Izmaini daudzumu iepriekšējā ierakstā uz 10 gab.",
+    "Correct the previous record to 10 pcs.",
+  ])("accepts explicit previous-record correction intent: %s", (message) => {
+    expect(
+      shouldAcceptFastPathCorrectionIntent(message, {
+        hasReplyContext: false,
+        hasPendingCorrection: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("accepts pending correction only for supplied-change shaped replies", () => {
+    expect(
+      shouldAcceptFastPathCorrectionIntent("10 gab.", {
+        hasReplyContext: false,
+        hasPendingCorrection: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAcceptFastPathCorrectionIntent("Šodien salabojām durvis", {
+        hasReplyContext: false,
+        hasPendingCorrection: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts fast-path correction when trusted reply context exists", () => {
+    expect(
+      shouldAcceptFastPathCorrectionIntent("10 gab.", {
+        hasReplyContext: true,
+        hasPendingCorrection: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAcceptFastPathCorrectionIntent("Šodien salabojām durvis", {
+        hasReplyContext: true,
+        hasPendingCorrection: true,
+      }),
+    ).toBe(true);
   });
 
   it("formats localized success and failure replies", () => {
