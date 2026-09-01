@@ -4,6 +4,29 @@ import { prisma } from "@/lib/utils/db";
 
 export const ALL_PROJECTS_DIARY_PAGE_SIZE = 50;
 
+const allProjectsDiaryOrderBy = [
+	{ Date: { sort: "desc", nulls: "last" } },
+	{ createdAt: "desc" },
+	{ id: "desc" },
+] satisfies Prisma.sitediaryrecordsOrderByWithRelationInput[];
+
+const allProjectsDiaryRecordSelect = {
+	id: true,
+	siteId: true,
+	Date: true,
+	createdAt: true,
+	Location: true,
+	Works: true,
+	Units: true,
+	Amounts: true,
+	WorkersInvolved: true,
+	TimeInvolved: true,
+	Comments: true,
+	originalUserComment: true,
+	originalAudioUrl: true,
+	Site: { select: { name: true } },
+} satisfies Prisma.sitediaryrecordsSelect;
+
 export type AllProjectsDiaryFilters = {
 	page?: number;
 	projectId?: string;
@@ -86,29 +109,10 @@ export async function loadAllProjectsDiary(
 		}),
 		prisma.sitediaryrecords.findMany({
 			where,
-			orderBy: [
-				{ Date: { sort: "desc", nulls: "last" } },
-				{ createdAt: "desc" },
-				{ id: "desc" },
-			],
+			orderBy: allProjectsDiaryOrderBy,
 			skip,
 			take: ALL_PROJECTS_DIARY_PAGE_SIZE,
-			select: {
-				id: true,
-				siteId: true,
-				Date: true,
-				createdAt: true,
-				Location: true,
-				Works: true,
-				Units: true,
-				Amounts: true,
-				WorkersInvolved: true,
-				TimeInvolved: true,
-				Comments: true,
-				originalUserComment: true,
-				originalAudioUrl: true,
-				Site: { select: { name: true } },
-			},
+			select: allProjectsDiaryRecordSelect,
 		}),
 		prisma.sitediaryrecords.count({ where }),
 	]);
@@ -124,4 +128,15 @@ export async function loadAllProjectsDiary(
 			Math.ceil(totalCount / ALL_PROJECTS_DIARY_PAGE_SIZE),
 		),
 	};
+}
+
+export async function loadAllProjectsDiaryExportRecords(
+	organizationId: string,
+	filters: AllProjectsDiaryFilters = {},
+) {
+	return prisma.sitediaryrecords.findMany({
+		where: buildAllProjectsDiaryWhere(organizationId, filters),
+		orderBy: allProjectsDiaryOrderBy,
+		select: allProjectsDiaryRecordSelect,
+	});
 }

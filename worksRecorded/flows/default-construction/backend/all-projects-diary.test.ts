@@ -16,6 +16,7 @@ import {
 	ALL_PROJECTS_DIARY_PAGE_SIZE,
 	buildAllProjectsDiaryWhere,
 	loadAllProjectsDiary,
+	loadAllProjectsDiaryExportRecords,
 } from "./all-projects-diary";
 
 describe("all projects diary", () => {
@@ -71,5 +72,29 @@ describe("all projects diary", () => {
 		expect(result).toEqual(
 			expect.objectContaining({ page: 2, totalCount: 51, totalPages: 2 }),
 		);
+	});
+
+	it("exports every matching record without pagination", async () => {
+		await loadAllProjectsDiaryExportRecords("org-1", {
+			projectId: "site-1",
+			keyword: "estrich",
+		});
+
+		expect(recordsFindManyMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					Site: { organizationId: "org-1" },
+					siteId: "site-1",
+				}),
+				orderBy: [
+					{ Date: { sort: "desc", nulls: "last" } },
+					{ createdAt: "desc" },
+					{ id: "desc" },
+				],
+			}),
+		);
+		const query = recordsFindManyMock.mock.calls.at(-1)?.[0];
+		expect(query).not.toHaveProperty("skip");
+		expect(query).not.toHaveProperty("take");
 	});
 });

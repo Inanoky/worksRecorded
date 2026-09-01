@@ -61,6 +61,20 @@ function pageHref(
 	return query ? `/dashboard/all-projects?${query}` : "/dashboard/all-projects";
 }
 
+function exportHref(
+	searchParams: Record<string, string | string[] | undefined>,
+) {
+	const params = new URLSearchParams();
+	for (const key of ["project", "q", "from", "to"] as const) {
+		const value = firstValue(searchParams[key]);
+		if (value) params.set(key, value);
+	}
+	const query = params.toString();
+	return query
+		? `/api/all-projects/export?${query}`
+		: "/api/all-projects/export";
+}
+
 function getMessages(language: string | null) {
 	if (language === "lv") {
 		return {
@@ -88,6 +102,7 @@ function getMessages(language: string | null) {
 			previous: "Iepriekšējā",
 			next: "Nākamā",
 			records: "ieraksti",
+			exportToExcel: "Eksportēt uz Excel",
 		};
 	}
 
@@ -116,6 +131,7 @@ function getMessages(language: string | null) {
 		previous: "Previous",
 		next: "Next",
 		records: "records",
+		exportToExcel: "Export to Excel",
 	};
 }
 
@@ -222,9 +238,16 @@ export default async function AllProjectsPage({
 			<Card>
 				<CardHeader className="flex-row items-center justify-between gap-4">
 					<CardTitle>{messages.title}</CardTitle>
-					<span className="text-sm text-muted-foreground">
-						{numberFormatter.format(data.totalCount)} {messages.records}
-					</span>
+					<div className="flex items-center gap-3">
+						<span className="text-sm text-muted-foreground">
+							{numberFormatter.format(data.totalCount)} {messages.records}
+						</span>
+						<Button asChild variant="outline">
+							<a href={exportHref(rawSearchParams)}>
+								{messages.exportToExcel}
+							</a>
+						</Button>
+					</div>
 				</CardHeader>
 				<CardContent>
 					<div className="overflow-x-auto rounded-md border">
