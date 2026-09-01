@@ -917,6 +917,67 @@ describe("save_to_database site diary tool", () => {
 		]);
 	});
 
+	it("saves an implicit completed-object count as pieces", async () => {
+		getConfigMock.mockResolvedValue({
+			...siteConfig,
+			Works: {
+				...siteConfig.Works,
+				DropDownOptions: {
+					...siteConfig.Works.DropDownOptions,
+					walls: "Sienu izbūve",
+				},
+			},
+			Units: {
+				...siteConfig.Units,
+				DropDownOptions: {
+					...siteConfig.Units.DropDownOptions,
+					pcs: "pcs",
+				},
+			},
+		});
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Activity: "Sienu izbūve",
+						Quantity: 10,
+						Mrv: "pcs",
+						Hours: -1,
+						Comments: "Samontētas 10 sienas.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "accept",
+					reason: "Explicit completed-object count.",
+					badSplitSignals: [],
+					repairInstructions: "",
+					expectedRecordCount: 1,
+					repairActions: [],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question: "Šodien samontējam 10 sienas",
+			requestedDate: "01-09-2026",
+		});
+
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows).toEqual([
+			expect.objectContaining({
+				Amounts: 10,
+				Units: "pcs",
+				TimeInvolved: null,
+			}),
+		]);
+	});
+
 	it("preserves source-backed amount and unit when checker asks to null them", async () => {
 		structuredInvokeMock
 			.mockResolvedValueOnce({
