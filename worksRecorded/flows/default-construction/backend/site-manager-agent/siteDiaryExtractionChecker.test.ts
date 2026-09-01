@@ -121,6 +121,17 @@ describe("site diary extraction checker", () => {
 		expect(human).toContain("Units: m2");
 	});
 
+	it("tells the checker to preserve implicit completed-object counts", () => {
+		const [system] = buildSiteDiaryExtractionCheckerMessages({
+			originalMessage: "Šodien samontējam 10 sienas",
+			language: "lv",
+			rows: [{ Works: "Sienu izbūve", Amounts: 10, Units: "pcs" }],
+		});
+
+		expect(String(system.content)).toContain("10 sienas");
+		expect(String(system.content)).toContain("Units=pcs");
+	});
+
 	it("rejects one machinery/operator job split into multiple rows", async () => {
 		mockInvoke.mockResolvedValue({
 			parsed: {

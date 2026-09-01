@@ -398,6 +398,41 @@ function hasSupportedAmountEvidence(row: Record<string, any>, source: string) {
 	if (typeof row.Amounts !== "number") return true;
 	const unitFamily = normalizeAmountUnitFamily(row.Units);
 	if (!unitFamily) return false;
+	if (
+		hasNumberWithUnit(
+			source,
+			row.Amounts,
+			amountUnitPatternsByFamily[unitFamily],
+		)
+	)
+		return true;
+	return (
+		unitFamily === "pcs" && hasImplicitPieceCountEvidence(source, row.Amounts)
+	);
+}
+
+const implicitPieceContextNounPattern =
+	/^(?:stāv\p{L}*|kārt\p{L}*|dzīvok\p{L}*|sekcij\p{L}*|asis?|cilvēk\p{L}*|strādniek\p{L}*|darbiniek\p{L}*|stund\p{L}*|minūt\p{L}*|sekund\p{L}*|milimetr\p{L}*|centimetr\p{L}*|metr\p{L}*|kilometr\p{L}*|mm|cm|dm|m|m2|m3|kg|g|tn|t|l|lit\p{L}*|procent\p{L}*)$/iu;
+
+function hasImplicitPieceCountEvidence(source: string, value: number) {
+	if (!Number.isFinite(value) || value <= 0) return false;
+	const numberPattern = numberEvidencePattern(value);
+	const pattern = new RegExp(
+		String.raw`(?:^|[^\d])${numberPattern}\s+([\p{L}][\p{L}-]*)(?=$|[^\p{L}\p{N}_-])`,
+		"giu",
+	);
+	return [...source.matchAll(pattern)].some(
+		(match) => !implicitPieceContextNounPattern.test(match[1]),
+	);
+}
+
+function hasLiteralAmountUnitEvidence(
+	row: Record<string, any>,
+	source: string,
+) {
+	if (typeof row.Amounts !== "number") return false;
+	const unitFamily = normalizeAmountUnitFamily(row.Units);
+	if (!unitFamily) return false;
 	return hasNumberWithUnit(
 		source,
 		row.Amounts,
@@ -410,7 +445,7 @@ function hasSourceBackedAmountUnitPair(
 	source: string,
 ) {
 	return (
-		typeof row.Amounts === "number" && hasSupportedAmountEvidence(row, source)
+		typeof row.Amounts === "number" && hasLiteralAmountUnitEvidence(row, source)
 	);
 }
 
@@ -420,14 +455,21 @@ export function normalizeUnknownNumericFields(
 ) {
 	const normalized = { ...row };
 	if (typeof normalized.TimeInvolved === "number") {
-		const parsedTime = parseTimeInvolvedFromSource(
-			source,
-			normalized.TimeInvolved,
-		);
-		if (parsedTime !== null) {
-			normalized.TimeInvolved = parsedTime;
-		} else if (normalized.TimeInvolved === 0 || normalized.TimeInvolved === 1) {
+		if (normalized.TimeInvolved < 0) {
 			normalized.TimeInvolved = null;
+		} else {
+			const parsedTime = parseTimeInvolvedFromSource(
+				source,
+				normalized.TimeInvolved,
+			);
+			if (parsedTime !== null) {
+				normalized.TimeInvolved = parsedTime;
+			} else if (
+				normalized.TimeInvolved === 0 ||
+				normalized.TimeInvolved === 1
+			) {
+				normalized.TimeInvolved = null;
+			}
 		}
 	}
 	if (

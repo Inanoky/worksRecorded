@@ -71,6 +71,7 @@ describe("site-manager BIS routing prompt", () => {
     const prompt = await systemPromptSaveToDatabaseFunction("user-1", undefined);
 
     expect(prompt).toContain("Amounts/Daudzums and Units/Mrv are for completed work quantity only");
+    expect(prompt).toContain('"10 sienas" → Amounts: 10, Units: "pcs"');
     expect(prompt).toContain("Do not use apartment numbers, floor numbers, layer counts, worker counts, hours");
     expect(prompt).toContain("Prefer \"45 m2\" completed scope over \"22 mm\" OSB thickness");
     expect(prompt).toContain('"OSB 22 mm, ieklāti 45 m2" → Amounts: 45, Units: "m2"');

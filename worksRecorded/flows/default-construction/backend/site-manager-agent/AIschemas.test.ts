@@ -74,6 +74,7 @@ describe("buildZodSchemaFromConfig", () => {
     expect(shape.Hours.description).toContain("3h");
     expect(shape.Amounts.description).toContain("not worker count");
     expect(schema.safeParse({ Workers: 2, Hours: 9.5, Amounts: null }).success).toBe(true);
+    expect(schema.safeParse({ Workers: 2, Hours: -1, Amounts: null }).success).toBe(false);
     expect(schema.safeParse({ Workers: 2.5, Hours: 9.5, Amounts: null }).success).toBe(false);
   });
 

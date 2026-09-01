@@ -146,7 +146,8 @@ function buildFieldSchema(field: MapField, dbKey: string): {
         dbKey.toLowerCase() === "timeinvolved" ||
         displayKey.toLowerCase() === "hours" ||
         displayKey.toLowerCase() === "timeinvolved";
-      const num = field.customSettings?.integer && !isHoursField ? base.int() : base;
+      const bounded = isHoursField ? base.nonnegative() : base;
+      const num = field.customSettings?.integer && !isHoursField ? bounded.int() : bounded;
       return { schema: num.nullable().optional() };
     }
 

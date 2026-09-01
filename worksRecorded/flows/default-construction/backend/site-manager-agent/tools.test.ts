@@ -105,6 +105,51 @@ jest.mock("./structuredSaveTrace", () => ({
 import { normalizeUnknownNumericFields } from "./tools";
 
 describe("normalizeUnknownNumericFields", () => {
+	it("preserves implicit completed-object counts as pieces", () => {
+		expect(
+			normalizeUnknownNumericFields(
+				{
+					Works: "Sienu izbūve",
+					Comments: "Samontētas 10 sienas.",
+					Amounts: 10,
+					Units: "pcs",
+				},
+				"Šodien samontējam 10 sienas",
+			),
+		).toMatchObject({ Amounts: 10, Units: "pcs" });
+	});
+
+	it.each([
+		["Darbi veikti 2. stāvā.", 2],
+		["Reģipsis montēts 2 kārtās.", 2],
+		["Darbus veica 3 cilvēki.", 3],
+		["Sienu vidējais biezums ir 75 mm.", 75],
+	])(
+		"does not treat contextual numbers as implicit pieces",
+		(source, amount) => {
+			expect(
+				normalizeUnknownNumericFields(
+					{
+						Works: "Sienu izbūve",
+						Comments: source,
+						Amounts: amount,
+						Units: "pcs",
+					},
+					source,
+				),
+			).toMatchObject({ Amounts: null, Units: null });
+		},
+	);
+
+	it("normalizes negative unknown hours to null", () => {
+		expect(
+			normalizeUnknownNumericFields(
+				{ Works: "Sienu izbūve", TimeInvolved: -1 },
+				"Šodien samontējam 10 sienas",
+			),
+		).toMatchObject({ TimeInvolved: null });
+	});
+
 	it("preserves m2 amounts backed by Latvian kvadrātmetru evidence", () => {
 		const source =
 			"Šodien trīs cilvēki pa desmit stundām aizbetonēja 100 kvadrātmetru, 100 milimetru biezuma grīdas, un arī divi cilvēki sastiegroja 150 kvadrātmetru stiegrojumu, un arī bija papildu darbi trīs stundas divi cilvēki, viņi tur piebetonēja, pasūtītājam vēl tur nelielu siju.";

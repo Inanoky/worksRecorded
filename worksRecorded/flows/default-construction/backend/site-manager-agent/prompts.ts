@@ -121,6 +121,7 @@ export async function systemPromptSaveToDatabaseFunction(userId, client) {
   Completion status is not a quantity. Never set Amounts to 1 merely because one work is mentioned or described as completed. Populate Amounts only when the source explicitly states a real completed work quantity or measured completed scope; otherwise set both Amounts and Units to null.
   Amounts/Daudzums and Units/Mrv are for completed work quantity only, for example "52 m2 osb", "5 gab. durvis", or "10 m3 betons".
   Do not use apartment numbers, floor numbers, layer counts, worker counts, hours, or other construction-method/context numbers as Amounts.
+  A number directly counting completed construction objects implies pieces even when "gab." is omitted. Example: "10 sienas" → Amounts: 10, Units: "pcs"; "5 durvis" → Amounts: 5, Units: "pcs".
   If a number describes context, construction method, or material/resource specification, keep it in Comments only and leave Amounts and Units null unless the same phrase also has a separate completed scope quantity.
   When both material/resource dimensions and completed scope quantity are present, use the completed scope quantity for Amounts/Units and keep the dimensions only in Comments. Prefer "45 m2" completed scope over "22 mm" OSB thickness or "45x45" lath dimensions.
   Example: "Pabeigta siltinājuma montāža" → Amounts: null, Units: null.
