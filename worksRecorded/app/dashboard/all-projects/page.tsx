@@ -243,32 +243,36 @@ export default async function AllProjectsPage({
 							{numberFormatter.format(data.totalCount)} {messages.records}
 						</span>
 						<Button asChild variant="outline">
-							<a href={exportHref(rawSearchParams)}>
-								{messages.exportToExcel}
-							</a>
+							<a href={exportHref(rawSearchParams)}>{messages.exportToExcel}</a>
 						</Button>
 					</div>
 				</CardHeader>
 				<CardContent>
 					<div className="overflow-x-auto rounded-md border">
-						<Table>
+						<Table className="min-w-[1180px] table-fixed">
 							<TableHeader>
 								<TableRow>
-									<TableHead>{messages.date}</TableHead>
-									<TableHead>{messages.project}</TableHead>
-									<TableHead>{messages.location}</TableHead>
-									<TableHead>{messages.work}</TableHead>
-									<TableHead className="text-right">
+									<TableHead className="w-[104px]">{messages.date}</TableHead>
+									<TableHead className="w-[240px]">
+										{messages.project}
+									</TableHead>
+									<TableHead className="w-[140px]">
+										{messages.location}
+									</TableHead>
+									<TableHead className="w-[260px]">{messages.work}</TableHead>
+									<TableHead className="w-[120px] text-right">
 										{messages.amount}
 									</TableHead>
-									<TableHead className="text-right">
+									<TableHead className="w-[96px] text-right">
 										{messages.workers}
 									</TableHead>
-									<TableHead className="text-right">{messages.hours}</TableHead>
-									<TableHead className="min-w-72">
+									<TableHead className="w-[96px] text-right">
+										{messages.hours}
+									</TableHead>
+									<TableHead className="w-[260px]">
 										{messages.comments}
 									</TableHead>
-									<TableHead className="text-center">
+									<TableHead className="w-[72px] text-center">
 										{messages.source}
 									</TableHead>
 								</TableRow>
@@ -280,19 +284,38 @@ export default async function AllProjectsPage({
 											<TableCell className="whitespace-nowrap">
 												{dateFormatter.format(record.Date ?? record.createdAt)}
 											</TableCell>
-											<TableCell className="font-medium">
-												{record.siteId ? (
-													<ProjectNavigationLink
-														projectId={record.siteId}
-														projectName={record.Site?.name ?? "—"}
-														loadingLabel={messages.openingProject}
-													/>
-												) : (
-													(record.Site?.name ?? "—")
-												)}
+											<TableCell className="min-w-0 overflow-hidden font-medium">
+												<div
+													className="truncate"
+													title={record.Site?.name ?? undefined}
+												>
+													{record.siteId ? (
+														<ProjectNavigationLink
+															projectId={record.siteId}
+															projectName={record.Site?.name ?? "—"}
+															loadingLabel={messages.openingProject}
+														/>
+													) : (
+														(record.Site?.name ?? "—")
+													)}
+												</div>
 											</TableCell>
-											<TableCell>{record.Location || "—"}</TableCell>
-											<TableCell>{record.Works || "—"}</TableCell>
+											<TableCell className="min-w-0 overflow-hidden">
+												<span
+													className="block truncate"
+													title={record.Location || undefined}
+												>
+													{record.Location || "—"}
+												</span>
+											</TableCell>
+											<TableCell className="min-w-0 overflow-hidden">
+												<span
+													className="block truncate"
+													title={record.Works || undefined}
+												>
+													{record.Works || "—"}
+												</span>
+											</TableCell>
 											<TableCell className="whitespace-nowrap text-right tabular-nums">
 												{isMissingOrZero(record.Amounts)
 													? "—"
@@ -308,8 +331,13 @@ export default async function AllProjectsPage({
 													? "—"
 													: numberFormatter.format(record.TimeInvolved)}
 											</TableCell>
-											<TableCell className="max-w-xl whitespace-normal">
-												{record.Comments || "—"}
+											<TableCell className="min-w-0 overflow-hidden">
+												<span
+													className="block truncate"
+													title={record.Comments || undefined}
+												>
+													{record.Comments || "—"}
+												</span>
 											</TableCell>
 											<TableCell className="text-center">
 												{record.originalUserComment ||
