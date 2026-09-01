@@ -1470,9 +1470,21 @@ export async function updateSiteDiaryRecord({ id, ...fields }) {
 }
 
 export async function getPendingSiteDiaryCorrection(args: { siteId: string; userId: string }) {
-  return prisma.siteDiaryCorrectionSession.findUnique({
+  const pending = await prisma.siteDiaryCorrectionSession.findUnique({
     where: { siteId_userId: { siteId: args.siteId, userId: args.userId } },
   });
+  if (!pending || pending.status !== "pending") return null;
+  const batch = await prisma.siteDiarySaveBatch.findFirst({
+    where: { id: pending.targetBatchId, siteId: args.siteId, userId: args.userId, status: "active" },
+    select: { id: true },
+  });
+  if (!batch) return null;
+  const records = await prisma.sitediaryrecords.findMany({
+    where: { saveBatchId: pending.targetBatchId, siteId: args.siteId, userId: args.userId, archivedAt: null },
+    select: { id: true },
+    take: 1,
+  });
+  return records.length ? pending : null;
 }
 
 async function resolveCorrectionBatch(args: {

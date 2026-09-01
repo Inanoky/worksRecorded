@@ -119,6 +119,24 @@ const META_REQUEST_PATTERN = /\b(ignore|ignorē|citam lietotājam|citā objektā
 const WORD_TAIL = String.raw`[\p{L}\p{N}_-]*`;
 const WORD_BOUNDARY_START = String.raw`(?:^|[^\p{L}\p{N}_])`;
 const WORD_BOUNDARY_END = String.raw`(?=$|[^\p{L}\p{N}_])`;
+const CORRECTION_ACTION_PATTERN = new RegExp(
+  WORD_BOUNDARY_START +
+  `(?:labo|izlabo|salabo|koriģē|koriģēt|izmaini|maini|nomaini|mainīt|correct|fix|change|replace|исправь|измени)${WORD_TAIL}` +
+  WORD_BOUNDARY_END,
+  "iu",
+);
+const PREVIOUS_RECORD_PATTERN = new RegExp(
+  WORD_BOUNDARY_START +
+  `(?:iepriekšēj${WORD_TAIL}|pēdēj${WORD_TAIL}|ierakst${WORD_TAIL}|last|previous|earlier|record|предыдущ${WORD_TAIL}|запис${WORD_TAIL})` +
+  WORD_BOUNDARY_END,
+  "iu",
+);
+const STANDALONE_REPORT_SIGNAL_PATTERN = new RegExp(
+  WORD_BOUNDARY_START +
+  `(?:šodien|vakar|veikt${WORD_TAIL}|ievest${WORD_TAIL}|iestrād${WORD_TAIL}|strādāj${WORD_TAIL}|pabeigt${WORD_TAIL}|papilddarb${WORD_TAIL}|liet${WORD_TAIL}|laika\\s+apstākļ${WORD_TAIL}|today|yesterday|completed|delivered|worked)` +
+  WORD_BOUNDARY_END,
+  "iu",
+);
 const ACTIVITY_SIGNAL_PATTERN = new RegExp(
   WORD_BOUNDARY_START +
   String.raw`(` +
@@ -131,8 +149,6 @@ const ACTIVITY_SIGNAL_PATTERN = new RegExp(
   WORD_BOUNDARY_END,
   "iu",
 );
-const DETAIL_SIGNAL_PATTERN = /\b(šodien|vakar|today|yesterday|сегодня|вчера|stund(?:a|as)?|hours?|час(?:а|ов)?|cilvēk(?:s|i)|strādniek(?:s|i)|workers?|people|рабоч(?:ий|их)|stāv(?:s|ā)?|floor|этаж|m2|m3|kg|tn|pcs)\b|\b\d{1,2}([./-]\d{1,2})?([./-]\d{2,4})?\b|\b\d+\s*h\b/iu;
-
 export function getFastPathMode(): "off" | "shadow" | "on" {
   const value = process.env.WHATSAPP_SITE_MANAGER_FAST_PATH_MODE?.trim().toLowerCase();
   return value === "on" || value === "shadow" ? value : "off";
@@ -179,6 +195,25 @@ export function debugSiteDiaryFastPathCandidate(message: string): FastPathCandid
 
 export function isSiteDiaryFastPathCandidate(message: string) {
   return debugSiteDiaryFastPathCandidate(message).final;
+}
+
+export function hasExplicitSiteDiaryCorrectionIntent(message: string) {
+  const text = message.trim();
+  return CORRECTION_ACTION_PATTERN.test(text) && PREVIOUS_RECORD_PATTERN.test(text);
+}
+
+export function looksLikeStandaloneSiteDiaryReport(message: string) {
+  const text = message.trim();
+  return STANDALONE_REPORT_SIGNAL_PATTERN.test(text) || ACTIVITY_SIGNAL_PATTERN.test(text);
+}
+
+export function shouldAcceptFastPathCorrectionIntent(
+  message: string,
+  intentContext: { hasReplyContext: boolean; hasPendingCorrection: boolean },
+) {
+  if (intentContext.hasReplyContext) return true;
+  if (hasExplicitSiteDiaryCorrectionIntent(message)) return true;
+  return intentContext.hasPendingCorrection && !looksLikeStandaloneSiteDiaryReport(message);
 }
 
 export function detectReplyLanguage(message: string): SupportedReplyLanguage {

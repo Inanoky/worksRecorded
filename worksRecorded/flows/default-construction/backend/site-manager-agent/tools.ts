@@ -161,7 +161,6 @@ function usageFromMessage(message: any) {
 }
 
 const timeUnitPattern = String.raw`(?:h|hr|hrs|st\.?|stunda|stundas|stundu|hour|hours|minute|minutes|minūte|minūtes|minūšu|min\.?)`;
-const amountUnitPattern = String.raw`(?:m2|m3|m²|m³|kubi|kubs|kubu|kubus|kubik\p{L}*|kvadr\u0101tus|kvadr\u0101tmetru|m|kg|tn|t|pcs|gab\.?|gabali|gabals|package|packages|set|sets|komplekts|komplekti|pacelšana|pacelšanas|lifts)`;
 const workerUnitPattern = `(?:cilvēks|cilvēki|strādnieks|strādnieki|darbinieks|darbinieki|workers?|people|persons?)`;
 const timeOnlyUnits = new Set([
 	"hour",
@@ -180,6 +179,45 @@ const timeOnlyUnits = new Set([
 	"minūte",
 	"minūtes",
 ]);
+type AmountUnitFamily =
+	| "m2"
+	| "m3"
+	| "m"
+	| "kg"
+	| "tn"
+	| "pcs"
+	| "package"
+	| "set"
+	| "lifts";
+
+const m2AmountUnitAliases = [
+	"m2",
+	"m²",
+	"kvadrātmetrs",
+	"kvadrātmetri",
+	"kvadrātmetru",
+	"kvadrātmetrus",
+	"kvadrātus",
+	"kvadratmetrs",
+	"kvadratmetri",
+	"kvadratmetru",
+	"kvadratmetrus",
+	"kvadratus",
+] as const;
+
+const m2AmountUnitPattern = `(?:${m2AmountUnitAliases.join("|")})`;
+
+const amountUnitPatternsByFamily: Record<AmountUnitFamily, string> = {
+	m2: m2AmountUnitPattern,
+	m3: String.raw`(?:m3|m³|kubi|kubs|kubu|kubus|kubik\p{L}*)`,
+	m: String.raw`(?:m|metrs|metri|metru|metrus)`,
+	kg: String.raw`(?:kg|kilogram\p{L}*)`,
+	tn: String.raw`(?:tn\.?|t|tonn\p{L}*)`,
+	pcs: String.raw`(?:pcs|gab\.?|gabali|gabals|gabalus)`,
+	package: String.raw`(?:package|packages|iepakojum\p{L}*)`,
+	set: String.raw`(?:set|sets|komplekts|komplekti|komplektus)`,
+	lifts: String.raw`(?:pacelšana|pacelšanas|lifts)`,
+};
 
 function numberEvidencePattern(value: number) {
 	const normalized = String(Math.abs(value));
@@ -283,7 +321,12 @@ function hasWorkerEvidence(source: string, value: number) {
 }
 
 function inferWorkerCountFromRoleEvidence(row: Record<string, any>) {
-	const text = [row.Works, row.Works_Custom_1, row.Comments, row.Comments_Custom_1]
+	const text = [
+		row.Works,
+		row.Works_Custom_1,
+		row.Comments,
+		row.Comments_Custom_1,
+	]
 		.map((value) => String(value ?? ""))
 		.join(" ")
 		.toLocaleLowerCase("lv-LV");
@@ -304,10 +347,7 @@ function inferWorkerCountFromRoleEvidence(row: Record<string, any>) {
 			"helper",
 			/(?:^|[^\p{L}\p{N}_])pal[īi]gstr[āa]dniek\p{L}*(?=$|[^\p{L}\p{N}_])/iu,
 		],
-		[
-			"brigadier",
-			/(?:^|[^\p{L}\p{N}_])brigadier\p{L}*(?=$|[^\p{L}\p{N}_])/iu,
-		],
+		["brigadier", /(?:^|[^\p{L}\p{N}_])brigadier\p{L}*(?=$|[^\p{L}\p{N}_])/iu],
 		[
 			"site-manager-assistant",
 			/(?:^|[^\p{L}\p{N}_])būvdarbu\s+vad\.?\s+pal[īi]g\p{L}*(?=$|[^\p{L}\p{N}_])/iu,
@@ -332,14 +372,49 @@ function normalizeUnit(value: unknown) {
 	return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
-function hasSupportedAmountEvidence(row: Record<string, any>, source: string) {
-	if (typeof row.Amounts !== "number") return true;
-	const unit = normalizeUnit(row.Units);
-	if (!unit || timeOnlyUnits.has(unit)) return false;
-	return hasNumberWithUnit(source, row.Amounts, amountUnitPattern);
+function normalizeAmountUnitFamily(value: unknown): AmountUnitFamily | null {
+	const unit = normalizeUnit(value)
+		.replace(/²/g, "2")
+		.replace(/³/g, "3")
+		.replace(/\s+/g, " ");
+	if (!unit || timeOnlyUnits.has(unit)) return null;
+	if (
+		m2AmountUnitAliases.includes(unit as (typeof m2AmountUnitAliases)[number])
+	)
+		return "m2";
+	if (/^(?:m3|kubi|kubs|kubu|kubus|kubik\p{L}*)$/iu.test(unit)) return "m3";
+	if (/^(?:m|metrs|metri|metru|metrus)$/iu.test(unit)) return "m";
+	if (/^(?:kg|kilogram\p{L}*)$/iu.test(unit)) return "kg";
+	if (/^(?:tn\.?|t|tonn\p{L}*)$/iu.test(unit)) return "tn";
+	if (/^(?:pcs|gab\.?|gabali|gabals|gabalus)$/iu.test(unit)) return "pcs";
+	if (/^(?:package|packages|iepakojum\p{L}*)$/iu.test(unit)) return "package";
+	if (/^(?:set|sets|komplekts|komplekti|komplektus)$/iu.test(unit))
+		return "set";
+	if (/^(?:pacelšana|pacelšanas|lifts)$/iu.test(unit)) return "lifts";
+	return null;
 }
 
-function normalizeUnknownNumericFields(
+function hasSupportedAmountEvidence(row: Record<string, any>, source: string) {
+	if (typeof row.Amounts !== "number") return true;
+	const unitFamily = normalizeAmountUnitFamily(row.Units);
+	if (!unitFamily) return false;
+	return hasNumberWithUnit(
+		source,
+		row.Amounts,
+		amountUnitPatternsByFamily[unitFamily],
+	);
+}
+
+function hasSourceBackedAmountUnitPair(
+	row: Record<string, any>,
+	source: string,
+) {
+	return (
+		typeof row.Amounts === "number" && hasSupportedAmountEvidence(row, source)
+	);
+}
+
+export function normalizeUnknownNumericFields(
 	row: Record<string, any>,
 	source: string,
 ) {
@@ -372,8 +447,10 @@ function normalizeUnknownNumericFields(
 			normalized.WorkersInvolved = inferredWorkers;
 		}
 	}
-	const hasExplicitZeroAmount = hasNumberWithUnit(source, 0, amountUnitPattern);
-	if (normalized.Amounts === 0 && !hasExplicitZeroAmount)
+	if (
+		normalized.Amounts === 0 &&
+		!hasSupportedAmountEvidence(normalized, source)
+	)
 		normalized.Amounts = null;
 	if (
 		typeof normalized.Amounts === "number" &&
@@ -419,8 +496,9 @@ const safeCheckerNullRepairFields = new Set([
 function applyStructuredCheckerFieldRepair(args: {
 	rows: Record<string, any>[];
 	checker: SiteDiaryExtractionCheckerResult;
+	source: string;
 }) {
-	const { rows, checker } = args;
+	const { rows, checker, source } = args;
 	const repairActions = checker.repairActions ?? [];
 	if (!repairActions.length) return null;
 	if (
@@ -432,6 +510,7 @@ function applyStructuredCheckerFieldRepair(args: {
 	}
 
 	let changed = false;
+	let protectedSourceBackedAmountActions = 0;
 	const repairedRows = rows.map((row) => ({ ...row }));
 	for (const action of repairActions) {
 		if (action.operation !== "set_null") return null;
@@ -439,22 +518,33 @@ function applyStructuredCheckerFieldRepair(args: {
 		if (action.rowIndex < 0 || action.rowIndex >= repairedRows.length)
 			return null;
 		const row = repairedRows[action.rowIndex];
+		if (
+			(action.field === "Amounts" || action.field === "Units") &&
+			hasSourceBackedAmountUnitPair(row, source)
+		) {
+			protectedSourceBackedAmountActions += 1;
+			continue;
+		}
 		if (row[action.field] !== null) {
 			row[action.field] = null;
 			changed = true;
 		}
 	}
 
-	if (!changed) return null;
+	if (!changed && protectedSourceBackedAmountActions === 0) return null;
 	return {
 		rows: repairedRows,
-		reason: `Applied ${repairActions.length} structured checker field repair action(s).`,
+		reason:
+			protectedSourceBackedAmountActions > 0
+				? `Applied ${repairActions.length - protectedSourceBackedAmountActions} structured checker field repair action(s); preserved ${protectedSourceBackedAmountActions} exact source-backed amount/unit pair repair action(s).`
+				: `Applied ${repairActions.length} structured checker field repair action(s).`,
 	};
 }
 
 function applySimpleCheckerFieldRepair(args: {
 	rows: Record<string, any>[];
 	checker: SiteDiaryExtractionCheckerResult;
+	source: string;
 }) {
 	const { rows, checker } = args;
 	if (checker.verdict === "accept" || checker.verdict === "unsafe") return null;
@@ -1019,6 +1109,7 @@ async function extractAndSaveSiteDiaryCore(
 				const simpleRepair = applySimpleCheckerFieldRepair({
 					rows,
 					checker: checker.parsed,
+					source: args.question,
 				});
 				if (simpleRepair) {
 					rowsToSave = simpleRepair.rows;
@@ -1151,6 +1242,7 @@ async function extractAndSaveSiteDiaryCore(
 							const repairCheckerFieldRepair = applySimpleCheckerFieldRepair({
 								rows: repair.rows,
 								checker: repairChecker.parsed,
+								source: args.question,
 							});
 							if (repairCheckerFieldRepair) {
 								rowsToSave = repairCheckerFieldRepair.rows;

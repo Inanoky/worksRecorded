@@ -20,6 +20,7 @@ import type { AgentFn } from "@/lib/utils/whatsapp-helpers/shared/types";
 import { processMaterialDocumentImageFromPublicUrl } from "@/server/actions/META/RoutingHandlers/metaImageHandler";
 import { getUserFirstNameById } from "@/server/actions/whatsapp-actions";
 import { getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
+import { classifyRegularSiteDiaryImageCaption } from "./site-manager-image-date-intent";
 
 const currentAgent: AgentFn = async (input, siteId, userId, originalAudioUrl) =>
   (await talkToWhatsappAgent(input, siteId, userId, originalAudioUrl)) ?? "";
@@ -81,6 +82,13 @@ function findImageIndexes(formData: FormData, numMedia: number) {
   return indexes;
 }
 
+function getMessageTimestampDate(formData: FormData) {
+  const raw = getString(formData, "MessageTimestamp");
+  const seconds = Number(raw);
+  if (!Number.isFinite(seconds) || seconds <= 0) return new Date();
+  return new Date(seconds * 1000);
+}
+
 export async function handleSiteManagerRoute(args: {
   from: string | null;
   formData: FormData;
@@ -93,6 +101,7 @@ export async function handleSiteManagerRoute(args: {
 
   const body = (getString(formData, "Body") || "").trim();
   const numMedia = parseInt(getString(formData, "NumMedia") || "0", 10) || 0;
+  const messageTimestampDate = getMessageTimestampDate(formData);
 
   // 1) Project selector can reply & exit early
   const handledSelection = await handleProjectSelector({
@@ -132,6 +141,10 @@ export async function handleSiteManagerRoute(args: {
 
     if (collectedBatchSize > 0 && imageIndexes.length > 0) {
       let savedCount = 0;
+      const batchDateIntent = classifyRegularSiteDiaryImageCaption({
+        caption: body,
+        now: messageTimestampDate,
+      });
       const savedCaptions: Array<{
         body: string;
         messageId: string | null;
@@ -147,6 +160,12 @@ export async function handleSiteManagerRoute(args: {
               ? body
               : ""
         ).trim();
+        const imageDateIntent = classifyRegularSiteDiaryImageCaption({
+          caption: imageBody,
+          now: messageTimestampDate,
+        });
+        const imageTargetDate =
+          imageDateIntent.targetDate ?? batchDateIntent.targetDate;
         const img = await handleImage({
           formData,
           numMedia,
@@ -156,6 +175,7 @@ export async function handleSiteManagerRoute(args: {
           workerId: null,
           to: from,
           body: imageBody,
+          date: imageTargetDate ?? undefined,
           photographerName: [user.firstName, user.lastName]
             .filter(Boolean)
             .join(" "),
@@ -190,7 +210,7 @@ export async function handleSiteManagerRoute(args: {
 
         if (img && img.outcome === "photo_saved") {
           savedCount += 1;
-          if (imageBody) {
+          if (imageBody && imageDateIntent.shouldProcessCaptionAsDiaryText) {
             savedCaptions.push({
               body: imageBody,
               messageId:
@@ -234,6 +254,10 @@ export async function handleSiteManagerRoute(args: {
       return;
     }
 
+    const imageDateIntent = classifyRegularSiteDiaryImageCaption({
+      caption: body,
+      now: messageTimestampDate,
+    });
     const img = await handleImage({
       formData,
       numMedia,
@@ -242,6 +266,7 @@ export async function handleSiteManagerRoute(args: {
       workerId: null, // ✅ make sure org lookup uses userId path
       to: from,
       body,
+      date: imageDateIntent.targetDate ?? undefined,
       photographerName: [user.firstName, user.lastName]
         .filter(Boolean)
         .join(" "),
@@ -279,6 +304,10 @@ export async function handleSiteManagerRoute(args: {
         const messageId = getString(formData, "MessageId") || null;
 
         if (!normalizedComment) {
+          await sendMessage(from, "✅");
+          return;
+        }
+        if (!imageDateIntent.shouldProcessCaptionAsDiaryText) {
           await sendMessage(from, "✅");
           return;
         }

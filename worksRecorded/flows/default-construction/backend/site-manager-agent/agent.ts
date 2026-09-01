@@ -58,6 +58,7 @@ import {
     isSaveOnlyToolRound,
     parseCorrectionToolResult,
     parseSaveToolOutcome,
+    shouldAcceptFastPathCorrectionIntent,
 } from "./fastPath";
 import { getWhatsappSourceContext } from "@/server/ai-flows/agents/whatsapp-agent/whatsappSourceContext";
 import { getUserAddressName, shouldSampleUserAddress } from "./nameAddressing";
@@ -292,7 +293,7 @@ async function talkToWhatsappAgentCore(
     }
 
     if (fastPathMode === "on" && fastPathCandidate) {
-        let fastPathResult;
+        let fastPathResult: Awaited<ReturnType<typeof extractAndSaveSiteDiary>> | null = null;
         try {
             fastPathResult = await runWithSiteManagerToolContext(
                 { userId, siteId, originalUserComment: sourceComment },
@@ -359,7 +360,14 @@ async function talkToWhatsappAgentCore(
             return content;
         }
 
-        if (fastPathResult?.action === "correct_existing_report") {
+        if (
+            fastPathResult?.action === "correct_existing_report" &&
+            !shouldAcceptFastPathCorrectionIntent(normalizedQuestion, intentContext)
+        ) {
+            legacyFastPathOutcome = "fallback";
+            legacyFallbackReason = "model-fallback";
+            recordSiteManagerTiming("fastPathCorrectionGuardFallback", 1);
+        } else if (fastPathResult?.action === "correct_existing_report") {
             setSiteManagerExecutionPath("correction-path", fastPathMode);
             const correctionTrace = fastPathTraceConfig({
                 fastPathMode,
@@ -607,7 +615,7 @@ async function talkToWhatsappAgentCore(
         ],
     };
 
-    let finalState;
+    let finalState: { messages?: BaseMessage[] } | null = null;
 
     await runWithSiteManagerToolContext(
         { userId, siteId, originalUserComment: sourceComment },

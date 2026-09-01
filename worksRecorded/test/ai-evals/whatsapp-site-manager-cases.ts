@@ -20,6 +20,10 @@ const ExpectedSavedRecordSchema = z.object({
 	expectedRecordCount: z.number().int().nonnegative().optional(),
 	expectedPhotoCount: z.number().int().nonnegative().optional(),
 	expectedPhotoPurpose: z.enum(["site_diary", "warehouse_invoice"]).optional(),
+	expectedPhotoDateISO: z
+		.string()
+		.regex(/^\d{4}-\d{2}-\d{2}$/)
+		.optional(),
 	expectedWarehousePhotoCount: z.number().int().nonnegative().optional(),
 	materialRecords: z
 		.object({
@@ -74,6 +78,17 @@ const BaseEvalCaseSchema = z.object({
 const WebhookWhatsAppSiteManagerEvalCaseSchema = BaseEvalCaseSchema.extend({
 	mode: z.literal("webhook").default("webhook"),
 	webhook: z.record(z.any()),
+	imageBatch: z
+		.array(
+			z.object({
+				caption: z.string(),
+				timestamp: z.string().min(1),
+				mediaId: z.string().min(1).optional(),
+				mimeType: z.string().min(1).optional(),
+			}),
+		)
+		.min(2)
+		.optional(),
 	expected: ExpectedSavedRecordSchema,
 	followUp: z
 		.object({
@@ -254,6 +269,62 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				workersInvolved: 2,
 				timeInvolved: 3,
 				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-image-caption-yesterday-photo-date",
+			intent:
+				"Verify a Meta image webhook with a Latvian date-placement caption saves the regular photo under yesterday without creating a diary record.",
+			notes:
+				"The caption only gives photo placement intent; image content is not extracted and no diary record is created.",
+			tags: ["image", "photo", "date", "latvian"],
+			tier: "regression",
+			webhook: imageWebhookFixture({
+				senderKey: "eval-site-manager-image-yesterday-date",
+				caption: "Pievieno šo foto vakardienai",
+				timestamp: "1782197581",
+				mediaId: "eval-image-media-progress-yesterday-date",
+			}),
+			expected: {
+				shouldCreateRecord: false,
+				expectedPhotoCount: 1,
+				expectedPhotoPurpose: "site_diary",
+				expectedPhotoDateISO: "2026-06-22",
+				minHeuristicScore: 1,
+			},
+		},
+		{
+			id: "latvian-image-batch-yesterday-photo-date",
+			intent:
+				"Verify a default-construction Meta image batch saves multiple regular photos under yesterday from the first caption's date-placement instruction.",
+			notes:
+				"The eval runner sends separate image webhooks concurrently so the real route builds the batch form data.",
+			tags: ["image", "photo", "date", "latvian", "batch"],
+			tier: "regression",
+			webhook: imageWebhookFixture({
+				senderKey: "eval-site-manager-image-batch-yesterday-date",
+				caption: "Pievieno šos foto vakardienai",
+				timestamp: "1782197581",
+				mediaId: "eval-image-media-progress-batch-yesterday-date-1",
+			}),
+			imageBatch: [
+				{
+					caption: "Pievieno šos foto vakardienai",
+					timestamp: "1782197581",
+					mediaId: "eval-image-media-progress-batch-yesterday-date-1",
+				},
+				{
+					caption: "",
+					timestamp: "1782197582",
+					mediaId: "eval-image-media-progress-batch-yesterday-date-2",
+				},
+			],
+			expected: {
+				shouldCreateRecord: false,
+				expectedPhotoCount: 2,
+				expectedPhotoPurpose: "site_diary",
+				expectedPhotoDateISO: "2026-06-22",
+				minHeuristicScore: 1,
 			},
 		},
 		{
@@ -715,6 +786,62 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 						units: "m3",
 						workersInvolved: 5,
 						timeInvolved: 10,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
+			id: "latvian-floor-concrete-rebar-additional-works",
+			intent:
+				"Verify one Latvian floor concreting, reinforcement, and additional beam work message is split into three records with row-specific quantities and labor.",
+			notes:
+				"Protects against collapsing distinct floor concreting, reinforcement, and additional beam concreting into one broad row.",
+			tags: [
+				"save",
+				"latvian",
+				"multi-record",
+				"amount",
+				"worker-count",
+				"hours",
+			],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-floor-concrete-rebar-additional",
+				body: "Šodien trīs cilvēki pa desmit stundām aizbetonēja 100 kvadrātmetru, 100 milimetru biezuma grīdas, un arī divi cilvēki sastiegroja 150 kvadrātmetru stiegrojumu, un arī bija papildu darbi trīs stundas divi cilvēki, viņi tur piebetonēja, pasūtītājam vēl tur nelielu siju.",
+				timestamp: "1782197654",
+			}),
+			expected: {
+				expectedRecordCount: 3,
+				requiredTextSignals: [
+					"beton",
+					"grīd",
+					"100",
+					"stiegroj",
+					"150",
+					"papild",
+					"piebeton",
+					"sij",
+				],
+				records: [
+					{
+						requiredTextSignals: ["beton", "grīd", "100"],
+						amounts: 100,
+						units: "m2",
+						workersInvolved: 3,
+						timeInvolved: 10,
+					},
+					{
+						requiredTextSignals: ["stiegroj", "grīd"],
+						amounts: 150,
+						units: "m2",
+						workersInvolved: 2,
+					},
+					{
+						requiredTextSignals: ["papild", "piebeton", "sij"],
+						workersInvolved: 2,
+						timeInvolved: 3,
 					},
 				],
 				minHeuristicScore: 0.75,

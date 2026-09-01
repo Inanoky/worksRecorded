@@ -105,6 +105,7 @@ jest.mock("./whatsapp-actions", () => ({
 import {
   archiveAndReplaceSiteDiaryBatch,
   copySiteDiaryRecordsToProject,
+  getPendingSiteDiaryCorrection,
   getPhotosByDate,
   getSiteDiaryMediaOnlyDays,
   getSiteDiaryProjectCopyTargets,
@@ -1368,6 +1369,94 @@ describe("archiveAndReplaceSiteDiaryBatch correction guardrails", () => {
       where: { id: "batch-1", siteId: "site-1", userId: "user-1", status: "active" },
       data: expect.objectContaining({ status: "archived", replacementBatchId: "batch-2" }),
     });
+  });
+
+  it("ignores a pending correction session whose target batch has no active records", async () => {
+    const pending = {
+      id: "pending-1",
+      siteId: "site-1",
+      userId: "user-1",
+      targetBatchId: "batch-1",
+      requestedByMessageId: "wamid.pending",
+      replyToSourceMessageId: null,
+      status: "pending",
+      createdAt: new Date("2026-06-20T00:00:00.000Z"),
+      updatedAt: new Date("2026-06-20T00:00:00.000Z"),
+    };
+    correctionSessionFindUniqueMock.mockResolvedValue(pending);
+    siteDiaryFindManyMock.mockResolvedValueOnce([]);
+
+    const result = await getPendingSiteDiaryCorrection({
+      siteId: "site-1",
+      userId: "user-1",
+    });
+
+    expect(result).toBeNull();
+    expect(batchFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: "batch-1",
+        siteId: "site-1",
+        userId: "user-1",
+        status: "active",
+      },
+      select: { id: true },
+    });
+    expect(siteDiaryFindManyMock).toHaveBeenCalledWith({
+      where: {
+        saveBatchId: "batch-1",
+        siteId: "site-1",
+        userId: "user-1",
+        archivedAt: null,
+      },
+      select: { id: true },
+      take: 1,
+    });
+  });
+
+  it("ignores correction sessions that are not pending", async () => {
+    correctionSessionFindUniqueMock.mockResolvedValue({
+      id: "pending-1",
+      siteId: "site-1",
+      userId: "user-1",
+      targetBatchId: "batch-1",
+      requestedByMessageId: "wamid.pending",
+      replyToSourceMessageId: null,
+      status: "completed",
+      createdAt: new Date("2026-06-20T00:00:00.000Z"),
+      updatedAt: new Date("2026-06-20T00:00:00.000Z"),
+    });
+
+    await expect(
+      getPendingSiteDiaryCorrection({
+        siteId: "site-1",
+        userId: "user-1",
+      }),
+    ).resolves.toBeNull();
+    expect(batchFindFirstMock).not.toHaveBeenCalled();
+    expect(siteDiaryFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a pending correction session when its target has active records", async () => {
+    const pending = {
+      id: "pending-1",
+      siteId: "site-1",
+      userId: "user-1",
+      targetBatchId: "batch-1",
+      requestedByMessageId: "wamid.pending",
+      replyToSourceMessageId: null,
+      status: "pending",
+      createdAt: new Date("2026-06-20T00:00:00.000Z"),
+      updatedAt: new Date("2026-06-20T00:00:00.000Z"),
+    };
+    correctionSessionFindUniqueMock.mockResolvedValue(pending);
+    siteDiaryFindManyMock.mockResolvedValueOnce([{ id: "old-1" }]);
+
+    await expect(
+      getPendingSiteDiaryCorrection({
+        siteId: "site-1",
+        userId: "user-1",
+      }),
+    ).resolves.toEqual(pending);
   });
 
   it("refuses a correction target that no longer belongs to the trusted site and user", async () => {
