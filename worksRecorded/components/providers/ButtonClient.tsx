@@ -6,23 +6,35 @@ import { ProjectOpeningOverlay } from "@/components/providers/ProjectOpeningOver
 import { useProject } from "@/components/providers/ProjectProvider";
 import { Button } from "@/components/ui/button";
 
-type Props = {
-	projectId: string;
-	projectName: string;
+type CommonProps = {
 	label?: string;
 	loadingLabel?: string;
 };
 
+type Props = CommonProps &
+	(
+		| {
+				projectId: string;
+				projectName: string;
+				href?: never;
+		  }
+		| {
+				href: string;
+				projectId?: never;
+				projectName?: never;
+		  }
+	);
+
 export default function OpenProjectButton({
 	projectId,
 	projectName,
+	href: destination,
 	label = "Open Project",
 	loadingLabel = "Opening project...",
 }: Props) {
 	const { setProject } = useProject();
 	const [opening, setOpening] = useState(false);
-	const basePath = `/dashboard/sites/${projectId}`;
-	const href = `${basePath}/dashboard`;
+	const href = destination ?? `/dashboard/sites/${projectId}/dashboard`;
 
 	useEffect(() => {
 		if (!opening) return;
@@ -36,10 +48,12 @@ export default function OpenProjectButton({
 			return;
 		}
 		setOpening(true);
-		setProject(projectId, projectName);
-		try {
-			window.localStorage.setItem("projectName", projectName);
-		} catch {}
+		if (projectId && projectName) {
+			setProject(projectId, projectName);
+			try {
+				window.localStorage.setItem("projectName", projectName);
+			} catch {}
+		}
 	};
 
 	return (

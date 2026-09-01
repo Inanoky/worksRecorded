@@ -104,9 +104,11 @@ export default async function DashboardIndexPage() {
                 </CardHeader>
 
                 <CardFooter>
-                  <Button asChild className="w-full">
-                    <Link href="/dashboard/all-projects">{t.openProject}</Link>
-                  </Button>
+                  <OpenProjectButton
+                    href="/dashboard/all-projects"
+                    label={t.openProject}
+                    loadingLabel={t.openingProject}
+                  />
                 </CardFooter>
               </Card>
             ) : null}

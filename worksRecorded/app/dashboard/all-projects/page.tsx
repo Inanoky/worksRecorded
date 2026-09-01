@@ -43,6 +43,10 @@ function parsePage(value: string | undefined) {
 	return Number.isInteger(page) && page > 0 ? page : 1;
 }
 
+function isMissingOrZero(value: number | null | undefined) {
+	return value == null || value === 0;
+}
+
 function pageHref(
 	searchParams: Record<string, string | string[] | undefined>,
 	page: number,
@@ -267,17 +271,17 @@ export default async function AllProjectsPage({
 											<TableCell>{record.Location || "—"}</TableCell>
 											<TableCell>{record.Works || "—"}</TableCell>
 											<TableCell className="whitespace-nowrap text-right tabular-nums">
-												{record.Amounts == null
+												{isMissingOrZero(record.Amounts)
 													? "—"
 													: `${numberFormatter.format(record.Amounts)} ${record.Units ?? ""}`.trim()}
 											</TableCell>
 											<TableCell className="text-right tabular-nums">
-												{record.WorkersInvolved == null
+												{isMissingOrZero(record.WorkersInvolved)
 													? "—"
 													: numberFormatter.format(record.WorkersInvolved)}
 											</TableCell>
 											<TableCell className="text-right tabular-nums">
-												{record.TimeInvolved == null
+												{isMissingOrZero(record.TimeInvolved)
 													? "—"
 													: numberFormatter.format(record.TimeInvolved)}
 											</TableCell>
