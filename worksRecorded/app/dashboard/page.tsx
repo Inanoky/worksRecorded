@@ -9,7 +9,7 @@ import DefaultImage from "@/public/default.png";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import OpenProjectButton from "@/components/providers/ButtonClient";
-import { PlusCircle } from "lucide-react";
+import { FolderKanban, PlusCircle } from "lucide-react";
 import { getOrganizationIdByUserId, getOrganizationLanguageByUserId } from "@/server/actions/shared-actions";
 import { redirect } from "next/navigation";
 import TourRunner from "@/components/joyride/TourRunner";
@@ -17,6 +17,7 @@ import { getJoyRideSteps } from "@/components/joyride/JoyRideSteps";
 import { getDashboardMessages } from "@/lib/dashboard-i18n";
 import { getFlowModuleUi } from "@/lib/flows/registry";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { FLOW_MODULE_KEYS } from "@/lib/flows/types";
 import { isSuperUserId } from "@/lib/utils/super-user";
 
 async function getData(orgId: string | null, isSuperUser: boolean) {
@@ -51,6 +52,15 @@ export default async function DashboardIndexPage() {
   const flowModuleKey = await resolveFlowModuleKeyForRuntime({ organizationId: org });
   const flowUi = getFlowModuleUi(flowModuleKey);
   const hideCreateProject = Boolean(flowUi.hideCreateProject);
+  const showAllProjects =
+    flowModuleKey === FLOW_MODULE_KEYS.DEFAULT_CONSTRUCTION &&
+    Boolean(org) &&
+    sites.length > 0;
+  const allProjectsTitle = organizationLanguage === "lv" ? "Visi projekti" : "All projects";
+  const allProjectsDescription =
+    organizationLanguage === "lv"
+      ? "Visu projektu darbu ieraksti vienā hronoloģiskā skatā."
+      : "Work records from every project in one chronological view.";
   const tourSteps = sites.length > 0
     ? getJoyRideSteps(organizationLanguage).steps_dashboard_sites_open_project
     : hideCreateProject
@@ -81,6 +91,25 @@ export default async function DashboardIndexPage() {
 
         {sites.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 auto-rows-fr">
+            {showAllProjects ? (
+              <Card className="pt-0 flex flex-col h-full min-h-[380px] border-primary/30">
+                <div className="flex h-[200px] w-full items-center justify-center rounded-t-lg bg-gradient-to-br from-primary/20 via-primary/10 to-muted">
+                  <FolderKanban className="size-20 text-primary" aria-hidden="true" />
+                </div>
+                <CardHeader>
+                  <CardTitle className="truncate">{allProjectsTitle}</CardTitle>
+                  <CardDescription className="line-clamp-3">
+                    {allProjectsDescription}
+                  </CardDescription>
+                </CardHeader>
+
+                <CardFooter>
+                  <Button asChild className="w-full">
+                    <Link href="/dashboard/all-projects">{t.openProject}</Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ) : null}
             {sites.map((item) => (
               <Card key={item.id} className="pt-0 flex flex-col h-full min-h-[380px]">
                 <Image

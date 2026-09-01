@@ -725,7 +725,7 @@ export default function SiteDiaryCalendar({
   }
 
   function formatZeroDisplayValue(key: string, value: unknown) {
-    return shouldDisplayZeroAsDashes(key) && isNumericZero(value) ? "--" : null;
+    return shouldDisplayZeroAsDashes(key) && isNumericZero(value) ? "—" : null;
   }
 
   function formatSiteDiaryDisplayValue(key: string, value: unknown, config: ConfigMap): string {
@@ -739,7 +739,7 @@ export default function SiteDiaryCalendar({
 
   function formatSiteDiaryCompactHours(value: unknown, options?: { withUnit?: boolean }): string {
     const formatted = formatSiteDiaryCompactMetric("TimeInvolved", value);
-    if (!options?.withUnit || formatted === "—" || formatted === "--") return formatted;
+    if (!options?.withUnit || formatted === "—") return formatted;
     return `${formatted} st`;
   }
 

@@ -161,7 +161,7 @@ function usageFromMessage(message: any) {
 }
 
 const timeUnitPattern = String.raw`(?:h|hr|hrs|st\.?|stunda|stundas|stundu|hour|hours|minute|minutes|minūte|minūtes|minūšu|min\.?)`;
-const amountUnitPattern = String.raw`(?:m2|m3|m²|m³|kubi|kubs|kubu|kubus|kubik\p{L}*|kvadr\u0101tus|m|kg|tn|t|pcs|gab\.?|gabali|gabals|package|packages|set|sets|komplekts|komplekti|pacelšana|pacelšanas|lifts)`;
+const amountUnitPattern = String.raw`(?:m2|m3|m²|m³|kubi|kubs|kubu|kubus|kubik\p{L}*|kvadr\u0101tus|kvadr\u0101tmetru|m|kg|tn|t|pcs|gab\.?|gabali|gabals|package|packages|set|sets|komplekts|komplekti|pacelšana|pacelšanas|lifts)`;
 const workerUnitPattern = `(?:cilvēks|cilvēki|strādnieks|strādnieki|darbinieks|darbinieki|workers?|people|persons?)`;
 const timeOnlyUnits = new Set([
 	"hour",

@@ -1,0 +1,75 @@
+const siteFindManyMock = jest.fn();
+const recordsFindManyMock = jest.fn();
+const recordsCountMock = jest.fn();
+
+jest.mock("@/lib/utils/db", () => ({
+	prisma: {
+		site: { findMany: siteFindManyMock },
+		sitediaryrecords: {
+			findMany: recordsFindManyMock,
+			count: recordsCountMock,
+		},
+	},
+}));
+
+import {
+	ALL_PROJECTS_DIARY_PAGE_SIZE,
+	buildAllProjectsDiaryWhere,
+	loadAllProjectsDiary,
+} from "./all-projects-diary";
+
+describe("all projects diary", () => {
+	beforeEach(() => {
+		jest.clearAllMocks();
+		siteFindManyMock.mockResolvedValue([{ id: "site-1", name: "Site 1" }]);
+		recordsFindManyMock.mockResolvedValue([]);
+		recordsCountMock.mockResolvedValue(51);
+	});
+
+	it("scopes records to the organization and applies portfolio filters", () => {
+		expect(
+			buildAllProjectsDiaryWhere("org-1", {
+				projectId: "site-1",
+				keyword: "estrich",
+				dateFrom: "2026-08-01",
+				dateTo: "2026-08-31",
+			}),
+		).toEqual(
+			expect.objectContaining({
+				archivedAt: null,
+				Site: { organizationId: "org-1" },
+				siteId: "site-1",
+				Date: {
+					gte: new Date("2026-08-01T00:00:00.000Z"),
+					lt: new Date("2026-09-01T00:00:00.000Z"),
+				},
+				OR: expect.arrayContaining([
+					{ Works: { contains: "estrich", mode: "insensitive" } },
+					{ Site: { name: { contains: "estrich", mode: "insensitive" } } },
+				]),
+			}),
+		);
+	});
+
+	it("returns a newest-first paginated organization view", async () => {
+		const result = await loadAllProjectsDiary("org-1", { page: 2 });
+
+		expect(siteFindManyMock).toHaveBeenCalledWith(
+			expect.objectContaining({ where: { organizationId: "org-1" } }),
+		);
+		expect(recordsFindManyMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				skip: ALL_PROJECTS_DIARY_PAGE_SIZE,
+				take: ALL_PROJECTS_DIARY_PAGE_SIZE,
+				orderBy: [
+					{ Date: { sort: "desc", nulls: "last" } },
+					{ createdAt: "desc" },
+					{ id: "desc" },
+				],
+			}),
+		);
+		expect(result).toEqual(
+			expect.objectContaining({ page: 2, totalCount: 51, totalPages: 2 }),
+		);
+	});
+});

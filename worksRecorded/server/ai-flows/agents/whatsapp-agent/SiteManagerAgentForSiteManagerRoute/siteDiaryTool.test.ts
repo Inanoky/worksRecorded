@@ -1534,6 +1534,33 @@ describe("save_to_database site diary tool", () => {
 		);
 	});
 
+	it("preserves an m2 quantity expressed as Latvian kvadratmetru", async () => {
+		structuredInvokeMock.mockResolvedValue({
+			records: [
+				{
+					Area: null,
+					Activity: "Concrete pour",
+					Quantity: 100,
+					Mrv: "m2",
+					Hours: null,
+				},
+			],
+		});
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+		await siteDiaryToDatabaseTool.invoke({
+			question:
+				"\u0160odien aizbeton\u0113ja 100 kvadr\u0101tmetru gr\u012bdas.",
+		});
+
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
+			expect.objectContaining({
+				Amounts: 100,
+				Units: "m2",
+			}),
+		);
+	});
+
 	it("nulls context numbers mapped to Amounts", async () => {
 		structuredInvokeMock.mockResolvedValue({
 			records: [
