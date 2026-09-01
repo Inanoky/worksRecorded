@@ -79,6 +79,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 	const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(
 		null,
 	);
+	const [pendingPhotoIndex, setPendingPhotoIndex] = useState<number | null>(
+		null,
+	);
 	const [viewerLoadingUrl, setViewerLoadingUrl] = useState<string | null>(null);
 
 	// Zoom and Pan
@@ -90,43 +93,76 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 
 	const imageRef = useRef<HTMLImageElement>(null);
 	const loadedFullSizeUrlsRef = useRef<Set<string>>(new Set());
-	const preloadRequestsRef = useRef<Map<string, HTMLImageElement>>(new Map());
+	const preloadRequestsRef = useRef<Map<string, Promise<boolean>>>(new Map());
+	const navigationRequestIdRef = useRef(0);
 	const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
 
 	const preloadFullSizePhoto = useCallback((url: string) => {
-		if (
-			!url ||
-			loadedFullSizeUrlsRef.current.has(url) ||
-			preloadRequestsRef.current.has(url)
-		) {
-			return;
-		}
+		if (!url) return Promise.resolve(false);
+		if (loadedFullSizeUrlsRef.current.has(url)) return Promise.resolve(true);
 
-		const image = new window.Image();
-		image.onload = () => {
-			loadedFullSizeUrlsRef.current.add(url);
-			preloadRequestsRef.current.delete(url);
-			setViewerLoadingUrl((current) => (current === url ? null : current));
-		};
-		image.onerror = () => {
-			preloadRequestsRef.current.delete(url);
-		};
-		image.src = url;
-		preloadRequestsRef.current.set(url, image);
+		const existingRequest = preloadRequestsRef.current.get(url);
+		if (existingRequest) return existingRequest;
+
+		const request = new Promise<boolean>((resolve) => {
+			const image = new window.Image();
+			const finish = (loaded: boolean) => {
+				if (loaded) loadedFullSizeUrlsRef.current.add(url);
+				preloadRequestsRef.current.delete(url);
+				resolve(loaded);
+			};
+
+			image.onload = () => {
+				if (typeof image.decode !== "function") {
+					finish(true);
+					return;
+				}
+
+				void image
+					.decode()
+					.catch(() => undefined)
+					.then(() => finish(true));
+			};
+			image.onerror = () => finish(false);
+			image.src = url;
+		});
+
+		preloadRequestsRef.current.set(url, request);
+		return request;
 	}, []);
 
 	const showPhotoAt = useCallback(
 		(index: number) => {
 			const photo = photos[index];
 			if (!photo) return;
+			const requestId = ++navigationRequestIdRef.current;
+			const alreadyLoaded = loadedFullSizeUrlsRef.current.has(photo.fileUrl);
 
-			setViewerLoadingUrl(
-				loadedFullSizeUrlsRef.current.has(photo.fileUrl) ? null : photo.fileUrl,
-			);
-			setSelectedPhotoIndex(index);
+			if (selectedPhotoIndex === null || alreadyLoaded) {
+				setPendingPhotoIndex(null);
+				setViewerLoadingUrl(alreadyLoaded ? null : photo.fileUrl);
+				setSelectedPhotoIndex(index);
+				return;
+			}
+
+			setPendingPhotoIndex(index);
+			setViewerLoadingUrl(photo.fileUrl);
+			void preloadFullSizePhoto(photo.fileUrl).then((loaded) => {
+				if (navigationRequestIdRef.current !== requestId) return;
+				setSelectedPhotoIndex(index);
+				setPendingPhotoIndex(null);
+				setViewerLoadingUrl(loaded ? null : photo.fileUrl);
+			});
 		},
-		[photos],
+		[photos, preloadFullSizePhoto, selectedPhotoIndex],
 	);
+
+	const closeViewer = useCallback(() => {
+		navigationRequestIdRef.current += 1;
+		setPendingPhotoIndex(null);
+		setViewerLoadingUrl(null);
+		setSelectedPhotoIndex(null);
+	}, []);
 
 	const fetchPhotos = useCallback(async () => {
 		if (!siteId) return;
@@ -134,7 +170,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 		try {
 			setLoading(true);
 			setError(null);
+			navigationRequestIdRef.current += 1;
 			setSelectedPhotoIndex(null);
+			setPendingPhotoIndex(null);
 			setViewerLoadingUrl(null);
 			setSelectedPhotoIds(new Set());
 
@@ -187,16 +225,13 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 			(selectedPhotoIndex + 1) % photos.length,
 		]);
 		neighborIndexes.forEach((index) => {
-			preloadFullSizePhoto(photos[index]?.fileUrl ?? "");
+			void preloadFullSizePhoto(photos[index]?.fileUrl ?? "");
 		});
 	}, [photos, preloadFullSizePhoto, selectedPhotoIndex]);
 
 	useEffect(() => {
 		return () => {
-			preloadRequestsRef.current.forEach((image) => {
-				image.onload = null;
-				image.onerror = null;
-			});
+			navigationRequestIdRef.current += 1;
 			preloadRequestsRef.current.clear();
 		};
 	}, []);
@@ -205,6 +240,7 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 	const navigate = useCallback(
 		(direction: "prev" | "next") => {
 			if (selectedPhotoIndex === null) return;
+			const navigationIndex = pendingPhotoIndex ?? selectedPhotoIndex;
 
 			// Reset zoom/pan before changing photo
 			setZoomLevel(INITIAL_ZOOM);
@@ -212,14 +248,14 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 			setPanY(0);
 
 			if (direction === "next") {
-				const nextIndex = selectedPhotoIndex + 1;
+				const nextIndex = navigationIndex + 1;
 				showPhotoAt(nextIndex < photos.length ? nextIndex : 0);
 			} else {
-				const prevIndex = selectedPhotoIndex - 1;
+				const prevIndex = navigationIndex - 1;
 				showPhotoAt(prevIndex >= 0 ? prevIndex : photos.length - 1);
 			}
 		},
-		[selectedPhotoIndex, photos.length, showPhotoAt],
+		[pendingPhotoIndex, photos.length, selectedPhotoIndex, showPhotoAt],
 	);
 
 	// 4. Keyboard Navigation
@@ -231,13 +267,13 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 				} else if (event.key === "ArrowLeft") {
 					navigate("prev");
 				} else if (event.key === "Escape") {
-					setSelectedPhotoIndex(null);
+					closeViewer();
 				}
 			}
 		};
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [selectedPhotoIndex, navigate]);
+	}, [closeViewer, selectedPhotoIndex, navigate]);
 
 	// 5. Zoom and Pan Handlers
 
@@ -461,6 +497,10 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 
 	const currentPhoto =
 		selectedPhotoIndex !== null ? photos[selectedPhotoIndex] : null;
+	const currentPhotoIsLoading =
+		currentPhoto !== null && viewerLoadingUrl === currentPhoto.fileUrl;
+	const viewerIsTransitioning =
+		pendingPhotoIndex !== null || currentPhotoIsLoading;
 
 	// --- Main Render ---
 	return (
@@ -532,7 +572,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 										<div
 											key={photo.id}
 											onClick={() => showPhotoAt(index)}
-											onPointerEnter={() => preloadFullSizePhoto(photo.fileUrl)}
+											onPointerEnter={() => {
+												void preloadFullSizePhoto(photo.fileUrl);
+											}}
 											className={`relative aspect-[4/3] cursor-pointer overflow-hidden rounded-md transition-all hover:opacity-75 ${selected ? "ring-2 ring-green-600" : ""}`}
 										>
 											<button
@@ -611,9 +653,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 							overflow: "hidden",
 						}}
 					>
-						{viewerLoadingUrl === currentPhoto.fileUrl ? (
+						{viewerIsTransitioning ? (
 							<output
-								className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 text-white"
+								className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/45 text-white"
 								aria-live="polite"
 							>
 								<div className="h-10 w-10 animate-spin rounded-full border-4 border-white/30 border-t-white" />
@@ -642,7 +684,11 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 							}}
 							style={{
 								objectFit: "contain",
-								opacity: viewerLoadingUrl === currentPhoto.fileUrl ? 0 : 1,
+								opacity: currentPhotoIsLoading
+									? 0
+									: pendingPhotoIndex !== null
+										? 0.45
+										: 1,
 								transform: `scale(${zoomLevel}) translate(${panX / zoomLevel}px, ${panY / zoomLevel}px)`,
 								transition: isPanning
 									? "none"
@@ -654,7 +700,7 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 
 						{/* Modal Close Button */}
 						<Button
-							onClick={() => setSelectedPhotoIndex(null)}
+							onClick={closeViewer}
 							variant="secondary"
 							className="absolute top-4 right-4 z-20 rounded-full h-8 w-8 text-xl p-0 bg-black/50 text-white hover:bg-black/70"
 						>
