@@ -74,6 +74,51 @@ describe("all projects diary", () => {
 		);
 	});
 
+	it("adds each record's configured actual cost without exposing site config", async () => {
+		recordsFindManyMock.mockResolvedValueOnce([
+			{
+				id: "record-1",
+				siteId: "site-1",
+				Works: "Masonry",
+				Units: "m2",
+				Amounts: 10,
+				WorkersInvolved: 2,
+				TimeInvolved: 3,
+				Site: {
+					name: "Site 1",
+					siteDiaryRecordsMap: {
+						Works: { DropDownOptions: { masonry: "Masonry" } },
+						otherSettings: {
+							defaultConstructionProductivity: {
+								version: 4,
+								works: [
+									{
+										work: "Masonry",
+										unit: "m2",
+										laborNormHoursPerUnit: 0.5,
+										hourlyCost: 20,
+										costCalculationMode: "output",
+									},
+								],
+							},
+						},
+					},
+				},
+			},
+		]);
+
+		const result = await loadAllProjectsDiary("org-1");
+
+		expect(result.records).toEqual([
+			expect.objectContaining({
+				id: "record-1",
+				Site: { name: "Site 1" },
+				actualCost: 100,
+			}),
+		]);
+		expect(result.records[0]?.Site).not.toHaveProperty("siteDiaryRecordsMap");
+	});
+
 	it("exports every matching record without pagination", async () => {
 		await loadAllProjectsDiaryExportRecords("org-1", {
 			projectId: "site-1",

@@ -200,6 +200,39 @@ export function calculateDefaultConstructionWorkCost(args: {
   };
 }
 
+export type DefaultConstructionCostRecord = {
+  Works?: string | null;
+  Units?: string | null;
+  Amounts?: number | string | null;
+  WorkersInvolved?: number | string | null;
+  TimeInvolved?: number | string | null;
+};
+
+export function createDefaultConstructionRecordCostCalculator(
+  config: Record<string, unknown>,
+) {
+  const settingsByWork = new Map(
+    getDefaultConstructionProductivitySettings(config).works.map((setting) => [
+      normalizedKey(setting.work),
+      setting,
+    ]),
+  );
+
+  return (record: DefaultConstructionCostRecord) => {
+    const workers = readFiniteNumber(record.WorkersInvolved);
+    const time = readFiniteNumber(record.TimeInvolved);
+    const manHours =
+      workers != null && time != null ? workers * time : null;
+
+    return calculateDefaultConstructionWorkCost({
+      setting: settingsByWork.get(normalizedKey(record.Works)),
+      unit: record.Units,
+      amount: readFiniteNumber(record.Amounts),
+      hours: manHours,
+    });
+  };
+}
+
 export function getDefaultConstructionProductivitySettings(
   config: Record<string, any>,
 ): DefaultConstructionProductivitySettings {

@@ -94,6 +94,7 @@ function getMessages(language: string | null) {
 			amount: "Daudzums",
 			workers: "Darbinieki",
 			hours: "Stundas",
+			cost: "Izmaksas",
 			comments: "Komentāri",
 			source: "Avots",
 			showSource: "Rādīt avotu",
@@ -123,6 +124,7 @@ function getMessages(language: string | null) {
 		amount: "Amount",
 		workers: "Workers",
 		hours: "Hours",
+		cost: "Cost",
 		comments: "Comments",
 		source: "Source",
 		showSource: "Show source",
@@ -171,6 +173,12 @@ export default async function AllProjectsPage({
 		timeZone: "Europe/Riga",
 	});
 	const numberFormatter = new Intl.NumberFormat(locale, {
+		maximumFractionDigits: 2,
+	});
+	const currencyFormatter = new Intl.NumberFormat(locale, {
+		style: "currency",
+		currency: "EUR",
+		minimumFractionDigits: 2,
 		maximumFractionDigits: 2,
 	});
 
@@ -249,7 +257,7 @@ export default async function AllProjectsPage({
 				</CardHeader>
 				<CardContent>
 					<div className="overflow-x-auto rounded-md border">
-						<Table className="min-w-[1180px] table-fixed">
+						<Table className="min-w-[1300px] table-fixed">
 							<TableHeader>
 								<TableRow>
 									<TableHead className="w-[104px]">{messages.date}</TableHead>
@@ -268,6 +276,9 @@ export default async function AllProjectsPage({
 									</TableHead>
 									<TableHead className="w-[96px] text-right">
 										{messages.hours}
+									</TableHead>
+									<TableHead className="w-[120px] text-right">
+										{messages.cost}
 									</TableHead>
 									<TableHead className="w-[260px]">
 										{messages.comments}
@@ -331,6 +342,11 @@ export default async function AllProjectsPage({
 													? "—"
 													: numberFormatter.format(record.TimeInvolved)}
 											</TableCell>
+											<TableCell className="whitespace-nowrap text-right tabular-nums">
+												{record.actualCost == null
+													? "—"
+													: currencyFormatter.format(record.actualCost)}
+											</TableCell>
 											<TableCell className="min-w-0 overflow-hidden">
 												<span
 													className="block truncate"
@@ -367,7 +383,7 @@ export default async function AllProjectsPage({
 									))
 								) : (
 									<TableRow>
-										<TableCell colSpan={9} className="h-32 text-center">
+										<TableCell colSpan={10} className="h-32 text-center">
 											{messages.noRecords}
 										</TableCell>
 									</TableRow>

@@ -1,6 +1,7 @@
 import {
   assertDefaultConstructionSystemWorksPreserved,
   calculateDefaultConstructionWorkCost,
+  createDefaultConstructionRecordCostCalculator,
   DEFAULT_CONSTRUCTION_SYSTEM_WORKS,
   getDefaultConstructionProductivitySettings,
   normalizeDefaultConstructionWorkSettings,
@@ -265,5 +266,52 @@ describe("default-construction productivity settings", () => {
         setting: { ...setting, costCalculationMode: "hourly" },
       }),
     ).toMatchObject({ hourlyRate: 20, actualCost: 2000 });
+  });
+
+  it("calculates a record cost from the saved work mode", () => {
+    const calculateRecordCost = createDefaultConstructionRecordCostCalculator({
+      Works: {
+        DropDownOptions: {
+          output: "Masonry",
+          hourly: "Preparation",
+        },
+      },
+      otherSettings: {
+        defaultConstructionProductivity: {
+          version: 4,
+          works: [
+            {
+              work: "Masonry",
+              unit: "m2",
+              laborNormHoursPerUnit: 0.5,
+              hourlyCost: 20,
+              costCalculationMode: "output",
+            },
+            {
+              work: "Preparation",
+              unit: "h",
+              laborNormHoursPerUnit: null,
+              hourlyCost: 15,
+              costCalculationMode: "hourly",
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      calculateRecordCost({
+        Works: "masonry",
+        Units: "m2",
+        Amounts: "10",
+      }).actualCost,
+    ).toBe(100);
+    expect(
+      calculateRecordCost({
+        Works: "Preparation",
+        WorkersInvolved: "3",
+        TimeInvolved: "2",
+      }).actualCost,
+    ).toBe(90);
   });
 });

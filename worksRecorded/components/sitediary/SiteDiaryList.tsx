@@ -147,6 +147,7 @@ import {
   groupDefaultConstructionSiteDiaryWorks,
   sortDefaultConstructionSiteDiaryWorks,
 } from "@/flows/default-construction/lib/site-diary-work-order";
+import { createDefaultConstructionRecordCostCalculator } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { calculateDefaultConstructionManHours } from "@/flows/default-construction/lib/site-diary-summary";
 
 import { toast } from "sonner";
@@ -614,6 +615,16 @@ export default function SiteDiaryCalendar({
   const t = getSiteDiaryListMessages(language);
   const toastMessages = getToastMessages(language);
   const dateLocale = language === "lv" ? "lv-LV" : "en-GB";
+  const costFormatter = React.useMemo(
+    () =>
+      new Intl.NumberFormat(dateLocale, {
+        style: "currency",
+        currency: "EUR",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    [dateLocale],
+  );
 
   // 👇 add "gallery" to view mode
   const [viewMode, setViewMode] =
@@ -678,6 +689,10 @@ export default function SiteDiaryCalendar({
   //----------------------Table---------------------------------------------------
 
   const [defaultMap, setMap] = React.useState<Record<string, any>>(defaultConfig);
+  const calculateDefaultConstructionRecordCost = React.useMemo(
+    () => createDefaultConstructionRecordCostCalculator(defaultMap),
+    [defaultMap],
+  );
   const [tableHeads, setTableHeads] = React.useState<string[]>([]);
   const [tableRows, setTableRows] = React.useState<any[]>([]);
   const [screenWidth, setScreenWidth] = React.useState<number>(150);
@@ -3420,6 +3435,19 @@ export default function SiteDiaryCalendar({
                         (sum, r) => sum + getZtcPayrollValues(r).sum,
                         0,
                       );
+                      const defaultConstructionDayCosts = group.rows
+                        .map(
+                          (row) =>
+                            calculateDefaultConstructionRecordCost(row).actualCost,
+                        )
+                        .filter((cost): cost is number => cost != null);
+                      const defaultConstructionDayCost =
+                        defaultConstructionDayCosts.length > 0
+                          ? defaultConstructionDayCosts.reduce(
+                              (sum, cost) => sum + cost,
+                              0,
+                            )
+                          : null;
 
                       const dataTour =
                         !firstFilledMarked && totalTasks > 0
@@ -3464,7 +3492,13 @@ export default function SiteDiaryCalendar({
                               <span>
                                 Dienas summa: {formatZtcMoney(ztcDayPayrollSum)}
                               </span>
-                            ) : null}
+                            ) : (
+                              <span>
+                                {t.dailyCost}: {defaultConstructionDayCost == null
+                                  ? "—"
+                                  : costFormatter.format(defaultConstructionDayCost)}
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -3695,6 +3729,22 @@ export default function SiteDiaryCalendar({
                                           : `${manHours.toLocaleString(dateLocale, {
                                               maximumFractionDigits: 2,
                                             })} h`;
+                                      })()}
+                                    </span>
+                                  </span>
+                                ) : null}
+                                {!isZtcSite ? (
+                                  <span>
+                                    {t.cost}:{" "}
+                                    <span className="font-medium text-foreground">
+                                      {(() => {
+                                        const cost =
+                                          calculateDefaultConstructionRecordCost(
+                                            r,
+                                          ).actualCost;
+                                        return cost == null
+                                          ? "—"
+                                          : costFormatter.format(cost);
                                       })()}
                                     </span>
                                   </span>
@@ -4243,7 +4293,7 @@ export default function SiteDiaryCalendar({
                             }));
 
                             return (
-                              <Table className={`table-fixed ${isZtcSite ? "min-w-[1180px]" : "min-w-[865px]"} text-xs sm:text-sm`}>
+                              <Table className={`table-fixed ${isZtcSite ? "min-w-[1180px]" : "min-w-[985px]"} text-xs sm:text-sm`}>
                                 {/* HEADER */}
                                 <TableHeader>
                                   <TableRow>
@@ -4296,9 +4346,14 @@ export default function SiteDiaryCalendar({
                                             </>
                                           ) : null}
                                           {!isZtcSite && head === "TimeInvolved" ? (
-                                            <TableHead className="text-center" style={{ width: 105 }}>
-                                              {t.manHours}
-                                            </TableHead>
+                                            <>
+                                              <TableHead className="text-center" style={{ width: 105 }}>
+                                                {t.manHours}
+                                              </TableHead>
+                                              <TableHead className="text-right" style={{ width: 120 }}>
+                                                {t.cost}
+                                              </TableHead>
+                                            </>
                                           ) : null}
                                         </React.Fragment>
                                       );
@@ -4461,21 +4516,37 @@ export default function SiteDiaryCalendar({
                                             </>
                                           ) : null}
                                           {!isZtcSite && field === "TimeInvolved" ? (
-                                            <TableCell
-                                              className="align-top px-3 py-3 text-center tabular-nums"
-                                              style={{ width: 105 }}
-                                            >
-                                              {(() => {
-                                                const manHours = calculateDefaultConstructionManHours(
-                                                  originalRow,
-                                                );
-                                                return manHours == null
-                                                  ? "—"
-                                                  : manHours.toLocaleString(dateLocale, {
-                                                      maximumFractionDigits: 2,
-                                                    });
-                                              })()}
-                                            </TableCell>
+                                            <>
+                                              <TableCell
+                                                className="align-top px-3 py-3 text-center tabular-nums"
+                                                style={{ width: 105 }}
+                                              >
+                                                {(() => {
+                                                  const manHours = calculateDefaultConstructionManHours(
+                                                    originalRow,
+                                                  );
+                                                  return manHours == null
+                                                    ? "—"
+                                                    : manHours.toLocaleString(dateLocale, {
+                                                        maximumFractionDigits: 2,
+                                                      });
+                                                })()}
+                                              </TableCell>
+                                              <TableCell
+                                                className="align-top whitespace-nowrap px-3 py-3 text-right tabular-nums"
+                                                style={{ width: 120 }}
+                                              >
+                                                {(() => {
+                                                  const cost =
+                                                    calculateDefaultConstructionRecordCost(
+                                                      originalRow,
+                                                    ).actualCost;
+                                                  return cost == null
+                                                    ? "—"
+                                                    : costFormatter.format(cost);
+                                                })()}
+                                              </TableCell>
+                                            </>
                                           ) : null}
                                           </React.Fragment>
                                         );

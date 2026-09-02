@@ -32,6 +32,7 @@ function getExportMessages(language: string | null) {
 			workers: "Darbinieki",
 			hours: "Stundas",
 			manHours: "Cilvēkstundas",
+			cost: "Izmaksas",
 			comments: "Komentāri",
 			source: "Avots",
 			sheet: "Visi projekti",
@@ -48,6 +49,7 @@ function getExportMessages(language: string | null) {
 		workers: "Workers",
 		hours: "Hours",
 		manHours: "Man-hours",
+		cost: "Cost",
 		comments: "Comments",
 		source: "Source",
 		sheet: "All projects",
@@ -105,11 +107,9 @@ export async function GET(request: Request) {
 		[messages.workers]: record.WorkersInvolved,
 		[messages.hours]: record.TimeInvolved,
 		[messages.manHours]: calculateDefaultConstructionManHours(record),
+		[messages.cost]: record.actualCost,
 		[messages.comments]: record.Comments ?? "",
-		[messages.source]: [
-			record.originalUserComment,
-			record.originalAudioUrl,
-		]
+		[messages.source]: [record.originalUserComment, record.originalAudioUrl]
 			.filter(Boolean)
 			.join("\n"),
 	}));
@@ -126,6 +126,7 @@ export async function GET(request: Request) {
 		{ wch: 14 },
 		{ wch: 14 },
 		{ wch: 18 },
+		{ wch: 16 },
 		{ wch: 50 },
 		{ wch: 60 },
 	];

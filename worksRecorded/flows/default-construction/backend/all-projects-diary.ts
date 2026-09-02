@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
+import defaultConfig from "@/components/sitediary/configs/defaultConfig.json";
+import { createDefaultConstructionRecordCostCalculator } from "@/flows/default-construction/lib/site-diary-productivity-settings";
 import { prisma } from "@/lib/utils/db";
 
 export const ALL_PROJECTS_DIARY_PAGE_SIZE = 50;
@@ -24,8 +26,40 @@ const allProjectsDiaryRecordSelect = {
 	Comments: true,
 	originalUserComment: true,
 	originalAudioUrl: true,
-	Site: { select: { name: true } },
+	Site: { select: { name: true, siteDiaryRecordsMap: true } },
 } satisfies Prisma.sitediaryrecordsSelect;
+
+type AllProjectsDiaryDatabaseRecord = Prisma.sitediaryrecordsGetPayload<{
+	select: typeof allProjectsDiaryRecordSelect;
+}>;
+
+function addActualCosts(records: AllProjectsDiaryDatabaseRecord[]) {
+	const calculatorBySite = new Map<
+		string,
+		ReturnType<typeof createDefaultConstructionRecordCostCalculator>
+	>();
+
+	return records.map(({ Site, ...record }) => {
+		const calculatorKey = record.siteId ?? "__default__";
+		let calculateCost = calculatorBySite.get(calculatorKey);
+		if (!calculateCost) {
+			const siteConfig =
+				Site?.siteDiaryRecordsMap &&
+				typeof Site.siteDiaryRecordsMap === "object" &&
+				!Array.isArray(Site.siteDiaryRecordsMap)
+					? (Site.siteDiaryRecordsMap as Record<string, unknown>)
+					: (defaultConfig as Record<string, unknown>);
+			calculateCost = createDefaultConstructionRecordCostCalculator(siteConfig);
+			calculatorBySite.set(calculatorKey, calculateCost);
+		}
+
+		return {
+			...record,
+			Site: Site ? { name: Site.name } : null,
+			actualCost: calculateCost(record).actualCost,
+		};
+	});
+}
 
 export type AllProjectsDiaryFilters = {
 	page?: number;
@@ -119,7 +153,7 @@ export async function loadAllProjectsDiary(
 
 	return {
 		projects,
-		records,
+		records: addActualCosts(records),
 		page,
 		pageSize: ALL_PROJECTS_DIARY_PAGE_SIZE,
 		totalCount,
@@ -134,9 +168,11 @@ export async function loadAllProjectsDiaryExportRecords(
 	organizationId: string,
 	filters: AllProjectsDiaryFilters = {},
 ) {
-	return prisma.sitediaryrecords.findMany({
+	const records = await prisma.sitediaryrecords.findMany({
 		where: buildAllProjectsDiaryWhere(organizationId, filters),
 		orderBy: allProjectsDiaryOrderBy,
 		select: allProjectsDiaryRecordSelect,
 	});
+
+	return addActualCosts(records);
 }
