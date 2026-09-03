@@ -85,6 +85,12 @@ export function DashboardItems({
         : projectNavLinks,
     [hiddenProjectNavPaths, projectNavLinks],
   );
+  const projectSettingsLink = visibleProjectNavLinks.find(
+    (item) => item.path === "settings",
+  );
+  const scrollableProjectNavLinks = visibleProjectNavLinks.filter(
+    (item) => item.path !== "settings",
+  );
   const productionJournalLabel =
     normalizeLanguageLabel(organizationLanguage) === "lv"
       ? "Būvdarbu žurnāls"
@@ -116,7 +122,7 @@ export function DashboardItems({
 return (
     <div className="flex items-center w-full justify-between gap-3">
       {/* LEFT: Main navigation links + project nav links if selected */}
-      <div className="flex items-center gap-1 overflow-x-auto py-1">
+      <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-1">
         {navLinks.map((item) => (
           <Link
             href={item.href}
@@ -137,7 +143,7 @@ return (
 
         {/* Only show project nav links when in a project subroute */}
         {projectName && projectId && isProjectRoute &&
-          visibleProjectNavLinks.map((item) => (
+          scrollableProjectNavLinks.map((item) => (
             <Link
               href={`/dashboard/sites/${projectId}/${item.path}`}
               key={item.name}
@@ -163,6 +169,31 @@ return (
           ))
         }
       </div>
+      {projectName && projectId && isProjectRoute && projectSettingsLink ? (
+        <Link
+          href={`/dashboard/sites/${projectId}/${projectSettingsLink.path}`}
+          prefetch
+          aria-label={projectSettingsLink.name}
+          title={projectSettingsLink.name}
+          onMouseEnter={() =>
+            router.prefetch(
+              `/dashboard/sites/${projectId}/${projectSettingsLink.path}`,
+            )
+          }
+          className={cn(
+            pathname ===
+              `/dashboard/sites/${projectId}/${projectSettingsLink.path}`
+              ? "bg-blue-50 border-blue-300 text-blue-700"
+              : "bg-transparent border-transparent text-blue-600 hover:bg-blue-50/70",
+            "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3 py-1.5 text-sm text-blue-500 transition-all lg:text-base",
+          )}
+        >
+          <projectSettingsLink.icon className="size-4" />
+          <span className="hidden xl:inline-block">
+            {projectSettingsLink.name}
+          </span>
+        </Link>
+      ) : null}
       {/* RIGHT: Project name - now with better mobile handling */}
       {projectName && (
         <div className="hidden md:flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-700 font-semibold max-w-[220px]">

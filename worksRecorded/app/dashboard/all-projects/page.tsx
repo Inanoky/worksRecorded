@@ -244,19 +244,144 @@ export default async function AllProjectsPage({
 			</Card>
 
 			<Card>
-				<CardHeader className="flex-row items-center justify-between gap-4">
+				<CardHeader className="gap-3 px-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
 					<CardTitle>{messages.title}</CardTitle>
-					<div className="flex items-center gap-3">
+					<div className="flex flex-wrap items-center gap-2 sm:gap-3">
 						<span className="text-sm text-muted-foreground">
 							{numberFormatter.format(data.totalCount)} {messages.records}
 						</span>
-						<Button asChild variant="outline">
+						<Button asChild variant="outline" size="sm">
 							<a href={exportHref(rawSearchParams)}>{messages.exportToExcel}</a>
 						</Button>
 					</div>
 				</CardHeader>
-				<CardContent>
-					<div className="overflow-x-auto rounded-md border">
+				<CardContent className="px-3 sm:px-6">
+					<div className="space-y-3 lg:hidden">
+						{data.records.length ? (
+							data.records.map((record) => (
+								<article
+									key={record.id}
+									className="rounded-xl border bg-card p-4 shadow-sm"
+								>
+									<div className="flex items-start justify-between gap-3">
+										<div className="min-w-0 text-sm font-semibold">
+											{record.siteId ? (
+												<ProjectNavigationLink
+													projectId={record.siteId}
+													projectName={record.Site?.name ?? "—"}
+													loadingLabel={messages.openingProject}
+												/>
+											) : (
+												(record.Site?.name ?? "—")
+											)}
+										</div>
+										<time
+											dateTime={(record.Date ?? record.createdAt).toISOString()}
+											className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground"
+										>
+											{dateFormatter.format(record.Date ?? record.createdAt)}
+										</time>
+									</div>
+
+									<div className="mt-3 space-y-1.5">
+										<p className="break-words text-sm font-semibold leading-5">
+											{record.Works || "—"}
+										</p>
+										<p className="break-words text-xs text-muted-foreground">
+											<span className="font-medium text-foreground">
+												{messages.location}:
+											</span>{" "}
+											{record.Location || "—"}
+										</p>
+									</div>
+
+									<dl className="mt-3 grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border">
+										<div className="bg-muted/40 p-2.5">
+											<dt className="text-[11px] text-muted-foreground">
+												{messages.amount}
+											</dt>
+											<dd className="mt-0.5 text-sm font-semibold tabular-nums">
+												{isMissingOrZero(record.Amounts)
+													? "—"
+													: `${numberFormatter.format(record.Amounts)} ${record.Units ?? ""}`.trim()}
+											</dd>
+										</div>
+										<div className="bg-muted/40 p-2.5">
+											<dt className="text-[11px] text-muted-foreground">
+												{messages.cost}
+											</dt>
+											<dd className="mt-0.5 text-sm font-semibold tabular-nums">
+												{record.actualCost == null
+													? "—"
+													: currencyFormatter.format(record.actualCost)}
+											</dd>
+										</div>
+										<div className="bg-muted/40 p-2.5">
+											<dt className="text-[11px] text-muted-foreground">
+												{messages.workers}
+											</dt>
+											<dd className="mt-0.5 text-sm font-semibold tabular-nums">
+												{isMissingOrZero(record.WorkersInvolved)
+													? "—"
+													: numberFormatter.format(record.WorkersInvolved)}
+											</dd>
+										</div>
+										<div className="bg-muted/40 p-2.5">
+											<dt className="text-[11px] text-muted-foreground">
+												{messages.hours}
+											</dt>
+											<dd className="mt-0.5 text-sm font-semibold tabular-nums">
+												{isMissingOrZero(record.TimeInvolved)
+													? "—"
+													: numberFormatter.format(record.TimeInvolved)}
+											</dd>
+										</div>
+									</dl>
+
+									<div className="mt-3 border-t pt-3">
+										<p className="text-[11px] font-medium text-muted-foreground">
+											{messages.comments}
+										</p>
+										<p className="mt-1 whitespace-pre-wrap break-words text-sm leading-5">
+											{record.Comments || "—"}
+										</p>
+									</div>
+
+									<div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
+										<span className="text-xs font-medium text-muted-foreground">
+											{messages.source}
+										</span>
+										{record.originalUserComment || record.originalAudioUrl ? (
+											<Popover>
+												<PopoverTrigger asChild>
+													<button
+														type="button"
+														className="inline-flex h-8 items-center justify-center rounded-full border border-blue-600 px-3 text-xs font-semibold text-blue-600 hover:bg-blue-50 hover:text-blue-800"
+													>
+														{messages.showSource}
+													</button>
+												</PopoverTrigger>
+												<PopoverContent className="max-h-[70vh] w-[min(90vw,28rem)] overflow-y-auto">
+													<OriginalSourceContent
+														originalUserComment={record.originalUserComment}
+														originalAudioUrl={record.originalAudioUrl}
+													/>
+												</PopoverContent>
+											</Popover>
+										) : (
+											<span className="text-sm text-muted-foreground">—</span>
+										)}
+									</div>
+								</article>
+							))
+						) : (
+							<div className="rounded-xl border border-dashed px-4 py-12 text-center text-sm text-muted-foreground">
+								{messages.noRecords}
+							</div>
+						)}
+					</div>
+
+					<div className="hidden overflow-x-auto rounded-md border lg:block">
 						<Table className="min-w-[1300px] table-fixed">
 							<TableHeader>
 								<TableRow>
