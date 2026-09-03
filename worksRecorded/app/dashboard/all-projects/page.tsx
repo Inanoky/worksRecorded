@@ -52,6 +52,16 @@ function isMissingOrZero(value: number | null | undefined) {
   return value == null || value === 0;
 }
 
+function formatQuantity(
+  value: number | null | undefined,
+  units: string | null | undefined,
+  formatter: Intl.NumberFormat,
+) {
+  return isMissingOrZero(value)
+    ? "—"
+    : `${formatter.format(value)} ${units ?? ""}`.trim();
+}
+
 function pageHref(
   searchParams: Record<string, string | string[] | undefined>,
   page: number,
@@ -335,9 +345,13 @@ export default async function AllProjectsPage({
                           : messages.amount}
                       </dt>
                       <dd className="mt-0.5 text-sm font-semibold tabular-nums">
-                        {isMissingOrZero(record.Amounts)
-                          ? "—"
-                          : `${numberFormatter.format(record.Amounts)} ${record.Units ?? ""}`.trim()}
+                        {formatQuantity(
+                          data.quantityPlanFactEnabled
+                            ? record.actualAmount
+                            : record.Amounts,
+                          record.Units,
+                          numberFormatter,
+                        )}
                       </dd>
                     </div>
                     <div className="bg-muted/40 p-2.5">
@@ -529,9 +543,13 @@ export default async function AllProjectsPage({
                         </TableCell>
                       ) : null}
                       <TableCell className="whitespace-nowrap text-right tabular-nums">
-                        {isMissingOrZero(record.Amounts)
-                          ? "—"
-                          : `${numberFormatter.format(record.Amounts)} ${record.Units ?? ""}`.trim()}
+                        {formatQuantity(
+                          data.quantityPlanFactEnabled
+                            ? record.actualAmount
+                            : record.Amounts,
+                          record.Units,
+                          numberFormatter,
+                        )}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {isMissingOrZero(record.WorkersInvolved)
