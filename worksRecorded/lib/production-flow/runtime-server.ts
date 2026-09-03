@@ -1,134 +1,145 @@
 "use server";
 
-import { resolveProductionFlowConfigForRuntime } from "@/lib/production-flow/config-server";
 import { resolveFlowModuleKeyForRuntime } from "@/lib/flows/resolve-flow-module-server";
+import { resolveProductionFlowConfigForRuntime } from "@/lib/production-flow/config-server";
 import { prisma } from "@/lib/utils/db";
 
 export type ProductionFlowRuntimeContext = {
-  organizationId: string;
-  siteId: string;
+	organizationId: string;
+	siteId: string;
 };
 
 export async function isZtcProductionFlowRuntime(args: {
-  organizationId?: string | null;
-  siteId?: string | null;
+	organizationId?: string | null;
+	siteId?: string | null;
 }) {
-  return isAdvancedProductionWorkflowRuntime(args);
+	return isAdvancedProductionWorkflowRuntime(args);
 }
 
 export async function isAdvancedProductionWorkflowRuntime(args: {
-  organizationId?: string | null;
-  siteId?: string | null;
+	organizationId?: string | null;
+	siteId?: string | null;
 }) {
-  const config = await resolveProductionFlowConfigForRuntime(args);
-  return config?.strategies.whatsappWorker === "ztc-worker-v1";
+	const config = await resolveProductionFlowConfigForRuntime(args);
+	return config?.strategies.whatsappWorker === "ztc-worker-v1";
 }
 
-export async function resolveZtcProductionContextForSite(siteId?: string | null) {
-  return resolveAdvancedProductionWorkflowContextForSite(siteId);
+export async function resolveZtcProductionContextForSite(
+	siteId?: string | null,
+) {
+	return resolveAdvancedProductionWorkflowContextForSite(siteId);
 }
 
-export async function resolveAdvancedProductionWorkflowContextForSite(siteId?: string | null) {
-  if (!siteId) return null;
+export async function resolveAdvancedProductionWorkflowContextForSite(
+	siteId?: string | null,
+) {
+	if (!siteId) return null;
 
-  const site = await prisma.site.findUnique({
-    where: { id: siteId },
-    select: { id: true, organizationId: true },
-  });
-  if (!site?.organizationId) return null;
+	const site = await prisma.site.findUnique({
+		where: { id: siteId },
+		select: { id: true, organizationId: true },
+	});
+	if (!site?.organizationId) return null;
 
-  const usesAdvancedWorkflow = await isAdvancedProductionWorkflowRuntime({
-    organizationId: site.organizationId,
-    siteId: site.id,
-  });
-  if (!usesAdvancedWorkflow) return null;
+	const usesAdvancedWorkflow = await isAdvancedProductionWorkflowRuntime({
+		organizationId: site.organizationId,
+		siteId: site.id,
+	});
+	if (!usesAdvancedWorkflow) return null;
 
-  return {
-    organizationId: site.organizationId,
-    siteId: site.id,
-  } satisfies ProductionFlowRuntimeContext;
+	return {
+		organizationId: site.organizationId,
+		siteId: site.id,
+	} satisfies ProductionFlowRuntimeContext;
 }
 
 export async function resolveZtcProductionContextForWorker(worker: {
-  organizationId?: string | null;
-  siteId?: string | null;
+	organizationId?: string | null;
+	siteId?: string | null;
 }) {
-  return resolveAdvancedProductionWorkflowContextForWorker(worker);
+	return resolveAdvancedProductionWorkflowContextForWorker(worker);
 }
 
 export async function resolveAdvancedProductionWorkflowContextForWorker(worker: {
-  organizationId?: string | null;
-  siteId?: string | null;
+	organizationId?: string | null;
+	siteId?: string | null;
 }) {
-  if (worker.siteId) {
-    const siteContext = await resolveAdvancedProductionWorkflowContextForSite(worker.siteId);
-    if (siteContext) return siteContext;
-  }
+	if (worker.siteId) {
+		const siteContext = await resolveAdvancedProductionWorkflowContextForSite(
+			worker.siteId,
+		);
+		if (siteContext) return siteContext;
+	}
 
-  const organizationId = worker.organizationId ?? "";
-  if (!organizationId) return null;
+	const organizationId = worker.organizationId ?? "";
+	if (!organizationId) return null;
 
-  const assignedConfig = await resolveProductionFlowConfigForRuntime({
-    organizationId,
-    siteId: worker.siteId,
-  });
-  if (assignedConfig?.strategies.whatsappWorker !== "ztc-worker-v1") return null;
+	const assignedConfig = await resolveProductionFlowConfigForRuntime({
+		organizationId,
+		siteId: worker.siteId,
+	});
+	if (assignedConfig?.strategies.whatsappWorker !== "ztc-worker-v1")
+		return null;
 
-  const configuredSiteId =
-    worker.siteId && assignedConfig.siteIds.includes(worker.siteId)
-      ? worker.siteId
-      : assignedConfig.siteIds[0];
-  if (configuredSiteId) {
-    return {
-      organizationId,
-      siteId: configuredSiteId,
-    } satisfies ProductionFlowRuntimeContext;
-  }
+	const configuredSiteId =
+		worker.siteId && assignedConfig.siteIds.includes(worker.siteId)
+			? worker.siteId
+			: assignedConfig.siteIds[0];
+	if (configuredSiteId) {
+		return {
+			organizationId,
+			siteId: configuredSiteId,
+		} satisfies ProductionFlowRuntimeContext;
+	}
 
-  const firstSite = await prisma.site.findFirst({
-    where: { organizationId },
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  if (!firstSite) return null;
+	const firstSite = await prisma.site.findFirst({
+		where: { organizationId },
+		orderBy: { createdAt: "asc" },
+		select: { id: true },
+	});
+	if (!firstSite) return null;
 
-  return {
-    organizationId,
-    siteId: firstSite.id,
-  } satisfies ProductionFlowRuntimeContext;
+	return {
+		organizationId,
+		siteId: firstSite.id,
+	} satisfies ProductionFlowRuntimeContext;
 }
 
-export async function getProductionFlowNavigationConfigForSite(siteId?: string | null) {
-  if (!siteId) return null;
-  const site = await prisma.site.findUnique({
-    where: { id: siteId },
-    select: { organizationId: true },
-  });
+export async function getProductionFlowNavigationConfigForSite(
+	siteId?: string | null,
+) {
+	if (!siteId) return null;
+	const site = await prisma.site.findUnique({
+		where: { id: siteId },
+		select: { organizationId: true },
+	});
 
-  return resolveProductionFlowConfigForRuntime({
-    organizationId: site?.organizationId ?? null,
-    siteId,
-  });
+	return resolveProductionFlowConfigForRuntime({
+		organizationId: site?.organizationId ?? null,
+		siteId,
+	});
 }
 
-export async function getProjectNavigationRuntimeForSite(siteId?: string | null) {
-  if (!siteId) return null;
-  const site = await prisma.site.findUnique({
-    where: { id: siteId },
-    select: { organizationId: true },
-  });
-  if (!site) return null;
+export async function getProjectNavigationRuntimeForSite(
+	siteId?: string | null,
+) {
+	if (!siteId) return null;
+	const site = await prisma.site.findUnique({
+		where: { id: siteId },
+		select: { name: true, organizationId: true },
+	});
+	if (!site) return null;
 
-  const [productionConfig, flowModuleKey] = await Promise.all([
-    resolveProductionFlowConfigForRuntime({
-      organizationId: site.organizationId ?? null,
-      siteId,
-    }),
-    resolveFlowModuleKeyForRuntime({
-      organizationId: site.organizationId ?? null,
-      siteId,
-    }),
-  ]);
+	const [productionConfig, flowModuleKey] = await Promise.all([
+		resolveProductionFlowConfigForRuntime({
+			organizationId: site.organizationId ?? null,
+			siteId,
+		}),
+		resolveFlowModuleKeyForRuntime({
+			organizationId: site.organizationId ?? null,
+			siteId,
+		}),
+	]);
 
-  return { productionConfig, flowModuleKey };
+	return { productionConfig, flowModuleKey, siteName: site.name };
 }
