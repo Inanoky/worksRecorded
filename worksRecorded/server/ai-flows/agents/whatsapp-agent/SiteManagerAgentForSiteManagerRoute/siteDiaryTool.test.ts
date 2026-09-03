@@ -188,6 +188,12 @@ const trustedContext = {
 	originalUserComment: "Manager Name : poured concrete",
 };
 
+type TestToolSchema = {
+	shape: Record<string, { description?: string }>;
+	safeParse(value: unknown): { success: boolean };
+	parse(value: unknown): unknown;
+};
+
 const siteConfig = {
 	Location: {
 		Type: "textInput",
@@ -196,7 +202,7 @@ const siteConfig = {
 	Works: {
 		Type: "dropdown",
 		DisplayName: "Activity",
-		DropDownOptions: { concrete: "Concrete pour" },
+		DropDownOptions: { concrete: "Concrete pour", walls: "Wall construction" },
 	},
 	Amounts: {
 		Type: "float",
@@ -208,6 +214,7 @@ const siteConfig = {
 		DropDownOptions: {
 			m3: "m3",
 			hour: "hour",
+			pcs: "pcs",
 		},
 	},
 	WorkersInvolved: {
@@ -240,7 +247,7 @@ describe("save_to_database site diary tool", () => {
 	it("exposes only extraction fields and keeps date optional", () => {
 		expect(siteDiaryToDatabaseTool.name).toBe("save_to_database");
 
-		const schema = siteDiaryToDatabaseTool.schema as any;
+		const schema = siteDiaryToDatabaseTool.schema as TestToolSchema;
 		expect(Object.keys(schema.shape)).toEqual(["question", "date"]);
 		expect(schema.shape.date.description).toContain(
 			"Omit it when no date was specified",
@@ -269,7 +276,7 @@ describe("save_to_database site diary tool", () => {
 			userId: "attacker-user",
 			siteId: "attacker-site",
 			originalUserComment: "forged source",
-		} as any);
+		} as Parameters<typeof siteDiaryToDatabaseTool.invoke>[0]);
 
 		expect(saveSiteDiaryRecordMock).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -1044,7 +1051,7 @@ describe("save_to_database site diary tool", () => {
 					appliedRepair: true,
 					repairVerdict: "accept",
 					repairReason:
-						"Applied 0 structured checker field repair action(s); preserved 2 exact source-backed amount/unit pair repair action(s).",
+						"Applied 0 structured checker field repair action(s); preserved 2 source-supported amount/unit pair repair action(s).",
 				}),
 			}),
 		);
@@ -1188,7 +1195,7 @@ describe("save_to_database site diary tool", () => {
 					appliedRepair: true,
 					repairVerdict: "accept",
 					repairReason:
-						"Applied 0 structured checker field repair action(s); preserved 2 exact source-backed amount/unit pair repair action(s).",
+						"Applied 0 structured checker field repair action(s); preserved 2 source-supported amount/unit pair repair action(s).",
 				}),
 			}),
 		);
@@ -1465,7 +1472,8 @@ describe("save_to_database site diary tool", () => {
 					{
 						Area: "Project",
 						Activity: "Excavation",
-						Comments: "No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu.",
+						Comments:
+							"No plkst. 15.00 Agris ar ekskavatoru veic zemes noņemšanu.",
 					},
 					{
 						Area: "Project",
@@ -1601,6 +1609,100 @@ describe("save_to_database site diary tool", () => {
 		);
 	});
 
+	it("preserves wall count amount and nulls unsupported hallucinated hours", async () => {
+		structuredInvokeMock
+			.mockResolvedValueOnce({
+				records: [
+					{
+						Area: null,
+						Activity: "Wall construction",
+						Quantity: 10,
+						Mrv: "pcs",
+						Hours: 11,
+						Comments: "Samontētas 10 sienas.",
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				parsed: {
+					verdict: "repairable",
+					reason: "Skaits ir source-backed, bet stundas nav norādītas avotā.",
+					badSplitSignals: [],
+					repairInstructions: "Set TimeInvolved to null.",
+					expectedRecordCount: 1,
+					repairActions: [
+						{
+							rowIndex: 0,
+							field: "TimeInvolved",
+							operation: "set_null",
+							reason: "No source-backed hours.",
+						},
+					],
+				},
+				raw: {},
+			});
+		saveSiteDiaryRecordMock.mockResolvedValue({
+			ok: true,
+			count: 1,
+			recordIds: ["record-1"],
+		});
+
+		await extractAndSaveSiteDiary({
+			question: "Šodien samontējam 10 sienas",
+			requestedDate: "01-09-2026",
+		});
+
+		expect(structuredInvokeMock).toHaveBeenCalledTimes(2);
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
+			expect.objectContaining({
+				Works: "Wall construction",
+				Amounts: 10,
+				Units: "pcs",
+				TimeInvolved: null,
+			}),
+		);
+		expect(recordTraceMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				amountEvidenceWarnings: [
+					expect.objectContaining({
+						rowIndex: 0,
+						status: "weak",
+						amount: 10,
+						units: "pcs",
+					}),
+				],
+			}),
+		);
+	});
+
+	it("nulls unsupported pcs amount when the source has no count evidence", async () => {
+		structuredInvokeMock.mockResolvedValue({
+			records: [
+				{
+					Area: null,
+					Activity: "Wall construction",
+					Quantity: 10,
+					Mrv: "pcs",
+					Hours: null,
+					Comments: "Samontētas sienas.",
+				},
+			],
+		});
+		saveSiteDiaryRecordMock.mockResolvedValue({ ok: true, count: 1 });
+
+		await siteDiaryToDatabaseTool.invoke({
+			question: "Šodien samontējam sienas",
+		});
+
+		expect(saveSiteDiaryRecordMock.mock.calls[0][0].rows[0]).toEqual(
+			expect.objectContaining({
+				Amounts: null,
+				Units: null,
+				TimeInvolved: null,
+			}),
+		);
+	});
+
 	it("preserves decimal hours mapped to TimeInvolved", async () => {
 		structuredInvokeMock.mockResolvedValue({
 			records: [
@@ -1691,8 +1793,7 @@ describe("save_to_database site diary tool", () => {
 					Mrv: null,
 					Hours: 9.5,
 					Workers: null,
-					Comments:
-						"Veikta smilts piebēršana pamatiem ar Bobcat operatoru.",
+					Comments: "Veikta smilts piebēršana pamatiem ar Bobcat operatoru.",
 				},
 			],
 		});
@@ -2283,14 +2384,13 @@ describe("direct BIS read tools", () => {
 	});
 
 	it("reads connection state with trusted identity and no model-supplied arguments", async () => {
-		expect(Object.keys((bisConnectionStatusTool.schema as any).shape)).toEqual(
-			[],
-		);
+		const schema = bisConnectionStatusTool.schema as TestToolSchema;
+		expect(Object.keys(schema.shape)).toEqual([]);
 
 		const result = await bisConnectionStatusTool.invoke({
 			siteId: "attacker-site",
 			userId: "attacker-user",
-		} as any);
+		} as Parameters<typeof bisConnectionStatusTool.invoke>[0]);
 
 		expect(getBisConnectionStatusMock).toHaveBeenCalledWith(
 			{ siteId: "site-1", userId: "user-1" },
