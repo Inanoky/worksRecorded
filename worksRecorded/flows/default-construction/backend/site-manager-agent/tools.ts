@@ -33,7 +33,11 @@ import {
 	buildAiRunContext,
 	summarizeForTrace,
 } from "@/server/ai-flows/ai-run-context";
-import { buildZodSchemaFromConfig, mapToDbFields } from "./AIschemas";
+import {
+	buildZodSchemaFromConfig,
+	type ConfigMap,
+	mapToDbFields,
+} from "./AIschemas";
 import {
 	detectReplyLanguage,
 	type SiteDiaryCorrectionResult,
@@ -126,6 +130,8 @@ export const allowedUnits = [
 const structuredSiteDiaryModel = "gpt-5.6-sol";
 const structuredSiteDiaryReasoningEffort = "medium" as const;
 
+type LooseRecord = Record<string, unknown>;
+
 type StructuredSaveResult = {
 	action:
 		| "save_new_report"
@@ -138,15 +144,77 @@ type StructuredSaveResult = {
 	ok: boolean;
 	count: number;
 	records?: SiteDiaryConfirmationRecord[];
-	rows?: Record<string, any>[];
-	rawRecords?: Record<string, any>[];
+	rows?: LooseRecord[];
+	rawRecords?: LooseRecord[];
+	amountEvidenceWarnings?: AmountEvidenceWarning[];
 	intentReason?: string;
 	intentConfidence?: number;
 };
 
-function usageFromMessage(message: any) {
-	const usage =
-		message?.usage_metadata ?? message?.response_metadata?.tokenUsage ?? {};
+type StructuredLlmEnvelope = {
+	parsed?: unknown;
+	raw?: unknown;
+};
+
+type StructuredLlmInvoker = {
+	invoke(
+		messages: unknown,
+		config: RunnableConfig,
+	): Promise<StructuredLlmEnvelope>;
+};
+
+type StructuredSaveAction = StructuredSaveResult["action"];
+type StructuredCorrectionMode = StructuredSaveResult["correctionMode"];
+
+const structuredSaveActions = new Set<StructuredSaveAction>([
+	"save_new_report",
+	"correct_existing_report",
+	"fallback",
+	"clarify",
+]);
+
+const structuredCorrectionModes = new Set<StructuredCorrectionMode>([
+	"not_applicable",
+	"intent_only",
+	"supplied",
+]);
+
+const supportedReplyLanguages = new Set<SupportedReplyLanguage>([
+	"lv",
+	"en",
+	"ru",
+]);
+
+function isLooseRecord(value: unknown): value is LooseRecord {
+	return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function asLooseRecord(value: unknown): LooseRecord {
+	return isLooseRecord(value) ? value : {};
+}
+
+function isStructuredSaveAction(value: unknown): value is StructuredSaveAction {
+	return typeof value === "string" && structuredSaveActions.has(value);
+}
+
+function isStructuredCorrectionMode(
+	value: unknown,
+): value is StructuredCorrectionMode {
+	return typeof value === "string" && structuredCorrectionModes.has(value);
+}
+
+function isSupportedReplyLanguage(
+	value: unknown,
+): value is SupportedReplyLanguage {
+	return typeof value === "string" && supportedReplyLanguages.has(value);
+}
+
+function usageFromMessage(message: unknown) {
+	const messageObject = asLooseRecord(message);
+	const responseMetadata = asLooseRecord(messageObject.response_metadata);
+	const usage = asLooseRecord(
+		messageObject.usage_metadata ?? responseMetadata.tokenUsage,
+	);
 	const inputTokens = Number(usage.input_tokens ?? usage.promptTokens ?? 0);
 	const outputTokens = Number(
 		usage.output_tokens ?? usage.completionTokens ?? 0,
@@ -210,13 +278,13 @@ const m2AmountUnitPattern = `(?:${m2AmountUnitAliases.join("|")})`;
 const amountUnitPatternsByFamily: Record<AmountUnitFamily, string> = {
 	m2: m2AmountUnitPattern,
 	m3: String.raw`(?:m3|m³|kubi|kubs|kubu|kubus|kubik\p{L}*)`,
-	m: String.raw`(?:m|metrs|metri|metru|metrus)`,
+	m: "(?:m|metrs|metri|metru|metrus)",
 	kg: String.raw`(?:kg|kilogram\p{L}*)`,
 	tn: String.raw`(?:tn\.?|t|tonn\p{L}*)`,
 	pcs: String.raw`(?:pcs|gab\.?|gabali|gabals|gabalus)`,
 	package: String.raw`(?:package|packages|iepakojum\p{L}*)`,
-	set: String.raw`(?:set|sets|komplekts|komplekti|komplektus)`,
-	lifts: String.raw`(?:pacelšana|pacelšanas|lifts)`,
+	set: "(?:set|sets|komplekts|komplekti|komplektus)",
+	lifts: "(?:pacelšana|pacelšanas|lifts)",
 };
 
 function numberEvidencePattern(value: number) {
@@ -233,6 +301,61 @@ function hasNumberWithUnit(source: string, value: number, unitPattern: string) {
 		String.raw`(?:^|[^\d])${numberPattern}\s*${unitPattern}(?=$|[^\p{L}\p{N}_])`,
 		"iu",
 	).test(source);
+}
+
+function hasNumberEvidence(source: string, value: number) {
+	if (!Number.isFinite(value)) return false;
+	const numberPattern = numberEvidencePattern(value);
+	return new RegExp(
+		String.raw`(?:^|[^\d])${numberPattern}(?![,.]?\d)`,
+		"iu",
+	).test(source);
+}
+
+function hasNumberWithContextLabel(
+	source: string,
+	value: number,
+	labelPattern: string,
+) {
+	if (!Number.isFinite(value)) return false;
+	const numberPattern = numberEvidencePattern(value);
+	const afterNumber = new RegExp(
+		String.raw`(?:^|[^\d])${numberPattern}\s*\.?\s*${labelPattern}(?=$|[^\p{L}\p{N}_])`,
+		"iu",
+	);
+	const beforeNumber = new RegExp(
+		String.raw`(?:^|[^\p{L}\p{N}_])${labelPattern}\s*[:.#-]?\s*${numberPattern}(?![,.]?\d)`,
+		"iu",
+	);
+	return afterNumber.test(source) || beforeNumber.test(source);
+}
+
+function hasMaterialDimensionEvidence(source: string, value: number) {
+	if (!Number.isFinite(value)) return false;
+	const numberPattern = numberEvidencePattern(value);
+	return (
+		new RegExp(
+			String.raw`(?:^|[^\d])${numberPattern}\s*(?:mm|cm|milimetr\p{L}*|centimetr\p{L}*)(?=$|[^\p{L}\p{N}_])`,
+			"iu",
+		).test(source) ||
+		new RegExp(
+			String.raw`(?:^|[^\d])(?:${numberPattern}\s*[x×]\s*\d+|\d+\s*[x×]\s*${numberPattern})(?![,.]?\d)`,
+			"iu",
+		).test(source)
+	);
+}
+
+function hasKnownAmountUnitEvidence(
+	source: string,
+	value: number,
+	unitFamilyToIgnore?: AmountUnitFamily | null,
+) {
+	return Object.entries(amountUnitPatternsByFamily).some(
+		([family, pattern]) => {
+			if (family === unitFamilyToIgnore) return false;
+			return hasNumberWithUnit(source, value, pattern);
+		},
+	);
 }
 
 function roundHours(value: number) {
@@ -320,7 +443,7 @@ function hasWorkerEvidence(source: string, value: number) {
 	).test(source);
 }
 
-function inferWorkerCountFromRoleEvidence(row: Record<string, any>) {
+function inferWorkerCountFromRoleEvidence(row: LooseRecord) {
 	const text = [
 		row.Works,
 		row.Works_Custom_1,
@@ -394,21 +517,87 @@ function normalizeAmountUnitFamily(value: unknown): AmountUnitFamily | null {
 	return null;
 }
 
-function hasSupportedAmountEvidence(row: Record<string, any>, source: string) {
-	if (typeof row.Amounts !== "number") return true;
+type AmountEvidenceClassification =
+	| { status: "supported"; reason: string }
+	| { status: "known_invalid"; reason: string }
+	| { status: "weak"; reason: string }
+	| { status: "missing"; reason: string };
+
+type AmountEvidenceWarning = {
+	rowIndex: number;
+	status: "weak";
+	amount: number;
+	units: string | null;
+	reason: string;
+};
+
+function classifyAmountEvidence(
+	row: LooseRecord,
+	source: string,
+): AmountEvidenceClassification {
+	if (typeof row.Amounts !== "number") {
+		return { status: "supported", reason: "no numeric amount" };
+	}
 	const unitFamily = normalizeAmountUnitFamily(row.Units);
-	if (!unitFamily) return false;
 	if (
+		unitFamily &&
 		hasNumberWithUnit(
 			source,
 			row.Amounts,
 			amountUnitPatternsByFamily[unitFamily],
 		)
-	)
-		return true;
-	return (
-		unitFamily === "pcs" && hasImplicitPieceCountEvidence(source, row.Amounts)
-	);
+	) {
+		return { status: "supported", reason: "exact amount/unit evidence" };
+	}
+	if (hasNumberWithUnit(source, row.Amounts, timeUnitPattern)) {
+		return { status: "known_invalid", reason: "amount is time evidence" };
+	}
+	if (hasWorkerEvidence(source, row.Amounts)) {
+		return { status: "known_invalid", reason: "amount is worker evidence" };
+	}
+	if (
+		hasNumberWithContextLabel(
+			source,
+			row.Amounts,
+			String.raw`(?:kārt\p{L}*|layers?)`,
+		)
+	) {
+		return { status: "known_invalid", reason: "amount is layer count" };
+	}
+	if (
+		hasNumberWithContextLabel(
+			source,
+			row.Amounts,
+			String.raw`(?:st\.?|stāv\p{L}*|floor|floors?)`,
+		)
+	) {
+		return { status: "known_invalid", reason: "amount is floor number" };
+	}
+	if (
+		hasNumberWithContextLabel(
+			source,
+			row.Amounts,
+			String.raw`(?:dz\.?|dzīvokl\p{L}*|apartment|apt\.?)`,
+		)
+	) {
+		return { status: "known_invalid", reason: "amount is apartment number" };
+	}
+	if (hasMaterialDimensionEvidence(source, row.Amounts)) {
+		return { status: "known_invalid", reason: "amount is material dimension" };
+	}
+	if (
+		unitFamily &&
+		hasKnownAmountUnitEvidence(source, row.Amounts, unitFamily)
+	) {
+		return { status: "known_invalid", reason: "amount unit mismatch" };
+	}
+	if (hasNumberEvidence(source, row.Amounts)) {
+		return {
+			status: "weak",
+			reason: "same number in source without exact unit evidence",
+		};
+	}
+	return { status: "missing", reason: "amount number is missing from source" };
 }
 
 const implicitPieceContextNounPattern =
@@ -426,34 +615,41 @@ function hasImplicitPieceCountEvidence(source: string, value: number) {
 	);
 }
 
-function hasLiteralAmountUnitEvidence(
-	row: Record<string, any>,
-	source: string,
-) {
+function hasLiteralAmountUnitEvidence(row: LooseRecord, source: string) {
 	if (typeof row.Amounts !== "number") return false;
 	const unitFamily = normalizeAmountUnitFamily(row.Units);
 	if (!unitFamily) return false;
-	return hasNumberWithUnit(
-		source,
-		row.Amounts,
-		amountUnitPatternsByFamily[unitFamily],
+	return (
+		hasNumberWithUnit(
+			source,
+			row.Amounts,
+			amountUnitPatternsByFamily[unitFamily],
+		) ||
+		(unitFamily === "pcs" && hasImplicitPieceCountEvidence(source, row.Amounts))
 	);
 }
 
-function hasSourceBackedAmountUnitPair(
-	row: Record<string, any>,
-	source: string,
-) {
+
+function hasSourceBackedAmountUnitPair(row: LooseRecord, source: string) {
 	return (
 		typeof row.Amounts === "number" && hasLiteralAmountUnitEvidence(row, source)
 	);
 }
 
 export function normalizeUnknownNumericFields(
-	row: Record<string, any>,
+	row: LooseRecord,
 	source: string,
 ) {
+	return normalizeUnknownNumericFieldsWithAmountEvidence(row, source, 0).row;
+}
+
+function normalizeUnknownNumericFieldsWithAmountEvidence(
+	row: LooseRecord,
+	source: string,
+	rowIndex: number,
+) {
 	const normalized = { ...row };
+	const amountEvidenceWarnings: AmountEvidenceWarning[] = [];
 	if (typeof normalized.TimeInvolved === "number") {
 		if (normalized.TimeInvolved < 0) {
 			normalized.TimeInvolved = null;
@@ -491,26 +687,45 @@ export function normalizeUnknownNumericFields(
 	}
 	if (
 		normalized.Amounts === 0 &&
-		!hasSupportedAmountEvidence(normalized, source)
+		classifyAmountEvidence(normalized, source).status !== "supported"
 	)
 		normalized.Amounts = null;
-	if (
-		typeof normalized.Amounts === "number" &&
-		normalized.Amounts !== 0 &&
-		!hasSupportedAmountEvidence(normalized, source)
-	) {
-		if (
-			typeof normalized.TimeInvolved !== "number" &&
-			hasNumberWithUnit(source, normalized.Amounts, timeUnitPattern)
-		) {
-			normalized.TimeInvolved =
-				parseTimeInvolvedFromSource(source, normalized.Amounts) ??
-				normalized.Amounts;
+	if (typeof normalized.Amounts === "number" && normalized.Amounts !== 0) {
+		const amountEvidence = classifyAmountEvidence(normalized, source);
+		if (amountEvidence.status === "weak") {
+			amountEvidenceWarnings.push({
+				rowIndex,
+				status: "weak",
+				amount: normalized.Amounts,
+				units: typeof normalized.Units === "string" ? normalized.Units : null,
+				reason: amountEvidence.reason,
+			});
+		} else if (amountEvidence.status !== "supported") {
+			if (
+				typeof normalized.TimeInvolved !== "number" &&
+				hasNumberWithUnit(source, normalized.Amounts, timeUnitPattern)
+			) {
+				normalized.TimeInvolved =
+					parseTimeInvolvedFromSource(source, normalized.Amounts) ??
+					normalized.Amounts;
+			}
+			normalized.Amounts = null;
+			normalized.Units = null;
 		}
-		normalized.Amounts = null;
-		normalized.Units = null;
 	}
-	return normalized;
+	return { row: normalized, amountEvidenceWarnings };
+}
+
+function normalizeUnknownNumericRows(rows: LooseRecord[], source: string) {
+	const normalizedRows = rows.map((row, rowIndex) =>
+		normalizeUnknownNumericFieldsWithAmountEvidence(row, source, rowIndex),
+	);
+	return {
+		rows: normalizedRows.map((result) => result.row),
+		amountEvidenceWarnings: normalizedRows.flatMap(
+			(result) => result.amountEvidenceWarnings,
+		),
+	};
 }
 
 function normalizeRepairText(value: string) {
@@ -521,7 +736,7 @@ function hasAnyRepairSignal(text: string, signals: string[]) {
 	return signals.some((signal) => text.includes(signal));
 }
 
-function isMaterialDeliveryRow(row: Record<string, any>) {
+function isMaterialDeliveryRow(row: LooseRecord) {
 	const works = normalizeRepairText(String(row.Works ?? ""));
 	return (
 		works.includes("material delivery") || works.includes("materiālu piegāde")
@@ -536,7 +751,7 @@ const safeCheckerNullRepairFields = new Set([
 ]);
 
 function applyStructuredCheckerFieldRepair(args: {
-	rows: Record<string, any>[];
+	rows: LooseRecord[];
 	checker: SiteDiaryExtractionCheckerResult;
 	source: string;
 }) {
@@ -578,13 +793,13 @@ function applyStructuredCheckerFieldRepair(args: {
 		rows: repairedRows,
 		reason:
 			protectedSourceBackedAmountActions > 0
-				? `Applied ${repairActions.length - protectedSourceBackedAmountActions} structured checker field repair action(s); preserved ${protectedSourceBackedAmountActions} exact source-backed amount/unit pair repair action(s).`
+				? `Applied ${repairActions.length - protectedSourceBackedAmountActions} structured checker field repair action(s); preserved ${protectedSourceBackedAmountActions} source-supported amount/unit pair repair action(s).`
 				: `Applied ${repairActions.length} structured checker field repair action(s).`,
 	};
 }
 
 function applySimpleCheckerFieldRepair(args: {
-	rows: Record<string, any>[];
+	rows: LooseRecord[];
 	checker: SiteDiaryExtractionCheckerResult;
 	source: string;
 }) {
@@ -830,19 +1045,22 @@ async function extractAndSaveSiteDiaryCore(
 	const map = await getConfig(siteId);
 	const mapObject =
 		map && typeof map === "object" && !Array.isArray(map)
-			? (map as Record<string, any>)
+			? (map as ConfigMap)
 			: null;
-	const mapToUse = mapObject ?? defaultConfig;
+	const mapToUse = mapObject ?? (defaultConfig as ConfigMap);
+	const aiPromptToUse = asLooseRecord(mapObject?.AIpromptToUse);
+	const clientPrompt =
+		typeof aiPromptToUse.Client === "string" ? aiPromptToUse.Client : undefined;
 	const systemPrompt = await systemPromptSaveToDatabaseFunction(
 		userId,
-		mapObject?.AIpromptToUse?.Client,
+		clientPrompt,
 	);
 	const extractionContext = await buildSiteDiaryExtractionContext({
 		siteId,
 		userId,
 		requestedDate: date,
 		sourceText: args.question,
-		config: mapToUse as any,
+		config: mapToUse,
 	});
 	Object.assign(aiContext.runnableConfig.metadata, {
 		extractionContextRecentRecordCount:
@@ -859,7 +1077,7 @@ async function extractAndSaveSiteDiaryCore(
 		schema: recordSchema,
 		fieldMap,
 		dropdownValueMaps,
-	} = buildZodSchemaFromConfig(mapToUse as any);
+	} = buildZodSchemaFromConfig(mapToUse);
 	const baseSchema = z.object({ records: z.array(recordSchema) });
 	const responseSchema = args.allowFallback
 		? z.object({
@@ -883,9 +1101,9 @@ async function extractAndSaveSiteDiaryCore(
 	});
 	const structuredLlm = llm.withStructuredOutput(responseSchema, {
 		includeRaw: true,
-	}) as any;
+	}) as StructuredLlmInvoker;
 	const extractionStarted = Date.now();
-	let envelope: any;
+	let envelope: StructuredLlmEnvelope;
 	try {
 		envelope = await structuredLlm.invoke(
 			buildStructuredExtractionMessages({
@@ -930,8 +1148,14 @@ async function extractAndSaveSiteDiaryCore(
 		throw error;
 	}
 	const extractionDurationMs = Date.now() - extractionStarted;
-	const response = envelope?.parsed ?? envelope;
-	const rawMessage = envelope?.raw ?? null;
+	const response = asLooseRecord(envelope.parsed ?? envelope);
+	const rawMessage = envelope.raw ?? null;
+	const rawMessageObject = asLooseRecord(rawMessage);
+	const rawResponseMetadata = asLooseRecord(rawMessageObject.response_metadata);
+	const actualModel =
+		typeof rawResponseMetadata.model_name === "string"
+			? rawResponseMetadata.model_name
+			: null;
 	const usage = usageFromMessage(rawMessage);
 	recordSiteManagerTiming("structuredExtractionMs", extractionDurationMs);
 	recordSiteManagerModelCall({
@@ -941,27 +1165,45 @@ async function extractAndSaveSiteDiaryCore(
 				? "fast-path-extraction"
 				: "structured-extraction",
 		model: structuredSiteDiaryModel,
-		actualModel: rawMessage?.response_metadata?.model_name ?? null,
+		actualModel,
 		durationMs: extractionDurationMs,
 		...usage,
 	});
 
+	const responseAction = isStructuredSaveAction(response.action)
+		? response.action
+		: undefined;
+	const responseCorrectionMode = isStructuredCorrectionMode(
+		response.correctionMode,
+	)
+		? response.correctionMode
+		: undefined;
+	const responseLanguage = isSupportedReplyLanguage(response.language)
+		? response.language
+		: undefined;
+	const responseIntentReason =
+		typeof response.intentReason === "string"
+			? response.intentReason
+			: undefined;
+	const responseIntentConfidence =
+		typeof response.intentConfidence === "number"
+			? response.intentConfidence
+			: undefined;
 	const language = args.allowFallback
-		? ((response.language as SupportedReplyLanguage | undefined) ??
-			detectReplyLanguage(args.question))
+		? (responseLanguage ?? detectReplyLanguage(args.question))
 		: detectReplyLanguage(args.question);
 	if (args.allowFallback) {
 		Object.assign(aiContext.runnableConfig.metadata, {
-			classifiedIntent: response.action ?? "fallback",
-			correctionMode: response.correctionMode ?? "not_applicable",
-			intentConfidence: response.intentConfidence ?? null,
-			intentReason: response.intentReason ?? null,
+			classifiedIntent: responseAction ?? "fallback",
+			correctionMode: responseCorrectionMode ?? "not_applicable",
+			intentConfidence: responseIntentConfidence ?? null,
+			intentReason: responseIntentReason ?? null,
 		});
 	}
-	if (args.allowFallback && response.action !== "save_new_report") {
-		if (response.action === "correct_existing_report") {
+	if (args.allowFallback && responseAction !== "save_new_report") {
+		if (responseAction === "correct_existing_report") {
 			updateTraceOutcome("correction");
-		} else if (response.action === "clarify") {
+		} else if (responseAction === "clarify") {
 			updateTraceOutcome("clarify");
 		} else {
 			updateTraceOutcome("fallback", "model-fallback");
@@ -972,22 +1214,24 @@ async function extractAndSaveSiteDiaryCore(
 			ok: true,
 		});
 		return {
-			action: response.action ?? "fallback",
+			action: responseAction ?? "fallback",
 			correctionMode:
-				response.correctionMode ??
-				(response.action === "correct_existing_report"
+				responseCorrectionMode ??
+				(responseAction === "correct_existing_report"
 					? "supplied"
 					: "not_applicable"),
 			language,
 			content: "",
 			ok: true,
 			count: 0,
-			intentReason: response.intentReason,
-			intentConfidence: response.intentConfidence,
+			intentReason: responseIntentReason,
+			intentConfidence: responseIntentConfidence,
 		};
 	}
 
-	const rawRecords = Array.isArray(response.records) ? response.records : [];
+	const rawRecords = Array.isArray(response.records)
+		? response.records.filter(isLooseRecord)
+		: [];
 	if (!rawRecords.length) {
 		if (args.allowFallback) updateTraceOutcome("fallback", "no-records");
 		const content =
@@ -1007,12 +1251,19 @@ async function extractAndSaveSiteDiaryCore(
 		};
 	}
 
-	const rows = rawRecords.map((record: Record<string, unknown>) =>
-		normalizeUnknownNumericFields(
+	const normalizedRows = normalizeUnknownNumericRows(
+		rawRecords.map((record) =>
 			mapToDbFields(record, fieldMap, dropdownValueMaps),
-			args.question,
 		),
+		args.question,
 	);
+	const rows = normalizedRows.rows;
+	let amountEvidenceWarnings = normalizedRows.amountEvidenceWarnings;
+	if (amountEvidenceWarnings.length > 0) {
+		Object.assign(aiContext.runnableConfig.metadata, {
+			amountEvidenceWarningCount: amountEvidenceWarnings.length,
+		});
+	}
 	if (args.persist === false) {
 		updateTraceOutcome("save");
 		recordSiteManagerToolCall({
@@ -1029,6 +1280,7 @@ async function extractAndSaveSiteDiaryCore(
 			count: rows.length,
 			rows,
 			rawRecords,
+			amountEvidenceWarnings,
 		};
 	}
 
@@ -1246,6 +1498,12 @@ async function extractAndSaveSiteDiaryCore(
 					}
 					rowsToSave = repair.rows;
 					rawRecordsToTrace = repair.rawRecords ?? repair.rows;
+					amountEvidenceWarnings = repair.amountEvidenceWarnings ?? [];
+					if (amountEvidenceWarnings.length > 0) {
+						Object.assign(aiContext.runnableConfig.metadata, {
+							amountEvidenceWarningCount: amountEvidenceWarnings.length,
+						});
+					}
 					checkerToTrace.appliedRepair = true;
 					updateCheckerTrace(
 						{
@@ -1418,6 +1676,7 @@ async function extractAndSaveSiteDiaryCore(
 		originalUserComment,
 		rawRecords: rawRecordsToTrace,
 		mappedRows: rowsToSave,
+		amountEvidenceWarnings,
 		normalizedInsertRows: result?.normalizedInsertRows ?? [],
 		persistedRecords: result?.records ?? [],
 		checker: checkerToTrace,

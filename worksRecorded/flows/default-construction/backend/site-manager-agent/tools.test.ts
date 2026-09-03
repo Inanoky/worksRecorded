@@ -202,4 +202,44 @@ describe("normalizeUnknownNumericFields", () => {
 			),
 		).toMatchObject({ Amounts: null, Units: null });
 	});
+
+	it.each([
+		["Šodien samontējam 10 sienas", "Sienu montāža"],
+		["Uzstādītas 10 durvis", "Durvju uzstādīšana"],
+		["Ielikti 10 logi", "Logu uzstādīšana"],
+	])(
+		"preserves weak pcs amount evidence from count nouns: %s",
+		(source, works) => {
+			expect(
+				normalizeUnknownNumericFields(
+					{
+						Works: works,
+						Comments: source,
+						Amounts: 10,
+						Units: "pcs",
+					},
+					source,
+				),
+			).toMatchObject({ Amounts: 10, Units: "pcs" });
+		},
+	);
+
+	it.each([
+		["Reģipsis 2 kārtās", "amount is a layer count"],
+		["Šodien apmestas sienas 2 stāvā", "amount is a floor number"],
+		["Dz 6 vate un osb", "amount is an apartment number"],
+		["OSB 22 mm ieklāšana", "amount is a material dimension"],
+	])("nulls known invalid amount evidence: %s", (source) => {
+		expect(
+			normalizeUnknownNumericFields(
+				{
+					Works: "Apdare",
+					Comments: source,
+					Amounts: Number(source.match(/\d+/)?.[0]),
+					Units: "pcs",
+				},
+				source,
+			),
+		).toMatchObject({ Amounts: null, Units: null });
+	});
 });

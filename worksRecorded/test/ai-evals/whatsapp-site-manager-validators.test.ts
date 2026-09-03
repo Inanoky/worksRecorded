@@ -46,6 +46,9 @@ describe("WhatsApp site-manager eval validators", () => {
 	const excavatorBreakdownCase = webhookCases.find(
 		(item) => item.id === "latvian-excavator-breakdown-note",
 	);
+	const additionalWorksMachineryCase = webhookCases.find(
+		(item) => item.id === "latvian-additional-works-machinery-note",
+	);
 	const deflectometerDocumentsCase = webhookCases.find(
 		(item) => item.id === "latvian-deflectometer-documents-note",
 	);
@@ -60,6 +63,9 @@ describe("WhatsApp site-manager eval validators", () => {
 	);
 	const sandDeliveryBackfillLabor200180Case = webhookCases.find(
 		(item) => item.id === "latvian-sand-delivery-and-backfill-labor-200-180",
+	);
+	const wallMountingAmount10Case = webhookCases.find(
+		(item) => item.id === "latvian-wall-mounting-amount-10",
 	);
 	const woolInstallationCase = webhookCases.find(
 		(item) => item.id === "latvian-wool-installation-quantity-workers-hours",
@@ -116,6 +122,25 @@ describe("WhatsApp site-manager eval validators", () => {
 			originalAudioUrl: null,
 			WorkersInvolved: null,
 			TimeInvolved: 12,
+			createdAt: new Date("2026-06-23T00:00:00.000Z"),
+		};
+	}
+
+	function wallMountingRecord(amounts: number | null) {
+		return {
+			id: "record-1",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: null,
+			Works: "Sienu montāža",
+			Comments: "Šodien samontējam 10 sienas",
+			originalUserComment: "Test Manager : Šodien samontējam 10 sienas",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			Amounts: amounts,
 			createdAt: new Date("2026-06-23T00:00:00.000Z"),
 		};
 	}
@@ -949,6 +974,32 @@ describe("WhatsApp site-manager eval validators", () => {
 		).toBe("pass");
 	});
 
+	it("passes BIS no-bis guidance when agent refers to this site", () => {
+		const bisNoBisCase = webhookCases.find(
+			(item) => item.id === "bis-entry-how-to-guidance-only-no-bis",
+		);
+		if (!bisNoBisCase) throw new Error("Missing bis no-bis eval case");
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: bisNoBisCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record: null,
+			records: [],
+			answer:
+				"Šajā vietnē BIS savienojums pašlaik nav konfigurēts, tādēļ ierakstus nevar automātiski nosūtīt uz BIS. Varu palīdzēt noformulēt būvdarbu žurnāla ierakstu, ko pēc tam ievadīt BIS manuāli.",
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "record-created")?.status,
+		).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "forbidden-answer-signals")
+				?.status,
+		).toBe("pass");
+	});
+
 	it("passes BIS yes-bis guidance when agent says connection is configured", () => {
 		const bisYesBisCase = webhookCases.find(
 			(item) => item.id === "bis-entry-how-to-guidance-only-yes-bis",
@@ -1048,6 +1099,55 @@ describe("WhatsApp site-manager eval validators", () => {
 		expect(
 			result.results.find((item) => item.name === "record-count")?.status,
 		).toBe("pass");
+	});
+
+	it("passes standalone wall mounting when exactly one record has amount 10", () => {
+		if (!wallMountingAmount10Case) {
+			throw new Error("Missing wall mounting amount 10 eval case");
+		}
+		const record = wallMountingRecord(10);
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: wallMountingAmount10Case,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "record-count")?.status,
+		).toBe("pass");
+		expect(result.results.find((item) => item.name === "amounts")?.status).toBe(
+			"pass",
+		);
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
+	});
+
+	it("fails standalone wall mounting when the saved amount is not 10", () => {
+		if (!wallMountingAmount10Case) {
+			throw new Error("Missing wall mounting amount 10 eval case");
+		}
+		const record = wallMountingRecord(5);
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: wallMountingAmount10Case,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("fail");
+		expect(result.results.find((item) => item.name === "amounts")?.status).toBe(
+			"fail",
+		);
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("fail");
 	});
 
 	it("passes strict persisted category signals for material delivery", () => {
@@ -1387,6 +1487,82 @@ describe("WhatsApp site-manager eval validators", () => {
 
 		const result = validateWhatsappSiteManagerRecord({
 			evalCase: excavatorBreakdownCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
+	});
+
+	it("passes excavator breakdown saved with the configured Delay category", () => {
+		if (!excavatorBreakdownCase) {
+			throw new Error("Missing excavator breakdown eval case");
+		}
+
+		const record = {
+			id: "record-breakdown-delay",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: "Project",
+			Works: "Delay",
+			Comments:
+				"Ekskavatora turbīnas bojājuma dēļ ekskavators pusi dienas nestrādāja, līdz nomā tika paņemts cits ekskavators.",
+			originalUserComment:
+				"Test Manager : Ekskavatoram saplīsa turbīna; ekskavators pusi dienas nestrādāja, līdz nomā paņemts cits ekskavators.",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: excavatorBreakdownCase,
+			siteId: "site-1",
+			userId: "user-1",
+			record,
+			records: [record],
+		});
+
+		expect(result.status).toBe("pass");
+		expect(
+			result.results.find((item) => item.name === "expected-record:1")?.status,
+		).toBe("pass");
+	});
+
+	it("passes additional works machinery note saved with the configured English category", () => {
+		if (!additionalWorksMachineryCase) {
+			throw new Error("Missing additional works machinery eval case");
+		}
+
+		const record = {
+			id: "record-additional-works",
+			siteId: "site-1",
+			userId: "user-1",
+			workerId: null,
+			Date: null,
+			Location: null,
+			Works: "Additional works",
+			Comments:
+				"Papilddarbi pabeigti plkst. 18.00; izmantots ekskavators 3 h un Manitou 1 h.",
+			originalUserComment:
+				"Test Manager : Papilddarbi pabeigti plkst. 18.00. Izmantots ekskavators 3 h un Manitou 1 h.",
+			originalAudioUrl: null,
+			WorkersInvolved: null,
+			TimeInvolved: null,
+			Amounts: null,
+			createdAt: new Date("2026-07-01T00:00:00.000Z"),
+		};
+
+		const result = validateWhatsappSiteManagerRecord({
+			evalCase: additionalWorksMachineryCase,
 			siteId: "site-1",
 			userId: "user-1",
 			record,

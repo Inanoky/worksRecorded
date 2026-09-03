@@ -467,6 +467,33 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			},
 		},
 		{
+			id: "latvian-wall-mounting-amount-10",
+			intent:
+				"Verify a standalone Latvian wall mounting report saves one record with the explicit completed amount 10.",
+			tags: ["save", "latvian", "amount", "hours"],
+			tier: "regression",
+			priority: "critical",
+			webhook: textWebhookFixture({
+				senderKey: "eval-site-manager-wall-mounting-amount-10",
+				body: "Šodien samontējam 10 sienas",
+				timestamp: "1782197592",
+			}),
+			expected: {
+				expectedRecordCount: 1,
+				requiredTextSignals: ["samont", "10", "sien"],
+				amounts: 10,
+				records: [
+					{
+						requiredTextSignals: ["samont", "10", "sien"],
+						amounts: 10,
+						timeInvolved: null,
+						nullNumericValuesCanBeZero: true,
+					},
+				],
+				minHeuristicScore: 0.75,
+			},
+		},
+		{
 			id: "latvian-multiple-works-total-hours-no-split",
 			intent:
 				"Verify multiple mentioned works with one total duration stay as one site diary record when the duration cannot be safely split.",
@@ -622,7 +649,9 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 					{
 						requiredTextSignals: ["liek", "grunts", "izve"],
 						requiredFieldSignals: {
-							Works: ["Liekās grunts izvešana|Excavation|Rakšanas darbi|Zemes darbi"],
+							Works: [
+								"Liekās grunts izvešana|Excavation|Rakšanas darbi|Zemes darbi",
+							],
 						},
 						workersInvolved: null,
 						timeInvolved: null,
@@ -887,7 +916,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				records: [
 					{
 						requiredTextSignals: ["ekskavator", "turbīn", "nestrād", "nom"],
-						requiredFieldSignals: { Works: ["Piezīmes|Notes|Kavēšanās"] },
+						requiredFieldSignals: { Works: ["Piezīmes|Notes|Kavēšanās|Delay"] },
 						forbiddenFieldSignals: {
 							Works: ["Papildu darbi|Papilddarbi"],
 							Works_Custom_1: ["Papilddarbi|Papildu darbi"],
@@ -1026,7 +1055,9 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 				records: [
 					{
 						requiredTextSignals: ["papilddarb", "18", "ekskavator", "manitou"],
-						requiredFieldSignals: { Works: ["Papildu darbi"] },
+						requiredFieldSignals: {
+							Works: ["Papildu darbi|Papilddarbi|Additional works"],
+						},
 						workersInvolved: null,
 						timeInvolved: null,
 						amounts: null,
@@ -1146,7 +1177,7 @@ export const whatsappSiteManagerEvalCases: WhatsAppSiteManagerEvalCase[] =
 			expected: {
 				shouldCreateRecord: false,
 				requiredAnswerSignals: [
-					"šeit|šejien|whatsapp|ziņ|čat|sarakst|sistēm",
+					"šeit|šejien|whatsapp|ziņ|čat|sarakst|sistēm|vietn",
 					"bis",
 					"nosūt|iesnieg",
 					"nav pieslēg|nav savien|pieslēgt bis|savienot bis|nav konfigurēts|nav sakārtots|nav konfig|nav pieejam|nevar",

@@ -1,5 +1,6 @@
 "use client";
 
+import { ImageOff } from "lucide-react";
 import Image from "next/image";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,6 +17,8 @@ import {
 	PaginationNext,
 	PaginationPrevious,
 } from "@/components/ui/pagination";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils/utils";
 import { deletePhotoById } from "@/server/actions/site-diary-actions";
 
 // ----------------------------
@@ -60,6 +63,97 @@ const navButtonStyle = (side: "left" | "right"): React.CSSProperties => ({
 	borderRadius: "4px",
 });
 
+const FULL_GALLERY_SKELETON_KEYS = Array.from(
+	{ length: 12 },
+	(_, index) => `full-gallery-skeleton-${index + 1}`,
+);
+
+function GalleryPagination({
+	currentPage,
+	goToPage,
+	totalPages,
+}: {
+	currentPage: number;
+	goToPage: (page: number) => void;
+	totalPages: number;
+}) {
+	if (totalPages <= 1) return null;
+
+	const pageNumbers = [];
+	const maxPagesToShow = 5;
+	let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+	const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+	if (endPage - startPage + 1 < maxPagesToShow) {
+		startPage = Math.max(1, endPage - maxPagesToShow + 1);
+	}
+
+	for (let i = startPage; i <= endPage; i++) {
+		pageNumbers.push(i);
+	}
+
+	return (
+		<Pagination>
+			<PaginationContent>
+				<PaginationItem>
+					<PaginationPrevious
+						onClick={() => goToPage(currentPage - 1)}
+						aria-disabled={currentPage === 1}
+						className={
+							currentPage === 1 ? "pointer-events-none opacity-50" : undefined
+						}
+					/>
+				</PaginationItem>
+
+				{startPage > 1 && (
+					<PaginationItem>
+						<PaginationLink onClick={() => goToPage(1)}>1</PaginationLink>
+					</PaginationItem>
+				)}
+				{startPage > 2 && (
+					<PaginationItem>
+						<PaginationEllipsis />
+					</PaginationItem>
+				)}
+				{pageNumbers.map((page) => (
+					<PaginationItem key={page}>
+						<PaginationLink
+							onClick={() => goToPage(page)}
+							isActive={page === currentPage}
+						>
+							{page}
+						</PaginationLink>
+					</PaginationItem>
+				))}
+				{endPage < totalPages - 1 && (
+					<PaginationItem>
+						<PaginationEllipsis />
+					</PaginationItem>
+				)}
+				{endPage < totalPages && (
+					<PaginationItem>
+						<PaginationLink onClick={() => goToPage(totalPages)}>
+							{totalPages}
+						</PaginationLink>
+					</PaginationItem>
+				)}
+
+				<PaginationItem>
+					<PaginationNext
+						onClick={() => goToPage(currentPage + 1)}
+						aria-disabled={currentPage === totalPages}
+						className={
+							currentPage === totalPages
+								? "pointer-events-none opacity-50"
+								: undefined
+						}
+					/>
+				</PaginationItem>
+			</PaginationContent>
+		</Pagination>
+	);
+}
+
 // --- Main Component: Exported Default Function ---
 export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 	// --- State ---
@@ -79,10 +173,13 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 	const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(
 		null,
 	);
-	const [pendingPhotoIndex, setPendingPhotoIndex] = useState<number | null>(
-		null,
-	);
 	const [viewerLoadingUrl, setViewerLoadingUrl] = useState<string | null>(null);
+	const [loadedThumbnailIds, setLoadedThumbnailIds] = useState<Set<string>>(
+		new Set(),
+	);
+	const [failedThumbnailIds, setFailedThumbnailIds] = useState<Set<string>>(
+		new Set(),
+	);
 
 	// Zoom and Pan
 	const [zoomLevel, setZoomLevel] = useState(INITIAL_ZOOM);
@@ -94,7 +191,6 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 	const imageRef = useRef<HTMLImageElement>(null);
 	const loadedFullSizeUrlsRef = useRef<Set<string>>(new Set());
 	const preloadRequestsRef = useRef<Map<string, Promise<boolean>>>(new Map());
-	const navigationRequestIdRef = useRef(0);
 	const totalPages = Math.ceil(totalPhotos / PHOTOS_PER_PAGE);
 
 	const preloadFullSizePhoto = useCallback((url: string) => {
@@ -135,31 +231,15 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 		(index: number) => {
 			const photo = photos[index];
 			if (!photo) return;
-			const requestId = ++navigationRequestIdRef.current;
 			const alreadyLoaded = loadedFullSizeUrlsRef.current.has(photo.fileUrl);
 
-			if (selectedPhotoIndex === null || alreadyLoaded) {
-				setPendingPhotoIndex(null);
-				setViewerLoadingUrl(alreadyLoaded ? null : photo.fileUrl);
-				setSelectedPhotoIndex(index);
-				return;
-			}
-
-			setPendingPhotoIndex(index);
-			setViewerLoadingUrl(photo.fileUrl);
-			void preloadFullSizePhoto(photo.fileUrl).then((loaded) => {
-				if (navigationRequestIdRef.current !== requestId) return;
-				setSelectedPhotoIndex(index);
-				setPendingPhotoIndex(null);
-				setViewerLoadingUrl(loaded ? null : photo.fileUrl);
-			});
+			setViewerLoadingUrl(alreadyLoaded ? null : photo.fileUrl);
+			setSelectedPhotoIndex(index);
 		},
-		[photos, preloadFullSizePhoto, selectedPhotoIndex],
+		[photos],
 	);
 
 	const closeViewer = useCallback(() => {
-		navigationRequestIdRef.current += 1;
-		setPendingPhotoIndex(null);
 		setViewerLoadingUrl(null);
 		setSelectedPhotoIndex(null);
 	}, []);
@@ -170,11 +250,11 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 		try {
 			setLoading(true);
 			setError(null);
-			navigationRequestIdRef.current += 1;
 			setSelectedPhotoIndex(null);
-			setPendingPhotoIndex(null);
 			setViewerLoadingUrl(null);
 			setSelectedPhotoIds(new Set());
+			setLoadedThumbnailIds(new Set());
+			setFailedThumbnailIds(new Set());
 
 			const response = await fetch(
 				`/api/sites/${encodeURIComponent(siteId)}/photos?page=${currentPage}`,
@@ -231,7 +311,6 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 
 	useEffect(() => {
 		return () => {
-			navigationRequestIdRef.current += 1;
 			preloadRequestsRef.current.clear();
 		};
 	}, []);
@@ -240,22 +319,36 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 	const navigate = useCallback(
 		(direction: "prev" | "next") => {
 			if (selectedPhotoIndex === null) return;
-			const navigationIndex = pendingPhotoIndex ?? selectedPhotoIndex;
 
 			// Reset zoom/pan before changing photo
 			setZoomLevel(INITIAL_ZOOM);
 			setPanX(0);
 			setPanY(0);
 
-			if (direction === "next") {
-				const nextIndex = navigationIndex + 1;
-				showPhotoAt(nextIndex < photos.length ? nextIndex : 0);
-			} else {
-				const prevIndex = navigationIndex - 1;
-				showPhotoAt(prevIndex >= 0 ? prevIndex : photos.length - 1);
-			}
+			setSelectedPhotoIndex((currentIndex) => {
+				if (currentIndex === null || photos.length === 0) return currentIndex;
+				const nextIndex =
+					direction === "next"
+						? (currentIndex + 1) % photos.length
+						: (currentIndex - 1 + photos.length) % photos.length;
+				const nextPhoto = photos[nextIndex];
+				setViewerLoadingUrl(
+					nextPhoto && !loadedFullSizeUrlsRef.current.has(nextPhoto.fileUrl)
+						? nextPhoto.fileUrl
+						: null,
+				);
+				return nextIndex;
+			});
 		},
-		[pendingPhotoIndex, photos.length, selectedPhotoIndex, showPhotoAt],
+		[photos, selectedPhotoIndex],
+	);
+
+	const goToPage = useCallback(
+		(page: number) => {
+			const safeTotalPages = Math.max(1, totalPages);
+			setCurrentPage(Math.max(1, Math.min(safeTotalPages, page)));
+		},
+		[totalPages],
 	);
 
 	// 4. Keyboard Navigation
@@ -280,7 +373,7 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 	const handleZoom = useCallback(
 		(event: React.WheelEvent<HTMLDivElement>) => {
 			event.preventDefault();
-			let newZoomLevel;
+			let newZoomLevel = zoomLevel;
 			if (event.deltaY < 0) {
 				newZoomLevel = Math.min(MAX_ZOOM, zoomLevel + ZOOM_STEP);
 			} else {
@@ -340,87 +433,6 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 		[isPanning, startPan, zoomLevel],
 	);
 
-	// 6. Local Pagination Component
-	const GalleryPagination = () => {
-		if (totalPages <= 1) return null;
-
-		const pageNumbers = [];
-		const maxPagesToShow = 5;
-		let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
-		const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
-
-		if (endPage - startPage + 1 < maxPagesToShow) {
-			startPage = Math.max(1, endPage - maxPagesToShow + 1);
-		}
-
-		for (let i = startPage; i <= endPage; i++) {
-			pageNumbers.push(i);
-		}
-
-		return (
-			<Pagination>
-				<PaginationContent>
-					<PaginationItem>
-						<PaginationPrevious
-							onClick={() => setCurrentPage(currentPage - 1)}
-							aria-disabled={currentPage === 1}
-							className={
-								currentPage === 1 ? "pointer-events-none opacity-50" : undefined
-							}
-						/>
-					</PaginationItem>
-
-					{startPage > 1 && (
-						<PaginationItem>
-							<PaginationLink onClick={() => setCurrentPage(1)}>
-								1
-							</PaginationLink>
-						</PaginationItem>
-					)}
-					{startPage > 2 && (
-						<PaginationItem>
-							<PaginationEllipsis />
-						</PaginationItem>
-					)}
-					{pageNumbers.map((page) => (
-						<PaginationItem key={page}>
-							<PaginationLink
-								onClick={() => setCurrentPage(page)}
-								isActive={page === currentPage}
-							>
-								{page}
-							</PaginationLink>
-						</PaginationItem>
-					))}
-					{endPage < totalPages - 1 && (
-						<PaginationItem>
-							<PaginationEllipsis />
-						</PaginationItem>
-					)}
-					{endPage < totalPages && (
-						<PaginationItem>
-							<PaginationLink onClick={() => setCurrentPage(totalPages)}>
-								{totalPages}
-							</PaginationLink>
-						</PaginationItem>
-					)}
-
-					<PaginationItem>
-						<PaginationNext
-							onClick={() => setCurrentPage(currentPage + 1)}
-							aria-disabled={currentPage === totalPages}
-							className={
-								currentPage === totalPages
-									? "pointer-events-none opacity-50"
-									: undefined
-							}
-						/>
-					</PaginationItem>
-				</PaginationContent>
-			</Pagination>
-		);
-	};
-
 	const togglePhotoSelection = useCallback((photoId: string) => {
 		setSelectedPhotoIds((current) => {
 			const next = new Set(current);
@@ -461,7 +473,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 				});
 				setSelectedPhotoIds((current) => {
 					const next = new Set(current);
-					ids.forEach((id) => next.delete(id));
+					ids.forEach((id) => {
+						next.delete(id);
+					});
 					return next;
 				});
 				setTotalPhotos((current) => Math.max(0, current - ids.length));
@@ -499,8 +513,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 		selectedPhotoIndex !== null ? photos[selectedPhotoIndex] : null;
 	const currentPhotoIsLoading =
 		currentPhoto !== null && viewerLoadingUrl === currentPhoto.fileUrl;
-	const viewerIsTransitioning =
-		pendingPhotoIndex !== null || currentPhotoIsLoading;
+	const viewerIsTransitioning = currentPhotoIsLoading;
+	const selectedPhotoNumber =
+		selectedPhotoIndex === null ? 0 : selectedPhotoIndex + 1;
 
 	// --- Main Render ---
 	return (
@@ -550,8 +565,14 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 				</CardHeader>
 				<CardContent>
 					{loading ? (
-						<div className="flex justify-center items-center h-40">
-							<p>Loading photos...</p>
+						<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+							{FULL_GALLERY_SKELETON_KEYS.map((skeletonKey) => (
+								<Skeleton
+									key={skeletonKey}
+									className="aspect-[4/3] rounded-md"
+									data-testid="full-gallery-skeleton"
+								/>
+							))}
 						</div>
 					) : photos.length === 0 ? (
 						<div className="flex justify-center items-center h-40">
@@ -561,22 +582,78 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 						<>
 							{/* Pagination Controls (Above Grid) */}
 							<div className="mb-4 flex justify-center">
-								<GalleryPagination />
+								<GalleryPagination
+									currentPage={currentPage}
+									goToPage={goToPage}
+									totalPages={totalPages}
+								/>
 							</div>
 
 							{/* Gallery Grid */}
 							<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
 								{photos.map((photo, index) => {
 									const selected = selectedPhotoIds.has(photo.id);
+									const thumbnailLoaded = loadedThumbnailIds.has(photo.id);
+									const thumbnailFailed =
+										failedThumbnailIds.has(photo.id) || !photo.fileUrl;
 									return (
 										<div
 											key={photo.id}
-											onClick={() => showPhotoAt(index)}
-											onPointerEnter={() => {
-												void preloadFullSizePhoto(photo.fileUrl);
-											}}
-											className={`relative aspect-[4/3] cursor-pointer overflow-hidden rounded-md transition-all hover:opacity-75 ${selected ? "ring-2 ring-green-600" : ""}`}
+											className={cn(
+												"relative aspect-[4/3] cursor-pointer overflow-hidden rounded-md transition-all hover:opacity-75",
+												selected && "ring-2 ring-green-600",
+											)}
 										>
+											<button
+												type="button"
+												className="relative block h-full w-full"
+												aria-label={photo.Comment || `Site Photo ${index + 1}`}
+												onClick={() => showPhotoAt(index)}
+												onPointerEnter={() => {
+													void preloadFullSizePhoto(photo.fileUrl);
+												}}
+											>
+												{!thumbnailLoaded && !thumbnailFailed ? (
+													<Skeleton
+														className="absolute inset-0 rounded-none"
+														data-testid="full-gallery-thumbnail-skeleton"
+													/>
+												) : null}
+												{thumbnailFailed ? (
+													<div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-muted/40 px-2 text-center text-xs text-muted-foreground">
+														<ImageOff className="h-5 w-5" aria-hidden="true" />
+														<span>Photo unavailable</span>
+													</div>
+												) : null}
+												{photo.fileUrl ? (
+													<Image
+														src={photo.fileUrl}
+														alt={photo.Comment || `Site Photo ${index + 1}`}
+														fill
+														sizes="(min-width: 1024px) 16vw, (min-width: 640px) 33vw, 50vw"
+														loading="lazy"
+														className={cn(
+															"object-cover",
+															!thumbnailLoaded && "opacity-0",
+														)}
+														title={photo.Comment || `Click to expand`}
+														onLoad={() => {
+															setLoadedThumbnailIds((current) => {
+																const next = new Set(current);
+																next.add(photo.id);
+																return next;
+															});
+														}}
+														onError={() => {
+															setFailedThumbnailIds((current) => {
+																const next = new Set(current);
+																next.add(photo.id);
+																return next;
+															});
+														}}
+													/>
+												) : null}
+											</button>
 											<button
 												type="button"
 												onClick={(event) => {
@@ -587,14 +664,6 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 											>
 												{selected ? "Selected" : "Select"}
 											</button>
-											<Image
-												src={photo.fileUrl}
-												alt={photo.Comment || `Site Photo ${index + 1}`}
-												fill
-												sizes="(min-width: 1024px) 16vw, (min-width: 640px) 33vw, 50vw"
-												className="object-cover"
-												title={photo.Comment || `Click to expand`}
-											/>
 										</div>
 									);
 								})}
@@ -602,7 +671,11 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 
 							{/* Pagination Controls (Below Grid) */}
 							<div className="mt-4 flex justify-center">
-								<GalleryPagination />
+								<GalleryPagination
+									currentPage={currentPage}
+									goToPage={goToPage}
+									totalPages={totalPages}
+								/>
 							</div>
 						</>
 					)}
@@ -613,6 +686,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 			{currentPhoto && (
 				<div
 					className="photo-modal-backdrop"
+					role="dialog"
+					aria-modal="true"
+					aria-label="Photo viewer"
 					onWheel={handleZoom}
 					onMouseDown={startPanHandler}
 					onMouseMove={movePanHandler}
@@ -632,9 +708,9 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 						flexDirection: "column",
 					}}
 				>
-					<div
+					<section
 						className="photo-modal-content"
-						onClick={(e) => e.stopPropagation()}
+						aria-label="Expanded photo"
 						style={{
 							maxWidth: "90%",
 							maxHeight: "90%",
@@ -684,11 +760,7 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 							}}
 							style={{
 								objectFit: "contain",
-								opacity: currentPhotoIsLoading
-									? 0
-									: pendingPhotoIndex !== null
-										? 0.45
-										: 1,
+								opacity: currentPhotoIsLoading ? 0 : 1,
 								transform: `scale(${zoomLevel}) translate(${panX / zoomLevel}px, ${panY / zoomLevel}px)`,
 								transition: isPanning
 									? "none"
@@ -702,6 +774,7 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 						<Button
 							onClick={closeViewer}
 							variant="secondary"
+							aria-label="Close photo viewer"
 							className="absolute top-4 right-4 z-20 rounded-full h-8 w-8 text-xl p-0 bg-black/50 text-white hover:bg-black/70"
 						>
 							&times;
@@ -729,19 +802,23 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 								Zoom Out (1x)
 							</Button>
 						)}
-					</div>
+					</section>
 
 					{/* Navigation Buttons (Anchored to Backdrop for fixed position) */}
 					{zoomLevel === INITIAL_ZOOM && (
 						<>
 							<button
+								type="button"
 								onClick={() => navigate("prev")}
+								aria-label="Previous photo"
 								style={navButtonStyle("left")}
 							>
 								&lt;
 							</button>
 							<button
+								type="button"
 								onClick={() => navigate("next")}
+								aria-label="Next photo"
 								style={navButtonStyle("right")}
 							>
 								&gt;
@@ -760,8 +837,8 @@ export default function FullPhotoGallery({ siteId }: { siteId: string }) {
 							{currentPhoto.Location || "N/A"}
 						</p>
 						<p className="text-xs mt-1">
-							Photo **{selectedPhotoIndex! + 1}** of **{photos.length}** (Page
-							**{currentPage}** of **{totalPages}**)
+							Photo {selectedPhotoNumber} of {photos.length} (Page {currentPage}{" "}
+							of {totalPages})
 						</p>
 					</div>
 				</div>

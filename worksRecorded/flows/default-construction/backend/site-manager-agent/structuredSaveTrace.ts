@@ -7,15 +7,28 @@ export type StructuredSaveTraceEntry = {
 	originalUserComment: string;
 	rawRecords: unknown[];
 	mappedRows: Record<string, unknown>[];
+	amountEvidenceWarnings?: Record<string, unknown>[];
 	normalizedInsertRows?: Record<string, unknown>[];
 	persistedRecords?: Record<string, unknown>[];
 	checker?: {
-		verdict: "accept" | "retry";
+		verdict:
+			| "accept"
+			| "repairable"
+			| "needs_model_repair"
+			| "retry"
+			| "unsafe";
 		reason: string;
 		repairInstructions: string;
 		expectedRecordCount?: number | null;
+		repairActions?: Record<string, unknown>[];
 		appliedRepair: boolean;
-		repairVerdict?: "accept" | "retry" | null;
+		repairVerdict?:
+			| "accept"
+			| "repairable"
+			| "needs_model_repair"
+			| "retry"
+			| "unsafe"
+			| null;
 		repairReason?: string | null;
 	};
 };
